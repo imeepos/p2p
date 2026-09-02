@@ -33,3 +33,10 @@ _none yet — be the first._
 
 - bash test 内建的 `[ "$s" = $pat ]` 对未加引号 RHS 不做通配匹配（通配只在 `[[ ==` 与 `case` 生效）。症状：LINE_LIMIT_EXEMPT 填了精确路径豁免仍 exit 1。修法：is_exempt 用 `case " $LIST " in *" $1 "*) return 0 ;;`；301 行探针拦截测试当场暴露此 bug。
 - 从未跑过 rustfmt 的存量仓库接 fmt 门禁：rustfmt 1.9 默认 style_edition 2024，首次 --check 就是 32 文件真实 diff，不是门禁 bug；且格式化拆行会让贴线文件越过行数红线（实测 284→315、281→314），fmt 与行数两条门禁连环爆。上线顺序应为：先摸底存量违规 → fmt 归一提交 → 立即复查行数 → 超线文件抽测试子模块。
+
+## 2026-09-02 U 互操作测试（tokio duplex + MITM 转发管道，挂死 15 分钟）
+
+- 症状：duplex 上用两个双向转发管道做 MITM 篡改握手，一侧按预期报错后另一侧永久挂起；sample 只见 runtime park 在 kevent、无任何注册 waker，任务全在等永远不来的数据。
+- 原因：tokio::io::split 是 BiLock——对端看到 EOF 的条件是整条 DuplexStream 的两半（ReadHalf+WriteHalf）全部 drop；正向管道退出只归还了自己那两半，反向管道仍持有另一半对，对端永远等不到 EOF。
+- 修法：正向管道退出时经 oneshot 通知反向管道，反向用 tokio::select! { 转发循环, 通知 } 竞争退出，两半同时归还后 EOF 才能传播。"管道对管道"拓扑必须配对退出，单向 EOF 传播不完备。
+- 附：snow Noise XX 首帧（-> e）无密钥、不加密不验 MAC，篡改 msg1 当场不报错，失败延迟到 msg2 解密 MAC 不匹配才出现；写篡改测试时按这个时序预期错误出现的位置。
