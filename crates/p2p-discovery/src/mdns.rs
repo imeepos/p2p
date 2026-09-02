@@ -94,7 +94,7 @@ impl MdnsDiscovery {
     /// 本机通告信息：空地址 + addr_auto，由 mdns-sd 自动填充本机 IP。
     fn announce_info(&self) -> ServiceInfo {
         let port = self.config.quic_port.or(self.config.tcp_port).unwrap_or(0);
-        let host = format!("{}.local", self.config.instance);
+        let host = format!("{}.local.", self.config.instance);
         let props = encode_txt(
             &self.config.peer_id,
             self.config.quic_port,
