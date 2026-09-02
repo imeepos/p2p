@@ -159,10 +159,15 @@ PeerId = base58( SHA-256( ed25519 公钥原始 32 字节 ) )
 出处 crates/p2p-discovery/src/rendezvous/messages.rs。帧 payload = Request/Response protobuf。
 
 - Request `oneof` tag 1-2：Register(1)/Query(2)；Response 携带 error 字符串与 PeerEntry 列表。
-- Register 字段：namespace(1)、peer_id(2)、pubkey(3)、addrs(4, repeated)、ttl_secs(5)、sig(6)。
-- 防劫持签名（messages.rs:137-191）：sig = ed25519 签名，覆盖 `SignedFields{namespace,
-  peer_id, addrs}` 的 protobuf 序列化字节；服务端校验两点——pubkey 推导出的 PeerId 与
-  声称的 peer_id 一致、签名有效。缺一即拒绝注册。
+- Register 字段：namespace(1)、peer_id(2)、pubkey(3)、addrs(4, repeated)、ttl_secs(5)、
+  sig(6)、issued_at(7, unix 秒)。
+- 防劫持签名（messages.rs）：sig = ed25519 签名，覆盖 `SignedFields{namespace, peer_id,
+  addrs, ttl_secs, issued_at}` 的 protobuf 序列化字节；服务端校验三点——pubkey 推导出的
+  PeerId 与声称的 peer_id 一致、签名有效、时间新鲜（|now - issued_at| <= 300s）。缺一即拒绝。
+  TTL 与注册时刻均入签名，杜绝"篡改 TTL 或重放旧帧仍验签通过"（安全审查 H1）。
+- 服务端资源与取值约束：namespace 非空且 <=64 字节、TTL 截断到 3600s、每 namespace peer
+  数上限 512、每连接注册限速 10 次/分（令牌桶）；任一地址解析失败（含端口 >65535）即
+  整单拒绝，不静默丢弃（M1/L2）。
 - 地址编码 AddrMsg：quic(1, bool)、ip(2, string)、port(3, uint32)。
 
 ### 7.3 chunked transfer（大 payload 分帧）

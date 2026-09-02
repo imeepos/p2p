@@ -4,7 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use p2p_discovery::rendezvous::messages::{sign_register, verify_register, Request};
+use p2p_discovery::rendezvous::messages::{sign_register, unix_now, verify_register, Request};
 use p2p_discovery::rendezvous::server::{serve_link, RendezvousRegistry};
 use p2p_discovery::{Discovery, DiscoveryEvent, RendezvousClient, RendezvousConfig, Source};
 use p2p_identity::Keypair;
@@ -106,10 +106,16 @@ async fn tampered_signature_rejected_with_explicit_error() {
     let mut conn = rendezvous_conn(io);
 
     let kp = Keypair::generate();
-    let mut reg = sign_register(&kp, NAMESPACE, &[quic_addr("10.0.0.9", 9000)], 60);
+    let mut reg = sign_register(
+        &kp,
+        NAMESPACE,
+        &[quic_addr("10.0.0.9", 9000)],
+        60,
+        unix_now(),
+    );
     reg.addrs[0].port = 9999;
     assert!(
-        !verify_register(&reg),
+        !verify_register(&reg, unix_now()),
         "tamper must invalidate signature locally"
     );
 
@@ -124,7 +130,7 @@ async fn tampered_signature_rejected_with_explicit_error() {
         .ensure_ok()
         .expect_err("tampered register must be rejected with explicit error");
     assert_eq!(
-        err, "bad signature",
+        err, "bad signature or stale register",
         "server must name the rejection reason"
     );
 }

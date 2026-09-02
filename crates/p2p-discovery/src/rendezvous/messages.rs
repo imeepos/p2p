@@ -35,7 +35,8 @@ impl AddrMsg {
 
     pub fn to_addr(&self) -> Option<TransportAddr> {
         let ip: IpAddr = self.ip.parse().ok()?;
-        let port = self.port as u16;
+        // L2：port 超 u16 显式拒绝，不做静默截断
+        let port = u16::try_from(self.port).ok()?;
         if self.quic {
             Some(TransportAddr::Quic { ip, port })
         } else {
@@ -59,6 +60,9 @@ pub struct Register {
     pub ttl_secs: u32,
     #[prost(bytes, tag = "6")]
     pub sig: Vec<u8>,
+    /// 注册时刻（unix 秒），签名覆盖，服务端据此做重放窗口校验。
+    #[prost(uint64, tag = "7")]
+    pub issued_at: u64,
 }
 
 /// 按 PeerId 查询；peer_id 为空表示查询整个 namespace。
@@ -144,7 +148,19 @@ impl Response {
     }
 }
 
-/// 签名字段：namespace + peer_id + addrs 的 protobuf 序列化字节。
+/// 签名新鲜度容差（秒）：注册时刻距本机时钟超此即拒，防旧帧重放（H1）。
+pub const FRESH_TOLERANCE_SECS: u64 = 300;
+
+/// 当前 unix 秒（客户端签发、服务端校验新鲜度的统一时钟源）。
+pub fn unix_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// 签名字段：namespace/peer_id/addrs/ttl_secs/issued_at 的 protobuf 序列化字节。
+/// ttl 与 issued_at 均入签名，杜绝"篡改 TTL 或重放旧帧仍验签通过"（H1）。
 #[derive(Clone, PartialEq, prost::Message)]
 struct SignedFields {
     #[prost(string, tag = "1")]
@@ -153,38 +169,54 @@ struct SignedFields {
     peer_id: Vec<u8>,
     #[prost(message, repeated, tag = "3")]
     addrs: Vec<AddrMsg>,
+    #[prost(uint32, tag = "4")]
+    ttl_secs: u32,
+    #[prost(uint64, tag = "5")]
+    issued_at: u64,
 }
 
-pub fn signed_payload(namespace: &str, peer_id: &PeerId, addrs: &[TransportAddr]) -> Vec<u8> {
+pub fn signed_payload(
+    namespace: &str,
+    peer_id: &PeerId,
+    addrs: &[TransportAddr],
+    ttl_secs: u32,
+    issued_at: u64,
+) -> Vec<u8> {
     SignedFields {
         namespace: namespace.to_string(),
         peer_id: peer_id.as_bytes().to_vec(),
         addrs: addrs.iter().map(AddrMsg::from_addr).collect(),
+        ttl_secs,
+        issued_at,
     }
     .encode_to_vec()
 }
 
-/// 用身份私钥对 (namespace, peer_id, addrs) 签名，构造注册消息。
+/// 用身份私钥对 (namespace, peer_id, addrs, ttl, issued_at) 签名，构造注册消息。
 pub fn sign_register(
     kp: &Keypair,
     namespace: &str,
     addrs: &[TransportAddr],
     ttl_secs: u32,
+    issued_at: u64,
 ) -> Register {
     let peer_id = kp.peer_id();
-    let sig = kp.sign(&signed_payload(namespace, &peer_id, addrs));
+    let sig = kp.sign(&signed_payload(
+        namespace, &peer_id, addrs, ttl_secs, issued_at,
+    ));
     Register {
         namespace: namespace.to_string(),
         peer_id: peer_id.as_bytes().to_vec(),
         pubkey: kp.public().to_vec(),
         addrs: addrs.iter().map(AddrMsg::from_addr).collect(),
         ttl_secs,
+        issued_at,
         sig: sig.to_vec(),
     }
 }
 
-/// 校验注册：peer_id 必须与公钥自证一致，且 (namespace, peer_id, addrs) 签名有效。
-pub fn verify_register(reg: &Register) -> bool {
+/// 纯密码学校验：peer_id 与公钥绑定、签名覆盖全字段、所有地址可解析（L2 整单拒绝）。
+fn verify_signature(reg: &Register) -> bool {
     let pubkey: [u8; 32] = match reg.pubkey.as_slice().try_into() {
         Ok(p) => p,
         Err(_) => return false,
@@ -201,12 +233,29 @@ pub fn verify_register(reg: &Register) -> bool {
         Ok(s) => s,
         Err(_) => return false,
     };
-    let addrs: Vec<TransportAddr> = reg.addrs.iter().filter_map(AddrMsg::to_addr).collect();
+    // L2：任一地址解析失败（含端口越界）即拒绝整个注册，不再 filter_map 静默丢弃
+    // 空地址列表允许（查询型节点可无监听地址，仅作在场标记）
+    let addrs: Option<Vec<TransportAddr>> = reg.addrs.iter().map(AddrMsg::to_addr).collect();
+    let Some(addrs) = addrs else {
+        return false;
+    };
     Keypair::verify(
         &pubkey,
-        &signed_payload(&reg.namespace, &expected, &addrs),
+        &signed_payload(
+            &reg.namespace,
+            &expected,
+            &addrs,
+            reg.ttl_secs,
+            reg.issued_at,
+        ),
         &sig,
     )
+}
+
+/// 校验注册：密码学 + 时间新鲜度（now 为服务端当前 unix 秒）。
+/// 时间偏差超过 [FRESH_TOLERANCE_SECS] 即拒，构成重放窗口（H1）。
+pub fn verify_register(reg: &Register, now: u64) -> bool {
+    verify_signature(reg) && now.abs_diff(reg.issued_at) <= FRESH_TOLERANCE_SECS
 }
 
 #[cfg(test)]

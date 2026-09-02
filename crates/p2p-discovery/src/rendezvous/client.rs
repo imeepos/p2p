@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 
 use crate::cache::MemCache;
 use crate::rendezvous::link::{RendezvousConn, RendezvousError, RendezvousLink};
-use crate::rendezvous::messages::{sign_register, AddrMsg, Request, Response};
+use crate::rendezvous::messages::{sign_register, unix_now, AddrMsg, Request, Response};
 use crate::AddrCache;
 use crate::{DiscoveredPeer, Discovery, DiscoveryEvent, Source};
 
@@ -63,6 +63,7 @@ impl RendezvousClient {
             &self.config.namespace,
             &self.config.addrs,
             self.config.ttl_secs,
+            unix_now(),
         );
         let resp = conn.roundtrip(Request::register(reg)).await?;
         resp.ensure_ok().map_err(RendezvousError::Protocol)
@@ -232,8 +233,10 @@ mod tests {
             ip: "10.0.0.9".parse().unwrap(),
             port: 9000,
         }];
-        let reg = sign_register(&other, "room-a", &other_addrs, 60);
-        registry.register(&reg).expect("other registered");
+        let reg = sign_register(&other, "room-a", &other_addrs, 60, unix_now());
+        registry
+            .register(&reg, unix_now())
+            .expect("other registered");
 
         let (tx, mut rx) = mpsc::channel(16);
         let cache = MemCache::new();
