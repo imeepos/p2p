@@ -19,6 +19,9 @@ use crate::RelayService;
 
 /// 到期电路回收周期。
 const SWEEP_INTERVAL: Duration = Duration::from_secs(1);
+/// 超限链路拒绝循环的有界参数（审查 M2）：最多回 64 条拒绝帧、空闲 10s 即撤。
+const REJECT_MAX_STREAMS: u32 = 64;
+const REJECT_IDLE: Duration = Duration::from_secs(10);
 
 /// 服务端：对 LinkSource 接缝编程，不依赖具体 transport。
 pub struct RelayServiceImpl {
@@ -135,17 +138,35 @@ impl RelayServiceImpl {
     }
 
     /// 超限链路：对每条流回显式拒绝帧后关闭，给客户端确定性信号。
+    /// 有界（审查 M2）：最多 REJECT_MAX_STREAMS 条、空闲 REJECT_IDLE 即放弃，
+    /// 防恶意连接以「持续发流」钉住本任务与文件描述符。
     async fn reject_link(&self, link: Box<dyn RelayLink>) {
-        while let Some(mut stream) = link.accept_stream().await {
-            if let Err(e) = write_reject(
-                &mut stream,
-                errcode::PEER_LIMIT,
-                "per-peer link quota exceeded",
-            )
-            .await
-            {
-                tracing::warn!(error = %e, "reject frame write failed on over-quota link");
-                break;
+        let mut answered = 0u32;
+        loop {
+            if answered >= REJECT_MAX_STREAMS {
+                tracing::warn!("reject link stream cap reached; dropping link");
+                return;
+            }
+            let next = tokio::time::timeout(REJECT_IDLE, link.accept_stream()).await;
+            match next {
+                Ok(Some(mut stream)) => {
+                    answered += 1;
+                    if let Err(e) = write_reject(
+                        &mut stream,
+                        errcode::PEER_LIMIT,
+                        "per-peer link quota exceeded",
+                    )
+                    .await
+                    {
+                        tracing::warn!(error = %e, "reject frame write failed on over-quota link");
+                        return;
+                    }
+                }
+                Ok(None) => return,
+                Err(_) => {
+                    tracing::debug!("reject link idle timeout; dropping link");
+                    return;
+                }
             }
         }
     }

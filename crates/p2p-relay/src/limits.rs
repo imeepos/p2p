@@ -31,6 +31,8 @@ pub struct RelayLimits {
     pub max_total_circuits: usize,
     /// 全站带宽桶数量上限；打满后新 Peer 共享降级桶并告警（审查 M5）。
     pub max_total_buckets: usize,
+    /// 单控制流打洞信令速率上限（条/分钟），令牌桶（审查 M3）。
+    pub max_punch_per_minute: u32,
 }
 
 impl Default for RelayLimits {
@@ -43,6 +45,7 @@ impl Default for RelayLimits {
             max_total_links: 256,
             max_total_circuits: 1024,
             max_total_buckets: 256,
+            max_punch_per_minute: 60,
         }
     }
 }

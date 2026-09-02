@@ -7,6 +7,7 @@ use p2p_mux::BoxedStream;
 use tokio::io::{split, ReadHalf};
 
 use crate::frame::{read_msg, write_msg};
+use crate::limits::RateBucket;
 use crate::messages::{errcode, relay_msg::Kind, RelayMsg, Reserve};
 use crate::service::RelayServiceImpl;
 use crate::state::CtrlWrite;
@@ -23,6 +24,10 @@ impl RelayServiceImpl {
         let write: Arc<CtrlWrite> = Arc::new(tokio::sync::Mutex::new(wh));
         let epoch = self.next_ctrl_epoch();
         self.lock_state().register_control(&peer, write.clone());
+        let punch = RateBucket::new(
+            u64::from(self.limits().max_punch_per_minute),
+            u64::from(self.limits().max_punch_per_minute) / 60,
+        );
         let reply = self.on_reserve(&peer, first, epoch).await;
         if send_ctrl(&write, reply).await.is_err() {
             tracing::warn!(peer = %peer, "reserved reply write failed; control stream cut");
@@ -30,7 +35,8 @@ impl RelayServiceImpl {
             self.lock_state().remove_control_if(&peer, &write);
             return;
         }
-        self.control_loop(&peer, &mut rh, &write, epoch).await;
+        self.control_loop(&peer, &mut rh, &write, epoch, punch)
+            .await;
         // 控制流存亡即注册载体存亡：流级回收（配额防泄漏自锁）
         self.release_epoch_circuits(&peer, epoch).await;
         self.lock_state().remove_control_if(&peer, &write);
@@ -43,11 +49,15 @@ impl RelayServiceImpl {
         rh: &mut ReadHalf<BoxedStream>,
         write: &Arc<CtrlWrite>,
         epoch: u64,
+        mut punch: RateBucket,
     ) {
         loop {
             match read_msg(rh).await {
                 Ok(Some(msg)) => {
-                    if !self.dispatch_control(peer, msg, write, epoch).await {
+                    if !self
+                        .dispatch_control(peer, msg, write, epoch, &mut punch)
+                        .await
+                    {
                         break;
                     }
                 }
@@ -67,17 +77,18 @@ impl RelayServiceImpl {
         msg: RelayMsg,
         write: &Arc<CtrlWrite>,
         epoch: u64,
+        punch: &mut RateBucket,
     ) -> bool {
         match msg.kind {
             Some(Kind::Reserve(r)) => send_ctrl(write, self.on_reserve(peer, r, epoch).await)
                 .await
                 .is_ok(),
             Some(Kind::PunchReq(p)) => {
-                self.forward_punch(peer, write, p.peer_id, p.addrs, true)
+                self.forward_punch(peer, write, p.peer_id, p.addrs, true, punch)
                     .await
             }
             Some(Kind::PunchAck(a)) => {
-                self.forward_punch(peer, write, a.peer_id, a.addrs, false)
+                self.forward_punch(peer, write, a.peer_id, a.addrs, false, punch)
                     .await
             }
             other => {
@@ -135,6 +146,7 @@ impl RelayServiceImpl {
     }
 
     /// 转发打洞信令：peer_id 改写为发送方；目标不在线时给请求方显式拒绝。
+    /// 每控制流限速（审查 M3）：令牌不足即回显式拒绝帧，连接不断。
     async fn forward_punch(
         &self,
         sender: &str,
@@ -142,12 +154,22 @@ impl RelayServiceImpl {
         target: String,
         addrs: Vec<String>,
         is_req: bool,
+        punch: &mut RateBucket,
     ) -> bool {
         let frame = if is_req {
             RelayMsg::punch_req(sender, addrs)
         } else {
             RelayMsg::punch_ack(sender, addrs)
         };
+        if !punch.try_take(1) {
+            tracing::warn!(from = %sender, to = %target, "punch signaling rate limited");
+            let _ = send_ctrl(
+                write,
+                RelayMsg::error(errcode::PROTOCOL, "punch signaling rate limit exceeded"),
+            )
+            .await;
+            return true;
+        }
         let Some(dest) = self.lock_state().control_of(&target) else {
             tracing::warn!(from = %sender, to = %target, "punch target has no control link");
             let _ = send_ctrl(

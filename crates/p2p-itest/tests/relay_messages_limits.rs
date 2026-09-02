@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use p2p_relay::frame::{read_msg, write_msg};
-use p2p_relay::{errcode, CircuitId, RelayError, RelayLimits, RelayMsg};
+use p2p_relay::{errcode, CircuitId, PunchSession, RelayError, RelayEvent, RelayLimits, RelayMsg};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use p2p_itest::{expect_within, relay_pair};
@@ -131,4 +131,57 @@ async fn egress_quota_write_fails_explicitly() {
         .await
         .expect_err("beyond burst must fail explicitly");
     assert_eq!(err.kind(), std::io::ErrorKind::WriteZero, "got {err}");
+}
+
+#[tokio::test]
+async fn punch_signaling_rate_limited_per_control_stream() {
+    // 审查 M3：单控制流 punch 速率超限回显式拒绝帧（小配额保证确定性）
+    let limits = RelayLimits {
+        max_punch_per_minute: 3,
+        ..RelayLimits::default()
+    };
+    let (mut a, mut b) = relay_pair(limits, "punch-a", "punch-b");
+    // 双方注册控制通道（注册载体电路）
+    expect_within("a reserve", a.reserve(Duration::from_secs(60), ""), LIMIT)
+        .await
+        .expect("a reserve");
+    expect_within("b reserve", b.reserve(Duration::from_secs(60), ""), LIMIT)
+        .await
+        .expect("b reserve");
+
+    // b 作为应答侧：收到 PunchReq 即回 PunchAck（经 relay 改写回 a）
+    let b_responder = tokio::spawn(async move {
+        while let Some(ev) = b.next_event().await {
+            match ev {
+                RelayEvent::PunchReq(req) => {
+                    let session = PunchSession::responder(&req);
+                    let ack = session.build_ack(vec!["10.0.0.2:5000".to_string()]);
+                    if b.reply_punch(ack).await.is_err() {
+                        break;
+                    }
+                }
+                _ => break,
+            }
+        }
+    });
+
+    let mut limited = false;
+    let mut ok = 0;
+    for _ in 0..8 {
+        match a
+            .request_punch("punch-b", vec!["10.0.0.9:4000".to_string()])
+            .await
+        {
+            Ok(_) => ok += 1,
+            Err(RelayError::Server { message, .. }) => {
+                assert!(message.contains("rate limit"), "got {message}");
+                limited = true;
+                break;
+            }
+            Err(other) => panic!("unexpected punch error: {other:?}"),
+        }
+    }
+    assert!(limited, "quota 3 must cap 8 punch requests");
+    assert_eq!(ok, 3, "恰好前 3 发成功（refill 为 0 无补票）");
+    b_responder.abort();
 }
