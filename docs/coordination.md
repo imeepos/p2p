@@ -12,6 +12,10 @@
 | D 节点发现 | feat/discovery | p2p-D-节点发现 | p2p-discovery（mdns-sd 局域网发现、rendezvous 客户端 + 签名注册、AddrCache 实现） | 已完成：f22aebc+7abd318+f1c0105 已合并，27 用例全绿（真实组播 #[ignore]）+ clippy 零告警 | ✓ 验收通过 |
 | R 中继穿透 | feat/relay | p2p-R-中继穿透 | p2p-relay（RelayService 服务端、客户端 reserve/connect、打洞信令消息、密文桥接） | 已完成：789a998/4cdbefc/c6d068c/59e7391/0dfdfd0 经 15bfe50 合入，17 用例全绿（256KB 互通/未知电路拒绝/限流断链/prost roundtrip/打洞时序）+ clippy 零告警，最大文件 257 行 | ✓ 验收通过 |
 | S 编排装配 | feat/swarm-facade | p2p-S-编排装配（session-e42e5393） | p2p-swarm（连接池/拨号器/门禁/事件总线/退避工具）、crates/p2p facade（Node/Builder 装配、mdns+rendezvous 接线） | 进行中：2026-09-02 启动（K+P 已合并；R 在途，S 不碰 relay） | 两 Node 经 facade 互拨 request roundtrip、事件可见（crates/p2p/tests/facade.rs） |
+| U 互操作测试 | test/interop | p2p-U-互操作测试（session-eeecbbdc） | 新建 crates/p2p-itest（跨 crate 接缝测试：握手身份、rendezvous client↔server、relay 消息限流、协议栈大帧） | 进行中：2026-09-02 启动 | cargo test -p p2p-itest 全绿且 workspace 不回归 |
+| V 文档整理 | docs/organize | p2p-V-文档整理（session-ba31b85b） | 新建 README.md、docs/README.md、docs/design/wire-protocol.md（只写 .md，事实须与代码对齐） | 进行中：2026-09-02 启动 | 三份文档齐、常量与代码一致 |
+| X 构建门禁 | chore/ci-gate | p2p-X-构建门禁（session-b2f5b9b3） | 新建 Makefile、scripts/check/*.sh（fmt/clippy/test/300 行红线扫描），可选 .gitea workflow | 进行中：2026-09-02 启动 | make check 一键全绿；故意造 301 行文件能被拦截 |
+| Z 安全审查 | docs/security-review | p2p-Z-安全审查（session-75a4acd6） | 只读审计 security/identity/discovery/relay/protocol 已合并实现，产出 docs/notes/security-review-1.md 分级 findings | 进行中：2026-09-02 启动 | 报告覆盖既定审计清单，高/中/低分级+位置+修复建议 |
 
 ## 并行规则（各会话必读）
 
@@ -19,7 +23,7 @@
 2. 已冻结契约（trait 签名、类型形状）不得修改，只能新增；确需改动先报协调会话。
 3. 跨 crate 依赖一律对脚手架契约编程（trait/mock/duplex），不等待其他会话。
 4. 根 Cargo.toml 只允许向 [workspace.dependencies] 追加条目；合并冲突在 feature 侧消化。
-5. 完成后按 AGENTS.md 收尾：worktree 内 `git merge main` 反向同步 → 回主树核对 `pwd` + `git branch --show-current` → `git merge --ff-only <分支>` → `git worktree remove` → `git branch -d`。仓库暂无 gitea 远端，push 步骤跳过。
+5. 完成后按 AGENTS.md 收尾：worktree 内反向同步用 `git rebase main`（本地私有分支，保持 main 线性，禁止 git merge main）→ 回主树核对 `pwd` + `git branch --show-current` → `git merge --ff-only <分支>` → `git worktree remove` → `git branch -d`。严禁 `git add -A` / `commit -a`，只 add 自己范围的文件。仓库暂无 gitea 远端，push 步骤跳过。
 6. 最终回复报告：分支名、提交列表、测试结果摘要、遗留问题；不自行修改本表。
 7. 环境：cargo 在 ~/.cargo/bin，命令前 `export PATH="$HOME/.cargo/bin:$PATH"`。
 8. 编码红线：单文件 ≤300 行、函数 ≤60 行、失败路径必须留日志/错误信号、不用 emoji。
@@ -43,3 +47,5 @@
 - 2026-09-02 检查轮 1 续：K 在检查期间完成合并（2a229e1 + echo.rs），main 全量 57 用例全绿 + clippy 零告警，验收通过。
 - 事故记录：K 收尾时在主树用 git add -A 扫走了协调会话未提交的 coordination.md 修改，混入其 chore(skill) 提交（1971e69）。内容无误已确认，但违反"一提交一变更"与并发红线。整改：主树在协调者手里保持 clean；会话收尾严禁 add -A，只 add 自己的文件。
 - 流程备注：D 反向同步用 merge 把 merge bubble（f58b869）带进了 main 历史；K 同样产生了 merge commit（67ac369）。已提醒 K/R 改用 `git rebase main` 保持 main 线性。
+- 2026-09-02 扩编：启动 U 互操作测试 / V 文档整理 / X 构建门禁 / Z 安全审查 四个不依赖 S 的并行包；规则 5 更新为 rebase 反向同步 + 禁 add -A。
+- 2026-09-02 协调者自查：在 bash 里误对未提交的 coordination.md 跑 sed+checkout 丢过一次编辑，已重录。整改：协调表修改只用编辑工具，编辑+提交同轮完成，禁止在 bash 里对它执行任何写命令。
