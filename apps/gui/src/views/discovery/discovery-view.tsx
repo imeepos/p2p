@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { PageHeader } from "@/components/page/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
 import { DiscoveredTableCard } from "./discovered-table-card";
@@ -46,11 +47,17 @@ export function DiscoveryView() {
       />
       {failed ? (
         <LoadFailedNotice onRetry={reload} messageKey="discovery.loadFailed" />
+      ) : effective === null ? (
+        <>
+          <Skeleton className="col-span-12 h-40 lg:col-span-4" />
+          <Skeleton className="col-span-12 h-40 lg:col-span-8" />
+          <Skeleton className="col-span-12 h-64" />
+        </>
       ) : (
         <>
           <MdnsCard config={effective} onSaved={setLocalConfig} />
           <RendezvousCard
-            bootstrap={effective?.bootstrap ?? []}
+            bootstrap={effective.bootstrap}
             onChange={persistBootstrap}
           />
           <DiscoveredTableCard />

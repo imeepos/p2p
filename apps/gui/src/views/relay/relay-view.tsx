@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { PageHeader } from "@/components/page/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
 import { ChainNoteCard } from "./chain-note-card";
@@ -36,10 +37,16 @@ export function RelayView() {
       <PageHeader titleKey="relay.title" descriptionKey="relay.description" />
       {failed ? (
         <LoadFailedNotice onRetry={reload} messageKey="relay.loadFailed" />
+      ) : effective === null ? (
+        <>
+          <Skeleton className="col-span-12 h-56 lg:col-span-6" />
+          <Skeleton className="col-span-12 h-56 lg:col-span-6" />
+          <Skeleton className="col-span-12 h-40" />
+        </>
       ) : (
         <>
           <RelayConfigCard
-            relayAddrs={effective?.relayAddrs ?? []}
+            relayAddrs={effective.relayAddrs}
             onSave={persistRelay}
           />
           <RelayWatermarkCard />

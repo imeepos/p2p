@@ -1,4 +1,4 @@
-import { Trash2Icon } from "lucide-react";
+import { NetworkIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AddAddressDialog } from "./add-address-dialog";
+import { EmptyState } from "@/views/shared/empty-state";
 
 interface RendezvousCardProps {
   bootstrap: string[];
@@ -108,9 +109,14 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {bootstrap.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            {t("discovery.rendezvous.empty")}
-          </p>
+          <EmptyState
+            icon={NetworkIcon}
+            title={t("discovery.rendezvous.empty")}
+            description={t("discovery.rendezvous.manualUnavailable")}
+            action={
+              <AddAddressDialog existing={bootstrap} saving={saving} onAdd={addAddress} />
+            }
+          />
         ) : (
           <RendezvousTable
             bootstrap={bootstrap}
@@ -118,9 +124,11 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
             onDelete={removeAddr}
           />
         )}
-        <p className="text-muted-foreground text-xs">
-          {t("discovery.rendezvous.manualUnavailable")}
-        </p>
+        {bootstrap.length > 0 ? (
+          <p className="text-muted-foreground text-xs">
+            {t("discovery.rendezvous.manualUnavailable")}
+          </p>
+        ) : null}
         <AddAddressDialog existing={bootstrap} saving={saving} onAdd={addAddress} />
       </CardContent>
     </Card>

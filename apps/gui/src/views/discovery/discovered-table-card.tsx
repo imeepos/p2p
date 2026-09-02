@@ -1,4 +1,4 @@
-import { CopyIcon } from "lucide-react";
+import { CopyIcon, RadarIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -23,6 +23,7 @@ import { formatTime } from "@/lib/format";
 import type { NodeEventJson } from "@/lib/ipc-types";
 import { selectPeerList, useNodeStore, type PeerEntry } from "@/stores/node-store";
 import { copyText } from "@/views/shared/clipboard";
+import { EmptyState } from "@/views/shared/empty-state";
 
 // 契约 v1 修订：事件可携带可选 tsMs；缺省时兜底用 store 记录的本地接收时间。
 function readEventTsMs(event: NodeEventJson): number | null {
@@ -113,7 +114,11 @@ export function DiscoveredTableCard() {
       </CardHeader>
       <CardContent>
         {peers.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{t("discovery.empty")}</p>
+          <EmptyState
+            icon={RadarIcon}
+            title={t("discovery.empty")}
+            description={t("discovery.emptyHint")}
+          />
         ) : (
           <PeerTable peers={peers} firstSeen={firstSeen} />
         )}
