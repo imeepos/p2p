@@ -7,7 +7,7 @@
 
 | 包 | 分支 | 负责会话 | 范围（拥有的 crate） | 状态 | 验收 |
 |---|---|---|---|---|---|
-| K 内核传输 | feat/kernel-transport | p2p-K-内核传输 | p2p-transport（quinn QUIC + TCP）、p2p-security（TLS1.3 + Noise XX）、p2p-mux（yamux 实现）、p2p-identity（种子落盘持久化） | 进行中 | cargo test -p p2p-transport -p p2p-security -p p2p-identity 全绿；同机 QUIC 互拨握手 + mux 流 echo 集成测试 |
+| K 内核传输 | feat/kernel-transport | p2p-K-内核传输 | p2p-transport（quinn QUIC + TCP）、p2p-security（TLS1.3 + Noise XX）、p2p-mux（yamux 实现）、p2p-identity（种子落盘持久化） | 已完成：83eaafe/f2bbb03/2c84ae2/2a229e1 已合并，QUIC+TCP 双路 echo 集成测试在 crates/p2p-transport/tests/echo.rs，clippy -D warnings 零告警 | ✓ 验收通过 |
 | P 协议分发 | feat/protocol | p2p-P-协议分发 | p2p-protocol（RequestResponse 实现、开流协议握手助手、chunked transfer） | 已完成：84c4337+db91134 已合并，14 用例全绿 + clippy -D warnings 零告警 | ✓ 验收通过 |
 | D 节点发现 | feat/discovery | p2p-D-节点发现 | p2p-discovery（mdns-sd 局域网发现、rendezvous 客户端 + 签名注册、AddrCache 实现） | 已完成：f22aebc+7abd318+f1c0105 已合并，27 用例全绿（真实组播 #[ignore]）+ clippy 零告警 | ✓ 验收通过 |
 | R 中继穿透 | feat/relay | p2p-R-中继穿透 | p2p-relay（RelayService 服务端、客户端 reserve/connect、打洞信令消息、密文桥接） | 进行中 | cargo test -p p2p-relay 全绿；进程内 relay + 两客户端电路字节互通集成测试 |
@@ -34,5 +34,7 @@
 ## 变更记录
 
 - 2026-09-02 协调会话创建本表；K/P/D/R 四会话启动；S 排队。
-- 2026-09-02 检查轮 1：P、D 合并落地，机械验收通过（cargo test --workspace 43 用例全绿 + clippy -D warnings 零告警；冻结契约未被改；本表无会话触碰）。K 进行中（security/mux/identity 已提交），R 未提交。
-- 流程备注：D 反向同步用 merge 把 merge bubble（f58b869）带进了 main 历史；已提醒 K/R 反向同步改用 `git rebase main` 保持 main 线性。
+- 2026-09-02 检查轮 1：P、D 合并落地，机械验收通过（cargo test --workspace 43 用例全绿 + clippy -D warnings 零告警；冻结契约未被改；本表无会话触碰）。
+- 2026-09-02 检查轮 1 续：K 在检查期间完成合并（2a229e1 + echo.rs），main 全量 57 用例全绿 + clippy 零告警，验收通过。
+- 事故记录：K 收尾时在主树用 git add -A 扫走了协调会话未提交的 coordination.md 修改，混入其 chore(skill) 提交（1971e69）。内容无误已确认，但违反"一提交一变更"与并发红线。整改：主树在协调者手里保持 clean；会话收尾严禁 add -A，只 add 自己的文件。
+- 流程备注：D 反向同步用 merge 把 merge bubble（f58b869）带进了 main 历史；K 同样产生了 merge commit（67ac369）。已提醒 K/R 改用 `git rebase main` 保持 main 线性。
