@@ -33,6 +33,13 @@
 | G-E 集成联调 | feat/gui-integration | 真实 IPC 贯通、双节点冒烟脚本 scripts/gui-smoke.sh、缺陷修复、事件 tsMs 字段补齐 | 脚本跑通双实例 mDNS 发现 + ping；build 零错误 | 待派（含 tsMs 跟进单） |
 | G-F 体验打磨 | feat/gui-polish | a11y/键盘/空态/错误态/加载骨架/i18n 完整性/主题一致性 | build 零错误 + 打磨清单逐项勾选 | 待派 |
 
+## 插队跟进单（W2 进行中即派，保持流水线满载）
+
+| 单 | 会话 | 分支 | 范围 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| G-A2 桥接增强 | GUI-A（session-0b527964） | feat/gui-bridge-tsms | src-tauri/** + scripts/gui-smoke.sh：事件 tsMs、双节点无头冒烟测试 | clippy+test 全绿含冒烟测试；gui-smoke.sh PASS | 进行中 01:50 派单 |
+| G-B2 前端基建 | GUI-B（session-d34300e8） | feat/gui-shell-infra | ESLint/Vitest/i18n-diff 脚本/Cmd+K 面板与快捷键基建（不碰 views/**） | lint+test+build+i18n-diff 全过 | 进行中 01:50 派单 |
+
 ## W4 收尾波（待 W3 合并后派单）
 
 | 单 | 分支 | 范围 | 验收 | 状态 |
@@ -41,6 +48,7 @@
 
 ## 变更记录
 
+- 2026-09-03 01:51 应协调指令保持流水线满载：向闲置的 GUI-A/GUI-B 派插队跟进单 G-A2（tsMs+双节点冒烟基建）与 G-B2（lint/test/快捷键/i18n-diff 基建），范围与 W2 视图波零冲突。
 - 2026-09-03 00:35 W1 双单验收合并：A（11 提交，clippy 零告警+29 测试）+ B（12 提交，i18n 84=84），gui-gate 全绿 + make check 回归 PASS；契约加法修订 tsMs 可选字段与 §3 语法示例修正；B 的 pnpm allowBuilds esbuild 放行属工具链必需（e5 会话同样受益）；W2 双单派发（G-C/G-D）。
 - 2026-09-02 23:40 协调会话创建本表；规划/契约冻结；W1 双单派发（G-A/G-B）。
 - 2026-09-02 23:43 契约澄清修订：peer_dial target 语法 "<peer_id>@<addr>"、identity_reset 返回 NodeStatus（commit 4bc398f）。
