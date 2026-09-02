@@ -23,20 +23,18 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     if addrs.is_empty() {
         return Err(dial_rejected(swarm, peer, "no known address for peer"));
     }
-    eprintln!("[dbg] dial_peer {peer} addrs={addrs:?}");
     let mut tried = 0usize;
     let mut last_err: Option<io::Error> = None;
     for addr in addrs {
         tried += 1;
-        eprintln!("[dbg] dial_peer trying {addr}");
         match dial_one(swarm, peer, &addr).await {
             Ok(mux) => {
                 insert_connection(swarm, peer, mux.clone());
                 return Ok(mux);
             }
             Err(err) => {
-                // 每个失败地址都留 debug 日志 + DialFailed 事件（E3 小修单：遍历可见性）
-                tracing::debug!(%peer, %addr, error = %err, "direct addr failed; trying next");
+                // 每个失败地址都留 info 日志 + DialFailed 事件，生产默认级别即可归因
+                tracing::info!(%peer, %addr, error = %err, "direct addr failed; trying next");
                 swarm.emit(NodeEvent::DialFailed {
                     peer: Some(peer),
                     reason: format!("{addr}: {err}"),
