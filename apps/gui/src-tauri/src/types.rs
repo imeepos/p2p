@@ -95,6 +95,7 @@ impl From<DialHop> for HopKind {
 
 /// 逐跳报告（契约 §3 DialHopJson）。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DialHopJson {
     pub hop: HopKind,
     pub ok: bool,
@@ -103,6 +104,7 @@ pub struct DialHopJson {
 
 /// 拨号报告（契约 §3 DialReport）。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DialReport {
     pub peer: String,
     pub hops: Vec<DialHopJson>,
@@ -112,6 +114,7 @@ pub struct DialReport {
 
 /// echo 测距结果（契约 §3 PingOutcome）。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PingOutcome {
     pub ok: bool,
     pub rtt_ms: Option<u64>,

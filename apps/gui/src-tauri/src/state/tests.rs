@@ -64,7 +64,7 @@ async fn dial_and_ping_require_running_node() {
     let peer = bs58::encode([9u8; 32]).into_string();
 
     let dial_err = state
-        .dial(&format!("{peer}@127.0.0.1/3400"))
+        .dial(&format!("{peer}@127.0.0.1/u3400"))
         .await
         .unwrap_err();
     assert!(dial_err.contains("节点未运行"));

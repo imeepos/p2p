@@ -93,14 +93,16 @@ mod tests {
 
     #[test]
     fn parse_target_accepts_quic_and_tcp_addrs() {
-        let target = format!("{}@192.168.1.5/3400", sample_peer());
+        // u/t 前缀与 TransportAddr 展示格式一致（契约 §6）
+        let target = format!("{}@192.168.1.5/u3400", sample_peer());
         let (peer, addr) = parse_target(&target).expect("合法 target");
         assert_eq!(peer.to_string(), sample_peer());
-        assert_eq!(addr, "192.168.1.5/3400");
+        assert_eq!(addr, "192.168.1.5/u3400");
 
-        let target = format!("{}@[::1]/t3401", sample_peer());
+        // 裸 IPv6（无方括号）与内核 parse_transport_addr 行为一致
+        let target = format!("{}@::1/t3401", sample_peer());
         let (_, addr) = parse_target(&target).expect("合法 tcp target");
-        assert_eq!(addr, "[::1]/t3401");
+        assert_eq!(addr, "::1/t3401");
     }
 
     #[test]
@@ -113,6 +115,9 @@ mod tests {
         assert!(parse_target("zzz-not-base58@1.2.3.4/3400").is_err());
         let bad_addr = format!("{}@1.2.3.4", sample_peer());
         assert!(parse_target(&bad_addr).is_err());
+        // 缺 u/t 前缀与内核 parse_transport_addr 同判非法
+        let bare_quic = format!("{}@1.2.3.4/3400", sample_peer());
+        assert!(parse_target(&bare_quic).is_err());
         let bad_kind = format!("{}@1.2.3.4/x3400", sample_peer());
         assert!(parse_target(&bad_kind).is_err());
         let bad_port = format!("{}@1.2.3.4/u99999", sample_peer());
