@@ -41,7 +41,7 @@ Wants=network-online.target
 
 [Service]
 User=ops
-ExecStart=$BIN_DIR/p2p-cli bootstrap --data $DATA_DIR --listen-quic 0.0.0.0:$QUIC_PORT --listen-tcp 0.0.0.0:$TCP_PORT
+ExecStart=$BIN_DIR/p2p-cli bootstrap --data $DATA_DIR --listen-quic 0.0.0.0:$QUIC_PORT --listen-tcp 0.0.0.0:$TCP_PORT --observation-port 3402
 Restart=always
 RestartSec=5
 Environment=RUST_LOG=info
