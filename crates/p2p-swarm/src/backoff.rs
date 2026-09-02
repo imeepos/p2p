@@ -1,6 +1,9 @@
 //! 指数退避工具（design §8）：纯计算，不执行等待；重连决策留给业务。
+//!
+//! 复位语义（E5 裁定）：复位须以会话健康存活为前提（`reset_if_healthy`），
+//! 闪断不归零序列；防止「连上即断」的对端把重连间隔钉死在 base 值。
 
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// 指数退避序列：base, base*2, base*4 ... 封顶 max。
 #[derive(Debug, Clone)]
@@ -34,6 +37,17 @@ impl Backoff {
     /// 连接成功后归零，退避序列从头开始。
     pub fn reset(&mut self) {
         self.attempts = 0;
+    }
+
+    /// 健康才复位（E5 语义裁定）：会话自 `started_at` 起存活满 `min` 才归零；
+    /// 闪断不复位，退避继续爬升，避免对端抖动时陷入紧密重连循环。
+    /// 返回是否执行了复位（观测用）。
+    pub fn reset_if_healthy(&mut self, started_at: Instant, min: Duration) -> bool {
+        if started_at.elapsed() >= min {
+            self.reset();
+            return true;
+        }
+        false
     }
 
     pub fn attempts(&self) -> u32 {
@@ -70,6 +84,21 @@ mod tests {
         b.reset();
         assert_eq!(b.attempts(), 0);
         assert_eq!(b.next_delay(), Duration::from_millis(50));
+    }
+
+    #[test]
+    fn reset_if_healthy_requires_min_uptime() {
+        let mut b = Backoff::new(Duration::from_millis(100), Duration::from_secs(30));
+        b.next_delay();
+        // 未达最短健康时长：不复位，序列继续爬升
+        assert!(!b.reset_if_healthy(Instant::now(), Duration::from_secs(10)));
+        assert_eq!(b.attempts(), 1);
+        assert_eq!(b.next_delay(), Duration::from_millis(200));
+        // 存活已满时长：复位归零
+        let healthy = Instant::now() - Duration::from_secs(11);
+        assert!(b.reset_if_healthy(healthy, Duration::from_secs(10)));
+        assert_eq!(b.attempts(), 0);
+        assert_eq!(b.next_delay(), Duration::from_millis(100));
     }
 
     #[test]

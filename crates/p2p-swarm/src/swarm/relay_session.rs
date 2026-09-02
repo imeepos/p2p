@@ -40,6 +40,8 @@ const SIGNAL_RETRY_GAP: Duration = Duration::from_millis(400);
 const CMD_CAPACITY: usize = 16;
 /// 电路接入项前缀。
 pub(super) const CID_PREFIX: &str = "cid/";
+/// 会话最短健康存活时长：满值才复位退避（E5 语义，闪断不复位）。
+const MIN_HEALTHY_SESSION: Duration = Duration::from_secs(10);
 
 /// 拨号器交给会话的降级请求：打洞失败即落到电路兜底。
 pub(super) enum RelayCmd {
@@ -89,13 +91,24 @@ pub(super) fn spawn_sessions(swarm: &Arc<Swarm>, addrs: Vec<TransportAddr>) {
 async fn session_loop(swarm: Arc<Swarm>, addr: TransportAddr, mut cmds: mpsc::Receiver<RelayCmd>) {
     let mut shutdown = swarm.shutdown_rx.clone();
     let mut backoff = Backoff::default();
+    // 本轮链路建立时刻；退避仅在会话健康存活满时长后复位（E5，防闪断钉死 base 值）
+    let mut up_since: Option<std::time::Instant> = None;
     loop {
         if swarm.is_stopping() {
             return;
         }
         let link = match dial_relay_link(&swarm, &addr).await {
             Ok(link) => {
-                backoff.reset();
+                // 首次建链直接复位；重连须会话健康存活满时长才复位（E5 语义）
+                let healthy = match up_since {
+                    Some(t) => t.elapsed() >= MIN_HEALTHY_SESSION,
+                    None => true,
+                };
+                if healthy {
+                    backoff.reset();
+                    tracing::debug!(%addr, "backoff reset after healthy session");
+                }
+                up_since = Some(std::time::Instant::now());
                 link
             }
             Err(err) => {
