@@ -69,6 +69,15 @@
 
 metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 
+## E5 候选（E4 收口时登记）
+
+- metrics（M4 余项）与 gossip pubsub（可选）
+- 观测多反射器 / v6 支持（facade + CLI，E4 余量转正）
+- 重连退避复位语义（relay_session，数据驱动再议）
+- quic_mux transport_err 透传错误链（K 建议，现 to_string 丢内层 ConnectionError）
+- 桥接后槽位 TTL 滞留清扫（量级无害备忘）
+- YamuxMux/QuicMux 生命周期语义统一或文档化（契约缺口，E4 余量转正）
+
 ## 变更记录
 
 - 2026-09-02 协调会话创建本表；K/P/D/R 四会话启动；S 排队。
@@ -110,4 +119,5 @@ metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 - 2026-09-02 检查轮 32：R-E4 验收合入——rebase 后 6dfc551 ff-only 进 main（worktree+主树双门禁 PASS，已推远端，worktree/分支清理），冒烟实证降级链三跳在真实同 NAT 链路全程走通、ECS journal 电路桥接对应三连。登记 E4 余量：K 建议 quic_mux transport_err 透传错误链（现 to_string 丢内层 ConnectionError）；桥接后槽位滞留至 TTL 清扫（量级无害备忘）。执行阶段派 T-ECS：全节点换装（138/ECS 重部署 + 15/102 节点二进制更新，idle timeout 协商取 min，旧二进制 30ms 自断必须全换）→ e4-sample-run.sh 三连采样 → 三连稳定即关 E4。R-E4 冒烟留场进程（102 ecsn2、15 n15 PID 66359）由 T-ECS 执行时接管。
 - 2026-09-02 检查轮 30：TCP 修复确认在 main（0698963 经 fix/e4-tcp-conn-lifecycle 由 S 自行合入，K 回归 4000845 与 stream_to_conn_owned 均核验在列，协调者原定 cherry-pick 取消）；采样脚本确认在 main（4b34bc3+d10a427，经 8aaedda 带入）。流程记录：8aaedda/6f8c51d 又两处 merge bubble——会话自行收尾时 rebase 纪律松懈，重申规则 5，后续派单消息统一附提醒。主树 make check 复跑 PASS（已含 TCP 修复+采样脚本）。E4 仅剩：R-E4 relay 修复（实施中）→ 执行采样 → 三连稳定关闭。
 - 2026-09-02 检查轮 31：归属更正——0698963 的抢救与合入（6f8c51d）系用户交互主会话（session-b7d42619，驻主树，非派单 worker）应答用户问询所为，时序在其推送前 origin/main 确未包含该提交（本会话此前"S 自行合入"与"制止冗余抢救"两条判断均基于其后置实况，过程无损害）；921497f、78e0386 两笔 skill 沉淀同出该会话。该会话身份已登记：用户直连主会话，不受派单 worker 规则约束，其指令优先级高于本协调表。relayed 裁决回顾：R-E4 缺陷 b 已修（6f49519），缺陷 a 授权代修实施中。
+- 2026-09-02 检查轮 33：**E4 关闭**。执行阶段验收通过——T-ECS 全节点换装（138/ECS bootstrap 重部署自 main@0289b9c、15/102 二进制更新）、三连采样 PASS：三轮均 Direct(false)→Punch(false)→Relay(true)，rtt 15.245–15.270s（极差 25ms），中继电路 ~90ms 建立；全程无配额自锁、无控制流秒断、无 30ms 断链——relay/quic/hairpin/TCP 四项修复在生产拓扑全部实证生效。执行中顺手修复采样脚本 PeerId 校验（9ea1a20，base32 误拒真实 base58 id）。结果存档 docs/notes/e4-execution-results.md。E5 候选已登记。里程碑状态：E1/E2/E3/E4 全部完成，M1-M4 里程碑达成（gossip 为可选项留 E5）。
 - 2026-09-02 检查轮 27：长稳采样拆两段——脚本准备先行派 T-ECS（feat/e4-sampling-scripts，执行等 relay 修复）；S 的 TCP 修复实施中（双 worktree，无新提交）；R-E4 消化上下文未现 git 活动，下轮若仍无活动则问询。
