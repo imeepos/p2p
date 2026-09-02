@@ -37,7 +37,7 @@ function ChainBar({ row }: { row: ChainRowDef }) {
       >
         {total > 0 && (
           <div className="flex h-full">
-            <div className="bg-emerald-500 h-full" style={{ width: `${okPct}%` }} />
+            <div className="bg-success h-full" style={{ width: `${okPct}%` }} />
             <div className="bg-destructive h-full" style={{ width: `${100 - okPct}%` }} />
           </div>
         )}
