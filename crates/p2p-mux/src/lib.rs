@@ -24,3 +24,13 @@ pub trait MuxControl: Send + Sync {
 pub fn boxed_mux(m: impl MuxControl + 'static) -> Arc<dyn MuxControl> {
     Arc::new(m)
 }
+mod limited;
+mod quic_mux;
+mod yamux_mux;
+
+pub use quic_mux::QuicMux;
+pub use yamux_mux::YamuxMux;
+
+/// 每连接并发流数上限（design §6 通信层防滥用）。
+/// yamux 侧同步写入协议配置；QUIC 侧叠加在 quinn 传输参数之上。
+pub const MAX_STREAMS_PER_CONN: usize = 64;
