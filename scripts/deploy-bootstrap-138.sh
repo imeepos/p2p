@@ -50,7 +50,8 @@ Environment=RUST_LOG=info
 WantedBy=multi-user.target
 UNIT
 sudo -n systemctl daemon-reload && \
-sudo -n systemctl enable --now p2p-bootstrap && \
+sudo -n systemctl enable p2p-bootstrap && \
+sudo -n systemctl restart p2p-bootstrap && \
 sleep 2"
 
 log "5/5 健康检查"
