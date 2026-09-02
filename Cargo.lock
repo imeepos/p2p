@@ -835,6 +835,7 @@ dependencies = [
  "async-trait",
  "p2p-mux",
  "prost",
+ "rand 0.8.8",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
