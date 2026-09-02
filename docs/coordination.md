@@ -58,7 +58,8 @@
 | 修复单 | 负责会话 | 分支 | 范围 | 验收 |
 |---|---|---|---|---|
 | 拨号可观测性+refused/hairpin 边角 | S（session-e42e5393） | fix/e4-dialhop-observability | crates/p2p-swarm：DialHop 逐跳归因从 debug 提升为 info 或事件化（采样不开 RUST_LOG=debug 也能归因）；复核检查轮14立案——TCP 入站 refused 在直连跳不得作为最终错误上抛，须继续尝试其余地址；同 NAT hairpin refused 快速失败不占满拨号预算 | make check 全绿 + itest 断言各跳事件 |
-| 发现时序+日志降噪 | D（session-3cc0a86e） | fix/e4-discovery-stability | crates/p2p-discovery：发现窗口时序（启动初期错过 mDNS 公告的补救）；rendezvous 盲拨周期 WARN 降 debug 或加退避，仅首次失败保留 WARN | make check 全绿 + 35s 周期刷屏消除的单测断言 |
+| 发现时序+日志降噪 | p2p-D-E4（session-cc9c45f8） | fix/e4-discovery-stability | crates/p2p-discovery：发现窗口时序（启动初期错过 mDNS 公告的补救）；rendezvous 盲拨周期 WARN 降 debug 或加退避，仅首次失败保留 WARN | make check 全绿 + 35s 周期刷屏消除的单测断言 |
+| ECS 公网节点部署 | p2p-T-ECS（session-814cafa1） | feat/ecs-deploy | scripts/deploy-bootstrap-ecs.sh（参照 138 版，systemd 常驻，QUIC 3400/udp + TCP 3401/tcp + 观测 3402/udp）+ runbook 双公网拓扑条目；安全组已由协调者放行（22/3400udp/3401tcp/3402udp） | make check 全绿 + 15↔ECS 冒烟 PASS（记录 PeerId） |
 | 长稳采样 | 待派（依赖 S 交付） | — | scripts/ 采样脚本与 runbook：默认日志含 p2p_swarm=info、禁 pkill 红线、三连采样统计 | E1/E3 runbook 复测三连稳定 |
 
 metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
@@ -90,3 +91,4 @@ metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 - 2026-09-02 检查轮 10（E1 首跑）：15/114 双 Mac 节点拉起成功，但 mDNS 互发现失败——本机 debug 复现实锤 D 的 mdns.rs 服务名不合法（缺尾点，mdns-sd 拒绝注册/浏览）。已派急修单回 D（fix/mdns-servicetype）。运维侧两处已修：102 源码快照过期导致编译失败（重同步）、远端节点日志需显式 RUST_LOG=info（runbook 待更新）。
 - 2026-09-02 检查轮 10 续：mDNS 服务名修复合入（85a1e1c）后 E1 重跑：**三机互发现成功**（15/114/102 两两可见，含真实局域网地址）、**跨机 ping 成功**（maca→linc RTT 2.75ms）。但断线语义有缺陷：活着的 macb 在首次发现+120s 整被误报断线（mdns-sd 地址集不变就不发 Resolved，TTL 无续期），被 kill 的 linc 反而无断线事件。第二张修复单已派 D（fix/mdns-ttl-refresh：Resolved 恒续期+过期扫描+回归测试）。协调者代 D 修 hostname 尾点（8910de0，D 会话响应滞后，已透明记录）。
 - 2026-09-02 检查轮 17：协调权移交新协调会话（session-570fbef3）。E4 调优轮派单：S（拨号可观测性+refused/hairpin 边角，fix/e4-dialhop-observability）、D（发现时序+盲拨降噪，fix/e4-discovery-stability）；长稳采样待 S 交付后派；metrics/gossip 排 E5。规则 5 修正：本仓库远端为 origin（github），收尾恢复 push 步骤。新增 ECS 公网节点（连接信息在 .env，见 ECS_* 条目），用途：第二 rendezvous/relay 兜底与 E4 跨公网长稳，部署派单在 S/D 交付后进行。
+- 2026-09-02 检查轮 18：旧 D/T 会话派单后唤醒即转 idle、无开工迹象，判定消息唤醒机制对该两会话失效——对旧 D/T 发停派通知，新开专属会话 p2p-D-E4（session-cc9c45f8，fix/e4-discovery-stability）与 p2p-T-ECS（session-814cafa1，feat/ecs-deploy）承接原单；S（session-e42e5393）确认开工中（.worktrees/e4 编辑 dial.rs）。阿里云安全组 sg-bp1gedk7fadp3vah6vfs 已由协调者经 API 放行 3400/udp、3401/tcp、3402/udp（22/tcp 原已开放）；踩坑记录：DescribeSecurityGroupAttribute 带 Direction 参数触发 InvalidParamter，最小参数集可用。
