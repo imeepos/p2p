@@ -51,5 +51,7 @@ pub trait AddrCache: Send + Sync {
 
 // ---- D 会话实现（追加，冻结契约未改）----
 pub mod cache;
+pub mod mdns;
 
 pub use cache::MemCache;
+pub use mdns::{MdnsConfig, MdnsDiscovery};
