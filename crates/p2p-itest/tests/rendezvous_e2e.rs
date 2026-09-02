@@ -17,7 +17,10 @@ const NAMESPACE: &str = "itest-room";
 const LIMIT: Duration = Duration::from_secs(10);
 
 fn quic_addr(ip: &str, port: u16) -> TransportAddr {
-    TransportAddr::Quic { ip: ip.parse().expect("valid ip"), port }
+    TransportAddr::Quic {
+        ip: ip.parse().expect("valid ip"),
+        port,
+    }
 }
 
 /// 在服务侧 duplex 半边起 serve_link，与注册表共享。
@@ -79,10 +82,20 @@ async fn client_discovers_registered_peer_over_duplex() {
     )
     .await;
 
-    assert_eq!(discovered.peer, kp_a.peer_id(), "must discover A by identity");
-    assert_eq!(discovered.addrs, addrs_a, "returned addrs must match registration");
+    assert_eq!(
+        discovered.peer,
+        kp_a.peer_id(),
+        "must discover A by identity"
+    );
+    assert_eq!(
+        discovered.addrs, addrs_a,
+        "returned addrs must match registration"
+    );
     assert_eq!(discovered.source, Source::Rendezvous);
-    assert!(discovered.expires_at.is_some(), "rendezvous entries carry TTL");
+    assert!(
+        discovered.expires_at.is_some(),
+        "rendezvous entries carry TTL"
+    );
 }
 
 #[tokio::test]
@@ -95,15 +108,25 @@ async fn tampered_signature_rejected_with_explicit_error() {
     let kp = Keypair::generate();
     let mut reg = sign_register(&kp, NAMESPACE, &[quic_addr("10.0.0.9", 9000)], 60);
     reg.addrs[0].port = 9999;
-    assert!(!verify_register(&reg), "tamper must invalidate signature locally");
+    assert!(
+        !verify_register(&reg),
+        "tamper must invalidate signature locally"
+    );
 
-    let resp = expect_within("register roundtrip", conn.roundtrip(Request::register(reg)), LIMIT)
-        .await
-        .expect("roundtrip io");
+    let resp = expect_within(
+        "register roundtrip",
+        conn.roundtrip(Request::register(reg)),
+        LIMIT,
+    )
+    .await
+    .expect("roundtrip io");
     let err = resp
         .ensure_ok()
         .expect_err("tampered register must be rejected with explicit error");
-    assert_eq!(err, "bad signature", "server must name the rejection reason");
+    assert_eq!(
+        err, "bad signature",
+        "server must name the rejection reason"
+    );
 }
 
 #[tokio::test]
@@ -124,6 +147,9 @@ async fn query_unknown_peer_returns_empty_but_valid_response() {
     )
     .await
     .expect("roundtrip io");
-    assert!(resp.ensure_ok().is_ok(), "unknown peer is empty, not an error");
+    assert!(
+        resp.ensure_ok().is_ok(),
+        "unknown peer is empty, not an error"
+    );
     assert!(resp.peers.is_empty(), "no phantom entries allowed");
 }

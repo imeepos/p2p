@@ -54,8 +54,12 @@ async fn unknown_circuit_connect_rejected_explicitly() {
         .await
         .expect("reserve must succeed");
 
-    let outcome =
-        expect_within("connect unknown circuit", b.connect(CircuitId(987_654)), LIMIT).await;
+    let outcome = expect_within(
+        "connect unknown circuit",
+        b.connect(CircuitId(987_654)),
+        LIMIT,
+    )
+    .await;
     match outcome {
         Err(RelayError::Server { code, message }) => {
             assert_eq!(code, errcode::UNKNOWN_CIRCUIT, "got {message}");
@@ -80,7 +84,10 @@ async fn unknown_circuit_connect_rejected_explicitly() {
 
 #[tokio::test]
 async fn per_peer_circuit_quota_rejects_with_peer_limit() {
-    let limits = RelayLimits { max_circuits_per_peer: 1, ..RelayLimits::default() };
+    let limits = RelayLimits {
+        max_circuits_per_peer: 1,
+        ..RelayLimits::default()
+    };
     let (mut a, _b) = relay_pair(limits, "quota-a", "quota-b");
 
     expect_within("first reserve", a.reserve(Duration::from_secs(60)), LIMIT)
@@ -102,7 +109,10 @@ async fn egress_quota_write_fails_explicitly() {
     let bucket = std::sync::Arc::new(std::sync::Mutex::new(p2p_relay::RateBucket::new(512, 512)));
     let mut limited = p2p_relay::RateLimitedStream::new(Box::new(tx), bucket);
 
-    limited.write_all(&[0u8; 256]).await.expect("within burst must pass");
+    limited
+        .write_all(&[0u8; 256])
+        .await
+        .expect("within burst must pass");
     let err = limited
         .write_all(&[0u8; 1024])
         .await

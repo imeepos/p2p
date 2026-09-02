@@ -28,13 +28,18 @@ async fn echo_server(
         .inbound(stream, &kp)
         .await
         .expect("server handshake must succeed");
-    assert_eq!(peer, expect_client, "server must derive caller identity from key material");
+    assert_eq!(
+        peer, expect_client,
+        "server must derive caller identity from key material"
+    );
 
     let id = read_protocol_id(&mut secured).await.expect("protocol id");
     assert_eq!(id, proto, "routed protocol id must match");
 
     let payload = read_chunked(&mut secured).await.expect("chunked read");
-    write_chunked(&mut secured, &payload).await.expect("chunked echo");
+    write_chunked(&mut secured, &payload)
+        .await
+        .expect("chunked echo");
     secured.flush().await.expect("flush echo");
     payload
 }
@@ -46,8 +51,12 @@ async fn secured_stack_roundtrips_2mib_chunked() {
     let (a, b) = tokio::io::duplex(256 * 1024);
     let proto = ProtocolId::new("/itest/echo/1").expect("valid protocol id");
 
-    let server =
-        tokio::spawn(echo_server(Box::new(b), bob.clone(), alice.peer_id(), proto.clone()));
+    let server = tokio::spawn(echo_server(
+        Box::new(b),
+        bob.clone(),
+        alice.peer_id(),
+        proto.clone(),
+    ));
 
     let (server_peer, secured) = expect_within(
         "client handshake",
@@ -56,9 +65,15 @@ async fn secured_stack_roundtrips_2mib_chunked() {
     )
     .await
     .expect("client handshake must succeed");
-    assert_eq!(server_peer, bob.peer_id(), "client must derive server identity");
+    assert_eq!(
+        server_peer,
+        bob.peer_id(),
+        "client must derive server identity"
+    );
 
-    let stream = open_with_protocol(secured, &proto).await.expect("protocol handshake");
+    let stream = open_with_protocol(secured, &proto)
+        .await
+        .expect("protocol handshake");
     let (mut rh, mut wh) = tokio::io::split(stream);
 
     let payload: Vec<u8> = (0..2 * MIB).map(|i| (i % 253) as u8).collect();
@@ -66,7 +81,9 @@ async fn secured_stack_roundtrips_2mib_chunked() {
         "2MiB chunked echo",
         async {
             let writer = async {
-                write_chunked(&mut wh, &payload).await.expect("write chunked");
+                write_chunked(&mut wh, &payload)
+                    .await
+                    .expect("write chunked");
                 wh.flush().await.expect("flush chunked");
             };
             let (_, r) = tokio::join!(writer, read_chunked(&mut rh));
@@ -101,11 +118,17 @@ async fn protocol_frames_pass_through_noise_secured_stream() {
         .await
         .expect("client handshake");
     let mut secured = secured;
-    write_frame(&mut secured, b"over-noise").await.expect("write frame");
+    write_frame(&mut secured, b"over-noise")
+        .await
+        .expect("write frame");
     secured.flush().await.expect("flush frame");
 
     let got = server.await.expect("server task");
-    assert_eq!(got, b"over-noise".to_vec(), "frames must survive the security layer");
+    assert_eq!(
+        got,
+        b"over-noise".to_vec(),
+        "frames must survive the security layer"
+    );
 }
 
 #[tokio::test]
@@ -115,12 +138,20 @@ async fn max_frame_roundtrips_and_oversize_rejected() {
     let payload = vec![0xa5u8; MAX_FRAME_SIZE as usize];
     let (w, r) = tokio::join!(write_frame(&mut tx, &payload), read_frame(&mut rx));
     w.expect("write max frame");
-    assert_eq!(r.expect("read max frame"), payload, "boundary frame must be intact");
+    assert_eq!(
+        r.expect("read max frame"),
+        payload,
+        "boundary frame must be intact"
+    );
 
     // 超上限长度前缀：读端必须显式 FrameTooLarge，不得静默截断
     let (mut tx2, mut rx2) = tokio::io::duplex(64);
-    tx2.write_all(&varint(u64::from(MAX_FRAME_SIZE) + 1)).await.expect("raw write");
-    let err = read_frame(&mut rx2).await.expect_err("oversize must surface as error");
+    tx2.write_all(&varint(u64::from(MAX_FRAME_SIZE) + 1))
+        .await
+        .expect("raw write");
+    let err = read_frame(&mut rx2)
+        .await
+        .expect_err("oversize must surface as error");
     match flatten_io(err) {
         ProtocolError::FrameTooLarge(n) => assert_eq!(n, u64::from(MAX_FRAME_SIZE) + 1),
         other => panic!("expected FrameTooLarge, got {other:?}"),
@@ -148,14 +179,20 @@ async fn protocol_id_handshake_then_single_frame_over_duplex() {
 
     let server = tokio::spawn(async move {
         let mut boxed: BoxedStream = Box::new(rx);
-        let id = read_protocol_id(&mut boxed).await.expect("read protocol id");
+        let id = read_protocol_id(&mut boxed)
+            .await
+            .expect("read protocol id");
         let body = read_frame(&mut boxed).await.expect("read frame");
         (id, body)
     });
 
     let opened: BoxedStream = Box::new(tx);
-    let mut opened = open_with_protocol(opened, &proto).await.expect("protocol handshake");
-    write_frame(&mut opened, b"payload").await.expect("write payload");
+    let mut opened = open_with_protocol(opened, &proto)
+        .await
+        .expect("protocol handshake");
+    write_frame(&mut opened, b"payload")
+        .await
+        .expect("write payload");
 
     let (id, body) = server.await.expect("server task");
     assert_eq!(id, proto);

@@ -40,18 +40,28 @@ async fn xx_handshake_derives_counterparty_peer_id() {
     assert_eq!(server_peer, alice.peer_id(), "server side derivation");
     assert_eq!(client_peer, bob.peer_id(), "client side derivation");
 
-    client_stream.write_all(b"identity-probe").await.expect("write");
+    client_stream
+        .write_all(b"identity-probe")
+        .await
+        .expect("write");
     client_stream.flush().await.expect("flush");
     let mut got = [0u8; 14];
     server_stream.read_exact(&mut got).await.expect("read");
-    assert_eq!(&got, b"identity-probe", "secured stream must carry bytes intact");
+    assert_eq!(
+        &got, b"identity-probe",
+        "secured stream must carry bytes intact"
+    );
 }
 
 #[tokio::test]
 async fn seed_restored_keypair_keeps_peer_id() {
     let kp = Keypair::from_seed(&[9u8; 32]);
     let restored = Keypair::from_seed(&kp.to_seed_bytes());
-    assert_eq!(kp.peer_id(), restored.peer_id(), "identity must survive seed roundtrip");
+    assert_eq!(
+        kp.peer_id(),
+        restored.peer_id(),
+        "identity must survive seed roundtrip"
+    );
 }
 
 /// 单向搬运 [u16 帧长][帧体]；第 tamper_frame 帧翻转一个帧体字节后继续转发。
@@ -112,10 +122,15 @@ async fn tampered_first_handshake_frame_fails_both_sides() {
         NoiseXx.outbound(Box::new(initiator), &alice, Some(bob.peer_id()))
     );
     let server_err = server.err().expect("responder must fail on tampered msg1");
-    let client_err = client.err().expect("initiator must fail when responder aborts");
+    let client_err = client
+        .err()
+        .expect("initiator must fail when responder aborts");
     for err in [server_err, client_err] {
         assert!(
-            matches!(err, SecurityError::Handshake(_) | SecurityError::IdentityUnverified),
+            matches!(
+                err,
+                SecurityError::Handshake(_) | SecurityError::IdentityUnverified
+            ),
             "expected explicit handshake failure, got {err:?}"
         );
     }
@@ -140,5 +155,8 @@ async fn wrong_expected_peer_is_explicit_peer_mismatch() {
         Err(other) => panic!("initiator must report PeerMismatch, got {other:?}"),
         Ok(_) => panic!("initiator must not accept an unexpected peer"),
     }
-    assert!(server.is_err(), "responder must not complete a hijacked dial either");
+    assert!(
+        server.is_err(),
+        "responder must not complete a hijacked dial either"
+    );
 }

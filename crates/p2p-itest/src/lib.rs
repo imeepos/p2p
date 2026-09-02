@@ -45,7 +45,10 @@ where
     let read = Box::pin(futures::stream::unfold(in_rx, |mut rx| async move {
         rx.recv().await.map(|item| (item, rx))
     }));
-    RendezvousConn { write: out_tx, read }
+    RendezvousConn {
+        write: out_tx,
+        read,
+    }
 }
 
 /// 测试用 RendezvousLink：预置的 duplex 即一次传输连接，取用一次即耗尽。
