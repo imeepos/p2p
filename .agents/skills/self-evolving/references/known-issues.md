@@ -116,3 +116,9 @@ failed: early eof（客户端侧超时中止）。
 - 修法：pnpm approve-builds <包名>（非交互，写入 pnpm-workspace.yaml 的 allowBuilds），
   之后 install 恢复退出码 0。项目级 package.json 的 pnpm.onlyBuiltDependencies 在
   workspace 下不生效，只有根配置有效。
+- 症状：pnpm build 报 TS1002 Unterminated string literal，源码里字符串字面量被劈成两行。
+- 原因：run_code 写文件时模板字符串内容里的转义序列（换行符写法）被解释成真实换行写进目标文件。
+- 修法：文件内容里的转义序列双写反斜杠；写完对生成文件抽查含转义的行。
+- 症状：i18n locale 独立小提交单独构建时 tsc 报 t("xxx") key 不存在。
+- 原因：视图波删了占位期 key，但旧挂载页还没删，中间提交不可独立构建。
+- 修法：i18n 独立小提交只做加法；删 key 与删消费者同提交，或保留死 key 交给打磨波清理。

@@ -51,3 +51,8 @@ _none yet — be the first._
   （分号链）会让 build 失败后提交照常落盘，事后只能 amend。
 - 2026-09-02 gui-shell：run_code 模板字符串会吃正则反斜杠（/\d+/ 写入成 /d+/），
   写正则用 new RegExp 字符串形式或双写反斜杠。
+- 2026-09-02 gui-views-config：react-hook-form useFieldArray 仅支持对象行数组，
+  string[] 字段的 FieldArrayPath 解析为 never（TS2322 string not assignable to
+  never）；表单数组字段一律用 { value: string }[] 行模型，出入做双向转换。
+- 2026-09-02 gui-views-config：拆"函数 ≤60 行"要拆 JSX 组件本体而不是抽 hook——
+  把弹框内容抽成展示子组件（state 留父组件）一次就能从 126 行降到 ≤60。
