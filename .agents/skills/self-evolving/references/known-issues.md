@@ -47,3 +47,12 @@ _none yet — be the first._
 - if let Err(x) = self.lock().foo() { ...await... } 的临时 MutexGuard 活到 if-let 结束，跨 await 使 future !Send（std MutexGuard 非 Send），报错只说 "future cannot be sent" 不指认守卫。修法：先把结果 let 绑定收口锁临界区，再 if let。
 - 仓库已在跑 cargo fmt 的前提下，凭记忆写 edit 的 old_string 必失配（fmt 会拆行/合行）。流程必须是：读当前文件 → edit；或先 cargo fmt 再批量 edit。
 - git worktree remove 报 "contains modified files" 且 diff 仅 thiserror → thiserror 1.0.69 规范化漂移时，checkout -- Cargo.lock 后即可 remove（本仓多版本 thiserror 并存所致，见上期）。
+
+## 2026-09-02 tokio::select! 守卫状态被分支 future 内部改写 -> 唤醒丢失
+症状：yamux 驱动 select 的 open_rx 分支带 guard `pending_open.is_none()`，
+而 poll_fn 分支的 future 内部 take/放回 pending_open——select 挂起决策基于
+poll 时点快照，快照后守卫翻转不会重评，open_rx 分支被禁用且 waker 不注册，
+后续请求唤醒永久丢失（空闲/连续第二次 open_stream 必挂）。
+修法：跨 await 修改守卫状态的处理逻辑移出 select 分支 future，在 loop 顶部
+独立处理；select 分支 future 保持只读。诊断手法：循环计数打印定位 driver
+卡死轮次，再二分变量（次数 vs 时间）——"闲置后失效"未必与时间有关。
