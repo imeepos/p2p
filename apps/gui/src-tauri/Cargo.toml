@@ -19,7 +19,8 @@ p2p-swarm = { path = "../../../crates/p2p-swarm" }
 bs58 = "0.5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tauri = { version = "2", features = [] }
+# test feature 供集成测试用 mock runtime 直调命令层（不起 webview）
+tauri = { version = "2", features = ["test"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
