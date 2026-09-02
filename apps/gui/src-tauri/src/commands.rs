@@ -6,6 +6,7 @@ use tauri::{AppHandle, Runtime, State};
 
 use crate::events;
 use crate::state::AppState;
+use crate::history::MetricsPoint;
 use crate::types::{DialReport, GuiConfig, MetricsJson, NodeEventJson, NodeStatus, PingOutcome};
 
 /// node_start：构建 Node 并启动；已运行 Err。
@@ -97,3 +98,9 @@ pub async fn identity_reset<R: Runtime>(
     }
     Ok(status)
 }
+/// metrics_history：运行期 5s 采样的最近 120 点；未运行返回空数组（契约 v2）。
+#[tauri::command]
+pub async fn metrics_history(state: State<'_, AppState>) -> Result<Vec<MetricsPoint>, String> {
+    Ok(state.metrics_history().await)
+}
+

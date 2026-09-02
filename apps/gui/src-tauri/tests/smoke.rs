@@ -222,6 +222,22 @@ async fn two_nodes_discover_ping_and_observe_dialhop() {
     let rtt = outcome.rtt_ms.expect("成功 ping 必有 rtt");
     assert!(rtt <= PING_TIMEOUT_MS, "rtt {rtt}ms 超出预算");
 
+    // 4.5 metrics_history：采样任务随启动即采首点，运行期返回非空且字段合规
+    let history = loop {
+        let history = commands::metrics_history(app_a.handle().state::<AppState>())
+            .await
+            .expect("metrics_history 命令不应失败");
+        if !history.is_empty() {
+            break history;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    };
+    assert!(history[0].t_ms > 0, "采样点应带毫秒戳");
+    assert!(
+        history.len() <= p2p_console::history::HISTORY_CAP,
+        "序列不得超过环形上限"
+    );
+
     // 5. tsMs 运行时符合性：emit 出口捕获的每条 JSON 均含数值型 tsMs（契约 §2 修订）
     for (name, log) in [("A", &log_a), ("B", &log_b)] {
         let events = log.lock().expect("事件日志锁中毒");

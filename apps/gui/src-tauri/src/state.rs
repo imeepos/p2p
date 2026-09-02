@@ -13,6 +13,7 @@ use tokio::sync::{broadcast, Mutex};
 use tracing::warn;
 
 use crate::config::ConfigStore;
+use crate::history::{spawn_metrics_sampler, MetricsHistory, MetricsPoint};
 use crate::proto;
 use crate::types::{GuiConfig, MetricsJson, NodeStatus};
 
@@ -24,6 +25,7 @@ pub(crate) struct RunningNode {
     config: GuiConfig,
     started_at: Instant,
     started_at_epoch_ms: u64,
+    history: Arc<MetricsHistory>,
 }
 
 /// node_start 产物：状态快照 + 事件接收端（转发任务由命令层接管）。
@@ -61,11 +63,15 @@ impl AppState {
         let listen_addrs = node.listen_addrs();
         let peer_id = node.local_peer_id().to_string();
         let started_at_epoch_ms = crate::util::now_ms();
+        let node = Arc::new(node);
+        let history = Arc::new(MetricsHistory::new());
+        spawn_metrics_sampler(node.clone(), history.clone());
         *slot = Some(RunningNode {
-            node: Arc::new(node),
+            node,
             config: cfg.clone(),
             started_at: Instant::now(),
             started_at_epoch_ms,
+            history,
         });
         Ok(StartedNode {
             status: NodeStatus {
@@ -87,6 +93,7 @@ impl AppState {
         match slot.take() {
             Some(running) => {
                 running.node.shutdown();
+                running.history.stop_and_clear();
                 true
             }
             None => false,
@@ -150,6 +157,15 @@ impl AppState {
         };
         remove_seed(Path::new(&data_dir))?;
         Ok((self.status().await, was_running))
+    }
+
+    /// metrics_history：运行中返回环形序列快照；未运行返回空数组（契约 v2）。
+    pub async fn metrics_history(&self) -> Vec<MetricsPoint> {
+        let slot = self.running.lock().await;
+        match slot.as_ref() {
+            Some(r) => r.history.snapshot(),
+            None => Vec::new(),
+        }
     }
 
     /// 追加事件订阅（诊断/集成冒烟用；与命令层转发订阅互不影响）。

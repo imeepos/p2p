@@ -6,6 +6,7 @@
 pub mod commands;
 pub mod config;
 pub mod events;
+pub mod history;
 pub mod proto;
 pub mod state;
 pub mod types;
@@ -24,6 +25,7 @@ pub fn run() {
             commands::node_stop,
             commands::node_status,
             commands::metrics_get,
+            commands::metrics_history,
             commands::config_get,
             commands::config_save,
             commands::peer_dial,
