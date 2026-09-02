@@ -102,6 +102,16 @@ const zhCN = {
     description: "节点配置、外观与身份管理",
     hint: "节点配置表单将在视图波次接入，当前展示当前生效配置摘要",
   },
+  palette: {
+    placeholder: "搜索页面、节点或地址…",
+    empty: "无匹配结果",
+    groups: { menu: "页面", peers: "已知节点", addresses: "已知地址" },
+    copyPeerId: "复制 PeerId",
+    copyAddress: "复制地址",
+    copied: "已复制到剪贴板",
+    open: "命令面板",
+    hint: "Cmd/Ctrl+K 打开；Cmd/Ctrl+1..6 切换页面；Esc 关闭",
+  },
 };
 
 export default zhCN;

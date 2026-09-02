@@ -105,6 +105,16 @@ const enUS: typeof zhCN = {
     description: "Node config, appearance and identity",
     hint: "Config form lands in the views wave; effective config shown below",
   },
+  palette: {
+    placeholder: "Search pages, peers or addresses…",
+    empty: "No results",
+    groups: { menu: "Pages", peers: "Known peers", addresses: "Known addresses" },
+    copyPeerId: "Copy PeerId",
+    copyAddress: "Copy address",
+    copied: "Copied to clipboard",
+    open: "Command palette",
+    hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..6 to switch pages; Esc to close",
+  },
 };
 
 export default enUS;
