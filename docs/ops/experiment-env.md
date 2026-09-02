@@ -74,9 +74,50 @@
 
 | 会话 | 交付物 | 解锁 |
 |---|---|---|
-| S 编排装配（在途） | swarm + Node facade | E1 的前置、T 的 node 子命令 |
-| T 命令行（待启动） | crates/p2p-cli：bootstrap 子命令（依赖 D/R，现已可做）→ node/identify/ping/discover（依赖 S） | E1/E2/E3 的执行工具 |
+| S 编排装配（已完成） | swarm + Node facade | E1 的前置、T 的 node 子命令 |
+| T 命令行（在途） | crates/p2p-cli：bootstrap/node/ping/discover | E1/E2/E3 的执行工具 |
 | M3 贯通轮（S 后派单） | 降级链接入 swarm 拨号器 | E3 |
 
 执行口径：S 落地 → 启动 T → T bootstrap 子命令先行 → E2 部署可与 T node 子命令并行 →
 M3 贯通 → E1/E3 一起跑（先 LAN 后跨网）→ E4。
+
+## 8. E1/E3 执行手册（runbook）
+
+角色：15=macA（编译机）、114=macB、102=linC（编译机）、138=bootstrap（公网）。
+机器凭据见 `.env` 对应变量；所有节点数据目录 `~/p2p-lab/data/<name>`，日志 `~/p2p-lab/logs/<name>.log`。
+
+### 8.1 产物分发
+
+```bash
+# 15（macOS arm64，编译后分发 114）
+ssh $MAC_SSH_15 'cd ~/src/p2p && export PATH=$HOME/.cargo/bin:$PATH && cargo build --release -p p2p-cli'
+ssh $MAC_SSH_15 'scp ~/src/p2p/target/release/p2p-cli sker@192.168.0.114:~/p2p-lab/bin/'
+# 102（Linux x86_64 自编译自用）
+ssh $LINUX_SSH_102 'cd ~/src/p2p && export PATH=$HOME/.cargo/bin:$PATH && cargo build --release -p p2p-cli && install -m755 target/release/p2p-cli ~/p2p-lab/bin/'
+```
+
+源码上机：rsync -a --exclude .git --exclude target --exclude .worktrees --exclude .env ./ <host>:~/src/p2p/
+
+### 8.2 E1 局域网实验步骤
+
+1. 三台各起节点：`~/p2p-lab/bin/p2p-cli node --data ~/p2p-lab/data/<n> --name <n> 2>&1 | tee ~/p2p-lab/logs/<n>.log`
+2. 判定 1（互发现）：≤30s 内三份日志均出现另两个节点的 PeerDiscovered
+3. 判定 2（互通）：A 上 `p2p-cli ping <C 的 PeerId>` 成功且记录 RTT；再测 A↔B
+4. 判定 3（断线感知）：kill 102 的进程，15/114 日志 ≤5s 出现 PeerDisconnected
+5. 采集：三份日志拉回主树 `docs/notes/e1-results.md`（脱敏：只留 PeerId 前缀与 RTT）
+
+### 8.3 E3 跨网实验步骤（依赖 E2 + M3 贯通）
+
+1. 138 部署 bootstrap：`scripts/deploy-bootstrap-138.sh`，确认 systemd active 且监听 3400/udp+3401/tcp
+2. LAN 三节点带 `--bootstrap 43.240.223.138:3400` 重启
+3. 判定 1（跨网发现）：任一 LAN 节点 `p2p-cli discover` 能列出经 bootstrap 注册的其余节点
+4. 判定 2（跨网互通+降级链）：LAN 节点两两 ping ≥20 次，逐次记录建立方式（直连/打洞/中继）与 RTT，
+   打洞成功率 = 打洞成功数 / (打洞成功+失败回落中继数)
+5. 判定 3（中继兜底）：任选一次交互中 `sudo systemctl stop p2p-bootstrap` 模拟引导节点失联，
+   已建连接应继续可用；重新 start 后新发现恢复
+6. 记录模板：`时间 | 链路(A→C) | 建立方式 | RTT(ms) | 备注`，写入 `docs/notes/e3-results.md`
+
+### 8.4 判定与升级路径
+
+- 任一判定不过：回传日志定位，能就地修的派回属主会话，跨 crate 的进协调裁决
+- E1 全过 → M2 关闭；E3 全过 → M3 关闭，进 E4 长稳
