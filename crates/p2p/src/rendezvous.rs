@@ -3,6 +3,7 @@
 
 use std::io;
 use std::net::IpAddr;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -17,6 +18,7 @@ use p2p_transport::{QuicTransport, SecureConn, TcpTransport, Transport, Transpor
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
+use crate::discovery::failure_notice_level;
 use crate::NodeError;
 
 /// 内置 rendezvous 控制协议（design §5.4）。
@@ -40,6 +42,8 @@ pub(crate) fn parse_transport_addr(s: &str) -> Result<TransportAddr, NodeError> 
 /// 客户端连接缝：拨号 bootstrap → 开流 → 协议握手 → 长度分帧。
 pub(crate) struct TransportLink {
     addrs: Vec<TransportAddr>,
+    /// 与 addrs 一一对应：该地址当前故障序列是否已 WARN（AtomicBool 适配 &self connect）。
+    blind_dial_failed_warned: Vec<AtomicBool>,
     keypair: Arc<Keypair>,
     quic: QuicTransport,
     tcp: TcpTransport,
@@ -47,12 +51,39 @@ pub(crate) struct TransportLink {
 
 impl TransportLink {
     pub(crate) fn new(addrs: Vec<TransportAddr>, keypair: Arc<Keypair>) -> io::Result<Self> {
+        let warned = (0..addrs.len()).map(|_| AtomicBool::new(false)).collect();
         Ok(Self {
             addrs,
+            blind_dial_failed_warned: warned,
             keypair,
             quic: QuicTransport::new()?,
             tcp: TcpTransport::new(),
         })
+    }
+
+    /// 失败留痕（E4 刷屏治理，检查轮12）：单个 bootstrap 地址一次故障仅首次 WARN，
+    /// 重连周期（退避上限 30s）重复失败降级 debug；成功后复位，下次故障重新告警。
+    fn note_blind_dial_failure(
+        &self,
+        idx: usize,
+        addr: &TransportAddr,
+        err: &impl std::fmt::Display,
+    ) {
+        let already = self.blind_dial_failed_warned[idx].swap(true, Ordering::Relaxed);
+        let level = failure_notice_level(already);
+        if level == tracing::Level::WARN {
+            tracing::warn!(
+                %addr,
+                error = %err,
+                "rendezvous blind dial failed: bootstrap peer unknown, no expected binding"
+            );
+        } else {
+            tracing::debug!(
+                %addr,
+                error = %err,
+                "rendezvous blind dial failed: bootstrap peer unknown, no expected binding"
+            );
+        }
     }
 }
 
@@ -60,24 +91,31 @@ impl TransportLink {
 impl RendezvousLink for TransportLink {
     async fn connect(&self) -> Result<RendezvousConn, RendezvousError> {
         let mut last: Option<RendezvousError> = None;
-        for addr in &self.addrs {
+        for (idx, addr) in self.addrs.iter().enumerate() {
             let transport: &dyn Transport = match addr {
                 TransportAddr::Quic { .. } => &self.quic,
                 TransportAddr::Tcp { .. } => &self.tcp,
             };
             // 盲拨例外：bootstrap 仅以地址配置、身份未知，无法比对 expected；
-            // 依赖与 bootstrap 间加密信道（security-review-1.md L1），显式留痕
-            tracing::warn!(%addr, "rendezvous blind dial: bootstrap peer unknown, no expected binding");
+            // 依赖与 bootstrap 间加密信道（security-review-1.md L1），debug 留痕
+            tracing::debug!(%addr, "rendezvous blind dial: bootstrap peer unknown, no expected binding");
             let conn = match transport.dial(addr, &self.keypair, None).await {
                 Ok(conn) => conn,
                 Err(e) => {
+                    self.note_blind_dial_failure(idx, addr, &e);
                     last = Some(RendezvousError::Link(e.to_string()));
                     continue;
                 }
             };
             match open_rendezvous_stream(&conn).await {
-                Ok(stream) => return Ok(stream_to_conn(stream)),
-                Err(e) => last = Some(RendezvousError::Link(e.to_string())),
+                Ok(stream) => {
+                    self.blind_dial_failed_warned[idx].store(false, Ordering::Relaxed);
+                    return Ok(stream_to_conn(stream));
+                }
+                Err(e) => {
+                    self.note_blind_dial_failure(idx, addr, &e);
+                    last = Some(RendezvousError::Link(e.to_string()));
+                }
             }
         }
         Err(last.unwrap_or_else(|| RendezvousError::Link("no bootstrap addrs".into())))
