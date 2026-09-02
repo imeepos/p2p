@@ -192,6 +192,16 @@ impl MdnsDiscovery {
             Err(err) => Err(err.to_string()),
         }
     }
+
+    /// 重启浏览（stop→browse）：启动期补错过的窗口，稳定期强制重新 resolve 续期。
+    fn reprobe(&self, daemon: &ServiceDaemon, tx: &mpsc::Sender<ServiceEvent>) {
+        if let Err(err) = daemon.stop_browse(&self.config.service_type) {
+            tracing::warn!(target: "p2p_discovery", "mdns stop-browse: {err}");
+        }
+        if let Err(err) = self.start_browse(daemon, tx.clone()) {
+            tracing::warn!(target: "p2p_discovery", "mdns re-browse: {err}");
+        }
+    }
 }
 
 /// 把 mdns-sd 的 flume 接收端桥接到 tokio channel（事件产生于其后台线程）。
@@ -245,12 +255,11 @@ impl Discovery for MdnsDiscovery {
         );
         let mut scan =
             tokio::time::interval_at(tokio::time::Instant::now() + SCAN_INTERVAL, SCAN_INTERVAL);
-        // mdns-sd 稳定期不重发 ServiceResolved：每 TTL/2 重启浏览强制重新 resolve，
-        // 让存活对端续期，否则固定 TTL 到期会误判下线（假阳性）。
+        // 重询节奏（E4）：启动期短间隔补错过的公告/浏览窗口；稳定期每 TTL/2 重启浏览续期。
         let browse_refresh_secs = u64::from(self.config.ttl_secs / 2).max(1);
-        let browse_refresh = Duration::from_secs(browse_refresh_secs);
-        let mut browse_refresh_tick =
-            tokio::time::interval_at(tokio::time::Instant::now() + browse_refresh, browse_refresh);
+        let mut probe = probe::ProbeCadence::new(Duration::from_secs(browse_refresh_secs));
+        let probe_sleep = tokio::time::sleep(probe.next());
+        tokio::pin!(probe_sleep);
 
         'outer: loop {
             tokio::select! {
@@ -275,18 +284,16 @@ impl Discovery for MdnsDiscovery {
                         }
                     }
                 }
-                _ = browse_refresh_tick.tick() => {
-                    if let Err(err) = daemon.stop_browse(&self.config.service_type) {
-                        tracing::warn!(target: "p2p_discovery", "mdns stop-browse: {err}");
-                    }
-                    if let Err(err) = self.start_browse(&daemon, tx.clone()) {
-                        tracing::warn!(target: "p2p_discovery", "mdns re-browse: {err}");
-                    }
+                _ = &mut probe_sleep => {
+                    self.reprobe(&daemon, &tx);
+                    probe_sleep.as_mut().reset(tokio::time::Instant::now() + probe.next());
                 }
             }
         }
     }
 }
+
+mod probe;
 
 #[cfg(test)]
 mod tests;
