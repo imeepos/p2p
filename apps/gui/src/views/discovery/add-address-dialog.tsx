@@ -1,0 +1,130 @@
+import { PlusIcon } from "lucide-react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  isValidTransportAddr,
+  noDuplicateAddrs,
+} from "@/views/shared/address-rules";
+import { ErrorText } from "@/views/shared/error-text";
+
+interface AddDialogViewProps {
+  draft: string;
+  busy: boolean;
+  error: string | undefined;
+  onDraftChange: (value: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+function AddDialogView({
+  draft,
+  busy,
+  error,
+  onDraftChange,
+  onCancel,
+  onConfirm,
+}: AddDialogViewProps) {
+  const { t } = useTranslation();
+
+  return (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{t("discovery.rendezvous.addTitle")}</DialogTitle>
+        <DialogDescription>
+          {t("discovery.rendezvous.addDesc")}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="flex flex-col gap-1">
+        <Input
+          className="font-mono text-xs"
+          placeholder="192.168.1.10/u3400"
+          value={draft}
+          onChange={(event) => onDraftChange(event.target.value)}
+        />
+        <ErrorText code={error} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          {t("common.actions.cancel")}
+        </Button>
+        <Button
+          type="button"
+          disabled={error !== undefined || busy || draft.trim().length === 0}
+          onClick={onConfirm}
+        >
+          {t("common.actions.confirm")}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+interface AddAddressDialogProps {
+  existing: string[];
+  saving: boolean;
+  onAdd: (addr: string) => Promise<boolean>;
+}
+
+// 添加地址 Dialog：输入即校验（格式/重复内联红字），成功后关闭并清空。
+export function AddAddressDialog({ existing, saving, onAdd }: AddAddressDialogProps) {
+  const { t } = useTranslation();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const trimmed = draft.trim();
+  const draftError = trimmed.length === 0
+    ? undefined
+    : !isValidTransportAddr(trimmed)
+      ? "addrFormat"
+      : !noDuplicateAddrs([...existing, trimmed])
+        ? "addrDuplicate"
+        : undefined;
+
+  const addDraft = async () => {
+    if (draftError !== undefined || adding || saving) return;
+    setAdding(true);
+    const saved = await onAdd(trimmed);
+    setAdding(false);
+    if (!saved) return;
+    setDraft("");
+    setDialogOpen(false);
+  };
+
+  return (
+    <Dialog
+      open={dialogOpen}
+      onOpenChange={(next) => {
+        setDialogOpen(next);
+        if (!next) setDraft("");
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button type="button" size="sm" variant="outline" className="w-fit">
+          <PlusIcon aria-hidden />
+          {t("discovery.rendezvous.add")}
+        </Button>
+      </DialogTrigger>
+      <AddDialogView
+        draft={draft}
+        busy={adding || saving}
+        error={draftError}
+        onDraftChange={setDraft}
+        onCancel={() => setDialogOpen(false)}
+        onConfirm={() => void addDraft()}
+      />
+    </Dialog>
+  );
+}
