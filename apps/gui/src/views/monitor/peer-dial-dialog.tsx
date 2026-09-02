@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import type { DialReport } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
-import { parseDialTarget } from "./dial-target";
+import { parseDialTarget } from "@/lib/dial-target";
 import { DialDialogFooter } from "./dial-dialog-footer";
 import { DialResultPanel } from "./dial-result-panel";
 import { DialTargetField } from "./dial-target-field";
