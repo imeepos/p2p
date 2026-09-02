@@ -23,3 +23,26 @@ pub trait RelayService: Send + Sync {
 /// 中继会话上的逻辑链路标识（reserve 成功后由服务端发放）。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CircuitId(pub u64);
+
+// ===== 以下为中继会话 R 的实现：冻结契约只增不改 =====
+
+mod circuit;
+pub mod client;
+mod control;
+pub mod error;
+pub mod limits;
+pub mod link;
+pub mod messages;
+pub mod punch;
+pub mod service;
+mod state;
+
+pub use client::{RelayClient, RelayEvent};
+pub use error::RelayError;
+pub use limits::{PeerBuckets, RateBucket, RateLimitedStream, RelayLimits};
+pub use link::{mock_link_pair, LinkSource, MockLink, MockLinkSource, RelayLink};
+pub use messages::{
+    errcode, relay_msg, Bound, Connect, PunchAck, PunchReq, Reject, Reserve, Reserved, RelayMsg,
+};
+pub use punch::{PunchPhase, PunchSession};
+pub use service::RelayServiceImpl;
