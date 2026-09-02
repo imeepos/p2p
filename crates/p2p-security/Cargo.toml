@@ -5,6 +5,15 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+snow.workspace = true
+ring.workspace = true
+rcgen.workspace = true
+rustls.workspace = true
+x509-cert.workspace = true
+ed25519-dalek.workspace = true
+sha2.workspace = true
 p2p-identity = { path = "../p2p-identity" }
 p2p-mux = { path = "../p2p-mux" }
-thiserror.workspace = true
