@@ -55,4 +55,7 @@ _none yet — be the first._
   string[] 字段的 FieldArrayPath 解析为 never（TS2322 string not assignable to
   never）；表单数组字段一律用 { value: string }[] 行模型，出入做双向转换。
 - 2026-09-02 gui-views-config：拆"函数 ≤60 行"要拆 JSX 组件本体而不是抽 hook——
-  把弹框内容抽成展示子组件（state 留父组件）一次就能从 126 行降到 ≤60。
+  把弹框内容抽成展示子组件（state 留父组件）一次就能从 126 行降到 ≤60。- 2026-09-02 gui-views-config：协调者裁决——routes 薄挂载这类注册类接线变更要压独立小提交，
+  不得混进 feat 大提交（与 menu.def/i18n 同类）。
+- 2026-09-02 gui-views-config：GUI 派单前先查底座 facade 可达性——pub(crate) 能力（如 rendezvous
+  手动注册/查询）GUI 不改 crates 无法接通，按钮只能置灰/移除加说明，避免做出假反馈 UI。
