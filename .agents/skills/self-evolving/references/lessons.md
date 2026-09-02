@@ -55,7 +55,11 @@ _none yet — be the first._
   string[] 字段的 FieldArrayPath 解析为 never（TS2322 string not assignable to
   never）；表单数组字段一律用 { value: string }[] 行模型，出入做双向转换。
 - 2026-09-02 gui-views-config：拆"函数 ≤60 行"要拆 JSX 组件本体而不是抽 hook——
-  把弹框内容抽成展示子组件（state 留父组件）一次就能从 126 行降到 ≤60。- 2026-09-02 gui-views-config：协调者裁决——routes 薄挂载这类注册类接线变更要压独立小提交，
+  把弹框内容抽成展示子组件（state 留父组件）一次就能从 126 行降到 ≤60。
+- 2026-09-02 gui-views-config：协调者裁决——routes 薄挂载这类注册类接线变更要压独立小提交，
   不得混进 feat 大提交（与 menu.def/i18n 同类）。
 - 2026-09-02 gui-views-config：GUI 派单前先查底座 facade 可达性——pub(crate) 能力（如 rendezvous
   手动注册/查询）GUI 不改 crates 无法接通，按钮只能置灰/移除加说明，避免做出假反馈 UI。
+- 2026-09-02 gui-views-monitor：ask_user_question 有 600s 墙钟上限，协调者未应答会整体超时报错且拿不到答案——派单类会话把「范围冲突 + 推荐方案」一次性发出，超时后按推荐默认继续并在回报中标注待追认，不要原地等第二轮。
+- 2026-09-02 gui-views-monitor：骨架能力缺口优先找「不改骨架」的等价通道：zustand store 的公共 setState（清空事件）、subscribe 回调里 WeakMap 盖接收时间戳（事件 tsMs 兜底）都能把需求收进视图层；确需改骨架的做成独立一行提交并显式标注待追认。
+- 2026-09-02 gui-views-monitor：机械验收别目测——函数行数用括号匹配脚本量（注意先括号匹配参数再取函数体，组件解构参数的 { } 会被朴素匹配误当函数体），i18n 中英集合用 esbuild 转译成 CJS 后 require 比对叶子 key，一次脚本跑完比逐个眼查快且零漏。

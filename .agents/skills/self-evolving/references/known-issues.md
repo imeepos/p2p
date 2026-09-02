@@ -122,3 +122,6 @@ failed: early eof（客户端侧超时中止）。
 - 症状：i18n locale 独立小提交单独构建时 tsc 报 t("xxx") key 不存在。
 - 原因：视图波删了占位期 key，但旧挂载页还没删，中间提交不可独立构建。
 - 修法：i18n 独立小提交只做加法；删 key 与删消费者同提交，或保留死 key 交给打磨波清理。
+- 症状：i18next 严格类型 t 报 t(I18nKey, Record<string,string>) 不匹配任何重载（值被对到 defaultValue: string）。
+- 原因：CustomTypeOptions 生成逐 key 签名后，「动态 key + 通用 values」组合无法在联合 key 上分配。
+- 修法：收口一个 LooseT = (key, values?) => string 的松散签名做 as 转换（运行时与 t 等价），模板化摘要场景集中走它，普通场景仍用严格 t（2026-09-02 gui-views-monitor 实录）。

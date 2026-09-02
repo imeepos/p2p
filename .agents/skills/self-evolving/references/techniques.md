@@ -43,3 +43,15 @@
 pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任何 error TS 行，
 与真实构建失败难区分。构建验证一律显式进入子包目录（或 pnpm -C <包> build），
 并且不要和 git 提交串在同一条命令里。
+
+## 函数行数与 i18n 集合的机械审计（2026-09-02，gui-views-monitor）
+
+- 函数 ≤60 行审计：node 脚本正则抓 function 声明，先对参数做括号平衡匹配
+  （字符串感知），取其后真正的函数体花括号再计数——直接找第一个 { 会把
+  组件的解构参数当函数体漏报。脚本模式存 /tmp/fn-audit2.js 可复用。
+- i18n 中英 key 集合一致性：npx esbuild src/i18n/locales/{zh-CN,en-US}.ts
+  --format=cjs 转 CJS 后 node require，递归取叶子路径比对集合。类型层面
+  enUS: typeof zhCN 已兜底，该脚本给出独立于 tsc 的机械证据（166=166）。
+- worktree 里跑前端先 pnpm install（worktree 不共享 node_modules）；
+  macOS 无 timeout 命令，dev server 冒烟用 run_code 后台 job + sleep +
+  curl 探活 + job_kill 组合。
