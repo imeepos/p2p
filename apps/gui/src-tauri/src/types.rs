@@ -5,6 +5,8 @@
 use p2p::NodeEvent;
 use p2p_swarm::{DialHop, MetricsSnapshot};
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use serde_json::Value;
 
 /// 节点启停配置（契约 §3 GuiConfig）。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -167,6 +169,12 @@ pub enum NodeEventJson {
     },
 }
 
+#[cfg(test)]
+mod event_tests;
+
+#[cfg(test)]
+mod tests;
+
 impl From<NodeEvent> for NodeEventJson {
     fn from(ev: NodeEvent) -> Self {
         match ev {
@@ -203,3 +211,29 @@ impl From<NodeEvent> for NodeEventJson {
         }
     }
 }
+#[cfg(test)]
+pub(crate) fn roundtrip<T>(value: &T, raw: Value)
+where
+    T: Serialize + serde::de::DeserializeOwned + PartialEq + std::fmt::Debug,
+{
+    let encoded = serde_json::to_value(value).expect("序列化");
+    assert_eq!(encoded, raw, "序列化字段与契约不一致");
+    let decoded: T = serde_json::from_value(raw).expect("反序列化");
+    assert_eq!(&decoded, value, "roundtrip 不保真");
+}
+
+#[cfg(test)]
+pub(crate) fn sample_config() -> GuiConfig {
+    GuiConfig {
+        quic_port: 3400,
+        tcp_port: 3401,
+        enable_mdns: true,
+        data_dir: "/data/p2p-data".into(),
+        bootstrap: vec!["1.2.3.4/3400".into(), "1.2.3.4/t3401".into()],
+        relay_addrs: vec!["5.6.7.8/3400".into()],
+        advertised_addrs: vec!["9.9.9.9/4000".into()],
+        observation_port: Some(3402),
+        observation_addrs: vec!["1.2.3.4:3402".into()],
+    }
+}
+

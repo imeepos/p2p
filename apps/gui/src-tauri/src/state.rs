@@ -1,22 +1,25 @@
 //! 节点生命周期状态（gui-contract.md §1 语义）：唯一 running 槽位 + 持久化配置。
 //!
 //! 命令层薄封装，业务判断集中在此；AppHandle 不进本模块，保证可脱离 Tauri 单测。
+//! peer 拨号/测距见子模块 peers。
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
-use p2p::{Node, NodeBuilder, NodeError, NodeEvent, PeerId, ProtocolId};
+use p2p::{Node, NodeEvent};
 use tokio::sync::{broadcast, Mutex};
-use tracing::{info, warn};
+use tracing::warn;
 
 use crate::config::ConfigStore;
 use crate::proto;
-use crate::types::{DialHopJson, DialReport, GuiConfig, MetricsJson, NodeStatus, PingOutcome};
+use crate::types::{GuiConfig, MetricsJson, NodeStatus};
+
+mod peers;
 
 /// 运行中的节点及其生效配置。
-pub struct RunningNode {
+pub(crate) struct RunningNode {
     node: Arc<Node>,
     config: GuiConfig,
     started_at: Instant,
@@ -24,6 +27,7 @@ pub struct RunningNode {
 }
 
 /// node_start 产物：状态快照 + 事件接收端（转发任务由命令层接管）。
+#[derive(Debug)]
 pub struct StartedNode {
     pub status: NodeStatus,
     pub listen_addrs: Vec<String>,
@@ -134,87 +138,6 @@ impl AppState {
         Ok(cfg)
     }
 
-    /// peer_dial：登记地址 + 连接，回收期间 DialHop 为逐跳报告（契约 §1/§6）。
-    pub async fn dial(&self, target: &str) -> Result<DialReport, String> {
-        let (peer, addr) = proto::parse_target(target)?;
-        let node = self.running_node().await?;
-        node.add_peer_address(peer, &addr).map_err(|e| {
-            warn!(error = %e, peer = %peer, "登记对端地址失败");
-            format!("登记对端地址失败: {e}")
-        })?;
-        let mut rx = node.events();
-        let started = Instant::now();
-        let result = node.connect(peer).await;
-        let hops = drain_hops(&mut rx);
-        let total_ms = elapsed_ms(started);
-        match result {
-            Ok(()) => Ok(DialReport {
-                peer: peer.to_string(),
-                hops,
-                ok: true,
-                total_ms,
-            }),
-            Err(e) => {
-                warn!(error = %e, peer = %peer, "连接对端失败");
-                Ok(DialReport {
-                    peer: peer.to_string(),
-                    hops,
-                    ok: false,
-                    total_ms,
-                })
-            }
-        }
-    }
-
-    /// peer_ping：复用 echo 协议 request（同 p2p-cli ping），期间逐跳一并回收。
-    pub async fn ping(&self, peer_id: &str, timeout_ms: u64) -> Result<PingOutcome, String> {
-        if timeout_ms == 0 {
-            return Err("timeoutMs 必须为正数".into());
-        }
-        let peer = proto::parse_peer_id(peer_id)?;
-        let node = self.running_node().await?;
-        let mut rx = node.events();
-        let id = echo_protocol_id();
-        let started = Instant::now();
-        let mut hops = Vec::new();
-        let reply = request_with_hops(
-            &node,
-            peer,
-            id,
-            Duration::from_millis(timeout_ms),
-            &mut rx,
-            &mut hops,
-        )
-        .await;
-        hops.extend(drain_hops(&mut rx));
-        match reply {
-            Ok(data) if data == proto::PING_PAYLOAD => Ok(PingOutcome {
-                ok: true,
-                rtt_ms: Some(elapsed_ms(started)),
-                hops,
-                error: None,
-            }),
-            Ok(data) => {
-                warn!(bytes = data.len(), peer = %peer, "echo 应答与请求不符");
-                Ok(PingOutcome {
-                    ok: false,
-                    rtt_ms: Some(elapsed_ms(started)),
-                    hops,
-                    error: Some(format!("echo 应答与请求不符（实得 {} 字节）", data.len())),
-                })
-            }
-            Err(e) => {
-                warn!(error = %e, peer = %peer, "echo 请求失败");
-                Ok(PingOutcome {
-                    ok: false,
-                    rtt_ms: None,
-                    hops,
-                    error: Some(format!("echo 请求失败: {e}")),
-                })
-            }
-        }
-    }
-
     /// identity_reset：停节点（若在跑）+ 删身份数据目录内种子文件；confirm 校验在命令层。
     /// 返回（重置后状态, 是否停了运行中的节点）。
     pub async fn reset_identity(&self) -> Result<(NodeStatus, bool), String> {
@@ -230,7 +153,7 @@ impl AppState {
     }
 
     /// 取运行中节点的 Arc 克隆；未运行返回中文错误。
-    async fn running_node(&self) -> Result<Arc<Node>, String> {
+    pub(super) async fn running_node(&self) -> Result<Arc<Node>, String> {
         let slot = self.running.lock().await;
         slot.as_ref()
             .map(|r| r.node.clone())
@@ -260,65 +183,16 @@ async fn build_node(cfg: &GuiConfig) -> Result<Node, String> {
     })
 }
 
-/// echo request 与 DialHop 事件并发收集（结构同 p2p-cli ping 的 select 循环）。
-async fn request_with_hops(
-    node: &Node,
-    peer: PeerId,
-    id: ProtocolId,
-    timeout: Duration,
-    rx: &mut broadcast::Receiver<NodeEvent>,
-    hops: &mut Vec<DialHopJson>,
-) -> Result<Vec<u8>, NodeError> {
-    let request = node.request(peer, id, proto::PING_PAYLOAD.to_vec(), timeout);
-    tokio::pin!(request);
-    let mut events_open = true;
-    loop {
-        tokio::select! {
-            reply = &mut request => return reply,
-            event = rx.recv(), if events_open => match event {
-                Ok(NodeEvent::DialHop { hop, ok, detail, .. }) => {
-                    hops.push(DialHopJson { hop: hop.into(), ok, detail });
-                }
-                Ok(_) => {}
-                Err(broadcast::error::RecvError::Lagged(n)) => {
-                    warn!(dropped = n, "ping 期间事件积压，部分逐跳丢失");
-                }
-                Err(broadcast::error::RecvError::Closed) => events_open = false,
-            }
-        }
-    }
-}
-
-/// 尽收缓冲区内 DialHop 事件；积压与关闭不致命，留日志。
-fn drain_hops(rx: &mut broadcast::Receiver<NodeEvent>) -> Vec<DialHopJson> {
-    let mut hops = Vec::new();
-    loop {
-        match rx.try_recv() {
-            Ok(NodeEvent::DialHop { hop, ok, detail, .. }) => {
-                hops.push(DialHopJson { hop: hop.into(), ok, detail });
-            }
-            Ok(_) => {}
-            Err(broadcast::error::TryRecvError::Lagged(n)) => {
-                warn!(dropped = n, "拨号期间事件积压，部分逐跳丢失");
-            }
-            Err(broadcast::error::TryRecvError::Empty | broadcast::error::TryRecvError::Closed) => {
-                break;
-            }
-        }
-    }
-    hops
-}
-
 /// 删除身份数据目录内的种子文件（装配层固定为 key.seed）；不存在视为已重置。
 fn remove_seed(data_dir: &Path) -> Result<(), String> {
     let seed = data_dir.join("key.seed");
     match fs::remove_file(&seed) {
         Ok(()) => {
-            info!(path = %seed.display(), "已删除身份种子文件");
+            tracing::info!(path = %seed.display(), "已删除身份种子文件");
             Ok(())
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            info!(path = %seed.display(), "种子文件不存在，身份已视为重置");
+            tracing::info!(path = %seed.display(), "种子文件不存在，身份已视为重置");
             Ok(())
         }
         Err(e) => {
@@ -328,8 +202,8 @@ fn remove_seed(data_dir: &Path) -> Result<(), String> {
     }
 }
 
-fn echo_protocol_id() -> ProtocolId {
-    ProtocolId::new(proto::ECHO_PROTOCOL).expect("内置 echo 协议 id 合法")
+pub(super) fn elapsed_ms(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 fn epoch_ms_now() -> u64 {
@@ -337,10 +211,6 @@ fn epoch_ms_now() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
         .unwrap_or(0)
-}
-
-fn elapsed_ms(started: Instant) -> u64 {
-    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 #[cfg(test)]

@@ -1,40 +1,12 @@
-//! 契约 serde 单测（gui-contract.md §2/§3）：camelCase 字段逐字断言 + 全类型 roundtrip。
+//! 契约 §3 数据类型 serde 单测：camelCase 逐字段断言 + roundtrip。
 
-use serde::de::DeserializeOwned;
-use serde::Serialize;
+use super::{roundtrip, sample_config, GuiConfig, MetricsJson, NodeStatus, PingOutcome, DialReport, DialHopJson, HopKind};
 use serde_json::{json, Value};
-
-use super::*;
-
-/// 编码结果必须与契约 JSON 逐字段一致，且能从契约 JSON 原样还原。
-fn roundtrip<T>(value: T, raw: Value)
-where
-    T: Serialize + DeserializeOwned + PartialEq + std::fmt::Debug,
-{
-    let encoded = serde_json::to_value(&value).expect("序列化");
-    assert_eq!(encoded, raw, "序列化字段与契约不一致");
-    let decoded: T = serde_json::from_value(raw).expect("反序列化");
-    assert_eq!(decoded, value, "roundtrip 不保真");
-}
-
-fn sample_config() -> GuiConfig {
-    GuiConfig {
-        quic_port: 3400,
-        tcp_port: 3401,
-        enable_mdns: true,
-        data_dir: "/data/p2p-data".into(),
-        bootstrap: vec!["1.2.3.4/3400".into(), "1.2.3.4/t3401".into()],
-        relay_addrs: vec!["5.6.7.8/3400".into()],
-        advertised_addrs: vec!["9.9.9.9/4000".into()],
-        observation_port: Some(3402),
-        observation_addrs: vec!["1.2.3.4:3402".into()],
-    }
-}
 
 #[test]
 fn gui_config_camel_case_roundtrip() {
     roundtrip(
-        sample_config(),
+        &sample_config(),
         json!({
             "quicPort": 3400,
             "tcpPort": 3401,
@@ -52,7 +24,7 @@ fn gui_config_camel_case_roundtrip() {
 #[test]
 fn gui_config_optional_port_null_roundtrip() {
     roundtrip(
-        GuiConfig {
+        &GuiConfig {
             observation_port: None,
             ..sample_config()
         },
@@ -81,7 +53,7 @@ fn node_status_running_shape() {
         config: sample_config(),
     };
     roundtrip(
-        status,
+        &status,
         json!({
             "running": true,
             "peerId": "3xY9abc",
@@ -126,7 +98,7 @@ fn metrics_json_all_fields_camel_case() {
         relay_sessions_active: 11,
     };
     roundtrip(
-        metrics,
+        &metrics,
         json!({
             "dialDirectOk": 1, "dialDirectFail": 2,
             "dialPunchOk": 3, "dialPunchFail": 4,
@@ -160,7 +132,7 @@ fn dial_report_and_hop_shapes() {
         total_ms: 88,
     };
     roundtrip(
-        report,
+        &report,
         json!({
             "peer": "3xY9abc",
             "hops": [
@@ -181,10 +153,7 @@ fn ping_outcome_success_and_failure_shapes() {
         hops: Vec::new(),
         error: None,
     };
-    roundtrip(
-        ok.clone(),
-        json!({ "ok": true, "rttMs": 12, "hops": [], "error": null }),
-    );
+    roundtrip(&ok, json!({ "ok": true, "rttMs": 12, "hops": [], "error": null }));
     let failed = PingOutcome {
         ok: false,
         rtt_ms: None,
@@ -192,171 +161,9 @@ fn ping_outcome_success_and_failure_shapes() {
         error: Some("超时".into()),
     };
     roundtrip(
-        failed,
+        &failed,
         json!({ "ok": false, "rttMs": null, "hops": [], "error": "超时" }),
     );
-}
-
-#[test]
-fn node_event_discovered_connected_disconnected() {
-    roundtrip(
-        NodeEventJson::PeerDiscovered {
-            peer: "PeerA".into(),
-            addrs: vec!["1.2.3.4/3400".into()],
-        },
-        json!({ "type": "peer_discovered", "peer": "PeerA", "addrs": ["1.2.3.4/3400"] }),
-    );
-    roundtrip(
-        NodeEventJson::PeerConnected { peer: "PeerA".into() },
-        json!({ "type": "peer_connected", "peer": "PeerA" }),
-    );
-    roundtrip(
-        NodeEventJson::PeerDisconnected { peer: "PeerA".into() },
-        json!({ "type": "peer_disconnected", "peer": "PeerA" }),
-    );
-}
-
-#[test]
-fn node_event_failure_variants() {
-    roundtrip(
-        NodeEventJson::ListenFailed {
-            addr: "0.0.0.0:3400".into(),
-            reason: "占用".into(),
-        },
-        json!({ "type": "listen_failed", "addr": "0.0.0.0:3400", "reason": "占用" }),
-    );
-    roundtrip(
-        NodeEventJson::DialFailed {
-            peer: None,
-            reason: "不可达".into(),
-        },
-        json!({ "type": "dial_failed", "peer": null, "reason": "不可达" }),
-    );
-    roundtrip(
-        NodeEventJson::DialFailed {
-            peer: Some("PeerB".into()),
-            reason: "拒绝".into(),
-        },
-        json!({ "type": "dial_failed", "peer": "PeerB", "reason": "拒绝" }),
-    );
-    roundtrip(
-        NodeEventJson::ProtocolViolation {
-            peer: "PeerC".into(),
-            reason: "坏帧".into(),
-        },
-        json!({ "type": "protocol_violation", "peer": "PeerC", "reason": "坏帧" }),
-    );
-}
-
-#[test]
-fn node_event_dial_hop_relay_variant() {
-    roundtrip(
-        NodeEventJson::DialHop {
-            peer: "PeerD".into(),
-            hop: HopKind::Relay,
-            ok: false,
-            detail: "relay down".into(),
-        },
-        json!({
-            "type": "dial_hop",
-            "peer": "PeerD",
-            "hop": "relay",
-            "ok": false,
-            "detail": "relay down"
-        }),
-    );
-}
-
-#[test]
-fn node_event_app_level_variants() {
-    roundtrip(
-        NodeEventJson::NodeStarted {
-            listen_addrs: vec!["127.0.0.1/3400".into()],
-        },
-        json!({ "type": "node_started", "listenAddrs": ["127.0.0.1/3400"] }),
-    );
-    roundtrip(NodeEventJson::NodeStopped, json!({ "type": "node_stopped" }));
-    roundtrip(
-        NodeEventJson::NodeError {
-            reason: "积压".into(),
-        },
-        json!({ "type": "node_error", "reason": "积压" }),
-    );
-}
-
-#[test]
-fn node_event_from_kernel_event_maps_every_variant() {
-    let peer = p2p::PeerId::from_bytes([7u8; 32]);
-    let peer_str = peer.to_string();
-    let cases: Vec<(p2p::NodeEvent, NodeEventJson)> = vec![
-        (
-            p2p::NodeEvent::PeerDiscovered {
-                peer,
-                addrs: vec!["1.2.3.4/3400".into()],
-            },
-            NodeEventJson::PeerDiscovered {
-                peer: peer_str.clone(),
-                addrs: vec!["1.2.3.4/3400".into()],
-            },
-        ),
-        (
-            p2p::NodeEvent::PeerConnected { peer },
-            NodeEventJson::PeerConnected {
-                peer: peer_str.clone(),
-            },
-        ),
-        (
-            p2p::NodeEvent::PeerDisconnected { peer },
-            NodeEventJson::PeerDisconnected {
-                peer: peer_str.clone(),
-            },
-        ),
-        (
-            p2p::NodeEvent::ListenFailed {
-                addr: "0.0.0.0:1".into(),
-                reason: "x".into(),
-            },
-            NodeEventJson::ListenFailed {
-                addr: "0.0.0.0:1".into(),
-                reason: "x".into(),
-            },
-        ),
-        (
-            p2p::NodeEvent::DialFailed { peer: None, reason: "x".into() },
-            NodeEventJson::DialFailed { peer: None, reason: "x".into() },
-        ),
-        (
-            p2p::NodeEvent::ProtocolViolation { peer, reason: "x".into() },
-            NodeEventJson::ProtocolViolation {
-                peer: peer_str.clone(),
-                reason: "x".into(),
-            },
-        ),
-        (
-            p2p::NodeEvent::DialHop {
-                peer,
-                hop: p2p_swarm::DialHop::Punch,
-                ok: true,
-                detail: "ok".into(),
-            },
-            NodeEventJson::DialHop {
-                peer: peer_str,
-                hop: HopKind::Punch,
-                ok: true,
-                detail: "ok".into(),
-            },
-        ),
-    ];
-    for (kernel, expected) in cases {
-        assert_eq!(NodeEventJson::from(kernel), expected);
-    }
-}
-
-#[test]
-fn hop_kind_maps_all_kernel_variants() {
-    assert_eq!(HopKind::from(p2p_swarm::DialHop::Direct), HopKind::Direct);
-    assert_eq!(HopKind::from(p2p_swarm::DialHop::Punch), HopKind::Punch);
-    assert_eq!(HopKind::from(p2p_swarm::DialHop::Relay), HopKind::Relay);
 }
 
 #[test]
