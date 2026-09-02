@@ -16,6 +16,7 @@ TCP_PORT=3401
 log() { printf '[deploy] %s\n' "$*"; }
 
 log "1/5 同步源码到 $HOST:$REMOTE_SRC（不含 .git/target/.worktrees/.env）"
+ssh -o BatchMode=yes "$HOST" "mkdir -p $REMOTE_SRC"
 rsync -a --delete \
   --exclude '.git' --exclude 'target' --exclude '.worktrees' \
   --exclude '.env' --exclude 'node_modules' \
