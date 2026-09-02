@@ -52,3 +52,4 @@ brew 和 graphviz 都在 /opt/homebrew/bin
 
 ## 密钥信息
 存放在: .env
+cargo: $HOME/.cargo/bin
