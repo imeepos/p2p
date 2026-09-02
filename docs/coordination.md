@@ -8,10 +8,10 @@
 | 包 | 分支 | 负责会话 | 范围（拥有的 crate） | 状态 | 验收 |
 |---|---|---|---|---|---|
 | K 内核传输 | feat/kernel-transport | p2p-K-内核传输 | p2p-transport（quinn QUIC + TCP）、p2p-security（TLS1.3 + Noise XX）、p2p-mux（yamux 实现）、p2p-identity（种子落盘持久化） | 进行中 | cargo test -p p2p-transport -p p2p-security -p p2p-identity 全绿；同机 QUIC 互拨握手 + mux 流 echo 集成测试 |
-| P 协议分发 | feat/protocol | p2p-P-协议分发 | p2p-protocol（RequestResponse 实现、开流协议握手助手、chunked transfer） | 进行中 | cargo test -p p2p-protocol 全绿；req-resp 超时与超大帧拒绝有单测 |
-| D 节点发现 | feat/discovery | p2p-D-节点发现 | p2p-discovery（mdns-sd 局域网发现、rendezvous 客户端 + 签名注册、AddrCache 实现） | 进行中 | cargo test -p p2p-discovery 全绿；签名验证/TTL 缓存/事件映射有单测；真实组播测试标 #[ignore] |
+| P 协议分发 | feat/protocol | p2p-P-协议分发 | p2p-protocol（RequestResponse 实现、开流协议握手助手、chunked transfer） | 已完成：84c4337+db91134 已合并，14 用例全绿 + clippy -D warnings 零告警 | ✓ 验收通过 |
+| D 节点发现 | feat/discovery | p2p-D-节点发现 | p2p-discovery（mdns-sd 局域网发现、rendezvous 客户端 + 签名注册、AddrCache 实现） | 已完成：f22aebc+7abd318+f1c0105 已合并，27 用例全绿（真实组播 #[ignore]）+ clippy 零告警 | ✓ 验收通过 |
 | R 中继穿透 | feat/relay | p2p-R-中继穿透 | p2p-relay（RelayService 服务端、客户端 reserve/connect、打洞信令消息、密文桥接） | 进行中 | cargo test -p p2p-relay 全绿；进程内 relay + 两客户端电路字节互通集成测试 |
-| S 编排装配 | （待开分支） | （待分配，排队中） | p2p-swarm（连接池/拨号器/门禁/事件总线）、crates/p2p facade（Node/Builder 装配、mdns+rendezvous 接线） | 排队中：待 K、P 合并后由协调会话启动 | 两进程经 facade 互拨、业务 handler 收发、断线事件可见 |
+| S 编排装配 | （待开分支） | （待分配，排队中） | p2p-swarm（连接池/拨号器/门禁/事件总线）、crates/p2p facade（Node/Builder 装配、mdns+rendezvous 接线） | 排队中：待 K 合并后启动（P 已就绪） | 两进程经 facade 互拨、业务 handler 收发、断线事件可见 |
 
 ## 并行规则（各会话必读）
 
@@ -34,3 +34,5 @@
 ## 变更记录
 
 - 2026-09-02 协调会话创建本表；K/P/D/R 四会话启动；S 排队。
+- 2026-09-02 检查轮 1：P、D 合并落地，机械验收通过（cargo test --workspace 43 用例全绿 + clippy -D warnings 零告警；冻结契约未被改；本表无会话触碰）。K 进行中（security/mux/identity 已提交），R 未提交。
+- 流程备注：D 反向同步用 merge 把 merge bubble（f58b869）带进了 main 历史；已提醒 K/R 反向同步改用 `git rebase main` 保持 main 线性。

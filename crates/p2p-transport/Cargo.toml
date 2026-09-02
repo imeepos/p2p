@@ -5,6 +5,13 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+quinn.workspace = true
 p2p-identity = { path = "../p2p-identity" }
 p2p-mux = { path = "../p2p-mux" }
-thiserror.workspace = true
+p2p-security = { path = "../p2p-security" }
+[dev-dependencies]
+tokio-util = { workspace = true, features = ["io"] }

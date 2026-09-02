@@ -6,3 +6,7 @@ edition.workspace = true
 [dependencies]
 async-trait.workspace = true
 tokio.workspace = true
+tokio-util = { workspace = true, features = ["compat"] }
+quinn.workspace = true
+yamux.workspace = true
+tracing.workspace = true
