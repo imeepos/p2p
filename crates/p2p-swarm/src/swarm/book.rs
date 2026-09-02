@@ -77,13 +77,16 @@ impl AddressBook {
         let Some(entry) = self.peers.get(peer) else {
             return Vec::new();
         };
-        let mut ranked: Vec<(u8, usize, &BookedAddr)> = entry
+        let mut ranked: Vec<(u8, u8, usize, &BookedAddr)> = entry
             .iter()
             .enumerate()
-            .map(|(idx, e)| (self.class_of(e), idx, e))
+            .map(|(idx, e)| (self.class_of(e), transport_rank(&e.addr), idx, e))
             .collect();
-        ranked.sort_by_key(|(class, idx, _)| (*class, *idx));
-        ranked.into_iter().map(|(_, _, e)| e.addr.clone()).collect()
+        ranked.sort_by_key(|(class, transport, idx, _)| (*class, *transport, *idx));
+        ranked
+            .into_iter()
+            .map(|(_, _, _, e)| e.addr.clone())
+            .collect()
     }
 
     /// 优先级：mDNS=0 < 同链路网段=1 < rendezvous 全局=2 < 其余=3。
@@ -127,6 +130,14 @@ pub fn filter_loopback(addrs: Vec<TransportAddr>) -> Vec<TransportAddr> {
 fn is_loopback_addr(addr: &TransportAddr) -> bool {
     match addr {
         TransportAddr::Quic { ip, .. } | TransportAddr::Tcp { ip, .. } => ip.is_loopback(),
+    }
+}
+
+/// 同一来源/网段级别内优先 QUIC；其余排序仍由 class 主键决定。
+fn transport_rank(addr: &TransportAddr) -> u8 {
+    match addr {
+        TransportAddr::Quic { .. } => 0,
+        TransportAddr::Tcp { .. } => 1,
     }
 }
 
@@ -190,6 +201,29 @@ mod tests {
         let addrs = vec![tcp("127.0.0.1", 1), tcp("240e:1000::5", 443)];
         let kept = filter_loopback(addrs);
         assert_eq!(kept, vec![tcp("240e:1000::5", 443)]);
+    }
+
+    #[test]
+    fn same_source_prefers_quic_before_tcp() {
+        let mut book = AddressBook::new();
+        let p = peer(3);
+        let ip = "192.168.1.8";
+        book.add(
+            p,
+            vec![
+                (tcp(ip, 4001), AddrSource::Rendezvous),
+                (
+                    TransportAddr::Quic {
+                        ip: ip.parse().unwrap(),
+                        port: 4000,
+                    },
+                    AddrSource::Rendezvous,
+                ),
+            ],
+        );
+        let sorted = book.sorted_addrs(&p);
+        assert!(matches!(sorted[0], TransportAddr::Quic { port: 4000, .. }));
+        assert!(matches!(sorted[1], TransportAddr::Tcp { port: 4001, .. }));
     }
 
     #[test]

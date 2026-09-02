@@ -227,3 +227,43 @@ async fn dial_prefers_mdns_and_lan_addrs_over_global() {
         "global addr must rank after the reachable lan addr, got {failed:?}"
     );
 }
+
+/// E3 传输层排序回归：同 IP/来源下 TCP 必拒、QUIC 可达时，QUIC 必须先试并成功。
+#[tokio::test]
+async fn dial_prefers_quic_before_tcp_same_ip() {
+    let swarm = Swarm::start(test_config()).await.expect("bind swarm");
+    let helper = Swarm::start(test_config()).await.expect("bind helper");
+    let peer = helper.local_peer_id();
+    let quic_addr = helper
+        .listen_addrs()
+        .into_iter()
+        .find(|a| matches!(a, TransportAddr::Quic { .. }))
+        .expect("helper quic addr");
+    let ip = match quic_addr {
+        TransportAddr::Quic { ip, .. } => ip,
+        _ => unreachable!(),
+    };
+    swarm.add_peer_addresses(peer, vec![TransportAddr::Tcp { ip, port: 1 }, quic_addr]);
+    let mut events = swarm.subscribe();
+    swarm
+        .connect(peer)
+        .await
+        .expect("quic must bypass refused tcp");
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    let mut tcp_failed = false;
+    loop {
+        match tokio::time::timeout_at(deadline, events.recv()).await {
+            Ok(Ok(NodeEvent::DialFailed { reason, .. })) if reason.contains("/t1") => {
+                tcp_failed = true;
+                break;
+            }
+            Ok(Ok(_)) => continue,
+            _ => break,
+        }
+    }
+    assert!(
+        !tcp_failed,
+        "TCP must not be attempted before reachable QUIC"
+    );
+}
