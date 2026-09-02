@@ -57,6 +57,15 @@ export interface PingOutcome {
   error: string | null;
 }
 
+// 契约 v2：后端每 5s 采样，最近 120 点（10 分钟窗口）。
+export interface MetricsPoint {
+  tMs: number;
+  activeConnections: number;
+  relaySessionsActive: number;
+  dialOkTotal: number;
+  dialFailTotal: number;
+}
+
 // 契约 §2 修订：全变体可带可选 tsMs（后端 emit 出口统一盖发射时刻戳，缺省字段不出现在载荷）。
 export type NodeEventJson =
   | { type: "peer_discovered"; peer: string; addrs: string[]; tsMs?: number }
@@ -80,6 +89,7 @@ export interface IpcBackend {
   nodeStop(): Promise<NodeStatus>;
   nodeStatus(): Promise<NodeStatus>;
   metricsGet(): Promise<MetricsJson>;
+  metricsHistory(): Promise<MetricsPoint[]>;
   configGet(): Promise<GuiConfig>;
   configSave(cfg: GuiConfig): Promise<GuiConfig>;
   peerDial(target: string): Promise<DialReport>;

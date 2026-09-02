@@ -9,6 +9,7 @@ import type {
   UnlistenFn,
 } from "./ipc-types";
 import { parseDialTarget } from "./dial-target";
+import { randomWalkHistory } from "./metrics-history";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -205,6 +206,10 @@ export const mockBackend: IpcBackend = {
 
   async metricsGet() {
     return currentMetrics();
+  },
+
+  async metricsHistory() {
+    return randomWalkHistory();
   },
 
   async configGet() {
