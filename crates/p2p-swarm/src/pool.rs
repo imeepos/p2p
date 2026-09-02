@@ -131,14 +131,20 @@ mod tests {
         let first = stub();
         let second = stub();
         assert!(pool.insert(peer, first.clone()));
-        assert!(!pool.remove_if_same(&peer, &second), "must not remove other mux");
+        assert!(
+            !pool.remove_if_same(&peer, &second),
+            "must not remove other mux"
+        );
         assert!(pool.remove_if_same(&peer, &first));
         assert!(!pool.remove_if_same(&peer, &first), "already removed");
     }
 
-
     /// 与 Swarm 的 dial_peer 契约一致：拨号成功方负责入池。
-    async fn dial_once(pool: Arc<ConnectionPool>, peer: PeerId, counter: Arc<AtomicUsize>) -> io::Result<Mux> {
+    async fn dial_once(
+        pool: Arc<ConnectionPool>,
+        peer: PeerId,
+        counter: Arc<AtomicUsize>,
+    ) -> io::Result<Mux> {
         counter.fetch_add(1, Ordering::SeqCst);
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
         let mux = stub();

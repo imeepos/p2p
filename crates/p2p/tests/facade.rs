@@ -167,7 +167,9 @@ async fn new_stream_roundtrip() {
         .new_stream(a_peer, ProtocolId::new(ECHO_PROTOCOL).expect("id"))
         .await
         .expect("new stream");
-    write_frame(&mut stream, b"via-stream").await.expect("write");
+    write_frame(&mut stream, b"via-stream")
+        .await
+        .expect("write");
     let echoed = read_frame(&mut stream).await.expect("read");
     assert_eq!(echoed, b"via-stream");
 

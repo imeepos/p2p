@@ -60,7 +60,9 @@ impl Node {
         peer: PeerId,
         protocol: ProtocolId,
     ) -> Result<BoxedStream, NodeError> {
-        let raw = SwarmFactory(self.swarm.clone()).open_stream(&peer, &protocol).await?;
+        let raw = SwarmFactory(self.swarm.clone())
+            .open_stream(&peer, &protocol)
+            .await?;
         Ok(open_with_protocol(raw, &protocol).await?)
     }
 

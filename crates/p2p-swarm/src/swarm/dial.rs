@@ -64,7 +64,9 @@ async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) -> io::Resu
     if !swarm.gate_allows(conn.remote).await {
         tracing::warn!(peer = %conn.remote, %addr, "outbound connection denied by gate, dropping");
         drop(conn);
-        return Err(io::Error::other(format!("peer {peer} denied by connection gate")));
+        return Err(io::Error::other(format!(
+            "peer {peer} denied by connection gate"
+        )));
     }
     Ok(conn.mux)
 }

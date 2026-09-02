@@ -84,7 +84,10 @@ async fn mdns_discovered_roundtrip() {
     )
     .await;
 
-    node_b.connect(a_peer).await.expect("connect after mdns discovery");
+    node_b
+        .connect(a_peer)
+        .await
+        .expect("connect after mdns discovery");
     let reply = node_b
         .request(
             a_peer,

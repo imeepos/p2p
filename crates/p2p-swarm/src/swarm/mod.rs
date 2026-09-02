@@ -136,7 +136,10 @@ impl Swarm {
         };
         if added {
             let strings = known.iter().map(ToString::to_string).collect();
-            self.emit(NodeEvent::PeerDiscovered { peer, addrs: strings });
+            self.emit(NodeEvent::PeerDiscovered {
+                peer,
+                addrs: strings,
+            });
         }
     }
 
@@ -168,7 +171,11 @@ impl Swarm {
     }
 
     /// 开裸流（协议 ID 首帧由调用方写入）：按需取/建连接。
-    pub async fn open_stream(&self, peer: &PeerId, _protocol: &ProtocolId) -> io::Result<BoxedStream> {
+    pub async fn open_stream(
+        &self,
+        peer: &PeerId,
+        _protocol: &ProtocolId,
+    ) -> io::Result<BoxedStream> {
         let mux = self.pool.get_or_dial(*peer, dial_peer(self, *peer)).await?;
         mux.open_stream().await
     }
@@ -196,9 +203,15 @@ fn to_transport(addr: SocketAddr, quic: bool) -> TransportAddr {
         addr.ip()
     };
     if quic {
-        TransportAddr::Quic { ip, port: addr.port() }
+        TransportAddr::Quic {
+            ip,
+            port: addr.port(),
+        }
     } else {
-        TransportAddr::Tcp { ip, port: addr.port() }
+        TransportAddr::Tcp {
+            ip,
+            port: addr.port(),
+        }
     }
 }
 
@@ -253,7 +266,10 @@ mod tests {
         swarm.add_peer_addresses(
             helper_peer,
             vec![
-                TransportAddr::Tcp { ip: IpAddr::from([127, 0, 0, 1]), port: 1 },
+                TransportAddr::Tcp {
+                    ip: IpAddr::from([127, 0, 0, 1]),
+                    port: 1,
+                },
                 tcp_addr,
             ],
         );

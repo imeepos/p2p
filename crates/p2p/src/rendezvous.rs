@@ -115,7 +115,10 @@ pub(crate) fn stream_to_conn(stream: BoxedStream) -> RendezvousConn {
     let read = Box::pin(futures::stream::unfold(in_rx, |mut rx| async move {
         rx.recv().await.map(|item| (item, rx))
     }));
-    RendezvousConn { write: out_tx, read }
+    RendezvousConn {
+        write: out_tx,
+        read,
+    }
 }
 
 /// 内置 rendezvous 服务 handler：入站流桥接到 serve_link（design §2/§5.4）。
@@ -155,12 +158,18 @@ mod tests {
         let quic = parse_transport_addr("192.168.1.5/u40000").expect("quic addr");
         assert_eq!(
             quic,
-            TransportAddr::Quic { ip: "192.168.1.5".parse().unwrap(), port: 40000 }
+            TransportAddr::Quic {
+                ip: "192.168.1.5".parse().unwrap(),
+                port: 40000
+            }
         );
         let tcp = parse_transport_addr("127.0.0.1/t40001").expect("tcp addr");
         assert_eq!(
             tcp,
-            TransportAddr::Tcp { ip: "127.0.0.1".parse().unwrap(), port: 40001 }
+            TransportAddr::Tcp {
+                ip: "127.0.0.1".parse().unwrap(),
+                port: 40001
+            }
         );
         assert!(parse_transport_addr("127.0.0.1/x1").is_err());
         assert!(parse_transport_addr("127.0.0.1/u").is_err());
