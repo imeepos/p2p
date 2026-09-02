@@ -6,7 +6,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::Instant;
 
 use p2p::{Node, NodeEvent};
 use tokio::sync::{broadcast, Mutex};
@@ -60,7 +60,7 @@ impl AppState {
         let events = node.events();
         let listen_addrs = node.listen_addrs();
         let peer_id = node.local_peer_id().to_string();
-        let started_at_epoch_ms = epoch_ms_now();
+        let started_at_epoch_ms = crate::util::now_ms();
         *slot = Some(RunningNode {
             node: Arc::new(node),
             config: cfg.clone(),
@@ -152,6 +152,14 @@ impl AppState {
         Ok((self.status().await, was_running))
     }
 
+    /// 追加事件订阅（诊断/集成冒烟用；与命令层转发订阅互不影响）。
+    pub async fn subscribe_events(&self) -> Result<broadcast::Receiver<NodeEvent>, String> {
+        let slot = self.running.lock().await;
+        slot.as_ref()
+            .map(|r| r.node.events())
+            .ok_or_else(|| "节点未运行，请先启动节点".into())
+    }
+
     /// 取运行中节点的 Arc 克隆；未运行返回中文错误。
     pub(super) async fn running_node(&self) -> Result<Arc<Node>, String> {
         let slot = self.running.lock().await;
@@ -204,13 +212,6 @@ fn remove_seed(data_dir: &Path) -> Result<(), String> {
 
 pub(super) fn elapsed_ms(started: Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
-}
-
-fn epoch_ms_now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
-        .unwrap_or(0)
 }
 
 #[cfg(test)]

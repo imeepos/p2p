@@ -9,6 +9,7 @@ pub mod events;
 pub mod proto;
 pub mod state;
 pub mod types;
+pub mod util;
 
 use tauri::Manager;
 

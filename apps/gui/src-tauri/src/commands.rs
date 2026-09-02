@@ -2,7 +2,7 @@
 //!
 //! 参数名经 Tauri 自动转 camelCase（peerId/timeoutMs），与契约逐字对齐；Err 一律中文。
 
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Runtime, State};
 
 use crate::events;
 use crate::state::AppState;
@@ -11,8 +11,8 @@ use crate::types::{DialReport, GuiConfig, MetricsJson, NodeEventJson, NodeStatus
 /// node_start：构建 Node 并启动；已运行 Err。
 /// 事件订阅先于返回（state.start 内建立），node_started 由桥接层自产。
 #[tauri::command]
-pub async fn node_start(
-    app: AppHandle,
+pub async fn node_start<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     cfg: GuiConfig,
 ) -> Result<NodeStatus, String> {
@@ -22,6 +22,7 @@ pub async fn node_start(
         &app,
         NodeEventJson::NodeStarted {
             listen_addrs: started.listen_addrs,
+            ts_ms: None,
         },
     );
     Ok(started.status)
@@ -29,10 +30,13 @@ pub async fn node_start(
 
 /// node_stop：幂等；node_stopped 仅在真的停掉运行中节点时发出。
 #[tauri::command]
-pub async fn node_stop(app: AppHandle, state: State<'_, AppState>) -> Result<NodeStatus, String> {
+pub async fn node_stop<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, AppState>,
+) -> Result<NodeStatus, String> {
     let stopped = state.stop().await;
     if stopped {
-        events::emit(&app, NodeEventJson::NodeStopped);
+        events::emit(&app, NodeEventJson::NodeStopped { ts_ms: None });
     }
     Ok(state.status().await)
 }
@@ -79,8 +83,8 @@ pub async fn peer_ping(
 
 /// identity_reset：危险操作，confirm 必须为 true；停节点并删除身份种子文件。
 #[tauri::command]
-pub async fn identity_reset(
-    app: AppHandle,
+pub async fn identity_reset<R: Runtime>(
+    app: AppHandle<R>,
     state: State<'_, AppState>,
     confirm: bool,
 ) -> Result<NodeStatus, String> {
@@ -89,7 +93,7 @@ pub async fn identity_reset(
     }
     let (status, was_running) = state.reset_identity().await?;
     if was_running {
-        events::emit(&app, NodeEventJson::NodeStopped);
+        events::emit(&app, NodeEventJson::NodeStopped { ts_ms: None });
     }
     Ok(status)
 }

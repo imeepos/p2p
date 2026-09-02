@@ -3,7 +3,7 @@
 //! 订阅在 state.start 内建立，本任务由命令层在启动后接管；lagging 时发 node_error 说明。
 
 use p2p::NodeEvent;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Runtime};
 use tokio::sync::broadcast;
 use tracing::{info, warn};
 
@@ -13,7 +13,7 @@ use crate::types::NodeEventJson;
 pub const NODE_EVENT: &str = "node-event";
 
 /// 启动转发任务；通道关闭（节点停机且发送端清空）后自然退出。
-pub fn spawn(app: AppHandle, mut rx: broadcast::Receiver<NodeEvent>) {
+pub fn spawn<R: Runtime>(app: AppHandle<R>, mut rx: broadcast::Receiver<NodeEvent>) {
     tauri::async_runtime::spawn(async move {
         loop {
             match rx.recv().await {
@@ -31,9 +31,10 @@ pub fn spawn(app: AppHandle, mut rx: broadcast::Receiver<NodeEvent>) {
     });
 }
 
-/// 统一出口：单通道推送；失败留告警，不中断后续事件。
-pub fn emit(app: &AppHandle, payload: NodeEventJson) {
-    if let Err(e) = app.emit(NODE_EVENT, &payload) {
+/// 统一出口：盖发射时刻毫秒戳（契约 §2 可选 tsMs）后单通道推送；失败留告警，不中断后续事件。
+pub fn emit<R: Runtime>(app: &AppHandle<R>, payload: NodeEventJson) {
+    let stamped = payload.stamped(crate::util::now_ms());
+    if let Err(e) = app.emit(NODE_EVENT, &stamped) {
         warn!(error = %e, "推送 node-event 失败");
     }
 }
@@ -42,6 +43,7 @@ pub fn emit(app: &AppHandle, payload: NodeEventJson) {
 fn lag_event(dropped: u64) -> NodeEventJson {
     NodeEventJson::NodeError {
         reason: format!("事件通道积压，已丢弃 {dropped} 条事件"),
+        ts_ms: None,
     }
 }
 
@@ -53,7 +55,7 @@ mod tests {
     fn lag_event_carries_drop_count() {
         let event = lag_event(7);
         match event {
-            NodeEventJson::NodeError { reason } => {
+            NodeEventJson::NodeError { reason, .. } => {
                 assert!(reason.contains('7'), "原因需带丢弃条数: {reason}");
             }
             other => panic!("期望 node_error，实得 {other:?}"),
