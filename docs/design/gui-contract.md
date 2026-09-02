@@ -17,7 +17,7 @@
 | config_save | cfg: GuiConfig | GuiConfig | 原子写盘；不改变运行中节点 |
 | peer_dial | target: string | DialReport | add_peer_address + node.connect，回收期间 DialHop 事件为逐跳报告 |
 | peer_ping | peerId: string, timeoutMs: number | PingOutcome | 复用 echo 协议 node.request（同 CLI ping），返回 rtt 与期间逐跳 |
-| identity_reset | confirm: boolean | GuiConfig | 危险：停止节点并删除身份数据目录内种子文件（必须 confirm=true） |
+| identity_reset | confirm: boolean | NodeStatus | 危险：停止节点并删除身份数据目录内种子文件（必须 confirm=true），返回重置后的状态（未运行） |
 
 ## 2. 事件通道
 
@@ -94,7 +94,13 @@ interface PingOutcome { ok: boolean; rttMs: number | null; hops: DialHopJson[]; 
   视图层对真实/mock 零感知。
 - `src/stores/node-store.ts`（zustand）：status/metrics/peers/events 状态 + 订阅 node-event 单例。
 
-## 6. 验收对齐点
+## 6. target 与地址语法（澄清）
+
+- peer_dial 的 target 格式：`<peer_id>@<addr>`，如 `3xY9...ab@192.168.1.5/3400`；
+  addr 语法与 bootstrap/relay 一致：`ip/u端口` = QUIC，`ip/t端口` = TCP（对齐 README 与 TransportAddr）。
+- 解析失败（缺 @、peer_id 非 base58、addr 非法）返回 Err，不静默。
+
+## 7. 验收对齐点
 
 - A：serde 序列化字段名与上表逐字一致（camelCase，含 Option 序列化为 null）；契约单测覆盖全部类型 roundtrip。
 - B：ipc.ts 的 TS 类型与上表逐字一致；mock 与真实实现同签名。
