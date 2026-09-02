@@ -776,6 +776,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "p2p-itest"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bytes",
+ "futures",
+ "p2p-discovery",
+ "p2p-identity",
+ "p2p-mux",
+ "p2p-protocol",
+ "p2p-relay",
+ "p2p-security",
+ "p2p-transport",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "p2p-mux"
 version = "0.1.0"
 dependencies = [
