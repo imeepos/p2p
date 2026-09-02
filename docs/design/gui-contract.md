@@ -23,7 +23,7 @@
 
 后端 `app.emit("node-event", <NodeEventJson>)`；前端 `listen("node-event", ...)` 单例订阅入 store。
 
-NodeEventJson 判别联合（type 字段）：
+NodeEventJson 判别联合（type 字段）；所有变体均可携带可选 `tsMs?: number`（后端发射时刻毫秒时间戳，前端缺省时以本地接收时间兜底，加法字段不破坏既有实现）：
 
 ```ts
 | { type: "peer_discovered"; peer: string; addrs: string[] }
@@ -46,7 +46,7 @@ interface GuiConfig {
   tcpPort: number;             // 0 = 随机
   enableMdns: boolean;
   dataDir: string;             // 默认 app 数据目录下 p2p-data
-  bootstrap: string[];         // rendezvous 地址，形如 "1.2.3.4/3400" 或 "1.2.3.4/t3401"
+  bootstrap: string[];         // rendezvous 地址，语法同 §6："ip/u端口"（QUIC）或 "ip/t端口"（TCP）
   relayAddrs: string[];
   advertisedAddrs: string[];
   observationPort: number | null;
