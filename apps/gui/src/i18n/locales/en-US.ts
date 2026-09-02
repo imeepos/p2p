@@ -14,6 +14,8 @@ const enUS: typeof zhCN = {
       refresh: "Refresh",
       collapse: "Collapse sidebar",
       expand: "Expand sidebar",
+      startSucceeded: "Node started",
+      stopSucceeded: "Node stopped",
     },
     state: {
       running: "Running",

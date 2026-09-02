@@ -12,6 +12,8 @@ const zhCN = {
       refresh: "刷新",
       collapse: "收起侧栏",
       expand: "展开侧栏",
+      startSucceeded: "节点已启动",
+      stopSucceeded: "节点已停止",
     },
     state: {
       running: "运行中",
