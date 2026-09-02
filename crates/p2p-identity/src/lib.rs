@@ -103,3 +103,7 @@ mod tests {
         assert_eq!(kp.public(), restored.public());
     }
 }
+
+mod seed;
+
+pub use seed::{load_or_generate as load_or_generate_seed, load as load_seed, save as save_seed};
