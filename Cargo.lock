@@ -968,6 +968,7 @@ dependencies = [
  "p2p-protocol",
  "p2p-relay",
  "p2p-security",
+ "p2p-swarm",
  "p2p-transport",
  "tokio",
  "tokio-util",
