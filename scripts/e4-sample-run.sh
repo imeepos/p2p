@@ -31,8 +31,13 @@ U
 }
 die(){ echo "e4-sample-run: $1" >&2; exit 2; }
 now_utc(){ date -u +"%Y-%m-%dT%H:%M:%SZ"; }
-valid_addr(){ printf '%s' "$1" | grep -qE '^[0-9A-Za-z.:_-]+/(u|t)[0-9]+$'; }
+valid_addr(){ printf '%s' "$1" | grep -qE '^[0-9A-Za-z.:_-]+/(u|t)[0-9]+$' || return 1
+  local p="${1##*/}"; p="${p#[ut]}"   # 审计 M7：端口须在 1..65535
+  [ "$p" -ge 1 ] && [ "$p" -le 65535 ]; }
 valid_peer(){ printf '%s' "$1" | grep -qE '^[1-9A-HJ-NP-Za-km-z]{40,52}$'; }  # base58 PeerId
+valid_ssh(){  # 审计 H2：ssh 目标必须 user@host 形态，禁选项注入（如 -oProxyCommand=）
+  printf '%s' "$1" | grep -qE '^[A-Za-z0-9._-]+@[A-Za-z0-9.:_-]+$'
+}
 
 while [ $# -gt 0 ]; do case "$1" in
   --peer-id) PEER_ID="${2:-}"; shift 2;;
@@ -46,6 +51,8 @@ esac; done
 check_config(){
   [ -n "$PEER_ID" ] || die "--peer-id required"
   valid_peer "$PEER_ID" || die "peer id not base58(40-52): $PEER_ID"
+  valid_ssh "$SSH_B" || die "bad ssh target B: $SSH_B (expect user@host)"
+  valid_ssh "$SSH_T" || die "bad ssh target T: $SSH_T (expect user@host)"
   local a
   for a in "$BOOTSTRAP_1" "$BOOTSTRAP_2" "$RELAY_1" "$RELAY_2"; do
     valid_addr "$a" || die "bad endpoint addr: $a (expect ip/uPORT)"
@@ -90,6 +97,8 @@ dry_run(){
 
 start_local(){
   mkdir -p "$RUN_DIR"
+  chmod 700 "$RUN_DIR"
+  umask 077   # 审计 M5：节点日志与 pid 文件一律 0600
   if [ -f "$PID_FILE" ]; then
     local old; old="$(cat "$PID_FILE")"
     kill -0 "$old" 2>/dev/null && die "node A already running, pid $old ($PID_FILE)"
@@ -112,13 +121,20 @@ wait_ready(){  # 日志出现 peer_id= 即视为就绪；进程早退立即报�
   echo "[run] node A peer_id=$(grep -oE 'peer_id=[A-Za-z0-9]+' "$RUN_DIR/node-a.log" | head -1 | cut -d= -f2)"
 }
 
-stop_local(){  # 只信 PID 文件：读取 -> 校验数字 -> 对该 PID 精确 TERM/KILL -> 删文件
+stop_local(){  # 只信 PID 文件：读取 -> 校验数字 -> 核对进程身份 -> 精确 TERM/KILL -> 删文件
   if [ ! -f "$PID_FILE" ]; then echo "[run] stop_local: no pidfile, nothing to stop" >&2; return 0; fi
   local pid; pid="$(cat "$PID_FILE")"
   case "$pid" in
     ''|*[!0-9]*) rm -f "$PID_FILE"; echo "[run] stop_local: bad pid '$pid', pidfile removed" >&2; return 0;;
   esac
   if kill -0 "$pid" 2>/dev/null; then
+    # 审计 H3：PID 复用防线——只 kill 身份确为 p2p-cli 的进程，其余按陈旧 pidfile 处理
+    local comm; comm="$(ps -p "$pid" -o comm= 2>/dev/null | tail -1)"
+    if [ "$(basename "${comm:-}")" != "p2p-cli" ]; then
+      echo "[run] stop_local: pid $pid is '${comm:-gone}', not p2p-cli; stale pidfile removed" >&2
+      rm -f "$PID_FILE"
+      return 0
+    fi
     kill "$pid" 2>/dev/null || echo "[run] stop_local: TERM pid $pid failed" >&2
     wait "$pid" 2>/dev/null || true  # node 是本脚本直接子进程，wait 即回收
     if kill -0 "$pid" 2>/dev/null; then
@@ -131,12 +147,11 @@ stop_local(){  # 只信 PID 文件：读取 -> 校验数字 -> 对该 PID 精确
   rm -f "$PID_FILE"
 }
 
-askpass_setup(){  # 仅密钥不可达时兜底；密码只从 SSH_PASSWORD 进 0600 临时文件，绝不回显终端/日志
+askpass_setup(){  # 兜底通道：askpass 脚本只引用 $SSH_PASSWORD 环境变量，密码值不落盘（审计 H1）
   [ -n "${SSH_PASSWORD:-}" ] || die "SSH_PASSWORD not set (required when key auth unavailable)"
   ASKPASS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/e4-askpass.XXXXXX")"
-  printf '%s' "$SSH_PASSWORD" >"$ASKPASS_DIR/pw"
-  { echo '#!/bin/sh'; echo "cat '$ASKPASS_DIR/pw'"; } >"$ASKPASS_DIR/askpass.sh"
-  chmod 600 "$ASKPASS_DIR/pw"; chmod 700 "$ASKPASS_DIR/askpass.sh"
+  printf '#!/bin/sh\nprintf %%s "$SSH_PASSWORD"\n' >"$ASKPASS_DIR/askpass.sh"
+  chmod 700 "$ASKPASS_DIR/askpass.sh"
 }
 askpass_teardown(){ if [ -n "$ASKPASS_DIR" ]; then rm -rf "$ASKPASS_DIR"; ASKPASS_DIR=""; fi; }
 ssh_key_ok(){  # E5 加固后公网节点仅密钥可登录；密钥可达则不再走密码通道

@@ -16,7 +16,11 @@ usage(){ echo "usage: $0 --peer-id <ID> [--runs N] [--wait S] [--bin PATH] [--ou
 die(){ echo "e4-ping-sample: $1" >&2; exit 2; }
 now_ms(){ perl -MTime::HiRes=time -e 'printf("%d", time*1000)'; }
 now_utc(){ date -u +"%Y-%m-%dT%H:%M:%SZ"; }
-valid_addr(){ echo "$1" | grep -qE "^[0-9A-Za-z.:_-]+/(u|t)[0-9]+$"; }
+valid_addr(){
+  printf '%s' "$1" | grep -qE "^[0-9A-Za-z.:_-]+/(u|t)[0-9]+$" || return 1
+  local p="${1##*/}"; p="${p#[ut]}"   # 审计 M7：端口须在 1..65535
+  [ "$p" -ge 1 ] && [ "$p" -le 65535 ]
+}
 valid_peer(){ echo "$1" | grep -qE "^[1-9A-HJ-NP-Za-km-z]{40,52}$"; }  # base58 PeerId
 
 while [ $# -gt 0 ]; do case "$1" in
@@ -39,6 +43,13 @@ check_args(){
   local a; for a in "${BOOTSTRAPS[@]}"; do valid_addr "$a" || die "bad bootstrap addr: $a"; done
   for a in "${RELAYS[@]:-}"; do [ -z "$a" ] && continue; valid_addr "$a" || die "bad relay addr: $a"; done
   [ -x "$BIN" ] || die "binary not executable: $BIN (use --bin or P2P_CLI_BIN)"
+  # 审计 M4：直调同样受输入上限约束，防异常参数放大 CPU/内存/磁盘消耗
+  [ "$RUNS" -ge 1 ] && [ "$RUNS" -le 1000 ] || die "--runs out of range 1..1000: $RUNS"
+  [ "$WAIT" -ge 1 ] && [ "$WAIT" -le 300 ] || die "--wait out of range 1..300: $WAIT"
+  [ ! -L "$RAW_LOG" ] || die "RAW_LOG must not be a symlink: $RAW_LOG"
+  if [ -n "$OUT" ]; then
+    [ ! -L "$OUT" ] || die "OUT must not be a symlink: $OUT"
+  fi
 }
 
 # 流式给每行打毫秒时间戳（hop 行到达时刻即事件时刻，供逐跳耗时）
@@ -108,6 +119,8 @@ self_check(){
   valid_addr "121.196.193.177/u3403" || { echo "SELF-CHECK FAIL: addr"; exit 1; }
   valid_addr "43.240.223.138/t3404" || { echo "SELF-CHECK FAIL: addr tcp"; exit 1; }
   if valid_addr "121.196.193.177/x3403"; then echo "SELF-CHECK FAIL: bad addr accepted"; exit 1; fi
+  if valid_addr "121.196.193.177/u99999"; then echo "SELF-CHECK FAIL: port >65535 accepted"; exit 1; fi
+  if valid_addr "121.196.193.177/u0"; then echo "SELF-CHECK FAIL: port 0 accepted"; exit 1; fi
   local fake_peer; fake_peer="$(printf "A%.0s" $(seq 1 52))"
   valid_peer "$fake_peer" || { echo "SELF-CHECK FAIL: peer"; exit 1; }
   if valid_peer "short"; then echo "SELF-CHECK FAIL: bad peer accepted"; exit 1; fi
@@ -127,6 +140,7 @@ self_check(){
 
 [ "${SELF_CHECK:-0}" = 1 ] && { self_check; exit 0; }
 check_args
+umask 077   # 审计 M5/M6：结果与原始日志一律 0600，防同机用户读取
 
 if [ "${DRY_RUN:-0}" = 1 ]; then
   build_args
