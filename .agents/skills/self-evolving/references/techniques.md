@@ -28,3 +28,4 @@
 
 - TCP 可达性判定用 `nc -vz -w 5 host port`，禁用 `bash /dev/tcp + echo + timeout` 三件套：后者对"accept 后即关"的服务（p2p relay/bootstrap、部分网关）write 失败会误报不可达——2026-09-02 实测把全绿的 relay 口误判成全红，对照 SSH 22 同样误报才暴露。nc 在 macOS 自带，输出在 stderr（2>&1 取）。
 - 2026-09-02 判定分支是否已并入 main：本地 main 落后远端会让 `git merge-base --is-ancestor <分支> main` 误报未合并——先 `git fetch --prune` 并 ff-only 同步本地 main，再与 origin/main 比对（fix/e4-tcp-stream 实录：对本地 main 判 NO，origin/main tip 即分支 tip 8aaedda，实际早已合并；分支与 worktree 清理照收尾四步补完）。
+- 2026-09-02 分支收尾扫尾必查 detached worktree：`git worktree list` 里的 detached 项会漏过「分支已全合并」检查——用 `git cherry origin/main <commit>` 判重后抢救成命名分支再走收尾（e4tcp 实录：回归测试进了 main，配套生产修复遗落在 detached HEAD 上无人认领）。另：run_code 后台任务 workdir 不存在时不报错而是回退目录照跑，起任务前先确认目录存在；bash-121 与 bash-122 共用 /tmp 日志路径互相覆写，并发任务日志各用各的路径。
