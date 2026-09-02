@@ -1,5 +1,5 @@
 import { CopyIcon, RadarIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -42,6 +42,26 @@ function deriveFirstSeen(events: NodeEventJson[]): Map<string, number | null> {
   return firstSeen;
 }
 
+function PeerIdCell({ peerId }: { peerId: string }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <button
+      type="button"
+      className="max-w-48 cursor-pointer truncate text-left font-mono text-xs hover:underline"
+      title={peerId}
+      aria-expanded={expanded}
+      onClick={() => setExpanded((v) => !v)}
+    >
+      {expanded ? (
+        <span className="break-all whitespace-normal">{peerId}</span>
+      ) : (
+        peerId.slice(0, 16)
+      )}
+    </button>
+  );
+}
+
 function PeerTable({
   peers,
   firstSeen,
@@ -53,8 +73,8 @@ function PeerTable({
   const locale = i18n.language as Locale;
 
   return (
-    <Table>
-      <TableHeader>
+    <Table containerClassName="max-h-80 overflow-y-auto">
+      <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card">
         <TableRow>
           <TableHead>{t("common.labels.peerId")}</TableHead>
           <TableHead>{t("common.labels.address")}</TableHead>
@@ -65,11 +85,8 @@ function PeerTable({
       <TableBody>
         {peers.map((peer) => (
           <TableRow key={peer.peerId}>
-            <TableCell
-              className="max-w-48 truncate font-mono text-xs"
-              title={peer.peerId}
-            >
-              {peer.peerId.slice(0, 16)}
+            <TableCell className="max-w-48 font-mono text-xs">
+              <PeerIdCell peerId={peer.peerId} />
             </TableCell>
             <TableCell className="font-mono text-xs">
               {peer.addrs.join(", ") || t("common.labels.none")}

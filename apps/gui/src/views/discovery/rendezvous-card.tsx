@@ -39,8 +39,8 @@ function RendezvousTable({
   const { t } = useTranslation();
 
   return (
-    <Table>
-      <TableHeader>
+    <Table containerClassName="max-h-80 overflow-y-auto">
+      <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card">
         <TableRow>
           <TableHead>{t("common.labels.address")}</TableHead>
           <TableHead className="w-12" />
