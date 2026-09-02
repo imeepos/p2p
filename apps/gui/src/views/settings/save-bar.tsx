@@ -34,9 +34,9 @@ export function SettingsSaveBar({
   return (
     <>
       {running ? (
-        <div className="border-amber-500/50 bg-amber-500/10 col-span-12 flex items-start gap-3 rounded-md border p-3 text-sm">
+        <div className="border-warning/50 bg-warning/10 col-span-12 flex items-start gap-3 rounded-md border p-3 text-sm">
           <TriangleAlertIcon
-            className="mt-0.5 size-4 shrink-0 text-amber-500"
+            className="mt-0.5 size-4 shrink-0 text-warning"
             aria-hidden
           />
           <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">

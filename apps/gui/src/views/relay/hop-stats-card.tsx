@@ -63,7 +63,7 @@ export function HopStatsCard() {
               </div>
               <div className="bg-muted flex h-2.5 w-full overflow-hidden rounded-full">
                 <div
-                  className="bg-emerald-500 transition-all"
+                  className="bg-success transition-all"
                   style={{ width: (row.ok / Math.max(1, row.ok + row.fail)) * 100 + "%" }}
                 />
                 <div
