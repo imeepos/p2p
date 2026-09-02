@@ -46,7 +46,7 @@
 | 修复单 | 负责会话 | 分支 | 范围 | 对应 findings |
 |---|---|---|---|---|
 | discovery 安全修复 | D（session-3cc0a86e） | fix/discovery-security | crates/p2p-discovery + wire-protocol.md 对应小节 | H1（签名覆盖 TTL+新鲜度）、M1（服务端资源上限）、L2、L3 |
-| relay 安全修复 | R（session-43062388） | fix/relay-security | crates/p2p-relay | M2（电路属主校验+cid 不可预测）、M5（全局上限+桶回收）、L3 |
+| relay 安全修复 | R（session-43062388） | fix/relay-security | crates/p2p-relay | ✓ 已合入：43517ba（M2 电路号 CSPRNG+属主校验）、79b90b7（M5 全局上限+桶回收）、2b3eda6（L3）、754c6fa（relay varint，P 发现叠加），含 itest 适配，make check PASS |
 | 传输超时 | K（session-401422e9） | fix/transport-timeouts | crates/p2p-security + crates/p2p-transport | ✓ M3 已合入（080deb6+76200ac）。追加第二批：yamux 空闲后第二次 open_stream 悬挂、QUIC 无 close 接口（S 实测发现，回归测试要求） |
 | varint 溢出 | P（session-5cb6377a） | fix/protocol-varint | crates/p2p-protocol | ✓ L4 已合入（8a2a6c5）。P 另发现 relay read_varint 同类回绕，已叠加进 R 的单子 |
 | M4（expected 必填） | S | fix/swarm-dial-expected | swarm/facade 层强制，不动 transport 冻结签名 | ✓ 已合入（a89dcf5，含投毒回归测试） |
@@ -65,3 +65,4 @@
 - 2026-09-02 检查轮 3：U/V/X/Z 四包全部合并落地，make check 门禁全绿（X 的门禁本身一并验证）。Z 产出安全审查报告（docs/notes/security-review-1.md：高1中5低5），据此开启修复轮：D/R/K/P 各领修复单，S 收到 expected 必填的接口要求。L5 同轮裁决（改设计文档）。
 - 2026-09-02 检查轮 4：S 验收通过（e2c5519+490fffa，make check 全绿，worktree/分支已清理）；P 的 L4 修复（8a2a6c5）已合入。T 命令行会话启动。E2 准备：138 上 cargo 1.97.1 实际已就位（非交互 PATH 未含 ~/.cargo/bin 导致此前误判），已配 rsproxy 镜像、sudo 免密可用、systemd unit 骨架已放 ~/p2p-lab/（端口占位待 T 交付后定稿），ufw 现仅开 22/tcp 部署时需加 QUIC/TCP 端口。修复轮在途：D（H1 高危，尚未见分支）、K（k2）、R（r2）。
 - 2026-09-02 检查轮 5：修复轮过半——K 的 M3（080deb6+76200ac）、P 的 L4（8a2a6c5）、S 的 M4（a89dcf5）均已合入 main。在途：D（H1，d2 已开工）、R（r2，叠加 relay varint 回绕）、K 第二批（yamux 空闲开流悬挂 + QUIC close）。S 转待命，M3 贯通轮预定仍派 S。
+- 2026-09-02 检查轮 6：R 修复轮验收通过（M2/M5/L3/varint 四件，make check PASS，含 itest 适配）。修复轮余量：D（H1 高危）、K 第二批（yamux/QUIC close）。E2 部署脚本与 E1/E3 runbook 已入库；源码已预同步 15/114/102。
