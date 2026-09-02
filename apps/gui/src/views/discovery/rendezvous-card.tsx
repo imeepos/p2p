@@ -20,22 +20,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AddAddressDialog } from "./add-address-dialog";
-import { RendezvousRowActions } from "./rendezvous-row-actions";
 
 interface RendezvousCardProps {
   bootstrap: string[];
-  running: boolean;
   onChange: (next: string[]) => Promise<boolean>;
 }
 
 function RendezvousTable({
   bootstrap,
-  running,
   saving,
   onDelete,
 }: {
   bootstrap: string[];
-  running: boolean;
   saving: boolean;
   onDelete: (addr: string) => Promise<void>;
 }) {
@@ -46,9 +42,6 @@ function RendezvousTable({
       <TableHeader>
         <TableRow>
           <TableHead>{t("common.labels.address")}</TableHead>
-          <TableHead className="w-44">
-            {t("discovery.rendezvous.register")} / {t("discovery.rendezvous.query")}
-          </TableHead>
           <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
@@ -56,11 +49,6 @@ function RendezvousTable({
         {bootstrap.map((addr) => (
           <TableRow key={addr}>
             <TableCell className="font-mono text-xs">{addr}</TableCell>
-            <TableCell>
-              <div className="flex gap-1.5">
-                <RendezvousRowActions addr={addr} running={running} />
-              </div>
-            </TableCell>
             <TableCell>
               <Button
                 variant="ghost"
@@ -79,8 +67,9 @@ function RendezvousTable({
   );
 }
 
-// rendezvous 地址簿：增删走持久化配置；注册/查询暂无对应命令，以本地 toast 反馈。
-export function RendezvousCard({ bootstrap, running, onChange }: RendezvousCardProps) {
+// rendezvous 地址簿：增删走持久化配置；手动注册/查询未暴露给 GUI（裁决：
+// 底座能力为 pub(crate)，CLI 已覆盖），节点仍经 mDNS/rendezvous 自动发现。
+export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
@@ -125,16 +114,13 @@ export function RendezvousCard({ bootstrap, running, onChange }: RendezvousCardP
         ) : (
           <RendezvousTable
             bootstrap={bootstrap}
-            running={running}
             saving={saving}
             onDelete={removeAddr}
           />
         )}
-        {!running ? (
-          <p className="text-muted-foreground text-xs">
-            {t("discovery.rendezvous.needRunning")}
-          </p>
-        ) : null}
+        <p className="text-muted-foreground text-xs">
+          {t("discovery.rendezvous.manualUnavailable")}
+        </p>
         <AddAddressDialog existing={bootstrap} saving={saving} onAdd={addAddress} />
       </CardContent>
     </Card>

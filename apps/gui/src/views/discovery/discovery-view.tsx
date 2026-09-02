@@ -5,7 +5,6 @@ import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { PageHeader } from "@/components/page/page-header";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
-import { useNodeStore } from "@/stores/node-store";
 import { DiscoveredTableCard } from "./discovered-table-card";
 import { MdnsCard } from "./mdns-card";
 import { RendezvousCard } from "./rendezvous-card";
@@ -18,7 +17,6 @@ export function DiscoveryView() {
   const { config, failed, reload } = useGuiConfig();
   const [localConfig, setLocalConfig] = useState<GuiConfig | null>(null);
   const effective = localConfig ?? config;
-  const running = useNodeStore((s) => s.status?.running ?? false);
 
   const persistBootstrap = useCallback(
     async (bootstrap: string[]): Promise<boolean> => {
@@ -53,7 +51,6 @@ export function DiscoveryView() {
           <MdnsCard config={effective} onSaved={setLocalConfig} />
           <RendezvousCard
             bootstrap={effective?.bootstrap ?? []}
-            running={running}
             onChange={persistBootstrap}
           />
           <DiscoveredTableCard />
