@@ -110,6 +110,15 @@ const zhCN = {
       cancelled: "已取消操作",
     },
     events: { empty: "暂无事件" },
+    trend: {
+      title: "10 分钟趋势",
+      hint: "每 5 秒采样一个点，展示最近 120 点（10 分钟窗口）",
+      empty: "暂无趋势数据",
+      emptyHint: "启动节点后开始采样",
+      connections: "活跃连接",
+      relaySessions: "中继会话",
+      now: "当前 {{count}}",
+    },
   },
   peers: {
     title: "节点",

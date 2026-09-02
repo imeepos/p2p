@@ -114,6 +114,15 @@ const enUS: typeof zhCN = {
       cancelled: "Cancelled",
     },
     events: { empty: "No events yet" },
+    trend: {
+      title: "10-minute trend",
+      hint: "One sample every 5s, showing the last 120 points (10-minute window)",
+      empty: "No trend data yet",
+      emptyHint: "Sampling starts once the node is running",
+      connections: "Active connections",
+      relaySessions: "Relay sessions",
+      now: "now {{count}}",
+    },
   },
   peers: {
     title: "Peers",
