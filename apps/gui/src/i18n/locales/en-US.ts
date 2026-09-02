@@ -154,6 +154,8 @@ const enUS: typeof zhCN = {
     title: "Discovery",
     description: "mDNS LAN discovery and rendezvous address book",
     empty: "No discovery records",
+    emptyHint:
+      "Once mDNS is on or a bootstrap address is added, discovered peers appear here",
     loadFailed: "Failed to load config, please retry",
     mdns: {
       title: "mDNS LAN discovery",

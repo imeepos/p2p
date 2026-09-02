@@ -150,6 +150,7 @@ const zhCN = {
     title: "发现",
     description: "mDNS 局域网发现与 rendezvous 地址簿",
     empty: "暂无发现记录",
+    emptyHint: "开启 mDNS 或添加引导地址后，发现的邻居会出现在这里",
     loadFailed: "配置加载失败，请重试",
     mdns: {
       title: "mDNS 局域网发现",
