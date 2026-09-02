@@ -22,6 +22,10 @@ pub const MAX_PEERS_PER_NAMESPACE: usize = 512;
 pub const MAX_TTL_SECS: u64 = 3600;
 /// 每连接注册频率上限（次/分），令牌桶（M1）。
 pub const RATE_LIMIT_PER_MINUTE: u32 = 10;
+/// 每连接查询频率上限（次/分），令牌桶（审查 M8）。
+pub const RATE_LIMIT_QUERIES_PER_MINUTE: u32 = 120;
+/// 单条注册地址数上限（审查 M8），防大注册帧撑验签与存储。
+pub const MAX_ADDRS_PER_REGISTER: usize = 32;
 
 /// rendezvous 注册表：namespace → 带 TTL 的地址缓存。
 #[derive(Default)]
@@ -41,6 +45,10 @@ impl RendezvousRegistry {
         }
         if reg.namespace.len() > MAX_NAMESPACE_LEN {
             return Err("namespace too long".to_string());
+        }
+        if reg.addrs.len() > MAX_ADDRS_PER_REGISTER {
+            // 仅限上限；空地址注册为存量兼容语义，保留（无发现价值但无害）
+            return Err(format!("addr count above {MAX_ADDRS_PER_REGISTER}"));
         }
         if !verify_register(reg, now) {
             tracing::warn!(
@@ -134,17 +142,18 @@ impl RegisterLimiter {
     }
 }
 
-/// 在一条连接上持续服务：Register 校验入库（含每连接限速），Query 应答；流关闭即返回。
+/// 在一条连接上持续服务：Register 校验入库（含每连接限速），Query 应答（同样限速）；流关闭即返回。
 pub async fn serve_link(
     conn: &mut RendezvousConn,
     registry: &RendezvousRegistry,
 ) -> Result<(), RendezvousError> {
-    let mut limiter = RegisterLimiter::new(RATE_LIMIT_PER_MINUTE);
+    let mut register_limiter = RegisterLimiter::new(RATE_LIMIT_PER_MINUTE);
+    let mut query_limiter = RegisterLimiter::new(RATE_LIMIT_QUERIES_PER_MINUTE);
     loop {
         let req = conn.recv_msg::<Request>().await?;
         let resp = match req.kind {
             Some(request::Kind::Register(reg)) => {
-                if !limiter.try_take() {
+                if !register_limiter.try_take() {
                     Response::error("register rate limit exceeded".to_string())
                 } else {
                     match registry.register(&reg, unix_now()) {
@@ -153,7 +162,13 @@ pub async fn serve_link(
                     }
                 }
             }
-            Some(request::Kind::Query(q)) => registry.query(&q),
+            Some(request::Kind::Query(q)) => {
+                if !query_limiter.try_take() {
+                    Response::error("query rate limit exceeded".to_string())
+                } else {
+                    registry.query(&q)
+                }
+            }
             None => Response::error("missing request kind".to_string()),
         };
         conn.send_msg(&resp).await?;

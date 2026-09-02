@@ -137,13 +137,23 @@ fn stream_to_conn_owned(stream: BoxedStream, connection: SecureConn) -> Rendezvo
     stream_to_conn_parts(stream, Some(connection))
 }
 
+/// BoxedStream → 长度分帧 RendezvousConn（与服务端 serve_link 帧约定一致）。
+/// 帧上限 1MiB（审查 M8：LengthDelimitedCodec 默认 8MiB 过宽，两端显式收口）。
+pub(crate) const MAX_RENDEZVOUS_FRAME: usize = 1 << 20;
+
+fn rendezvous_codec() -> LengthDelimitedCodec {
+    LengthDelimitedCodec::builder()
+        .max_frame_length(MAX_RENDEZVOUS_FRAME)
+        .new_codec()
+}
+
 fn stream_to_conn_parts(stream: BoxedStream, connection: Option<SecureConn>) -> RendezvousConn {
     let (rx, tx) = tokio::io::split(stream);
     let (out_tx, mut out_rx) = mpsc::channel::<Vec<u8>>(16);
     tokio::spawn(async move {
         // TCP 的 YamuxMux 在所有句柄归零时关闭；持有连接直到 RendezvousConn 写端关闭。
         let _connection = connection;
-        let mut framed = FramedWrite::new(tx, LengthDelimitedCodec::new());
+        let mut framed = FramedWrite::new(tx, rendezvous_codec());
         while let Some(frame) = out_rx.recv().await {
             if framed.send(Bytes::from(frame)).await.is_err() {
                 break;
@@ -153,7 +163,7 @@ fn stream_to_conn_parts(stream: BoxedStream, connection: Option<SecureConn>) -> 
     });
     let (in_tx, in_rx) = mpsc::channel::<Result<Vec<u8>, RendezvousError>>(16);
     tokio::spawn(async move {
-        let mut framed = FramedRead::new(rx, LengthDelimitedCodec::new());
+        let mut framed = FramedRead::new(rx, rendezvous_codec());
         while let Some(item) = framed.next().await {
             let msg = item
                 .map_err(|e| RendezvousError::Link(e.to_string()))

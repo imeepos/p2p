@@ -233,3 +233,48 @@ fn query_unknown_namespace_does_not_grow_registry() {
         "query must not create namespace entries"
     );
 }
+
+#[test]
+fn oversized_addr_list_rejected() {
+    // 审查 M8：单条注册地址数超上限被拒（签名仍有效，防大帧撑资源）
+    let kp = Keypair::generate();
+    let many: Vec<TransportAddr> = (0..=MAX_ADDRS_PER_REGISTER)
+        .map(|i| TransportAddr::Quic {
+            ip: "10.0.0.5".parse().unwrap(),
+            port: 4000 + i as u16,
+        })
+        .collect();
+    let reg = sign_register(&kp, "room-a", &many, 60, unix_now());
+    let registry = RendezvousRegistry::new();
+    let err = registry.register(&reg, unix_now()).expect_err("over cap");
+    assert!(err.contains("addr count"), "got {err}");
+}
+
+#[tokio::test]
+async fn query_rate_limit_enforced() {
+    // 审查 M8：查询同样受每连接令牌桶约束（满桶 120，第 122 次被拒）
+    let (client_side, server_side) = tokio::io::duplex(4096);
+    let mut client = conn_from_duplex(client_side);
+    let registry = Arc::new(RendezvousRegistry::new());
+    let server_registry = registry.clone();
+    let server_task = tokio::spawn(async move {
+        let mut server = conn_from_duplex(server_side);
+        let _ = serve_link(&mut server, &server_registry).await;
+    });
+    let mut last_err = None;
+    for _ in 0..=(RATE_LIMIT_QUERIES_PER_MINUTE as usize) {
+        let resp = client
+            .roundtrip(Request::query("ghost-room".into(), Vec::new()))
+            .await
+            .expect("roundtrip");
+        if let Err(e) = resp.ensure_ok() {
+            last_err = Some(e);
+        }
+    }
+    assert!(
+        last_err.is_some(),
+        "第 {} 次查询应被限速拒绝",
+        RATE_LIMIT_QUERIES_PER_MINUTE + 1
+    );
+    server_task.abort();
+}
