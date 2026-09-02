@@ -24,7 +24,7 @@
 2. 已冻结契约（trait 签名、类型形状）不得修改，只能新增；确需改动先报协调会话。
 3. 跨 crate 依赖一律对脚手架契约编程（trait/mock/duplex），不等待其他会话。
 4. 根 Cargo.toml 只允许向 [workspace.dependencies] 追加条目；合并冲突在 feature 侧消化。
-5. 完成后按 AGENTS.md 收尾：worktree 内反向同步用 `git rebase main`（本地私有分支，保持 main 线性，禁止 git merge main）→ 回主树核对 `pwd` + `git branch --show-current` → `git merge --ff-only <分支>` → `git worktree remove` → `git branch -d`。严禁 `git add -A` / `commit -a`，只 add 自己范围的文件。仓库暂无 gitea 远端，push 步骤跳过。
+5. 完成后按 AGENTS.md 收尾：worktree 内反向同步用 `git rebase main`（本地私有分支，保持 main 线性，禁止 git merge main）→ 回主树核对 `pwd` + `git branch --show-current` → `git merge --ff-only <分支>` → `git worktree remove` → `git branch -d`。严禁 `git add -A` / `commit -a`，只 add 自己范围的文件。远端为 origin（github），收尾时 `git push origin <分支>`（AGENTS.md 中 gitea 名称不适用本仓库）。
 6. 最终回复报告：分支名、提交列表、测试结果摘要、遗留问题；不自行修改本表。
 7. 环境：cargo 在 ~/.cargo/bin，命令前 `export PATH="$HOME/.cargo/bin:$PATH"`。
 8. 编码红线：单文件 ≤300 行、函数 ≤60 行、失败路径必须留日志/错误信号、不用 emoji。
@@ -53,6 +53,16 @@
 | M3 贯通轮 | feat/m3-degradation-chain → feat/addr-observation | p2p-S-编排装配（session-e42e5393） | crates/p2p-swarm（降级链：直连→打洞→中继电路，逐跳事件）+ crates/p2p（design §7.2 地址观测：bootstrap 告知外部地址并注册） | 拆两批：降级链已合入验收（3942e2e，make check+冒烟 PASS）；地址观测进行中（feat/addr-observation，E3 打洞/被拨前置） | 降级链各跳事件可断言 + 直连阻断回落中继测试 |
 | L1 / L5 | 无代码改动 | — | L1 维持信任模型记录在案；L5 裁决改设计文档（已完成） | L1、L5 |
 
+## E4 调优轮（2026-09-02 派单，目标：E1/E3 复测三连稳定通过）
+
+| 修复单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| 拨号可观测性+refused/hairpin 边角 | S（session-e42e5393） | fix/e4-dialhop-observability | crates/p2p-swarm：DialHop 逐跳归因从 debug 提升为 info 或事件化（采样不开 RUST_LOG=debug 也能归因）；复核检查轮14立案——TCP 入站 refused 在直连跳不得作为最终错误上抛，须继续尝试其余地址；同 NAT hairpin refused 快速失败不占满拨号预算 | make check 全绿 + itest 断言各跳事件 |
+| 发现时序+日志降噪 | D（session-3cc0a86e） | fix/e4-discovery-stability | crates/p2p-discovery：发现窗口时序（启动初期错过 mDNS 公告的补救）；rendezvous 盲拨周期 WARN 降 debug 或加退避，仅首次失败保留 WARN | make check 全绿 + 35s 周期刷屏消除的单测断言 |
+| 长稳采样 | 待派（依赖 S 交付） | — | scripts/ 采样脚本与 runbook：默认日志含 p2p_swarm=info、禁 pkill 红线、三连采样统计 | E1/E3 runbook 复测三连稳定 |
+
+metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
+
 ## 变更记录
 
 - 2026-09-02 协调会话创建本表；K/P/D/R 四会话启动；S 排队。
@@ -79,3 +89,4 @@
 - 2026-09-02 检查轮 16：S 两连修复落地验收（5696cbf 来源+网段排序、a9be8e2 rendezvous 过滤 loopback、aca31de 同级 QUIC 优先）。E3 采样第三批：LAN 直连稳定 12-13ms；仍存边角失败（v4 观测地址 hairpin refused、发现窗口时序、TCP 防火墙拒绝）——全部立案，属 E4 调优阶段任务，不阻塞 M3 关闭。**E1 通过、E2 完成、E3 打通并完成三批采样**；138 bootstrap 运行最新 main（观测反射口启用）。E4（长稳+采样打磨）为后续阶段。
 - 2026-09-02 检查轮 10（E1 首跑）：15/114 双 Mac 节点拉起成功，但 mDNS 互发现失败——本机 debug 复现实锤 D 的 mdns.rs 服务名不合法（缺尾点，mdns-sd 拒绝注册/浏览）。已派急修单回 D（fix/mdns-servicetype）。运维侧两处已修：102 源码快照过期导致编译失败（重同步）、远端节点日志需显式 RUST_LOG=info（runbook 待更新）。
 - 2026-09-02 检查轮 10 续：mDNS 服务名修复合入（85a1e1c）后 E1 重跑：**三机互发现成功**（15/114/102 两两可见，含真实局域网地址）、**跨机 ping 成功**（maca→linc RTT 2.75ms）。但断线语义有缺陷：活着的 macb 在首次发现+120s 整被误报断线（mdns-sd 地址集不变就不发 Resolved，TTL 无续期），被 kill 的 linc 反而无断线事件。第二张修复单已派 D（fix/mdns-ttl-refresh：Resolved 恒续期+过期扫描+回归测试）。协调者代 D 修 hostname 尾点（8910de0，D 会话响应滞后，已透明记录）。
+- 2026-09-02 检查轮 17：协调权移交新协调会话（session-570fbef3）。E4 调优轮派单：S（拨号可观测性+refused/hairpin 边角，fix/e4-dialhop-observability）、D（发现时序+盲拨降噪，fix/e4-discovery-stability）；长稳采样待 S 交付后派；metrics/gossip 排 E5。规则 5 修正：本仓库远端为 origin（github），收尾恢复 push 步骤。新增 ECS 公网节点（连接信息在 .env，见 ECS_* 条目），用途：第二 rendezvous/relay 兜底与 E4 跨公网长稳，部署派单在 S/D 交付后进行。
