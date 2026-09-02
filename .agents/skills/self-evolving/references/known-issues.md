@@ -74,3 +74,5 @@ failed: early eof（客户端侧超时中止）。
 - 症状：tokio::pin!(x) 报 warning "variable does not need to be mutable"。原因：pin! 内部重新绑定，外层 let mut x 多余。修法：被 pin! 的绑定声明成 let x（无 mut）（2026-09-02 E4 实录）。
 
 - 症状：edit 工具对 docs/coordination.md 报 old_string was not found，肉眼对照"完全一样"。原因：本仓库中文文档用全角标点（，：（）、），从对话/终端回显里抄的是半角替代。修法：先 grep -n 取目标行原字节，从输出原文复制 old_string；连续两次失配就该怀疑标点宽度（2026-09-02 协调表编辑两连败实录）。
+- 症状：云机装 rustup 时 curl exit 35（Connection reset by peer）。原因：sh.rustup.rs 从大陆云机常被连接重置，走默认地址必翻车。修法：安装脚本也走镜像 https://rsproxy.cn/rustup-init.sh，配合 RUSTUP_DIST_SERVER/RUSTUP_UPDATE_ROOT=rsproxy（2026-09-02 ECS 部署实录，重跑前必改）。
+- 症状：rendezvous 链路日志每 ~5s 报 "connection lost" 周期刷屏，疑似 bootstrap 故障。原因：这是全系统常态——链路生命周期 ~5s + 30s 退避重注册，注册表靠周期重注册维持；138 与 ECS 基线同节奏（coordinator→138 一晚 318 条同款 WARN）。修法：判定前先对照健康基线节奏，别当部署缺陷（2026-09-02 ECS 部署实录）。

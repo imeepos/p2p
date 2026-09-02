@@ -22,3 +22,5 @@
 - 2026-09-02 bash 管道吞退出码：`make check | tail` / `cargo test | tail` 报告的 exit 恒 0，连 `bash: cargo: command not found` 都显示 [exit 0]（本次实录）。门禁结论必须显式收退出码：`make check > log 2>&1; echo exit=$?`，再从 log 取摘要。
 - 2026-09-02 edit/run_code 里嵌 Rust 代码片段时用模板字符串包裹，别用双引号 JS 字符串——内嵌的双引号要逐层转义极易错；也别把 Rust 字符串改成单引号（Rust 无单引号字符串字面量，format!('...') 直接语法错误，本会话返工实录）。
 - 2026-09-02 长任务中途发现自己的 worktree/本地分支凭空消失：先 `git log --oneline main` + `git worktree list` + `git ls-remote`，大概率已被协调会话验收合入（squash 成新 hash）并执行收尾四步清理——代码在 main 上，别当事故排查（2026-09-02 E4 hairpin 实录：我推的 ff0388d 被合为 0f1c73b，diff 核对逐字节一致）。
+- 2026-09-02 免 sshpass 的密码 SSH 通道：mktemp 生成只含 `printf %s "$SSH_PASSWORD"` 引用的 700 权限 askpass 脚本，配 SSH_ASKPASS_REQUIRE=force + DISPLAY=:0——密码经环境变量传递，不进 argv 不落文件，macOS 自带 OpenSSH>=8.4 即可（ECS 部署实录；sshpass -e 为等效备选）。
+- 2026-09-02 测 UDP 映射空闲寿命定界传输层问题：向对端 UDP 反射口（如观测口 3402）同一 socket 间隔发探针，看应答与外部端口是否漂移——ECS 实测空闲 12s 映射稳定，一句话排除「NAT/安全组 5s 掉会话」假设，把排查收敛到应用层。
