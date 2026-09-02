@@ -133,12 +133,18 @@ main(){
   log "node A ready"
 
   trap cleanup EXIT
-  local total_s=$((DURATION_H*3600)) sample_gap_s=$((SAMPLE_GAP_MIN*60)) \
-        metric_gap_s=$((METRIC_GAP_MIN*60)) perturb_s=$((PERTURB_AT_H*3600))
-  local start=$(date +%s) next_probe=$((start+60)) next_metric=$start perturb_at=$((start+perturb_s))
+  local start; start=$(date +%s)
+  local total_s=$((DURATION_H * 3600))
+  local sample_gap_s=$((SAMPLE_GAP_MIN * 60))
+  local metric_gap_s=$((METRIC_GAP_MIN * 60))
+  local perturb_s=$((PERTURB_AT_H * 3600))
+  local next_probe=$((start + 60))
+  local next_metric=$start
+  local perturb_at=$((start + perturb_s))
+  local now
   log "soak for ${DURATION_H}h; probe every ${SAMPLE_GAP_MIN}min; metrics every ${METRIC_GAP_MIN}min; perturb at +${PERTURB_AT_H}h"
-  while [ "$(date +%s)" -lt $((start+total_s)) ]; do
-    local now; now=$(date +%s)
+  while [ "$(date +%s)" -lt $((start + total_s)) ]; do
+    now=$(date +%s)
     if [ "$PERTURB_AT_H" -gt 0 ] && [ "$now" -ge "$perturb_at" ]; then
       perturb; perturb_at=$((perturb_at + 999999999))  # 单次扰动
     fi
