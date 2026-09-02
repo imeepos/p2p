@@ -37,6 +37,9 @@ pub struct BootstrapArgs {
     /// TCP 监听地址（默认 0.0.0.0:3401/tcp）。
     #[arg(long, default_value = "0.0.0.0:3401")]
     pub listen_tcp: String,
+    /// 观测反射口（UDP，供节点学习 NAT 映射地址；默认 3402/udp）。
+    #[arg(long, default_value_t = 3402)]
+    pub observation_port: u16,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -53,6 +56,12 @@ pub struct NodeArgs {
     /// QUIC 监听地址；省略则随机端口。
     #[arg(long)]
     pub listen_quic: Option<String>,
+    /// 观测口地址（ip:port，可多次传入），启动时学习自身公网映射地址。
+    #[arg(long = "observation", value_name = "HOST:PORT", action = clap::ArgAction::Append)]
+    pub observation: Vec<String>,
+    /// 关闭 mDNS 局域网发现（跨网实验只需 rendezvous 时使用）。
+    #[arg(long)]
+    pub no_mdns: bool,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -65,6 +74,9 @@ pub struct PingArgs {
     /// 等待目标被发现的最大秒数。
     #[arg(long, default_value_t = 15)]
     pub wait: u64,
+    /// 关闭 mDNS 局域网发现（跨网实验只需 rendezvous 时使用）。
+    #[arg(long)]
+    pub no_mdns: bool,
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -75,6 +87,9 @@ pub struct DiscoverArgs {
     /// 收集发现结果的持续秒数。
     #[arg(long, default_value_t = 8)]
     pub duration: u64,
+    /// 关闭 mDNS 局域网发现（跨网实验只需 rendezvous 时使用）。
+    #[arg(long)]
+    pub no_mdns: bool,
 }
 
 /// 解析 `ip:port` 为 SocketAddr；失败返回可读错误（clap 展示用）。
@@ -139,5 +154,96 @@ mod tests {
     fn port_of_extracts_port() {
         assert_eq!(port_of("0.0.0.0:3400").unwrap(), 3400);
         assert_eq!(port_of("[::1]:4400").unwrap(), 4400);
+    }
+
+    #[test]
+    fn bootstrap_default_observation_port_is_3402() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "p2p-cli",
+            "bootstrap",
+            "--data",
+            "d",
+            "--listen-quic",
+            "0.0.0.0:3400",
+            "--listen-tcp",
+            "0.0.0.0:3401",
+        ])
+        .expect("parse bootstrap defaults");
+        let Command::Bootstrap(args) = cli.command else {
+            panic!("expected bootstrap command");
+        };
+        assert_eq!(args.observation_port, 3402);
+    }
+
+    #[test]
+    fn bootstrap_accepts_custom_observation_port() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "p2p-cli",
+            "bootstrap",
+            "--data",
+            "d",
+            "--observation-port",
+            "4402",
+        ])
+        .expect("parse bootstrap observation-port");
+        let Command::Bootstrap(args) = cli.command else {
+            panic!("expected bootstrap command");
+        };
+        assert_eq!(args.observation_port, 4402);
+    }
+
+    #[test]
+    fn node_observation_append_multiple() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "p2p-cli",
+            "node",
+            "--data",
+            "d",
+            "--observation",
+            "1.2.3.4:3402",
+            "--observation",
+            "5.6.7.8:3402",
+        ])
+        .expect("parse node observation addrs");
+        let Command::Node(args) = cli.command else {
+            panic!("expected node command");
+        };
+        assert_eq!(args.observation.len(), 2);
+        assert_eq!(args.observation[0], "1.2.3.4:3402");
+        assert_eq!(args.observation[1], "5.6.7.8:3402");
+    }
+
+    #[test]
+    fn no_mdns_flag_parses() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from([
+            "p2p-cli",
+            "node",
+            "--data",
+            "d",
+            "--no-mdns",
+            "--observation",
+            "1.2.3.4:3402",
+        ])
+        .expect("parse node no-mdns");
+        let Command::Node(args) = cli.command else {
+            panic!("expected node command");
+        };
+        assert!(args.no_mdns);
+        assert_eq!(args.observation.len(), 1);
+    }
+
+    #[test]
+    fn node_observation_default_empty() {
+        use clap::Parser;
+        let cli = Cli::try_parse_from(["p2p-cli", "node", "--data", "d"])
+            .expect("parse node no observation");
+        let Command::Node(args) = cli.command else {
+            panic!("expected node command");
+        };
+        assert!(args.observation.is_empty());
     }
 }

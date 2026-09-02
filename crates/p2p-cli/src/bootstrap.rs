@@ -69,6 +69,7 @@ pub async fn run(args: BootstrapArgs) -> Result<(), String> {
         .data_dir(PathBuf::from(&args.data))
         .quic_port(quic_addr.port())
         .tcp_port(tcp_addr.port())
+        .observation_responder(args.observation_port)
         .build()
         .await
         .map_err(|e| format!("rendezvous/监听装配失败: {e}"))?;
@@ -77,8 +78,9 @@ pub async fn run(args: BootstrapArgs) -> Result<(), String> {
     let keypair =
         load_identity(PathBuf::from(&args.data)).map_err(|e| format!("读取身份失败: {e}"))?;
     let rendezvous_addrs = node.listen_addrs();
-    let relay_quic = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), quic_addr.port() + 2);
-    let relay_tcp = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), tcp_addr.port() + 2);
+    // relay 用 +3 偏移：+2 的 UDP 口已被观测反射器占用（observation_port）
+    let relay_quic = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), quic_addr.port() + 3);
+    let relay_tcp = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), tcp_addr.port() + 3);
     spawn_relay(keypair.clone(), relay_quic, relay_tcp)
         .await
         .map_err(|e| format!("relay 监听/装配失败: {e}"))?;

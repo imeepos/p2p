@@ -58,7 +58,7 @@ fn tmp_data_dir(tag: &str) -> std::path::PathBuf {
 /// 采集节点：mdns on + 可选 bootstrap。
 async fn build_node(args: &DiscoverArgs) -> Result<Node, Box<dyn std::error::Error>> {
     let mut builder = NodeBuilder::new()
-        .mdns(true)
+        .mdns(!args.no_mdns)
         .data_dir(tmp_data_dir("p2p-discover"));
     if let Some(addr) = &args.bootstrap {
         builder = builder.bootstrap(vec![addr.clone()]);

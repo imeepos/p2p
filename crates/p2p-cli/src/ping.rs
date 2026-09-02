@@ -8,8 +8,8 @@ use tokio::sync::broadcast;
 use crate::cli::{parse_peer_id, PingArgs};
 use crate::echo::{ECHO_PROTOCOL, PING_PAYLOAD};
 
-/// echo request 的超时。
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
+/// echo request 的超时：含逐地址拨号回退，多接口地址簿需较长预算。
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
 
 /// 测目标 RTT：等待被发现 -> echo request -> 计算往返耗时。
 pub async fn run(args: PingArgs) -> Result<(), String> {
@@ -52,7 +52,7 @@ fn tmp_data_dir(tag: &str) -> std::path::PathBuf {
 /// 装配 ping 节点：mdns on（局域网直连）+ 可选 bootstrap（跨网发现）。
 async fn build_node(args: &PingArgs) -> Result<Node, Box<dyn std::error::Error>> {
     let mut builder = NodeBuilder::new()
-        .mdns(true)
+        .mdns(!args.no_mdns)
         .data_dir(tmp_data_dir("p2p-ping"));
     if let Some(addr) = &args.bootstrap {
         builder = builder.bootstrap(vec![addr.clone()]);

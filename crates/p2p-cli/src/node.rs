@@ -50,7 +50,7 @@ pub async fn run(args: NodeArgs) -> Result<(), String> {
 /// 装配 facade 节点：mdns on + 可选 bootstrap + 指定/随机 QUIC 端口 + echo handler。
 async fn build_node(args: &NodeArgs) -> Result<Node, Box<dyn std::error::Error>> {
     let mut builder = NodeBuilder::new()
-        .mdns(true)
+        .mdns(!args.no_mdns)
         .data_dir(PathBuf::from(&args.data));
     if let Some(addr) = &args.bootstrap {
         builder = builder.bootstrap(vec![addr.clone()]);
@@ -59,6 +59,9 @@ async fn build_node(args: &NodeArgs) -> Result<Node, Box<dyn std::error::Error>>
         // facade 恒绑定 0.0.0.0，IP 仅展示；这里只取端口
         let sa = parse_socket_addr(q).map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
         builder = builder.quic_port(sa.port());
+    }
+    if !args.observation.is_empty() {
+        builder = builder.observation_addrs(args.observation.clone());
     }
     let node = builder.build().await?;
     node.handle_protocol(Arc::new(EchoHandler));
