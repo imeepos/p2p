@@ -13,9 +13,12 @@ if [ ! -d "$CRATES_DIR" ]; then
   exit 1
 fi
 
-# 空格分隔整体词精确匹配豁免
+# 空格分隔整体词精确匹配豁免；用 case 做 glob 匹配（test 的 = 不做通配）
 is_exempt() {
-  [ " ${LINE_LIMIT_EXEMPT:-} " = *" $1 "* ]
+  case " ${LINE_LIMIT_EXEMPT:-} " in
+    *" $1 "*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 status=0
