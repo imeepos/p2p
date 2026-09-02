@@ -5,10 +5,12 @@ import type {
   DialReport,
   GuiConfig,
   MetricsJson,
+  MetricsPoint,
   NodeEventJson,
   NodeStatus,
   PingOutcome,
 } from "@/lib/ipc-types";
+import { metricsSnapshotPoint, appendMetricsPoint } from "@/lib/metrics-history";
 
 import { reduceEvent, type PeerEntry } from "./event-reducer";
 
@@ -17,6 +19,7 @@ export type { PeerEntry };
 interface NodeStoreState {
   status: NodeStatus | null;
   metrics: MetricsJson | null;
+  metricsHistory: MetricsPoint[];
   peers: Record<string, PeerEntry>;
   events: NodeEventJson[];
   subscriptionLive: boolean;
@@ -33,6 +36,7 @@ let subscriptionStarted = false;
 export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   status: null,
   metrics: null,
+  metricsHistory: [],
   peers: {},
   events: [],
   subscriptionLive: false,
@@ -53,7 +57,15 @@ export const useNodeStore = create<NodeStoreState>()((set, get) => ({
       ipc.nodeStatus(),
       ipc.metricsGet(),
     ]);
-    set({ status, metrics });
+    // 每次成功取数即追加趋势采样点（环形 120 点，契约 v2 窗口一致）。
+    set((s) => ({
+      status,
+      metrics,
+      metricsHistory: appendMetricsPoint(
+        s.metricsHistory,
+        metricsSnapshotPoint(metrics),
+      ),
+    }));
   },
 
   startNode: async (cfg) => {
