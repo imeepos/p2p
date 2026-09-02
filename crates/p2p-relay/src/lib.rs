@@ -30,6 +30,7 @@ mod circuit;
 pub mod client;
 mod control;
 pub mod error;
+pub mod frame;
 pub mod limits;
 pub mod link;
 pub mod messages;
@@ -40,6 +41,7 @@ mod state;
 
 pub use client::{RelayClient, RelayEvent};
 pub use error::RelayError;
+pub use frame::{read_msg, write_msg, write_reject, MAX_FRAME};
 pub use limits::{PeerBuckets, RateBucket, RateLimitedStream, RelayLimits};
 pub use link::{mock_link_pair, LinkSource, MockLink, MockLinkSource, RelayLink};
 pub use messages::{

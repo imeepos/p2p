@@ -5,8 +5,9 @@ use std::sync::Arc;
 use p2p_mux::BoxedStream;
 use tokio::io::copy_bidirectional;
 
+use crate::frame::{write_msg, write_reject};
 use crate::limits::RateLimitedStream;
-use crate::messages::{errcode, write_msg, write_reject, RelayMsg};
+use crate::messages::{errcode, RelayMsg};
 use crate::service::RelayServiceImpl;
 use crate::slots::{CircuitOutcome, PendingStream};
 

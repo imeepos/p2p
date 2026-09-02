@@ -11,8 +11,9 @@ use tokio::io::{split, ReadHalf};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
 use crate::error::{error_from_wire, RelayError};
+use crate::frame::{read_msg, write_msg};
 use crate::link::RelayLink;
-use crate::messages::{errcode, read_msg, relay_msg::Kind, write_msg, PunchAck, RelayMsg};
+use crate::messages::{errcode, relay_msg::Kind, PunchAck, RelayMsg};
 use crate::state::CtrlWrite;
 use crate::CircuitId;
 

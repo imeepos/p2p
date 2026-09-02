@@ -9,9 +9,10 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use p2p_mux::BoxedStream;
 
+use crate::frame::{read_msg, write_reject};
 use crate::limits::{PeerBuckets, RateBucket, RelayLimits};
 use crate::link::{LinkSource, RelayLink};
-use crate::messages::{errcode, read_msg, relay_msg::Kind, write_reject};
+use crate::messages::{errcode, relay_msg::Kind};
 use crate::state::RelayState;
 use crate::RelayService;
 

@@ -6,7 +6,8 @@ use std::sync::Arc;
 use p2p_mux::BoxedStream;
 use tokio::io::{split, ReadHalf};
 
-use crate::messages::{errcode, read_msg, relay_msg::Kind, write_msg, RelayMsg, Reserve};
+use crate::frame::{read_msg, write_msg};
+use crate::messages::{errcode, relay_msg::Kind, RelayMsg, Reserve};
 use crate::service::RelayServiceImpl;
 use crate::state::CtrlWrite;
 

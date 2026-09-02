@@ -3,7 +3,7 @@
 
 use std::time::Duration;
 
-use p2p_relay::messages::{read_msg, write_msg};
+use p2p_relay::frame::{read_msg, write_msg};
 use p2p_relay::{errcode, CircuitId, RelayError, RelayLimits, RelayMsg};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
