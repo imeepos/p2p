@@ -17,7 +17,7 @@ die(){ echo "e4-ping-sample: $1" >&2; exit 2; }
 now_ms(){ perl -MTime::HiRes=time -e 'printf("%d", time*1000)'; }
 now_utc(){ date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 valid_addr(){ echo "$1" | grep -qE "^[0-9A-Za-z.:_-]+/(u|t)[0-9]+$"; }
-valid_peer(){ echo "$1" | grep -qE "^[A-Za-z2-7]{52}$"; }
+valid_peer(){ echo "$1" | grep -qE "^[1-9A-HJ-NP-Za-km-z]{40,52}$"; }  # base58 PeerId
 
 while [ $# -gt 0 ]; do case "$1" in
   --peer-id) PEER_ID="${2:-}"; shift 2;;
@@ -34,7 +34,7 @@ esac; done
 
 check_args(){
   [ -n "$PEER_ID" ] || die "--peer-id required"
-  valid_peer "$PEER_ID" || die "peer id not base32(52): $PEER_ID"
+  valid_peer "$PEER_ID" || die "peer id not base58(40-52): $PEER_ID"
   [ "${#BOOTSTRAPS[@]}" -ge 1 ] || die "at least one --bootstrap required"
   local a; for a in "${BOOTSTRAPS[@]}"; do valid_addr "$a" || die "bad bootstrap addr: $a"; done
   for a in "${RELAYS[@]:-}"; do [ -z "$a" ] && continue; valid_addr "$a" || die "bad relay addr: $a"; done

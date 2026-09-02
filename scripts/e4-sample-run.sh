@@ -32,7 +32,7 @@ U
 die(){ echo "e4-sample-run: $1" >&2; exit 2; }
 now_utc(){ date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 valid_addr(){ printf '%s' "$1" | grep -qE '^[0-9A-Za-z.:_-]+/(u|t)[0-9]+$'; }
-valid_peer(){ printf '%s' "$1" | grep -qE '^[A-Za-z2-7]{52}$'; }
+valid_peer(){ printf '%s' "$1" | grep -qE '^[1-9A-HJ-NP-Za-km-z]{40,52}$'; }  # base58 PeerId
 
 while [ $# -gt 0 ]; do case "$1" in
   --peer-id) PEER_ID="${2:-}"; shift 2;;
@@ -45,7 +45,7 @@ esac; done
 
 check_config(){
   [ -n "$PEER_ID" ] || die "--peer-id required"
-  valid_peer "$PEER_ID" || die "peer id not base32(52): $PEER_ID"
+  valid_peer "$PEER_ID" || die "peer id not base58(40-52): $PEER_ID"
   local a
   for a in "$BOOTSTRAP_1" "$BOOTSTRAP_2" "$RELAY_1" "$RELAY_2"; do
     valid_addr "$a" || die "bad endpoint addr: $a (expect ip/uPORT)"
