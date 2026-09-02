@@ -31,6 +31,7 @@ pub mod client;
 mod control;
 pub mod error;
 pub mod frame;
+mod lifecycle;
 pub mod limits;
 pub mod link;
 pub mod messages;

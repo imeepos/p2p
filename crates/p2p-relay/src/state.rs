@@ -53,13 +53,16 @@ impl RelayState {
         Ok(())
     }
 
-    pub(crate) fn unregister_link(&mut self, peer: &str) {
+    /// 注销一条链路；返回该 Peer 链路是否已归零（对端消失信号）。
+    pub(crate) fn unregister_link(&mut self, peer: &str) -> bool {
         if let Some(n) = self.links.get_mut(peer) {
             *n -= 1;
             if *n == 0 {
                 self.links.remove(peer);
+                return true;
             }
         }
+        false
     }
 
     /// 既无链路也无在途电路流即为闲置（带宽桶随之回收，防表只增不减）。

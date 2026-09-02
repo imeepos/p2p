@@ -21,14 +21,18 @@ impl RelayServiceImpl {
     ) {
         let (mut rh, wh) = split(stream);
         let write: Arc<CtrlWrite> = Arc::new(tokio::sync::Mutex::new(wh));
+        let epoch = self.next_ctrl_epoch();
         self.lock_state().register_control(&peer, write.clone());
-        let reply = self.on_reserve(&peer, first).await;
+        let reply = self.on_reserve(&peer, first, epoch).await;
         if send_ctrl(&write, reply).await.is_err() {
             tracing::warn!(peer = %peer, "reserved reply write failed; control stream cut");
+            self.release_epoch_circuits(&peer, epoch).await;
             self.lock_state().remove_control_if(&peer, &write);
             return;
         }
-        self.control_loop(&peer, &mut rh, &write).await;
+        self.control_loop(&peer, &mut rh, &write, epoch).await;
+        // 控制流存亡即注册载体存亡：流级回收（配额防泄漏自锁）
+        self.release_epoch_circuits(&peer, epoch).await;
         self.lock_state().remove_control_if(&peer, &write);
         tracing::info!(peer = %peer, "control stream closed");
     }
@@ -38,11 +42,12 @@ impl RelayServiceImpl {
         peer: &str,
         rh: &mut ReadHalf<BoxedStream>,
         write: &Arc<CtrlWrite>,
+        epoch: u64,
     ) {
         loop {
             match read_msg(rh).await {
                 Ok(Some(msg)) => {
-                    if !self.dispatch_control(peer, msg, write).await {
+                    if !self.dispatch_control(peer, msg, write, epoch).await {
                         break;
                     }
                 }
@@ -56,9 +61,15 @@ impl RelayServiceImpl {
     }
 
     /// 处理一帧控制消息；返回 false 表示协议违规需断流。
-    async fn dispatch_control(&self, peer: &str, msg: RelayMsg, write: &Arc<CtrlWrite>) -> bool {
+    async fn dispatch_control(
+        &self,
+        peer: &str,
+        msg: RelayMsg,
+        write: &Arc<CtrlWrite>,
+        epoch: u64,
+    ) -> bool {
         match msg.kind {
-            Some(Kind::Reserve(r)) => send_ctrl(write, self.on_reserve(peer, r).await)
+            Some(Kind::Reserve(r)) => send_ctrl(write, self.on_reserve(peer, r, epoch).await)
                 .await
                 .is_ok(),
             Some(Kind::PunchReq(p)) => {
@@ -81,13 +92,14 @@ impl RelayServiceImpl {
         }
     }
 
-    async fn on_reserve(&self, peer: &str, r: Reserve) -> RelayMsg {
+    async fn on_reserve(&self, peer: &str, r: Reserve, epoch: u64) -> RelayMsg {
         let issued = self.lock_state().issue_circuit(
             peer,
             &r.allowed_joiner,
             r.ttl_secs,
             self.limits().max_circuits_per_peer,
             self.limits().max_total_circuits,
+            epoch,
         );
         match issued {
             Ok(cid) => {

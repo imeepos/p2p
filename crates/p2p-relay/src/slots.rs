@@ -24,6 +24,18 @@ pub(crate) struct CircuitSlot {
     pub allowed_joiner: String,
     pub expires: Instant,
     pub pending: Option<PendingStream>,
+    /// 发放该电路的控制流代次；控制流关闭时据此回收未配对电路（lifecycle 模块）。
+    pub ctrl_epoch: u64,
+    /// 槽位阶段：Reserved=未接入，Parked=一侧等配对，Bridged=桥接中。
+    pub phase: CircuitPhase,
+}
+
+/// 电路槽位阶段；控制流关闭只回收前两阶段的电路，桥接中的不受影响。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(crate) enum CircuitPhase {
+    Reserved,
+    Parked,
+    Bridged,
 }
 
 /// 一次 connect 的裁决结果。
@@ -53,6 +65,7 @@ impl RelayState {
         ttl_secs: u64,
         max_per_peer: usize,
         max_total: usize,
+        ctrl_epoch: u64,
     ) -> Result<u64, u32> {
         if self.circuits.len() >= max_total {
             return Err(errcode::GLOBAL_CAPACITY);
@@ -81,6 +94,8 @@ impl RelayState {
                 allowed_joiner: allowed_joiner.to_string(),
                 expires: Instant::now() + Duration::from_secs(ttl_secs),
                 pending: None,
+                ctrl_epoch,
+                phase: CircuitPhase::Reserved,
             },
         );
         Ok(cid)
@@ -132,12 +147,16 @@ impl RelayState {
         }
         self.circuit_load.insert(joiner.to_string(), load + 1);
         match slot.pending.take() {
-            Some(p) => CircuitOutcome::Paired(p, stream),
+            Some(p) => {
+                slot.phase = CircuitPhase::Bridged;
+                CircuitOutcome::Paired(p, stream)
+            }
             None => {
                 slot.pending = Some(PendingStream {
                     peer: joiner.to_string(),
                     stream,
                 });
+                slot.phase = CircuitPhase::Parked;
                 CircuitOutcome::Parked
             }
         }
@@ -190,8 +209,8 @@ mod tests {
     #[test]
     fn cid_unpredictable_and_unique() {
         let mut st = RelayState::new();
-        let a = st.issue_circuit("a", "", 60, 8, 8).unwrap();
-        let b = st.issue_circuit("a", "", 60, 8, 8).unwrap();
+        let a = st.issue_circuit("a", "", 60, 8, 8, 0).unwrap();
+        let b = st.issue_circuit("a", "", 60, 8, 8, 0).unwrap();
         assert_ne!(a, b);
         assert_ne!(a, 1, "cid 不再顺序自增");
     }
@@ -199,7 +218,7 @@ mod tests {
     #[test]
     fn foreign_joiner_rejected_owner_and_declared_allowed() {
         let mut st = RelayState::new();
-        let cid = st.issue_circuit("a", "peer-b", 60, 8, 8).unwrap();
+        let cid = st.issue_circuit("a", "peer-b", 60, 8, 8, 0).unwrap();
         assert!(matches!(
             st.on_connect("peer-e", cid, 8, dummy_stream()),
             CircuitOutcome::Rejected(errcode::FORBIDDEN_JOINER, _, _)
@@ -217,7 +236,7 @@ mod tests {
     #[test]
     fn owner_only_when_joiner_empty() {
         let mut st = RelayState::new();
-        let cid = st.issue_circuit("a", "", 60, 8, 8).unwrap();
+        let cid = st.issue_circuit("a", "", 60, 8, 8, 0).unwrap();
         assert!(matches!(
             st.on_connect("b", cid, 8, dummy_stream()),
             CircuitOutcome::Rejected(errcode::FORBIDDEN_JOINER, _, _)
@@ -231,7 +250,7 @@ mod tests {
             st.on_connect("x", 999, 8, dummy_stream()),
             CircuitOutcome::Rejected(errcode::UNKNOWN_CIRCUIT, _, _)
         ));
-        let cid = st.issue_circuit("a", "", 60, 1, 8).unwrap();
+        let cid = st.issue_circuit("a", "", 60, 1, 8, 0).unwrap();
         assert!(matches!(
             st.on_connect("a", cid, 1, dummy_stream()),
             CircuitOutcome::Rejected(errcode::PEER_LIMIT, _, _)
@@ -241,9 +260,9 @@ mod tests {
     #[test]
     fn global_circuit_cap_enforced() {
         let mut st = RelayState::new();
-        assert!(st.issue_circuit("a", "", 60, 8, 1).is_ok());
+        assert!(st.issue_circuit("a", "", 60, 8, 1, 0).is_ok());
         assert!(matches!(
-            st.issue_circuit("b", "", 60, 8, 1),
+            st.issue_circuit("b", "", 60, 8, 1, 0),
             Err(errcode::GLOBAL_CAPACITY)
         ));
     }
@@ -251,7 +270,7 @@ mod tests {
     #[test]
     fn expired_circuit_swept_with_quota_release() {
         let mut st = RelayState::new();
-        let cid = st.issue_circuit("a", "b", 1, 8, 8).unwrap();
+        let cid = st.issue_circuit("a", "b", 1, 8, 8, 0).unwrap();
         assert!(matches!(
             st.on_connect("b", cid, 8, dummy_stream()),
             CircuitOutcome::Parked
@@ -260,7 +279,7 @@ mod tests {
         assert_eq!(dropped.len(), 1);
         assert_eq!(dropped[0].holder.as_deref(), Some("b"));
         // owner/b 双方配额均已回吐
-        assert!(st.issue_circuit("a", "", 60, 1, 8).is_ok());
-        assert!(st.issue_circuit("b", "", 60, 1, 8).is_ok());
+        assert!(st.issue_circuit("a", "", 60, 1, 8, 0).is_ok());
+        assert!(st.issue_circuit("b", "", 60, 1, 8, 0).is_ok());
     }
 }

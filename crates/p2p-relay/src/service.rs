@@ -3,6 +3,7 @@
 //! relay 全程只搬运字节，不解不存（design 7.3）；每 Peer 配额见 limits 模块。
 
 use std::io;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -25,6 +26,8 @@ pub struct RelayServiceImpl {
     limits: RelayLimits,
     buckets: PeerBuckets,
     state: Mutex<RelayState>,
+    /// 控制流代次发生器：每条新控制流一个唯一代次，电路记账据此归属。
+    ctrl_epoch: AtomicU64,
 }
 
 impl RelayServiceImpl {
@@ -34,7 +37,13 @@ impl RelayServiceImpl {
             buckets: PeerBuckets::new(limits.clone()),
             limits,
             state: Mutex::new(RelayState::new()),
+            ctrl_epoch: AtomicU64::new(1),
         }
+    }
+
+    /// 下一个控制流代次（0 保留给测试桩）。
+    pub(crate) fn next_ctrl_epoch(&self) -> u64 {
+        self.ctrl_epoch.fetch_add(1, Ordering::Relaxed)
     }
 
     pub(crate) fn limits(&self) -> &RelayLimits {
@@ -100,7 +109,11 @@ impl RelayServiceImpl {
             tokio::spawn(self.clone().handle_stream(peer.clone(), stream));
         }
         tracing::info!(peer = %peer, "peer link closed");
-        self.lock_state().unregister_link(&peer);
+        let went_zero = self.lock_state().unregister_link(&peer);
+        if went_zero {
+            // 对端整体消失：未桥接电路随链路归零回收（流级 EOF 可能传播不到）
+            self.release_all_circuits_of_peer(&peer).await;
+        }
         if self.lock_state().peer_idle(&peer) && self.buckets.release(&peer) {
             tracing::debug!(peer = %peer, "idle peer bucket reclaimed");
         }
