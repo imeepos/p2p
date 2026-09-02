@@ -1,5 +1,6 @@
 //! [Node]：design §4 的业务 API 表面。
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -17,11 +18,15 @@ use crate::{NodeBuilder, NodeError};
 
 pub struct Node {
     swarm: Arc<Swarm>,
+    observation_addr: Option<SocketAddr>,
 }
 
 impl Node {
-    pub(crate) fn new(swarm: Arc<Swarm>) -> Self {
-        Self { swarm }
+    pub(crate) fn new(swarm: Arc<Swarm>, observation_addr: Option<SocketAddr>) -> Self {
+        Self {
+            swarm,
+            observation_addr,
+        }
     }
 
     /// 构建入口（design §4：Node::builder()）。
@@ -88,6 +93,11 @@ impl Node {
     /// 本节点监听地址（0.0.0.0 已换成 127.0.0.1，可直接用于拨号/登记）。
     pub fn listen_addrs(&self) -> Vec<String> {
         self.swarm.listen_addr_strings()
+    }
+
+    /// 本节点观测反射器的绑定地址（未启用为 None）。
+    pub fn observation_addr(&self) -> Option<SocketAddr> {
+        self.observation_addr
     }
 
     /// 关停：停 accept 循环并断开全部连接；对端会收到 PeerDisconnected。

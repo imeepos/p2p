@@ -14,6 +14,7 @@ use tokio::sync::mpsc;
 
 use crate::discovery::forward_discovery;
 use crate::node::Node;
+use crate::observe;
 use crate::rendezvous::{parse_transport_addr, RendezvousServer, TransportLink};
 use crate::{NodeConfig, NodeError};
 
@@ -25,6 +26,19 @@ const DISCOVERY_EVENTS: usize = 64;
 
 pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     let keypair = Arc::new(load_identity(&cfg.data_dir)?);
+
+    // 观测反射器（bootstrap 角色节点）：独立 UDP 口，回答对端观测地址
+    let mut reflector_addr = None;
+    if let Some(port) = cfg.observation_port {
+        let local = observe::spawn_reflector(port)
+            .await
+            .map_err(|e| NodeError::Assembly(format!("observation reflector bind failed: {e}")))?;
+        tracing::info!(%local, "observation reflector enabled");
+        reflector_addr = Some(local);
+    }
+    // 地址观测（design §7.2）：学习自身公网映射地址（先于注册与打洞宣告）
+    let observed = observe::observe_external_addrs(&cfg.observation_addrs).await;
+
     let relay_addrs = parse_all(&cfg.relay_addrs)?;
     let advertised_addrs = parse_all(&cfg.advertised_addrs)?;
     let swarm = Swarm::start(SwarmConfig {
@@ -41,9 +55,13 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     swarm.register(Arc::new(RendezvousServer::new()));
 
     let listen_addrs = swarm.listen_addrs();
-    spawn_discovery(&cfg, keypair, swarm.clone(), &listen_addrs)?;
+    let observed_addrs = observe::observed_transport_addrs(&observed, &listen_addrs);
+    swarm.set_observed_addrs(observed_addrs);
+    let reg_addrs = observe::merge_observed_with_listen(observed.first().copied(), &listen_addrs);
 
-    Ok(Node::new(swarm))
+    spawn_discovery(&cfg, keypair, swarm.clone(), &reg_addrs, &listen_addrs)?;
+
+    Ok(Node::new(swarm, reflector_addr))
 }
 
 /// 批量解析传输地址；任一非法即装配失败（显式配置错误必须响亮）。
@@ -74,6 +92,7 @@ fn spawn_discovery(
     cfg: &NodeConfig,
     keypair: Arc<Keypair>,
     swarm: Arc<Swarm>,
+    reg_addrs: &[TransportAddr],
     listen_addrs: &[TransportAddr],
 ) -> Result<(), NodeError> {
     let (tx, rx) = mpsc::channel(DISCOVERY_EVENTS);
@@ -85,7 +104,7 @@ fn spawn_discovery(
         tokio::spawn(Arc::new(MdnsDiscovery::new(mdns_cfg)).run(tx.clone()));
         tracing::info!(?quic_port, ?tcp_port, "mdns discovery enabled");
     }
-    match wire_rendezvous(cfg, &keypair, listen_addrs)? {
+    match wire_rendezvous(cfg, &keypair, reg_addrs)? {
         Some(client) => {
             tokio::spawn(client.run(tx));
             tracing::info!(bootstrap = ?cfg.bootstrap, "rendezvous wired");
@@ -99,7 +118,7 @@ fn spawn_discovery(
 fn wire_rendezvous(
     cfg: &NodeConfig,
     keypair: &Arc<Keypair>,
-    listen_addrs: &[TransportAddr],
+    reg_addrs: &[TransportAddr],
 ) -> Result<Option<Arc<RendezvousClient>>, NodeError> {
     if cfg.bootstrap.is_empty() {
         return Ok(None);
@@ -110,7 +129,7 @@ fn wire_rendezvous(
     }
     let link = Arc::new(TransportLink::new(addrs, keypair.clone())?);
     let mut rcfg = RendezvousConfig::new(DEFAULT_NAMESPACE, (**keypair).clone(), link);
-    rcfg.addrs = listen_addrs.to_vec();
+    rcfg.addrs = reg_addrs.to_vec();
     Ok(Some(Arc::new(RendezvousClient::new(rcfg))))
 }
 

@@ -38,6 +38,7 @@ pub struct Swarm {
     dial_tcp: TcpTransport,
     listen_addrs: Vec<TransportAddr>,
     advertised_addrs: Vec<TransportAddr>,
+    observed_addrs: Mutex<Vec<TransportAddr>>,
     pool: Arc<ConnectionPool>,
     registry: RegistryCell,
     gate: Mutex<Option<Arc<dyn ConnectionGate>>>,
@@ -67,6 +68,7 @@ impl Swarm {
             dial_tcp: TcpTransport::new(),
             listen_addrs,
             advertised_addrs: config.advertised_addrs,
+            observed_addrs: Mutex::new(Vec::new()),
             pool: Arc::new(ConnectionPool::new()),
             registry: Arc::new(Mutex::new(config.registry)),
             gate: Mutex::new(None),
@@ -166,14 +168,30 @@ impl Swarm {
         *self.shutdown_rx.borrow()
     }
 
-    /// 打洞信令宣告的地址：显式宣告优先，缺省用监听地址。
+    /// 注入地址观测学到的外部地址（design §7.2），打洞宣告观测优先。
+    pub fn set_observed_addrs(&self, addrs: Vec<TransportAddr>) {
+        *self.observed_addrs.lock().expect("observed lock") = addrs;
+    }
+
+    /// 打洞信令宣告的地址（design §7.2）：观测地址优先（跨网可拨），
+    /// 其后为显式宣告或监听地址；去重。
     fn punch_addrs_strs(&self) -> Vec<String> {
-        let addrs = if self.advertised_addrs.is_empty() {
-            &self.listen_addrs
-        } else {
-            &self.advertised_addrs
+        let mut out: Vec<String> = Vec::new();
+        let mut push_all = |addrs: &[TransportAddr]| {
+            for addr in addrs {
+                let s = addr.to_string();
+                if !out.contains(&s) {
+                    out.push(s);
+                }
+            }
         };
-        addrs.iter().map(ToString::to_string).collect()
+        push_all(&self.observed_addrs.lock().expect("observed lock"));
+        if self.advertised_addrs.is_empty() {
+            push_all(&self.listen_addrs);
+        } else {
+            push_all(&self.advertised_addrs);
+        }
+        out
     }
 
     fn addresses_of(&self, peer: PeerId) -> Vec<TransportAddr> {
