@@ -28,9 +28,9 @@ fn stream_limits() -> Arc<quinn::TransportConfig> {
     transport.max_concurrent_bidi_streams(
         quinn::VarInt::from_u64(MAX_STREAMS_PER_CONN as u64).expect("stream limit fits varint"),
     );
-    transport.max_idle_timeout(Some(quinn::IdleTimeout::from(
-        quinn::VarInt::from_u64(QUIC_IDLE_TIMEOUT.as_secs()).expect("idle timeout fits varint"),
-    )));
+    transport.max_idle_timeout(Some(
+        quinn::IdleTimeout::try_from(QUIC_IDLE_TIMEOUT).expect("idle timeout fits varint"),
+    ));
     Arc::new(transport)
 }
 
@@ -150,9 +150,9 @@ impl Transport for QuicTransport {
         let mut client = quinn::ClientConfig::new(Arc::new(quic_crypto));
         let mut transport = quinn::TransportConfig::default();
         transport.keep_alive_interval(Some(KEEP_ALIVE));
-        transport.max_idle_timeout(Some(quinn::IdleTimeout::from(
-            quinn::VarInt::from_u64(QUIC_IDLE_TIMEOUT.as_secs()).expect("idle timeout fits varint"),
-        )));
+        transport.max_idle_timeout(Some(
+            quinn::IdleTimeout::try_from(QUIC_IDLE_TIMEOUT).expect("idle timeout fits varint"),
+        ));
         client.transport_config(Arc::new(transport));
 
         let connecting = self
