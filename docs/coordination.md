@@ -71,5 +71,6 @@
 - 2026-09-02 检查轮 8：T 验收通过（10d8cee，make check 全绿 + 冒烟实测 PASS：bootstrap 注册/双节点发现/ping rtt≈7ms）。E2 部署在 138 上执行中。红线登记（源自 R 审查发现，已通知 S 于 M3 执行）：RelayLink 夹具的 peer_id 必须标注为对端身份，标注成 relay 自身会让属主/配额校验形同虚设。
 - 2026-09-02 检查轮 8 续：**E2 完成**——bootstrap 已在 138 systemd 常驻（active，QUIC 3400/udp + TCP 3401/tcp，远端编译 2m48s），跨公网验证通过：15（LAN）经 138 discover 成功查到本机注册节点。实测暴露地址观测缺口（节点只注册 127.0.0.1 监听地址），已作为必做项补进 S 的 M3 任务（design §7.2）。M3 贯通轮已派 S（feat/m3-degradation-chain）。E1/E3 待 M3 落地后按 runbook 执行。
 - 2026-09-02 检查轮 9：M3 降级链合入验收（3942e2e，make check + 冒烟复跑 PASS，rtt 6.4ms）；S 正在第二批 feat/addr-observation（地址观测，E3 前置）。
+- 2026-09-02 检查轮 11：S 地址观测合入验收——e492a3e（UDP 反射学公网映射地址并注册进 rendezvous），实测：15 经 138 discover 到 coordinator 的地址列表含 240e: 全局 IPv6（不再只有 127.0.0.1）。15/102 已更新二进制并带 --bootstrap 重启。在途：D 的 TTL 刷新（fix/mdns-ttl-refresh，文件活动中）。
 - 2026-09-02 检查轮 10（E1 首跑）：15/114 双 Mac 节点拉起成功，但 mDNS 互发现失败——本机 debug 复现实锤 D 的 mdns.rs 服务名不合法（缺尾点，mdns-sd 拒绝注册/浏览）。已派急修单回 D（fix/mdns-servicetype）。运维侧两处已修：102 源码快照过期导致编译失败（重同步）、远端节点日志需显式 RUST_LOG=info（runbook 待更新）。
 - 2026-09-02 检查轮 10 续：mDNS 服务名修复合入（85a1e1c）后 E1 重跑：**三机互发现成功**（15/114/102 两两可见，含真实局域网地址）、**跨机 ping 成功**（maca→linc RTT 2.75ms）。但断线语义有缺陷：活着的 macb 在首次发现+120s 整被误报断线（mdns-sd 地址集不变就不发 Resolved，TTL 无续期），被 kill 的 linc 反而无断线事件。第二张修复单已派 D（fix/mdns-ttl-refresh：Resolved 恒续期+过期扫描+回归测试）。协调者代 D 修 hostname 尾点（8910de0，D 会话响应滞后，已透明记录）。
