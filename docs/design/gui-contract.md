@@ -47,11 +47,11 @@ interface GuiConfig {
   tcpPort: number;             // 0 = 随机
   enableMdns: boolean;
   dataDir: string;             // 默认 app 数据目录下 p2p-data
-  bootstrap: string[];         // rendezvous 地址，语法同 §6："ip/u端口"（QUIC）或 "ip/t端口"（TCP）
-  relayAddrs: string[];
+  bootstrap: string[];         // 出厂内置两个公网 rendezvous："43.240.223.138/u3400"、"121.196.193.177/u3400"（可编辑）
+  relayAddrs: string[];        // 出厂内置两个公网 relay："43.240.223.138/u3403"、"121.196.193.177/u3403"（可编辑）
   advertisedAddrs: string[];
   observationPort: number | null;
-  observationAddrs: string[];
+  observationAddrs: string[];  // 观测反射端点（socket 语法 ip:port），如 "121.196.193.177:3402"
 }
 
 interface NodeStatus {
