@@ -144,7 +144,7 @@ pub fn merge_observed_with_listen(
     for addr in listen_addrs {
         push(addr.clone());
     }
-    out
+    p2p_swarm::filter_loopback(out)
 }
 
 #[cfg(test)]
@@ -181,7 +181,8 @@ mod tests {
                 port: 4000
             }
         );
-        assert_eq!(merged.len(), 4, "observed x2 + listen x2");
+        // 全局观测存在时 loopback 监听地址被过滤（E3：远端拨 loopback 必拒）
+        assert_eq!(merged.len(), 2, "observed x2 kept, loopback listen dropped");
         let merged = merge_observed_with_listen(None, &listen);
         assert_eq!(merged.len(), 2, "no observation keeps listen only");
     }

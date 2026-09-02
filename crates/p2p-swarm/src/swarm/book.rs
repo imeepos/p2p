@@ -112,6 +112,24 @@ impl AddressBook {
     }
 }
 
+/// 过滤 loopback（127.0.0.0/8、::1）：仅当存在非 loopback 地址时移除——
+/// loopback 对远端不可拨（E3：节点重启换端口后，对端拨其旧 loopback 注册项必拒）；
+/// 全 loopback（同机部署/单测）保持原样以维持同机可发现性。
+pub fn filter_loopback(addrs: Vec<TransportAddr>) -> Vec<TransportAddr> {
+    let has_dialable = addrs.iter().any(|a| !is_loopback_addr(a));
+    if has_dialable {
+        addrs.into_iter().filter(|a| !is_loopback_addr(a)).collect()
+    } else {
+        addrs
+    }
+}
+
+fn is_loopback_addr(addr: &TransportAddr) -> bool {
+    match addr {
+        TransportAddr::Quic { ip, .. } | TransportAddr::Tcp { ip, .. } => ip.is_loopback(),
+    }
+}
+
 fn addr_ip(addr: &TransportAddr) -> IpAddr {
     match addr {
         TransportAddr::Quic { ip, .. } | TransportAddr::Tcp { ip, .. } => *ip,
@@ -155,6 +173,23 @@ mod tests {
                 tcp("10.99.99.99", 2),
             ]
         );
+    }
+
+    #[test]
+    fn filter_loopback_keeps_all_loopback_set() {
+        let addrs = vec![tcp("127.0.0.1", 1), tcp("127.0.0.1", 2)];
+        let kept = filter_loopback(addrs.clone());
+        assert_eq!(
+            kept, addrs,
+            "all-loopback set must be kept (same-host discovery)"
+        );
+    }
+
+    #[test]
+    fn filter_loopback_drops_loopback_when_global_exists() {
+        let addrs = vec![tcp("127.0.0.1", 1), tcp("240e:1000::5", 443)];
+        let kept = filter_loopback(addrs);
+        assert_eq!(kept, vec![tcp("240e:1000::5", 443)]);
     }
 
     #[test]

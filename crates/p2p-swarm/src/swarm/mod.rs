@@ -23,8 +23,8 @@ mod responder;
 #[cfg(test)]
 mod tests;
 
-pub use book::AddrSource;
 use book::AddressBook;
+pub use book::{filter_loopback, AddrSource};
 pub use config::SwarmConfig;
 use config::{to_transport, EVENT_CAPACITY};
 use dial::dial_peer;
@@ -180,14 +180,13 @@ impl Swarm {
     }
 
     /// 打洞信令宣告的地址（design §7.2）：观测地址优先（跨网可拨），
-    /// 其后为显式宣告或监听地址；去重。
-    fn punch_addrs_strs(&self) -> Vec<String> {
-        let mut out: Vec<String> = Vec::new();
+    /// 其后为显式宣告或监听地址；去重并过滤 loopback。
+    fn punch_addrs(&self) -> Vec<TransportAddr> {
+        let mut out: Vec<TransportAddr> = Vec::new();
         let mut push_all = |addrs: &[TransportAddr]| {
             for addr in addrs {
-                let s = addr.to_string();
-                if !out.contains(&s) {
-                    out.push(s);
+                if !out.contains(addr) {
+                    out.push(addr.clone());
                 }
             }
         };
@@ -197,7 +196,11 @@ impl Swarm {
         } else {
             push_all(&self.advertised_addrs);
         }
-        out
+        filter_loopback(out)
+    }
+
+    fn punch_addrs_strs(&self) -> Vec<String> {
+        self.punch_addrs().iter().map(ToString::to_string).collect()
     }
 
     /// 直连跳用地址：按来源/网段优先级排序（design §7.3 + E3）。

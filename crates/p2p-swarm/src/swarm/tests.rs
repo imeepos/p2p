@@ -108,6 +108,25 @@ async fn degrade_without_relay_reports_unavailable() {
     assert!(!saw_relay_ok, "relay hop must not fake success");
 }
 
+/// E3 回归：观测到全局地址时，打洞/注册宣告过滤 loopback（对端不可拨）。
+#[tokio::test]
+async fn punch_addrs_drop_loopback_when_global_observed() {
+    let swarm = Swarm::start(test_config()).await.expect("bind swarm");
+    swarm.set_observed_addrs(vec![TransportAddr::Quic {
+        ip: "203.0.113.7".parse().unwrap(),
+        port: 45001,
+    }]);
+    let addrs = swarm.punch_addrs_strs();
+    assert!(
+        addrs.iter().all(|s| !s.contains("127.0.0.1")),
+        "loopback must be filtered when global observed exists: {addrs:?}"
+    );
+    assert!(
+        addrs.iter().any(|s| s.contains("203.0.113.7")),
+        "global observed must stay"
+    );
+}
+
 /// 混合地址回归（E3 小修单）：QUIC 地址必拒 + TCP 地址可达——
 /// 直连跳必须遍历全部地址（QUIC 按序先试、失败发 DialFailed），经 TCP 成功，
 /// 不得在首个地址被拒后直接上抛。

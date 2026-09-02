@@ -13,6 +13,7 @@ mod swarm;
 pub use backoff::Backoff;
 pub use gate::{gate_fn, GateFn};
 pub use pool::ConnectionPool;
+pub use swarm::filter_loopback;
 pub use swarm::{AddrSource, Swarm, SwarmConfig, SwarmFactory};
 
 /// 底座事件：业务只读。所有失败路径必须可见（禁止静默吞错，design §12）。
