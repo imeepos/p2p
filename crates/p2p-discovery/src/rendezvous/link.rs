@@ -26,7 +26,8 @@ pub struct RendezvousConn {
 impl RendezvousConn {
     pub async fn send_msg<M: prost::Message>(&mut self, msg: &M) -> Result<(), RendezvousError> {
         let mut buf = Vec::new();
-        msg.encode(&mut buf).map_err(|e| RendezvousError::Send(e.to_string()))?;
+        msg.encode(&mut buf)
+            .map_err(|e| RendezvousError::Send(e.to_string()))?;
         self.write
             .send(buf)
             .await
@@ -59,8 +60,8 @@ pub trait RendezvousLink: Send + Sync {
 pub(crate) mod mock {
     use super::*;
     use bytes::Bytes;
-    use futures::SinkExt;
     use futures::stream::unfold;
+    use futures::SinkExt;
     use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
     /// 从 tokio duplex 构造帧流连接（长度前缀 + prost 负载），测试专用。
@@ -96,7 +97,10 @@ pub(crate) mod mock {
         let read = Box::pin(unfold(in_rx, |mut rx| async move {
             rx.recv().await.map(|item| (item, rx))
         }));
-        RendezvousConn { write: out_tx, read }
+        RendezvousConn {
+            write: out_tx,
+            read,
+        }
     }
 
     /// 测试用 link 实现：把预置的 duplex 当一次传输连接。
@@ -148,7 +152,10 @@ mod tests {
             buf.extend_from_slice(&data);
             peer_w.write_all(&buf).await.expect("write");
         });
-        conn.write.send(b"hello-frame".to_vec()).await.expect("send");
+        conn.write
+            .send(b"hello-frame".to_vec())
+            .await
+            .expect("send");
         let recv = conn.read.next().await.expect("frame").expect("io");
         assert_eq!(recv, b"hello-frame".to_vec());
         peer_task.await.expect("peer task");

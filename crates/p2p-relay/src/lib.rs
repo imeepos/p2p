@@ -42,7 +42,7 @@ pub use error::RelayError;
 pub use limits::{PeerBuckets, RateBucket, RateLimitedStream, RelayLimits};
 pub use link::{mock_link_pair, LinkSource, MockLink, MockLinkSource, RelayLink};
 pub use messages::{
-    errcode, relay_msg, Bound, Connect, PunchAck, PunchReq, Reject, Reserve, Reserved, RelayMsg,
+    errcode, relay_msg, Bound, Connect, PunchAck, PunchReq, Reject, RelayMsg, Reserve, Reserved,
 };
 pub use punch::{PunchPhase, PunchSession};
 pub use service::RelayServiceImpl;

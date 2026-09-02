@@ -31,9 +31,7 @@ impl MemCache {
         let now = Instant::now();
         let mut map = self.entries.lock().expect("cache lock");
         map.retain(|_, e| e.expires_at > now);
-        map.iter()
-            .map(|(p, e)| (*p, e.addrs.clone()))
-            .collect()
+        map.iter().map(|(p, e)| (*p, e.addrs.clone())).collect()
     }
 }
 

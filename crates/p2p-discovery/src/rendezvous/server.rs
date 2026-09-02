@@ -8,11 +8,11 @@ use p2p_identity::PeerId;
 use p2p_transport::TransportAddr;
 
 use crate::cache::MemCache;
-use crate::AddrCache;
 use crate::rendezvous::link::{RendezvousConn, RendezvousError};
 use crate::rendezvous::messages::{
     request, verify_register, AddrMsg, PeerEntry, Query, Register, Request, Response,
 };
+use crate::AddrCache;
 
 /// rendezvous 注册表：namespace → 带 TTL 的地址缓存。
 #[derive(Default)]
@@ -53,12 +53,7 @@ impl RendezvousRegistry {
 
     /// 应答查询：peer_id 为空返回整个 namespace 的未过期条目。
     pub fn query(&self, q: &Query) -> Response {
-        let target: Option<PeerId> = q
-            .peer_id
-            .as_slice()
-            .try_into()
-            .ok()
-            .map(PeerId::from_bytes);
+        let target: Option<PeerId> = q.peer_id.as_slice().try_into().ok().map(PeerId::from_bytes);
         let mut map = self.namespaces.lock().expect("registry lock");
         let cache = map.entry(q.namespace.clone()).or_default();
         let peers = cache
@@ -70,7 +65,10 @@ impl RendezvousRegistry {
                 addrs: addrs.iter().map(AddrMsg::from_addr).collect(),
             })
             .collect();
-        Response { error: String::new(), peers }
+        Response {
+            error: String::new(),
+            peers,
+        }
     }
 }
 
@@ -103,7 +101,10 @@ mod tests {
     use crate::rendezvous::messages::sign_register;
 
     fn sample_addrs() -> Vec<TransportAddr> {
-        vec![TransportAddr::Quic { ip: "10.0.0.5".parse().unwrap(), port: 4000 }]
+        vec![TransportAddr::Quic {
+            ip: "10.0.0.5".parse().unwrap(),
+            port: 4000,
+        }]
     }
 
     #[test]

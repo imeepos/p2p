@@ -4,8 +4,8 @@
 //! Punch 信令语义：外发消息的 peer_id 指明目的地；relay 转发时改写为发送方，
 //! 接收方看到的 peer_id 即对端真实身份。
 
-use std::io::{Error, ErrorKind};
 use prost::Message as ProstMessage;
+use std::io::{Error, ErrorKind};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// 服务端错误码（Reject.code），与 crate::error::RelayError 互映。
@@ -112,31 +112,54 @@ pub mod relay_msg {
 
 impl RelayMsg {
     pub fn reserve(ttl_secs: u64) -> Self {
-        Self { kind: Some(relay_msg::Kind::Reserve(Reserve { ttl_secs })) }
+        Self {
+            kind: Some(relay_msg::Kind::Reserve(Reserve { ttl_secs })),
+        }
     }
 
     pub fn reserved(circuit_id: u64) -> Self {
-        Self { kind: Some(relay_msg::Kind::Reserved(Reserved { circuit_id })) }
+        Self {
+            kind: Some(relay_msg::Kind::Reserved(Reserved { circuit_id })),
+        }
     }
 
     pub fn connect(circuit_id: u64) -> Self {
-        Self { kind: Some(relay_msg::Kind::Connect(Connect { circuit_id })) }
+        Self {
+            kind: Some(relay_msg::Kind::Connect(Connect { circuit_id })),
+        }
     }
 
     pub fn bound(circuit_id: u64) -> Self {
-        Self { kind: Some(relay_msg::Kind::Bound(Bound { circuit_id })) }
+        Self {
+            kind: Some(relay_msg::Kind::Bound(Bound { circuit_id })),
+        }
     }
 
     pub fn punch_req(peer_id: impl Into<String>, addrs: Vec<String>) -> Self {
-        Self { kind: Some(relay_msg::Kind::PunchReq(PunchReq { peer_id: peer_id.into(), addrs })) }
+        Self {
+            kind: Some(relay_msg::Kind::PunchReq(PunchReq {
+                peer_id: peer_id.into(),
+                addrs,
+            })),
+        }
     }
 
     pub fn punch_ack(peer_id: impl Into<String>, addrs: Vec<String>) -> Self {
-        Self { kind: Some(relay_msg::Kind::PunchAck(PunchAck { peer_id: peer_id.into(), addrs })) }
+        Self {
+            kind: Some(relay_msg::Kind::PunchAck(PunchAck {
+                peer_id: peer_id.into(),
+                addrs,
+            })),
+        }
     }
 
     pub fn error(code: u32, message: impl Into<String>) -> Self {
-        Self { kind: Some(relay_msg::Kind::Reject(Reject { code, message: message.into() })) }
+        Self {
+            kind: Some(relay_msg::Kind::Reject(Reject {
+                code,
+                message: message.into(),
+            })),
+        }
     }
 }
 

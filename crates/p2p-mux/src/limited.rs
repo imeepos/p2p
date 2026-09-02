@@ -16,7 +16,10 @@ pub(crate) struct Limited<S> {
 
 impl<S> Limited<S> {
     pub(crate) fn new(inner: S, permit: OwnedSemaphorePermit) -> Self {
-        Self { inner, _permit: permit }
+        Self {
+            inner,
+            _permit: permit,
+        }
     }
 }
 

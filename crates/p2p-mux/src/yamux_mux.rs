@@ -27,7 +27,11 @@ pub struct YamuxMux {
 impl YamuxMux {
     /// is_initiator：主动拨号侧传 true（决定 yamux stream id 奇偶，两端必须互异）。
     pub fn new(io: BoxedStream, is_initiator: bool, max_open_streams: usize) -> Self {
-        let mode = if is_initiator { yamux::Mode::Client } else { yamux::Mode::Server };
+        let mode = if is_initiator {
+            yamux::Mode::Client
+        } else {
+            yamux::Mode::Server
+        };
         let mut cfg = yamux::Config::default();
         // 连接级流数硬上限写入协议配置（对端开流同样受限）；须满足 <= 4096
         cfg.set_max_num_streams(max_open_streams);
@@ -49,11 +53,18 @@ impl YamuxMux {
 #[async_trait::async_trait]
 impl MuxControl for YamuxMux {
     async fn open_stream(&self) -> io::Result<BoxedStream> {
-        let permit = self.open_permits.clone().acquire_owned().await.map_err(|_| {
-            io::Error::new(io::ErrorKind::BrokenPipe, "mux closed")
-        })?;
+        let permit = self
+            .open_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "mux closed"))?;
         let (tx, rx) = oneshot::channel();
-        self.open_tx.clone().send(tx).await.map_err(|_| mux_closed())?;
+        self.open_tx
+            .clone()
+            .send(tx)
+            .await
+            .map_err(|_| mux_closed())?;
         let stream = rx.await.map_err(|_| mux_closed())??;
         Ok(Box::new(Limited::new(stream, permit)))
     }
@@ -182,6 +193,9 @@ mod tests {
         stream_a.write_all(b"x").await.expect("write");
         drop(mux_a);
         drop(stream_a);
-        assert!(mux_b.accept_stream().await.is_none(), "peer close must end accept");
+        assert!(
+            mux_b.accept_stream().await.is_none(),
+            "peer close must end accept"
+        );
     }
 }

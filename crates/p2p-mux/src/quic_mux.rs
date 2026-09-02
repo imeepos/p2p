@@ -20,16 +20,22 @@ pub struct QuicMux {
 
 impl QuicMux {
     pub fn new(conn: Connection, max_open_streams: usize) -> Self {
-        Self { conn, open_permits: Arc::new(Semaphore::new(max_open_streams)) }
+        Self {
+            conn,
+            open_permits: Arc::new(Semaphore::new(max_open_streams)),
+        }
     }
 }
 
 #[async_trait::async_trait]
 impl MuxControl for QuicMux {
     async fn open_stream(&self) -> io::Result<BoxedStream> {
-        let permit = self.open_permits.clone().acquire_owned().await.map_err(|_| {
-            io::Error::new(io::ErrorKind::BrokenPipe, "mux closed")
-        })?;
+        let permit = self
+            .open_permits
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::BrokenPipe, "mux closed"))?;
         let (send, recv) = self.conn.open_bi().await.map_err(transport_err)?;
         Ok(Box::new(Limited::new(QuicStream { send, recv }, permit)))
     }
@@ -77,7 +83,9 @@ impl AsyncWrite for QuicStream {
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Pin::new(&mut self.get_mut().send).poll_write(cx, buf).map_err(transport_err)
+        Pin::new(&mut self.get_mut().send)
+            .poll_write(cx, buf)
+            .map_err(transport_err)
     }
 
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {

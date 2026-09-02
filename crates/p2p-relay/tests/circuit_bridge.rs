@@ -23,7 +23,10 @@ fn relay_with_two_peers(limits: RelayLimits) -> (RelayClient, RelayClient) {
     tokio::spawn(async move {
         let _ = svc.serve().await;
     });
-    (RelayClient::new(Box::new(client_a)), RelayClient::new(Box::new(client_b)))
+    (
+        RelayClient::new(Box::new(client_a)),
+        RelayClient::new(Box::new(client_b)),
+    )
 }
 
 /// 双向各传一段数据：每阶段一写一读并发（mock 流缓冲小，双写并发会互堵）。
@@ -55,7 +58,9 @@ async fn bridged_circuit_moves_256kb_identically() {
     // 双向共 256KiB，逐字节一致
     let to_b: Vec<u8> = (0..128 * KB).map(|i| (i % 251) as u8).collect();
     let to_a: Vec<u8> = (0..128 * KB).map(|i| (i % 241) as u8).collect();
-    let (back_a, back_b) = exchange(&mut sa, &mut sb, &to_b, &to_a).await.expect("exchange");
+    let (back_a, back_b) = exchange(&mut sa, &mut sb, &to_b, &to_a)
+        .await
+        .expect("exchange");
     assert_eq!(back_a, to_a);
     assert_eq!(back_b, to_b);
 }
@@ -71,20 +76,31 @@ async fn unknown_circuit_rejected_with_error_signal() {
         Ok(_) => panic!("unknown circuit must be rejected"),
     };
     assert!(
-        matches!(err, RelayError::Server { code: errcode::UNKNOWN_CIRCUIT, .. }),
+        matches!(
+            err,
+            RelayError::Server {
+                code: errcode::UNKNOWN_CIRCUIT,
+                ..
+            }
+        ),
         "got {err:?}"
     );
 
     // 桥接确未建立：同号正常接入仍可互通
     let (sa, sb) = tokio::join!(a.connect(cid), b.connect(cid));
     let (mut sa, mut sb) = (sa.expect("a connect"), sb.expect("b connect"));
-    let (_, back) = exchange(&mut sa, &mut sb, b"probe", b"").await.expect("pump");
+    let (_, back) = exchange(&mut sa, &mut sb, b"probe", b"")
+        .await
+        .expect("pump");
     assert_eq!(back, b"probe");
 }
 
 #[tokio::test]
 async fn per_peer_link_quota_rejects_extra_link() {
-    let limits = RelayLimits { max_links_per_peer: 1, ..RelayLimits::default() };
+    let limits = RelayLimits {
+        max_links_per_peer: 1,
+        ..RelayLimits::default()
+    };
     let source = MockLinkSource::new();
     let (c1, s1) = mock_link_pair("peer-a", "relay");
     let (c2, s2) = mock_link_pair("peer-a", "relay");
@@ -98,7 +114,10 @@ async fn per_peer_link_quota_rejects_extra_link() {
     let mut second = RelayClient::new(Box::new(c2));
     // 先挂第一条链路并确认可用，避免两条链路的注册竞态
     keep.push(Box::new(s1));
-    first.reserve(Duration::from_secs(60)).await.expect("first link admitted");
+    first
+        .reserve(Duration::from_secs(60))
+        .await
+        .expect("first link admitted");
     keep.push(Box::new(s2));
     let outcome = second.reserve(Duration::from_secs(60)).await;
     let err = match outcome {
@@ -106,21 +125,33 @@ async fn per_peer_link_quota_rejects_extra_link() {
         Ok(_) => panic!("second link must be rejected"),
     };
     assert!(
-        matches!(err, RelayError::Server { code: errcode::PEER_LIMIT, .. }),
+        matches!(
+            err,
+            RelayError::Server {
+                code: errcode::PEER_LIMIT,
+                ..
+            }
+        ),
         "got {err:?}"
     );
 }
 
 #[tokio::test]
 async fn egress_quota_cuts_circuit_and_signals() {
-    let limits = RelayLimits { egress_burst: 1024, egress_bytes_per_sec: 1024, ..RelayLimits::default() };
+    let limits = RelayLimits {
+        egress_burst: 1024,
+        egress_bytes_per_sec: 1024,
+        ..RelayLimits::default()
+    };
     let (mut a, mut b) = relay_with_two_peers(limits);
     let cid = a.reserve(Duration::from_secs(60)).await.expect("reserve");
     let (sa, sb) = tokio::join!(a.connect(cid), b.connect(cid));
     let (mut sa, mut sb) = (sa.expect("a connect"), sb.expect("b connect"));
 
     // 桶容量内的小流量正常通过
-    let (_, back) = exchange(&mut sa, &mut sb, &[0u8; 512], b"").await.expect("within quota");
+    let (_, back) = exchange(&mut sa, &mut sb, &[0u8; 512], b"")
+        .await
+        .expect("within quota");
     assert_eq!(back, &[0u8; 512]);
 
     // 超过桶容量：出口写失败即断链，读端收到显式错误
@@ -132,5 +163,8 @@ async fn egress_quota_cuts_circuit_and_signals() {
     })
     .await
     .expect("no hang");
-    assert!(outcome.0.is_err() || outcome.1.is_err(), "circuit must be cut after egress excess");
+    assert!(
+        outcome.0.is_err() || outcome.1.is_err(),
+        "circuit must be cut after egress excess"
+    );
 }

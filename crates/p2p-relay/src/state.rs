@@ -94,32 +94,59 @@ impl RelayState {
 
     /// 仅当登记项仍是这条写半时移除（不误删后注册的新控制流）。
     pub(crate) fn remove_control_if(&mut self, peer: &str, half: &Arc<CtrlWrite>) {
-        if self.controls.get(peer).is_some_and(|h| Arc::ptr_eq(h, half)) {
+        if self
+            .controls
+            .get(peer)
+            .is_some_and(|h| Arc::ptr_eq(h, half))
+        {
             self.controls.remove(peer);
         }
     }
 
     /// 发放电路；超配额返回错误码。TTL 0 用缺省值，超过上限截断。
-    pub(crate) fn issue_circuit(&mut self, owner: &str, ttl_secs: u64, max_per_peer: usize) -> Result<u64, u32> {
+    pub(crate) fn issue_circuit(
+        &mut self,
+        owner: &str,
+        ttl_secs: u64,
+        max_per_peer: usize,
+    ) -> Result<u64, u32> {
         let load = self.circuit_load.get(owner).copied().unwrap_or(0);
         if load >= max_per_peer {
             return Err(errcode::PEER_LIMIT);
         }
-        let ttl_secs = if ttl_secs == 0 { DEFAULT_TTL_SECS } else { ttl_secs.min(MAX_TTL_SECS) };
+        let ttl_secs = if ttl_secs == 0 {
+            DEFAULT_TTL_SECS
+        } else {
+            ttl_secs.min(MAX_TTL_SECS)
+        };
         let cid = self.next_circuit;
         self.next_circuit += 1;
         self.circuit_load.insert(owner.to_string(), load + 1);
         self.circuits.insert(
             cid,
-            CircuitSlot { owner: owner.to_string(), expires: Instant::now() + Duration::from_secs(ttl_secs), pending: None },
+            CircuitSlot {
+                owner: owner.to_string(),
+                expires: Instant::now() + Duration::from_secs(ttl_secs),
+                pending: None,
+            },
         );
         Ok(cid)
     }
 
     /// 配额检查 + 配对裁决，单临界区完成（Park 时流已收进槽内，无竞态窗口）。
-    pub(crate) fn on_connect(&mut self, joiner: &str, cid: u64, max_per_peer: usize, stream: BoxedStream) -> CircuitOutcome {
+    pub(crate) fn on_connect(
+        &mut self,
+        joiner: &str,
+        cid: u64,
+        max_per_peer: usize,
+        stream: BoxedStream,
+    ) -> CircuitOutcome {
         let Some(slot) = self.circuits.get_mut(&cid) else {
-            return CircuitOutcome::Rejected(errcode::UNKNOWN_CIRCUIT, format!("circuit {cid} not found"), stream);
+            return CircuitOutcome::Rejected(
+                errcode::UNKNOWN_CIRCUIT,
+                format!("circuit {cid} not found"),
+                stream,
+            );
         };
         if Instant::now() >= slot.expires {
             let slot = self.circuits.remove(&cid).expect("just fetched");
@@ -127,17 +154,28 @@ impl RelayState {
             if let Some(p) = slot.pending {
                 self.release_circuit_load(&p.peer);
             }
-            return CircuitOutcome::Rejected(errcode::CIRCUIT_EXPIRED, format!("circuit {cid} expired"), stream);
+            return CircuitOutcome::Rejected(
+                errcode::CIRCUIT_EXPIRED,
+                format!("circuit {cid} expired"),
+                stream,
+            );
         }
         let load = self.circuit_load.get(joiner).copied().unwrap_or(0);
         if load >= max_per_peer {
-            return CircuitOutcome::Rejected(errcode::PEER_LIMIT, "per-peer circuit quota exceeded".into(), stream);
+            return CircuitOutcome::Rejected(
+                errcode::PEER_LIMIT,
+                "per-peer circuit quota exceeded".into(),
+                stream,
+            );
         }
         self.circuit_load.insert(joiner.to_string(), load + 1);
         match slot.pending.take() {
             Some(p) => CircuitOutcome::Paired(p, stream),
             None => {
-                slot.pending = Some(PendingStream { peer: joiner.to_string(), stream });
+                slot.pending = Some(PendingStream {
+                    peer: joiner.to_string(),
+                    stream,
+                });
                 CircuitOutcome::Parked
             }
         }
@@ -201,8 +239,14 @@ mod tests {
     fn circuit_park_then_pair() {
         let mut st = RelayState::new();
         let cid = st.issue_circuit("a", 60, 8).unwrap();
-        assert!(matches!(st.on_connect("a", cid, 8, dummy_stream()), CircuitOutcome::Parked));
-        assert!(matches!(st.on_connect("b", cid, 8, dummy_stream()), CircuitOutcome::Paired(_, _)));
+        assert!(matches!(
+            st.on_connect("a", cid, 8, dummy_stream()),
+            CircuitOutcome::Parked
+        ));
+        assert!(matches!(
+            st.on_connect("b", cid, 8, dummy_stream()),
+            CircuitOutcome::Paired(_, _)
+        ));
     }
 
     #[test]
@@ -223,7 +267,10 @@ mod tests {
     fn expired_circuit_swept_with_quota_release() {
         let mut st = RelayState::new();
         let cid = st.issue_circuit("a", 1, 8).unwrap();
-        assert!(matches!(st.on_connect("b", cid, 8, dummy_stream()), CircuitOutcome::Parked));
+        assert!(matches!(
+            st.on_connect("b", cid, 8, dummy_stream()),
+            CircuitOutcome::Parked
+        ));
         let dropped = st.sweep_expired(Instant::now() + Duration::from_secs(2));
         assert_eq!(dropped.len(), 1);
         assert_eq!(dropped[0].holder.as_deref(), Some("b"));

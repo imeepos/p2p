@@ -94,7 +94,11 @@ impl MdnsDiscovery {
     fn announce_info(&self) -> ServiceInfo {
         let port = self.config.quic_port.or(self.config.tcp_port).unwrap_or(0);
         let host = format!("{}.local", self.config.instance);
-        let props = encode_txt(&self.config.peer_id, self.config.quic_port, self.config.tcp_port);
+        let props = encode_txt(
+            &self.config.peer_id,
+            self.config.quic_port,
+            self.config.tcp_port,
+        );
         ServiceInfo::new(
             &self.config.service_type,
             &self.config.instance,
@@ -108,7 +112,11 @@ impl MdnsDiscovery {
     }
 
     /// 把 mdns-sd 事件映射为 DiscoveryEvent；跳过自身通告。
-    fn map_event(&self, live: &mut HashMap<String, PeerId>, ev: ServiceEvent) -> Option<DiscoveryEvent> {
+    fn map_event(
+        &self,
+        live: &mut HashMap<String, PeerId>,
+        ev: ServiceEvent,
+    ) -> Option<DiscoveryEvent> {
         match ev {
             ServiceEvent::ServiceResolved(info) => {
                 let (peer, addrs) = decode_txt(&info)?;
@@ -120,10 +128,14 @@ impl MdnsDiscovery {
                     peer,
                     addrs,
                     source: Source::Mdns,
-                    expires_at: Some(Instant::now() + Duration::from_secs(self.config.ttl_secs.into())),
+                    expires_at: Some(
+                        Instant::now() + Duration::from_secs(self.config.ttl_secs.into()),
+                    ),
                 }))
             }
-            ServiceEvent::ServiceRemoved(_, fullname) => live.remove(&fullname.to_lowercase()).map(DiscoveryEvent::Expired),
+            ServiceEvent::ServiceRemoved(_, fullname) => live
+                .remove(&fullname.to_lowercase())
+                .map(DiscoveryEvent::Expired),
             _ => None,
         }
     }
@@ -143,7 +155,10 @@ fn bridge_browse(flume_rx: mdns_sd::Receiver<ServiceEvent>, tx: mpsc::Sender<Ser
 /// 向事件通道发送 mDNS 失败事件（禁止静默吞错）。
 async fn emit_failed(events: &mpsc::Sender<DiscoveryEvent>, reason: String) {
     let _ = events
-        .send(DiscoveryEvent::Failed { source: Source::Mdns, reason })
+        .send(DiscoveryEvent::Failed {
+            source: Source::Mdns,
+            reason,
+        })
         .await;
 }
 
@@ -222,8 +237,14 @@ mod tests {
         let (decoded, addrs) = decode_txt(&info).expect("decode");
         assert_eq!(decoded, peer);
         assert_eq!(addrs.len(), 2);
-        let quic = TransportAddr::Quic { ip: IpAddr::from([192, 168, 1, 50]), port: 12345 };
-        let tcp = TransportAddr::Tcp { ip: IpAddr::from([192, 168, 1, 50]), port: 12346 };
+        let quic = TransportAddr::Quic {
+            ip: IpAddr::from([192, 168, 1, 50]),
+            port: 12345,
+        };
+        let tcp = TransportAddr::Tcp {
+            ip: IpAddr::from([192, 168, 1, 50]),
+            port: 12346,
+        };
         assert!(addrs.contains(&quic));
         assert!(addrs.contains(&tcp));
     }
@@ -248,7 +269,10 @@ mod tests {
         let peer = PeerId::from_bytes([8u8; 32]);
         let disc = MdnsDiscovery::new(MdnsConfig::new(PeerId::from_bytes([9u8; 32])));
         let mut live = HashMap::new();
-        let ev = disc.map_event(&mut live, ServiceEvent::ServiceResolved(sample_info(peer, 4000, 4001)));
+        let ev = disc.map_event(
+            &mut live,
+            ServiceEvent::ServiceResolved(sample_info(peer, 4000, 4001)),
+        );
         match ev {
             Some(DiscoveryEvent::Discovered(dp)) => {
                 assert_eq!(dp.peer, peer);
@@ -268,7 +292,10 @@ mod tests {
         let fullname = sample_info(peer, 4000, 4001).get_fullname().to_lowercase();
         let mut live = HashMap::new();
         live.insert(fullname.clone(), peer);
-        let ev = disc.map_event(&mut live, ServiceEvent::ServiceRemoved(SERVICE_TYPE.to_string(), fullname));
+        let ev = disc.map_event(
+            &mut live,
+            ServiceEvent::ServiceRemoved(SERVICE_TYPE.to_string(), fullname),
+        );
         assert!(matches!(ev, Some(DiscoveryEvent::Expired(p)) if p == peer));
         assert!(live.is_empty());
     }
@@ -278,7 +305,10 @@ mod tests {
         let peer = PeerId::from_bytes([11u8; 32]);
         let disc = MdnsDiscovery::new(MdnsConfig::new(peer));
         let mut live = HashMap::new();
-        let ev = disc.map_event(&mut live, ServiceEvent::ServiceResolved(sample_info(peer, 5000, 5001)));
+        let ev = disc.map_event(
+            &mut live,
+            ServiceEvent::ServiceResolved(sample_info(peer, 5000, 5001)),
+        );
         assert!(ev.is_none());
         assert!(live.is_empty());
     }

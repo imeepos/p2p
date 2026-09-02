@@ -18,8 +18,7 @@ use crate::SecurityError;
 pub const IDENTITY_OID: &str = "1.3.6.1.4.1.59015.1";
 /// ed25519 PKCS#8 前缀：DER SEQUENCE 头，后接 32 字节种子
 const PKCS8_ED25519_PREFIX: [u8; 16] = [
-    0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04,
-    0x20,
+    0x30, 0x2e, 0x02, 0x01, 0x00, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x04, 0x22, 0x04, 0x20,
 ];
 
 fn identity_oid() -> ObjectIdentifier {
@@ -39,7 +38,9 @@ pub fn pkcs8_der(keypair: &Keypair) -> Vec<u8> {
 }
 
 /// 构造自签证书（含身份扩展），返回证书 DER 与 PKCS#8 私钥
-pub fn build_identity_cert(keypair: &Keypair) -> Result<(CertificateDer<'static>, Vec<u8>), SecurityError> {
+pub fn build_identity_cert(
+    keypair: &Keypair,
+) -> Result<(CertificateDer<'static>, Vec<u8>), SecurityError> {
     let pkcs8 = pkcs8_der(keypair);
     let key_pair = rcgen::KeyPair::from_pkcs8_der_and_sign_algo(
         &rustls::pki_types::PrivatePkcs8KeyDer::from(pkcs8.clone()),

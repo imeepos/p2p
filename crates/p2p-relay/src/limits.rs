@@ -79,7 +79,10 @@ pub struct PeerBuckets {
 
 impl PeerBuckets {
     pub fn new(limits: RelayLimits) -> Self {
-        Self { map: Arc::new(Mutex::new(HashMap::new())), limits }
+        Self {
+            map: Arc::new(Mutex::new(HashMap::new())),
+            limits,
+        }
     }
 
     pub fn bucket_for(&self, peer: &str) -> Arc<Mutex<RateBucket>> {
@@ -108,20 +111,31 @@ impl RateLimitedStream {
 }
 
 impl AsyncRead for RateLimitedStream {
-    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
         Pin::new(&mut self.get_mut().inner).poll_read(cx, buf)
     }
 }
 
 impl AsyncWrite for RateLimitedStream {
-    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<io::Result<usize>> {
         let this = self.get_mut();
         let allowed = {
             let mut bucket = this.bucket.lock().expect("rate bucket poisoned");
             bucket.try_take(buf.len() as u64)
         };
         if !allowed {
-            return Poll::Ready(Err(Error::new(ErrorKind::WriteZero, "relay egress quota exceeded")));
+            return Poll::Ready(Err(Error::new(
+                ErrorKind::WriteZero,
+                "relay egress quota exceeded",
+            )));
         }
         Pin::new(&mut this.inner).poll_write(cx, buf)
     }
@@ -165,7 +179,10 @@ mod tests {
         let mut limited = RateLimitedStream::new(Box::new(tx), bucket);
         limited.write_all(&[0u8; 256]).await.expect("within burst");
         limited.flush().await.unwrap();
-        let err = limited.write_all(&[0u8; 1024]).await.expect_err("beyond burst");
+        let err = limited
+            .write_all(&[0u8; 1024])
+            .await
+            .expect_err("beyond burst");
         assert_eq!(err.kind(), ErrorKind::WriteZero);
         drop(rx);
     }

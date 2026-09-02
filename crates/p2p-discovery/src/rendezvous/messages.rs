@@ -107,21 +107,31 @@ pub mod request {
 
 impl Request {
     pub fn register(reg: Register) -> Self {
-        Self { kind: Some(request::Kind::Register(reg)) }
+        Self {
+            kind: Some(request::Kind::Register(reg)),
+        }
     }
 
     pub fn query(namespace: String, peer_id: Vec<u8>) -> Self {
-        Self { kind: Some(request::Kind::Query(Query { namespace, peer_id })) }
+        Self {
+            kind: Some(request::Kind::Query(Query { namespace, peer_id })),
+        }
     }
 }
 
 impl Response {
     pub fn ok() -> Self {
-        Self { error: String::new(), peers: Vec::new() }
+        Self {
+            error: String::new(),
+            peers: Vec::new(),
+        }
     }
 
     pub fn error(msg: impl Into<String>) -> Self {
-        Self { error: msg.into(), peers: Vec::new() }
+        Self {
+            error: msg.into(),
+            peers: Vec::new(),
+        }
     }
 
     /// 失败即返回错误信息（服务端/客户端两侧统一的失败信号）。
@@ -155,7 +165,12 @@ pub fn signed_payload(namespace: &str, peer_id: &PeerId, addrs: &[TransportAddr]
 }
 
 /// 用身份私钥对 (namespace, peer_id, addrs) 签名，构造注册消息。
-pub fn sign_register(kp: &Keypair, namespace: &str, addrs: &[TransportAddr], ttl_secs: u32) -> Register {
+pub fn sign_register(
+    kp: &Keypair,
+    namespace: &str,
+    addrs: &[TransportAddr],
+    ttl_secs: u32,
+) -> Register {
     let peer_id = kp.peer_id();
     let sig = kp.sign(&signed_payload(namespace, &peer_id, addrs));
     Register {
@@ -187,7 +202,11 @@ pub fn verify_register(reg: &Register) -> bool {
         Err(_) => return false,
     };
     let addrs: Vec<TransportAddr> = reg.addrs.iter().filter_map(AddrMsg::to_addr).collect();
-    Keypair::verify(&pubkey, &signed_payload(&reg.namespace, &expected, &addrs), &sig)
+    Keypair::verify(
+        &pubkey,
+        &signed_payload(&reg.namespace, &expected, &addrs),
+        &sig,
+    )
 }
 
 #[cfg(test)]
@@ -196,8 +215,14 @@ mod tests {
 
     fn sample_addrs() -> Vec<TransportAddr> {
         vec![
-            TransportAddr::Quic { ip: "10.0.0.1".parse().unwrap(), port: 4000 },
-            TransportAddr::Tcp { ip: "10.0.0.1".parse().unwrap(), port: 4001 },
+            TransportAddr::Quic {
+                ip: "10.0.0.1".parse().unwrap(),
+                port: 4000,
+            },
+            TransportAddr::Tcp {
+                ip: "10.0.0.1".parse().unwrap(),
+                port: 4001,
+            },
         ]
     }
 
@@ -238,7 +263,9 @@ mod tests {
         let kp = Keypair::generate();
         let attacker = Keypair::generate();
         let mut reg = sign_register(&kp, "room-a", &sample_addrs(), 60);
-        reg.sig = attacker.sign(&signed_payload("room-a", &kp.peer_id(), &sample_addrs())).to_vec();
+        reg.sig = attacker
+            .sign(&signed_payload("room-a", &kp.peer_id(), &sample_addrs()))
+            .to_vec();
         assert!(!verify_register(&reg));
     }
 
@@ -249,13 +276,19 @@ mod tests {
         let decoded = Register::decode(reg.encode_to_vec().as_slice()).expect("decode");
         assert_eq!(reg, decoded);
 
-        let query = Query { namespace: "room-a".into(), peer_id: reg.peer_id.clone() };
+        let query = Query {
+            namespace: "room-a".into(),
+            peer_id: reg.peer_id.clone(),
+        };
         let q2 = Query::decode(query.encode_to_vec().as_slice()).expect("decode");
         assert_eq!(query, q2);
 
         let resp = Response {
             error: String::new(),
-            peers: vec![PeerEntry { peer_id: reg.peer_id.clone(), addrs: reg.addrs.clone() }],
+            peers: vec![PeerEntry {
+                peer_id: reg.peer_id.clone(),
+                addrs: reg.addrs.clone(),
+            }],
         };
         let r2 = Response::decode(resp.encode_to_vec().as_slice()).expect("decode");
         assert_eq!(resp, r2);

@@ -8,4 +8,4 @@ pub mod server;
 pub use client::{RendezvousClient, RendezvousConfig};
 pub use link::{RendezvousConn, RendezvousError, RendezvousLink};
 pub use messages::{sign_register, verify_register};
-pub use server::{RendezvousRegistry, serve_link};
+pub use server::{serve_link, RendezvousRegistry};

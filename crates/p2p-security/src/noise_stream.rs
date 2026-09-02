@@ -17,7 +17,11 @@ enum RxState {
     /// 读 2 字节帧长
     Len { buf: [u8; 2], got: usize },
     /// 读帧体并解密
-    Body { len: usize, buf: Vec<u8>, pos: usize },
+    Body {
+        len: usize,
+        buf: Vec<u8>,
+        pos: usize,
+    },
 }
 
 pub(crate) struct NoiseStream<S> {
@@ -36,7 +40,10 @@ impl<S> NoiseStream<S> {
         Self {
             io,
             state,
-            rx: RxState::Len { buf: [0u8; 2], got: 0 },
+            rx: RxState::Len {
+                buf: [0u8; 2],
+                got: 0,
+            },
             plain: Vec::new(),
             plain_pos: 0,
             out: Vec::new(),
@@ -84,7 +91,11 @@ impl<S: AsyncRead + AsyncWrite + Unpin> NoiseStream<S> {
                         *got += rb.filled().len();
                     }
                     let len = u16::from_be_bytes([buf[0], buf[1]]) as usize;
-                    self.rx = RxState::Body { len, buf: vec![0u8; len], pos: 0 };
+                    self.rx = RxState::Body {
+                        len,
+                        buf: vec![0u8; len],
+                        pos: 0,
+                    };
                 }
                 RxState::Body { len, buf, pos } => {
                     while *pos < *len {
@@ -109,7 +120,10 @@ impl<S: AsyncRead + AsyncWrite + Unpin> NoiseStream<S> {
                     plain.truncate(n);
                     self.plain = plain;
                     self.plain_pos = 0;
-                    self.rx = RxState::Len { buf: [0u8; 2], got: 0 };
+                    self.rx = RxState::Len {
+                        buf: [0u8; 2],
+                        got: 0,
+                    };
                     return Poll::Ready(Ok(()));
                 }
             }
@@ -157,9 +171,12 @@ impl<S: AsyncRead + AsyncWrite + Unpin> AsyncWrite for NoiseStream<S> {
         let mut frame = Vec::with_capacity(chunk_len + TAG_LEN + 2);
         frame.extend_from_slice(&(chunk_len as u16 + TAG_LEN as u16).to_be_bytes());
         let mut ct = vec![0u8; chunk_len + TAG_LEN];
-        let n = this.state.write_message(&buf[..chunk_len], &mut ct).map_err(|e| {
-            io::Error::new(io::ErrorKind::InvalidData, format!("noise encrypt: {e}"))
-        })?;
+        let n = this
+            .state
+            .write_message(&buf[..chunk_len], &mut ct)
+            .map_err(|e| {
+                io::Error::new(io::ErrorKind::InvalidData, format!("noise encrypt: {e}"))
+            })?;
         frame.extend_from_slice(&ct[..n]);
         this.out = frame;
         Poll::Ready(Ok(chunk_len))

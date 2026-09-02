@@ -40,8 +40,16 @@ pub struct MockLink {
 pub fn mock_link_pair(peer_a: &str, peer_b: &str) -> (MockLink, MockLink) {
     let (tx_ab, rx_ab) = mpsc::channel(64);
     let (tx_ba, rx_ba) = mpsc::channel(64);
-    let a = MockLink { peer: peer_a.into(), open_tx: tx_ab, accept_rx: Mutex::new(rx_ba) };
-    let b = MockLink { peer: peer_b.into(), open_tx: tx_ba, accept_rx: Mutex::new(rx_ab) };
+    let a = MockLink {
+        peer: peer_a.into(),
+        open_tx: tx_ab,
+        accept_rx: Mutex::new(rx_ba),
+    };
+    let b = MockLink {
+        peer: peer_b.into(),
+        open_tx: tx_ba,
+        accept_rx: Mutex::new(rx_ab),
+    };
     (a, b)
 }
 
@@ -85,7 +93,12 @@ impl Default for MockLinkSource {
 impl MockLinkSource {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
-        Self { inner: Arc::new(MockSourceInner { tx, rx: Mutex::new(rx) }) }
+        Self {
+            inner: Arc::new(MockSourceInner {
+                tx,
+                rx: Mutex::new(rx),
+            }),
+        }
     }
 
     pub fn push(&self, link: Box<dyn RelayLink>) {

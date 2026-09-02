@@ -77,7 +77,10 @@ impl RelayServiceImpl {
 
     async fn handle_link(self: Arc<Self>, link: Box<dyn RelayLink>) {
         let peer = link.peer_id().to_string();
-        if !self.lock_state().register_link(&peer, self.limits.max_links_per_peer) {
+        if !self
+            .lock_state()
+            .register_link(&peer, self.limits.max_links_per_peer)
+        {
             tracing::warn!(peer = %peer, limit = self.limits.max_links_per_peer, "link rejected: per-peer link quota");
             self.reject_link(link).await;
             return;
@@ -92,7 +95,13 @@ impl RelayServiceImpl {
     /// 超限链路：对每条流回显式拒绝帧后关闭，给客户端确定性信号。
     async fn reject_link(&self, link: Box<dyn RelayLink>) {
         while let Some(mut stream) = link.accept_stream().await {
-            if let Err(e) = write_reject(&mut stream, errcode::PEER_LIMIT, "per-peer link quota exceeded").await {
+            if let Err(e) = write_reject(
+                &mut stream,
+                errcode::PEER_LIMIT,
+                "per-peer link quota exceeded",
+            )
+            .await
+            {
                 tracing::warn!(error = %e, "reject frame write failed on over-quota link");
                 break;
             }
@@ -114,7 +123,8 @@ impl RelayServiceImpl {
             Some(Kind::Connect(c)) => self.handle_connect(peer, stream, c.circuit_id).await,
             other => {
                 tracing::warn!(peer = %peer, kind = ?other, "protocol violation: unexpected first frame");
-                let _ = write_reject(&mut stream, errcode::PROTOCOL, "unexpected first frame").await;
+                let _ =
+                    write_reject(&mut stream, errcode::PROTOCOL, "unexpected first frame").await;
             }
         }
     }

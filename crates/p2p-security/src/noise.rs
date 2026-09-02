@@ -9,9 +9,9 @@ use async_trait::async_trait;
 use snow::HandshakeState;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+use crate::SecurityUpgrade;
 use p2p_identity::{Keypair, PeerId};
 use p2p_mux::BoxedStream;
-use crate::SecurityUpgrade;
 
 use crate::noise_stream::NoiseStream;
 
@@ -155,7 +155,10 @@ async fn send_frame(
 ) -> Result<(), crate::SecurityError> {
     let mut msg = vec![0u8; payload.len() + HANDSHAKE_FRAME_OVERHEAD];
     let n = hs.write_message(payload, &mut msg).map_err(handshake_err)?;
-    stream.write_all(&(n as u16).to_be_bytes()).await.map_err(io_err)?;
+    stream
+        .write_all(&(n as u16).to_be_bytes())
+        .await
+        .map_err(io_err)?;
     stream.write_all(&msg[..n]).await.map_err(io_err)?;
     stream.flush().await.map_err(io_err)
 }
@@ -218,6 +221,9 @@ mod tests {
             NoiseXx.inbound(sb, &bob),
             NoiseXx.outbound(sa, &alice, Some(eve.peer_id()))
         );
-        assert!(server.is_err() || client.is_err(), "expected mismatch must fail");
+        assert!(
+            server.is_err() || client.is_err(),
+            "expected mismatch must fail"
+        );
     }
 }

@@ -12,7 +12,12 @@ use crate::state::CtrlWrite;
 
 impl RelayServiceImpl {
     /// Reserve 首帧已读：拆流、登记控制写半、回 Reserved 后进入控制循环。
-    pub(crate) async fn handle_control(self: Arc<Self>, peer: String, stream: BoxedStream, first: Reserve) {
+    pub(crate) async fn handle_control(
+        self: Arc<Self>,
+        peer: String,
+        stream: BoxedStream,
+        first: Reserve,
+    ) {
         let (mut rh, wh) = split(stream);
         let write: Arc<CtrlWrite> = Arc::new(tokio::sync::Mutex::new(wh));
         self.lock_state().register_control(&peer, write.clone());
@@ -27,7 +32,12 @@ impl RelayServiceImpl {
         tracing::info!(peer = %peer, "control stream closed");
     }
 
-    async fn control_loop(&self, peer: &str, rh: &mut ReadHalf<BoxedStream>, write: &Arc<CtrlWrite>) {
+    async fn control_loop(
+        &self,
+        peer: &str,
+        rh: &mut ReadHalf<BoxedStream>,
+        write: &Arc<CtrlWrite>,
+    ) {
         loop {
             match read_msg(rh).await {
                 Ok(Some(msg)) => {
@@ -47,19 +57,33 @@ impl RelayServiceImpl {
     /// 处理一帧控制消息；返回 false 表示协议违规需断流。
     async fn dispatch_control(&self, peer: &str, msg: RelayMsg, write: &Arc<CtrlWrite>) -> bool {
         match msg.kind {
-            Some(Kind::Reserve(r)) => send_ctrl(write, self.on_reserve(peer, r).await).await.is_ok(),
-            Some(Kind::PunchReq(p)) => self.forward_punch(peer, write, p.peer_id, p.addrs, true).await,
-            Some(Kind::PunchAck(a)) => self.forward_punch(peer, write, a.peer_id, a.addrs, false).await,
+            Some(Kind::Reserve(r)) => send_ctrl(write, self.on_reserve(peer, r).await)
+                .await
+                .is_ok(),
+            Some(Kind::PunchReq(p)) => {
+                self.forward_punch(peer, write, p.peer_id, p.addrs, true)
+                    .await
+            }
+            Some(Kind::PunchAck(a)) => {
+                self.forward_punch(peer, write, a.peer_id, a.addrs, false)
+                    .await
+            }
             other => {
                 tracing::warn!(peer = %peer, kind = ?other, "protocol violation on control stream; cutting");
-                let _ = send_ctrl(write, RelayMsg::error(errcode::PROTOCOL, "unexpected frame on control stream")).await;
+                let _ = send_ctrl(
+                    write,
+                    RelayMsg::error(errcode::PROTOCOL, "unexpected frame on control stream"),
+                )
+                .await;
                 false
             }
         }
     }
 
     async fn on_reserve(&self, peer: &str, r: Reserve) -> RelayMsg {
-        let issued = self.lock_state().issue_circuit(peer, r.ttl_secs, self.limits().max_circuits_per_peer);
+        let issued =
+            self.lock_state()
+                .issue_circuit(peer, r.ttl_secs, self.limits().max_circuits_per_peer);
         match issued {
             Ok(cid) => {
                 tracing::info!(peer = %peer, circuit = cid, ttl_secs = r.ttl_secs, "circuit reserved");
@@ -88,8 +112,14 @@ impl RelayServiceImpl {
         };
         let Some(dest) = self.lock_state().control_of(&target) else {
             tracing::warn!(from = %sender, to = %target, "punch target has no control link");
-            let _ = send_ctrl(write, RelayMsg::error(errcode::PUNCH_TARGET_UNKNOWN, format!("peer {target} offline")))
-                .await;
+            let _ = send_ctrl(
+                write,
+                RelayMsg::error(
+                    errcode::PUNCH_TARGET_UNKNOWN,
+                    format!("peer {target} offline"),
+                ),
+            )
+            .await;
             return true;
         };
         if let Err(e) = send_ctrl(&dest, frame).await {

@@ -8,9 +8,9 @@ use p2p_transport::TransportAddr;
 use tokio::sync::mpsc;
 
 use crate::cache::MemCache;
-use crate::AddrCache;
 use crate::rendezvous::link::{RendezvousConn, RendezvousError, RendezvousLink};
 use crate::rendezvous::messages::{sign_register, AddrMsg, Request, Response};
+use crate::AddrCache;
 use crate::{DiscoveredPeer, Discovery, DiscoveryEvent, Source};
 
 /// rendezvous 客户端配置。
@@ -29,7 +29,11 @@ pub struct RendezvousConfig {
 }
 
 impl RendezvousConfig {
-    pub fn new(namespace: impl Into<String>, keypair: Keypair, link: Arc<dyn RendezvousLink>) -> Self {
+    pub fn new(
+        namespace: impl Into<String>,
+        keypair: Keypair,
+        link: Arc<dyn RendezvousLink>,
+    ) -> Self {
         Self {
             namespace: namespace.into(),
             keypair: Arc::new(keypair),
@@ -128,7 +132,8 @@ pub(crate) fn response_to_peers(resp: &Response) -> Vec<(PeerId, Vec<TransportAd
         .iter()
         .filter_map(|entry| {
             let peer_bytes = <[u8; 32]>::try_from(entry.peer_id.as_slice()).ok()?;
-            let addrs: Vec<TransportAddr> = entry.addrs.iter().filter_map(AddrMsg::to_addr).collect();
+            let addrs: Vec<TransportAddr> =
+                entry.addrs.iter().filter_map(AddrMsg::to_addr).collect();
             (!addrs.is_empty()).then_some((PeerId::from_bytes(peer_bytes), addrs))
         })
         .collect()
@@ -167,12 +172,15 @@ impl Discovery for RendezvousClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rendezvous::link::mock::{MockLink, conn_from_duplex};
+    use crate::rendezvous::link::mock::{conn_from_duplex, MockLink};
     use crate::rendezvous::messages::PeerEntry;
-    use crate::rendezvous::server::{RendezvousRegistry, serve_link};
+    use crate::rendezvous::server::{serve_link, RendezvousRegistry};
 
     fn sample_addrs() -> Vec<TransportAddr> {
-        vec![TransportAddr::Quic { ip: "10.0.0.5".parse().unwrap(), port: 4000 }]
+        vec![TransportAddr::Quic {
+            ip: "10.0.0.5".parse().unwrap(),
+            port: 4000,
+        }]
     }
 
     #[test]
@@ -196,7 +204,10 @@ mod tests {
     fn response_skips_bad_entries() {
         let resp = Response {
             error: String::new(),
-            peers: vec![PeerEntry { peer_id: vec![1, 2, 3], addrs: Vec::new() }],
+            peers: vec![PeerEntry {
+                peer_id: vec![1, 2, 3],
+                addrs: Vec::new(),
+            }],
         };
         assert!(response_to_peers(&resp).is_empty());
     }
@@ -205,7 +216,8 @@ mod tests {
     async fn client_registers_and_discovers_other_peer() {
         let (client_side, server_side) = tokio::io::duplex(4096);
         let link: Arc<dyn RendezvousLink> = Arc::new(MockLink::new(client_side));
-        let client = RendezvousClient::new(RendezvousConfig::new("room-a", Keypair::generate(), link));
+        let client =
+            RendezvousClient::new(RendezvousConfig::new("room-a", Keypair::generate(), link));
 
         let registry = Arc::new(RendezvousRegistry::new());
         let server_registry = registry.clone();
@@ -216,7 +228,10 @@ mod tests {
 
         // 另一节点直接注册，模拟其已上线
         let other = Keypair::generate();
-        let other_addrs = vec![TransportAddr::Quic { ip: "10.0.0.9".parse().unwrap(), port: 9000 }];
+        let other_addrs = vec![TransportAddr::Quic {
+            ip: "10.0.0.9".parse().unwrap(),
+            port: 9000,
+        }];
         let reg = sign_register(&other, "room-a", &other_addrs, 60);
         registry.register(&reg).expect("other registered");
 
@@ -224,7 +239,10 @@ mod tests {
         let cache = MemCache::new();
         let mut conn = client.config.link.connect().await.expect("connect");
         client.register(&mut conn).await.expect("register");
-        client.query_and_emit(&mut conn, &tx, &cache).await.expect("query");
+        client
+            .query_and_emit(&mut conn, &tx, &cache)
+            .await
+            .expect("query");
 
         match rx.recv().await {
             Some(DiscoveryEvent::Discovered(dp)) => {

@@ -47,7 +47,12 @@ pub struct RelayClient {
 impl RelayClient {
     pub fn new(link: Box<dyn RelayLink>) -> Self {
         let (events_tx, events_rx) = mpsc::channel(EVENT_CAPACITY);
-        Self { link, ctrl: None, events_tx, events_rx }
+        Self {
+            link,
+            ctrl: None,
+            events_tx,
+            events_rx,
+        }
     }
 
     /// 底层链路声明的对端标识。
@@ -57,7 +62,9 @@ impl RelayClient {
 
     /// 申请电路；返回服务端发放的 CircuitId。
     pub async fn reserve(&mut self, ttl: Duration) -> Result<CircuitId, RelayError> {
-        let reply = self.control_roundtrip(RelayMsg::reserve(ttl.as_secs().max(1)), "reserve").await?;
+        let reply = self
+            .control_roundtrip(RelayMsg::reserve(ttl.as_secs().max(1)), "reserve")
+            .await?;
         match reply.kind {
             Some(Kind::Reserved(r)) => Ok(CircuitId(r.circuit_id)),
             Some(Kind::Reject(r)) => Err(error_from_wire(r.code, r.message)),
@@ -87,8 +94,14 @@ impl RelayClient {
     }
 
     /// 主动发起打洞协调；返回经 relay 改写的对端 PunchAck（含对端观测地址）。
-    pub async fn request_punch(&mut self, target: &str, addrs: Vec<String>) -> Result<PunchAck, RelayError> {
-        let reply = self.control_roundtrip(RelayMsg::punch_req(target, addrs), "punch-ack").await?;
+    pub async fn request_punch(
+        &mut self,
+        target: &str,
+        addrs: Vec<String>,
+    ) -> Result<PunchAck, RelayError> {
+        let reply = self
+            .control_roundtrip(RelayMsg::punch_req(target, addrs), "punch-ack")
+            .await?;
         match reply.kind {
             Some(Kind::PunchAck(a)) => Ok(a),
             Some(Kind::Reject(r)) => Err(error_from_wire(r.code, r.message)),
@@ -99,9 +112,14 @@ impl RelayClient {
     /// 被动方回 PunchAck（转发失败由对端超时发现）。
     pub async fn reply_punch(&mut self, ack: PunchAck) -> Result<(), RelayError> {
         let ch = self.ensure_ctrl().await?;
-        write_msg(&mut *ch.write.lock().await, &RelayMsg { kind: Some(Kind::PunchAck(ack)) })
-            .await
-            .map_err(RelayError::from)
+        write_msg(
+            &mut *ch.write.lock().await,
+            &RelayMsg {
+                kind: Some(Kind::PunchAck(ack)),
+            },
+        )
+        .await
+        .map_err(RelayError::from)
     }
 
     /// 下一条异步事件（入站 PunchReq / PunchAck / 控制链路关闭）。
@@ -109,7 +127,11 @@ impl RelayClient {
         self.events_rx.recv().await
     }
 
-    async fn control_roundtrip(&mut self, msg: RelayMsg, what: &'static str) -> Result<RelayMsg, RelayError> {
+    async fn control_roundtrip(
+        &mut self,
+        msg: RelayMsg,
+        what: &'static str,
+    ) -> Result<RelayMsg, RelayError> {
         let ch = self.ensure_ctrl().await?;
         let (tx, rx) = oneshot::channel();
         *ch.pending.lock().await = Some(tx);
@@ -134,7 +156,11 @@ impl RelayClient {
     }
 }
 
-async fn read_ctrl_loop(mut rh: ReadHalf<BoxedStream>, pending: PendingSlot, events: mpsc::Sender<RelayEvent>) {
+async fn read_ctrl_loop(
+    mut rh: ReadHalf<BoxedStream>,
+    pending: PendingSlot,
+    events: mpsc::Sender<RelayEvent>,
+) {
     loop {
         match read_msg(&mut rh).await {
             Ok(Some(msg)) => dispatch_ctrl(&pending, &events, msg).await,

@@ -1,8 +1,8 @@
 //! 自定义证书校验器：只认内嵌身份扩展的自签证书，握手签名用扩展公钥验证。
 
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
-use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
 use rustls::pki_types::{CertificateDer, UnixTime};
+use rustls::server::danger::{ClientCertVerified, ClientCertVerifier};
 use rustls::{DigitallySignedStruct, DistinguishedName, Error, SignatureScheme};
 
 use crate::tls_cert::identity_pub_from_cert;
@@ -108,4 +108,3 @@ impl ClientCertVerifier for IdentityVerifier {
         vec![SignatureScheme::ED25519]
     }
 }
-

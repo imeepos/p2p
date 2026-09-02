@@ -28,12 +28,18 @@ pub struct PunchSession {
 impl PunchSession {
     /// 主动方会话：准备向 remote 发 PunchReq。
     pub fn initiator(remote: impl Into<String>) -> Self {
-        Self { remote: remote.into(), phase: PunchPhase::Idle }
+        Self {
+            remote: remote.into(),
+            phase: PunchPhase::Idle,
+        }
     }
 
     /// 被动方会话：由入站 PunchReq 构造（remote = 请求方）。
     pub fn responder(req: &PunchReq) -> Self {
-        Self { remote: req.peer_id.clone(), phase: PunchPhase::AckSent }
+        Self {
+            remote: req.peer_id.clone(),
+            phase: PunchPhase::AckSent,
+        }
     }
 
     pub fn phase(&self) -> &PunchPhase {
@@ -47,7 +53,10 @@ impl PunchSession {
     /// 主动方：PunchReq 已发出。
     pub fn mark_request_sent(&mut self) -> Result<(), RelayError> {
         if self.phase != PunchPhase::Idle {
-            return Err(RelayError::Protocol(format!("punch {:?}: illegal mark_request_sent", self.phase)));
+            return Err(RelayError::Protocol(format!(
+                "punch {:?}: illegal mark_request_sent",
+                self.phase
+            )));
         }
         self.phase = PunchPhase::RequestSent;
         Ok(())
@@ -56,7 +65,10 @@ impl PunchSession {
     /// 主动方：收到 PunchAck，双方同时进入探测时点。
     pub fn on_ack(&mut self) -> Result<(), RelayError> {
         if self.phase != PunchPhase::RequestSent {
-            return Err(RelayError::Protocol(format!("punch {:?}: illegal on_ack", self.phase)));
+            return Err(RelayError::Protocol(format!(
+                "punch {:?}: illegal on_ack",
+                self.phase
+            )));
         }
         self.phase = PunchPhase::Probing;
         Ok(())
@@ -64,13 +76,19 @@ impl PunchSession {
 
     /// 被动方：构造应答（peer_id = 请求方，relay 转发时改写）。
     pub fn build_ack(&self, local_addrs: Vec<String>) -> PunchAck {
-        PunchAck { peer_id: self.remote.clone(), addrs: local_addrs }
+        PunchAck {
+            peer_id: self.remote.clone(),
+            addrs: local_addrs,
+        }
     }
 
     /// 被动方：应答已发出，双方同时进入探测时点。
     pub fn mark_probing(&mut self) -> Result<(), RelayError> {
         if self.phase != PunchPhase::AckSent {
-            return Err(RelayError::Protocol(format!("punch {:?}: illegal mark_probing", self.phase)));
+            return Err(RelayError::Protocol(format!(
+                "punch {:?}: illegal mark_probing",
+                self.phase
+            )));
         }
         self.phase = PunchPhase::Probing;
         Ok(())
@@ -82,7 +100,10 @@ mod tests {
     use super::*;
 
     fn req_from_a() -> PunchReq {
-        PunchReq { peer_id: "peer-a".into(), addrs: vec!["10.0.0.1:4001".into()] }
+        PunchReq {
+            peer_id: "peer-a".into(),
+            addrs: vec!["10.0.0.1:4001".into()],
+        }
     }
 
     #[test]
@@ -102,7 +123,10 @@ mod tests {
         assert_eq!(b.phase(), &PunchPhase::Probing);
 
         // A 收到经 relay 改写的 PunchAck（peer_id = 应答方）
-        let ack_at_a = PunchAck { peer_id: "peer-b".into(), addrs: ack.addrs };
+        let ack_at_a = PunchAck {
+            peer_id: "peer-b".into(),
+            addrs: ack.addrs,
+        };
         let _ = ack_at_a;
         a.on_ack().unwrap();
         assert_eq!(a.phase(), &PunchPhase::Probing);
@@ -116,8 +140,14 @@ mod tests {
         assert!(a.mark_request_sent().is_err(), "double request must fail");
 
         let mut b = PunchSession::responder(&req_from_a());
-        assert!(b.mark_request_sent().is_err(), "responder cannot send request");
+        assert!(
+            b.mark_request_sent().is_err(),
+            "responder cannot send request"
+        );
         b.mark_probing().unwrap();
-        assert!(b.mark_probing().is_err(), "double probing transition must fail");
+        assert!(
+            b.mark_probing().is_err(),
+            "double probing transition must fail"
+        );
     }
 }

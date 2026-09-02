@@ -7,12 +7,28 @@ use p2p_identity::PeerId;
 /// 底座事件：业务只读。所有失败路径必须可见（禁止静默吞错，design §12）。
 #[derive(Clone, Debug)]
 pub enum NodeEvent {
-    PeerDiscovered { peer: PeerId, addrs: Vec<String> },
-    PeerConnected { peer: PeerId },
-    PeerDisconnected { peer: PeerId },
-    ListenFailed { addr: String, reason: String },
-    DialFailed { peer: Option<PeerId>, reason: String },
-    ProtocolViolation { peer: PeerId, reason: String },
+    PeerDiscovered {
+        peer: PeerId,
+        addrs: Vec<String>,
+    },
+    PeerConnected {
+        peer: PeerId,
+    },
+    PeerDisconnected {
+        peer: PeerId,
+    },
+    ListenFailed {
+        addr: String,
+        reason: String,
+    },
+    DialFailed {
+        peer: Option<PeerId>,
+        reason: String,
+    },
+    ProtocolViolation {
+        peer: PeerId,
+        reason: String,
+    },
 }
 
 /// 连接门禁：通信层 allow/deny（不是业务鉴权，design §6）。

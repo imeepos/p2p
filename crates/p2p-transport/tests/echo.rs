@@ -72,7 +72,10 @@ async fn quic_echo_with_peer_id_and_64k_stream() {
     });
 
     let client = QuicTransport::new().expect("client transport");
-    let addr = TransportAddr::Quic { ip: local_addr(port).ip(), port };
+    let addr = TransportAddr::Quic {
+        ip: local_addr(port).ip(),
+        port,
+    };
     let conn = client
         .dial(&addr, &client_kp, Some(server_kp.peer_id()))
         .await
@@ -82,7 +85,8 @@ async fn quic_echo_with_peer_id_and_64k_stream() {
     accept_task.await.expect("server task");
     let seen = seen_rx.recv().await.expect("server observed client");
     assert_eq!(
-        seen, client_kp.peer_id(),
+        seen,
+        client_kp.peer_id(),
         "server must derive client identity from certificate"
     );
 }
@@ -92,10 +96,7 @@ async fn tcp_noise_echo_with_peer_id_and_64k_stream() {
     let server_kp = Keypair::generate();
     let client_kp = Keypair::generate();
     let server = TcpTransport::new();
-    let listener = server
-        .bind(local_addr(0))
-        .await
-        .expect("bind tcp");
+    let listener = server.bind(local_addr(0)).await.expect("bind tcp");
     let port = listener.local_addr().expect("local addr").port();
 
     let (seen_tx, mut seen_rx) = mpsc::channel(1);
@@ -109,7 +110,10 @@ async fn tcp_noise_echo_with_peer_id_and_64k_stream() {
     });
 
     let client = TcpTransport::new();
-    let addr = TransportAddr::Tcp { ip: local_addr(port).ip(), port };
+    let addr = TransportAddr::Tcp {
+        ip: local_addr(port).ip(),
+        port,
+    };
     let conn = client
         .dial(&addr, &client_kp, Some(server_kp.peer_id()))
         .await
@@ -119,7 +123,8 @@ async fn tcp_noise_echo_with_peer_id_and_64k_stream() {
     accept_task.await.expect("server task");
     let seen = seen_rx.recv().await.expect("server observed client");
     assert_eq!(
-        seen, client_kp.peer_id(),
+        seen,
+        client_kp.peer_id(),
         "server must derive client identity from noise payload"
     );
 }
@@ -142,10 +147,11 @@ async fn quic_dial_rejects_wrong_expected_peer() {
     });
 
     let client = QuicTransport::new().expect("client transport");
-    let addr = TransportAddr::Quic { ip: local_addr(port).ip(), port };
-    let outcome = client
-        .dial(&addr, &client_kp, Some(eve_kp.peer_id()))
-        .await;
+    let addr = TransportAddr::Quic {
+        ip: local_addr(port).ip(),
+        port,
+    };
+    let outcome = client.dial(&addr, &client_kp, Some(eve_kp.peer_id())).await;
     match outcome {
         Err(TransportError::PeerMismatch { expected, actual }) => {
             assert_eq!(expected, eve_kp.peer_id().to_string());

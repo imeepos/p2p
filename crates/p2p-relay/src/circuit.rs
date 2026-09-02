@@ -11,7 +11,12 @@ use crate::service::RelayServiceImpl;
 use crate::state::{CircuitOutcome, PendingStream};
 
 impl RelayServiceImpl {
-    pub(crate) async fn handle_connect(self: Arc<Self>, joiner: String, stream: BoxedStream, cid: u64) {
+    pub(crate) async fn handle_connect(
+        self: Arc<Self>,
+        joiner: String,
+        stream: BoxedStream,
+        cid: u64,
+    ) {
         let outcome = {
             let mut st = self.lock_state();
             st.on_connect(&joiner, cid, self.limits().max_circuits_per_peer, stream)
@@ -20,7 +25,9 @@ impl RelayServiceImpl {
             CircuitOutcome::Parked => {
                 tracing::debug!(peer = %joiner, circuit = cid, "circuit half parked; waiting for peer");
             }
-            CircuitOutcome::Paired(pending, stream) => self.bridge(cid, pending, joiner, stream).await,
+            CircuitOutcome::Paired(pending, stream) => {
+                self.bridge(cid, pending, joiner, stream).await
+            }
             CircuitOutcome::Rejected(code, message, mut stream) => {
                 tracing::warn!(peer = %joiner, circuit = cid, code, "connect rejected");
                 let _ = write_reject(&mut stream, code, message).await;
@@ -29,7 +36,13 @@ impl RelayServiceImpl {
     }
 
     /// 两侧都只是密文字节流：relay 不解析内容，限速按各自出口方向计数。
-    async fn bridge(self: Arc<Self>, cid: u64, pending: PendingStream, joiner: String, mut stream: BoxedStream) {
+    async fn bridge(
+        self: Arc<Self>,
+        cid: u64,
+        pending: PendingStream,
+        joiner: String,
+        mut stream: BoxedStream,
+    ) {
         // 先向两侧各发 Bound（客户端 connect 依赖它返回），任一侧失败即取消桥接
         let mut parked = pending.stream;
         if let Err(e) = write_msg(&mut parked, &RelayMsg::bound(cid)).await {
@@ -47,7 +60,9 @@ impl RelayServiceImpl {
         let mut b = RateLimitedStream::new(stream, self.bucket_for(&joiner));
         tracing::info!(circuit = cid, a = %pending.peer, b = %joiner, "circuit bridged");
         match copy_bidirectional(&mut a, &mut b).await {
-            Ok((a_to_b, b_to_a)) => tracing::info!(circuit = cid, a_to_b, b_to_a, "circuit closed cleanly"),
+            Ok((a_to_b, b_to_a)) => {
+                tracing::info!(circuit = cid, a_to_b, b_to_a, "circuit closed cleanly")
+            }
             Err(e) => tracing::warn!(circuit = cid, error = %e, "circuit aborted"),
         }
         self.release_two(&pending.peer, &joiner);

@@ -14,16 +14,18 @@ use crate::{SecureConn, Transport, TransportAddr, TransportError};
 
 fn security_err(e: SecurityError) -> TransportError {
     match e {
-        SecurityError::PeerMismatch { expected, actual } => TransportError::PeerMismatch {
-            expected,
-            actual,
-        },
+        SecurityError::PeerMismatch { expected, actual } => {
+            TransportError::PeerMismatch { expected, actual }
+        }
         other => TransportError::Handshake(other.to_string()),
     }
 }
 
 fn dial_err(addr: &TransportAddr, e: impl std::fmt::Display) -> TransportError {
-    TransportError::Dial { addr: addr.to_string(), reason: e.to_string() }
+    TransportError::Dial {
+        addr: addr.to_string(),
+        reason: e.to_string(),
+    }
 }
 
 /// TCP 传输：无状态，可多份复用。
@@ -53,14 +55,10 @@ impl TcpTransport {
             tracing::warn!(%peer_addr, error = %e, "tcp set_nodelay failed");
         }
         let boxed: BoxedStream = Box::new(stream);
-        let (remote, upgraded) = self
-            .noise
-            .inbound(boxed, keypair)
-            .await
-            .map_err(|e| {
-                tracing::warn!(%peer_addr, error = %e, "tcp inbound handshake failed");
-                io::Error::new(io::ErrorKind::InvalidData, e.to_string())
-            })?;
+        let (remote, upgraded) = self.noise.inbound(boxed, keypair).await.map_err(|e| {
+            tracing::warn!(%peer_addr, error = %e, "tcp inbound handshake failed");
+            io::Error::new(io::ErrorKind::InvalidData, e.to_string())
+        })?;
         let mux = Arc::new(YamuxMux::new(upgraded, false, MAX_STREAMS_PER_CONN));
         Ok(SecureConn { remote, mux })
     }

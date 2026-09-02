@@ -12,7 +12,10 @@ fn unique_path(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock before epoch")
         .as_nanos();
-    std::env::temp_dir().join(format!("p2p-identity-{tag}-{}-{nanos}.seed", std::process::id()))
+    std::env::temp_dir().join(format!(
+        "p2p-identity-{tag}-{}-{nanos}.seed",
+        std::process::id()
+    ))
 }
 
 #[test]

@@ -71,9 +71,8 @@ impl QuicTransport {
 
     /// 监听端：以给定身份接受入站 QUIC。
     pub async fn bind(addr: SocketAddr, keypair: &Keypair) -> io::Result<Self> {
-        let crypto = quic_server_config(keypair).map_err(|e| {
-            io::Error::new(io::ErrorKind::InvalidInput, format!("server tls: {e}"))
-        })?;
+        let crypto = quic_server_config(keypair)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("server tls: {e}")))?;
         let quic_crypto = QuicServerConfig::try_from(Arc::new(crypto))
             .map_err(|e| io::Error::other(format!("quic crypto: {e}")))?;
         let mut server = quinn::ServerConfig::with_crypto(Arc::new(quic_crypto));
@@ -123,8 +122,8 @@ impl Transport for QuicTransport {
                 });
             }
         };
-        let crypto = quic_client_config(keypair)
-            .map_err(|e| TransportError::Handshake(e.to_string()))?;
+        let crypto =
+            quic_client_config(keypair).map_err(|e| TransportError::Handshake(e.to_string()))?;
         let quic_crypto = QuicClientConfig::try_from(Arc::new(crypto))
             .map_err(|e| TransportError::Handshake(format!("quic crypto: {e}")))?;
         let mut client = quinn::ClientConfig::new(Arc::new(quic_crypto));
@@ -135,7 +134,10 @@ impl Transport for QuicTransport {
         let connecting = self
             .endpoint
             .connect_with(client, SocketAddr::new(ip, port), SERVER_NAME)
-            .map_err(|e| TransportError::Dial { addr: addr.to_string(), reason: e.to_string() })?;
+            .map_err(|e| TransportError::Dial {
+                addr: addr.to_string(),
+                reason: e.to_string(),
+            })?;
         let conn = connecting.await.map_err(|e| TransportError::Dial {
             addr: addr.to_string(),
             reason: e.to_string(),
