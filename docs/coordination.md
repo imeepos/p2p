@@ -61,9 +61,10 @@
 | 发现时序+日志降噪 | p2p-D-E4（session-cc9c45f8） | fix/e4-discovery-stability ✓ 已合入（538bebb） | crates/p2p-discovery：发现窗口时序（启动初期错过 mDNS 公告的补救）；rendezvous 盲拨周期 WARN 降 debug 或加退避，仅首次失败保留 WARN | make check 全绿 + 35s 周期刷屏消除的单测断言 |
 | ECS 公网节点部署 | p2p-T-ECS（session-814cafa1） | feat/ecs-deploy ✓ 已合入（011c35e+2b8fc6d） | scripts/deploy-bootstrap-ecs.sh（systemd 常驻，QUIC 3400/udp + TCP 3401/tcp + 观测 3402/udp + relay 3403/udp、3404/tcp 已由协调者放行）+ runbook 双公网拓扑条目；部署/观测反射/discover 冒烟 PASS，ping 未通定性为产品缺口（CLI 未接 relay） | make check 全绿 + 15↔ECS 冒烟 PASS ✓（PeerId 入册 §8.5） |
 | hairpin 快速失败 | p2p-S-E4（session-7a31fb74） | fix/e4-hairpin-fastfail ✓ 已合入（0f1c73b） | crates/p2p-swarm + itest：验证优先——先以 itest 复现检查轮16 场景，实测达标则只交测试不改逻辑（S 报告 refused 已走快速失败路径） | make check 全绿 + itest 断言 hairpin 场景预算 |
-| CLI relay/bootstrap 接线 | p2p-T-ECS（session-814cafa1） | feat/cli-relay-wiring | crates/p2p-cli：node 暴露 --relay（打洞信令+中继兜底）、--bootstrap 多值（双引导面）；冒烟重跑 15↔ECS/15↔102 ping | make check 全绿 + 双 bootstrap 冒烟 PASS（记录命中路径） |
+| CLI relay/bootstrap 接线 | p2p-T-ECS（session-814cafa1） | feat/cli-relay-wiring ✓ 已合入（363b2a5） | node 暴露 --relay、--bootstrap 多值、ping DialHop 打印；双 bootstrap discover PASS，中继兜底 ping 被存量 relay 缺陷阻断（定性准确） | make check 全绿 + 双 bootstrap 冒烟 PASS ✓ |
+| relay 兜底修复（关键路径） | p2p-R-E4（session-e5aeee3e） | fix/e4-relay-resilience | crates/p2p-relay：控制流 ~90ms 秒断（31/31 复现）+ reserve 计入 32 槽配额自锁（TTL 3600s）；诊断优先 itest 复现；E3 中继兜底从未真实工作（138 relay 口今日才放行） | make check 全绿 + itest 转回归 + 15↔ECS 中继兜底 ping PASS |
 | TCP 会话即断（/t3401 握手后断） | p2p-K-E4（session-bf2bc941）→ 修复派 S（session-e42e5393） | fix/e4-tcp-stream | 诊断完成：facade TransportLink::connect 丢弃 SecureConn 触发 YamuxMux close-on-drop 自毁（消融实验实证，QUIC 因驱动任务持有连接不受影响）；裁决采纳方案 A（SecureConn 挂进 stream_to_conn 写任务闭包），S 就该分支实现，K 的回归 4000845 即机械验收 | make check 全绿 + 4000845 回归绿 |
-| 长稳采样 | 待派（依赖 CLI 接线交付） | — | scripts/ 采样脚本与 runbook：默认日志含 p2p_swarm=info、禁 pkill 红线、三连采样统计 | E1/E3 runbook 复测三连稳定 |
+| 长稳采样 | 待派（依赖 relay 兜底修复） | — | scripts/ 采样脚本与 runbook：默认日志含 p2p_swarm=info、禁 pkill 红线、三连采样统计 | E1/E3 runbook 复测三连稳定 |
 
 metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 
@@ -102,3 +103,4 @@ metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 - 2026-09-02 检查轮 23：verify worktree 归属确认——系 S-E4 验证优先复现现场，已自清（/tmp 留测量脚本备查）。实测复现入册：hairpin 不通常态为黑洞——单地址挂满预算才失败（QUIC 3.0s / TCP 5.0s 实测），LAN 直连被拖 3-5s；前任 S 的"refused 立即失败"仅对真 RST 成立，按"实测复现缺陷才修逻辑"规则，0f1c73b 修复必要性成立，且其与推送版逐字节一致、主树定向复跑全绿。T-ECS 仍在途。
 - 2026-09-02 检查轮 24：T-ECS 验收通过（部署/观测反射/discover 冒烟 PASS，PeerId 入册 runbook §8.5；主树 make check 复跑 PASS，main=e9ff20e）。协调者经阿里云 API 放行 relay 口 3403/udp+3404/tcp。ping 未通定性为产品缺口：CLI 未接线 relay_addrs、--bootstrap 单值、观测首成功恒 v4——据此续派 CLI 接线单（T，feat/cli-relay-wiring）；TCP /t3401 握手后即断为存量缺陷（QUIC 正常），开 p2p-K-E4（session-bf2bc941，fix/e4-tcp-stream）诊断优先承接。观测多反射器/v6 涉及 facade，登记 E4 余量。长稳采样改依赖 CLI 接线（中继兜底就位后采样才有意义）。
 - 2026-09-02 检查轮 25：K-E4（新会话）诊断完成——消融实验四步实证根因为 facade TransportLink::connect 丢弃 SecureConn 触发 YamuxMux close-on-drop 自毁（QUIC 因 quinn 驱动任务持有连接幸免；YamuxMux/QuicMux 生命周期语义不一致登记为契约缺口，E4 余量另立案）。协调者裁决采纳方案 A（挂闭包保生命周期），实现派 S 就 K 分支 fix/e4-tcp-stream（含 K 回归 4000845）进行。K 转完成态待命。跨 crate 停手报裁红线首次实战执行，流程正确。
+- 2026-09-02 检查轮 26：T-ECS CLI 接线验收通过（363b2a5，双 bootstrap discover 6 peers、relay 会话接线 PASS、DialHop 逐跳打印 PASS；主树 make check 复跑 PASS）。重大定性：E3 的中继兜底从未在真实链路工作——138 ufw relay 口今日才由协调者放行（3403/udp+3404/tcp，密钥登录实测），且 relay 控制流秒断（31/31，~90ms）与 reserve 计入 32 槽配额自锁两缺陷已定位 control.rs/slots.rs/limits.rs。开 p2p-R-E4（session-e5aeee3e，fix/e4-relay-resilience）诊断优先承接，长稳采样改依赖 relay 修复。观测多反射器/v6 维持 E4 余量。
