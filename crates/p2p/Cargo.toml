@@ -4,4 +4,16 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
+async-trait.workspace = true
+bytes.workspace = true
+futures.workspace = true
+p2p-discovery = { path = "../p2p-discovery" }
+p2p-identity = { path = "../p2p-identity" }
+p2p-mux = { path = "../p2p-mux" }
+p2p-protocol = { path = "../p2p-protocol" }
+p2p-swarm = { path = "../p2p-swarm" }
+p2p-transport = { path = "../p2p-transport" }
 thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
