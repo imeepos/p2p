@@ -8,19 +8,13 @@ import {
 import { useTranslation } from "react-i18next";
 
 import type { DialHopJson, DialHopKind } from "@/lib/ipc-types";
-import type { I18nKey } from "@/i18n/types";
+import { HOP_KEY } from "@/views/monitor/hop-labels";
 import { cn } from "@/lib/utils";
 
 const HOP_ICON: Record<DialHopKind, typeof ArrowLeftRightIcon> = {
   direct: ArrowLeftRightIcon,
   punch: ZapIcon,
   relay: WaypointsIcon,
-};
-
-export const HOP_KEY: Record<DialHopKind, I18nKey> = {
-  direct: "common.hop.direct",
-  punch: "common.hop.punch",
-  relay: "common.hop.relay",
 };
 
 interface HopTimelineProps {

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { HOP_KEY } from "@/components/monitor/hop-timeline";
+import { HOP_KEY } from "./hop-labels";
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n";
 import { describeNodeEvent } from "@/lib/event-text";

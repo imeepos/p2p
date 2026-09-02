@@ -1,7 +1,7 @@
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { HOP_KEY } from "@/components/monitor/hop-timeline";
+import { HOP_KEY } from "./hop-labels";
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n";
 import { formatTime } from "@/lib/format";
