@@ -68,3 +68,4 @@
 - 2026-09-02 检查轮 6：R 修复轮验收通过（M2/M5/L3/varint 四件，make check PASS，含 itest 适配）。修复轮余量：D（H1 高危）、K 第二批（yamux/QUIC close）。E2 部署脚本与 E1/E3 runbook 已入库；源码已预同步 15/114/102。
 - 2026-09-02 检查轮 7：修复轮全部关闭——D（faa77a6+4a0cdd4，H1/M1/L2/L3）、K 第二批（296fe3a+c28f61c）合入，make check PASS。仅剩 T 命令行在途；T 落地即执行 E2 部署（scripts/deploy-bootstrap-138.sh）与 M3 贯通轮派单。
 - 2026-09-02 检查轮 8：T 验收通过（10d8cee，make check 全绿 + 冒烟实测 PASS：bootstrap 注册/双节点发现/ping rtt≈7ms）。E2 部署在 138 上执行中。红线登记（源自 R 审查发现，已通知 S 于 M3 执行）：RelayLink 夹具的 peer_id 必须标注为对端身份，标注成 relay 自身会让属主/配额校验形同虚设。
+- 2026-09-02 检查轮 8 续：**E2 完成**——bootstrap 已在 138 systemd 常驻（active，QUIC 3400/udp + TCP 3401/tcp，远端编译 2m48s），跨公网验证通过：15（LAN）经 138 discover 成功查到本机注册节点。实测暴露地址观测缺口（节点只注册 127.0.0.1 监听地址），已作为必做项补进 S 的 M3 任务（design §7.2）。M3 贯通轮已派 S（feat/m3-degradation-chain）。E1/E3 待 M3 落地后按 runbook 执行。
