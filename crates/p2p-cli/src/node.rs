@@ -34,6 +34,8 @@ pub async fn run(args: NodeArgs) -> Result<(), String> {
                     tracing::info!(%peer, "connected"),
                 Ok(NodeEvent::PeerDisconnected { peer }) =>
                     tracing::info!(%peer, "disconnected"),
+                Ok(NodeEvent::DialHop { peer, hop, ok, detail }) =>
+                    tracing::info!(%peer, ?hop, ok, %detail, "dial hop"),
                 Ok(other) => tracing::debug!(event = ?other, "event"),
                 Err(broadcast::error::RecvError::Lagged(skip)) =>
                     tracing::warn!(skip, "event channel lagged, dropped events"),
@@ -47,13 +49,16 @@ pub async fn run(args: NodeArgs) -> Result<(), String> {
     }
 }
 
-/// 装配 facade 节点：mdns on + 可选 bootstrap + 指定/随机 QUIC 端口 + echo handler。
+/// 装配 facade 节点：mdns on + 可选 bootstrap/relay + 指定/随机 QUIC 端口 + echo handler。
 async fn build_node(args: &NodeArgs) -> Result<Node, Box<dyn std::error::Error>> {
     let mut builder = NodeBuilder::new()
         .mdns(!args.no_mdns)
         .data_dir(PathBuf::from(&args.data));
-    if let Some(addr) = &args.bootstrap {
-        builder = builder.bootstrap(vec![addr.clone()]);
+    if !args.bootstrap.is_empty() {
+        builder = builder.bootstrap(args.bootstrap.clone());
+    }
+    if !args.relay.is_empty() {
+        builder = builder.relay_addrs(args.relay.clone());
     }
     if let Some(q) = &args.listen_quic {
         // facade 恒绑定 0.0.0.0，IP 仅展示；这里只取端口
