@@ -50,6 +50,7 @@
 | 传输超时 | K（session-401422e9） | fix/transport-timeouts | crates/p2p-security + crates/p2p-transport | ✓ 已合入：M3（080deb6+76200ac）+ 第二批（296fe3a yamux 空闲唤醒、c28f61c QuicTransport::close），make check PASS |
 | varint 溢出 | P（session-5cb6377a） | fix/protocol-varint | crates/p2p-protocol | ✓ L4 已合入（8a2a6c5）。P 另发现 relay read_varint 同类回绕，已叠加进 R 的单子 |
 | M4（expected 必填） | S | fix/swarm-dial-expected | swarm/facade 层强制，不动 transport 冻结签名 | ✓ 已合入（a89dcf5，含投毒回归测试） |
+| M3 贯通轮 | feat/m3-degradation-chain → feat/addr-observation | p2p-S-编排装配（session-e42e5393） | crates/p2p-swarm（降级链：直连→打洞→中继电路，逐跳事件）+ crates/p2p（design §7.2 地址观测：bootstrap 告知外部地址并注册） | 拆两批：降级链已合入验收（3942e2e，make check+冒烟 PASS）；地址观测进行中（feat/addr-observation，E3 打洞/被拨前置） | 降级链各跳事件可断言 + 直连阻断回落中继测试 |
 | L1 / L5 | 无代码改动 | — | L1 维持信任模型记录在案；L5 裁决改设计文档（已完成） | L1、L5 |
 
 ## 变更记录
@@ -69,3 +70,4 @@
 - 2026-09-02 检查轮 7：修复轮全部关闭——D（faa77a6+4a0cdd4，H1/M1/L2/L3）、K 第二批（296fe3a+c28f61c）合入，make check PASS。仅剩 T 命令行在途；T 落地即执行 E2 部署（scripts/deploy-bootstrap-138.sh）与 M3 贯通轮派单。
 - 2026-09-02 检查轮 8：T 验收通过（10d8cee，make check 全绿 + 冒烟实测 PASS：bootstrap 注册/双节点发现/ping rtt≈7ms）。E2 部署在 138 上执行中。红线登记（源自 R 审查发现，已通知 S 于 M3 执行）：RelayLink 夹具的 peer_id 必须标注为对端身份，标注成 relay 自身会让属主/配额校验形同虚设。
 - 2026-09-02 检查轮 8 续：**E2 完成**——bootstrap 已在 138 systemd 常驻（active，QUIC 3400/udp + TCP 3401/tcp，远端编译 2m48s），跨公网验证通过：15（LAN）经 138 discover 成功查到本机注册节点。实测暴露地址观测缺口（节点只注册 127.0.0.1 监听地址），已作为必做项补进 S 的 M3 任务（design §7.2）。M3 贯通轮已派 S（feat/m3-degradation-chain）。E1/E3 待 M3 落地后按 runbook 执行。
+- 2026-09-02 检查轮 9：M3 降级链合入验收（3942e2e，make check + 冒烟复跑 PASS，rtt 6.4ms）；S 正在第二批 feat/addr-observation（地址观测，E3 前置）。
