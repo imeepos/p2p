@@ -110,7 +110,7 @@ impl RendezvousLink for TransportLink {
             match open_rendezvous_stream(&conn).await {
                 Ok(stream) => {
                     self.blind_dial_failed_warned[idx].store(false, Ordering::Relaxed);
-                    return Ok(stream_to_conn(stream));
+                    return Ok(stream_to_conn_owned(stream, conn));
                 }
                 Err(e) => {
                     self.note_blind_dial_failure(idx, addr, &e);
@@ -130,9 +130,19 @@ async fn open_rendezvous_stream(conn: &SecureConn) -> io::Result<BoxedStream> {
 
 /// BoxedStream → 长度分帧 RendezvousConn（与服务端 serve_link 帧约定一致）。
 pub(crate) fn stream_to_conn(stream: BoxedStream) -> RendezvousConn {
+    stream_to_conn_parts(stream, None)
+}
+
+fn stream_to_conn_owned(stream: BoxedStream, connection: SecureConn) -> RendezvousConn {
+    stream_to_conn_parts(stream, Some(connection))
+}
+
+fn stream_to_conn_parts(stream: BoxedStream, connection: Option<SecureConn>) -> RendezvousConn {
     let (rx, tx) = tokio::io::split(stream);
     let (out_tx, mut out_rx) = mpsc::channel::<Vec<u8>>(16);
     tokio::spawn(async move {
+        // TCP 的 YamuxMux 在所有句柄归零时关闭；持有连接直到 RendezvousConn 写端关闭。
+        let _connection = connection;
         let mut framed = FramedWrite::new(tx, LengthDelimitedCodec::new());
         while let Some(frame) = out_rx.recv().await {
             if framed.send(Bytes::from(frame)).await.is_err() {
