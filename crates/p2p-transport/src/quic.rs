@@ -17,6 +17,10 @@ use crate::{SecureConn, Transport, TransportAddr, TransportError};
 /// 身份校验不依赖证书域名，SNI 用固定占位即可
 const SERVER_NAME: &str = "p2p-base";
 const KEEP_ALIVE: Duration = Duration::from_secs(10);
+/// QUIC 空闲连接回收上限：半开连接不得长期占用（安全审查 1 期 M3）
+pub const QUIC_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
+/// QUIC 握手（connecting/Incoming resolve）总时长上限
+pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 
 fn stream_limits() -> Arc<quinn::TransportConfig> {
     let mut transport = quinn::TransportConfig::default();
@@ -24,6 +28,9 @@ fn stream_limits() -> Arc<quinn::TransportConfig> {
     transport.max_concurrent_bidi_streams(
         quinn::VarInt::from_u64(MAX_STREAMS_PER_CONN as u64).expect("stream limit fits varint"),
     );
+    transport.max_idle_timeout(Some(quinn::IdleTimeout::from(
+        quinn::VarInt::from_u64(QUIC_IDLE_TIMEOUT.as_secs()).expect("idle timeout fits varint"),
+    )));
     Arc::new(transport)
 }
 
@@ -86,19 +93,26 @@ impl QuicTransport {
     }
 
     /// 接受下一条入站连接并升级为 SecureConn；endpoint 关闭后返回 None。
-    /// 单条连接升级失败记日志并返回 None，不中断整个监听循环的调用方。
+    /// 入站 QUIC 握手限时，升级失败记日志并返回 None，不中断监听循环。
     pub async fn accept(&self) -> Option<SecureConn> {
         let incoming = self.endpoint.accept().await?;
-        match incoming.await {
-            Ok(conn) => match secure_conn(conn, None) {
+        match tokio::time::timeout(HANDSHAKE_TIMEOUT, incoming).await {
+            Ok(Ok(conn)) => match secure_conn(conn, None) {
                 Ok(conn) => Some(conn),
                 Err(e) => {
                     tracing::warn!(error = %e, "quic inbound identity upgrade failed");
                     None
                 }
             },
-            Err(e) => {
+            Ok(Err(e)) => {
                 tracing::warn!(error = %e, "quic inbound handshake failed");
+                None
+            }
+            Err(_) => {
+                tracing::warn!(
+                    timeout = ?HANDSHAKE_TIMEOUT,
+                    "quic inbound handshake timed out"
+                );
                 None
             }
         }
@@ -129,6 +143,9 @@ impl Transport for QuicTransport {
         let mut client = quinn::ClientConfig::new(Arc::new(quic_crypto));
         let mut transport = quinn::TransportConfig::default();
         transport.keep_alive_interval(Some(KEEP_ALIVE));
+        transport.max_idle_timeout(Some(quinn::IdleTimeout::from(
+            quinn::VarInt::from_u64(QUIC_IDLE_TIMEOUT.as_secs()).expect("idle timeout fits varint"),
+        )));
         client.transport_config(Arc::new(transport));
 
         let connecting = self
@@ -138,10 +155,21 @@ impl Transport for QuicTransport {
                 addr: addr.to_string(),
                 reason: e.to_string(),
             })?;
-        let conn = connecting.await.map_err(|e| TransportError::Dial {
-            addr: addr.to_string(),
-            reason: e.to_string(),
-        })?;
+        let conn = match tokio::time::timeout(HANDSHAKE_TIMEOUT, connecting).await {
+            Ok(Ok(conn)) => conn,
+            Ok(Err(e)) => {
+                return Err(TransportError::Dial {
+                    addr: addr.to_string(),
+                    reason: e.to_string(),
+                });
+            }
+            Err(_) => {
+                return Err(TransportError::Dial {
+                    addr: addr.to_string(),
+                    reason: format!("quic handshake timeout after {HANDSHAKE_TIMEOUT:?}"),
+                });
+            }
+        };
         secure_conn(conn, expected)
     }
 }
