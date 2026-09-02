@@ -187,20 +187,24 @@ async fn write_varint(w: &mut (impl AsyncWrite + Unpin + Send), mut v: u64) -> i
 
 async fn read_varint(r: &mut (impl AsyncRead + Unpin + Send)) -> io::Result<u64> {
     let mut v: u64 = 0;
-    let mut shift = 0;
-    for _ in 0..10 {
+    let mut shift: u32 = 0;
+    loop {
         let mut byte = [0u8; 1];
         r.read_exact(&mut byte).await?;
+        // 第 10 字节（shift=63）只剩 1 个有效数据位：
+        // 数据位 > 1 或仍带继续位都会超出 64 位，拒绝而不是静默回绕。
+        if shift >= 64 || (shift == 63 && (byte[0] & 0x7f) > 0x01) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "varint overflow",
+            ));
+        }
         v |= u64::from(byte[0] & 0x7f) << shift;
         if byte[0] & 0x80 == 0 {
             return Ok(v);
         }
         shift += 7;
     }
-    Err(io::Error::new(
-        io::ErrorKind::InvalidData,
-        "varint overflow",
-    ))
 }
 
 /// request-response 便捷原语接缝（P 会话实现）：
@@ -237,5 +241,25 @@ mod tests {
         let (w, r) = tokio::join!(write_frame(&mut tx, &payload), read_frame(&mut rx));
         w.unwrap();
         assert_eq!(r.unwrap(), payload);
+    }
+
+    #[tokio::test]
+    async fn varint_ten_byte_boundary_roundtrip() {
+        let (mut tx, mut rx) = tokio::io::duplex(64);
+        let (w, r) = tokio::join!(write_varint(&mut tx, u64::MAX), read_varint(&mut rx));
+        w.unwrap();
+        assert_eq!(r.unwrap(), u64::MAX);
+    }
+
+    #[tokio::test]
+    async fn varint_overflow_input_rejected() {
+        let mut high_bit = [0xffu8; 10];
+        high_bit[9] = 0x02; // 第 10 字节不带继续位，但数据位 > 1（旧实现静默回绕）
+        let continues = [0xffu8; 10]; // 第 10 字节仍带继续位
+        for bytes in [high_bit, continues] {
+            let mut cursor = &bytes[..];
+            let err = read_varint(&mut cursor).await.unwrap_err();
+            assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+        }
     }
 }
