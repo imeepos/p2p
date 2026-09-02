@@ -131,17 +131,25 @@ stop_local(){  # 只信 PID 文件：读取 -> 校验数字 -> 对该 PID 精确
   rm -f "$PID_FILE"
 }
 
-askpass_setup(){  # 密码只从 SSH_PASSWORD 进 0600 临时文件，绝不回显终端/日志
-  [ -n "${SSH_PASSWORD:-}" ] || die "SSH_PASSWORD not set (required for remote ssh)"
+askpass_setup(){  # 仅密钥不可达时兜底；密码只从 SSH_PASSWORD 进 0600 临时文件，绝不回显终端/日志
+  [ -n "${SSH_PASSWORD:-}" ] || die "SSH_PASSWORD not set (required when key auth unavailable)"
   ASKPASS_DIR="$(mktemp -d "${TMPDIR:-/tmp}/e4-askpass.XXXXXX")"
   printf '%s' "$SSH_PASSWORD" >"$ASKPASS_DIR/pw"
   { echo '#!/bin/sh'; echo "cat '$ASKPASS_DIR/pw'"; } >"$ASKPASS_DIR/askpass.sh"
   chmod 600 "$ASKPASS_DIR/pw"; chmod 700 "$ASKPASS_DIR/askpass.sh"
 }
 askpass_teardown(){ if [ -n "$ASKPASS_DIR" ]; then rm -rf "$ASKPASS_DIR"; ASKPASS_DIR=""; fi; }
-ssh_run(){  # $@ = user@host 与远端命令；askpass 注入，密码不进命令行
-  SSH_ASKPASS="$ASKPASS_DIR/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+ssh_key_ok(){  # E5 加固后公网节点仅密钥可登录；密钥可达则不再走密码通道
+  command ssh -o BatchMode=yes -o ConnectTimeout=10 "$1" true 2>/dev/null
+}
+ssh_run(){  # $@ = user@host 与远端命令；密钥优先，兜底 askpass（密码不进命令行）
+  if ssh_key_ok "$1"; then
     command ssh -o StrictHostKeyChecking=accept-new "$@"
+  else
+    [ -n "$ASKPASS_DIR" ] || askpass_setup
+    SSH_ASKPASS="$ASKPASS_DIR/askpass.sh" SSH_ASKPASS_REQUIRE=force DISPLAY=:0 \
+      command ssh -o StrictHostKeyChecking=accept-new "$@"
+  fi
 }
 remote_start(){  # 真实模式且 E4_REMOTE_START=1 才真正连接；dry-run 路径不经过这里
   [ "${E4_REMOTE_START:-0}" = 1 ] || return 0

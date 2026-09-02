@@ -152,6 +152,20 @@ ssh $LINUX_SSH_102 'cd ~/src/p2p && export PATH=$HOME/.cargo/bin:$PATH && cargo 
 --bootstrap 当前为单值：双 bootstrap 冗余是部署级（切换 = 改 --bootstrap 重启），
 单节点同时注册两个引导面待 CLI 支持多值后解锁。
 
+#### 8.5.1 公网节点登录加固（E5，2026-09-02）
+
+两个公网节点全部改为仅密钥登录，密码方式不可登录：
+
+| 节点 | 加固前 | 加固后 | 验证 |
+|---|---|---|---|
+| 138 | ops + 密钥（本就达标） | `PermitRootLogin prohibit-password`、`PasswordAuthentication no` | BatchMode 密钥登录 OK |
+| ECS | root + 密码（cloud-init drop-in 曾覆盖为允许密码） | `PasswordAuthentication no`（改 `/etc/ssh/sshd_config.d/50-cloud-init.conf`）+ `PermitRootLogin prohibit-password` + `/etc/cloud/cloud.cfg.d/99-e5-disable-pwauth.cfg`（防重启回退） | 密码登录 Permission denied（仅 publickey）；密钥登录 OK |
+
+操作顺序（防锁死）：先装公钥并 BatchMode 验证通过，再改 sshd 并 `sshd -t` 校验后重启；
+改动前备份在远端 `/tmp/sshd_config.bak.*` 与 `/tmp/50-cloud-init.conf.bak.*`。
+部署与采样脚本同步改为密钥优先（`deploy-bootstrap-ecs.sh` 移除密码通道；
+`e4-sample-run.sh` 密钥可达即不用 askpass，SSH_PASSWORD 仅作兜底保留）。
+
 ### 8.6 E4 长稳采样脚本准备（T-ECS）
 
 采样准备使用以下脚本，实际执行等待 relay 修复合入后进行：

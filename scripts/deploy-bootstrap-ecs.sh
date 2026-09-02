@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # 在阿里云 ECS（第二公网节点）上部署 p2p-bootstrap（systemd 常驻）。
 # 参照 deploy-bootstrap-138.sh，差异：
-#   - 登录 root+密码：凭据只在 .env（SSH_HOST/SSH_USER/SSH_PASSWORD），经
-#     SSH_ASKPASS 环境变量通道传递，不进命令行参数、不写任何文件（需 OpenSSH >= 8.4）；
-#     worktree 内运行需指定 DEPLOY_ENV_FILE=<主树>/.env（.env 不入库，worktree 无副本）；
+#   - 登录仅密钥（E5 加固后密码登录已在 sshd 层禁用）：目标默认 root@$SSH_HOST，
+#     SSH_HOST/SSH_USER 可经 .env 覆盖；密钥不可用即失败，不再回退密码；
 #   - 远端工具链从零就位：apt 装 build-essential/curl/rsync，rustup 走 rsproxy 镜像，
 #     ~/.cargo/config.toml 配 rsproxy sparse 源；
 #   - ufw 不启用：防火墙由阿里云安全组承担（已放行 22/3400udp/3401tcp/3402udp）。
@@ -18,31 +17,16 @@ TCP_PORT=3401
 OBS_PORT=3402
 REMOTE_SRC='/root/src/p2p'
 LAB_DIR='/root/p2p-lab'
-SSH_OPTS=(-o StrictHostKeyChecking=accept-new -o ConnectTimeout=15)
-ASKPASS_FILE=''
+SSH_OPTS=(-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15)
 
 log() { printf '[deploy-ecs] %s\n' "$*"; }
 
-cleanup() { [ -z "$ASKPASS_FILE" ] || rm -f "$ASKPASS_FILE"; }
-trap cleanup EXIT
-
-# 凭据加载：.env -> 环境变量；缺失即失败，绝不内联密钥
-# worktree 内主树 .env 不可见，用 DEPLOY_ENV_FILE=<主树>/.env 显式指定
+# 凭据加载：.env -> 环境变量（只取目标地址，登录一律密钥）
 load_credentials() {
   local env_file="${DEPLOY_ENV_FILE:-.env}"
   if [ -f "$env_file" ]; then set -a; . "$env_file"; set +a; fi
   : "${SSH_HOST:?SSH_HOST 未设置（检查仓库根 .env）}"
-  : "${SSH_USER:?SSH_USER 未设置（检查 .env）}"
-  : "${SSH_PASSWORD:?SSH_PASSWORD 未设置（检查 .env）}"
-}
-
-# 密码通道：askpass 辅助脚本只引用 $SSH_PASSWORD 环境变量，密码值本身不落盘
-make_askpass() {
-  ASKPASS_FILE="$(mktemp "${TMPDIR:-/tmp}/ecs-askpass.XXXXXX")"
-  printf '#!/bin/sh\nprintf %%s "$SSH_PASSWORD"\n' > "$ASKPASS_FILE"
-  chmod 700 "$ASKPASS_FILE"
-  export SSH_ASKPASS="$ASKPASS_FILE" SSH_ASKPASS_REQUIRE=force
-  export DISPLAY="${DISPLAY:-:0}"
+  SSH_USER="${SSH_USER:-root}"
 }
 
 remote() { ssh "${SSH_OPTS[@]}" "$SSH_USER@$SSH_HOST" "$@"; }
@@ -138,7 +122,6 @@ health_check() {
 }
 
 load_credentials
-make_askpass
 ensure_toolchain
 push_source
 build_remote
