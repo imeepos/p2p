@@ -7,14 +7,16 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use std::sync::{Arc, Mutex};
+
 use p2p::NodeEvent;
 use tauri::test::MockRuntime;
-use tauri::{App, Manager, State};
+use tauri::{App, Listener, Manager, State};
 use tokio::sync::broadcast;
 
 use p2p_console::commands;
 use p2p_console::state::AppState;
-use p2p_console::types::{GuiConfig, NodeStatus};
+use p2p_console::types::{GuiConfig, NodeEventJson, NodeStatus};
 
 /// mDNS 互发现窗口；同机双实例通常秒级，留足冷启动余量。
 const DISCOVER_TIMEOUT: Duration = Duration::from_secs(30);
@@ -48,6 +50,22 @@ impl Drop for DirGuard {
     }
 }
 
+/// node-event JSON 捕获日志：经真实 emit 通道落盘，供运行时符合性断言。
+type EventLog = Arc<Mutex<Vec<serde_json::Value>>>;
+
+/// 在 mock handle 上挂 node-event 监听，捕获 emit 出口的真实 JSON 载荷。
+fn capture_events(handle: &tauri::AppHandle<MockRuntime>) -> EventLog {
+    let log: EventLog = Arc::default();
+    let sink = log.clone();
+    handle.listen_any("node-event", move |event| {
+        match serde_json::from_str::<serde_json::Value>(event.payload()) {
+            Ok(payload) => sink.lock().expect("事件日志锁中毒").push(payload),
+            Err(e) => eprintln!("[smoke] node-event 载荷非法 JSON: {e}"),
+        }
+    });
+    log
+}
+
 fn node_config(dir: &Path, quic: u16, tcp: u16) -> GuiConfig {
     GuiConfig {
         quic_port: quic,
@@ -67,14 +85,20 @@ async fn start_node(
     tag: &str,
     quic: u16,
     tcp: u16,
-) -> (App<MockRuntime>, NodeStatus, broadcast::Receiver<NodeEvent>) {
+) -> (
+    App<MockRuntime>,
+    NodeStatus,
+    broadcast::Receiver<NodeEvent>,
+    EventLog,
+) {
     let dir = smoke_dir(tag);
     std::fs::create_dir_all(&dir).expect("创建冒烟数据目录");
     let app = tauri::test::mock_app();
     let handle = app.handle().clone();
-    handle.manage(AppState::new(dir));
+    handle.manage(AppState::new(dir.clone()));
+    let log = capture_events(&handle);
     let state: State<'_, AppState> = handle.state();
-    let status = commands::node_start(handle.clone(), state, node_config(&smoke_dir(tag), quic, tcp))
+    let status = commands::node_start(handle.clone(), state, node_config(&dir, quic, tcp))
         .await
         .unwrap_or_else(|e| panic!("节点 {tag} 启动失败: {e}"));
     let rx = handle
@@ -82,7 +106,7 @@ async fn start_node(
         .subscribe_events()
         .await
         .expect("订阅节点事件");
-    (app, status, rx)
+    (app, status, rx, log)
 }
 
 /// 在超时内等第一条满足谓词的事件；超时返回 None，通道关闭立即返回 None。
@@ -111,9 +135,25 @@ async fn wait_event(
 async fn two_nodes_discover_ping_and_observe_dialhop() {
     let _guard_a = DirGuard(smoke_dir("a"));
     let _guard_b = DirGuard(smoke_dir("b"));
+    let _guard_cfg = DirGuard(smoke_dir("cfg"));
 
-    let (app_a, status_a, mut rx_a) = start_node("a", free_port(), free_port()).await;
-    let (app_b, status_b, mut rx_b) = start_node("b", free_port(), free_port()).await;
+    // 0. 命令层配置往返（不依赖网络）：save 返回值与 get 读回逐字段一致
+    {
+        let app = tauri::test::mock_app();
+        let handle = app.handle().clone();
+        handle.manage(AppState::new(smoke_dir("cfg")));
+        let state: State<'_, AppState> = handle.state();
+        let cfg = node_config(&smoke_dir("cfg"), free_port(), free_port());
+        let saved = commands::config_save(state.clone(), cfg.clone())
+            .await
+            .expect("保存配置");
+        assert_eq!(saved, cfg, "config_save 返回值应与输入一致");
+        let loaded = commands::config_get(state).await.expect("读取配置");
+        assert_eq!(loaded, cfg, "config_get 应与 config_save 逐字段一致");
+    }
+
+    let (app_a, status_a, mut rx_a, log_a) = start_node("a", free_port(), free_port()).await;
+    let (app_b, status_b, mut rx_b, log_b) = start_node("b", free_port(), free_port()).await;
     let peer_b = status_b
         .peer_id
         .clone()
@@ -182,7 +222,26 @@ async fn two_nodes_discover_ping_and_observe_dialhop() {
     let rtt = outcome.rtt_ms.expect("成功 ping 必有 rtt");
     assert!(rtt <= PING_TIMEOUT_MS, "rtt {rtt}ms 超出预算");
 
-    // 5. 幂等收尾
+    // 5. tsMs 运行时符合性：emit 出口捕获的每条 JSON 均含数值型 tsMs（契约 §2 修订）
+    for (name, log) in [("A", &log_a), ("B", &log_b)] {
+        let events = log.lock().expect("事件日志锁中毒");
+        assert!(!events.is_empty(), "{name} 侧应捕获到 node-event 载荷");
+        for (i, payload) in events.iter().enumerate() {
+            assert!(
+                payload["tsMs"].is_u64(),
+                "{name} 第 {i} 条事件 tsMs 非数值: {payload}"
+            );
+            serde_json::from_value::<NodeEventJson>(payload.clone()).unwrap_or_else(|e| {
+                panic!("{name} 第 {i} 条载荷不合约: {e}: {payload}");
+            });
+        }
+        assert!(
+            events.iter().any(|v| v["type"] == "node_started"),
+            "{name} 侧应捕获到自产 node_started（盖戳路径覆盖桥接层自产事件）"
+        );
+    }
+
+    // 6. 幂等收尾
     let stopped = commands::node_stop(app_a.handle().clone(), app_a.handle().state::<AppState>())
         .await
         .expect("停止 A");
