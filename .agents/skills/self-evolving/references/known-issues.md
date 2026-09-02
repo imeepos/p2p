@@ -56,3 +56,16 @@ poll 时点快照，快照后守卫翻转不会重评，open_rx 分支被禁用�
 修法：跨 await 修改守卫状态的处理逻辑移出 select 分支 future，在 loop 顶部
 独立处理；select 分支 future 保持只读。诊断手法：循环计数打印定位 driver
 卡死轮次，再二分变量（次数 vs 时间）——"闲置后失效"未必与时间有关。
+## 2026-09-02 多接口 mDNS 宣告 + 共享 LAN -> 冒烟 ping 间歇性全地址拨号失败
+症状：p2p-cli 冒烟 discover/ping 时好时坏；失败轮 ping 报最后一个地址
+Connection refused/No route to host，node1 日志见 tcp inbound handshake
+failed: early eof（客户端侧超时中止）。
+原因：facade mDNS 按全部本机接口宣告（含 fe80 链路本地无 %scope、240e 全局
+不可达），共享 LAN 上其他 p2p 节点（并行会话/其他机器）同 namespace 互相
+发现，地址簿膨胀到约 20 个死地址；拨号走查慢且 node accept 循环被并发入站
+握手拖住，loopback 握手等超时被客户端掐断。
+排查：保留现场（mktemp 目录不删）+ RUST_LOG=info 重跑失败轮，对比通过/失败
+轮的 discovered peer 数量与地址集；sample 看进程线程栈排除假死。
+修法：测试路径收窄发现面（--no-mdns 只走 rendezvous，地址簿仅 127.0.0.1）；
+拨号侧多地址预算放大（REQUEST_TIMEOUT 5s 到 20s）。多接口死地址的真正治理
+（scope zone、地址优先级、dial 并发竞速）属 facade/swarm 层，已报协调会话。
