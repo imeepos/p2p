@@ -26,6 +26,7 @@ mdns-sd = "0.13"
 prost = "0.13"
 x509-cert = "0.2"
 ring = "0.17"
+der = "0.7"
 
 [profile.release]
 lto = "thin"

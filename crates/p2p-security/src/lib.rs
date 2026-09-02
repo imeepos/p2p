@@ -34,3 +34,12 @@ pub trait SecurityUpgrade: Send + Sync {
         keypair: &Keypair,
     ) -> Result<(PeerId, BoxedStream), SecurityError>;
 }
+mod noise;
+mod noise_stream;
+mod tls;
+mod tls_cert;
+mod tls_verify;
+
+pub use noise::NoiseXx;
+pub use tls::{quic_client_config, quic_server_config, QUIC_ALPN};
+pub use tls_cert::{build_identity_cert, peer_id_from_cert};

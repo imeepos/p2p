@@ -10,6 +10,7 @@ thiserror.workspace = true
 tracing.workspace = true
 snow.workspace = true
 ring.workspace = true
+der.workspace = true
 rcgen.workspace = true
 rustls.workspace = true
 x509-cert.workspace = true
