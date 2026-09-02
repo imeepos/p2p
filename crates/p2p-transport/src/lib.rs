@@ -51,3 +51,10 @@ pub trait Transport: Send + Sync {
         expected: Option<PeerId>,
     ) -> Result<SecureConn, TransportError>;
 }
+mod quic;
+mod tcp;
+
+pub use quic::QuicTransport;
+pub use tcp::TcpTransport;
+
+pub use p2p_mux::MAX_STREAMS_PER_CONN;

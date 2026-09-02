@@ -53,9 +53,13 @@ impl AsyncRead for QuicStream {
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
         let this = self.get_mut();
-        // 经栈上中转缓冲调用 quinn 的 poll_read，保证 ReadBuf 初始化语义安全
+        // 经栈上中转缓冲调用 quinn 的 poll_read，读取量以调用方缓冲为上限
+        let cap = buf.remaining().min(4096);
+        if cap == 0 {
+            return Poll::Ready(Ok(()));
+        }
         let mut tmp = [0u8; 4096];
-        match this.recv.poll_read(cx, &mut tmp) {
+        match this.recv.poll_read(cx, &mut tmp[..cap]) {
             Poll::Ready(Ok(0)) => Poll::Ready(Ok(())), // 对端 FIN
             Poll::Ready(Ok(n)) => {
                 buf.put_slice(&tmp[..n]);
