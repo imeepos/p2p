@@ -61,13 +61,13 @@ export function HopStatsCard() {
                   </span>
                 )}
               </div>
-              <div className="bg-muted flex h-2.5 w-full overflow-hidden rounded-full">
+              <div className="bg-muted motion-safe:animate-in motion-safe:fade-in flex h-2.5 w-full overflow-hidden rounded-full">
                 <div
-                  className="bg-success transition-all"
+                  className="bg-success transition-all motion-reduce:transition-none"
                   style={{ width: (row.ok / Math.max(1, row.ok + row.fail)) * 100 + "%" }}
                 />
                 <div
-                  className="bg-destructive transition-all"
+                  className="bg-destructive transition-all motion-reduce:transition-none"
                   style={{ width: (row.fail / Math.max(1, row.ok + row.fail)) * 100 + "%" }}
                 />
               </div>

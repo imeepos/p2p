@@ -29,7 +29,9 @@ function NodeStatusPill() {
       <span
         className={cn(
           "size-1.5 rounded-full",
-          running ? "animate-pulse bg-success" : "bg-muted-foreground",
+          running
+            ? "motion-safe:animate-pulse bg-success"
+            : "bg-muted-foreground",
         )}
         aria-hidden
       />

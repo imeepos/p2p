@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 
 import { CommandPalette } from "@/components/command-palette/command-palette";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -16,6 +16,7 @@ const REFRESH_INTERVAL_MS = 5000;
 
 export function AppLayout() {
   const { t } = useTranslation();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const bootstrap = useNodeStore((s) => s.bootstrap);
@@ -46,7 +47,12 @@ export function AppLayout() {
             className="grid grid-cols-12 gap-4 p-6"
             aria-label={t("common.appName")}
           >
-            <Outlet />
+            <div
+              key={location.pathname}
+              className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 col-span-12 grid grid-cols-12 gap-4"
+            >
+              <Outlet />
+            </div>
           </div>
         </main>
         <StatusBar />
