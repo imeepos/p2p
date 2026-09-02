@@ -29,6 +29,16 @@ impl ConnectionPool {
         self.conns.lock().expect("pool lock").get(peer).cloned()
     }
 
+    /// 在册连接数（指标水位用）。
+    pub fn len(&self) -> usize {
+        self.conns.lock().expect("pool lock").len()
+    }
+
+    /// 是否无在册连接。
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// 幂等插入：peer 已在册时丢弃新连接并返回 false（先到者优先）。
     pub fn insert(&self, peer: PeerId, mux: Mux) -> bool {
         let mut conns = self.conns.lock().expect("pool lock");

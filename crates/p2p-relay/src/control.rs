@@ -103,6 +103,7 @@ impl RelayServiceImpl {
         );
         match issued {
             Ok(cid) => {
+                self.lock_state().metrics.count_issued();
                 tracing::info!(
                     peer = %peer,
                     circuit = cid,
@@ -113,10 +114,12 @@ impl RelayServiceImpl {
                 RelayMsg::reserved(cid)
             }
             Err(errcode::PEER_LIMIT) => {
+                self.lock_state().metrics.count_reserve_reject();
                 tracing::warn!(peer = %peer, "reserve rejected: per-peer circuit quota");
                 RelayMsg::error(errcode::PEER_LIMIT, "per-peer circuit quota exceeded")
             }
             Err(errcode::GLOBAL_CAPACITY) => {
+                self.lock_state().metrics.count_reserve_reject();
                 tracing::warn!(peer = %peer, "reserve rejected: global circuit capacity exhausted");
                 RelayMsg::error(
                     errcode::GLOBAL_CAPACITY,
@@ -124,6 +127,7 @@ impl RelayServiceImpl {
                 )
             }
             Err(code) => {
+                self.lock_state().metrics.count_reserve_reject();
                 tracing::warn!(peer = %peer, code, "reserve rejected");
                 RelayMsg::error(code, "circuit reserve rejected")
             }

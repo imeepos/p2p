@@ -17,6 +17,7 @@ use p2p_transport::{QuicTransport, TcpTransport};
 use tokio::sync::{broadcast, mpsc};
 
 use crate::cli::{parse_socket_addr, BootstrapArgs};
+use crate::metrics_log::log_interval;
 
 /// 单条已认证传输连接 = 一条 RelayLink（peer 为握手互认的身份）。
 struct RelayConnLink {
@@ -81,9 +82,11 @@ pub async fn run(args: BootstrapArgs) -> Result<(), String> {
     // relay 用 +3 偏移：+2 的 UDP 口已被观测反射器占用（observation_port）
     let relay_quic = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), quic_addr.port() + 3);
     let relay_tcp = SocketAddr::new(IpAddr::from([0, 0, 0, 0]), tcp_addr.port() + 3);
-    spawn_relay(keypair.clone(), relay_quic, relay_tcp)
-        .await
-        .map_err(|e| format!("relay 监听/装配失败: {e}"))?;
+    let relay = Arc::clone(
+        &spawn_relay(keypair.clone(), relay_quic, relay_tcp)
+            .await
+            .map_err(|e| format!("relay 监听/装配失败: {e}"))?,
+    );
 
     println!("peer_id={peer}");
     println!(
@@ -99,6 +102,8 @@ pub async fn run(args: BootstrapArgs) -> Result<(), String> {
     );
 
     let mut events = node.events();
+    let mut metrics_tick = tokio::time::interval(log_interval());
+    metrics_tick.tick().await; // 首个 tick 立即返回，跳过避免启动刷屏
     let mut ctrl_c = Box::pin(tokio::signal::ctrl_c());
     loop {
         tokio::select! {
@@ -106,6 +111,10 @@ pub async fn run(args: BootstrapArgs) -> Result<(), String> {
                 tracing::info!("ctrl-c received, shutting down");
                 node.shutdown();
                 return Ok(());
+            }
+            _ = metrics_tick.tick() => {
+                tracing::info!(target: "p2p_metrics", snapshot = ?node.metrics(), "metrics snapshot");
+                tracing::info!(target: "p2p_metrics", relay = ?relay.metrics(), "relay metrics snapshot");
             }
             ev = events.recv() => match ev {
                 Ok(ev) => tracing::debug!(event = ?ev, "bootstrap event"),
@@ -127,16 +136,18 @@ fn load_identity(data: PathBuf) -> io::Result<Keypair> {
 }
 
 /// 启动 relay：绑 quic/tcp 监听、两条 accept 循环喂 LinkSource，后台 serve。
+/// 返回服务句柄供指标读取；serve 在后台任务里持有另一份克隆。
 async fn spawn_relay(
     keypair: Keypair,
     quic_addr: SocketAddr,
     tcp_addr: SocketAddr,
-) -> io::Result<()> {
+) -> io::Result<Arc<RelayServiceImpl>> {
     let (tx, rx) = mpsc::channel::<Box<dyn RelayLink>>(32);
     let source = Box::new(RelayConnSource::new(rx));
     let svc = Arc::new(RelayServiceImpl::new(source, RelayLimits::default()));
+    let serve_handle = Arc::clone(&svc);
     tokio::spawn(async move {
-        if let Err(e) = RelayService::serve(svc).await {
+        if let Err(e) = RelayService::serve(serve_handle).await {
             tracing::error!(error = %e, "relay service exited with error");
         }
     });
@@ -148,7 +159,7 @@ async fn spawn_relay(
     let listener = tcp.bind(tcp_addr).await?;
     tokio::spawn(accept_tcp_loop(tcp, listener, keypair, tx));
 
-    Ok(())
+    Ok(svc)
 }
 
 /// QUIC accept 循环：升级为 SecureConn 后包装成 RelayLink 推入 source。

@@ -10,7 +10,7 @@ use p2p_protocol::{
     open_with_protocol, ProtocolHandler, ProtocolId, RequestResponse, RequestResponseClient,
     StreamFactory,
 };
-use p2p_swarm::{ConnectionGate, NodeEvent, Swarm, SwarmFactory};
+use p2p_swarm::{ConnectionGate, MetricsSnapshot, NodeEvent, Swarm, SwarmFactory};
 use tokio::sync::broadcast;
 
 use crate::rendezvous::parse_transport_addr;
@@ -41,6 +41,11 @@ impl Node {
     /// 事件订阅：发现/连接/断开/拨号失败/协议违规（design §4/§12）。
     pub fn events(&self) -> broadcast::Receiver<NodeEvent> {
         self.swarm.subscribe()
+    }
+
+    /// 运行时指标快照（E5）：拨号各跳成败、重连次数、活跃连接/会话水位。
+    pub fn metrics(&self) -> MetricsSnapshot {
+        self.swarm.metrics()
     }
 
     /// 注册业务协议 handler（底座只做路由，design §9）。

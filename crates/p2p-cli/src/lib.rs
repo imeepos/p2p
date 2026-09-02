@@ -7,6 +7,7 @@ pub mod bootstrap;
 pub mod cli;
 pub mod discover;
 pub mod echo;
+pub mod metrics_log;
 pub mod node;
 pub mod ping;
 

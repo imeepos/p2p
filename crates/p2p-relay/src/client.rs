@@ -22,12 +22,12 @@ const REPLY_TIMEOUT: Duration = Duration::from_secs(5);
 /// 事件队列容量；满则丢事件并留日志（不反压控制流）。
 const EVENT_CAPACITY: usize = 32;
 
-/// 异步事件：入站打洞信令与控制链路关闭。
+/// 异步事件：入站打洞信令与控制链路关闭（关闭必带原因，E5 原因链）。
 #[derive(Debug)]
 pub enum RelayEvent {
     PunchReq(crate::messages::PunchReq),
     PunchAck(crate::messages::PunchAck),
-    ControlClosed,
+    ControlClosed { reason: String },
 }
 
 type PendingSlot = Arc<Mutex<Option<oneshot::Sender<RelayMsg>>>>;
@@ -169,12 +169,17 @@ async fn read_ctrl_loop(
     pending: PendingSlot,
     events: mpsc::Sender<RelayEvent>,
 ) {
+    let reason;
     loop {
         match read_msg(&mut rh).await {
             Ok(Some(msg)) => dispatch_ctrl(&pending, &events, msg).await,
-            Ok(None) => break,
+            Ok(None) => {
+                reason = "control stream eof (clean close by peer)".to_string();
+                break;
+            }
             Err(e) => {
                 tracing::warn!(error = %e, "control stream read failed");
+                reason = e.to_string();
                 break;
             }
         }
@@ -182,7 +187,7 @@ async fn read_ctrl_loop(
     if let Some(tx) = pending.lock().await.take() {
         let _ = tx.send(RelayMsg::error(errcode::PROTOCOL, "control stream closed"));
     }
-    let _ = events.send(RelayEvent::ControlClosed).await;
+    let _ = events.send(RelayEvent::ControlClosed { reason }).await;
 }
 
 async fn dispatch_ctrl(pending: &PendingSlot, events: &mpsc::Sender<RelayEvent>, msg: RelayMsg) {

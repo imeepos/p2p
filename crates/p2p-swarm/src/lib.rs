@@ -7,11 +7,13 @@ use p2p_identity::PeerId;
 
 mod backoff;
 mod gate;
+mod metrics;
 mod pool;
 mod swarm;
 
 pub use backoff::Backoff;
 pub use gate::{gate_fn, GateFn};
+pub use metrics::MetricsSnapshot;
 pub use pool::ConnectionPool;
 pub use swarm::filter_loopback;
 pub use swarm::{AddrSource, Swarm, SwarmConfig, SwarmFactory};

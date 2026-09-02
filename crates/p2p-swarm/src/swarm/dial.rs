@@ -35,12 +35,14 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
         tried += 1;
         match dial_limited(swarm, peer, &addr, hairpin).await {
             Ok(mux) => {
+                swarm.metrics.hop_ok(DialHop::Direct);
                 insert_connection(swarm, peer, mux.clone());
                 return Ok(mux);
             }
             Err(err) => {
                 // 每个失败地址都留 info 日志 + DialFailed 事件，生产默认级别即可归因
                 tracing::info!(%peer, %addr, error = %err, "direct addr failed; trying next");
+                swarm.metrics.count_addr_dial_fail();
                 swarm.emit(NodeEvent::DialFailed {
                     peer: Some(peer),
                     reason: format!("{addr}: {err}"),
@@ -49,12 +51,17 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
             }
         }
     }
+    swarm.metrics.hop_fail(DialHop::Direct);
     swarm.emit(NodeEvent::DialHop {
         peer,
         hop: DialHop::Direct,
         ok: false,
         detail: format!("{tried} addr(s) tried"),
     });
+    let direct_reason = last_err
+        .as_ref()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| "no addr attempted".to_string());
     // 降级链 2/3 跳：打洞 + 中继电路（未配置 relay 则止于直连，已留 debug 日志）
     if swarm.has_relay_sessions() {
         match swarm.relay_degrade(peer).await {
@@ -63,13 +70,17 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
                 return Ok(mux);
             }
             Err(err) => {
+                swarm.metrics.hop_fail(DialHop::Relay);
                 swarm.emit(NodeEvent::DialHop {
                     peer,
                     hop: DialHop::Relay,
                     ok: false,
                     detail: err.to_string(),
                 });
-                return Err(err);
+                // 完整原因链（E5）：同步调用方拿到的末次错误携带全部跳失败原因
+                return Err(io::Error::other(format!(
+                    "all hops failed for {peer}; direct: {direct_reason}; relay: {err}"
+                )));
             }
         }
     }

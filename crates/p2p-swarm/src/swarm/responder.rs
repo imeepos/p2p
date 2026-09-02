@@ -17,6 +17,7 @@ use p2p_transport::TransportAddr;
 use super::dial::{dial_one, insert_connection};
 use super::relay_session::PROBE_TIMEOUT;
 use super::{Mux, Swarm};
+use crate::DialHop;
 
 /// 等待对端接入电路上限。
 const JOIN_TIMEOUT: Duration = Duration::from_secs(10);
@@ -49,6 +50,7 @@ pub(super) async fn handle_punch_req(
         match attempt.await {
             Ok(Ok(mux)) => {
                 tracing::info!(%peer, %addr, "inbound punch probe landed direct connection");
+                swarm.metrics.hop_ok(DialHop::Punch);
                 insert_connection(swarm, peer, mux);
                 return;
             }
@@ -56,6 +58,7 @@ pub(super) async fn handle_punch_req(
             Err(_) => last = "probe timeout".to_string(),
         }
     }
+    swarm.metrics.hop_fail(DialHop::Punch);
     let Some(cid) = cid else {
         tracing::warn!(%peer, last = %last, "punch probes failed and no circuit offered");
         return;
@@ -87,6 +90,7 @@ pub(super) async fn handle_punch_req(
         return;
     }
     tracing::info!(%peer, circuit = cid, "circuit connection established (inbound)");
+    swarm.metrics.hop_ok(DialHop::Relay);
     insert_connection(swarm, remote, mux);
 }
 

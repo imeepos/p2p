@@ -8,6 +8,7 @@ use tokio::sync::broadcast;
 
 use crate::cli::{parse_socket_addr, NodeArgs};
 use crate::echo::EchoHandler;
+use crate::metrics_log::log_interval;
 
 /// 常驻运行：注册 echo handler，订阅事件打日志，ctrl-c 时优雅关停。
 pub async fn run(args: NodeArgs) -> Result<(), String> {
@@ -19,6 +20,8 @@ pub async fn run(args: NodeArgs) -> Result<(), String> {
     println!("[node{name}] peer_id={peer}");
     println!("[node{name}] listen_addrs={:?}", node.listen_addrs());
 
+    let mut metrics_tick = tokio::time::interval(log_interval());
+    metrics_tick.tick().await; // 首个 tick 立即返回，跳过避免启动刷屏
     let mut ctrl_c = Box::pin(tokio::signal::ctrl_c());
     loop {
         tokio::select! {
@@ -27,6 +30,8 @@ pub async fn run(args: NodeArgs) -> Result<(), String> {
                 node.shutdown();
                 return Ok(());
             }
+            _ = metrics_tick.tick() =>
+                tracing::info!(target: "p2p_metrics", snapshot = ?node.metrics(), "metrics snapshot"),
             ev = events.recv() => match ev {
                 Ok(NodeEvent::PeerDiscovered { peer, addrs }) =>
                     tracing::info!(%peer, ?addrs, "discovered"),

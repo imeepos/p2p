@@ -69,7 +69,9 @@ async fn assert_control_survives_idle(mut client: RelayClient) {
     let closed = tokio::time::timeout(IDLE_WINDOW, client.next_event()).await;
     match closed {
         Err(_) => {} // 静默窗口内无事件 = 控制流存活
-        Ok(Some(RelayEvent::ControlClosed)) => panic!("control stream died during idle window"),
+        Ok(Some(RelayEvent::ControlClosed { reason })) => {
+            panic!("control stream died during idle window: {reason}")
+        }
         Ok(other) => panic!("unexpected relay event: {other:?}"),
     }
 

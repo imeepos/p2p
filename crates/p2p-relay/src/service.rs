@@ -65,6 +65,12 @@ impl RelayServiceImpl {
     pub(crate) fn bucket_for(&self, peer: &str) -> Arc<Mutex<RateBucket>> {
         self.buckets.bucket_for(peer)
     }
+
+    /// 服务端指标快照（E5）：电路/链路水位与发放/拒绝累计。
+    pub fn metrics(&self) -> crate::metrics::RelayMetricsSnapshot {
+        let state = self.lock_state();
+        state.metrics.snapshot(&state)
+    }
 }
 
 #[async_trait]
@@ -86,8 +92,16 @@ impl RelayServiceImpl {
         let mut tick = tokio::time::interval(SWEEP_INTERVAL);
         loop {
             tick.tick().await;
-            for gone in self.lock_state().sweep_expired(Instant::now()) {
-                tracing::warn!(circuit = gone.cid, holder = ?gone.holder, "circuit reservation expired; dropped");
+            let gone = {
+                let mut state = self.lock_state();
+                let gone = state.sweep_expired(Instant::now());
+                if !gone.is_empty() {
+                    state.metrics.count_expired(gone.len() as u64);
+                }
+                gone
+            };
+            for g in gone {
+                tracing::warn!(circuit = g.cid, holder = ?g.holder, "circuit reservation expired; dropped");
             }
         }
     }
@@ -101,6 +115,7 @@ impl RelayServiceImpl {
             self.limits.max_total_links,
         );
         if let Err(reason) = admitted {
+            self.lock_state().metrics.count_link_reject();
             tracing::warn!(peer = %peer, reason = ?reason, "link rejected: quota");
             self.reject_link(link).await;
             return;

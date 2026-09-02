@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use p2p_identity::{Keypair, PeerId};
 use p2p_mux::{BoxedStream, MuxControl};
-use p2p_protocol::{HandlerRegistry, ProtocolHandler, ProtocolId, StreamFactory};
+use p2p_protocol::{HandlerRegistry, ProtocolHandler, ProtocolId};
 use p2p_transport::{QuicTransport, TcpTransport, TransportAddr};
 use tokio::sync::{broadcast, mpsc, watch};
 
@@ -16,6 +16,7 @@ use crate::{ConnectionGate, NodeEvent};
 mod book;
 mod config;
 mod dial;
+mod factory;
 mod listen;
 mod relay_session;
 mod responder;
@@ -25,11 +26,14 @@ mod book_tests;
 #[cfg(test)]
 mod tests;
 
+use crate::metrics::{Metrics, MetricsSnapshot};
 use book::AddressBook;
 pub use book::{filter_loopback, AddrSource};
 pub use config::SwarmConfig;
 use config::{to_transport, EVENT_CAPACITY};
 use dial::dial_peer;
+use factory::RegistryCell;
+pub use factory::SwarmFactory;
 use listen::spawn_accept_loops;
 use relay_session::{spawn_sessions, RelayCmd};
 
@@ -49,6 +53,7 @@ pub struct Swarm {
     address_book: Mutex<AddressBook>,
     events: broadcast::Sender<NodeEvent>,
     relay_sessions: Mutex<Vec<mpsc::Sender<RelayCmd>>>,
+    metrics: Metrics,
     shutdown_tx: watch::Sender<bool>,
     shutdown_rx: watch::Receiver<bool>,
 }
@@ -79,6 +84,7 @@ impl Swarm {
             address_book: Mutex::new(AddressBook::new()),
             events,
             relay_sessions: Mutex::new(Vec::new()),
+            metrics: Metrics::default(),
             shutdown_tx,
             shutdown_rx,
         });
@@ -102,6 +108,13 @@ impl Swarm {
 
     pub fn subscribe(&self) -> broadcast::Receiver<NodeEvent> {
         self.events.subscribe()
+    }
+
+    /// 运行时指标快照（E5）：拨号各跳成败、重连次数、活跃连接/会话水位。
+    pub fn metrics(&self) -> MetricsSnapshot {
+        let conns = self.pool.len() as u64;
+        let sessions = self.relay_sessions.lock().expect("relay lock").len() as u64;
+        self.metrics.snapshot(conns, sessions)
     }
 
     /// 注册协议 handler：复制-改-换，进行中的分发继续使用旧快照。
@@ -274,19 +287,5 @@ impl Swarm {
 
     fn add_relay_session(&self, tx: mpsc::Sender<RelayCmd>) {
         self.relay_sessions.lock().expect("relay lock").push(tx);
-    }
-}
-
-/// handler 注册表的共享单元：注册为复制-改-换，分发按快照路由。
-pub type RegistryCell = Arc<Mutex<Arc<HandlerRegistry>>>;
-
-/// [Swarm] 的可拥有工厂句柄：RequestResponseClient 等需要持有工厂的场景使用。
-#[derive(Clone)]
-pub struct SwarmFactory(pub Arc<Swarm>);
-
-#[async_trait::async_trait]
-impl StreamFactory for SwarmFactory {
-    async fn open_stream(&self, peer: &PeerId, protocol: &ProtocolId) -> io::Result<BoxedStream> {
-        self.0.open_stream(peer, protocol).await
     }
 }

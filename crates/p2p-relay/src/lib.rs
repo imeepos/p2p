@@ -35,6 +35,7 @@ mod lifecycle;
 pub mod limits;
 pub mod link;
 pub mod messages;
+mod metrics;
 pub mod punch;
 pub mod service;
 mod slots;
@@ -48,5 +49,6 @@ pub use link::{mock_link_pair, LinkSource, MockLink, MockLinkSource, RelayLink};
 pub use messages::{
     errcode, relay_msg, Bound, Connect, PunchAck, PunchReq, Reject, RelayMsg, Reserve, Reserved,
 };
+pub use metrics::RelayMetricsSnapshot;
 pub use punch::{PunchPhase, PunchSession};
 pub use service::RelayServiceImpl;

@@ -23,6 +23,7 @@ pub(crate) struct RelayState {
     pub(crate) circuit_load: HashMap<String, usize>,
     pub(crate) circuits: HashMap<u64, crate::slots::CircuitSlot>,
     pub(crate) controls: HashMap<String, Arc<CtrlWrite>>,
+    pub(crate) metrics: crate::metrics::RelayMetrics,
 }
 
 impl RelayState {
@@ -32,6 +33,7 @@ impl RelayState {
             circuit_load: HashMap::new(),
             circuits: HashMap::new(),
             controls: HashMap::new(),
+            metrics: crate::metrics::RelayMetrics::default(),
         }
     }
 

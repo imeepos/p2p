@@ -94,24 +94,28 @@ async fn session_loop(swarm: Arc<Swarm>, addr: TransportAddr, mut cmds: mpsc::Re
             return;
         }
         let link = match dial_relay_link(&swarm, &addr).await {
-            Ok(link) => link,
+            Ok(link) => {
+                backoff.reset();
+                link
+            }
             Err(err) => {
                 tracing::warn!(%addr, error = %err, "relay link dial failed; backing off");
+                swarm.metrics.count_reconnect();
                 tokio::time::sleep(backoff.next_delay()).await;
                 continue;
             }
         };
-        backoff.reset();
         tracing::info!(%addr, "relay session connected");
         let mut client = RelayClient::new(link);
         // relay 以首帧 Reserve 登记控制通道：自用电路（仅本端可接入）作信令注册载体，
         // 否则纯被叫方永远收不到 PunchReq 转发。控制流存活期内注册持续有效。
         if let Err(e) = client.reserve(CONTROL_REG_TTL, "").await {
             tracing::warn!(%addr, error = %e, "control registration failed; reconnecting");
+            swarm.metrics.count_reconnect();
             tokio::time::sleep(backoff.next_delay()).await;
             continue;
         }
-        loop {
+        let close_reason = loop {
             tokio::select! {
                 _ = shutdown.changed() => return,
                 cmd = cmds.recv() => match cmd {
@@ -126,13 +130,13 @@ async fn session_loop(swarm: Arc<Swarm>, addr: TransportAddr, mut cmds: mpsc::Re
                     Some(RelayEvent::PunchAck(_)) => {
                         tracing::debug!(%addr, "unsolicited punch ack ignored");
                     }
-                    Some(RelayEvent::ControlClosed) | None => {
-                        break;
-                    }
+                    Some(RelayEvent::ControlClosed { reason }) => break reason,
+                    None => return,
                 },
             }
-        }
-        tracing::warn!(%addr, "relay control closed; reconnecting");
+        };
+        tracing::warn!(%addr, reason = %close_reason, "relay control closed; reconnecting");
+        swarm.metrics.count_reconnect();
         tokio::time::sleep(backoff.next_delay()).await;
     }
 }
@@ -205,6 +209,7 @@ async fn degrade(swarm: &Swarm, client: &mut RelayClient, peer: PeerId) -> io::R
         match attempt.await {
             Ok(Ok(mux)) => {
                 tracing::info!(%peer, %addr, "punch probe landed direct connection");
+                swarm.metrics.hop_ok(DialHop::Punch);
                 swarm.emit(NodeEvent::DialHop {
                     peer,
                     hop: DialHop::Punch,
@@ -229,6 +234,7 @@ async fn degrade(swarm: &Swarm, client: &mut RelayClient, peer: PeerId) -> io::R
         .map_err(|_| io::Error::other("circuit join timed out"))?
         .map_err(|e| io::Error::other(e.to_string()))?;
     let mux = secure_outbound(swarm, stream, peer).await?;
+    swarm.metrics.hop_ok(DialHop::Relay);
     swarm.emit(NodeEvent::DialHop {
         peer,
         hop: DialHop::Relay,
@@ -239,6 +245,7 @@ async fn degrade(swarm: &Swarm, client: &mut RelayClient, peer: PeerId) -> io::R
 }
 
 fn emit_punch_fail(swarm: &Swarm, peer: PeerId, detail: String) {
+    swarm.metrics.hop_fail(DialHop::Punch);
     swarm.emit(NodeEvent::DialHop {
         peer,
         hop: DialHop::Punch,
