@@ -84,18 +84,32 @@ async fn drive(
     let mut pending_open: Option<OpenReply> = None;
     let mut open_rx_closed = false;
     loop {
-        // 单点驱动：连接事件与开流请求在 select 中竞争，
-        // 保证等待开流请求期间写缓冲/到达帧仍被持续轮询。
+        // 开流意图必须在 select 之外处理：select 的挂起决策基于 poll 时点快照，
+        // 若在分支 future 内部改写守卫状态（pending_open），挂起期间守卫翻转
+        // 不会重新评估，open_rx 的 waker 不被注册，唤醒即丢失（S 实测悬挂根因）。
+        if let Some(reply) = pending_open.take() {
+            let opened = poll_fn(|cx| conn.poll_new_outbound(cx)).await;
+            match opened {
+                Ok(stream) => {
+                    let _ = reply.send(Ok(Box::new(stream.compat())));
+                }
+                Err(e) => {
+                    let _ = reply.send(Err(yamux_err(e)));
+                }
+            }
+            // 立即回到循环顶部：SYN 出队后还需 Active::poll 冲刷到 socket
+            continue;
+        }
         tokio::select! {
             biased;
             _ = close_rx.recv() => return, // 句柄归零或显式关闭
-            req = open_rx.recv(), if !open_rx_closed && pending_open.is_none() => {
+            req = open_rx.recv(), if !open_rx_closed => {
                 match req {
                     Some(reply) => pending_open = Some(reply),
                     None => open_rx_closed = true, // 句柄全部丢弃，只收流直至连接关闭
                 }
             }
-            flow = poll_fn(|cx| poll_once(&mut conn, &mut pending_open, cx)) => {
+            flow = poll_fn(|cx| poll_next_inbound(&mut conn, cx)) => {
                 match flow {
                     Flow::Inbound(stream) => {
                         if inbound_tx.send(stream).await.is_err() {
@@ -120,31 +134,18 @@ enum Flow {
     Error(yamux::ConnectionError),
 }
 
-fn poll_once(
+/// 只驱动入站方向：收帧、分发新流、冲刷写队列。
+/// 开流（poll_new_outbound）由 drive 在 select 外单独推进，见其注释。
+fn poll_next_inbound(
     conn: &mut yamux::Connection<tokio_util::compat::Compat<BoxedStream>>,
-    pending_open: &mut Option<OpenReply>,
     cx: &mut std::task::Context<'_>,
 ) -> Poll<Flow> {
     match conn.poll_next_inbound(cx) {
-        Poll::Ready(Some(Ok(stream))) => {
-            return Poll::Ready(Flow::Inbound(Box::new(stream.compat())))
-        }
-        Poll::Ready(Some(Err(e))) => return Poll::Ready(Flow::Error(e)),
-        Poll::Ready(None) => return Poll::Ready(Flow::Closed),
-        Poll::Pending => {}
+        Poll::Ready(Some(Ok(stream))) => Poll::Ready(Flow::Inbound(Box::new(stream.compat()))),
+        Poll::Ready(Some(Err(e))) => Poll::Ready(Flow::Error(e)),
+        Poll::Ready(None) => Poll::Ready(Flow::Closed),
+        Poll::Pending => Poll::Pending,
     }
-    if let Some(reply) = pending_open.take() {
-        match conn.poll_new_outbound(cx) {
-            Poll::Ready(Ok(stream)) => {
-                let _ = reply.send(Ok(Box::new(stream.compat())));
-            }
-            Poll::Ready(Err(e)) => {
-                let _ = reply.send(Err(yamux_err(e)));
-            }
-            Poll::Pending => *pending_open = Some(reply),
-        }
-    }
-    Poll::Pending
 }
 
 fn yamux_err(e: yamux::ConnectionError) -> io::Error {
