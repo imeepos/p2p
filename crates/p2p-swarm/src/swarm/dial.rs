@@ -52,6 +52,11 @@ fn dial_rejected(swarm: &Swarm, peer: PeerId, reason: &str) -> io::Error {
 }
 
 /// 单地址拨号 + 门禁裁决；不放行即断链（conn 随作用域丢弃而关闭）。
+///
+/// 安全不变式（security-review-1.md M4）：本函数是 swarm 唯一拨号出口，
+/// expected 恒为 Some(peer)——地址簿可被投毒，握手后的身份比对是最后防线，
+/// 类型层面 peer 必填，调用方无法省略。盲拨仅存在于 facade rendezvous
+/// 链接（bootstrap 身份未知）且必须留日志。
 async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) -> io::Result<Mux> {
     let transport: &dyn Transport = match addr {
         TransportAddr::Quic { .. } => &swarm.dial_quic,

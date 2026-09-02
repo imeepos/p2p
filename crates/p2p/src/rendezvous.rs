@@ -65,6 +65,9 @@ impl RendezvousLink for TransportLink {
                 TransportAddr::Quic { .. } => &self.quic,
                 TransportAddr::Tcp { .. } => &self.tcp,
             };
+            // 盲拨例外：bootstrap 仅以地址配置、身份未知，无法比对 expected；
+            // 依赖与 bootstrap 间加密信道（security-review-1.md L1），显式留痕
+            tracing::warn!(%addr, "rendezvous blind dial: bootstrap peer unknown, no expected binding");
             let conn = match transport.dial(addr, &self.keypair, None).await {
                 Ok(conn) => conn,
                 Err(e) => {
