@@ -26,10 +26,15 @@ impl MemCache {
         }
     }
 
+    /// 取内部锁；中毒时恢复而非 panic（L3：网络路径零 expect）。
+    fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<PeerId, Entry>> {
+        self.entries.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
     /// 返回全部未过期条目（并清除过期项），供 rendezvous 服务端应答全量查询。
     pub fn snapshot(&self) -> Vec<(PeerId, Vec<TransportAddr>)> {
         let now = Instant::now();
-        let mut map = self.entries.lock().expect("cache lock");
+        let mut map = self.lock();
         map.retain(|_, e| e.expires_at > now);
         map.iter().map(|(p, e)| (*p, e.addrs.clone())).collect()
     }
@@ -47,12 +52,12 @@ impl AddrCache for MemCache {
             addrs,
             expires_at: Instant::now() + ttl,
         };
-        self.entries.lock().expect("cache lock").insert(peer, entry);
+        self.lock().insert(peer, entry);
     }
 
     fn get(&self, peer: &PeerId) -> Option<Vec<TransportAddr>> {
         let now = Instant::now();
-        let mut map = self.entries.lock().expect("cache lock");
+        let mut map = self.lock();
         let expired = matches!(map.get(peer), Some(e) if e.expires_at <= now);
         if expired {
             map.remove(peer);
@@ -63,7 +68,7 @@ impl AddrCache for MemCache {
 
     fn evict_expired(&self) -> Vec<PeerId> {
         let now = Instant::now();
-        let mut map = self.entries.lock().expect("cache lock");
+        let mut map = self.lock();
         let expired: Vec<PeerId> = map
             .iter()
             .filter(|(_, e)| e.expires_at <= now)
