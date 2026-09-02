@@ -32,3 +32,14 @@
 - 2026-09-02 itest 里制造"事件A先落地、再触发事件B"的时序：`let f = x.connect()` 是惰性 future，不 poll 不启动，直接 drop 其他组件会误判成时序竞态——先 tokio::pin! + futures::poll! 主动推进数步配 sleep 让状态落地（单线程 runtime 协作调度内必完成），再做触发（relay_control_resilience 实录）。
 - 2026-09-02 远端清理指定实验进程用 pgrep -f 时，模式串若原样出现在自己 bash -c 命令行里会匹配自身 → kill 自杀（ssh 退出 255 无输出）。修法：括号技巧 `pgrep -f "[e]csn2"`——模式文本本身不含 "ecsn2" 连续串即不会自匹配（R-E4 冒烟实录）。
 - 2026-09-02 无参绑定工具（如 session_link_list）在 run_code 里传 {} 或 undefined 都报 "binding arguments must be lossless JSON"；先试无参直调，不行就绕开该工具用已知目标 id 直连（补充 21 号技巧）。
+## run_code 模板字符串吃反斜杠（2026-09-02，gui-shell）
+
+用 run_code 的 tools.write 写文件时，内容在 JS 模板字符串里：正则的 \d、\/
+会被模板转义吃掉（/\d+/ 写进文件变成 /d+/），tsc 报 TS1135 等语法错时先查
+文件里正则的原文。对策：正则改用 new RegExp 字符串形式，或内容里双写反斜杠。
+
+## pnpm 在无 package.json 的目录报 NO_IMPORTER_MANIFEST_FOUND（2026-09-02）
+
+pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任何 error TS 行，
+与真实构建失败难区分。构建验证一律显式进入子包目录（或 pnpm -C <包> build），
+并且不要和 git 提交串在同一条命令里。
