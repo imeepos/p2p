@@ -442,6 +442,11 @@ name = "p2p-relay"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "p2p-mux",
+ "prost",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
