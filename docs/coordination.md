@@ -57,10 +57,10 @@
 
 | 修复单 | 负责会话 | 分支 | 范围 | 验收 |
 |---|---|---|---|---|
-| 拨号可观测性+refused/hairpin 边角 | S（session-e42e5393） | fix/e4-dialhop-observability | crates/p2p-swarm：DialHop 逐跳归因从 debug 提升为 info 或事件化（采样不开 RUST_LOG=debug 也能归因）；复核检查轮14立案——TCP 入站 refused 在直连跳不得作为最终错误上抛，须继续尝试其余地址；同 NAT hairpin refused 快速失败不占满拨号预算 | make check 全绿 + itest 断言各跳事件 |
+| 拨号可观测性+refused/hairpin 边角 | S（session-e42e5393） | fix/e4-dialhop-observability ✓ 已合入（00a775f，任务3拆出） | crates/p2p-swarm：DialHop 逐跳归因从 debug 提升为 info 或事件化（采样不开 RUST_LOG=debug 也能归因）；复核检查轮14立案——TCP 入站 refused 在直连跳不得作为最终错误上抛，须继续尝试其余地址；同 NAT hairpin refused 快速失败不占满拨号预算 | make check 全绿 + itest 断言各跳事件 |
 | 发现时序+日志降噪 | p2p-D-E4（session-cc9c45f8） | fix/e4-discovery-stability | crates/p2p-discovery：发现窗口时序（启动初期错过 mDNS 公告的补救）；rendezvous 盲拨周期 WARN 降 debug 或加退避，仅首次失败保留 WARN | make check 全绿 + 35s 周期刷屏消除的单测断言 |
 | ECS 公网节点部署 | p2p-T-ECS（session-814cafa1） | feat/ecs-deploy | scripts/deploy-bootstrap-ecs.sh（参照 138 版，systemd 常驻，QUIC 3400/udp + TCP 3401/tcp + 观测 3402/udp）+ runbook 双公网拓扑条目；安全组已由协调者放行（22/3400udp/3401tcp/3402udp） | make check 全绿 + 15↔ECS 冒烟 PASS（记录 PeerId） |
-| hairpin 快速失败 | p2p-S-E4（session-7a31fb74） | fix/e4-hairpin-fastfail | crates/p2p-swarm + itest：验证优先——先以 itest 复现检查轮16 场景，实测达标则只交测试不改逻辑（S 报告 refused 已走快速失败路径） | make check 全绿 + itest 断言 hairpin 场景预算 |
+| hairpin 快速失败 | p2p-S-E4（session-7a31fb74） | fix/e4-hairpin-fastfail ✓ 已合入（0f1c73b） | crates/p2p-swarm + itest：验证优先——先以 itest 复现检查轮16 场景，实测达标则只交测试不改逻辑（S 报告 refused 已走快速失败路径） | make check 全绿 + itest 断言 hairpin 场景预算 |
 | 长稳采样 | 待派（依赖 hairpin 交付） | — | scripts/ 采样脚本与 runbook：默认日志含 p2p_swarm=info、禁 pkill 红线、三连采样统计 | E1/E3 runbook 复测三连稳定 |
 
 metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
@@ -96,3 +96,4 @@ metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 - 2026-09-02 检查轮 19：用户移除全部旧会话（18 轮"唤醒失效"结论据此更正为会话已被删除，注册表陈旧）。S 被移除前已自行完成 rebase+ff-only 合并（00a775f 归因提升+refused 遍历回归、ff88a8e itest 依赖锁定）但未推远端——协调者接管：push 补齐（c9a24b1..ff88a8e）、worktree 清理、make check 验收 PASS。任务1/2 关闭；任务3（hairpin 快速失败）确认未实现，改派新会话 p2p-S-E4（fix/e4-hairpin-fastfail）。教训：协调者必须以 git 实况而非会话回报为准做验收。
 - 2026-09-02 检查轮 20：S（e42e5393）实为存活并回报完整完工报告，与 git 实况完全吻合——18/19 轮"旧会话已全部移除"对 S 不成立（对旧 D/T 成立），验收正式通过（169 用例全绿，协调者补 push + worktree 清理）。语义入册：Direct=false 仅整跳耗尽时发出；同 NAT hairpin refused 已由短地址失败路径快速处理。hairpin 单据此改验证优先（先 itest 复现，达标只交测试）。S 提出遗留：IPv6/跨族监听、QUIC close，登记 E4 余量/E5。在途：D-E4（发现时序）、T-ECS（ECS 部署，worktree 已建）、S-E4（hairpin 验证，worktree 已建 7e4a943）。
 - 2026-09-02 检查轮 21：D-E4 验收通过（580f4fd mdns 启动期 1s×5 重询 / d2c3094 退避健康复位缺陷修复 / 6a4df8c 盲拨 WARN 首次制，main=origin/main=538bebb，协调者主树复跑 make check PASS）。两条流程记录：2443366 merge bubble 违反 rebase 规则（不 revert，下不为例）；6a4df8c 跨界改 crates/p2p facade（噪声源确在该层且无并发冲突，豁免，但跨 crate 须先报备）。D 遗留登记：relay_session 盲拨 WARN 不动（无周期刷屏）；真实日志级别断言需 tracing-test 类设施，另立案（E4 余量）。
+- 2026-09-02 检查轮 22：S-E4 hairpin 验收通过——分支 rebase 后 0f1c73b ff-only 合入（worktree 门禁+主树 make check 双 PASS，已推远端，worktree/本地/远端分支全清理）。两件套落地：同公网前缀（v4 /24、v6 /64）候选排序殿后 + 2s HAIRPIN_DIAL_TIMEOUT 短预算；itest 断言 LAN 先落地<5s。五条遗留登记为已知限制：CGNAT /24 保守误降权（仍拨仅殿后）、2s 固定值非自适应、纯 rendezvous 无 LAN 注册时只能走 hairpin/中继、itest 黑洞模拟依赖环境路由（book 单测确定性兜底）、book_tests.rs 拆分承接原单测。发现无名 verify worktree（p2p-wt-e4-verify，detached a3a9e95）待归属确认；T-ECS 分支 1 提交（ac9d410 部署脚本 146 行）在途。
