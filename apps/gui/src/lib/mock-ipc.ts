@@ -8,6 +8,7 @@ import type {
   NodeStatus,
   UnlistenFn,
 } from "./ipc-types";
+import { parseDialTarget } from "./dial-target";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -18,6 +19,7 @@ const DISCOVER_PROBABILITY = 0.5;
 const CONNECT_PROBABILITY = 0.35;
 const DISCONNECT_PROBABILITY = 0.2;
 const HOP_PROBABILITY = 0.25;
+const NOT_RUNNING = "节点未运行，请先启动节点";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -87,8 +89,10 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+// 对齐真实实现（events::emit）：出口统一盖发射时刻毫秒戳（契约 §2）。
 function emit(event: NodeEventJson): void {
-  handlers.forEach((handler) => handler(event));
+  const stamped = { ...event, tsMs: Date.now() };
+  handlers.forEach((handler) => handler(stamped));
 }
 
 function snapshot(): NodeStatus {
@@ -106,7 +110,7 @@ function snapshot(): NodeStatus {
 }
 
 function currentMetrics(): MetricsJson {
-  if (!state.running) return state.metrics;
+  if (!state.running) return emptyMetrics();
   state.metrics.activeConnections = Math.max(
     0,
     state.metrics.activeConnections + Math.round((Math.random() - 0.5) * 2),
@@ -151,7 +155,7 @@ function pickKnownPeer(): string {
 }
 
 function emitDialHop(hop: DialHopKind, ok: boolean): void {
-  state.knownPeers.push(...(state.knownPeers.length === 0 ? [randomPeerId()] : []));
+  if (state.knownPeers.length === 0) state.knownPeers.push(randomPeerId());
   if (ok) {
     state.metrics[hop === "direct" ? "dialDirectOk" : hop === "punch" ? "dialPunchOk" : "dialRelayOk"] += 1;
   } else {
@@ -181,15 +185,17 @@ export const mockBackend: IpcBackend = {
     return snapshot();
   },
 
+  // 幂等：仅在真的停掉运行中节点时发 node_stopped（对齐 state::stop + 命令层）。
   async nodeStop() {
     await delay(STOP_DELAY_MS);
+    const wasRunning = state.running;
     stopEventStream();
     state.running = false;
     state.startedAtMs = null;
     state.listenAddrs = [];
     state.metrics.activeConnections = 0;
     state.metrics.relaySessionsActive = 0;
-    emit({ type: "node_stopped" });
+    if (wasRunning) emit({ type: "node_stopped" });
     return snapshot();
   },
 
@@ -211,14 +217,15 @@ export const mockBackend: IpcBackend = {
     return { ...cfg };
   },
 
+  // 契约 §6 语法预检与 proto::parse_target 同规则族（base58 长度/IpAddr/u t/端口段）。
   async peerDial(target) {
-    const startedAt = Date.now();
-    const at = target.indexOf("@");
-    if (at <= 0 || at === target.length - 1) {
-      throw new Error("target 语法非法，应为 <peer_id>@<addr>");
+    const parsed = parseDialTarget(target);
+    if (!parsed) {
+      throw new Error(`target 语法非法，应为 <peer_id>@<addr>，实得 "${target}"`);
     }
-    const peer = target.slice(0, at);
-    const addr = target.slice(at + 1);
+    if (!state.running) throw new Error(NOT_RUNNING);
+    const { peerId: peer, addr } = parsed;
+    const startedAt = Date.now();
     await delay(DIAL_BASE_DELAY_MS + Math.random() * 700);
     const hops = [];
     const chain: DialHopKind[] = ["direct", "punch", "relay"];
@@ -228,6 +235,7 @@ export const mockBackend: IpcBackend = {
       emit({ type: "dial_hop", peer, hop: kind, ok, detail: kind + " -> " + addr });
       hops.push({ hop: kind, ok, detail: kind + " -> " + addr });
       if (ok) {
+        if (!state.knownPeers.includes(peer)) state.knownPeers.push(peer);
         emit({ type: "peer_connected", peer });
         return { peer, hops, ok: true, totalMs: Date.now() - startedAt };
       }
@@ -235,10 +243,18 @@ export const mockBackend: IpcBackend = {
     return { peer, hops, ok: false, totalMs: Date.now() - startedAt };
   },
 
+  // 未知节点与超时都返回失败 outcome（对齐 peers::ping），不抛 IPC 错。
   async peerPing(peerId, timeoutMs) {
+    if (timeoutMs === 0) throw new Error("timeoutMs 必须为正数");
+    if (!state.running) throw new Error(NOT_RUNNING);
     await delay(Math.min(timeoutMs, 120 + Math.random() * 400));
     if (!state.knownPeers.includes(peerId)) {
-      throw new Error("未知节点: " + peerId.slice(0, 8));
+      return {
+        ok: false,
+        rttMs: null,
+        hops: [],
+        error: "echo 请求失败: 对端不可达或未知（mock）",
+      };
     }
     const hops = [{ hop: "direct" as DialHopKind, ok: true, detail: "echo via direct" }];
     if (Math.random() < PING_TIMEOUT_PROBABILITY) {
@@ -247,8 +263,10 @@ export const mockBackend: IpcBackend = {
     return { ok: true, rttMs: Math.round(15 + Math.random() * 180), hops, error: null };
   },
 
+  // confirm 校验在命令层（真实实现如此）；node_stopped 仅在停了运行中节点时发。
   async identityReset(confirm) {
     if (!confirm) throw new Error("重置身份必须显式 confirm=true");
+    const wasRunning = state.running;
     stopEventStream();
     state.running = false;
     state.startedAtMs = null;
@@ -256,6 +274,7 @@ export const mockBackend: IpcBackend = {
     state.knownPeers = [];
     state.peerId = randomPeerId();
     state.metrics = emptyMetrics();
+    if (wasRunning) emit({ type: "node_stopped" });
     return snapshot();
   },
 

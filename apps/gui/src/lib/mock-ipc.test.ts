@@ -72,30 +72,48 @@ describe("mock-ipc", () => {
     await stopIfRunning();
   });
 
-  it("peerDial 解析失败抛 Err，合法 target 返回逐跳报告", async () => {
+  it("peerDial 语法预检同桥接规则：坏 target 抛 Err，合法 target 返回逐跳报告", async () => {
     await expect(mockBackend.peerDial("no-at-sign")).rejects.toThrow(
       /target 语法非法/,
     );
+    // 无 u/t 前缀：桥接层 proto::parse_target 同样拒绝（本次集成对齐的缺口）
+    await expect(
+      mockBackend.peerDial("abc123@192.168.1.5/3400"),
+    ).rejects.toThrow(/target 语法非法/);
 
-    const dial = mockBackend.peerDial("abc123@192.168.1.5/3400");
+    const peer = "3xY9abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQ";
+    const start = mockBackend.nodeStart(CFG);
+    await vi.advanceTimersByTimeAsync(1000);
+    await start;
+    const dial = mockBackend.peerDial(`${peer}@192.168.1.5/u3400`);
     await vi.advanceTimersByTimeAsync(2000);
     const report = await dial;
-    expect(report.peer).toBe("abc123");
+    expect(report.peer).toBe(peer);
     expect(report.hops.length).toBeGreaterThan(0);
     expect(report.totalMs).toBeGreaterThan(0);
     expect(typeof report.ok).toBe("boolean");
+    await stopIfRunning();
   });
 
-  it("peerPing 未知节点抛 Err，identityReset 必须显式 confirm", async () => {
-    // 先挂 rejects 断言再推进时钟，避免 rejection 在无 handler 窗口触发
-    const pingAssert = expect(mockBackend.peerPing("zzz", 1000)).rejects.toThrow(
-      /未知节点/,
+  it("peerPing 未运行抛错；未知节点返回失败 outcome；reset 需显式 confirm", async () => {
+    await expect(mockBackend.peerPing("zzz", 1000)).rejects.toThrow(
+      /节点未运行/,
     );
+
+    const start = mockBackend.nodeStart(CFG);
+    await vi.advanceTimersByTimeAsync(1000);
+    await start;
+
+    const pingAssert = expect(
+      mockBackend.peerPing("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", 1000),
+    ).resolves.toMatchObject({ ok: false });
     await vi.advanceTimersByTimeAsync(1000);
     await pingAssert;
+
     await expect(mockBackend.identityReset(false)).rejects.toThrow(
       /confirm=true/,
     );
+    await stopIfRunning();
   });
 
   it("configGet/configSave 往返一致", async () => {
