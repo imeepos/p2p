@@ -77,6 +77,7 @@ fn map_resolved_emits_discovered() {
     let ev = disc.map_event(
         &mut live,
         ServiceEvent::ServiceResolved(sample_info(peer, 4000, 4001)),
+        Instant::now(),
     );
     match ev {
         Some(DiscoveryEvent::Discovered(dp)) => {
@@ -96,10 +97,18 @@ fn map_removed_emits_expired() {
     let disc = MdnsDiscovery::new(MdnsConfig::new(PeerId::from_bytes([9u8; 32])));
     let fullname = sample_info(peer, 4000, 4001).get_fullname().to_lowercase();
     let mut live = HashMap::new();
-    live.insert(fullname.clone(), peer);
+    live.insert(
+        fullname.clone(),
+        LiveEntry {
+            peer,
+            addrs: Vec::new(),
+            expires_at: Instant::now(),
+        },
+    );
     let ev = disc.map_event(
         &mut live,
         ServiceEvent::ServiceRemoved(SERVICE_TYPE.to_string(), fullname),
+        Instant::now(),
     );
     assert!(matches!(ev, Some(DiscoveryEvent::Expired(p)) if p == peer));
     assert!(live.is_empty());
@@ -113,6 +122,7 @@ fn map_skips_own_announcement() {
     let ev = disc.map_event(
         &mut live,
         ServiceEvent::ServiceResolved(sample_info(peer, 5000, 5001)),
+        Instant::now(),
     );
     assert!(ev.is_none());
     assert!(live.is_empty());
@@ -129,4 +139,109 @@ fn announce_hostname_ends_with_local_dot() {
         host.ends_with(".local."),
         "hostname 必须以 .local. 结尾，当前: {host}"
     );
+}
+#[test]
+fn silent_peer_expires_exactly_once_after_ttl() {
+    // 回归（E1 假阳性）：resolved 一次后静默 >TTL → 过期扫描恰好发一次 Expired
+    let peer = PeerId::from_bytes([20u8; 32]);
+    let disc = MdnsDiscovery::new(MdnsConfig::new(PeerId::from_bytes([21u8; 32])));
+    let mut live = HashMap::new();
+    let t0 = Instant::now();
+    let ev = disc.map_event(
+        &mut live,
+        ServiceEvent::ServiceResolved(sample_info(peer, 7000, 7001)),
+        t0,
+    );
+    assert!(matches!(ev, Some(DiscoveryEvent::Discovered(_))));
+    assert_eq!(live.len(), 1);
+
+    // TTL 未到：不扫出
+    let before = disc.expiry_scan(
+        &mut live,
+        t0 + Duration::from_secs(disc.config.ttl_secs.into()) - Duration::from_millis(1),
+    );
+    assert!(before.is_empty());
+
+    // TTL 已到且无续期：恰好一次
+    let expired = disc.expiry_scan(
+        &mut live,
+        t0 + Duration::from_secs(disc.config.ttl_secs.into()),
+    );
+    assert_eq!(expired, vec![peer]);
+    assert!(live.is_empty());
+
+    // 再扫：不重复
+    let again = disc.expiry_scan(&mut live, t0 + Duration::from_secs(1000));
+    assert!(again.is_empty());
+}
+
+#[test]
+fn refreshed_peer_never_expires() {
+    // 回归（E1 漏报的反面）：持续 resolved 续期 → 永不 Expired
+    let peer = PeerId::from_bytes([30u8; 32]);
+    let disc = MdnsDiscovery::new(MdnsConfig::new(PeerId::from_bytes([31u8; 32])));
+    let mut live = HashMap::new();
+    let ttl = Duration::from_secs(disc.config.ttl_secs.into());
+    let mut t = Instant::now();
+    let ev = disc.map_event(
+        &mut live,
+        ServiceEvent::ServiceResolved(sample_info(peer, 8000, 8001)),
+        t,
+    );
+    assert!(matches!(ev, Some(DiscoveryEvent::Discovered(_))));
+    // 每个 TTL/2 持续 resolved（模拟浏览重启续期），绝不过期
+    for _ in 0..5 {
+        t += ttl / 2;
+        // 在上一次续期窗口内（尚未到 expires_at）不应过期
+        assert!(
+            disc.expiry_scan(&mut live, t).is_empty(),
+            "续期窗口内不应过期"
+        );
+        let ev = disc.map_event(
+            &mut live,
+            ServiceEvent::ServiceResolved(sample_info(peer, 8000, 8001)),
+            t,
+        );
+        assert!(ev.is_none(), "稳定续期不应重复发 Discovered");
+    }
+    // 最后一次续期后，expires_at = t + ttl；到达前一刻仍存活
+    assert!(disc
+        .expiry_scan(&mut live, t + ttl - Duration::from_millis(1))
+        .is_empty());
+    assert_eq!(live.len(), 1);
+}
+
+#[test]
+fn changed_addrs_reemit_discovered_but_same_addrs_just_refresh() {
+    // 地址集变化才重发 Discovered；同地址只续期
+    let peer = PeerId::from_bytes([40u8; 32]);
+    let disc = MdnsDiscovery::new(MdnsConfig::new(PeerId::from_bytes([41u8; 32])));
+    let mut live = HashMap::new();
+    let t0 = Instant::now();
+    assert!(matches!(
+        disc.map_event(
+            &mut live,
+            ServiceEvent::ServiceResolved(sample_info(peer, 9000, 9001)),
+            t0,
+        ),
+        Some(DiscoveryEvent::Discovered(_))
+    ));
+    // 同地址第二次 resolved：只续期不重发
+    assert!(disc
+        .map_event(
+            &mut live,
+            ServiceEvent::ServiceResolved(sample_info(peer, 9000, 9001)),
+            t0,
+        )
+        .is_none());
+    // 地址变化：重发 Discovered
+    let ev = disc.map_event(
+        &mut live,
+        ServiceEvent::ServiceResolved(sample_info(peer, 9100, 9101)),
+        t0,
+    );
+    match ev {
+        Some(DiscoveryEvent::Discovered(dp)) => assert_eq!(dp.addrs.len(), 2),
+        other => panic!("地址变化应重发 Discovered, got {other:?}"),
+    }
 }

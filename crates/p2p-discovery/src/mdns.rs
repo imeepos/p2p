@@ -19,6 +19,8 @@ pub const SERVICE_TYPE: &str = "_p2pbase._udp.local.";
 const TXT_KEY_PEER: &str = "peer";
 const TXT_KEY_QUIC: &str = "quic";
 const TXT_KEY_TCP: &str = "tcp";
+/// 过期扫描周期：比通告 TTL 小一个量级即可。
+const SCAN_INTERVAL: Duration = Duration::from_secs(1);
 
 /// mDNS 发现配置。
 pub struct MdnsConfig {
@@ -46,6 +48,13 @@ impl MdnsConfig {
             ttl_secs: 15,
         }
     }
+}
+
+/// 存活对端：最近一次 resolve 决定 TTL 续期，过期由扫描判定下线。
+struct LiveEntry {
+    peer: PeerId,
+    addrs: Vec<TransportAddr>,
+    expires_at: Instant,
 }
 
 /// 编码通告 TXT 记录：peer(base58) + 可选 quic/tcp 端口。
@@ -113,10 +122,13 @@ impl MdnsDiscovery {
     }
 
     /// 把 mdns-sd 事件映射为 DiscoveryEvent；跳过自身通告。
+    /// 已知 peer 每次 resolved 都刷新 expires_at（mdns-sd 稳定期不重发 resolved，
+    /// 由 run 周期性重启 browse 强制续期）；地址集变化才重发 Discovered。
     fn map_event(
         &self,
-        live: &mut HashMap<String, PeerId>,
+        live: &mut HashMap<String, LiveEntry>,
         ev: ServiceEvent,
+        now: Instant,
     ) -> Option<DiscoveryEvent> {
         match ev {
             ServiceEvent::ServiceResolved(info) => {
@@ -124,20 +136,60 @@ impl MdnsDiscovery {
                 if peer == self.config.peer_id {
                     return None;
                 }
-                live.insert(info.get_fullname().to_lowercase(), peer);
+                let key = info.get_fullname().to_lowercase();
+                let expires_at = now + Duration::from_secs(self.config.ttl_secs.into());
+                let is_refresh = live.get(&key).is_some_and(|e| e.addrs == addrs);
+                live.insert(
+                    key,
+                    LiveEntry {
+                        peer,
+                        addrs: addrs.clone(),
+                        expires_at,
+                    },
+                );
+                if is_refresh {
+                    return None;
+                }
                 Some(DiscoveryEvent::Discovered(DiscoveredPeer {
                     peer,
                     addrs,
                     source: Source::Mdns,
-                    expires_at: Some(
-                        Instant::now() + Duration::from_secs(self.config.ttl_secs.into()),
-                    ),
+                    expires_at: Some(expires_at),
                 }))
             }
             ServiceEvent::ServiceRemoved(_, fullname) => live
                 .remove(&fullname.to_lowercase())
-                .map(DiscoveryEvent::Expired),
+                .map(|e| DiscoveryEvent::Expired(e.peer)),
             _ => None,
+        }
+    }
+
+    /// 过期扫描：对超过 TTL 未续期的对端发射 Expired（恰好一次，随后移除）。
+    fn expiry_scan(&self, live: &mut HashMap<String, LiveEntry>, now: Instant) -> Vec<PeerId> {
+        let expired: Vec<(String, PeerId)> = live
+            .iter()
+            .filter(|(_, e)| e.expires_at <= now)
+            .map(|(k, e)| (k.clone(), e.peer))
+            .collect();
+        let peers = expired.iter().map(|(_, p)| *p).collect();
+        for (key, _) in expired {
+            live.remove(&key);
+        }
+        peers
+    }
+
+    /// 启动一次浏览并把事件桥进共享 tokio 通道（多次浏览复用同一通道）。
+    fn start_browse(
+        &self,
+        daemon: &ServiceDaemon,
+        tx: mpsc::Sender<ServiceEvent>,
+    ) -> Result<(), String> {
+        match daemon.browse(&self.config.service_type) {
+            Ok(flume_rx) => {
+                bridge_browse(flume_rx, tx);
+                Ok(())
+            }
+            Err(err) => Err(err.to_string()),
         }
     }
 }
@@ -181,23 +233,30 @@ impl Discovery for MdnsDiscovery {
             emit_failed(&events, format!("register: {err}")).await;
         }
         let (tx, mut rx) = mpsc::channel(64);
-        match daemon.browse(&self.config.service_type) {
-            Ok(flume_rx) => bridge_browse(flume_rx, tx),
-            Err(err) => {
-                emit_failed(&events, format!("browse: {err}")).await;
-                return;
-            }
+        if let Err(err) = self.start_browse(&daemon, tx.clone()) {
+            emit_failed(&events, format!("browse: {err}")).await;
+            return;
         }
-        let mut live: HashMap<String, PeerId> = HashMap::new();
+
+        let mut live: HashMap<String, LiveEntry> = HashMap::new();
         let mut announce = tokio::time::interval_at(
             tokio::time::Instant::now() + self.config.announce_interval,
             self.config.announce_interval,
         );
-        loop {
+        let mut scan =
+            tokio::time::interval_at(tokio::time::Instant::now() + SCAN_INTERVAL, SCAN_INTERVAL);
+        // mdns-sd 稳定期不重发 ServiceResolved：每 TTL/2 重启浏览强制重新 resolve，
+        // 让存活对端续期，否则固定 TTL 到期会误判下线（假阳性）。
+        let browse_refresh_secs = u64::from(self.config.ttl_secs / 2).max(1);
+        let browse_refresh = Duration::from_secs(browse_refresh_secs);
+        let mut browse_refresh_tick =
+            tokio::time::interval_at(tokio::time::Instant::now() + browse_refresh, browse_refresh);
+
+        'outer: loop {
             tokio::select! {
                 maybe = rx.recv() => {
                     let Some(ev) = maybe else { break };
-                    if let Some(discovery_ev) = self.map_event(&mut live, ev) {
+                    if let Some(discovery_ev) = self.map_event(&mut live, ev, Instant::now()) {
                         if events.send(discovery_ev).await.is_err() {
                             break;
                         }
@@ -207,6 +266,21 @@ impl Discovery for MdnsDiscovery {
                     // 周期重通告刷新 TTL（mdns-sd 允许对同一服务反复 register）
                     if let Err(err) = daemon.register(self.announce_info()) {
                         emit_failed(&events, format!("re-announce: {err}")).await;
+                    }
+                }
+                _ = scan.tick() => {
+                    for peer in self.expiry_scan(&mut live, Instant::now()) {
+                        if events.send(DiscoveryEvent::Expired(peer)).await.is_err() {
+                            break 'outer;
+                        }
+                    }
+                }
+                _ = browse_refresh_tick.tick() => {
+                    if let Err(err) = daemon.stop_browse(&self.config.service_type) {
+                        tracing::warn!(target: "p2p_discovery", "mdns stop-browse: {err}");
+                    }
+                    if let Err(err) = self.start_browse(&daemon, tx.clone()) {
+                        tracing::warn!(target: "p2p_discovery", "mdns re-browse: {err}");
                     }
                 }
             }
