@@ -24,7 +24,7 @@ async fn echo_server(
     expect_client: PeerId,
     proto: ProtocolId,
 ) -> Vec<u8> {
-    let (peer, mut secured) = NoiseXx
+    let (peer, mut secured) = NoiseXx::new()
         .inbound(stream, &kp)
         .await
         .expect("server handshake must succeed");
@@ -58,9 +58,10 @@ async fn secured_stack_roundtrips_2mib_chunked() {
         proto.clone(),
     ));
 
+    let client = NoiseXx::new();
     let (server_peer, secured) = expect_within(
         "client handshake",
-        NoiseXx.outbound(Box::new(a), &alice, Some(bob.peer_id())),
+        client.outbound(Box::new(a), &alice, Some(bob.peer_id())),
         LIMIT,
     )
     .await
@@ -106,14 +107,14 @@ async fn protocol_frames_pass_through_noise_secured_stream() {
 
     let bob_id = bob.peer_id();
     let server = tokio::spawn(async move {
-        let (_, mut secured) = NoiseXx
+        let (_, mut secured) = NoiseXx::new()
             .inbound(Box::new(b), &bob)
             .await
             .expect("server handshake");
         read_frame(&mut secured).await.expect("server read frame")
     });
 
-    let (_, secured) = NoiseXx
+    let (_, secured) = NoiseXx::new()
         .outbound(Box::new(a), &alice, Some(bob_id))
         .await
         .expect("client handshake");

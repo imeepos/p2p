@@ -2,8 +2,12 @@
 //!
 //! 身份绑定：签名覆盖本端 Noise X25519 静态公钥，攻击者无法在持有自己静态钥的
 //! 同时冒充他人 ed25519 身份；对端 PeerId 一律从 payload 公钥推导，不采信自报。
+//! 全握手受 deadline 约束（帧级 + 总时长双层），半开握手到期即断（安全审查 1 期 M3）。
 
 use std::io;
+use std::time::Duration;
+
+use tokio::time::Instant as TokioInstant;
 
 use async_trait::async_trait;
 use snow::HandshakeState;
@@ -17,50 +21,96 @@ use crate::noise_stream::NoiseStream;
 
 /// snow 参数：XX + 25519 + ChaChaPoly + SHA256
 pub const NOISE_PATTERN: &str = "Noise_XX_25519_ChaChaPoly_SHA256";
+/// 默认握手总时长上限：防 slowloris 半开握手占用（安全审查 1 期 M3）
+pub const DEFAULT_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 /// 签名域分隔，防止握手签名被挪作他用
 const SIGN_DOMAIN: &[u8] = b"p2p-noise-xx-v1";
 
 /// TCP 场景的安全升级实现（XX 模式，双方交换静态钥）。
-pub struct NoiseXx;
+pub struct NoiseXx {
+    handshake_timeout: Duration,
+}
+
+impl NoiseXx {
+    pub fn new() -> Self {
+        Self {
+            handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
+        }
+    }
+
+    /// 覆盖握手时长上限（测试与特殊网络环境用）。
+    pub fn with_handshake_timeout(mut self, timeout: Duration) -> Self {
+        self.handshake_timeout = timeout;
+        self
+    }
+}
+
+impl Default for NoiseXx {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[async_trait]
 impl SecurityUpgrade for NoiseXx {
     async fn outbound(
         &self,
-        mut stream: BoxedStream,
+        stream: BoxedStream,
         keypair: &Keypair,
         expected: Option<PeerId>,
     ) -> Result<(PeerId, BoxedStream), crate::SecurityError> {
-        let mut hs = build(keypair, true)?;
-        send_frame(&mut stream, &mut hs, &[]).await?;
-        let payload = recv_frame(&mut stream, &mut hs).await?;
-        let static_pub = hs
-            .get_remote_static()
-            .ok_or(crate::SecurityError::IdentityUnverified)?
-            .to_vec();
-        let peer = verify_payload(&payload, &static_pub)?;
-        ensure_expected(expected, peer)?;
-        send_frame(&mut stream, &mut hs, &make_payload(keypair)).await?;
-        let transport = hs.into_transport_mode().map_err(handshake_err)?;
-        Ok((peer, Box::new(NoiseStream::new(stream, transport))))
+        let deadline = TokioInstant::now() + self.handshake_timeout;
+        let handshake = async {
+            let mut stream = stream;
+            let mut hs = build(keypair, true)?;
+            send_frame(&mut stream, &mut hs, &[], deadline).await?;
+            let payload = recv_frame(&mut stream, &mut hs, deadline).await?;
+            let static_pub = hs
+                .get_remote_static()
+                .ok_or(crate::SecurityError::IdentityUnverified)?
+                .to_vec();
+            let peer = verify_payload(&payload, &static_pub)?;
+            ensure_expected(expected, peer)?;
+            send_frame(&mut stream, &mut hs, &make_payload(keypair), deadline).await?;
+            let transport = hs.into_transport_mode().map_err(handshake_err)?;
+            Ok((
+                peer,
+                Box::new(NoiseStream::new(stream, transport)) as BoxedStream,
+            ))
+        };
+        match tokio::time::timeout_at(deadline, handshake).await {
+            Ok(result) => result,
+            Err(_) => Err(deadline_err()),
+        }
     }
 
     async fn inbound(
         &self,
-        mut stream: BoxedStream,
+        stream: BoxedStream,
         keypair: &Keypair,
     ) -> Result<(PeerId, BoxedStream), crate::SecurityError> {
-        let mut hs = build(keypair, false)?;
-        recv_frame(&mut stream, &mut hs).await?;
-        send_frame(&mut stream, &mut hs, &make_payload(keypair)).await?;
-        let payload = recv_frame(&mut stream, &mut hs).await?;
-        let static_pub = hs
-            .get_remote_static()
-            .ok_or(crate::SecurityError::IdentityUnverified)?
-            .to_vec();
-        let peer = verify_payload(&payload, &static_pub)?;
-        let transport = hs.into_transport_mode().map_err(handshake_err)?;
-        Ok((peer, Box::new(NoiseStream::new(stream, transport))))
+        let deadline = TokioInstant::now() + self.handshake_timeout;
+        let handshake = async {
+            let mut stream = stream;
+            let mut hs = build(keypair, false)?;
+            recv_frame(&mut stream, &mut hs, deadline).await?;
+            send_frame(&mut stream, &mut hs, &make_payload(keypair), deadline).await?;
+            let payload = recv_frame(&mut stream, &mut hs, deadline).await?;
+            let static_pub = hs
+                .get_remote_static()
+                .ok_or(crate::SecurityError::IdentityUnverified)?
+                .to_vec();
+            let peer = verify_payload(&payload, &static_pub)?;
+            let transport = hs.into_transport_mode().map_err(handshake_err)?;
+            Ok((
+                peer,
+                Box::new(NoiseStream::new(stream, transport)) as BoxedStream,
+            ))
+        };
+        match tokio::time::timeout_at(deadline, handshake).await {
+            Ok(result) => result,
+            Err(_) => Err(deadline_err()),
+        }
     }
 }
 
@@ -70,6 +120,10 @@ fn handshake_err(e: snow::Error) -> crate::SecurityError {
 
 fn io_err(e: io::Error) -> crate::SecurityError {
     crate::SecurityError::Handshake(format!("io: {e}"))
+}
+
+fn deadline_err() -> crate::SecurityError {
+    crate::SecurityError::Handshake("handshake deadline exceeded".into())
 }
 
 /// ed25519 种子按 RFC 标准转换为 X25519 静态私钥（SHA512 前半 + clamp）
@@ -148,30 +202,40 @@ fn ensure_expected(expected: Option<PeerId>, actual: PeerId) -> Result<(), crate
 /// 写缓冲需容纳最大 token 开销（XX msg2 = e32 + s48 + tag16），给足余量
 const HANDSHAKE_FRAME_OVERHEAD: usize = 160;
 
+/// 单步 IO 受 deadline 约束：慢读慢写都会触发握手超时
+async fn io_step<T>(
+    deadline: TokioInstant,
+    op: impl std::future::Future<Output = io::Result<T>>,
+) -> Result<T, crate::SecurityError> {
+    match tokio::time::timeout_at(deadline, op).await {
+        Ok(result) => result.map_err(io_err),
+        Err(_) => Err(deadline_err()),
+    }
+}
+
 async fn send_frame(
     stream: &mut BoxedStream,
     hs: &mut HandshakeState,
     payload: &[u8],
+    deadline: TokioInstant,
 ) -> Result<(), crate::SecurityError> {
     let mut msg = vec![0u8; payload.len() + HANDSHAKE_FRAME_OVERHEAD];
     let n = hs.write_message(payload, &mut msg).map_err(handshake_err)?;
-    stream
-        .write_all(&(n as u16).to_be_bytes())
-        .await
-        .map_err(io_err)?;
-    stream.write_all(&msg[..n]).await.map_err(io_err)?;
-    stream.flush().await.map_err(io_err)
+    io_step(deadline, stream.write_all(&(n as u16).to_be_bytes())).await?;
+    io_step(deadline, stream.write_all(&msg[..n])).await?;
+    io_step(deadline, stream.flush()).await
 }
 
 async fn recv_frame(
     stream: &mut BoxedStream,
     hs: &mut HandshakeState,
+    deadline: TokioInstant,
 ) -> Result<Vec<u8>, crate::SecurityError> {
     let mut len_buf = [0u8; 2];
-    stream.read_exact(&mut len_buf).await.map_err(io_err)?;
+    io_step(deadline, stream.read_exact(&mut len_buf)).await?;
     let len = u16::from_be_bytes(len_buf) as usize;
     let mut msg = vec![0u8; len];
-    stream.read_exact(&mut msg).await.map_err(io_err)?;
+    io_step(deadline, stream.read_exact(&mut msg)).await?;
     let mut payload = vec![0u8; len];
     let n = hs.read_message(&msg, &mut payload).map_err(handshake_err)?;
     payload.truncate(n);
@@ -192,9 +256,11 @@ mod tests {
         let sa: BoxedStream = Box::new(a);
         let sb: BoxedStream = Box::new(b);
 
+        let server = NoiseXx::new();
+        let client = NoiseXx::new();
         let (server, client) = tokio::join!(
-            NoiseXx.inbound(sb, &bob),
-            NoiseXx.outbound(sa, &alice, Some(bob.peer_id()))
+            server.inbound(sb, &bob),
+            client.outbound(sa, &alice, Some(bob.peer_id()))
         );
         let (server_peer, mut server_stream) = server.expect("server handshake");
         let (client_peer, mut client_stream) = client.expect("client handshake");
@@ -217,9 +283,11 @@ mod tests {
         let sa: BoxedStream = Box::new(a);
         let sb: BoxedStream = Box::new(b);
 
+        let server = NoiseXx::new();
+        let client = NoiseXx::new();
         let (server, client) = tokio::join!(
-            NoiseXx.inbound(sb, &bob),
-            NoiseXx.outbound(sa, &alice, Some(eve.peer_id()))
+            server.inbound(sb, &bob),
+            client.outbound(sa, &alice, Some(eve.peer_id()))
         );
         assert!(
             server.is_err() || client.is_err(),

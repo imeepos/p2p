@@ -25,11 +25,13 @@ async fn xx_handshake_derives_counterparty_peer_id() {
     let bob = Keypair::generate();
     let (a, b) = duplex_pair();
 
+    let server = NoiseXx::new();
+    let client = NoiseXx::new();
     let (server, client) = tokio::join!(
-        expect_within("server handshake", NoiseXx.inbound(b, &bob), LIMIT),
+        expect_within("server handshake", server.inbound(b, &bob), LIMIT),
         expect_within(
             "client handshake",
-            NoiseXx.outbound(a, &alice, Some(bob.peer_id())),
+            client.outbound(a, &alice, Some(bob.peer_id())),
             LIMIT
         )
     );
@@ -117,9 +119,11 @@ async fn tampered_first_handshake_frame_fails_both_sides() {
         }
     });
 
+    let server = NoiseXx::new();
+    let client = NoiseXx::new();
     let (server, client) = tokio::join!(
-        NoiseXx.inbound(Box::new(responder), &bob),
-        NoiseXx.outbound(Box::new(initiator), &alice, Some(bob.peer_id()))
+        server.inbound(Box::new(responder), &bob),
+        client.outbound(Box::new(initiator), &alice, Some(bob.peer_id()))
     );
     let server_err = server.err().expect("responder must fail on tampered msg1");
     let client_err = client
@@ -143,9 +147,11 @@ async fn wrong_expected_peer_is_explicit_peer_mismatch() {
     let eve = Keypair::generate();
     let (a, b) = duplex_pair();
 
+    let server = NoiseXx::new();
+    let client = NoiseXx::new();
     let (server, client) = tokio::join!(
-        NoiseXx.inbound(b, &bob),
-        NoiseXx.outbound(a, &alice, Some(eve.peer_id()))
+        server.inbound(b, &bob),
+        client.outbound(a, &alice, Some(eve.peer_id()))
     );
     match client {
         Err(SecurityError::PeerMismatch { expected, actual }) => {
