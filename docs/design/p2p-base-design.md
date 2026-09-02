@@ -120,7 +120,9 @@ node.gate(|peer_id, addr| allowlist.contains(&peer_id));
 
 ## 6. 身份与安全
 
-- 身份：Ed25519 密钥对；PeerId = base58(sha256(protobuf(公钥)))；密钥落盘 config 目录
+- 身份：Ed25519 密钥对；PeerId = base58(sha256(ed25519 公钥原始 32 字节))（定稿裁决 2026-09-02：
+  实现取 raw 公钥哈希，不做 protobuf/multihash 封装，内部全链路自洽；libp2p 互操作如需再以
+  新版本号演进）；密钥落盘 config 目录
 - 加密：每连接强制加密，无明文模式；QUIC 用内嵌公钥的自签证书，TCP 用 Noise XX
 - 握手即认证：PeerId 与密钥绑定，冒充他人在握手即失败
 - 门禁：连接级 allowlist/denylist 钩子

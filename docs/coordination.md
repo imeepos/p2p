@@ -38,6 +38,18 @@
 ## 待裁决事项
 
 - TransportError 细分：当前仅 Dial/Handshake/PeerMismatch 三类（K 提出）。S 事件总线或 M3 降级链若需更细粒度（超时/拒绝/不可达），属冻结契约变更，须由协调会话裁决：优先"新增枚举变体 + 默认事件文案"的加法路径，禁止改已有变体形状。
+- 【已裁决 2026-09-02】L5 PeerId 公式：定稿为 base58(sha256(ed25519 公钥原始 32 字节))，以实现为准，设计文档 §6 已同步修订；libp2p 互操作如需再以新版本号演进。
+
+## 修复轮（安全审查驱动，2026-09-02 派单）
+
+| 修复单 | 负责会话 | 分支 | 范围 | 对应 findings |
+|---|---|---|---|---|
+| discovery 安全修复 | D（session-3cc0a86e） | fix/discovery-security | crates/p2p-discovery + wire-protocol.md 对应小节 | H1（签名覆盖 TTL+新鲜度）、M1（服务端资源上限）、L2、L3 |
+| relay 安全修复 | R（session-43062388） | fix/relay-security | crates/p2p-relay | M2（电路属主校验+cid 不可预测）、M5（全局上限+桶回收）、L3 |
+| 传输超时 | K（session-401422e9） | fix/transport-timeouts | crates/p2p-security + crates/p2p-transport | M3（握手/首帧/accept/dial 全链路超时） |
+| varint 溢出 | P（session-5cb6377a） | fix/protocol-varint | crates/p2p-protocol | L4（对齐 relay 实现） |
+| M4（expected 必填） | S（在途，已发接口要求） | — | swarm/facade 层强制，不动 transport 冻结签名 | M4 |
+| L1 / L5 | 无代码改动 | — | L1 维持信任模型记录在案；L5 裁决改设计文档（已完成） | L1、L5 |
 
 ## 变更记录
 
@@ -49,3 +61,4 @@
 - 流程备注：D 反向同步用 merge 把 merge bubble（f58b869）带进了 main 历史；K 同样产生了 merge commit（67ac369）。已提醒 K/R 改用 `git rebase main` 保持 main 线性。
 - 2026-09-02 扩编：启动 U 互操作测试 / V 文档整理 / X 构建门禁 / Z 安全审查 四个不依赖 S 的并行包；规则 5 更新为 rebase 反向同步 + 禁 add -A。
 - 2026-09-02 协调者自查：在 bash 里误对未提交的 coordination.md 跑 sed+checkout 丢过一次编辑，已重录。整改：协调表修改只用编辑工具，编辑+提交同轮完成，禁止在 bash 里对它执行任何写命令。
+- 2026-09-02 检查轮 3：U/V/X/Z 四包全部合并落地，make check 门禁全绿（X 的门禁本身一并验证）。Z 产出安全审查报告（docs/notes/security-review-1.md：高1中5低5），据此开启修复轮：D/R/K/P 各领修复单，S 收到 expected 必填的接口要求。L5 同轮裁决（改设计文档）。
