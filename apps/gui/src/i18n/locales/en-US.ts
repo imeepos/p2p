@@ -119,6 +119,9 @@ const enUS: typeof zhCN = {
     title: "Peers",
     description: "Known neighbour peers and connection management",
     empty: "No known peers",
+    emptyHint:
+      "Peers are discovered via mDNS/rendezvous, or dial manually to connect",
+    emptyAction: "Dial to add a peer",
     count: "{{count}} peers in total",
     searchPlaceholder: "Search PeerId or address",
     moreAddrs: "+{{count}} more addresses",

@@ -115,6 +115,8 @@ const zhCN = {
     title: "节点",
     description: "已知邻居节点与连接管理",
     empty: "暂无已知节点",
+    emptyHint: "邻居通过 mDNS/rendezvous 自动发现，也可手动拨号接入",
+    emptyAction: "拨号添加节点",
     count: "共 {{count}} 个节点",
     searchPlaceholder: "搜索 PeerId 或地址",
     moreAddrs: "还有 {{count}} 个地址",
