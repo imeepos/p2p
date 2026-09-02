@@ -1,34 +1,13 @@
 //! echo 协议接入与 peer_dial target 解析（gui-contract.md §6）。
 //!
-//! 协议常量与 crates/p2p-cli/src/echo.rs 同值：契约 §4 限定 path 依赖仅 crates/p2p
-//! （含传递依赖），不引入 p2p-cli，故本地复刻常量并注明来源，两处必须保持一致。
+//! 协议常量与 handler 复用 p2p-cli 公开导出（pub mod echo，协调者裁决允许
+//! path 依赖 p2p-cli），与 CLI ping 走同一份协议实现，不重定义。
 
-use std::io;
 use std::net::IpAddr;
 
-use p2p::{BoxedStream, PeerId, ProtocolHandler, ProtocolId};
-use p2p_protocol::{read_frame, write_frame};
+use p2p::PeerId;
 
-/// /p2p-lab/echo/1 回声协议 ID（同 p2p-cli::echo::ECHO_PROTOCOL）。
-pub const ECHO_PROTOCOL: &str = "/p2p-lab/echo/1";
-
-/// ping 载荷（同 p2p-cli::echo::PING_PAYLOAD）。
-pub const PING_PAYLOAD: &[u8] = b"p2p-ping";
-
-/// 回声 handler：收一帧原样回一帧（同 p2p-cli::echo::EchoHandler）。
-pub struct EchoHandler;
-
-#[async_trait::async_trait]
-impl ProtocolHandler for EchoHandler {
-    fn protocol(&self) -> ProtocolId {
-        ProtocolId::new(ECHO_PROTOCOL).expect("内置 echo 协议 id 合法")
-    }
-
-    async fn handle(&self, mut stream: BoxedStream) -> io::Result<()> {
-        let frame = read_frame(&mut stream).await?;
-        write_frame(&mut stream, &frame).await
-    }
-}
+pub use p2p_cli::echo::{EchoHandler, ECHO_PROTOCOL, PING_PAYLOAD};
 
 /// 解析 base58 PeerId（32 字节定长；语义同 p2p-cli::cli::parse_peer_id）。
 pub fn parse_peer_id(s: &str) -> Result<PeerId, String> {

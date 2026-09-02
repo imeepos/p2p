@@ -12,11 +12,10 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 p2p = { path = "../../../crates/p2p" }
-# 以下为 p2p 的传递依赖（契约 §4 允许）：
-# p2p-swarm 取 DialHop/MetricsSnapshot 原始类型，p2p-protocol 取 read/write_frame 实现回声 handler
+# p2p-cli 复用其 pub mod echo 的协议常量与 handler（协调者裁决：允许 path 依赖）
+# p2p-swarm 取 DialHop/MetricsSnapshot 原始类型（p2p 传递依赖）
+p2p-cli = { path = "../../../crates/p2p-cli" }
 p2p-swarm = { path = "../../../crates/p2p-swarm" }
-p2p-protocol = { path = "../../../crates/p2p-protocol" }
-async-trait = "0.1"
 bs58 = "0.5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
