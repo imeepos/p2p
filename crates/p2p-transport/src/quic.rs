@@ -92,6 +92,13 @@ impl QuicTransport {
         self.endpoint.local_addr()
     }
 
+    /// 关停：向全部存量连接发送应用层关闭（APPLICATION_CLOSE），端点随后
+    /// 不再接受新连接；挂起的 accept()/dial() 以既有错误路径结束，不悬挂。
+    pub fn close(&self) {
+        self.endpoint
+            .close(quinn::VarInt::from_u32(0), b"transport shutdown");
+    }
+
     /// 接受下一条入站连接并升级为 SecureConn；endpoint 关闭后返回 None。
     /// 入站 QUIC 握手限时，升级失败记日志并返回 None，不中断监听循环。
     pub async fn accept(&self) -> Option<SecureConn> {
