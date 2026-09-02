@@ -23,10 +23,12 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     if addrs.is_empty() {
         return Err(dial_rejected(swarm, peer, "no known address for peer"));
     }
+    eprintln!("[dbg] dial_peer {peer} addrs={addrs:?}");
     let mut tried = 0usize;
     let mut last_err: Option<io::Error> = None;
     for addr in addrs {
         tried += 1;
+        eprintln!("[dbg] dial_peer trying {addr}");
         match dial_one(swarm, peer, &addr).await {
             Ok(mux) => {
                 insert_connection(swarm, peer, mux.clone());

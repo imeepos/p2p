@@ -1,6 +1,5 @@
 //! Swarm 核心：装配、公共 API 与事件总线（design §8/§9/§12）。
 
-use std::collections::HashMap;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
@@ -14,6 +13,7 @@ use tokio::sync::{broadcast, mpsc, watch};
 use crate::pool::ConnectionPool;
 use crate::{ConnectionGate, NodeEvent};
 
+mod book;
 mod config;
 mod dial;
 mod listen;
@@ -23,6 +23,8 @@ mod responder;
 #[cfg(test)]
 mod tests;
 
+pub use book::AddrSource;
+use book::AddressBook;
 pub use config::SwarmConfig;
 use config::{to_transport, EVENT_CAPACITY};
 use dial::dial_peer;
@@ -42,7 +44,7 @@ pub struct Swarm {
     pool: Arc<ConnectionPool>,
     registry: RegistryCell,
     gate: Mutex<Option<Arc<dyn ConnectionGate>>>,
-    address_book: Mutex<HashMap<PeerId, Vec<TransportAddr>>>,
+    address_book: Mutex<AddressBook>,
     events: broadcast::Sender<NodeEvent>,
     relay_sessions: Mutex<Vec<mpsc::Sender<RelayCmd>>>,
     shutdown_tx: watch::Sender<bool>,
@@ -72,7 +74,7 @@ impl Swarm {
             pool: Arc::new(ConnectionPool::new()),
             registry: Arc::new(Mutex::new(config.registry)),
             gate: Mutex::new(None),
-            address_book: Mutex::new(HashMap::new()),
+            address_book: Mutex::new(AddressBook::new()),
             events,
             relay_sessions: Mutex::new(Vec::new()),
             shutdown_tx,
@@ -125,21 +127,25 @@ impl Swarm {
             .map(|_| ())
     }
 
-    /// 静态登记对端地址（发现事件与显式配置共用入口）；新地址发 PeerDiscovered。
+    /// 静态登记对端地址（显式配置，Manual 来源）；新地址发 PeerDiscovered。
     pub fn add_peer_addresses(&self, peer: PeerId, addrs: Vec<TransportAddr>) {
+        self.add_peer_addresses_with_source(peer, addrs, AddrSource::Manual);
+    }
+
+    /// 按来源登记对端地址（发现转发入口）。mDNS 来源学习链路前缀：
+    /// 同网段地址在直连跳排前（E3 同 NAT 排序缺陷）。
+    pub fn add_peer_addresses_with_source(
+        &self,
+        peer: PeerId,
+        addrs: Vec<TransportAddr>,
+        source: AddrSource,
+    ) {
         if addrs.is_empty() {
             return;
         }
         let (added, known) = {
             let mut book = self.address_book.lock().expect("addr lock");
-            let entry = book.entry(peer).or_default();
-            let before = entry.len();
-            for addr in addrs {
-                if !entry.contains(&addr) {
-                    entry.push(addr);
-                }
-            }
-            (entry.len() > before, entry.clone())
+            book.add(peer, addrs.into_iter().map(|addr| (addr, source)).collect())
         };
         if added {
             let strings = known.iter().map(ToString::to_string).collect();
@@ -194,13 +200,12 @@ impl Swarm {
         out
     }
 
+    /// 直连跳用地址：按来源/网段优先级排序（design §7.3 + E3）。
     fn addresses_of(&self, peer: PeerId) -> Vec<TransportAddr> {
         self.address_book
             .lock()
             .expect("addr lock")
-            .get(&peer)
-            .cloned()
-            .unwrap_or_default()
+            .sorted_addrs(&peer)
     }
 
     /// 开裸流（协议 ID 首帧由调用方写入）：按需取/建连接。

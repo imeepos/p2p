@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use p2p_discovery::DiscoveryEvent;
-use p2p_swarm::Swarm;
+use p2p_discovery::{DiscoveryEvent, Source};
+use p2p_swarm::{AddrSource, Swarm};
 use tokio::sync::mpsc;
 
 /// 转发发现事件：新地址入地址簿（触发 PeerDiscovered），
@@ -11,7 +11,13 @@ use tokio::sync::mpsc;
 pub(crate) async fn forward_discovery(mut rx: mpsc::Receiver<DiscoveryEvent>, swarm: Arc<Swarm>) {
     while let Some(ev) = rx.recv().await {
         match ev {
-            DiscoveryEvent::Discovered(dp) => swarm.add_peer_addresses(dp.peer, dp.addrs),
+            DiscoveryEvent::Discovered(dp) => {
+                let source = match dp.source {
+                    Source::Mdns => AddrSource::Mdns,
+                    Source::Rendezvous | Source::Cache => AddrSource::Rendezvous,
+                };
+                swarm.add_peer_addresses_with_source(dp.peer, dp.addrs, source);
+            }
             DiscoveryEvent::Expired(peer) => swarm.on_peer_expired(peer),
             DiscoveryEvent::Failed { source, reason } => {
                 tracing::warn!(source = ?source, %reason, "discovery source failed");
