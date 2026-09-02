@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
 members = ["crates/*"]
+# GUI 壳（Tauri 应用）是独立 cargo 项目，不参与底座 workspace（docs/design/gui-plan.md §7）
+exclude = ["apps/gui/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
