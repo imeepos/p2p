@@ -11,8 +11,8 @@
 
 | 级别 | 数量 | 编号 | 处置 |
 |---|---|---|---|
-| 高 | 4 | H1-H4 | H1/H2/H3 当轮修复；H4 当轮修复 |
-| 中 | 8 | M1-M8 | M1/M4/M5/M6 当轮修复；M2/M3/M7/M8 登记缓办 |
+| 高 | 4 | H1-H4 | 全部当轮修复 |
+| 中 | 8 | M1-M8 | M1/M4/M5/M6/M2/M3/M8 当轮修复；M7 部分修复+登记 |
 | 低 | 6 | L1-L6 | 全部登记缓办（有观测信号，长稳期监控） |
 
 E4 增量未发现硬编码密钥/密码值、argv 数组执行路径无直接 shell 注入、
@@ -66,19 +66,19 @@ relay 帧长上限与 varint 溢出防护、电路/链路/全站配额均在位�
 - 修复：check_args 强制 RUNS 1..1000、WAIT 1..300；umask 077 落盘 0600；
   OUT/RAW_LOG 拒绝符号链接。ROWS 累积保留（上限内规模可控），流式改写登记 L1。
 
-### M2 relay reject_link 无超时/流数上限（缓办）
+### M2 relay reject_link 无超时/流数上限（已修复）
 
 - 位置：crates/p2p-relay/src/service.rs reject_link
-- 问题：超配额链路持续 accept_stream，无 idle 超时或数量上限，可被大量连接钉住
-  任务/FD。修复涉及断链行为变更，需要长稳/拓扑数据支撑，登记 E6 候选；
-  期间由 relay 链路配额（每 peer 8/全站总量）与进程 FD 上限兜底。
+- 修复：拒绝循环加上限（最多 64 条拒绝帧、空闲 10s 即撤），恶意连接无法
+  以持续发流钉住任务与文件描述符（fix(relay) 提交）。
 
-### M3 punch 信令转发无节流（缓办）
+### M3 punch 信令转发无节流（已修复）
 
 - 位置：crates/p2p-relay/src/control.rs forward_punch
-- 问题：信令转发无节流；盲拨面（relay/rendezvous 链接 expected=None）下身份轮换
-  可稀释 per-peer 配额放大信令。限速属行为变更且需要真实打洞成功率数据定参，
-  登记缓办；观测面已有 punch/relay 跳计数可量化。
+- 修复：新增 RelayLimits.max_punch_per_minute（默认 60），每控制流令牌桶，
+  超额回显式拒绝帧不断连接；itest 断言小配额下确定性拦截（fix(relay) 提交）。
+  盲拨身份轮换稀释配额的根因面（身份准入）仍属长期方向，观测面已具备
+  punch forwarded/offline/limited 三计数，参数回填有据可依。
 
 ### M4 输出文件权限与符号链接（已修复）
 
@@ -106,10 +106,11 @@ relay 帧长上限与 varint 溢出防护、电路/链路/全站配额均在位�
 - 修复：端口范围 1..65535 强制（两脚本）。主机名/CIDR 白名单未做——采样脚本
   目标由实验者显式传入，受信环境风险可接受；登记至 L4 一并评估。
 
-### M8 rendezvous 查询无限速、Register 大帧（缓办）
+### M8 rendezvous 查询无限速、Register 大帧（已修复）
 
-- LengthDelimitedCodec 默认 8MiB 帧上限偏大、地址列表无条数上限；限速与帧上限
-  调整属协议行为变更，登记 E6 候选（与 M2/M3 同批定参）。
+- 修复：serve_link 为 Query 增设每连接令牌桶（120 次/分）；单条注册地址数
+  上限 32（只限上限，空地址注册为存量兼容语义保留）；rendezvous 帧两端
+  显式 max_frame_length=1MiB 替换默认 8MiB（fix(discovery) 提交）。
 
 ## 低危（登记，长稳期监控）
 
@@ -130,9 +131,9 @@ relay 帧长上限与 varint 溢出防护、电路/链路/全站配额均在位�
 - 第 1 期 H1（rendezvous 注册签名未覆盖 TTL）：E4 已由签名载荷扩展修复
   （sign_register 覆盖 ttl 与时间戳，tests.rs tampered_ttl_replay_rejected 回归在位）。
 - 第 1 期 M1（rendezvous 无资源上限）：已部分落地（namespace 长度/单表 peer 数/
-  TTL 上限/注册限速）；本轮 H4 堵住 query 扩表旁路，M8 余项缓办。
+  TTL 上限/注册限速）；本轮 H4 堵住 query 扩表旁路，M8 补齐查询限速/地址数/帧上限。
 - 第 1 期 M2（电路 cid 可枚举）：已由 CSPRNG cid + allowed_joiner 校验修复。
 - 第 1 期 M4（dial expected 为 Option）：swarm 拨号路径已类型层强制 Some（dial.rs
   安全不变式注释在位），盲拨仅存于 relay/rendezvous 链接并留 WARN 日志。
 - 第 1 期 M3（握手超时）与 M5（配额 Sybil 稀释）：部分落地（quic idle、全站配额），
-  余项与 M2/M3/M8 同批缓办。
+  余项（mDNS 表上限、全站连接级预算）继续缓办。
