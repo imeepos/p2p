@@ -18,6 +18,7 @@
 | peer_dial | target: string | DialReport | add_peer_address + node.connect，回收期间 DialHop 事件为逐跳报告 |
 | peer_ping | peerId: string, timeoutMs: number | PingOutcome | 复用 echo 协议 node.request（同 CLI ping），返回 rtt 与期间逐跳 |
 | identity_reset | confirm: boolean | NodeStatus | 危险：停止节点并删除身份数据目录内种子文件（必须 confirm=true），返回重置后的状态（未运行） |
+| metrics_history | - | MetricsPoint[] | 后端每 5s 采样最近 120 点（10 分钟窗口），供仪表盘趋势图；v2 加法新增 |
 
 ## 2. 事件通道
 
@@ -76,6 +77,7 @@ interface MetricsJson {
 interface DialHopJson { hop: "direct" | "punch" | "relay"; ok: boolean; detail: string }
 interface DialReport { peer: string; hops: DialHopJson[]; ok: boolean; totalMs: number }
 interface PingOutcome { ok: boolean; rttMs: number | null; hops: DialHopJson[]; error: string | null }
+interface MetricsPoint { tMs: number; activeConnections: number; relaySessionsActive: number; dialOkTotal: number; dialFailTotal: number }
 ```
 
 ## 4. tauri.conf.json 关键约定（A 侧遵守，B 侧依赖）
