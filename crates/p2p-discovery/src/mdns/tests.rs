@@ -1,5 +1,27 @@
 use super::*;
 
+#[test]
+fn service_type_ends_with_valid_mdns_domain() {
+    // mdns-sd 0.13 register/browse 校验要求类型以 '._tcp.local.' 或 '._udp.local.'（带尾点）结尾；
+    // 缺尾点会导致 E1 实测 WARN register/browse 报错、mDNS 完全不工作。
+    assert!(
+        SERVICE_TYPE.ends_with("._udp.local."),
+        "SERVICE_TYPE 必须以带尾点的 ._udp.local. 结尾，当前: {SERVICE_TYPE}"
+    );
+    // 通告与浏览共用同一类型，构造 ServiceInfo 应成功
+    let props = encode_txt(&PeerId::from_bytes([1u8; 32]), None, None);
+    let info = ServiceInfo::new(
+        SERVICE_TYPE,
+        "node-type-check",
+        "node-type-check.local",
+        IpAddr::from([192, 168, 1, 60]),
+        1234,
+        props.as_slice(),
+    )
+    .expect("valid service info");
+    assert_eq!(info.get_type(), SERVICE_TYPE);
+}
+
 fn sample_info(peer: PeerId, quic: u16, tcp: u16) -> ServiceInfo {
     let props = encode_txt(&peer, Some(quic), Some(tcp));
     ServiceInfo::new(

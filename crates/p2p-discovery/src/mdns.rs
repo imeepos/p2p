@@ -13,7 +13,8 @@ use tokio::sync::mpsc;
 use crate::{DiscoveredPeer, Discovery, DiscoveryEvent, Source};
 
 /// 服务类型：局域网上所有 p2p-base 节点共用。
-pub const SERVICE_TYPE: &str = "_p2pbase._udp.local";
+/// mdns-sd 0.13 要求以带尾点的 '._udp.local.' 结尾（register/browse 共用，防 E1 阻断回归）。
+pub const SERVICE_TYPE: &str = "_p2pbase._udp.local.";
 
 const TXT_KEY_PEER: &str = "peer";
 const TXT_KEY_QUIC: &str = "quic";
