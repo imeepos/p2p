@@ -32,6 +32,19 @@ _none yet — be the first._
 ## 2026-09-02 X 构建门禁（bash / fmt 门禁上线）
 
 - bash test 内建的 `[ "$s" = $pat ]` 对未加引号 RHS 不做通配匹配（通配只在 `[[ ==` 与 `case` 生效）。症状：LINE_LIMIT_EXEMPT 填了精确路径豁免仍 exit 1。修法：is_exempt 用 `case " $LIST " in *" $1 "*) return 0 ;;`；301 行探针拦截测试当场暴露此 bug。
+
+## 2026-09-02 p2p-relay 控制流秒断与配额自锁（中继兜底不可用根因，E4-S 待修）
+
+- 症状：CLI 节点 --relay 接线后 relay 会话 connect 成功但 control ~90ms 即断（客户端 "relay control closed; reconnecting"，服务端 "control read failed; cutting"），~0.5s 重连循环；数分钟后报 "relay rejected: code=3, per-peer circuit quota exceeded" 锁死；punch 信令必败（"punch signaling failed: connection lost"），降级链 Direct→Punch→Relay 走不通。
+- 定性：干净态（bootstrap 刚重启 + 单一客户端）31/31 复现 ~90ms 断——与负载无关的必然缺陷，非偶发；代码定位 p2p-relay/src/control.rs、slots.rs、limits.rs。
+- 配额自锁机理：每次 control 重连内含 reserve（slots.rs issue_circuit，TTL 最长 3600s）计入 per-peer 配额（limits.rs max_circuits_per_peer=32，DEFAULT_TTL_SECS=300）；churn 节奏 ~0.5-5s ⇒ 稳态负载 60>32 必然自锁，TTL 滚动恢复后再锁。
+- 138 bootstrap 的 ufw 从未放行 3403/udp+3404/tcp（relay 客户端此前为零，缺陷与不可达均未暴露）。修 relay 层前，ECS 需每次冒烟前重启 p2p-bootstrap 换取 ~150s 健康窗口。
+
+## 2026-09-02 无 --observation 的节点注册 loopback 地址（跨网不可拨）
+
+- 症状：跨网 ping 报"目标未被发现"或拨 127.0.0.1；discover 显示对端地址全为 127.0.0.1:x。
+- 原因：无观测器时注册地址=观测(空)×端口+监听地址，展示为 loopback（assembly merge_observed_with_listen）。
+- 修法：公网节点一律带 --observation <公网IP>:3402；冒烟编排里把这一项列为起节点前置检查。
 - 从未跑过 rustfmt 的存量仓库接 fmt 门禁：rustfmt 1.9 默认 style_edition 2024，首次 --check 就是 32 文件真实 diff，不是门禁 bug；且格式化拆行会让贴线文件越过行数红线（实测 284→315、281→314），fmt 与行数两条门禁连环爆。上线顺序应为：先摸底存量违规 → fmt 归一提交 → 立即复查行数 → 超线文件抽测试子模块。
 
 ## 2026-09-02 U 互操作测试（tokio duplex + MITM 转发管道，挂死 15 分钟）
