@@ -215,3 +215,21 @@ async fn query_unknown_peer_returns_empty() {
     assert!(resp.error.is_empty());
     assert!(resp.peers.is_empty());
 }
+
+#[test]
+fn query_unknown_namespace_does_not_grow_registry() {
+    // 审计 HIGH 回归：query 只读，未知 namespace 不得创建缓存条目
+    let registry = RendezvousRegistry::new();
+    for ns in ["ghost-room", "", &"x".repeat(MAX_NAMESPACE_LEN + 1)] {
+        let resp = registry.query(&Query {
+            namespace: ns.to_string(),
+            peer_id: Vec::new(),
+        });
+        assert!(resp.error.is_empty());
+        assert!(resp.peers.is_empty());
+    }
+    assert!(
+        registry.namespaces.lock().unwrap().is_empty(),
+        "query must not create namespace entries"
+    );
+}

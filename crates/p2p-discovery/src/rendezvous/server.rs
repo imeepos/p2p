@@ -70,10 +70,21 @@ impl RendezvousRegistry {
     }
 
     /// 应答查询：peer_id 为空返回整个 namespace 的未过期条目。
+    /// 只读不扩表（审计 HIGH）：未知/非法 namespace 返回空结果，绝不创建缓存条目，
+    /// 否则任意连接可用随机 namespace 查询撑大服务端内存。
     pub fn query(&self, q: &Query) -> Response {
+        let empty = Response {
+            error: String::new(),
+            peers: Vec::new(),
+        };
+        if q.namespace.is_empty() || q.namespace.len() > MAX_NAMESPACE_LEN {
+            return empty;
+        }
         let target: Option<PeerId> = q.peer_id.as_slice().try_into().ok().map(PeerId::from_bytes);
-        let mut map = self.namespaces.lock().unwrap_or_else(|p| p.into_inner());
-        let cache = map.entry(q.namespace.clone()).or_default();
+        let map = self.namespaces.lock().unwrap_or_else(|p| p.into_inner());
+        let Some(cache) = map.get(&q.namespace) else {
+            return empty;
+        };
         let peers = cache
             .snapshot()
             .into_iter()
