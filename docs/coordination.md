@@ -60,7 +60,7 @@
 | 拨号可观测性+refused/hairpin 边角 | S（session-e42e5393） | fix/e4-dialhop-observability | crates/p2p-swarm：DialHop 逐跳归因从 debug 提升为 info 或事件化（采样不开 RUST_LOG=debug 也能归因）；复核检查轮14立案——TCP 入站 refused 在直连跳不得作为最终错误上抛，须继续尝试其余地址；同 NAT hairpin refused 快速失败不占满拨号预算 | make check 全绿 + itest 断言各跳事件 |
 | 发现时序+日志降噪 | p2p-D-E4（session-cc9c45f8） | fix/e4-discovery-stability | crates/p2p-discovery：发现窗口时序（启动初期错过 mDNS 公告的补救）；rendezvous 盲拨周期 WARN 降 debug 或加退避，仅首次失败保留 WARN | make check 全绿 + 35s 周期刷屏消除的单测断言 |
 | ECS 公网节点部署 | p2p-T-ECS（session-814cafa1） | feat/ecs-deploy | scripts/deploy-bootstrap-ecs.sh（参照 138 版，systemd 常驻，QUIC 3400/udp + TCP 3401/tcp + 观测 3402/udp）+ runbook 双公网拓扑条目；安全组已由协调者放行（22/3400udp/3401tcp/3402udp） | make check 全绿 + 15↔ECS 冒烟 PASS（记录 PeerId） |
-| hairpin 快速失败 | p2p-S-E4（session-7a31fb74） | fix/e4-hairpin-fastfail | crates/p2p-swarm + itest：同 NAT 观测 v4 地址 refused 快速失败/降权，不占满拨号预算，LAN 地址可轮到（检查轮15/16 残留） | make check 全绿 + itest 断言 hairpin 场景预算 |
+| hairpin 快速失败 | p2p-S-E4（session-7a31fb74） | fix/e4-hairpin-fastfail | crates/p2p-swarm + itest：验证优先——先以 itest 复现检查轮16 场景，实测达标则只交测试不改逻辑（S 报告 refused 已走快速失败路径） | make check 全绿 + itest 断言 hairpin 场景预算 |
 | 长稳采样 | 待派（依赖 hairpin 交付） | — | scripts/ 采样脚本与 runbook：默认日志含 p2p_swarm=info、禁 pkill 红线、三连采样统计 | E1/E3 runbook 复测三连稳定 |
 
 metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
@@ -94,3 +94,4 @@ metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 - 2026-09-02 检查轮 17：协调权移交新协调会话（session-570fbef3）。E4 调优轮派单：S（拨号可观测性+refused/hairpin 边角，fix/e4-dialhop-observability）、D（发现时序+盲拨降噪，fix/e4-discovery-stability）；长稳采样待 S 交付后派；metrics/gossip 排 E5。规则 5 修正：本仓库远端为 origin（github），收尾恢复 push 步骤。新增 ECS 公网节点（连接信息在 .env，见 ECS_* 条目），用途：第二 rendezvous/relay 兜底与 E4 跨公网长稳，部署派单在 S/D 交付后进行。
 - 2026-09-02 检查轮 18：旧 D/T 会话派单后唤醒即转 idle、无开工迹象，判定消息唤醒机制对该两会话失效——对旧 D/T 发停派通知，新开专属会话 p2p-D-E4（session-cc9c45f8，fix/e4-discovery-stability）与 p2p-T-ECS（session-814cafa1，feat/ecs-deploy）承接原单；S（session-e42e5393）确认开工中（.worktrees/e4 编辑 dial.rs）。阿里云安全组 sg-bp1gedk7fadp3vah6vfs 已由协调者经 API 放行 3400/udp、3401/tcp、3402/udp（22/tcp 原已开放）；踩坑记录：DescribeSecurityGroupAttribute 带 Direction 参数触发 InvalidParamter，最小参数集可用。
 - 2026-09-02 检查轮 19：用户移除全部旧会话（18 轮"唤醒失效"结论据此更正为会话已被删除，注册表陈旧）。S 被移除前已自行完成 rebase+ff-only 合并（00a775f 归因提升+refused 遍历回归、ff88a8e itest 依赖锁定）但未推远端——协调者接管：push 补齐（c9a24b1..ff88a8e）、worktree 清理、make check 验收 PASS。任务1/2 关闭；任务3（hairpin 快速失败）确认未实现，改派新会话 p2p-S-E4（fix/e4-hairpin-fastfail）。教训：协调者必须以 git 实况而非会话回报为准做验收。
+- 2026-09-02 检查轮 20：S（e42e5393）实为存活并回报完整完工报告，与 git 实况完全吻合——18/19 轮"旧会话已全部移除"对 S 不成立（对旧 D/T 成立），验收正式通过（169 用例全绿，协调者补 push + worktree 清理）。语义入册：Direct=false 仅整跳耗尽时发出；同 NAT hairpin refused 已由短地址失败路径快速处理。hairpin 单据此改验证优先（先 itest 复现，达标只交测试）。S 提出遗留：IPv6/跨族监听、QUIC close，登记 E4 余量/E5。在途：D-E4（发现时序）、T-ECS（ECS 部署，worktree 已建）、S-E4（hairpin 验证，worktree 已建 7e4a943）。
