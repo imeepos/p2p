@@ -13,10 +13,15 @@ use p2p_identity::PeerId;
 use p2p_mux::BoxedStream;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+mod chunked;
 mod handshake;
 mod request_response;
 mod stream_factory;
 
+pub use chunked::{
+    read_chunked, write_chunked, CHUNK_DATA_SIZE, FRAME_CHUNK, FRAME_END, FRAME_SINGLE,
+    MAX_MESSAGE_SIZE,
+};
 pub use handshake::{dispatch_inbound, open_with_protocol};
 pub use request_response::RequestResponseClient;
 pub use stream_factory::{LoopbackHub, StreamFactory};
@@ -68,6 +73,8 @@ pub enum ProtocolError {
     InvalidId(String),
     #[error("frame too large: {0} bytes (max {MAX_FRAME_SIZE})")]
     FrameTooLarge(u64),
+    #[error("chunked message too large: {0} bytes")]
+    MessageTooLarge(u64),
     #[error("request timed out after {0:?}")]
     Timeout(std::time::Duration),
     #[error("protocol not supported by remote handler: {0}")]
