@@ -11,6 +11,7 @@
 | MAC_LOCAL_SSH_114 | 192.168.0.114 | macOS arm64 (Darwin 25.5) | 无 cargo | 局域网节点 B（只跑产物） |
 | LINUX_SSH_102 | 192.168.0.102 | Debian 13 x86_64 | cargo 1.97 | 局域网节点 C（可编译，异构 OS 验证） |
 | LINUX_SSH_138 | 43.240.223.138 | Linux 5.15 x86_64（公网） | 无 cargo | 公网引导节点（rendezvous + relay + 打洞协调） |
+| ECS_SSH_* | 121.196.193.177 | Ubuntu 26.04 x86_64（公网，阿里云） | cargo 1.98（部署脚本自装） | 第二公网引导节点（rendezvous + relay + 观测，凭据在 .env SSH_*） |
 
 所有机器目录骨架 `~/p2p-lab/{bin,data,logs}` 已创建。SSH 密钥认证全部可用（BatchMode 验证）。
 
@@ -121,3 +122,32 @@ ssh $LINUX_SSH_102 'cd ~/src/p2p && export PATH=$HOME/.cargo/bin:$PATH && cargo 
 
 - 任一判定不过：回传日志定位，能就地修的派回属主会话，跨 crate 的进协调裁决
 - E1 全过 → M2 关闭；E3 全过 → M3 关闭，进 E4 长稳
+
+### 8.5 双公网拓扑（138 + ECS，2026-09-02 部署）
+
+第二公网引导节点 ECS（阿里云杭州，凭据只在 .env 的 SSH_HOST/SSH_USER/SSH_PASSWORD）与 138 并存，
+端口组对齐：QUIC 3400/udp + TCP 3401/tcp + 观测反射 3402/udp。防火墙由阿里云安全组承担
+（已放行 22/3400udp/3401tcp/3402udp），ufw 不启用。
+
+部署入口 `scripts/deploy-bootstrap-ecs.sh`（幂等重部署）：root+密码经 SSH_ASKPASS 环境变量通道传递，
+不进命令行参数、不落盘（需 OpenSSH >= 8.4）；worktree 内运行需 `DEPLOY_ENV_FILE=<主树>/.env`。
+工具链从零自就位：apt 装 build-essential/curl/rsync，rustup 与 crates 均走 rsproxy 镜像
+（sh.rustup.rs 从大陆云机常被重置，安装脚本也必须用镜像）。
+
+冒烟记录（2026-09-02，15↔ECS，日志留存 102:~/p2p-lab/logs/ecs-smoke-102.log）：
+
+- 部署面：bootstrap systemd active（NRestarts=0），PeerId 前缀 HNj8E7X5，三口监听齐全，
+  15→ECS 跨公网 TCP 3401 可达
+- 观测反射：节点经 ECS 学习到公网映射地址（UDP 空闲 12s 映射稳定不漂移）
+- discover 经 ECS（QUIC /u3400）：列出全部注册节点与地址；rendezvous 链路 ~5s 生命周期 +
+  30s 退避重注册为全系统常态（138 基线同节奏，注册表由此持续维持）
+- ping 经 ECS：未通过——直连跳拨对端 NAT v4 观测地址被 home 路由器 hairpin 拒绝（refused）；
+  CLI node 未接线 relay_addrs（无打洞信令/中继兜底），观测取首个成功反射（恒 v4），无 v6 路径。
+  此为产品缺口而非 ECS 部署缺陷（CLI↔CLI 经 138 的 ping 同样受制）；解锁依赖：
+  a) 安全组补 3403/udp + 3404/tcp（bootstrap relay 口）；b) p2p-cli node 暴露 --relay 接线（E4-S 范围）；
+  c) 观测多反射器/v6 支持（crates 派单）
+- TCP 引导（/t3401）：跨公网 TCP 握手成功但会话即断（read stream ended），存量问题已转 E4
+
+节点接入：`p2p-cli node --bootstrap 121.196.193.177/u3400 --observation 121.196.193.177:3402`。
+--bootstrap 当前为单值：双 bootstrap 冗余是部署级（切换 = 改 --bootstrap 重启），
+单节点同时注册两个引导面待 CLI 支持多值后解锁。
