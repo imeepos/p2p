@@ -13,6 +13,11 @@ use crate::rendezvous::messages::{sign_register, unix_now, AddrMsg, Request, Res
 use crate::AddrCache;
 use crate::{DiscoveredPeer, Discovery, DiscoveryEvent, Source};
 
+/// 默认注册刷新间隔：须小于 QUIC 空闲超时（transport 侧 30s）兼作 keepalive，
+/// 否则控制链路被掐断、注册出现间隙（E2/E3 实测）；同时远小于服务端
+/// 新鲜度容差（±300s）与 TTL 截断（3600s）。
+const DEFAULT_REGISTER_INTERVAL: Duration = Duration::from_secs(20);
+
 /// rendezvous 客户端配置。
 pub struct RendezvousConfig {
     pub namespace: String,
@@ -22,7 +27,7 @@ pub struct RendezvousConfig {
     /// 本机上报的监听地址。
     pub addrs: Vec<TransportAddr>,
     pub ttl_secs: u32,
-    /// 注册刷新间隔，默认 ttl 的一半。
+    /// 注册刷新间隔，默认 20s（兼作控制链路 keepalive）。
     pub register_interval: Duration,
     /// 查询间隔，默认 5s。
     pub query_interval: Duration,
@@ -40,7 +45,7 @@ impl RendezvousConfig {
             link,
             addrs: Vec::new(),
             ttl_secs: 60,
-            register_interval: Duration::from_secs(30),
+            register_interval: DEFAULT_REGISTER_INTERVAL,
             query_interval: Duration::from_secs(5),
         }
     }
@@ -171,91 +176,4 @@ impl Discovery for RendezvousClient {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::rendezvous::link::mock::{conn_from_duplex, MockLink};
-    use crate::rendezvous::messages::PeerEntry;
-    use crate::rendezvous::server::{serve_link, RendezvousRegistry};
-
-    fn sample_addrs() -> Vec<TransportAddr> {
-        vec![TransportAddr::Quic {
-            ip: "10.0.0.5".parse().unwrap(),
-            port: 4000,
-        }]
-    }
-
-    #[test]
-    fn response_maps_to_peers() {
-        let kp = Keypair::generate();
-        let addrs = sample_addrs();
-        let resp = Response {
-            error: String::new(),
-            peers: vec![PeerEntry {
-                peer_id: kp.peer_id().as_bytes().to_vec(),
-                addrs: addrs.iter().map(AddrMsg::from_addr).collect(),
-            }],
-        };
-        let peers = response_to_peers(&resp);
-        assert_eq!(peers.len(), 1);
-        assert_eq!(peers[0].0, kp.peer_id());
-        assert_eq!(peers[0].1, addrs);
-    }
-
-    #[test]
-    fn response_skips_bad_entries() {
-        let resp = Response {
-            error: String::new(),
-            peers: vec![PeerEntry {
-                peer_id: vec![1, 2, 3],
-                addrs: Vec::new(),
-            }],
-        };
-        assert!(response_to_peers(&resp).is_empty());
-    }
-
-    #[tokio::test]
-    async fn client_registers_and_discovers_other_peer() {
-        let (client_side, server_side) = tokio::io::duplex(4096);
-        let link: Arc<dyn RendezvousLink> = Arc::new(MockLink::new(client_side));
-        let client =
-            RendezvousClient::new(RendezvousConfig::new("room-a", Keypair::generate(), link));
-
-        let registry = Arc::new(RendezvousRegistry::new());
-        let server_registry = registry.clone();
-        let server_task = tokio::spawn(async move {
-            let mut server = conn_from_duplex(server_side);
-            let _ = serve_link(&mut server, &server_registry).await;
-        });
-
-        // 另一节点直接注册，模拟其已上线
-        let other = Keypair::generate();
-        let other_addrs = vec![TransportAddr::Quic {
-            ip: "10.0.0.9".parse().unwrap(),
-            port: 9000,
-        }];
-        let reg = sign_register(&other, "room-a", &other_addrs, 60, unix_now());
-        registry
-            .register(&reg, unix_now())
-            .expect("other registered");
-
-        let (tx, mut rx) = mpsc::channel(16);
-        let cache = MemCache::new();
-        let mut conn = client.config.link.connect().await.expect("connect");
-        client.register(&mut conn).await.expect("register");
-        client
-            .query_and_emit(&mut conn, &tx, &cache)
-            .await
-            .expect("query");
-
-        match rx.recv().await {
-            Some(DiscoveryEvent::Discovered(dp)) => {
-                assert_eq!(dp.peer, other.peer_id());
-                assert_eq!(dp.source, Source::Rendezvous);
-                assert_eq!(dp.addrs, other_addrs);
-                assert_eq!(cache.get(&other.peer_id()), Some(other_addrs));
-            }
-            other_ev => panic!("expected Discovered, got {other_ev:?}"),
-        }
-        server_task.abort();
-    }
-}
+mod tests;
