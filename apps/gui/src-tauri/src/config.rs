@@ -72,6 +72,12 @@ impl ConfigStore {
     pub fn save(&self, cfg: &GuiConfig) -> Result<(), String> {
         let _io = self.io_lock.lock().expect("配置写盘锁中毒");
         let path = self.path();
+        if let Some(parent) = path.parent() {
+            if let Err(e) = fs::create_dir_all(parent) {
+                warn!(error = %e, path = %parent.display(), "创建配置目录失败");
+                return Err(format!("创建配置目录失败: {e}"));
+            }
+        }
         let tmp = path.with_extension("json.tmp");
         let text =
             serde_json::to_string_pretty(cfg).map_err(|e| format!("配置序列化失败: {e}"))?;
