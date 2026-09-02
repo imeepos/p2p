@@ -34,6 +34,7 @@ remote_start(){  # $1=user@host $2=name $3=remote bin；返回远端节点 pid
   local bin="$3"
   ssh_run "$1" "mkdir -p ~/e5 && \
     if [ -f ~/e5/$2.pid ] && kill -0 \$(cat ~/e5/$2.pid) 2>/dev/null; then echo ALREADY; exit 0; fi; \
+    RUST_LOG=info P2P_METRICS_LOG_SECS=60 \
     nohup $bin node --data ~/e5/$2 --name $2 --no-mdns \
       --bootstrap '$BOOTSTRAP_1' --bootstrap '$BOOTSTRAP_2' \
       --relay '$RELAY_1' --relay '$RELAY_2' \
