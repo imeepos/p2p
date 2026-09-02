@@ -16,7 +16,7 @@
 | V 文档整理 | docs/organize | p2p-V-文档整理（session-ba31b85b） | 新建 README.md、docs/README.md、docs/design/wire-protocol.md（只写 .md，事实须与代码对齐） | 已完成：87e8683 已合并；wire-protocol 中 rendezvous 签名小节由 D 修复轮同步修订 | ✓ 验收通过 |
 | X 构建门禁 | chore/ci-gate | p2p-X-构建门禁（session-b2f5b9b3） | 新建 Makefile、scripts/check/*.sh（fmt/clippy/test/300 行红线扫描），可选 .gitea workflow | 已完成：ab4ad3e+5c171ce+909da14+1d0a88c 已合并，make check 已成为标准验收手段 | ✓ 验收通过 |
 | Z 安全审查 | docs/security-review | p2p-Z-安全审查（session-75a4acd6） | 只读审计 security/identity/discovery/relay/protocol 已合并实现，产出 docs/notes/security-review-1.md 分级 findings | 已完成：6c3f7e7 已合并（高1中5低5），findings 已转入修复轮派单 | ✓ 验收通过 |
-| T 命令行 | feat/p2p-cli | p2p-T-命令行（session-ee17b807） | 新建 crates/p2p-cli（bootstrap/node/ping/discover 子命令）+ scripts/smoke-cli.sh | 进行中：2026-09-02 启动（S 已合并，facade 可用） | make check 全绿 + 冒烟脚本实测输出 |
+| T 命令行 | feat/p2p-cli | p2p-T-命令行（session-ee17b807） | 新建 crates/p2p-cli（bootstrap/node/ping/discover 子命令）+ scripts/smoke-cli.sh | 已完成：10d8cee 已合并，make check 全绿 + 冒烟实测 PASS（bootstrap 注册、双节点发现、ping rtt≈7ms） | ✓ 验收通过 |
 
 ## 并行规则（各会话必读）
 
@@ -67,3 +67,4 @@
 - 2026-09-02 检查轮 5：修复轮过半——K 的 M3（080deb6+76200ac）、P 的 L4（8a2a6c5）、S 的 M4（a89dcf5）均已合入 main。在途：D（H1，d2 已开工）、R（r2，叠加 relay varint 回绕）、K 第二批（yamux 空闲开流悬挂 + QUIC close）。S 转待命，M3 贯通轮预定仍派 S。
 - 2026-09-02 检查轮 6：R 修复轮验收通过（M2/M5/L3/varint 四件，make check PASS，含 itest 适配）。修复轮余量：D（H1 高危）、K 第二批（yamux/QUIC close）。E2 部署脚本与 E1/E3 runbook 已入库；源码已预同步 15/114/102。
 - 2026-09-02 检查轮 7：修复轮全部关闭——D（faa77a6+4a0cdd4，H1/M1/L2/L3）、K 第二批（296fe3a+c28f61c）合入，make check PASS。仅剩 T 命令行在途；T 落地即执行 E2 部署（scripts/deploy-bootstrap-138.sh）与 M3 贯通轮派单。
+- 2026-09-02 检查轮 8：T 验收通过（10d8cee，make check 全绿 + 冒烟实测 PASS：bootstrap 注册/双节点发现/ping rtt≈7ms）。E2 部署在 138 上执行中。红线登记（源自 R 审查发现，已通知 S 于 M3 执行）：RelayLink 夹具的 peer_id 必须标注为对端身份，标注成 relay 自身会让属主/配额校验形同虚设。
