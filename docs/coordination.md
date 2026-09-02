@@ -11,11 +11,12 @@
 | P 协议分发 | feat/protocol | p2p-P-协议分发 | p2p-protocol（RequestResponse 实现、开流协议握手助手、chunked transfer） | 已完成：84c4337+db91134 已合并，14 用例全绿 + clippy -D warnings 零告警 | ✓ 验收通过 |
 | D 节点发现 | feat/discovery | p2p-D-节点发现 | p2p-discovery（mdns-sd 局域网发现、rendezvous 客户端 + 签名注册、AddrCache 实现） | 已完成：f22aebc+7abd318+f1c0105 已合并，27 用例全绿（真实组播 #[ignore]）+ clippy 零告警 | ✓ 验收通过 |
 | R 中继穿透 | feat/relay | p2p-R-中继穿透 | p2p-relay（RelayService 服务端、客户端 reserve/connect、打洞信令消息、密文桥接） | 已完成：789a998/4cdbefc/c6d068c/59e7391/0dfdfd0 经 15bfe50 合入，17 用例全绿（256KB 互通/未知电路拒绝/限流断链/prost roundtrip/打洞时序）+ clippy 零告警，最大文件 257 行 | ✓ 验收通过 |
-| S 编排装配 | feat/swarm-facade | p2p-S-编排装配（session-e42e5393） | p2p-swarm（连接池/拨号器/门禁/事件总线/退避工具）、crates/p2p facade（Node/Builder 装配、mdns+rendezvous 接线） | 进行中：2026-09-02 启动（K+P 已合并；R 在途，S 不碰 relay） | 两 Node 经 facade 互拨 request roundtrip、事件可见（crates/p2p/tests/facade.rs） |
-| U 互操作测试 | test/interop | p2p-U-互操作测试（session-eeecbbdc） | 新建 crates/p2p-itest（跨 crate 接缝测试：握手身份、rendezvous client↔server、relay 消息限流、协议栈大帧） | 进行中：2026-09-02 启动 | cargo test -p p2p-itest 全绿且 workspace 不回归 |
-| V 文档整理 | docs/organize | p2p-V-文档整理（session-ba31b85b） | 新建 README.md、docs/README.md、docs/design/wire-protocol.md（只写 .md，事实须与代码对齐） | 进行中：2026-09-02 启动 | 三份文档齐、常量与代码一致 |
-| X 构建门禁 | chore/ci-gate | p2p-X-构建门禁（session-b2f5b9b3） | 新建 Makefile、scripts/check/*.sh（fmt/clippy/test/300 行红线扫描），可选 .gitea workflow | 进行中：2026-09-02 启动 | make check 一键全绿；故意造 301 行文件能被拦截 |
-| Z 安全审查 | docs/security-review | p2p-Z-安全审查（session-75a4acd6） | 只读审计 security/identity/discovery/relay/protocol 已合并实现，产出 docs/notes/security-review-1.md 分级 findings | 进行中：2026-09-02 启动 | 报告覆盖既定审计清单，高/中/低分级+位置+修复建议 |
+| S 编排装配 | feat/swarm-facade | p2p-S-编排装配（session-e42e5393） | p2p-swarm（连接池/拨号器/门禁/事件总线/退避工具）、crates/p2p facade（Node/Builder 装配、mdns+rendezvous 接线） | 已完成：e2c5519+490fffa+9b121c9 已合并（含 M4 要求：按 PeerId 拨号 expected 必填），make check 全绿 | ✓ 验收通过 |
+| U 互操作测试 | test/interop | p2p-U-互操作测试（session-eeecbbdc） | 新建 crates/p2p-itest（跨 crate 接缝测试：握手身份、rendezvous client↔server、relay 消息限流、协议栈大帧） | 已完成：dc90a8d+263f374 已合并，make check 全绿 | ✓ 验收通过 |
+| V 文档整理 | docs/organize | p2p-V-文档整理（session-ba31b85b） | 新建 README.md、docs/README.md、docs/design/wire-protocol.md（只写 .md，事实须与代码对齐） | 已完成：87e8683 已合并；wire-protocol 中 rendezvous 签名小节由 D 修复轮同步修订 | ✓ 验收通过 |
+| X 构建门禁 | chore/ci-gate | p2p-X-构建门禁（session-b2f5b9b3） | 新建 Makefile、scripts/check/*.sh（fmt/clippy/test/300 行红线扫描），可选 .gitea workflow | 已完成：ab4ad3e+5c171ce+909da14+1d0a88c 已合并，make check 已成为标准验收手段 | ✓ 验收通过 |
+| Z 安全审查 | docs/security-review | p2p-Z-安全审查（session-75a4acd6） | 只读审计 security/identity/discovery/relay/protocol 已合并实现，产出 docs/notes/security-review-1.md 分级 findings | 已完成：6c3f7e7 已合并（高1中5低5），findings 已转入修复轮派单 | ✓ 验收通过 |
+| T 命令行 | feat/p2p-cli | p2p-T-命令行（session-ee17b807） | 新建 crates/p2p-cli（bootstrap/node/ping/discover 子命令）+ scripts/smoke-cli.sh | 进行中：2026-09-02 启动（S 已合并，facade 可用） | make check 全绿 + 冒烟脚本实测输出 |
 
 ## 并行规则（各会话必读）
 
@@ -62,3 +63,4 @@
 - 2026-09-02 扩编：启动 U 互操作测试 / V 文档整理 / X 构建门禁 / Z 安全审查 四个不依赖 S 的并行包；规则 5 更新为 rebase 反向同步 + 禁 add -A。
 - 2026-09-02 协调者自查：在 bash 里误对未提交的 coordination.md 跑 sed+checkout 丢过一次编辑，已重录。整改：协调表修改只用编辑工具，编辑+提交同轮完成，禁止在 bash 里对它执行任何写命令。
 - 2026-09-02 检查轮 3：U/V/X/Z 四包全部合并落地，make check 门禁全绿（X 的门禁本身一并验证）。Z 产出安全审查报告（docs/notes/security-review-1.md：高1中5低5），据此开启修复轮：D/R/K/P 各领修复单，S 收到 expected 必填的接口要求。L5 同轮裁决（改设计文档）。
+- 2026-09-02 检查轮 4：S 验收通过（e2c5519+490fffa，make check 全绿，worktree/分支已清理）；P 的 L4 修复（8a2a6c5）已合入。T 命令行会话启动。E2 准备：138 上 cargo 1.97.1 实际已就位（非交互 PATH 未含 ~/.cargo/bin 导致此前误判），已配 rsproxy 镜像、sudo 免密可用、systemd unit 骨架已放 ~/p2p-lab/（端口占位待 T 交付后定稿），ufw 现仅开 22/tcp 部署时需加 QUIC/TCP 端口。修复轮在途：D（H1 高危，尚未见分支）、K（k2）、R（r2）。
