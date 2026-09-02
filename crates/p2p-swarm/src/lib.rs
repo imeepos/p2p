@@ -1,8 +1,19 @@
-//! 连接编排契约（design §8/§9）：连接池、门禁、事件总线。
+//! 连接编排（design §8/§9/§12）：连接池、拨号器、门禁、事件总线、退避工具。
 //!
-//! 实现排在内核/协议会话合并之后（S 阶段），本文件冻结事件与门禁接缝。
+//! Swarm 绑定 QUIC/TCP 监听并驱动 accept 循环；出站按地址簿顺序直连；
+//! 所有失败路径发 [NodeEvent] 或留日志，禁止静默（design §12）。
 
 use p2p_identity::PeerId;
+
+mod backoff;
+mod gate;
+mod pool;
+mod swarm;
+
+pub use backoff::Backoff;
+pub use gate::{gate_fn, GateFn};
+pub use pool::ConnectionPool;
+pub use swarm::{Swarm, SwarmConfig, SwarmFactory};
 
 /// 底座事件：业务只读。所有失败路径必须可见（禁止静默吞错，design §12）。
 #[derive(Clone, Debug)]

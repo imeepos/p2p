@@ -1,0 +1,133 @@
+//! 出站路径：按地址簿顺序直连、门禁裁决、入池并启动收流分发（design §8 直连优先）。
+
+use std::io;
+use std::sync::Arc;
+
+use p2p_identity::PeerId;
+use p2p_mux::{BoxedStream, MuxControl};
+use p2p_protocol::{dispatch_inbound, ProtocolError};
+use p2p_transport::{Transport, TransportAddr};
+use tokio::sync::{broadcast, watch};
+
+use super::{RegistryCell, Swarm};
+use crate::pool::ConnectionPool;
+use crate::NodeEvent;
+
+type Mux = Arc<dyn MuxControl>;
+
+/// 按地址簿顺序逐一尝试直连；每个失败地址发 DialFailed，全部失败返回末次错误。
+pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
+    if peer == swarm.local_peer_id() {
+        return Err(dial_rejected(swarm, peer, "refusing to dial self"));
+    }
+    let addrs = swarm.addresses_of(peer);
+    if addrs.is_empty() {
+        return Err(dial_rejected(swarm, peer, "no known address for peer"));
+    }
+    let mut last_err: Option<io::Error> = None;
+    for addr in addrs {
+        match dial_one(swarm, peer, &addr).await {
+            Ok(mux) => {
+                insert_connection(swarm, peer, mux.clone());
+                return Ok(mux);
+            }
+            Err(err) => {
+                swarm.emit(NodeEvent::DialFailed {
+                    peer: Some(peer),
+                    reason: format!("{addr}: {err}"),
+                });
+                last_err = Some(err);
+            }
+        }
+    }
+    Err(last_err.unwrap_or_else(|| io::Error::other("dial failed")))
+}
+
+fn dial_rejected(swarm: &Swarm, peer: PeerId, reason: &str) -> io::Error {
+    swarm.emit(NodeEvent::DialFailed {
+        peer: Some(peer),
+        reason: reason.to_string(),
+    });
+    io::Error::other(reason)
+}
+
+/// 单地址拨号 + 门禁裁决；不放行即断链（conn 随作用域丢弃而关闭）。
+async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) -> io::Result<Mux> {
+    let transport: &dyn Transport = match addr {
+        TransportAddr::Quic { .. } => &swarm.dial_quic,
+        TransportAddr::Tcp { .. } => &swarm.dial_tcp,
+    };
+    let conn = transport
+        .dial(addr, &swarm.keypair, Some(peer))
+        .await
+        .map_err(|e| io::Error::other(e.to_string()))?;
+    if !swarm.gate_allows(conn.remote).await {
+        tracing::warn!(peer = %conn.remote, %addr, "outbound connection denied by gate, dropping");
+        drop(conn);
+        return Err(io::Error::other(format!("peer {peer} denied by connection gate")));
+    }
+    Ok(conn.mux)
+}
+
+/// 幂等入池：入池成功发 PeerConnected 并启动收流分发；重复连接丢弃（先到者优先）。
+pub(super) fn insert_connection(swarm: &Swarm, peer: PeerId, mux: Mux) {
+    if !swarm.pool.insert(peer, mux.clone()) {
+        tracing::debug!(%peer, "duplicate connection dropped, keeping existing");
+        return;
+    }
+    swarm.emit(NodeEvent::PeerConnected { peer });
+    let ctx = ServeCtx {
+        pool: swarm.pool.clone(),
+        registry: swarm.registry.clone(),
+        events: swarm.events.clone(),
+        shutdown: swarm.shutdown_rx.clone(),
+    };
+    tokio::spawn(serve_connection(ctx, peer, mux));
+}
+
+/// serve 任务的独立组件集：不持有 Swarm 本体，生命周期与连接一致。
+struct ServeCtx {
+    pool: Arc<ConnectionPool>,
+    registry: RegistryCell,
+    events: broadcast::Sender<NodeEvent>,
+    shutdown: watch::Receiver<bool>,
+}
+
+/// 收流分发循环：连接关闭或关停即出池并发 PeerDisconnected（断开路径可见）。
+async fn serve_connection(ctx: ServeCtx, peer: PeerId, mux: Mux) {
+    let mut shutdown = ctx.shutdown;
+    loop {
+        tokio::select! {
+            _ = shutdown.changed() => break,
+            stream = mux.accept_stream() => match stream {
+                Some(stream) => {
+                    tokio::spawn(dispatch_stream(ctx.registry.clone(), ctx.events.clone(), peer, stream));
+                }
+                None => break,
+            },
+        }
+    }
+    ctx.pool.remove_if_same(&peer, &mux);
+    let _ = ctx.events.send(NodeEvent::PeerDisconnected { peer });
+}
+
+/// 单条入站流分发：协议违规（含未注册协议）发事件；纯 io 关闭只留调试日志。
+async fn dispatch_stream(
+    registry: RegistryCell,
+    events: broadcast::Sender<NodeEvent>,
+    peer: PeerId,
+    stream: BoxedStream,
+) {
+    let snapshot = registry.lock().expect("registry lock").clone();
+    match dispatch_inbound(stream, &snapshot).await {
+        Ok(()) => {}
+        Err(ProtocolError::Io(err)) => {
+            tracing::debug!(%peer, error = %err, "inbound stream closed");
+        }
+        Err(other) => {
+            let reason = other.to_string();
+            tracing::warn!(%peer, %reason, "protocol violation on inbound stream");
+            let _ = events.send(NodeEvent::ProtocolViolation { peer, reason });
+        }
+    }
+}
