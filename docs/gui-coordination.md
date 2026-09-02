@@ -31,19 +31,22 @@
 | 单 | 分支 | 范围 | 验收 | 状态 |
 |---|---|---|---|---|
 | G-E 集成联调 | feat/gui-integration | 真实 IPC 贯通、双节点冒烟脚本 scripts/gui-smoke.sh、缺陷修复、事件 tsMs 字段补齐 | 脚本跑通双实例 mDNS 发现 + ping；build 零错误 | 待派（含 tsMs 跟进单） |
-| G-F 体验打磨 | feat/gui-polish | a11y/键盘/空态/错误态/加载骨架/i18n 完整性/主题一致性 | build 零错误 + 打磨清单逐项勾选 | 进行中 02:54 派 GUI-D（两阶段：配置侧+壳先行，monitor 合并后补量） |
+| G-E 集成联调 | feat/gui-integration | 真实 IPC 贯通核查、tsMs 类型落地、dial-target 预检上移、mock 对齐真实桥接、丢单/乱序加固测试 | gui-gate PASS + gui-smoke PASS | ✓ 已合并（b6af144，04:29；9 命令+10 事件零缺口） |
+| G-F 体验打磨 | feat/gui-polish | a11y/键盘/空态/错误态/加载骨架/i18n 完整性/主题一致性 | build 零错误 + 打磨清单逐项勾选 | ✓ 已合并（两阶段 12 提交，94f16e5+9a81702，04:07；复验 build/eslint/i18n 280=280/test 16） |
 
 ## 插队跟进单（W2 进行中即派，保持流水线满载）
 
 | 单 | 会话 | 分支 | 范围 | 验收 | 状态 |
 |---|---|---|---|---|---|
 | G-A2 桥接增强 | GUI-A（session-0b527964） | feat/gui-bridge-tsms | src-tauri/** + scripts/gui-smoke.sh：事件 tsMs、双节点无头冒烟测试 | clippy+test 全绿含冒烟测试；gui-smoke.sh PASS | 进行中 01:50 派单 |
+| G-A3 smoke 补强 | GUI-A（session-0b527964） | feat/gui-bridge-tsms | smoke.rs：事件 tsMs 数值型断言、config_save/get 往返 | cargo test+gui-smoke.sh PASS | ✓ 已合并（da09921，03:59） |
 | G-B2 前端基建 | GUI-B（session-d34300e8） | feat/gui-shell-infra | ESLint/Vitest/i18n-diff 脚本/Cmd+K 面板与快捷键基建（不碰 views/**） | lint+test+build+i18n-diff 全过 | 进行中 01:50 派单 |
 
 ## W4 收尾波（待 W3 合并后派单）
 
 | 单 | 分支 | 范围 | 验收 | 状态 |
 |---|---|---|---|---|
+- 2026-09-03 04:30 事故记录与恢复：协调者验收 G-E 时 ff 失败后命令链误删未合并分支（`;` 续链所致）；凭回报中 tip f630439 恢复分支→rebase→gui-gate 复验→正常合并，零丢失。教训：合并尝试后续命令必须用 && 短路。同轮：G-A3/G-E/G-F 三单合并、契约 v2（metrics_history）冻结、GitHub Actions 打包流水线上线。
 | G-G 打包回归 | feat/gui-package | `pnpm tauri build`、README（GUI 章节）、最终回归 | 产物可启动 + make check 仍全绿 + 回归清单 | 待派 |
 
 ## 变更记录
