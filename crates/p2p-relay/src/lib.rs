@@ -35,6 +35,7 @@ pub mod link;
 pub mod messages;
 pub mod punch;
 pub mod service;
+mod slots;
 mod state;
 
 pub use client::{RelayClient, RelayEvent};

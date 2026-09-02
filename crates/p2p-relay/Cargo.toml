@@ -7,6 +7,7 @@ edition.workspace = true
 async-trait.workspace = true
 p2p-mux = { path = "../p2p-mux" }
 prost.workspace = true
+rand.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

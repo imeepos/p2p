@@ -8,7 +8,7 @@ use tokio::io::copy_bidirectional;
 use crate::limits::RateLimitedStream;
 use crate::messages::{errcode, write_msg, write_reject, RelayMsg};
 use crate::service::RelayServiceImpl;
-use crate::state::{CircuitOutcome, PendingStream};
+use crate::slots::{CircuitOutcome, PendingStream};
 
 impl RelayServiceImpl {
     pub(crate) async fn handle_connect(

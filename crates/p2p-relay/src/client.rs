@@ -60,10 +60,17 @@ impl RelayClient {
         self.link.peer_id()
     }
 
-    /// 申请电路；返回服务端发放的 CircuitId。
-    pub async fn reserve(&mut self, ttl: Duration) -> Result<CircuitId, RelayError> {
+    /// 申请电路；allowed_joiner 指定允许接入的对端（空串 = 仅本 Peer 可接入）。
+    pub async fn reserve(
+        &mut self,
+        ttl: Duration,
+        allowed_joiner: &str,
+    ) -> Result<CircuitId, RelayError> {
         let reply = self
-            .control_roundtrip(RelayMsg::reserve(ttl.as_secs().max(1)), "reserve")
+            .control_roundtrip(
+                RelayMsg::reserve(ttl.as_secs().max(1), allowed_joiner),
+                "reserve",
+            )
             .await?;
         match reply.kind {
             Some(Kind::Reserved(r)) => Ok(CircuitId(r.circuit_id)),

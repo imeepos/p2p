@@ -20,13 +20,18 @@ pub mod errcode {
     pub const PROTOCOL: u32 = 4;
     /// 打洞目标当前无控制链路可转发。
     pub const PUNCH_TARGET_UNKNOWN: u32 = 5;
+    /// 接入方不在电路允许名单（审查 M2）。
+    pub const FORBIDDEN_JOINER: u32 = 6;
 }
 
 /// 申请中继电路；ttl_secs=0 表示使用服务端缺省 TTL。
+/// allowed_joiner 为空 = 仅 reserve 者可接入，否则只允许该 PeerId 接入。
 #[derive(Clone, PartialEq, prost::Message)]
 pub struct Reserve {
     #[prost(uint64, tag = "1")]
     pub ttl_secs: u64,
+    #[prost(string, tag = "2")]
+    pub allowed_joiner: String,
 }
 
 /// 服务端发放电路标识。
@@ -111,9 +116,12 @@ pub mod relay_msg {
 }
 
 impl RelayMsg {
-    pub fn reserve(ttl_secs: u64) -> Self {
+    pub fn reserve(ttl_secs: u64, allowed_joiner: &str) -> Self {
         Self {
-            kind: Some(relay_msg::Kind::Reserve(Reserve { ttl_secs })),
+            kind: Some(relay_msg::Kind::Reserve(Reserve {
+                ttl_secs,
+                allowed_joiner: allowed_joiner.into(),
+            })),
         }
     }
 
@@ -241,7 +249,7 @@ mod tests {
 
     fn samples() -> Vec<RelayMsg> {
         vec![
-            RelayMsg::reserve(300),
+            RelayMsg::reserve(300, "peer-b"),
             RelayMsg::reserved(7),
             RelayMsg::connect(7),
             RelayMsg::bound(7),

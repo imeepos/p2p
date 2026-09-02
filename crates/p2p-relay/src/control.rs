@@ -81,17 +81,20 @@ impl RelayServiceImpl {
     }
 
     async fn on_reserve(&self, peer: &str, r: Reserve) -> RelayMsg {
-        let issued =
-            self.lock_state()
-                .issue_circuit(peer, r.ttl_secs, self.limits().max_circuits_per_peer);
+        let issued = self.lock_state().issue_circuit(
+            peer,
+            &r.allowed_joiner,
+            r.ttl_secs,
+            self.limits().max_circuits_per_peer,
+        );
         match issued {
             Ok(cid) => {
-                tracing::info!(peer = %peer, circuit = cid, ttl_secs = r.ttl_secs, "circuit reserved");
+                tracing::info!(peer = %peer, circuit = cid, ttl_secs = r.ttl_secs, joiner = %r.allowed_joiner, "circuit reserved");
                 RelayMsg::reserved(cid)
             }
             Err(code) => {
-                tracing::warn!(peer = %peer, code, "reserve rejected: per-peer circuit quota");
-                RelayMsg::error(code, "per-peer circuit quota exceeded")
+                tracing::warn!(peer = %peer, code, "reserve rejected");
+                RelayMsg::error(code, "circuit reserve rejected")
             }
         }
     }

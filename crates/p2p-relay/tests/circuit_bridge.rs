@@ -12,13 +12,15 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const KB: usize = 1024;
 
-/// 起一个进程内 relay，接好 peer-a/peer-b 两条 mock 链路，返回两客户端。
-fn relay_with_two_peers(limits: RelayLimits) -> (RelayClient, RelayClient) {
+/// 起一个进程内 relay，接好 peer-a/peer-b 两条 mock 链路，返回两客户端与链路源句柄。
+/// 服务端侧链路的 peer_id 必须是对端（客户端）身份：服务端据此做配额与属主校验。
+fn relay_with_two_peers(limits: RelayLimits) -> (RelayClient, RelayClient, MockLinkSource) {
     let source = MockLinkSource::new();
-    let (client_a, server_a) = mock_link_pair("peer-a", "relay");
-    let (client_b, server_b) = mock_link_pair("peer-b", "relay");
+    let (client_a, server_a) = mock_link_pair("peer-a", "peer-a");
+    let (client_b, server_b) = mock_link_pair("peer-b", "peer-b");
     source.push(Box::new(server_a));
     source.push(Box::new(server_b));
+    let keep = source.clone();
     let svc = Arc::new(RelayServiceImpl::new(Box::new(source), limits));
     tokio::spawn(async move {
         let _ = svc.serve().await;
@@ -26,6 +28,7 @@ fn relay_with_two_peers(limits: RelayLimits) -> (RelayClient, RelayClient) {
     (
         RelayClient::new(Box::new(client_a)),
         RelayClient::new(Box::new(client_b)),
+        keep,
     )
 }
 
@@ -49,8 +52,11 @@ async fn exchange(
 
 #[tokio::test]
 async fn bridged_circuit_moves_256kb_identically() {
-    let (mut a, mut b) = relay_with_two_peers(RelayLimits::default());
-    let cid = a.reserve(Duration::from_secs(60)).await.expect("reserve");
+    let (mut a, mut b, _keep) = relay_with_two_peers(RelayLimits::default());
+    let cid = a
+        .reserve(Duration::from_secs(60), "peer-b")
+        .await
+        .expect("reserve");
     // 两侧同时接入：首条被停车等配对，第二条到达即双向回 Bound
     let (sa, sb) = tokio::join!(a.connect(cid), b.connect(cid));
     let (mut sa, mut sb) = (sa.expect("a connect"), sb.expect("b connect"));
@@ -67,8 +73,11 @@ async fn bridged_circuit_moves_256kb_identically() {
 
 #[tokio::test]
 async fn unknown_circuit_rejected_with_error_signal() {
-    let (mut a, mut b) = relay_with_two_peers(RelayLimits::default());
-    let cid = a.reserve(Duration::from_secs(60)).await.expect("reserve");
+    let (mut a, mut b, _keep) = relay_with_two_peers(RelayLimits::default());
+    let cid = a
+        .reserve(Duration::from_secs(60), "peer-b")
+        .await
+        .expect("reserve");
 
     let outcome = b.connect(CircuitId(987_654)).await;
     let err = match outcome {
@@ -102,8 +111,8 @@ async fn per_peer_link_quota_rejects_extra_link() {
         ..RelayLimits::default()
     };
     let source = MockLinkSource::new();
-    let (c1, s1) = mock_link_pair("peer-a", "relay");
-    let (c2, s2) = mock_link_pair("peer-a", "relay");
+    let (c1, s1) = mock_link_pair("peer-a", "peer-a");
+    let (c2, s2) = mock_link_pair("peer-a", "peer-a");
     let keep = source.clone();
     let svc = Arc::new(RelayServiceImpl::new(Box::new(source), limits));
     tokio::spawn(async move {
@@ -115,11 +124,11 @@ async fn per_peer_link_quota_rejects_extra_link() {
     // 先挂第一条链路并确认可用，避免两条链路的注册竞态
     keep.push(Box::new(s1));
     first
-        .reserve(Duration::from_secs(60))
+        .reserve(Duration::from_secs(60), "")
         .await
         .expect("first link admitted");
     keep.push(Box::new(s2));
-    let outcome = second.reserve(Duration::from_secs(60)).await;
+    let outcome = second.reserve(Duration::from_secs(60), "").await;
     let err = match outcome {
         Err(e) => e,
         Ok(_) => panic!("second link must be rejected"),
@@ -143,8 +152,11 @@ async fn egress_quota_cuts_circuit_and_signals() {
         egress_bytes_per_sec: 1024,
         ..RelayLimits::default()
     };
-    let (mut a, mut b) = relay_with_two_peers(limits);
-    let cid = a.reserve(Duration::from_secs(60)).await.expect("reserve");
+    let (mut a, mut b, _keep) = relay_with_two_peers(limits);
+    let cid = a
+        .reserve(Duration::from_secs(60), "peer-b")
+        .await
+        .expect("reserve");
     let (sa, sb) = tokio::join!(a.connect(cid), b.connect(cid));
     let (mut sa, mut sb) = (sa.expect("a connect"), sb.expect("b connect"));
 
@@ -167,4 +179,41 @@ async fn egress_quota_cuts_circuit_and_signals() {
         outcome.0.is_err() || outcome.1.is_err(),
         "circuit must be cut after egress excess"
     );
+}
+
+#[tokio::test]
+async fn foreign_joiner_cannot_attach_anothers_circuit() {
+    // 审查 M2 回归：即便拿到真实 cid，未列入 allowed_joiner 的第三方也被拒
+    let (mut a, mut b, keep) = relay_with_two_peers(RelayLimits::default());
+    let cid = a
+        .reserve(Duration::from_secs(60), "peer-b")
+        .await
+        .expect("reserve");
+
+    let (client_c, server_c) = mock_link_pair("peer-c", "peer-c");
+    keep.push(Box::new(server_c));
+    let mut c = RelayClient::new(Box::new(client_c));
+    let outcome = c.connect(cid).await;
+    let err = match outcome {
+        Err(e) => e,
+        Ok(_) => panic!("foreign joiner must be rejected"),
+    };
+    assert!(
+        matches!(
+            err,
+            RelayError::Server {
+                code: errcode::FORBIDDEN_JOINER,
+                ..
+            }
+        ),
+        "got {err:?}"
+    );
+
+    // 属主与被允许者仍可正常建桥
+    let (sa, sb) = tokio::join!(a.connect(cid), b.connect(cid));
+    let (mut sa, mut sb) = (sa.expect("a connect"), sb.expect("b connect"));
+    let (_, back) = exchange(&mut sa, &mut sb, b"probe", b"")
+        .await
+        .expect("pump");
+    assert_eq!(back, b"probe");
 }
