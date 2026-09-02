@@ -1,6 +1,7 @@
 //! 契约 §3 数据类型 serde 单测：camelCase 逐字段断言 + roundtrip。
 
-use super::{roundtrip, sample_config, GuiConfig, MetricsJson, NodeStatus, PingOutcome, DialReport, DialHopJson, HopKind};
+use super::{GuiConfig, MetricsJson, NodeStatus, PingOutcome, DialReport, DialHopJson, HopKind};
+use super::testing::{roundtrip, sample_config};
 use serde_json::{json, Value};
 
 #[test]

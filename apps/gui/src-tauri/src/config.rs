@@ -11,6 +11,47 @@ use crate::types::GuiConfig;
 /// 配置文件名。
 const FILE_NAME: &str = "gui-config.json";
 
+/// 出厂内置云端 bootstrap（契约 v2：rendezvous，QUIC 语法）。
+pub(crate) fn default_bootstrap() -> Vec<String> {
+    vec!["43.240.223.138/u3400".into(), "121.196.193.177/u3400".into()]
+}
+
+/// 出厂内置云端中继（契约 v2：relay，QUIC 语法）。
+pub(crate) fn default_relay_addrs() -> Vec<String> {
+    vec!["43.240.223.138/u3403".into(), "121.196.193.177/u3403".into()]
+}
+
+/// 出厂内置观测反射口（socket 语法）。
+pub(crate) fn default_observation_addrs() -> Vec<String> {
+    vec!["121.196.193.177:3402".into()]
+}
+
+/// enableMdns 的字段级默认（serde 字段缺失时生效）。
+pub(crate) fn default_true() -> bool {
+    true
+}
+
+/// dataDir 的字段级默认（无 app 目录上下文时的相对兜底）。
+pub(crate) fn default_data_dir() -> String {
+    "./p2p-data".into()
+}
+
+impl Default for GuiConfig {
+    fn default() -> Self {
+        Self {
+            quic_port: 0,
+            tcp_port: 0,
+            enable_mdns: true,
+            data_dir: default_data_dir(),
+            bootstrap: default_bootstrap(),
+            relay_addrs: default_relay_addrs(),
+            advertised_addrs: Vec::new(),
+            observation_port: None,
+            observation_addrs: default_observation_addrs(),
+        }
+    }
+}
+
 /// 持久化读写句柄：绑定 app 数据目录，串行化写盘。
 pub struct ConfigStore {
     app_data_dir: PathBuf,
@@ -29,22 +70,15 @@ impl ConfigStore {
         self.app_data_dir.join(FILE_NAME)
     }
 
-    /// 契约 §3 默认值：dataDir = app 数据目录下 p2p-data，端口随机，mdns 开。
+    /// 契约 §3 默认值：内置云端端点 + dataDir = app 数据目录下 p2p-data。
     pub fn default_config(&self) -> GuiConfig {
         GuiConfig {
-            quic_port: 0,
-            tcp_port: 0,
-            enable_mdns: true,
             data_dir: self
                 .app_data_dir
                 .join("p2p-data")
                 .to_string_lossy()
                 .into_owned(),
-            bootstrap: Vec::new(),
-            relay_addrs: Vec::new(),
-            advertised_addrs: Vec::new(),
-            observation_port: None,
-            observation_addrs: Vec::new(),
+            ..GuiConfig::default()
         }
     }
 
@@ -116,11 +150,17 @@ mod tests {
         assert_eq!(cfg.tcp_port, 0);
         assert!(cfg.enable_mdns);
         assert_eq!(cfg.data_dir, dir.join("app").join("p2p-data").to_string_lossy());
-        assert!(cfg.bootstrap.is_empty());
-        assert!(cfg.relay_addrs.is_empty());
+        assert_eq!(
+            cfg.bootstrap,
+            vec!["43.240.223.138/u3400", "121.196.193.177/u3400"]
+        );
+        assert_eq!(
+            cfg.relay_addrs,
+            vec!["43.240.223.138/u3403", "121.196.193.177/u3403"]
+        );
         assert!(cfg.advertised_addrs.is_empty());
         assert_eq!(cfg.observation_port, None);
-        assert!(cfg.observation_addrs.is_empty());
+        assert_eq!(cfg.observation_addrs, vec!["121.196.193.177:3402"]);
         let _ = fs::remove_dir_all(&dir);
     }
 
@@ -152,6 +192,49 @@ mod tests {
         cfg.quic_port = 0;
         store.save(&cfg).expect("再次保存");
         assert_eq!(store.load(), cfg);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn partial_config_fills_missing_fields_with_defaults() {
+        let dir = temp_root("partial");
+        let app = dir.join("app");
+        fs::create_dir_all(&app).expect("创建 app 目录");
+        // 旧版配置：只有用户改过的字段，缺端点/端口字段
+        fs::write(
+            app.join("gui-config.json"),
+            serde_json::json!({ "enableMdns": false, "quicPort": 3400 }).to_string(),
+        )
+        .expect("写入部分配置");
+        let store = ConfigStore::new(app.clone());
+        let cfg = store.load();
+        assert!(!cfg.enable_mdns, "用户已有字段不得被默认覆盖");
+        assert_eq!(cfg.quic_port, 3400, "用户已有字段不得被默认覆盖");
+        assert_eq!(
+            cfg.bootstrap,
+            crate::config::default_bootstrap(),
+            "缺失字段应补出厂默认端点"
+        );
+        assert_eq!(cfg.relay_addrs, crate::config::default_relay_addrs());
+        assert_eq!(
+            cfg.observation_addrs,
+            crate::config::default_observation_addrs()
+        );
+        assert_eq!(cfg.tcp_port, 0);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn user_explicit_empty_lists_not_overridden_by_defaults() {
+        let dir = temp_root("explicit-empty");
+        let store = ConfigStore::new(dir.join("app"));
+        let mut cfg = store.default_config();
+        cfg.bootstrap = Vec::new();
+        cfg.observation_addrs = Vec::new();
+        store.save(&cfg).expect("保存用户显式空列表");
+        let loaded = store.load();
+        assert!(loaded.bootstrap.is_empty(), "用户显式空列表不得补默认");
+        assert!(loaded.observation_addrs.is_empty());
         let _ = fs::remove_dir_all(&dir);
     }
 

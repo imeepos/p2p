@@ -1,6 +1,7 @@
 //! 契约 §2 事件联合 serde 单测：判别名/字段名逐字断言 + NodeEvent 全变体映射 + 可选 tsMs。
 
-use super::{roundtrip, HopKind, NodeEventJson};
+use super::{HopKind, NodeEventJson};
+use super::testing::{roundtrip};
 use serde_json::{json, Value};
 
 #[test]
