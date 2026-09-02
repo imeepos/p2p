@@ -1,0 +1,95 @@
+//! gui-contract.md §1 的 9 个 Tauri 命令：薄封装，业务在 state，事件在 events。
+//!
+//! 参数名经 Tauri 自动转 camelCase（peerId/timeoutMs），与契约逐字对齐；Err 一律中文。
+
+use tauri::{AppHandle, State};
+
+use crate::events;
+use crate::state::AppState;
+use crate::types::{DialReport, GuiConfig, MetricsJson, NodeEventJson, NodeStatus, PingOutcome};
+
+/// node_start：构建 Node 并启动；已运行 Err。
+/// 事件订阅先于返回（state.start 内建立），node_started 由桥接层自产。
+#[tauri::command]
+pub async fn node_start(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    cfg: GuiConfig,
+) -> Result<NodeStatus, String> {
+    let started = state.start(cfg).await?;
+    events::spawn(app.clone(), started.events);
+    events::emit(
+        &app,
+        NodeEventJson::NodeStarted {
+            listen_addrs: started.listen_addrs,
+        },
+    );
+    Ok(started.status)
+}
+
+/// node_stop：幂等；node_stopped 仅在真的停掉运行中节点时发出。
+#[tauri::command]
+pub async fn node_stop(app: AppHandle, state: State<'_, AppState>) -> Result<NodeStatus, String> {
+    let stopped = state.stop().await;
+    if stopped {
+        events::emit(&app, NodeEventJson::NodeStopped);
+    }
+    Ok(state.status().await)
+}
+
+/// node_status：本地/监听地址/运行时长快照。
+#[tauri::command]
+pub async fn node_status(state: State<'_, AppState>) -> Result<NodeStatus, String> {
+    Ok(state.status().await)
+}
+
+/// metrics_get：运行时指标；未运行返回全零。
+#[tauri::command]
+pub async fn metrics_get(state: State<'_, AppState>) -> Result<MetricsJson, String> {
+    Ok(state.metrics().await)
+}
+
+/// config_get：读持久化配置，无文件返回默认值。
+#[tauri::command]
+pub async fn config_get(state: State<'_, AppState>) -> Result<GuiConfig, String> {
+    Ok(state.config_get())
+}
+
+/// config_save：原子写盘；不改变运行中节点。
+#[tauri::command]
+pub async fn config_save(state: State<'_, AppState>, cfg: GuiConfig) -> Result<GuiConfig, String> {
+    state.config_save(cfg)
+}
+
+/// peer_dial：target 形如 "<peer_id>@<addr>"（契约 §6），逐跳报告随 DialReport 回收。
+#[tauri::command]
+pub async fn peer_dial(state: State<'_, AppState>, target: String) -> Result<DialReport, String> {
+    state.dial(&target).await
+}
+
+/// peer_ping：复用 echo 协议 request（同 CLI ping），返回 rtt 与期间逐跳。
+#[tauri::command]
+pub async fn peer_ping(
+    state: State<'_, AppState>,
+    peer_id: String,
+    timeout_ms: u64,
+) -> Result<PingOutcome, String> {
+    state.ping(&peer_id, timeout_ms).await
+}
+
+/// identity_reset：危险操作，confirm 必须为 true；停节点并删除身份种子文件。
+#[tauri::command]
+pub async fn identity_reset(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    confirm: bool,
+) -> Result<NodeStatus, String> {
+    if !confirm {
+        return Err("重置身份是危险操作，必须显式传入 confirm=true".into());
+    }
+    let (status, was_running) = state.reset_identity().await?;
+    if was_running {
+        events::emit(&app, NodeEventJson::NodeStopped);
+    }
+    Ok(status)
+}
