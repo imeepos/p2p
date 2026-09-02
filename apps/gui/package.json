@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "tauri": "tauri",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:i18n": "bash scripts/check/i18n-diff.sh"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.23",
