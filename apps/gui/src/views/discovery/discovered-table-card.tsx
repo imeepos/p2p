@@ -1,5 +1,5 @@
 import { CopyIcon, RadarIcon } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -24,6 +24,7 @@ import type { NodeEventJson } from "@/lib/ipc-types";
 import { selectPeerList, useNodeStore, type PeerEntry } from "@/stores/node-store";
 import { copyText } from "@/views/shared/clipboard";
 import { EmptyState } from "@/views/shared/empty-state";
+import { PeerIdCell } from "@/views/shared/peer-id-cell";
 
 // 契约 v1 修订：事件可携带可选 tsMs；缺省时兜底用 store 记录的本地接收时间。
 function readEventTsMs(event: NodeEventJson): number | null {
@@ -40,26 +41,6 @@ function deriveFirstSeen(events: NodeEventJson[]): Map<string, number | null> {
     firstSeen.set(event.peer, readEventTsMs(event));
   }
   return firstSeen;
-}
-
-function PeerIdCell({ peerId }: { peerId: string }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <button
-      type="button"
-      className="max-w-48 cursor-pointer truncate text-left font-mono text-xs hover:underline"
-      title={peerId}
-      aria-expanded={expanded}
-      onClick={() => setExpanded((v) => !v)}
-    >
-      {expanded ? (
-        <span className="break-all whitespace-normal">{peerId}</span>
-      ) : (
-        peerId.slice(0, 16)
-      )}
-    </button>
-  );
 }
 
 function PeerTable({

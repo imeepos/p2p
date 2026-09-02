@@ -16,6 +16,7 @@ import {
   type PeerStatusKind,
 } from "./peer-status";
 import { PeerRowActions } from "./peer-row-actions";
+import { PeerIdCell } from "@/views/shared/peer-id-cell";
 
 const SHORT_PEER_ID_LEN = 10;
 
@@ -64,9 +65,7 @@ export function PeerTableRow({
     <TableRow>
       <TableCell className="font-mono text-xs">
         <span className="flex items-center gap-1">
-          <span title={peer.peerId}>
-            {peer.peerId.slice(0, SHORT_PEER_ID_LEN)}…
-          </span>
+          <PeerIdCell peerId={peer.peerId} expandedTo={SHORT_PEER_ID_LEN} />
           <CopyButton value={peer.peerId} className="size-6" />
         </span>
       </TableCell>
