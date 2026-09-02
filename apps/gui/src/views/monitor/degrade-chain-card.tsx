@@ -36,9 +36,15 @@ function ChainBar({ row }: { row: ChainRowDef }) {
         aria-label={`${t(row.labelKey)} ${okPct}%`}
       >
         {total > 0 && (
-          <div className="flex h-full">
-            <div className="bg-success h-full" style={{ width: `${okPct}%` }} />
-            <div className="bg-destructive h-full" style={{ width: `${100 - okPct}%` }} />
+          <div className="motion-safe:animate-in motion-safe:fade-in flex h-full">
+            <div
+              className="bg-success h-full transition-all motion-reduce:transition-none"
+              style={{ width: `${okPct}%` }}
+            />
+            <div
+              className="bg-destructive h-full transition-all motion-reduce:transition-none"
+              style={{ width: `${100 - okPct}%` }}
+            />
           </div>
         )}
       </div>

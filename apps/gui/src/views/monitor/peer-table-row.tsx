@@ -20,7 +20,7 @@ import { PeerRowActions } from "./peer-row-actions";
 const SHORT_PEER_ID_LEN = 10;
 
 const STATUS_DOT: Record<PeerStatusKind, string> = {
-  connected: "bg-success",
+  connected: "bg-success motion-safe:animate-pulse",
   discovered: "bg-info",
   offline: "bg-muted-foreground/40",
 };
