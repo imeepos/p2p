@@ -38,3 +38,4 @@ _none yet — be the first._
 - 2026-09-02：用 JS 写包含 shell `${}`、反引号或嵌套引号的大文件时，避免 JS 模板串；优先普通字符串数组逐行 join，写入后立即 bash -n/self-check，减少转义错误的连环返工。
 - 2026-09-02：委派脚本任务要把每条验收条件映射成可执行命令并检查回报清单；即使实现者声称完成，缺少一项 self-check 也必须拒收后补齐。
 - 2026-09-02：静态读码找并发/时序 bug 收益极低（本次 30 分钟白读 NoiseStream 三遍），先做分层消融实验（去 Noise、去 yamux、去抖动、去分段）+ 句柄对照（mem::forget 验证生命周期假设），5 分钟内收敛到唯一变量。
+- 2026-09-02：AGENTS.md/文档声称的远端名不保证适用当前仓库——任何 fetch/push 前先 `git remote -v` 实测（p2p 仓库只有 origin 无 gitea，按文档 `git fetch gitea` 直接 fatal）。
