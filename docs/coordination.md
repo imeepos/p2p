@@ -60,7 +60,7 @@
 | 拨号可观测性+refused/hairpin 边角 | S（session-e42e5393） | fix/e4-dialhop-observability | crates/p2p-swarm：DialHop 逐跳归因从 debug 提升为 info 或事件化（采样不开 RUST_LOG=debug 也能归因）；复核检查轮14立案——TCP 入站 refused 在直连跳不得作为最终错误上抛，须继续尝试其余地址；同 NAT hairpin refused 快速失败不占满拨号预算 | make check 全绿 + itest 断言各跳事件 |
 | 发现时序+日志降噪 | p2p-D-E4（session-cc9c45f8） | fix/e4-discovery-stability | crates/p2p-discovery：发现窗口时序（启动初期错过 mDNS 公告的补救）；rendezvous 盲拨周期 WARN 降 debug 或加退避，仅首次失败保留 WARN | make check 全绿 + 35s 周期刷屏消除的单测断言 |
 | ECS 公网节点部署 | p2p-T-ECS（session-814cafa1） | feat/ecs-deploy | scripts/deploy-bootstrap-ecs.sh（参照 138 版，systemd 常驻，QUIC 3400/udp + TCP 3401/tcp + 观测 3402/udp）+ runbook 双公网拓扑条目；安全组已由协调者放行（22/3400udp/3401tcp/3402udp） | make check 全绿 + 15↔ECS 冒烟 PASS（记录 PeerId） |
-| hairpin 快速失败 | p2p-S-E4（待创建） | fix/e4-hairpin-fastfail | crates/p2p-swarm + itest：同 NAT 观测 v4 地址 refused 快速失败/降权，不占满拨号预算，LAN 地址可轮到（检查轮15/16 残留） | make check 全绿 + itest 断言 hairpin 场景预算 |
+| hairpin 快速失败 | p2p-S-E4（session-7a31fb74） | fix/e4-hairpin-fastfail | crates/p2p-swarm + itest：同 NAT 观测 v4 地址 refused 快速失败/降权，不占满拨号预算，LAN 地址可轮到（检查轮15/16 残留） | make check 全绿 + itest 断言 hairpin 场景预算 |
 | 长稳采样 | 待派（依赖 hairpin 交付） | — | scripts/ 采样脚本与 runbook：默认日志含 p2p_swarm=info、禁 pkill 红线、三连采样统计 | E1/E3 runbook 复测三连稳定 |
 
 metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
