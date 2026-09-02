@@ -1,0 +1,10 @@
+[package]
+name = "p2p-identity"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+bs58.workspace = true
+ed25519-dalek.workspace = true
+rand.workspace = true
+sha2.workspace = true

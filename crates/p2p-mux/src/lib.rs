@@ -1,0 +1,26 @@
+//! 字节流与多路复用抽象。
+//!
+//! QUIC 用原生多流，TCP 挂 yamux，均实现为 [MuxControl]（实现归内核会话）。
+
+use std::{io, sync::Arc};
+
+/// 双向字节流的统一对象安全别名：TCP/QUIC/Noise/中继电路的产物均可装入。
+pub trait ByteStream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send {}
+impl<T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send> ByteStream for T {}
+
+pub type BoxedStream = Box<dyn ByteStream>;
+
+/// 复用控制器：在一条已认证连接上开/收多条互相独立的逻辑流。
+#[async_trait::async_trait]
+pub trait MuxControl: Send + Sync {
+    /// 主动开一条逻辑流。实现必须施加每连接流数上限（防滥用，design §6）。
+    async fn open_stream(&self) -> io::Result<BoxedStream>;
+
+    /// 接收对端开来的下一条逻辑流；连接关闭后返回 None。
+    async fn accept_stream(&self) -> Option<BoxedStream>;
+}
+
+/// 装箱为对象安全的复用句柄。
+pub fn boxed_mux(m: impl MuxControl + 'static) -> Arc<dyn MuxControl> {
+    Arc::new(m)
+}

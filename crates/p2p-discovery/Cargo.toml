@@ -1,0 +1,10 @@
+[package]
+name = "p2p-discovery"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+p2p-identity = { path = "../p2p-identity" }
+p2p-transport = { path = "../p2p-transport" }
+tokio.workspace = true

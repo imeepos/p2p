@@ -1,0 +1,8 @@
+[package]
+name = "p2p-mux"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+tokio.workspace = true
