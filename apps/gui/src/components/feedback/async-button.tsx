@@ -87,7 +87,7 @@ export function AsyncButton({
     <Button
       onClick={handleClick}
       disabled={disabled || busy}
-      aria-busy={busy}
+      aria-busy={status === "loading"}
       {...props}
     >
       <StatusIcon status={status} />

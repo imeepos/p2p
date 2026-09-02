@@ -2,7 +2,6 @@ import { create } from "zustand";
 
 import { ipc } from "@/lib/ipc";
 import type {
-  DialHopJson,
   DialReport,
   GuiConfig,
   MetricsJson,
@@ -11,13 +10,9 @@ import type {
   PingOutcome,
 } from "@/lib/ipc-types";
 
-export interface PeerEntry {
-  peerId: string;
-  addrs: string[];
-  connected: boolean;
-  lastSeenMs: number;
-  hops: DialHopJson[];
-}
+import { reduceEvent, type PeerEntry } from "./event-reducer";
+
+export type { PeerEntry };
 
 interface NodeStoreState {
   status: NodeStatus | null;
@@ -33,84 +28,7 @@ interface NodeStoreState {
   ping: (peerId: string, timeoutMs: number) => Promise<PingOutcome>;
 }
 
-const MAX_EVENTS = 500;
-const MAX_HOPS_PER_PEER = 20;
-
-type SetState = (
-  partial:
-    | Partial<NodeStoreState>
-    | ((state: NodeStoreState) => Partial<NodeStoreState>),
-) => void;
-
 let subscriptionStarted = false;
-
-function touchPeer(
-  peers: Record<string, PeerEntry>,
-  peerId: string,
-  patch: Partial<PeerEntry>,
-): Record<string, PeerEntry> {
-  const entry =
-    peers[peerId] ??
-    { peerId, addrs: [], connected: false, lastSeenMs: 0, hops: [] };
-  return {
-    ...peers,
-    [peerId]: { ...entry, ...patch, lastSeenMs: Date.now() },
-  };
-}
-
-function peersAfterEvent(
-  peers: Record<string, PeerEntry>,
-  event: NodeEventJson,
-): Record<string, PeerEntry> {
-  switch (event.type) {
-    case "peer_discovered":
-      return touchPeer(peers, event.peer, { addrs: event.addrs });
-    case "peer_connected":
-      return touchPeer(peers, event.peer, { connected: true });
-    case "peer_disconnected":
-      return touchPeer(peers, event.peer, { connected: false });
-    case "dial_hop": {
-      const entry =
-        peers[event.peer] ??
-        { peerId: event.peer, addrs: [], connected: false, lastSeenMs: 0, hops: [] };
-      return {
-        ...peers,
-        [event.peer]: {
-          ...entry,
-          lastSeenMs: Date.now(),
-          hops: [{ hop: event.hop, ok: event.ok, detail: event.detail }, ...entry.hops].slice(
-            0,
-            MAX_HOPS_PER_PEER,
-          ),
-        },
-      };
-    }
-    default:
-      return peers;
-  }
-}
-
-function statusAfterEvent(
-  status: NodeStatus | null,
-  event: NodeEventJson,
-): NodeStatus | null {
-  if (!status) return status;
-  if (event.type === "node_started") {
-    return { ...status, running: true, listenAddrs: event.listenAddrs };
-  }
-  if (event.type === "node_stopped") {
-    return { ...status, running: false, listenAddrs: [], uptimeSecs: 0, startedAtMs: null };
-  }
-  return status;
-}
-
-function applyEvent(set: SetState, event: NodeEventJson): void {
-  set((s) => ({
-    events: [event, ...s.events].slice(0, MAX_EVENTS),
-    peers: peersAfterEvent(s.peers, event),
-    status: statusAfterEvent(s.status, event),
-  }));
-}
 
 export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   status: null,
@@ -122,7 +40,9 @@ export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   bootstrap: async () => {
     if (subscriptionStarted) return;
     subscriptionStarted = true;
-    const unlisten = await ipc.onNodeEvent((event) => applyEvent(set, event));
+    const unlisten = await ipc.onNodeEvent((event) =>
+      set((s) => reduceEvent(s, event)),
+    );
     void unlisten;
     set({ subscriptionLive: true });
     await get().refresh();

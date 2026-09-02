@@ -1,0 +1,108 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { mockBackend } from "./mock-ipc";
+import type { GuiConfig } from "./ipc-types";
+
+const CFG: GuiConfig = {
+  quicPort: 34000,
+  tcpPort: 34001,
+  enableMdns: true,
+  dataDir: "/tmp/mock",
+  bootstrap: [],
+  relayAddrs: [],
+  advertisedAddrs: [],
+  observationPort: null,
+  observationAddrs: [],
+};
+
+const TICK_MS = 2500;
+
+async function stopIfRunning() {
+  const status = await mockBackend.nodeStatus();
+  if (status.running) {
+    const stop = mockBackend.nodeStop();
+    await vi.advanceTimersByTimeAsync(500);
+    await stop;
+  }
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(async () => {
+  await stopIfRunning();
+  vi.useRealTimers();
+});
+
+describe("mock-ipc", () => {
+  it("nodeStart 模拟启动延迟并先发 node_started，随后周期事件流动", async () => {
+    const events: string[] = [];
+    const unlisten = await mockBackend.onNodeEvent((e) => events.push(e.type));
+    const started = mockBackend.nodeStart(CFG);
+    await vi.advanceTimersByTimeAsync(799);
+    expect(events).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(1);
+    const status = await started;
+    expect(status.running).toBe(true);
+    expect(events[0]).toBe("node_started");
+    expect(status.listenAddrs).toContain("0.0.0.0/34000");
+
+    await vi.advanceTimersByTimeAsync(TICK_MS * 12);
+    const flowed = new Set(events);
+    expect(
+      flowed.has("peer_discovered") ||
+        flowed.has("peer_connected") ||
+        flowed.has("dial_hop"),
+    ).toBe(true);
+
+    const stopped = mockBackend.nodeStop();
+    await vi.advanceTimersByTimeAsync(500);
+    const stoppedStatus = await stopped;
+    expect(stoppedStatus.running).toBe(false);
+    unlisten();
+  });
+
+  it("nodeStart 已运行时拒绝（幂等性反向）", async () => {
+    const first = mockBackend.nodeStart(CFG);
+    await vi.advanceTimersByTimeAsync(1000);
+    await first;
+    await expect(mockBackend.nodeStart(CFG)).rejects.toThrow(/已在运行/);
+    await stopIfRunning();
+  });
+
+  it("peerDial 解析失败抛 Err，合法 target 返回逐跳报告", async () => {
+    await expect(mockBackend.peerDial("no-at-sign")).rejects.toThrow(
+      /target 语法非法/,
+    );
+
+    const dial = mockBackend.peerDial("abc123@192.168.1.5/3400");
+    await vi.advanceTimersByTimeAsync(2000);
+    const report = await dial;
+    expect(report.peer).toBe("abc123");
+    expect(report.hops.length).toBeGreaterThan(0);
+    expect(report.totalMs).toBeGreaterThan(0);
+    expect(typeof report.ok).toBe("boolean");
+  });
+
+  it("peerPing 未知节点抛 Err，identityReset 必须显式 confirm", async () => {
+    // 先挂 rejects 断言再推进时钟，避免 rejection 在无 handler 窗口触发
+    const pingAssert = expect(mockBackend.peerPing("zzz", 1000)).rejects.toThrow(
+      /未知节点/,
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    await pingAssert;
+    await expect(mockBackend.identityReset(false)).rejects.toThrow(
+      /confirm=true/,
+    );
+  });
+
+  it("configGet/configSave 往返一致", async () => {
+    expect(await mockBackend.configGet()).toEqual(CFG);
+    const save = mockBackend.configSave({ ...CFG, quicPort: 12345 });
+    await vi.advanceTimersByTimeAsync(300);
+    const saved = await save;
+    expect(saved.quicPort).toBe(12345);
+  });
+});
