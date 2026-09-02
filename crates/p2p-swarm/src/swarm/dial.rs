@@ -33,6 +33,8 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
                 return Ok(mux);
             }
             Err(err) => {
+                // 每个失败地址都留 debug 日志 + DialFailed 事件（E3 小修单：遍历可见性）
+                tracing::debug!(%peer, %addr, error = %err, "direct addr failed; trying next");
                 swarm.emit(NodeEvent::DialFailed {
                     peer: Some(peer),
                     reason: format!("{addr}: {err}"),

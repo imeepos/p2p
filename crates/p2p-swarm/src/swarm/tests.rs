@@ -100,3 +100,52 @@ async fn degrade_without_relay_reports_unavailable() {
     assert!(saw_direct_fail, "direct hop failure must be visible");
     assert!(!saw_relay_ok, "relay hop must not fake success");
 }
+
+/// 混合地址回归（E3 小修单）：QUIC 地址必拒 + TCP 地址可达——
+/// 直连跳必须遍历全部地址（QUIC 按序先试、失败发 DialFailed），经 TCP 成功，
+/// 不得在首个地址被拒后直接上抛。
+#[tokio::test]
+async fn dial_traverses_mixed_quic_and_tcp_addrs() {
+    let swarm = Swarm::start(test_config()).await.expect("bind swarm");
+    let helper = Swarm::start(test_config()).await.expect("bind helper");
+    let helper_peer = helper.local_peer_id();
+    let tcp_addr = helper
+        .listen_addrs()
+        .into_iter()
+        .find(|a| matches!(a, TransportAddr::Tcp { .. }))
+        .expect("helper tcp addr");
+    // 端口 0 的 QUIC 地址：quinn 拨号即报错（必拒且立即返回）
+    swarm.add_peer_addresses(
+        helper_peer,
+        vec![
+            TransportAddr::Quic {
+                ip: IpAddr::from([127, 0, 0, 1]),
+                port: 0,
+            },
+            tcp_addr,
+        ],
+    );
+
+    let mut events = swarm.subscribe();
+    swarm
+        .connect(helper_peer)
+        .await
+        .expect("dial must land on the reachable tcp addr");
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    let mut saw_quic_fail = false;
+    loop {
+        match tokio::time::timeout_at(deadline, events.recv()).await {
+            Ok(Ok(NodeEvent::DialFailed { reason, .. })) if reason.contains("/u0") => {
+                saw_quic_fail = true;
+                break;
+            }
+            Ok(Ok(_)) => continue,
+            _ => break,
+        }
+    }
+    assert!(
+        saw_quic_fail,
+        "refused quic addr must emit DialFailed before tcp success"
+    );
+}
