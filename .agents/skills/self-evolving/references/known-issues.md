@@ -96,3 +96,5 @@ failed: early eof（客户端侧超时中止）。
 
 - 2026-09-02 E5：`local a=$(date +%s) b=$((a+60))` 同一 local 语句内，后项的算术展开先于赋值执行，`set -u` 下直接 unbound variable 炸出整个函数（soak 编排器实录，cleanup 被 trap 连带触发）。修法：每个依赖变量独立 `local x; x=...` 声明赋值两步走；含 trap cleanup 的脚本尤其要防中途退出。
 - 2026-09-02 E5：想 dry-run 一个「无 --dry-run 参数、载入即 main」的编排脚本时，`bash -c 'source script.sh'` 会真实执行 main（远端节点被真实拉起）。教训：编排脚本从第一版就内置 --dry-run/--self-check 门；任何「测试性执行」前先 `grep -n '^\s*main'` 确认入口守卫。
+- 2026-09-02 G-A：Tauri 2 即使 `bundle.icon: []` 留空，`tauri::generate_context!` 仍按默认路径找 `src-tauri/icons/icon.png`，缺失直接编译失败（failed to open icon），clippy/test 门禁全被卡死。修法：放一个最小合法 PNG（python3 struct+zlib 手写 32x32 仅 104 字节）即可解锁；官方文档只说"图标可留空"未提此强制项。
+- 2026-09-02 G-A：`git apply --cached` 分 hunk 提交时，pathspec/patch 路径相对**当前 cwd**——在仓库根跑 `git diff -- src/types.rs`（文件实际在 apps/gui/src-tauri/src/）静默得到空 diff，解析 0 hunks。修法：diff 与 apply 前先核对 cwd 与路径前缀；hunk 数为 0 直接 fail，不许继续。
