@@ -57,17 +57,18 @@ export interface PingOutcome {
   error: string | null;
 }
 
+// 契约 §2 修订：全变体可带可选 tsMs（后端 emit 出口统一盖发射时刻戳，缺省字段不出现在载荷）。
 export type NodeEventJson =
-  | { type: "peer_discovered"; peer: string; addrs: string[] }
-  | { type: "peer_connected"; peer: string }
-  | { type: "peer_disconnected"; peer: string }
-  | { type: "listen_failed"; addr: string; reason: string }
-  | { type: "dial_failed"; peer: string | null; reason: string }
-  | { type: "protocol_violation"; peer: string; reason: string }
-  | { type: "dial_hop"; peer: string; hop: DialHopKind; ok: boolean; detail: string }
-  | { type: "node_started"; listenAddrs: string[] }
-  | { type: "node_stopped" }
-  | { type: "node_error"; reason: string };
+  | { type: "peer_discovered"; peer: string; addrs: string[]; tsMs?: number }
+  | { type: "peer_connected"; peer: string; tsMs?: number }
+  | { type: "peer_disconnected"; peer: string; tsMs?: number }
+  | { type: "listen_failed"; addr: string; reason: string; tsMs?: number }
+  | { type: "dial_failed"; peer: string | null; reason: string; tsMs?: number }
+  | { type: "protocol_violation"; peer: string; reason: string; tsMs?: number }
+  | { type: "dial_hop"; peer: string; hop: DialHopKind; ok: boolean; detail: string; tsMs?: number }
+  | { type: "node_started"; listenAddrs: string[]; tsMs?: number }
+  | { type: "node_stopped"; tsMs?: number }
+  | { type: "node_error"; reason: string; tsMs?: number };
 
 export type NodeEventType = NodeEventJson["type"];
 

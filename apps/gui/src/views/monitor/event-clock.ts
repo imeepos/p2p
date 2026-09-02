@@ -2,15 +2,13 @@ import type { Locale } from "@/i18n";
 import type { NodeEventJson } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
 
-type WithTsMs = { tsMs?: number };
-
 const receivedAt = new WeakMap<NodeEventJson, number>();
 let armed = false;
 
 function stamp(event: NodeEventJson, now: number): void {
   if (receivedAt.has(event)) return;
-  // 契约 v1 §2：变体可带 tsMs；缺省用本地接收时间兜底。
-  receivedAt.set(event, (event as WithTsMs).tsMs ?? now);
+  // 契约 v1 §2：真实事件带发射时刻 tsMs；缺省（mock/旧载荷）用本地接收时间兜底。
+  receivedAt.set(event, event.tsMs ?? now);
 }
 
 function arm(): void {
@@ -33,9 +31,8 @@ arm();
 export function eventTimeMs(event: NodeEventJson): number {
   const known = receivedAt.get(event);
   if (known !== undefined) return known;
-  const now = Date.now();
-  stamp(event, now);
-  return now;
+  stamp(event, Date.now());
+  return receivedAt.get(event) as number;
 }
 
 const DIVISOR: Partial<Record<Intl.RelativeTimeFormatUnit, number>> = {
