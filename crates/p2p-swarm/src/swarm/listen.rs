@@ -66,6 +66,7 @@ async fn accept_inbound(swarm: &Arc<Swarm>, conn: SecureConn) {
     let peer = conn.remote;
     if !swarm.gate_allows(peer).await {
         tracing::warn!(%peer, "inbound connection denied by gate, dropping");
+        swarm.metrics.count_gate_denial();
         return;
     }
     insert_connection(swarm, peer, conn.mux);

@@ -162,6 +162,7 @@ impl RelayServiceImpl {
             RelayMsg::punch_ack(sender, addrs)
         };
         if !punch.try_take(1) {
+            self.lock_state().metrics.count_punch_limited();
             tracing::warn!(from = %sender, to = %target, "punch signaling rate limited");
             let _ = send_ctrl(
                 write,
@@ -171,6 +172,7 @@ impl RelayServiceImpl {
             return true;
         }
         let Some(dest) = self.lock_state().control_of(&target) else {
+            self.lock_state().metrics.count_punch_offline();
             tracing::warn!(from = %sender, to = %target, "punch target has no control link");
             let _ = send_ctrl(
                 write,
@@ -185,6 +187,7 @@ impl RelayServiceImpl {
         if let Err(e) = send_ctrl(&dest, frame).await {
             tracing::warn!(from = %sender, to = %target, error = %e, "punch forward failed; target link broken");
         } else {
+            self.lock_state().metrics.count_punch_forwarded();
             tracing::info!(from = %sender, to = %target, is_req, "punch signal forwarded");
         }
         true

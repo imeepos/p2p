@@ -131,6 +131,7 @@ pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) 
         .map_err(|e| io::Error::other(e.to_string()))?;
     if !swarm.gate_allows(conn.remote).await {
         tracing::warn!(peer = %conn.remote, %addr, "outbound connection denied by gate, dropping");
+        swarm.metrics.count_gate_denial();
         drop(conn);
         return Err(io::Error::other(format!(
             "peer {peer} denied by connection gate"

@@ -18,6 +18,8 @@ pub struct MetricsSnapshot {
     pub addr_dial_failures: u64,
     /// relay 会话重连动作次数（链路断开或注册失败后的重拨尝试）。
     pub relay_reconnects: u64,
+    /// 门禁拒绝计数（出站拨号与入站连接合计）。
+    pub gate_denials_total: u64,
     pub active_connections: u64,
     pub relay_sessions_active: u64,
 }
@@ -55,6 +57,7 @@ pub(crate) struct Metrics {
     relay_fail: AtomicU64,
     addr_dial_fail: AtomicU64,
     reconnects: AtomicU64,
+    gate_denials: AtomicU64,
 }
 
 impl Metrics {
@@ -84,6 +87,10 @@ impl Metrics {
         self.reconnects.fetch_add(1, Ordering::Relaxed);
     }
 
+    pub(crate) fn count_gate_denial(&self) {
+        self.gate_denials.fetch_add(1, Ordering::Relaxed);
+    }
+
     pub(crate) fn snapshot(&self, active_connections: u64, relay_sessions: u64) -> MetricsSnapshot {
         let load = |c: &AtomicU64| c.load(Ordering::Relaxed);
         MetricsSnapshot {
@@ -95,6 +102,7 @@ impl Metrics {
             dial_relay_fail: load(&self.relay_fail),
             addr_dial_failures: load(&self.addr_dial_fail),
             relay_reconnects: load(&self.reconnects),
+            gate_denials_total: load(&self.gate_denials),
             active_connections,
             relay_sessions_active: relay_sessions,
         }
