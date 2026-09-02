@@ -9,3 +9,8 @@
 - 禁止跨 crate 改动不先报协调会话：派单声明的 crate 范围是边界，噪声源在别的 crate 接线层也不能直接动手——先回报再改（2026-09-02 D-E4 6a4df8c 触及 crates/p2p facade 被点名，本次因无并发冲突豁免）。
 - 禁止依赖 .env 的部署脚本只在主树验证：.env 被 gitignore，worktree 里没有副本，脚本在 worktree 内运行必死于凭据加载——这类脚本必须有显式外部指定入口（如 DEPLOY_ENV_FILE=<主树>/.env）并在头部写明（2026-09-02 ECS 部署实录，静态自检 grep .env 当场拦下）。
 - 禁止 `git commit -m $(cat <<'EOF' ... )`：命令替换被词切分，commit 只收到第一个词却静默不报错（HEAD 不动、文件留在暂存区），本次靠提交后核对才发现空跑。规则：多行 message 一律 `git commit -F - <<'MSG' ... MSG`，提交后必须核对 git log（2026-09-02 E4 K 会话实录）。
+- 禁止在 monorepo 子包之外的目录跑 pnpm（G-B2 当轮连犯两次，NO_IMPORTER_MANIFEST
+  让验证假红、提交未验证落盘）：workdir 必须显式指到子包，构建验证与 git 提交
+  永远拆成两条独立命令，提交前必须先看到本轮 build 的真实退出码 0（2026-09-02）。
+- 禁止把「跑验证 + git add + commit」串进同一条分号链命令：链上任何失败都会被
+  吞掉继续提交，revert 纪律的前提是提交前验证（2026-09-02 两次实例后固化）。
