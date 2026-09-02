@@ -48,3 +48,14 @@ pub trait AddrCache: Send + Sync {
     fn get(&self, peer: &PeerId) -> Option<Vec<TransportAddr>>;
     fn evict_expired(&self) -> Vec<PeerId>;
 }
+
+// ---- D 会话实现（追加，冻结契约未改）----
+pub mod cache;
+pub mod mdns;
+pub mod rendezvous;
+
+pub use cache::MemCache;
+pub use mdns::{MdnsConfig, MdnsDiscovery};
+pub use rendezvous::{
+    RendezvousClient, RendezvousConfig, RendezvousError, RendezvousLink, RendezvousRegistry,
+};

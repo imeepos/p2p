@@ -5,6 +5,18 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+bs58.workspace = true
+bytes.workspace = true
+futures.workspace = true
+mdns-sd.workspace = true
 p2p-identity = { path = "../p2p-identity" }
 p2p-transport = { path = "../p2p-transport" }
+prost.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
+tokio-util = { workspace = true, features = ["codec"] }
+tracing.workspace = true
+
+[dev-dependencies]
+p2p-identity = { path = "../p2p-identity" }
+tokio = { workspace = true }
