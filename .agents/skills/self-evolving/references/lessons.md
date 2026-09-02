@@ -23,3 +23,6 @@ _none yet — be the first._
 - 2026-09-02：clippy never_loop：loop 体每个分支都 return/panic 时删掉 loop 直接 match；若本意是"跳过不合意事件继续等"，就把该分支写成显式 continue，别让每个分支都退出。
 - 2026-09-02：并行会话进行中 main 会新增门禁（本日中途上了 make check）；收尾验收跑仓库门禁本身（make check），别只跑任务书里写死的三条命令，且验收前再 rebase 一次 main。
 - 2026-09-02：挂死诊断三板斧实测有效：ps 找测试进程 pid → macOS sample <pid> 2 出线程栈 → 看到 kevent+park 即"全任务 pending 等 IO"，逐个检查 duplex EOF 传播链（见 known-issues split BiLock 条）。
+- 2026-09-02：改任何 pub API 签名后立刻全仓 grep 调用点（含 crates/*-itest 这类集成测试消费者）——workspace 级 make check 会编译一切，跨 crate 断裂在最外层门禁才爆，返工面大。
+- 2026-09-02：安全审查修复轮动线协议语义（如接入白名单）时，先全仓找断言旧语义的测试：它们不仅是编译断裂，更是语义预期冲突，要显式决定"改测试对齐新语义"还是"保留兼容入口"，并在报告中声明边界偏差。
+- 2026-09-02：协调派单的"只改自己 crate"与"make check 全绿"冲突时（他人测试消费我的 API），机械适配对方的测试装置属验收必需，零生产代码改动、逐文件显式 add、报告中声明即可；切勿为了守边界让门禁保持红。

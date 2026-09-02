@@ -40,3 +40,10 @@ _none yet — be the first._
 - 原因：tokio::io::split 是 BiLock——对端看到 EOF 的条件是整条 DuplexStream 的两半（ReadHalf+WriteHalf）全部 drop；正向管道退出只归还了自己那两半，反向管道仍持有另一半对，对端永远等不到 EOF。
 - 修法：正向管道退出时经 oneshot 通知反向管道，反向用 tokio::select! { 转发循环, 通知 } 竞争退出，两半同时归还后 EOF 才能传播。"管道对管道"拓扑必须配对退出，单向 EOF 传播不完备。
 - 附：snow Noise XX 首帧（-> e）无密钥、不加密不验 MAC，篡改 msg1 当场不报错，失败延迟到 msg2 解密 MAC 不匹配才出现；写篡改测试时按这个时序预期错误出现的位置。
+
+## 2026-09-02 p2p 安全修复轮（relay M2/M5/L3）
+
+- 测试夹具 mock 服务端链路把 peer_id 标成 relay 自身（mock_link_pair(a, "relay")），违背 RelayLink 接缝契约（peer_id 须为对端身份）：服务端视角下所有客户端流塌缩成同一 peer。症状隐蔽——属主/配额校验加上前毫无异常，加上后表现为"校验形同虚设"或"停车方永久等 Bound 超时"。修法：夹具两侧都标客户端身份。p2p-itest 的 relay_pair 同病，一起修。
+- if let Err(x) = self.lock().foo() { ...await... } 的临时 MutexGuard 活到 if-let 结束，跨 await 使 future !Send（std MutexGuard 非 Send），报错只说 "future cannot be sent" 不指认守卫。修法：先把结果 let 绑定收口锁临界区，再 if let。
+- 仓库已在跑 cargo fmt 的前提下，凭记忆写 edit 的 old_string 必失配（fmt 会拆行/合行）。流程必须是：读当前文件 → edit；或先 cargo fmt 再批量 edit。
+- git worktree remove 报 "contains modified files" 且 diff 仅 thiserror → thiserror 1.0.69 规范化漂移时，checkout -- Cargo.lock 后即可 remove（本仓多版本 thiserror 并存所致，见上期）。
