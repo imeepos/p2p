@@ -1,0 +1,26 @@
+[package]
+name = "p2p-console"
+version = "0.1.0"
+edition = "2021"
+description = "p2p-console Tauri 桥接（gui-contract.md §1 命令面 / §2 事件面）"
+
+# 独立 cargo 项目，脱离根 workspace（gui-contract.md §4；根 Cargo.toml 已 exclude 双保险）
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+p2p = { path = "../../../crates/p2p" }
+# 以下为 p2p 的传递依赖（契约 §4 允许）：
+# p2p-swarm 取 DialHop/MetricsSnapshot 原始类型，p2p-protocol 取 read/write_frame 实现回声 handler
+p2p-swarm = { path = "../../../crates/p2p-swarm" }
+p2p-protocol = { path = "../../../crates/p2p-protocol" }
+async-trait = "0.1"
+bs58 = "0.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
