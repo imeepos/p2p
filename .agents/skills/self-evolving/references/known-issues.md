@@ -70,4 +70,7 @@ failed: early eof（客户端侧超时中止）。
 拨号侧多地址预算放大（REQUEST_TIMEOUT 5s 到 20s）。多接口死地址的真正治理
 （scope zone、地址优先级、dial 并发竞速）属 facade/swarm 层，已报协调会话。
 
+- 症状：tracing::event!(level_var, ...) 编译报 E0435 "non-constant value"（macro 内 static __CALLSITE 需要字面量级别）。原因：event! 动态级别分支对表达式 level 走不了静态 callsite。修法：落盘处用 if level == Level::WARN { warn! } else { debug! } 字面量宏分支，策略函数只做级别判定并返回级别供单测断言（2026-09-02 E4 实录）。
+- 症状：tokio::pin!(x) 报 warning "variable does not need to be mutable"。原因：pin! 内部重新绑定，外层 let mut x 多余。修法：被 pin! 的绑定声明成 let x（无 mut）（2026-09-02 E4 实录）。
+
 - 症状：edit 工具对 docs/coordination.md 报 old_string was not found，肉眼对照"完全一样"。原因：本仓库中文文档用全角标点（，：（）、），从对话/终端回显里抄的是半角替代。修法：先 grep -n 取目标行原字节，从输出原文复制 old_string；连续两次失配就该怀疑标点宽度（2026-09-02 协调表编辑两连败实录）。
