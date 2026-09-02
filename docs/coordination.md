@@ -31,6 +31,10 @@
 - M3 跨网 = rendezvous + relay + 降级链贯通（D、R 合并后 S 补接线）
 - M4 收尾 = 打洞实测、metrics、p2p-cli、gossip pubsub（可选）
 
+## 待裁决事项
+
+- TransportError 细分：当前仅 Dial/Handshake/PeerMismatch 三类（K 提出）。S 事件总线或 M3 降级链若需更细粒度（超时/拒绝/不可达），属冻结契约变更，须由协调会话裁决：优先"新增枚举变体 + 默认事件文案"的加法路径，禁止改已有变体形状。
+
 ## 变更记录
 
 - 2026-09-02 协调会话创建本表；K/P/D/R 四会话启动；S 排队。
