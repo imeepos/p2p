@@ -68,10 +68,11 @@ impl RendezvousLink for SingleDuplexLink {
 }
 
 /// 进程内 relay：接好 a/b 两条 mock duplex 链路并后台 serve，返回两侧客户端。
+/// 服务端侧链路的 peer_id 须为对端（客户端）身份：服务端据此做配额与属主校验。
 pub fn relay_pair(limits: RelayLimits, peer_a: &str, peer_b: &str) -> (RelayClient, RelayClient) {
     let source = MockLinkSource::new();
-    let (client_a, server_a) = p2p_relay::mock_link_pair(peer_a, "relay");
-    let (client_b, server_b) = p2p_relay::mock_link_pair(peer_b, "relay");
+    let (client_a, server_a) = p2p_relay::mock_link_pair(peer_a, peer_a);
+    let (client_b, server_b) = p2p_relay::mock_link_pair(peer_b, peer_b);
     source.push(Box::new(server_a));
     source.push(Box::new(server_b));
     let svc = Arc::new(RelayServiceImpl::new(Box::new(source), limits));

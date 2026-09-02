@@ -13,7 +13,7 @@ const LIMIT: Duration = Duration::from_secs(10);
 
 fn all_kinds() -> Vec<RelayMsg> {
     vec![
-        RelayMsg::reserve(300),
+        RelayMsg::reserve(300, "peer-b"),
         RelayMsg::reserved(7),
         RelayMsg::connect(7),
         RelayMsg::bound(7),
@@ -50,9 +50,13 @@ async fn corrupt_body_fails_decode_explicitly() {
 #[tokio::test]
 async fn unknown_circuit_connect_rejected_explicitly() {
     let (mut a, mut b) = relay_pair(RelayLimits::default(), "itest-a", "itest-b");
-    let cid = expect_within("reserve", a.reserve(Duration::from_secs(60)), LIMIT)
-        .await
-        .expect("reserve must succeed");
+    let cid = expect_within(
+        "reserve",
+        a.reserve(Duration::from_secs(60), "itest-b"),
+        LIMIT,
+    )
+    .await
+    .expect("reserve must succeed");
 
     let outcome = expect_within(
         "connect unknown circuit",
@@ -90,10 +94,19 @@ async fn per_peer_circuit_quota_rejects_with_peer_limit() {
     };
     let (mut a, _b) = relay_pair(limits, "quota-a", "quota-b");
 
-    expect_within("first reserve", a.reserve(Duration::from_secs(60)), LIMIT)
-        .await
-        .expect("first reserve within quota");
-    let outcome = expect_within("second reserve", a.reserve(Duration::from_secs(60)), LIMIT).await;
+    expect_within(
+        "first reserve",
+        a.reserve(Duration::from_secs(60), ""),
+        LIMIT,
+    )
+    .await
+    .expect("first reserve within quota");
+    let outcome = expect_within(
+        "second reserve",
+        a.reserve(Duration::from_secs(60), ""),
+        LIMIT,
+    )
+    .await;
     match outcome {
         Err(RelayError::Server { code, message }) => {
             assert_eq!(code, errcode::PEER_LIMIT, "got {message}");
