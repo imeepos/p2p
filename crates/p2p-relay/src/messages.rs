@@ -22,6 +22,8 @@ pub mod errcode {
     pub const PUNCH_TARGET_UNKNOWN: u32 = 5;
     /// 接入方不在电路允许名单（审查 M2）。
     pub const FORBIDDEN_JOINER: u32 = 6;
+    /// 全站资源总量已打满（审查 M5）。
+    pub const GLOBAL_CAPACITY: u32 = 7;
 }
 
 /// 申请中继电路；ttl_secs=0 表示使用服务端缺省 TTL。

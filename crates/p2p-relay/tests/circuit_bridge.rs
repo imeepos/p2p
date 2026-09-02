@@ -217,3 +217,32 @@ async fn foreign_joiner_cannot_attach_anothers_circuit() {
         .expect("pump");
     assert_eq!(back, b"probe");
 }
+
+#[tokio::test]
+async fn global_circuit_cap_rejects_new_reserve() {
+    // 审查 M5 回归：全站电路打满后，新 Peer 的 reserve 也被拒（服务端 warn 留日志）
+    let limits = RelayLimits {
+        max_total_circuits: 1,
+        ..RelayLimits::default()
+    };
+    let (mut a, mut b, _keep) = relay_with_two_peers(limits);
+    a.reserve(Duration::from_secs(60), "peer-b")
+        .await
+        .expect("first reserve");
+
+    let outcome = b.reserve(Duration::from_secs(60), "").await;
+    let err = match outcome {
+        Err(e) => e,
+        Ok(_) => panic!("global cap must reject new reserve"),
+    };
+    assert!(
+        matches!(
+            err,
+            RelayError::Server {
+                code: errcode::GLOBAL_CAPACITY,
+                ..
+            }
+        ),
+        "got {err:?}"
+    );
+}

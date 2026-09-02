@@ -77,11 +77,14 @@ impl RelayServiceImpl {
 
     async fn handle_link(self: Arc<Self>, link: Box<dyn RelayLink>) {
         let peer = link.peer_id().to_string();
-        if !self
-            .lock_state()
-            .register_link(&peer, self.limits.max_links_per_peer)
-        {
-            tracing::warn!(peer = %peer, limit = self.limits.max_links_per_peer, "link rejected: per-peer link quota");
+        // 锁临界区先收口再 await：std MutexGuard 非 Send，不能跨 await 持有
+        let admitted = self.lock_state().register_link(
+            &peer,
+            self.limits.max_links_per_peer,
+            self.limits.max_total_links,
+        );
+        if let Err(reason) = admitted {
+            tracing::warn!(peer = %peer, reason = ?reason, "link rejected: quota");
             self.reject_link(link).await;
             return;
         }
@@ -90,6 +93,9 @@ impl RelayServiceImpl {
         }
         tracing::info!(peer = %peer, "peer link closed");
         self.lock_state().unregister_link(&peer);
+        if self.lock_state().peer_idle(&peer) && self.buckets.release(&peer) {
+            tracing::debug!(peer = %peer, "idle peer bucket reclaimed");
+        }
     }
 
     /// 超限链路：对每条流回显式拒绝帧后关闭，给客户端确定性信号。

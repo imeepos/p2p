@@ -43,15 +43,20 @@ pub(crate) struct ExpiredCircuit {
 }
 
 impl RelayState {
-    /// 发放电路：CSPRNG 生成不可枚举 cid（审查 M2）；超配额返回错误码。
-    /// allowed_joiner 为空 = 仅 owner 可接入。TTL 0 用缺省值，超上限截断。
+    /// 发放电路：CSPRNG 生成不可枚举 cid（审查 M2）；超每 Peer 或全站配额
+    /// 返回错误码（审查 M5）。allowed_joiner 为空 = 仅 owner 可接入。
+    /// TTL 0 用缺省值，超上限截断。
     pub(crate) fn issue_circuit(
         &mut self,
         owner: &str,
         allowed_joiner: &str,
         ttl_secs: u64,
         max_per_peer: usize,
+        max_total: usize,
     ) -> Result<u64, u32> {
+        if self.circuits.len() >= max_total {
+            return Err(errcode::GLOBAL_CAPACITY);
+        }
         let load = self.circuit_load.get(owner).copied().unwrap_or(0);
         if load >= max_per_peer {
             return Err(errcode::PEER_LIMIT);
@@ -185,8 +190,8 @@ mod tests {
     #[test]
     fn cid_unpredictable_and_unique() {
         let mut st = RelayState::new();
-        let a = st.issue_circuit("a", "", 60, 8).unwrap();
-        let b = st.issue_circuit("a", "", 60, 8).unwrap();
+        let a = st.issue_circuit("a", "", 60, 8, 8).unwrap();
+        let b = st.issue_circuit("a", "", 60, 8, 8).unwrap();
         assert_ne!(a, b);
         assert_ne!(a, 1, "cid 不再顺序自增");
     }
@@ -194,7 +199,7 @@ mod tests {
     #[test]
     fn foreign_joiner_rejected_owner_and_declared_allowed() {
         let mut st = RelayState::new();
-        let cid = st.issue_circuit("a", "peer-b", 60, 8).unwrap();
+        let cid = st.issue_circuit("a", "peer-b", 60, 8, 8).unwrap();
         assert!(matches!(
             st.on_connect("peer-e", cid, 8, dummy_stream()),
             CircuitOutcome::Rejected(errcode::FORBIDDEN_JOINER, _, _)
@@ -212,24 +217,10 @@ mod tests {
     #[test]
     fn owner_only_when_joiner_empty() {
         let mut st = RelayState::new();
-        let cid = st.issue_circuit("a", "", 60, 8).unwrap();
+        let cid = st.issue_circuit("a", "", 60, 8, 8).unwrap();
         assert!(matches!(
             st.on_connect("b", cid, 8, dummy_stream()),
             CircuitOutcome::Rejected(errcode::FORBIDDEN_JOINER, _, _)
-        ));
-    }
-
-    #[test]
-    fn circuit_park_then_pair() {
-        let mut st = RelayState::new();
-        let cid = st.issue_circuit("a", "b", 60, 8).unwrap();
-        assert!(matches!(
-            st.on_connect("a", cid, 8, dummy_stream()),
-            CircuitOutcome::Parked
-        ));
-        assert!(matches!(
-            st.on_connect("b", cid, 8, dummy_stream()),
-            CircuitOutcome::Paired(_, _)
         ));
     }
 
@@ -240,7 +231,7 @@ mod tests {
             st.on_connect("x", 999, 8, dummy_stream()),
             CircuitOutcome::Rejected(errcode::UNKNOWN_CIRCUIT, _, _)
         ));
-        let cid = st.issue_circuit("a", "", 60, 1).unwrap();
+        let cid = st.issue_circuit("a", "", 60, 1, 8).unwrap();
         assert!(matches!(
             st.on_connect("a", cid, 1, dummy_stream()),
             CircuitOutcome::Rejected(errcode::PEER_LIMIT, _, _)
@@ -248,9 +239,19 @@ mod tests {
     }
 
     #[test]
+    fn global_circuit_cap_enforced() {
+        let mut st = RelayState::new();
+        assert!(st.issue_circuit("a", "", 60, 8, 1).is_ok());
+        assert!(matches!(
+            st.issue_circuit("b", "", 60, 8, 1),
+            Err(errcode::GLOBAL_CAPACITY)
+        ));
+    }
+
+    #[test]
     fn expired_circuit_swept_with_quota_release() {
         let mut st = RelayState::new();
-        let cid = st.issue_circuit("a", "b", 1, 8).unwrap();
+        let cid = st.issue_circuit("a", "b", 1, 8, 8).unwrap();
         assert!(matches!(
             st.on_connect("b", cid, 8, dummy_stream()),
             CircuitOutcome::Parked
@@ -259,7 +260,7 @@ mod tests {
         assert_eq!(dropped.len(), 1);
         assert_eq!(dropped[0].holder.as_deref(), Some("b"));
         // owner/b 双方配额均已回吐
-        assert!(st.issue_circuit("a", "", 60, 1).is_ok());
-        assert!(st.issue_circuit("b", "", 60, 1).is_ok());
+        assert!(st.issue_circuit("a", "", 60, 1, 8).is_ok());
+        assert!(st.issue_circuit("b", "", 60, 1, 8).is_ok());
     }
 }

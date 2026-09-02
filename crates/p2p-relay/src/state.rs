@@ -11,6 +11,13 @@ use tokio::sync::Mutex as AsyncMutex;
 /// 控制流写半（读半由控制循环独占）。
 pub(crate) type CtrlWrite = AsyncMutex<WriteHalf<BoxedStream>>;
 
+/// 链路登记拒绝原因（审查 M5：全站总量上限抗 Sybil 稀释）。
+#[derive(Debug)]
+pub(crate) enum LinkReject {
+    PeerQuota,
+    GlobalQuota,
+}
+
 pub(crate) struct RelayState {
     pub(crate) links: HashMap<String, usize>,
     pub(crate) circuit_load: HashMap<String, usize>,
@@ -28,14 +35,22 @@ impl RelayState {
         }
     }
 
-    /// 登记一条入站链路；超每 Peer 配额返回 false。
-    pub(crate) fn register_link(&mut self, peer: &str, max_per_peer: usize) -> bool {
+    /// 登记一条入站链路；超每 Peer 配额或全站总量均拒绝。
+    pub(crate) fn register_link(
+        &mut self,
+        peer: &str,
+        max_per_peer: usize,
+        max_total: usize,
+    ) -> Result<(), LinkReject> {
+        if self.links.values().sum::<usize>() >= max_total {
+            return Err(LinkReject::GlobalQuota);
+        }
         let count = self.links.get(peer).copied().unwrap_or(0);
         if count >= max_per_peer {
-            return false;
+            return Err(LinkReject::PeerQuota);
         }
         self.links.insert(peer.to_string(), count + 1);
-        true
+        Ok(())
     }
 
     pub(crate) fn unregister_link(&mut self, peer: &str) {
@@ -45,6 +60,11 @@ impl RelayState {
                 self.links.remove(peer);
             }
         }
+    }
+
+    /// 既无链路也无在途电路流即为闲置（带宽桶随之回收，防表只增不减）。
+    pub(crate) fn peer_idle(&self, peer: &str) -> bool {
+        !self.links.contains_key(peer) && !self.circuit_load.contains_key(peer)
     }
 
     /// 后到覆盖：以该 Peer 最新的控制流为准。
@@ -75,10 +95,34 @@ mod tests {
     #[test]
     fn link_quota_enforced() {
         let mut st = RelayState::new();
-        assert!(st.register_link("p", 2));
-        assert!(st.register_link("p", 2));
-        assert!(!st.register_link("p", 2));
+        assert!(st.register_link("p", 2, 8).is_ok());
+        assert!(st.register_link("p", 2, 8).is_ok());
+        assert!(matches!(
+            st.register_link("p", 2, 8),
+            Err(LinkReject::PeerQuota)
+        ));
         st.unregister_link("p");
-        assert!(st.register_link("p", 2));
+        assert!(st.register_link("p", 2, 8).is_ok());
+    }
+
+    #[test]
+    fn global_link_cap_enforced() {
+        let mut st = RelayState::new();
+        assert!(st.register_link("a", 8, 1).is_ok());
+        assert!(matches!(
+            st.register_link("b", 8, 1),
+            Err(LinkReject::GlobalQuota)
+        ));
+        st.unregister_link("a");
+        assert!(st.register_link("b", 8, 1).is_ok());
+    }
+
+    #[test]
+    fn peer_idle_tracks_links_and_circuit_load() {
+        let mut st = RelayState::new();
+        st.circuit_load.insert("p".into(), 1);
+        assert!(!st.peer_idle("p"));
+        st.circuit_load.remove("p");
+        assert!(st.peer_idle("p"));
     }
 }

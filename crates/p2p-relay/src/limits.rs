@@ -1,4 +1,5 @@
-//! 防滥用红线（design 6/14）：每 Peer 连接数/电路数/出口带宽上限。
+//! 防滥用红线（design 6/14）：每 Peer 连接数/电路数/出口带宽上限，
+//! 外加全站总量上限（审查 M5：每 Peer 粒度可被 Sybil 身份稀释）。
 //!
 //! 带宽用惰性令牌桶：桥接流出口写前扣令牌，不足即 WriteZero，
 //! copy_bidirectional 随即断链并留日志（超额断链，不做无限期节流）。
@@ -24,6 +25,12 @@ pub struct RelayLimits {
     pub egress_bytes_per_sec: u64,
     /// 每 Peer 出口令牌桶容量（突发余量，字节）。
     pub egress_burst: u64,
+    /// 全站链路总量上限（审查 M5）。
+    pub max_total_links: usize,
+    /// 全站存活电路（reservation）总量上限（审查 M5）。
+    pub max_total_circuits: usize,
+    /// 全站带宽桶数量上限；打满后新 Peer 共享降级桶并告警（审查 M5）。
+    pub max_total_buckets: usize,
 }
 
 impl Default for RelayLimits {
@@ -33,6 +40,9 @@ impl Default for RelayLimits {
             max_circuits_per_peer: 32,
             egress_bytes_per_sec: 1 << 20,
             egress_burst: 1 << 20,
+            max_total_links: 256,
+            max_total_circuits: 1024,
+            max_total_buckets: 256,
         }
     }
 }
@@ -75,18 +85,33 @@ impl RateBucket {
 pub struct PeerBuckets {
     map: Arc<Mutex<HashMap<String, Arc<Mutex<RateBucket>>>>>,
     limits: RelayLimits,
+    /// 桶表打满时的共享降级桶（保连通性，限内存）。
+    fallback: Arc<Mutex<RateBucket>>,
 }
 
 impl PeerBuckets {
     pub fn new(limits: RelayLimits) -> Self {
+        let fallback = Arc::new(Mutex::new(RateBucket::new(
+            limits.egress_burst,
+            limits.egress_bytes_per_sec,
+        )));
         Self {
             map: Arc::new(Mutex::new(HashMap::new())),
             limits,
+            fallback,
         }
     }
 
     pub fn bucket_for(&self, peer: &str) -> Arc<Mutex<RateBucket>> {
         let mut map = self.map.lock().expect("peer buckets poisoned");
+        if !map.contains_key(peer) && map.len() >= self.limits.max_total_buckets {
+            tracing::warn!(
+                peer = %peer,
+                cap = self.limits.max_total_buckets,
+                "bucket table full; sharing fallback bucket"
+            );
+            return self.fallback.clone();
+        }
         map.entry(peer.to_string())
             .or_insert_with(|| {
                 Arc::new(Mutex::new(RateBucket::new(
@@ -95,6 +120,15 @@ impl PeerBuckets {
                 )))
             })
             .clone()
+    }
+
+    /// Peer 闲置（链路与在途电路流清零）后回收其桶，防表只增不减（审查 M5）。
+    pub fn release(&self, peer: &str) -> bool {
+        self.map
+            .lock()
+            .expect("peer buckets poisoned")
+            .remove(peer)
+            .is_some()
     }
 }
 
@@ -185,6 +219,32 @@ mod tests {
             .expect_err("beyond burst");
         assert_eq!(err.kind(), ErrorKind::WriteZero);
         drop(rx);
+    }
+
+    #[test]
+    fn bucket_reclaimed_on_release() {
+        let pb = PeerBuckets::new(RelayLimits::default());
+        let b1 = pb.bucket_for("p");
+        assert!(pb.release("p"));
+        assert!(!pb.release("p"));
+        // 旧桶已回收：新会话拿到全新桶，不继承旧令牌
+        let b2 = pb.bucket_for("p");
+        assert!(!Arc::ptr_eq(&b1, &b2));
+    }
+
+    #[test]
+    fn bucket_table_cap_falls_back_to_shared() {
+        let limits = RelayLimits {
+            max_total_buckets: 1,
+            ..RelayLimits::default()
+        };
+        let pb = PeerBuckets::new(limits);
+        let b1 = pb.bucket_for("p1");
+        let b2 = pb.bucket_for("p2");
+        assert!(Arc::ptr_eq(&b2, &pb.fallback), "溢出 Peer 共享降级桶");
+        assert!(!Arc::ptr_eq(&b1, &b2));
+        assert!(pb.release("p1"));
+        assert!(!pb.release("p2"), "降级桶不在表中，无可回收项");
     }
 
     #[tokio::test]

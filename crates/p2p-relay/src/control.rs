@@ -86,11 +86,29 @@ impl RelayServiceImpl {
             &r.allowed_joiner,
             r.ttl_secs,
             self.limits().max_circuits_per_peer,
+            self.limits().max_total_circuits,
         );
         match issued {
             Ok(cid) => {
-                tracing::info!(peer = %peer, circuit = cid, ttl_secs = r.ttl_secs, joiner = %r.allowed_joiner, "circuit reserved");
+                tracing::info!(
+                    peer = %peer,
+                    circuit = cid,
+                    ttl_secs = r.ttl_secs,
+                    joiner = %r.allowed_joiner,
+                    "circuit reserved"
+                );
                 RelayMsg::reserved(cid)
+            }
+            Err(errcode::PEER_LIMIT) => {
+                tracing::warn!(peer = %peer, "reserve rejected: per-peer circuit quota");
+                RelayMsg::error(errcode::PEER_LIMIT, "per-peer circuit quota exceeded")
+            }
+            Err(errcode::GLOBAL_CAPACITY) => {
+                tracing::warn!(peer = %peer, "reserve rejected: global circuit capacity exhausted");
+                RelayMsg::error(
+                    errcode::GLOBAL_CAPACITY,
+                    "global circuit capacity exhausted",
+                )
             }
             Err(code) => {
                 tracing::warn!(peer = %peer, code, "reserve rejected");
