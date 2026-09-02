@@ -70,6 +70,7 @@ export function PeersView() {
         now={now}
         onPing={onPing}
         onShowDetail={setDetailId}
+        onOpenDial={() => setDialOpen(true)}
       />
 
       <PeerDialDialog open={dialOpen} onOpenChange={setDialOpen} />
