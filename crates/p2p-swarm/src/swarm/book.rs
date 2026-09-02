@@ -1,10 +1,15 @@
 //! 地址簿：PeerId → 带来源标记的地址列表，直连跳按优先级排序。
 //!
-//! 排序规则（design §7.2 + E3 同 NAT 缺陷）：
+//! 排序规则（design §7.2 + E3/E4 同 NAT 缺陷）：
 //! 1. mDNS 来源（同链路）最优先
 //! 2. 与任一 mDNS 学习到的链路前缀同网段（v4 /24、v6 /64）次之
 //! 3. rendezvous 观测到的全局地址再次
 //! 4. 其余（显式登记、loopback 等）殿后
+//!
+//! hairpin 降权（E4）：对端地址与自身观测地址同公网前缀（v4 /24、v6 /64）
+//! 时大概率同 NAT，拨号走 NAT 内回环（hairpin）路径，多数 NAT 不支持或
+//! 表现不稳定——该类地址在同级殿后，并由拨号侧施加短超时
+//! （见 dial::HAIRPIN_DIAL_TIMEOUT），refused/黑洞不得吃满单地址预算。
 //!
 //! 同级保持登记顺序（stable sort）。
 
@@ -72,20 +77,35 @@ impl AddressBook {
         (added, all)
     }
 
-    /// 直连跳用：按 优先级 + 登记顺序 排序后的地址列表。
-    pub(crate) fn sorted_addrs(&self, peer: &PeerId) -> Vec<TransportAddr> {
+    /// 直连跳用：按 (来源/网段优先级, hairpin 降权, 传输层, 登记顺序) 排序。
+    /// 返回 (地址, 是否 hairpin 候选)；observed 为自身经地址观测学到的外部地址。
+    pub(crate) fn sorted_addrs(
+        &self,
+        peer: &PeerId,
+        observed: &[TransportAddr],
+    ) -> Vec<(TransportAddr, bool)> {
         let Some(entry) = self.peers.get(peer) else {
             return Vec::new();
         };
-        let mut ranked: Vec<(u8, u8, usize, &BookedAddr)> = entry
+        let mut ranked: Vec<(u8, bool, u8, usize, &BookedAddr)> = entry
             .iter()
             .enumerate()
-            .map(|(idx, e)| (self.class_of(e), transport_rank(&e.addr), idx, e))
+            .map(|(idx, e)| {
+                (
+                    self.class_of(e),
+                    is_hairpin_candidate(&e.addr, observed),
+                    transport_rank(&e.addr),
+                    idx,
+                    e,
+                )
+            })
             .collect();
-        ranked.sort_by_key(|(class, transport, idx, _)| (*class, *transport, *idx));
+        ranked.sort_by_key(|(class, hairpin, transport, idx, _)| {
+            (*class, *hairpin, *transport, *idx)
+        });
         ranked
             .into_iter()
-            .map(|(_, _, _, e)| e.addr.clone())
+            .map(|(_, hairpin, _, _, e)| (e.addr.clone(), hairpin))
             .collect()
     }
 
@@ -107,11 +127,41 @@ impl AddressBook {
 
     /// 是否与任一学习到的链路前缀同网段。
     fn in_lan(&self, ip: &IpAddr) -> bool {
-        self.lan_ips.iter().any(|lan| match (lan, ip) {
-            (IpAddr::V4(l), IpAddr::V4(i)) => l.octets()[..3] == i.octets()[..3],
-            (IpAddr::V6(l), IpAddr::V6(i)) => l.octets()[..8] == i.octets()[..8],
-            _ => false,
-        })
+        self.lan_ips.iter().any(|lan| prefix_match(lan, ip))
+    }
+}
+
+/// 同前缀判定：v4 /24、v6 /64（链路前缀与公网前缀共用口径）。
+fn prefix_match(a: &IpAddr, b: &IpAddr) -> bool {
+    match (a, b) {
+        (IpAddr::V4(l), IpAddr::V4(i)) => l.octets()[..3] == i.octets()[..3],
+        (IpAddr::V6(l), IpAddr::V6(i)) => l.octets()[..8] == i.octets()[..8],
+        _ => false,
+    }
+}
+
+/// hairpin 候选：对端全局地址与自身观测地址同公网前缀 → 大概率同 NAT。
+/// 双方都要求全局段：观测源为 loopback/私网（如本机反射）不触发降权。
+fn is_hairpin_candidate(addr: &TransportAddr, observed: &[TransportAddr]) -> bool {
+    let ip = addr_ip(addr);
+    if !is_global_ip(&ip) {
+        return false;
+    }
+    observed
+        .iter()
+        .map(addr_ip)
+        .any(|o| is_global_ip(&o) && prefix_match(&o, &ip))
+}
+
+/// 全局段判定：排除 loopback/私网/链路本地/未指定（v6 另排除 ULA fc00::/7）。
+fn is_global_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            !v4.is_loopback() && !v4.is_private() && !v4.is_link_local() && !v4.is_unspecified()
+        }
+        IpAddr::V6(v6) => {
+            !v6.is_loopback() && !v6.is_unspecified() && (v6.octets()[0] & 0xfe) != 0xfc
+        }
     }
 }
 
@@ -144,101 +194,5 @@ fn transport_rank(addr: &TransportAddr) -> u8 {
 fn addr_ip(addr: &TransportAddr) -> IpAddr {
     match addr {
         TransportAddr::Quic { ip, .. } | TransportAddr::Tcp { ip, .. } => *ip,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn peer(n: u8) -> PeerId {
-        PeerId::from_bytes([n; 32])
-    }
-
-    fn tcp(ip: &str, port: u16) -> TransportAddr {
-        TransportAddr::Tcp {
-            ip: ip.parse().unwrap(),
-            port,
-        }
-    }
-
-    #[test]
-    fn book_orders_mdns_lan_then_global() {
-        let mut book = AddressBook::new();
-        let p = peer(1);
-        // 登记顺序：全局观测 → mDNS → 同网段观测（乱序注入，排序后应为 mdns→同网段→全局）
-        book.add(
-            p,
-            vec![
-                (tcp("10.99.99.99", 2), AddrSource::Rendezvous),
-                (tcp("192.168.50.10", 1), AddrSource::Mdns),
-                (tcp("192.168.50.20", 3), AddrSource::Rendezvous),
-            ],
-        );
-        let sorted = book.sorted_addrs(&p);
-        assert_eq!(
-            sorted,
-            vec![
-                tcp("192.168.50.10", 1),
-                tcp("192.168.50.20", 3),
-                tcp("10.99.99.99", 2),
-            ]
-        );
-    }
-
-    #[test]
-    fn filter_loopback_keeps_all_loopback_set() {
-        let addrs = vec![tcp("127.0.0.1", 1), tcp("127.0.0.1", 2)];
-        let kept = filter_loopback(addrs.clone());
-        assert_eq!(
-            kept, addrs,
-            "all-loopback set must be kept (same-host discovery)"
-        );
-    }
-
-    #[test]
-    fn filter_loopback_drops_loopback_when_global_exists() {
-        let addrs = vec![tcp("127.0.0.1", 1), tcp("240e:1000::5", 443)];
-        let kept = filter_loopback(addrs);
-        assert_eq!(kept, vec![tcp("240e:1000::5", 443)]);
-    }
-
-    #[test]
-    fn same_source_prefers_quic_before_tcp() {
-        let mut book = AddressBook::new();
-        let p = peer(3);
-        let ip = "192.168.1.8";
-        book.add(
-            p,
-            vec![
-                (tcp(ip, 4001), AddrSource::Rendezvous),
-                (
-                    TransportAddr::Quic {
-                        ip: ip.parse().unwrap(),
-                        port: 4000,
-                    },
-                    AddrSource::Rendezvous,
-                ),
-            ],
-        );
-        let sorted = book.sorted_addrs(&p);
-        assert!(matches!(sorted[0], TransportAddr::Quic { port: 4000, .. }));
-        assert!(matches!(sorted[1], TransportAddr::Tcp { port: 4001, .. }));
-    }
-
-    #[test]
-    fn manual_and_loopback_rank_last() {
-        let mut book = AddressBook::new();
-        let p = peer(2);
-        book.add(
-            p,
-            vec![
-                (tcp("127.0.0.1", 9), AddrSource::Manual),
-                (tcp("192.168.1.7", 8), AddrSource::Rendezvous),
-            ],
-        );
-        let sorted = book.sorted_addrs(&p);
-        assert_eq!(sorted[0], tcp("192.168.1.7", 8));
-        assert_eq!(sorted[1], tcp("127.0.0.1", 9));
     }
 }

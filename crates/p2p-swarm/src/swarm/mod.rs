@@ -21,6 +21,8 @@ mod relay_session;
 mod responder;
 
 #[cfg(test)]
+mod book_tests;
+#[cfg(test)]
 mod tests;
 
 use book::AddressBook;
@@ -203,12 +205,14 @@ impl Swarm {
         self.punch_addrs().iter().map(ToString::to_string).collect()
     }
 
-    /// 直连跳用地址：按来源/网段优先级排序（design §7.3 + E3）。
-    fn addresses_of(&self, peer: PeerId) -> Vec<TransportAddr> {
+    /// 直连跳用地址：按来源/网段优先级排序，hairpin 候选同级殿后（design §7.3 + E3/E4）。
+    /// 返回 (地址, 是否 hairpin 候选)。
+    fn addresses_of(&self, peer: PeerId) -> Vec<(TransportAddr, bool)> {
+        let observed = self.observed_addrs.lock().expect("observed lock").clone();
         self.address_book
             .lock()
             .expect("addr lock")
-            .sorted_addrs(&peer)
+            .sorted_addrs(&peer, &observed)
     }
 
     /// 开裸流（协议 ID 首帧由调用方写入）：按需取/建连接。

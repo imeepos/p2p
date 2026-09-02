@@ -3,6 +3,7 @@
 
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use p2p_identity::PeerId;
 use p2p_mux::BoxedStream;
@@ -14,7 +15,12 @@ use super::{Mux, RegistryCell, Swarm};
 use crate::pool::ConnectionPool;
 use crate::{DialHop, NodeEvent};
 
+/// hairpin 候选地址的拨号预算（E4）：同 NAT 回环路径要么毫秒级通、要么不通，
+/// 不值得占满传输层默认超时（TCP 连接 5s / QUIC 握手 10s），快速失败让位后续地址。
+const HAIRPIN_DIAL_TIMEOUT: Duration = Duration::from_secs(2);
+
 /// 按地址簿顺序逐一尝试直连；每个失败地址发 DialFailed，全部失败返回末次错误。
+/// hairpin 候选（与自身观测地址同公网前缀）施加短超时，保证 LAN 地址轮得到。
 pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     if peer == swarm.local_peer_id() {
         return Err(dial_rejected(swarm, peer, "refusing to dial self"));
@@ -25,9 +31,9 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     }
     let mut tried = 0usize;
     let mut last_err: Option<io::Error> = None;
-    for addr in addrs {
+    for (addr, hairpin) in addrs {
         tried += 1;
-        match dial_one(swarm, peer, &addr).await {
+        match dial_limited(swarm, peer, &addr, hairpin).await {
             Ok(mux) => {
                 insert_connection(swarm, peer, mux.clone());
                 return Ok(mux);
@@ -76,6 +82,25 @@ fn dial_rejected(swarm: &Swarm, peer: PeerId, reason: &str) -> io::Error {
         reason: reason.to_string(),
     });
     io::Error::other(reason)
+}
+
+/// hairpin 候选加短超时（E4）：refused/黑洞不得吃满单地址请求预算。
+async fn dial_limited(
+    swarm: &Swarm,
+    peer: PeerId,
+    addr: &TransportAddr,
+    hairpin: bool,
+) -> io::Result<Mux> {
+    if !hairpin {
+        return dial_one(swarm, peer, addr).await;
+    }
+    tokio::time::timeout(HAIRPIN_DIAL_TIMEOUT, dial_one(swarm, peer, addr))
+        .await
+        .unwrap_or_else(|_| {
+            Err(io::Error::other(format!(
+                "hairpin dial timeout after {HAIRPIN_DIAL_TIMEOUT:?}"
+            )))
+        })
 }
 
 /// 单地址拨号 + 门禁裁决；不放行即断链（conn 随作用域丢弃而关闭）。
