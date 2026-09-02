@@ -35,7 +35,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             title={collapsed ? t(entry.titleKey) : undefined}
             className={({ isActive }) =>
               cn(
-                "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium",
+                "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none flex h-9 items-center gap-3 rounded-md px-3 text-sm font-medium",
                 isActive &&
                   "bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
                 collapsed && "justify-center px-0",
