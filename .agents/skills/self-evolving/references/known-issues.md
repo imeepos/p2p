@@ -93,3 +93,6 @@ failed: early eof（客户端侧超时中止）。
 - 纠正（2026-09-02 R-E4 relay 诊断）：此前将 rendezvous 每约 5s 的 "connection lost" 视为正常生命周期基线是不完整结论；p2p-transport/src/quic.rs 两处把 30s Duration 用 as_secs() 转成 quinn VarInt，实际单位为毫秒，导致 QUIC 空闲约 30ms 即 TimedOut。该误用与 relay 控制流秒断、rendezvous 重连刷屏、打洞信令丢失同源；修复为 IdleTimeout::try_from(Duration)，不应继续把该 WARN 当作健康基线。
 - 症状：多树并行的构建/冒烟脚本跑了半天 "Finished" 但行为没变。原因：脚本里 cargo build 没 cd 到目标树，在主树构建、却执行另一棵树的旧二进制（2026-09-02 R-E4 smoke3 实录，配额修复被误判未生效）。修法：脚本内显式 cd 到目标树根，构建后 ls -la 产物核对 mtime 再启动；验证结论锚定产物版本而非命令成功输出。
 - 症状：mock 链路上客户端进程已 drop，服务端的"控制流关闭"回调（流级 EOF）永远不来，泄漏类修复在 itest 复现不出。原因：RelayClient 读半被 read_ctrl_loop 任务钉住，tokio::io::split 是 BiLock，两半全 drop 对端才见 EOF——连接活着时流级信号不可靠。修法：服务端记账对"对端消失"用链路归零做兜底触发器（link 计数归零即回收），不能单押流级 EOF（2026-09-02 R-E4 lifecycle 双触发器设计动因）。
+
+- 2026-09-02 E5：`local a=$(date +%s) b=$((a+60))` 同一 local 语句内，后项的算术展开先于赋值执行，`set -u` 下直接 unbound variable 炸出整个函数（soak 编排器实录，cleanup 被 trap 连带触发）。修法：每个依赖变量独立 `local x; x=...` 声明赋值两步走；含 trap cleanup 的脚本尤其要防中途退出。
+- 2026-09-02 E5：想 dry-run 一个「无 --dry-run 参数、载入即 main」的编排脚本时，`bash -c 'source script.sh'` 会真实执行 main（远端节点被真实拉起）。教训：编排脚本从第一版就内置 --dry-run/--self-check 门；任何「测试性执行」前先 `grep -n '^\s*main'` 确认入口守卫。
