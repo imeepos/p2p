@@ -151,3 +151,25 @@ ssh $LINUX_SSH_102 'cd ~/src/p2p && export PATH=$HOME/.cargo/bin:$PATH && cargo 
 节点接入：`p2p-cli node --bootstrap 121.196.193.177/u3400 --observation 121.196.193.177:3402`。
 --bootstrap 当前为单值：双 bootstrap 冗余是部署级（切换 = 改 --bootstrap 重启），
 单节点同时注册两个引导面待 CLI 支持多值后解锁。
+
+### 8.6 E4 长稳采样脚本准备（T-ECS）
+
+采样准备使用以下脚本，实际执行等待 relay 修复合入后进行：
+
+- `scripts/e4-ping-sample.sh`：对指定 PeerId 连续采样，默认 3 轮；每轮流式记录 UTC、轮次、DialHop 路径、相邻 hop 到达间隔、hop 详情、RTT 和失败原因。
+  三轮全部成功且路径一致才输出 `SAMPLE\tPASS`；结果文件为 TSV，可直接贴入协调表。默认 `RUST_LOG=info`，并显式传递双 bootstrap 与双 relay。
+- `scripts/e4-sample-run.sh`：本机 A 节点编排器，提供 102/ECS 远端启动计划、PID 文件和采样调用；真实远端启动需显式设置 `E4_REMOTE_START=1`。
+  节点 A 的 PID 保存在 `E4_RUN_DIR/node-a.pid`，清理只读取该 PID 后精确发送 TERM/KILL，禁止按进程名清理。
+
+准备阶段自检：
+
+```sh
+scripts/e4-ping-sample.sh --self-check
+scripts/e4-sample-run.sh --self-check
+P2P_CLI_BIN=/bin/echo scripts/e4-ping-sample.sh --dry-run \
+  --peer-id <PeerId> --bootstrap 43.240.223.138/u3400 \
+  --bootstrap 121.196.193.177/u3400 --relay 43.240.223.138/u3403 \
+  --relay 121.196.193.177/u3403
+```
+
+公网节点必须带 `--observation <公网IP>:3402`，否则注册表可能只暴露 `127.0.0.1` 监听地址，跨网拨号不可用。执行阶段记录每个目标的三连 TSV 和原始日志；三轮不一致或任一轮失败均判 FAIL，并把具体失败原因留在表中。

@@ -29,9 +29,24 @@ pub async fn run(args: PingArgs) -> Result<(), String> {
 
     let started = Instant::now();
     let id = ProtocolId::new(ECHO_PROTOCOL).expect("built-in echo id is valid");
-    let reply = node
-        .request(target, id, PING_PAYLOAD.to_vec(), REQUEST_TIMEOUT)
-        .await
+    let request = node.request(target, id, PING_PAYLOAD.to_vec(), REQUEST_TIMEOUT);
+    tokio::pin!(request);
+    // 请求期间同步打印 DialHop 逐跳事件（直连/打洞/中继），路径随结果一起留档
+    let mut reply = None;
+    while reply.is_none() {
+        tokio::select! {
+            r = &mut request => reply = Some(r),
+            hop = next_hop(&mut events) => {
+                if let Some(line) = hop {
+                    println!("{line}");
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+    let reply = reply
+        .expect("循环仅以应答结束")
         .map_err(|e| format!("echo 请求失败: {e}"))?;
     let rtt = started.elapsed();
     if reply != PING_PAYLOAD {
@@ -44,6 +59,25 @@ pub async fn run(args: PingArgs) -> Result<(), String> {
     Ok(())
 }
 
+/// 读下一条 DialHop 事件；通道关闭返回 None（事件流随节点存续，不闭合）。
+async fn next_hop(events: &mut broadcast::Receiver<NodeEvent>) -> Option<String> {
+    loop {
+        match events.recv().await {
+            Ok(NodeEvent::DialHop {
+                peer,
+                hop,
+                ok,
+                detail,
+            }) => {
+                return Some(format!("hop {hop:?} ok={ok} detail={detail} ({peer})"));
+            }
+            Ok(_) => continue,
+            Err(broadcast::error::RecvError::Closed) => return None,
+            Err(broadcast::error::RecvError::Lagged(_)) => continue,
+        }
+    }
+}
+
 /// 一次性临时数据目录（ping 无需持久身份，避免污染 cwd）。
 fn tmp_data_dir(tag: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("{tag}-{}", std::process::id()))
@@ -54,8 +88,11 @@ async fn build_node(args: &PingArgs) -> Result<Node, Box<dyn std::error::Error>>
     let mut builder = NodeBuilder::new()
         .mdns(!args.no_mdns)
         .data_dir(tmp_data_dir("p2p-ping"));
-    if let Some(addr) = &args.bootstrap {
-        builder = builder.bootstrap(vec![addr.clone()]);
+    if !args.bootstrap.is_empty() {
+        builder = builder.bootstrap(args.bootstrap.clone());
+    }
+    if !args.relay.is_empty() {
+        builder = builder.relay_addrs(args.relay.clone());
     }
     Ok(builder.build().await?)
 }
