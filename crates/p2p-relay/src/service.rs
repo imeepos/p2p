@@ -17,7 +17,6 @@ use crate::RelayService;
 
 /// 到期电路回收周期。
 const SWEEP_INTERVAL: Duration = Duration::from_secs(1);
-const POISONED: &str = "relay state mutex poisoned";
 
 /// 服务端：对 LinkSource 接缝编程，不依赖具体 transport。
 pub struct RelayServiceImpl {
@@ -41,8 +40,16 @@ impl RelayServiceImpl {
         &self.limits
     }
 
+    /// 中毒恢复而非 panic（审查 L3）：临界区均为单段无 await 的短操作，
+    /// 取回内部状态继续服务，代价可控；中毒本身留 error 日志。
     pub(crate) fn lock_state(&self) -> std::sync::MutexGuard<'_, RelayState> {
-        self.state.lock().expect(POISONED)
+        match self.state.lock() {
+            Ok(guard) => guard,
+            Err(poisoned) => {
+                tracing::error!("relay state mutex poisoned; recovering inner state");
+                poisoned.into_inner()
+            }
+        }
     }
 
     pub(crate) fn bucket_for(&self, peer: &str) -> Arc<Mutex<RateBucket>> {
