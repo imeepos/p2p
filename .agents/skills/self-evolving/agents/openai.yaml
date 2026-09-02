@@ -1,0 +1,4 @@
+interface:
+  display_name: "Self-Evolving Skill"
+  short_description: "Grows through reflection on mistakes, no preset knowledge"
+  default_prompt: "Use self-evolving to reflect on what went wrong and feed lessons back into the skill"
