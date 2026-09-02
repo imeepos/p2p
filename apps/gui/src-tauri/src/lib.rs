@@ -3,16 +3,40 @@
 //! 模块划分：types（契约 serde 镜像）/ config（配置持久化）/ proto（echo 与 target 解析）/
 //! state（节点生命周期）/ events（事件转发）/ commands（9 个 IPC 命令）。
 
+pub mod commands;
+pub mod config;
+pub mod events;
+pub mod proto;
+pub mod state;
 pub mod types;
 
 use tauri::Manager;
+
+use crate::state::AppState;
 
 /// 桌面入口：初始化日志、装配状态与命令表。
 pub fn run() {
     init_tracing();
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![])
-        .setup(|_app| Ok(()))
+        .invoke_handler(tauri::generate_handler![
+            commands::node_start,
+            commands::node_stop,
+            commands::node_status,
+            commands::metrics_get,
+            commands::config_get,
+            commands::config_save,
+            commands::peer_dial,
+            commands::peer_ping,
+            commands::identity_reset,
+        ])
+        .setup(|app| {
+            let dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("定位应用数据目录失败: {e}"))?;
+            app.manage(AppState::new(dir));
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("p2p-console 启动失败");
 }
