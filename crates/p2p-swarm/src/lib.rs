@@ -40,6 +40,24 @@ pub enum NodeEvent {
         peer: PeerId,
         reason: String,
     },
+    /// 降级链一跳的结果（M3）：ok=false 必须带原因，禁止静默降级（design §12）。
+    DialHop {
+        peer: PeerId,
+        hop: DialHop,
+        ok: bool,
+        detail: String,
+    },
+}
+
+/// 降级链一跳（design §7.3，M3 新增）：按序 直连 → 打洞 → 中继电路。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DialHop {
+    /// 直连（按地址簿逐一尝试）。
+    Direct,
+    /// 打洞（relay 信令换地址后双向探测）。
+    Punch,
+    /// 中继电路兜底。
+    Relay,
 }
 
 /// 连接门禁：通信层 allow/deny（不是业务鉴权，design §6）。

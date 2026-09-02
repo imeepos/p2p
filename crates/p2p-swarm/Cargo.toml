@@ -5,9 +5,12 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+bs58.workspace = true
 p2p-identity = { path = "../p2p-identity" }
 p2p-mux = { path = "../p2p-mux" }
 p2p-protocol = { path = "../p2p-protocol" }
+p2p-relay = { path = "../p2p-relay" }
+p2p-security = { path = "../p2p-security" }
 p2p-transport = { path = "../p2p-transport" }
 tokio.workspace = true
 tracing.workspace = true

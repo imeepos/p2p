@@ -17,3 +17,5 @@ thiserror.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true
+[dev-dependencies]
+p2p-relay = { path = "../p2p-relay" }

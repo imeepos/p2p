@@ -898,6 +898,7 @@ dependencies = [
  "p2p-identity",
  "p2p-mux",
  "p2p-protocol",
+ "p2p-relay",
  "p2p-swarm",
  "p2p-transport",
  "thiserror 1.0.69",
@@ -1033,9 +1034,12 @@ name = "p2p-swarm"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bs58",
  "p2p-identity",
  "p2p-mux",
  "p2p-protocol",
+ "p2p-relay",
+ "p2p-security",
  "p2p-transport",
  "tokio",
  "tokio-util",

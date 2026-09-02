@@ -1,19 +1,18 @@
-//! 出站路径：按地址簿顺序直连、门禁裁决、入池并启动收流分发（design §8 直连优先）。
+//! 出站路径与降级链（design §7.3/§8）：直连按地址簿顺序尝试，
+//! 失败进入 打洞 → 中继电路 兜底；每一跳结果发 DialHop 事件（§12）。
 
 use std::io;
 use std::sync::Arc;
 
 use p2p_identity::PeerId;
-use p2p_mux::{BoxedStream, MuxControl};
+use p2p_mux::BoxedStream;
 use p2p_protocol::{dispatch_inbound, ProtocolError};
 use p2p_transport::{Transport, TransportAddr};
 use tokio::sync::{broadcast, watch};
 
-use super::{RegistryCell, Swarm};
+use super::{Mux, RegistryCell, Swarm};
 use crate::pool::ConnectionPool;
-use crate::NodeEvent;
-
-type Mux = Arc<dyn MuxControl>;
+use crate::{DialHop, NodeEvent};
 
 /// 按地址簿顺序逐一尝试直连；每个失败地址发 DialFailed，全部失败返回末次错误。
 pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
@@ -24,8 +23,10 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     if addrs.is_empty() {
         return Err(dial_rejected(swarm, peer, "no known address for peer"));
     }
+    let mut tried = 0usize;
     let mut last_err: Option<io::Error> = None;
     for addr in addrs {
+        tried += 1;
         match dial_one(swarm, peer, &addr).await {
             Ok(mux) => {
                 insert_connection(swarm, peer, mux.clone());
@@ -37,6 +38,30 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
                     reason: format!("{addr}: {err}"),
                 });
                 last_err = Some(err);
+            }
+        }
+    }
+    swarm.emit(NodeEvent::DialHop {
+        peer,
+        hop: DialHop::Direct,
+        ok: false,
+        detail: format!("{tried} addr(s) tried"),
+    });
+    // 降级链 2/3 跳：打洞 + 中继电路（未配置 relay 则止于直连，已留 debug 日志）
+    if swarm.has_relay_sessions() {
+        match swarm.relay_degrade(peer).await {
+            Ok(mux) => {
+                insert_connection(swarm, peer, mux.clone());
+                return Ok(mux);
+            }
+            Err(err) => {
+                swarm.emit(NodeEvent::DialHop {
+                    peer,
+                    hop: DialHop::Relay,
+                    ok: false,
+                    detail: err.to_string(),
+                });
+                return Err(err);
             }
         }
     }
@@ -57,7 +82,7 @@ fn dial_rejected(swarm: &Swarm, peer: PeerId, reason: &str) -> io::Error {
 /// expected 恒为 Some(peer)——地址簿可被投毒，握手后的身份比对是最后防线，
 /// 类型层面 peer 必填，调用方无法省略。盲拨仅存在于 facade rendezvous
 /// 链接（bootstrap 身份未知）且必须留日志。
-async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) -> io::Result<Mux> {
+pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) -> io::Result<Mux> {
     let transport: &dyn Transport = match addr {
         TransportAddr::Quic { .. } => &swarm.dial_quic,
         TransportAddr::Tcp { .. } => &swarm.dial_tcp,

@@ -29,6 +29,10 @@ pub struct NodeConfig {
     pub max_frame_size: u32,
     /// 身份数据目录，默认 ./p2p-data（目录权限 0700）。
     pub data_dir: PathBuf,
+    /// relay 服务地址（design §7.3 降级链 2/3 跳）；空则降级链止于直连。
+    pub relay_addrs: Vec<String>,
+    /// 对外宣告地址（打洞信令，design §7.2 观测地址）；空则用监听地址。
+    pub advertised_addrs: Vec<String>,
 }
 
 impl Default for NodeConfig {
@@ -40,6 +44,8 @@ impl Default for NodeConfig {
             enable_mdns: true,
             max_frame_size: 1 << 20,
             data_dir: PathBuf::from("./p2p-data"),
+            relay_addrs: Vec::new(),
+            advertised_addrs: Vec::new(),
         }
     }
 }
@@ -84,6 +90,18 @@ impl NodeBuilder {
     /// 身份数据目录（目录权限 0700，种子文件 0600）。
     pub fn data_dir(mut self, dir: PathBuf) -> Self {
         self.0.data_dir = dir;
+        self
+    }
+
+    /// relay 服务地址（M3 降级链 2/3 跳入口）。
+    pub fn relay_addrs(mut self, addrs: Vec<String>) -> Self {
+        self.0.relay_addrs = addrs;
+        self
+    }
+
+    /// 对外宣告地址（打洞信令携带；NAT 场景填观测地址）。
+    pub fn advertised_addrs(mut self, addrs: Vec<String>) -> Self {
+        self.0.advertised_addrs = addrs;
         self
     }
 

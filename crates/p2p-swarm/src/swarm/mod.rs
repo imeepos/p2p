@@ -6,48 +6,50 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
 
 use p2p_identity::{Keypair, PeerId};
-use p2p_mux::BoxedStream;
+use p2p_mux::{BoxedStream, MuxControl};
 use p2p_protocol::{HandlerRegistry, ProtocolHandler, ProtocolId, StreamFactory};
 use p2p_transport::{QuicTransport, TcpTransport, TransportAddr};
-use tokio::sync::{broadcast, watch};
+use tokio::sync::{broadcast, mpsc, watch};
 
 use crate::pool::ConnectionPool;
 use crate::{ConnectionGate, NodeEvent};
 
+mod config;
 mod dial;
 mod listen;
+mod relay_session;
+mod responder;
 
+#[cfg(test)]
+mod tests;
+
+pub use config::SwarmConfig;
+use config::{to_transport, EVENT_CAPACITY};
 use dial::dial_peer;
 use listen::spawn_accept_loops;
+use relay_session::{spawn_sessions, RelayCmd};
 
-/// broadcast 事件通道容量；慢消费者落后超过即 Lagged，由其自行处理。
-const EVENT_CAPACITY: usize = 128;
-
-/// Swarm 装配参数。
-pub struct SwarmConfig {
-    pub keypair: Arc<Keypair>,
-    /// 0 = 随机端口。
-    pub quic_port: u16,
-    pub tcp_port: u16,
-    pub registry: Arc<HandlerRegistry>,
-}
+/// 电路化/直连拨号共用的复用句柄别名。
+pub(super) type Mux = Arc<dyn MuxControl>;
 
 pub struct Swarm {
     keypair: Arc<Keypair>,
     dial_quic: QuicTransport,
     dial_tcp: TcpTransport,
     listen_addrs: Vec<TransportAddr>,
+    advertised_addrs: Vec<TransportAddr>,
     pool: Arc<ConnectionPool>,
     registry: RegistryCell,
     gate: Mutex<Option<Arc<dyn ConnectionGate>>>,
     address_book: Mutex<HashMap<PeerId, Vec<TransportAddr>>>,
     events: broadcast::Sender<NodeEvent>,
+    relay_sessions: Mutex<Vec<mpsc::Sender<RelayCmd>>>,
     shutdown_tx: watch::Sender<bool>,
     shutdown_rx: watch::Receiver<bool>,
 }
 
 impl Swarm {
-    /// 绑定 QUIC+TCP 监听并启动 accept 循环；绑定失败原样上抛（装配期可见）。
+    /// 绑定 QUIC+TCP 监听并启动 accept/relay 会话；绑定失败原样上抛（装配期可见）。
     pub async fn start(config: SwarmConfig) -> io::Result<Arc<Self>> {
         let bind = |port: u16| SocketAddr::new(IpAddr::from([0, 0, 0, 0]), port);
         let quic = QuicTransport::bind(bind(config.quic_port), &config.keypair).await?;
@@ -64,15 +66,18 @@ impl Swarm {
             dial_quic: QuicTransport::new()?,
             dial_tcp: TcpTransport::new(),
             listen_addrs,
+            advertised_addrs: config.advertised_addrs,
             pool: Arc::new(ConnectionPool::new()),
             registry: Arc::new(Mutex::new(config.registry)),
             gate: Mutex::new(None),
             address_book: Mutex::new(HashMap::new()),
             events,
+            relay_sessions: Mutex::new(Vec::new()),
             shutdown_tx,
             shutdown_rx,
         });
         spawn_accept_loops(&swarm, quic, tcp, tcp_listener);
+        spawn_sessions(&swarm, config.relay_addrs);
         Ok(swarm)
     }
 
@@ -110,7 +115,7 @@ impl Swarm {
         *self.gate.lock().expect("gate lock") = Some(gate);
     }
 
-    /// 幂等连接：池内已有连接直接复用，否则按地址簿顺序直连。
+    /// 幂等连接：池内已有连接直接复用，否则走降级链 直连→打洞→中继。
     pub async fn connect(&self, peer: PeerId) -> io::Result<()> {
         self.pool
             .get_or_dial(peer, dial_peer(self, peer))
@@ -161,6 +166,16 @@ impl Swarm {
         *self.shutdown_rx.borrow()
     }
 
+    /// 打洞信令宣告的地址：显式宣告优先，缺省用监听地址。
+    fn punch_addrs_strs(&self) -> Vec<String> {
+        let addrs = if self.advertised_addrs.is_empty() {
+            &self.listen_addrs
+        } else {
+            &self.advertised_addrs
+        };
+        addrs.iter().map(ToString::to_string).collect()
+    }
+
     fn addresses_of(&self, peer: PeerId) -> Vec<TransportAddr> {
         self.address_book
             .lock()
@@ -193,25 +208,42 @@ impl Swarm {
     fn emit(&self, event: NodeEvent) {
         let _ = self.events.send(event);
     }
-}
 
-/// 未指定 IP（0.0.0.0/::）替换为 127.0.0.1，保证地址簿里的监听地址可直连。
-fn to_transport(addr: SocketAddr, quic: bool) -> TransportAddr {
-    let ip = if addr.ip().is_unspecified() {
-        IpAddr::from([127, 0, 0, 1])
-    } else {
-        addr.ip()
-    };
-    if quic {
-        TransportAddr::Quic {
-            ip,
-            port: addr.port(),
+    /// 降级链 2/3 跳（打洞 + 中继电路）经由的会话命令入口。
+    async fn relay_degrade(&self, peer: PeerId) -> io::Result<Mux> {
+        let senders = self.relay_sessions.lock().expect("relay lock").clone();
+        if senders.is_empty() {
+            tracing::debug!(%peer, "relay fallback unavailable: no relay configured");
+            return Err(io::Error::other("no relay configured"));
         }
-    } else {
-        TransportAddr::Tcp {
-            ip,
-            port: addr.port(),
+        let mut last: Option<io::Error> = None;
+        for tx in senders.iter() {
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+            if tx
+                .send(RelayCmd::Degrade {
+                    peer,
+                    reply: reply_tx,
+                })
+                .await
+                .is_err()
+            {
+                last = Some(io::Error::other("relay session closed"));
+                continue;
+            }
+            return match reply_rx.await {
+                Ok(result) => result,
+                Err(_) => Err(io::Error::other("relay session dropped the request")),
+            };
         }
+        Err(last.unwrap_or_else(|| io::Error::other("no relay session available")))
+    }
+
+    fn has_relay_sessions(&self) -> bool {
+        !self.relay_sessions.lock().expect("relay lock").is_empty()
+    }
+
+    fn add_relay_session(&self, tx: mpsc::Sender<RelayCmd>) {
+        self.relay_sessions.lock().expect("relay lock").push(tx);
     }
 }
 
@@ -226,69 +258,5 @@ pub struct SwarmFactory(pub Arc<Swarm>);
 impl StreamFactory for SwarmFactory {
     async fn open_stream(&self, peer: &PeerId, protocol: &ProtocolId) -> io::Result<BoxedStream> {
         self.0.open_stream(peer, protocol).await
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::time::Duration;
-
-    /// 直连按地址顺序尝试：首地址拨号失败必须换下一地址成功，
-    /// 且失败地址发 DialFailed（design §12 失败路径可见）。
-    #[tokio::test]
-    async fn dial_falls_through_failed_addr() {
-        let registry_of = || Arc::new(HandlerRegistry::default());
-        let swarm = Swarm::start(SwarmConfig {
-            keypair: Arc::new(Keypair::generate()),
-            quic_port: 0,
-            tcp_port: 0,
-            registry: registry_of(),
-        })
-        .await
-        .expect("bind swarm");
-        let helper = Swarm::start(SwarmConfig {
-            keypair: Arc::new(Keypair::generate()),
-            quic_port: 0,
-            tcp_port: 0,
-            registry: registry_of(),
-        })
-        .await
-        .expect("bind helper");
-
-        let helper_peer = helper.local_peer_id();
-        let tcp_addr = helper
-            .listen_addrs()
-            .into_iter()
-            .find(|a| matches!(a, TransportAddr::Tcp { .. }))
-            .expect("helper tcp addr");
-        // 首地址用本机未监听的 TCP 端口：loopback 拒绝即时返回（UDP 拒绝在 macOS 上要等 30s 超时）
-        swarm.add_peer_addresses(
-            helper_peer,
-            vec![
-                TransportAddr::Tcp {
-                    ip: IpAddr::from([127, 0, 0, 1]),
-                    port: 1,
-                },
-                tcp_addr,
-            ],
-        );
-
-        let mut events = swarm.subscribe();
-        swarm.connect(helper_peer).await.expect("dial via fallback");
-
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
-        let mut saw_failed = false;
-        loop {
-            match tokio::time::timeout_at(deadline, events.recv()).await {
-                Ok(Ok(NodeEvent::DialFailed { .. })) => {
-                    saw_failed = true;
-                    break;
-                }
-                Ok(Ok(_)) => continue,
-                _ => break,
-            }
-        }
-        assert!(saw_failed, "failed first addr must emit DialFailed");
     }
 }

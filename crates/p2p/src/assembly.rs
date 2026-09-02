@@ -25,11 +25,15 @@ const DISCOVERY_EVENTS: usize = 64;
 
 pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     let keypair = Arc::new(load_identity(&cfg.data_dir)?);
+    let relay_addrs = parse_all(&cfg.relay_addrs)?;
+    let advertised_addrs = parse_all(&cfg.advertised_addrs)?;
     let swarm = Swarm::start(SwarmConfig {
         keypair: keypair.clone(),
         quic_port: cfg.quic_port,
         tcp_port: cfg.tcp_port,
         registry: Arc::new(HandlerRegistry::default()),
+        relay_addrs,
+        advertised_addrs,
     })
     .await?;
 
@@ -40,6 +44,11 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     spawn_discovery(&cfg, keypair, swarm.clone(), &listen_addrs)?;
 
     Ok(Node::new(swarm))
+}
+
+/// 批量解析传输地址；任一非法即装配失败（显式配置错误必须响亮）。
+fn parse_all(addrs: &[String]) -> Result<Vec<TransportAddr>, NodeError> {
+    addrs.iter().map(|s| parse_transport_addr(s)).collect()
 }
 
 /// 身份持久化：目录 0700，种子文件 0600，重启身份不变（design §6）。
