@@ -2,7 +2,8 @@
 //!
 //! 帧格式：varint(len) + payload，单帧上限 [MAX_FRAME_SIZE]；
 //! 新开流的首帧为协议 ID 的 UTF-8 字节（同样走帧封装）。
-//! ProtocolId/帧编解码/注册表已实现并冻结；request-response 归协议会话 P。
+//! ProtocolId/帧编解码/注册表为冻结契约；request-response、StreamFactory 接缝、
+//! 协议握手助手与 chunked transfer 由协议会话 P 在此只增不改地实现。
 
 use std::collections::HashMap;
 use std::io;
@@ -11,6 +12,14 @@ use std::sync::Arc;
 use p2p_identity::PeerId;
 use p2p_mux::BoxedStream;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
+mod handshake;
+mod request_response;
+mod stream_factory;
+
+pub use handshake::{dispatch_inbound, open_with_protocol};
+pub use request_response::RequestResponseClient;
+pub use stream_factory::{LoopbackHub, StreamFactory};
 
 pub const MAX_FRAME_SIZE: u32 = 1 << 20;
 
@@ -59,8 +68,25 @@ pub enum ProtocolError {
     InvalidId(String),
     #[error("frame too large: {0} bytes (max {MAX_FRAME_SIZE})")]
     FrameTooLarge(u64),
+    #[error("request timed out after {0:?}")]
+    Timeout(std::time::Duration),
+    #[error("protocol not supported by remote handler: {0}")]
+    UnsupportedProtocol(ProtocolId),
     #[error("io: {0}")]
     Io(#[from] io::Error),
+}
+
+/// 把「io::Error 包装的 ProtocolError」还原为顶层 ProtocolError，保持错误可区分。
+/// 非 ProtocolError 载荷或无载荷时保留原 kind 包回 Io。
+pub fn flatten_io(err: io::Error) -> ProtocolError {
+    let kind = err.kind();
+    match err.into_inner() {
+        Some(inner) => match inner.downcast::<ProtocolError>() {
+            Ok(pe) => *pe,
+            Err(inner) => ProtocolError::Io(io::Error::new(kind, inner)),
+        },
+        None => ProtocolError::Io(io::Error::new(kind, "no error payload")),
+    }
 }
 
 /// 业务接入点：注册协议 ID，收到对应流即被回调（design §9）。
@@ -92,7 +118,10 @@ impl HandlerRegistry {
     }
 }
 
-pub async fn write_frame(w: &mut (impl AsyncWrite + Unpin + Send), payload: &[u8]) -> io::Result<()> {
+pub async fn write_frame(
+    w: &mut (impl AsyncWrite + Unpin + Send),
+    payload: &[u8],
+) -> io::Result<()> {
     let len = payload.len() as u64;
     if len > MAX_FRAME_SIZE as u64 {
         return Err(io::Error::new(
@@ -117,7 +146,10 @@ pub async fn read_frame(r: &mut (impl AsyncRead + Unpin + Send)) -> io::Result<V
     Ok(buf)
 }
 
-pub async fn write_protocol_id(w: &mut (impl AsyncWrite + Unpin + Send), id: &ProtocolId) -> io::Result<()> {
+pub async fn write_protocol_id(
+    w: &mut (impl AsyncWrite + Unpin + Send),
+    id: &ProtocolId,
+) -> io::Result<()> {
     write_frame(w, id.as_str().as_bytes()).await
 }
 
@@ -158,7 +190,10 @@ async fn read_varint(r: &mut (impl AsyncRead + Unpin + Send)) -> io::Result<u64>
         }
         shift += 7;
     }
-    Err(io::Error::new(io::ErrorKind::InvalidData, "varint overflow"))
+    Err(io::Error::new(
+        io::ErrorKind::InvalidData,
+        "varint overflow",
+    ))
 }
 
 /// request-response 便捷原语接缝（P 会话实现）：
