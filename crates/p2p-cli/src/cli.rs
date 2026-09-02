@@ -47,9 +47,12 @@ pub struct NodeArgs {
     /// 身份数据目录（种子落盘，重启身份不变）。
     #[arg(long)]
     pub data: String,
-    /// 公共引导节点（`ip/u端口` 或 `ip/t端口`）；省略则只走 mDNS。
-    #[arg(long)]
-    pub bootstrap: Option<String>,
+    /// 公共引导节点（`ip/u端口` 或 `ip/t端口`，可多次传入注册双引导面）；省略则只走 mDNS。
+    #[arg(long, value_name = "ADDR", action = clap::ArgAction::Append)]
+    pub bootstrap: Vec<String>,
+    /// 中继服务地址（`ip/u端口`，可多次传入）：接线 relay_addrs 启用打洞信令与中继兜底。
+    #[arg(long, value_name = "ADDR", action = clap::ArgAction::Append)]
+    pub relay: Vec<String>,
     /// 显示名（仅日志可读性用）。
     #[arg(long)]
     pub name: Option<String>,
@@ -68,9 +71,12 @@ pub struct NodeArgs {
 pub struct PingArgs {
     /// 目标节点 PeerId（base58）。
     pub peer_id: String,
-    /// 公共引导节点；用于发现目标地址。
-    #[arg(long)]
-    pub bootstrap: Option<String>,
+    /// 公共引导节点；用于发现目标地址（可多次传入，任一引导面可用即可）。
+    #[arg(long, value_name = "ADDR", action = clap::ArgAction::Append)]
+    pub bootstrap: Vec<String>,
+    /// 中继服务地址（`ip/u端口`，可多次传入）：接线后直连失败走打洞/中继兜底。
+    #[arg(long, value_name = "ADDR", action = clap::ArgAction::Append)]
+    pub relay: Vec<String>,
     /// 等待目标被发现的最大秒数。
     #[arg(long, default_value_t = 15)]
     pub wait: u64,
@@ -81,9 +87,9 @@ pub struct PingArgs {
 
 #[derive(Debug, clap::Args, Clone)]
 pub struct DiscoverArgs {
-    /// 公共引导节点；省略则只走 mDNS。
-    #[arg(long)]
-    pub bootstrap: Option<String>,
+    /// 公共引导节点；省略则只走 mDNS（可多次传入）。
+    #[arg(long, value_name = "ADDR", action = clap::ArgAction::Append)]
+    pub bootstrap: Vec<String>,
     /// 收集发现结果的持续秒数。
     #[arg(long, default_value_t = 8)]
     pub duration: u64,

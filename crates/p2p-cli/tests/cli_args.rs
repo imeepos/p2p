@@ -1,0 +1,81 @@
+//! 参数解析门禁：--bootstrap 多值与 --relay 接线（多引导面/降级链的 CLI 入口）。
+
+use clap::Parser;
+use p2p_cli::cli::{Cli, Command};
+
+#[test]
+fn node_accepts_multiple_bootstrap_and_relay() {
+    let a = [
+        "p2p-cli",
+        "node",
+        "--data",
+        "d",
+        "--bootstrap",
+        "43.240.223.138/u3400",
+        "--bootstrap",
+        "121.196.193.177/u3400",
+        "--relay",
+        "43.240.223.138/u3403",
+        "--relay",
+        "121.196.193.177/u3403",
+    ];
+    let Command::Node(args) = Cli::try_parse_from(a).unwrap().command else {
+        panic!("node");
+    };
+    assert_eq!(
+        args.bootstrap,
+        ["43.240.223.138/u3400", "121.196.193.177/u3400"]
+    );
+    assert_eq!(
+        args.relay,
+        ["43.240.223.138/u3403", "121.196.193.177/u3403"]
+    );
+}
+
+#[test]
+fn ping_accepts_multiple_bootstrap_and_relay() {
+    let a = [
+        "p2p-cli",
+        "ping",
+        "abc",
+        "--bootstrap",
+        "1.1.1.1/u3400",
+        "--bootstrap",
+        "2.2.2.2/u3400",
+        "--relay",
+        "1.1.1.1/u3403",
+    ];
+    let Command::Ping(args) = Cli::try_parse_from(a).unwrap().command else {
+        panic!("ping");
+    };
+    assert_eq!(args.bootstrap.len(), 2);
+    assert_eq!(args.relay, ["1.1.1.1/u3403"]);
+}
+
+#[test]
+fn discover_accepts_multiple_bootstrap() {
+    let a = [
+        "p2p-cli",
+        "discover",
+        "--bootstrap",
+        "1.1.1.1/u3400",
+        "--bootstrap",
+        "2.2.2.2/u3400",
+    ];
+    let Command::Discover(args) = Cli::try_parse_from(a).unwrap().command else {
+        panic!("discover");
+    };
+    assert_eq!(args.bootstrap.len(), 2);
+}
+
+#[test]
+fn node_bootstrap_and_relay_default_empty() {
+    let Command::Node(args) = Cli::try_parse_from(["p2p-cli", "node", "--data", "d"])
+        .unwrap()
+        .command
+    else {
+        panic!("node");
+    };
+    assert!(args.bootstrap.is_empty());
+    assert!(args.relay.is_empty());
+}

@@ -60,8 +60,8 @@ async fn build_node(args: &DiscoverArgs) -> Result<Node, Box<dyn std::error::Err
     let mut builder = NodeBuilder::new()
         .mdns(!args.no_mdns)
         .data_dir(tmp_data_dir("p2p-discover"));
-    if let Some(addr) = &args.bootstrap {
-        builder = builder.bootstrap(vec![addr.clone()]);
+    if !args.bootstrap.is_empty() {
+        builder = builder.bootstrap(args.bootstrap.clone());
     }
     Ok(builder.build().await?)
 }
