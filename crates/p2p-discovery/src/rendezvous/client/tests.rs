@@ -149,3 +149,21 @@ fn default_register_interval_within_freshness_and_ttl() {
         "重注册间隔须小于 QUIC idle timeout(30s)，否则链路被掐注册有间隙"
     );
 }
+
+#[test]
+fn backoff_doubles_to_cap_then_resets_after_healthy_session() {
+    // E4 回归：退避逐次翻倍封顶 30s；健康会话正常收尾必须复位——
+    // 否则长时间在线后一次断连也要等满上限（退避只该惩罚连续失败）
+    let mut backoff = ReconnectBackoff::new();
+    let seq: Vec<Duration> = (0..8).map(|_| backoff.step()).collect();
+    assert_eq!(seq[0], Duration::from_millis(500));
+    assert_eq!(seq[1], Duration::from_secs(1));
+    assert_eq!(seq[2], Duration::from_secs(2));
+    assert_eq!(seq[3], Duration::from_secs(4));
+    assert_eq!(seq[4], Duration::from_secs(8));
+    assert_eq!(seq[5], Duration::from_secs(16));
+    assert_eq!(seq[6], Duration::from_secs(30), "超出上限必须封顶 30s");
+    assert_eq!(seq[7], Duration::from_secs(30));
+    backoff.reset();
+    assert_eq!(backoff.step(), Duration::from_millis(500), "复位后回到初值");
+}

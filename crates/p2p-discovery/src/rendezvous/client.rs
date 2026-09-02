@@ -18,6 +18,40 @@ use crate::{DiscoveredPeer, Discovery, DiscoveryEvent, Source};
 /// 新鲜度容差（±300s）与 TTL 截断（3600s）。
 const DEFAULT_REGISTER_INTERVAL: Duration = Duration::from_secs(20);
 
+/// 重连退避初值与上限：上限 30s 对齐服务端不可达时的探测节奏（E4 观测 ~35s 周期）。
+const BACKOFF_INITIAL: Duration = Duration::from_millis(500);
+const BACKOFF_MAX: Duration = Duration::from_secs(30);
+
+/// 重连退避：失败逐次翻倍至上限；健康会话正常收尾即复位——
+/// 退避只惩罚连续失败，长时间在线后一次断连不应等满上限（E4）。
+pub(crate) struct ReconnectBackoff {
+    initial: Duration,
+    max: Duration,
+    current: Duration,
+}
+
+impl ReconnectBackoff {
+    pub(crate) fn new() -> Self {
+        Self {
+            initial: BACKOFF_INITIAL,
+            max: BACKOFF_MAX,
+            current: BACKOFF_INITIAL,
+        }
+    }
+
+    /// 取本次等待时长并翻倍推进（封顶 max）。
+    pub(crate) fn step(&mut self) -> Duration {
+        let wait = self.current;
+        self.current = (self.current * 2).min(self.max);
+        wait
+    }
+
+    /// 健康会话收尾：退避复位到初值。
+    pub(crate) fn reset(&mut self) {
+        self.current = self.initial;
+    }
+}
+
 /// rendezvous 客户端配置。
 pub struct RendezvousConfig {
     pub namespace: String,
@@ -153,13 +187,16 @@ impl Discovery for RendezvousClient {
 
     async fn run(self: Arc<Self>, events: mpsc::Sender<DiscoveryEvent>) {
         let cache = MemCache::new();
-        let mut backoff = Duration::from_millis(500);
+        let mut backoff = ReconnectBackoff::new();
         loop {
             match self.connect_and_loop(&events, &cache).await {
-                Ok(()) => tracing::debug!(
-                    target: "p2p_discovery",
-                    "rendezvous connection ended, reconnecting"
-                ),
+                Ok(()) => {
+                    tracing::debug!(
+                        target: "p2p_discovery",
+                        "rendezvous connection ended, reconnecting"
+                    );
+                    backoff.reset();
+                }
                 Err(err) => {
                     let _ = events
                         .send(DiscoveryEvent::Failed {
@@ -169,8 +206,7 @@ impl Discovery for RendezvousClient {
                         .await;
                 }
             }
-            tokio::time::sleep(backoff).await;
-            backoff = (backoff * 2).min(Duration::from_secs(30));
+            tokio::time::sleep(backoff.step()).await;
         }
     }
 }
