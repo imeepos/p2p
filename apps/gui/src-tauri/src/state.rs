@@ -12,7 +12,9 @@ use p2p::{Node, NodeEvent};
 use tokio::sync::{broadcast, Mutex};
 use tracing::warn;
 
-use crate::config::ConfigStore;
+use crate::config::{
+    default_bootstrap, default_observation_addrs, default_relay_addrs, ConfigStore,
+};
 use crate::history::{spawn_metrics_sampler, MetricsHistory, MetricsPoint};
 use crate::proto;
 use crate::types::{GuiConfig, MetricsJson, NodeStatus};
@@ -185,22 +187,34 @@ impl AppState {
     }
 }
 
-/// GuiConfig → NodeBuilder 装配（契约 §1 node_start）。
+/// 空列表回落出厂默认：serde 默认只兜字段缺失，落盘的显式 `[]`（旧版本配置/
+/// 用户清空）在装配时兜底，兑现空态提示「列表为空时使用出厂默认端点」；
+/// 持久层保持原样不回写。
+fn with_factory_fallback(list: &[String], factory: fn() -> Vec<String>) -> Vec<String> {
+    if list.is_empty() {
+        factory()
+    } else {
+        list.to_vec()
+    }
+}
+
+/// GuiConfig → NodeBuilder 装配（契约 §1 node_start）；空地址列表回落出厂默认。
 async fn build_node(cfg: &GuiConfig) -> Result<Node, String> {
     let mut builder = Node::builder()
         .quic_port(cfg.quic_port)
         .tcp_port(cfg.tcp_port)
-        .bootstrap(cfg.bootstrap.clone())
+        .bootstrap(with_factory_fallback(&cfg.bootstrap, default_bootstrap))
         .mdns(cfg.enable_mdns)
         .data_dir(PathBuf::from(&cfg.data_dir))
-        .relay_addrs(cfg.relay_addrs.clone())
+        .relay_addrs(with_factory_fallback(&cfg.relay_addrs, default_relay_addrs))
         .advertised_addrs(cfg.advertised_addrs.clone());
     if let Some(port) = cfg.observation_port {
         builder = builder.observation_responder(port);
     }
-    if !cfg.observation_addrs.is_empty() {
-        builder = builder.observation_addrs(cfg.observation_addrs.clone());
-    }
+    builder = builder.observation_addrs(with_factory_fallback(
+        &cfg.observation_addrs,
+        default_observation_addrs,
+    ));
     builder.build().await.map_err(|e| {
         warn!(error = %e, "节点装配失败");
         format!("节点启动失败: {e}")

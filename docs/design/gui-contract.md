@@ -61,6 +61,9 @@ interface GuiConfig {
   observationAddrs: string[];  // 观测反射端点（socket 语法 ip:port），如 "121.196.193.177:3402"
 }
 
+// 空列表语义：bootstrap/relayAddrs/observationAddrs 为空时，节点装配回落
+// 出厂默认端点（state.rs with_factory_fallback），持久层不回写。
+
 interface NodeStatus {
   running: boolean;
   peerId: string | null;       // base58(sha256(pubkey))
