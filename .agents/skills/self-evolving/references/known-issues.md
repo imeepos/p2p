@@ -135,3 +135,12 @@ failed: early eof（客户端侧超时中止）。
 - 症状：`git add ... && git commit -F - <<'MSG' ... MSG && git add ...` 链式 heredoc 只执行了第一段。修法：heredoc 提交逐条单独跑，不进 && 链；每次 commit 后 `git log` 核对落盘。
 - 症状：改共享函数签名（toastError 二参 string → options 对象）后，边界外的 W6-S1 文件编译报错。修法：共享 API 变更一律带兼容层（`string | Options` 归一化），不越界改他人文件，回报中标注。
 
+## 2026-09-03 gui-client CI 打包轮
+
+- 症状：Windows job 的 Tauri 打包步骤 exit 0，upload-artifact 报 No files were found（nsis/*.exe、msi/*.msi 均无）。
+- 原因：tauri.conf.json 写死 bundle.targets [app, dmg]，均为 macOS 专属格式；Windows 按此配置打包产出为零——构建成功不等于有安装包。
+- 修法：targets 改 "all"（各平台出全量原生产物）；平台差异（Linux 只要 appimage/deb）在 workflow matrix 里用 --bundles 显式覆盖。
+- 症状：matrix 里 macos-13 job 排队几十分钟零 step（API 里 runner_name 为空），随后整个 run 被 cancel，看似随机卡死。
+- 原因：macos-13 runner 镜像 2025-12-04 退役（官方 changelog 2025-09-19），job 永远排不到机器；同时 workflow 标签重推触发 concurrency cancel-in-progress，把上一个还在跑的 run 连带取消，形成「重推→互杀」循环。
+- 修法：换 macos-15-intel（Intel 末班镜像）；发版流水线跑着的时候不要重推同一标签。
+
