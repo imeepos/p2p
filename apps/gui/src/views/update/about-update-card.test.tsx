@@ -63,7 +63,8 @@ describe("AboutUpdateCard 手动检查三态", () => {
   it("idle：显示当前版本与可点的检查按钮", () => {
     render(<AboutUpdateCard />);
     expect(screen.getByText("当前版本")).toBeInTheDocument();
-    expect(screen.getByText("v0.1.0")).toBeInTheDocument();
+    // 版本号与 package.json 同源注入，硬编码会在每次 bump 时假红（0.1.1 实证）
+    expect(screen.getByText(`v${__APP_VERSION__}`)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "检查更新" })).toBeEnabled();
   });
 
