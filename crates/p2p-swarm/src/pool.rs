@@ -35,7 +35,9 @@ pub(crate) struct PoolEntry {
 /// Mux 非 Debug，手工实现只报变体与是否带连接，不展开内容。
 pub enum Admission {
     Accepted,
-    Replaced(Mux),
+    /// 被顶替连接随裁决值丢弃：Arc 清零即断 yamux 驱动，生产无需显式 close；
+    /// 载荷仅供测试断言顶替关系。
+    Replaced(#[cfg_attr(not(test), allow(dead_code))] Mux),
     RejectedExisting(Mux),
 }
 
@@ -85,12 +87,15 @@ impl ConnectionPool {
         self.conns.lock().expect("pool lock").len()
     }
 
-    /// 是否无在册连接。
+    /// 是否无在册连接（测试断言用；生产走 metrics 水位）。
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// 幂等插入：peer 已在册时丢弃新连接并返回 false（先到者优先）。
+    /// 生产路径走 [Self::admit_as] 收敛裁决；本方法供测试铺底。
+    #[cfg(test)]
     pub fn insert(&self, peer: PeerId, mux: Mux) -> bool {
         let mut conns = self.conns.lock().expect("pool lock");
         if conns.contains_key(&peer) {
@@ -107,8 +112,9 @@ impl ConnectionPool {
         }
     }
 
-    /// 收敛裁决原子入口：空池直收；冲突时按 prefer_new 二选一。
-    /// 落选连接由调用方显式 close（yamux 驱动任务须停，防泄漏）。
+    /// 收敛裁决原子入口（测试用）：空池直收；冲突时按 prefer_new 二选一。
+    /// 生产走 [Self::admit_as] 取使用记账挂业务流。
+    #[cfg(test)]
     pub fn admit(&self, peer: PeerId, mux: Mux, prefer_new: bool) -> Admission {
         self.admit_as(peer, mux, prefer_new).0
     }

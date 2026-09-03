@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T16:07:47.048Z",
+  "updatedAt": "2026-09-03T16:27:05.566Z",
   "project": "p2p-base",
   "phase": "E9-repair",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -156,12 +156,13 @@
       "goal": "E9-Q0 报告 T5：relay pub 面收口与装配收敛——RelayServiceImpl 与 Mock 替身撤出产线 API（迁 p2p-itest 或 feature test-util 门控）、提供工厂返回 Arc<dyn RelayService>、crates/p2p-swarm/src/lib.rs:19 ConnectionPool 改 pub(crate) 重导出、装配样板 5 处收敛",
       "title": "E9-t5 relay pub 面收口与装配收敛",
       "priority": "P2",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/e9-t5-relay-surface",
       "ownerSession": "session-74a7eec9-c75c-40da-a756-9c878fae8339",
       "scope": "crates/p2p-relay/src/{lib,link,service}.rs + 使用点（p2p-cli/src/bootstrap.rs、p2p-itest/src/lib.rs、p2p-itest/tests/relay_control_resilience.rs、p2p-itest/tests/relay_transport_persistence.rs、p2p/tests/m3_chain.rs）+ crates/p2p-swarm/src/lib.rs 仅 :19 一行；gating：裁定①先行——relay/cli/itest/facade 消费面已放行，swarm lib.rs:19 后置至 S1 合入后，S1 收口前不得合入 main，开发期定向门禁（relay/cli）",
       "acceptanceCommand": "bash -c '! grep -q mock_link_pair crates/p2p-relay/src/lib.rs && ! grep -rq \"RelayServiceImpl::new\" crates/p2p-cli/src crates/p2p/tests crates/p2p-itest --include=\"*.rs\" && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test --workspace --quiet && make check'",
-      "origPriority": "P3"
+      "origPriority": "P3",
+      "note": "主体已合入并独立复核 exit 0；唯一余项 swarm lib.rs:26 降级尾单在 feat/e9-connpool-downgrade 处置，落地即翻 done"
     },
     {
       "id": "T14",
@@ -173,6 +174,28 @@
       "ownerSession": "session-9bdaba46-5ae7-46c9-aac0-78f54a10ff0b",
       "scope": "crates/p2p-swarm/**；其他 crate 只读（T13 在 relay/cli/itest 在途）；冻结契约只增不改",
       "acceptanceCommand": "bash -c '! grep -rq \"io::Error::other(e.to_string())\" crates/p2p-swarm/src && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-swarm && cargo test -p p2p-itest --test conn_reclaim --test peer_lifecycle && make check'"
+    },
+    {
+      "id": "T15",
+      "goal": "E9 长稳复测与保活间隔自适应（数据驱动）：A) relay_stability.rs 四处真实 sleep 时序脆弱项虚拟时钟化（语义不变）；B) 按 runbook §8.5/8.6 用 p2p-cli metrics --duration N --interval M（relay-only 观测节点）真实拓扑三连采样，产物留档 docs/notes/e9-longrun-results.md；C) 数据显示保活/退避欠优才调参并附消融证明，达标则记录不调结论",
+      "title": "E9 长稳复测与保活间隔自适应",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "feat/e9-longrun-keepalive",
+      "ownerSession": "session-74a7eec9-c75c-40da-a756-9c878fae8339",
+      "scope": "crates/p2p-relay/tests/relay_stability.rs + crates/p2p-relay/src/control.rs（仅数据驱动调参时）+ docs/notes/e9-longrun-results.md + runbook 增补；与 T14（swarm）、T13 尾单（swarm 一行）零交集",
+      "acceptanceCommand": "bash -c 'test -f docs/notes/e9-longrun-results.md && grep -qE \"circuits_active|keepalive_failures_total\" docs/notes/e9-longrun-results.md && grep -qE \"三连|3 轮|采样\" docs/notes/e9-longrun-results.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-relay --quiet && make check'"
+    },
+    {
+      "id": "T16",
+      "goal": "relay 负载水位广播（load_permille）：服务端按链路/电路/限速桶瓶颈口径计算水位，经 Reserved/KeepAliveAck 到达客户端，为负载感知选路铺路；契约 wire-protocol.md 7.1 同步（含 tag 8/9 与错误码 6/7 存量补齐）。首笔 0a04fe0 已落分支。归属待认领（协调者已向用户与在途会话求证）",
+      "title": "E9 负载水位广播与选路基座（归属待认领）",
+      "priority": "P2",
+      "status": "doing",
+      "branch": "feat/relay-load-selector",
+      "ownerSession": "",
+      "scope": "crates/p2p-relay/{control,frame,lib,limits,messages}.rs + crates/p2p-itest/tests/relay_messages_limits.rs + docs/design/wire-protocol.md；与 T15 的交集（control.rs 保活调参）须在认领后由协调者划界",
+      "acceptanceCommand": "bash -c 'grep -q load_permille crates/p2p-relay/src/frame.rs && grep -q load_permille docs/design/wire-protocol.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-relay -p p2p-itest --quiet && make check'"
     }
   ]
 }

@@ -14,16 +14,16 @@ use p2p_relay::{CircuitId, PunchSession, RelayClient};
 use p2p_security::{NoiseXx, SecurityUpgrade};
 use p2p_transport::TransportAddr;
 
-use super::degrade_hop::PROBE_TIMEOUT;
+use super::degrade::PROBE_TIMEOUT;
 use super::dial::{dial_one, insert_connection, ConnDirection};
 use super::{Mux, Swarm};
+use crate::error_chain::chained;
 use crate::pool::ConnKind;
 use crate::DialHop;
 
 /// 等待对端接入电路上限。
 const JOIN_TIMEOUT: Duration = Duration::from_secs(10);
-/// 探测单地址上限。
-/// 电路接入项前缀（与 relay_session 的发起侧约定一致）。
+/// 电路接入项前缀（与 degrade.rs 的发起侧约定一致）。
 const CID_PREFIX: &str = "cid/";
 
 /// 入站 PunchReq：回 Ack（宣告本端地址）→ 探测请求方地址 → 失败则接入其电路。
@@ -45,6 +45,25 @@ pub(super) async fn handle_punch_req(
     let _ = session.mark_probing();
 
     let (probe_addrs, cid) = split_offer(&req.addrs);
+    let (landed, last) = probe_offered_addrs(swarm, peer, probe_addrs).await;
+    let Some(mux) = landed else {
+        let Some(cid) = cid else {
+            tracing::warn!(%peer, last = %last, "punch probes failed and no circuit offered");
+            return;
+        };
+        accept_circuit_fallback(swarm, client, peer, cid).await;
+        return;
+    };
+    insert_connection(swarm, peer, mux, ConnDirection::Outbound, ConnKind::Direct);
+}
+
+/// 应答侧探测：逐个请求方地址尝试直连；落地返回连接，全部失败发
+/// Punch hop_fail 并带回末次错误文本（供无电路时的告警日志）。
+async fn probe_offered_addrs(
+    swarm: &Swarm,
+    peer: PeerId,
+    probe_addrs: Vec<TransportAddr>,
+) -> (Option<Mux>, String) {
     let mut last = "no probe addrs".to_string();
     for addr in probe_addrs {
         let attempt = tokio::time::timeout(PROBE_TIMEOUT, dial_one(swarm, peer, &addr));
@@ -52,18 +71,18 @@ pub(super) async fn handle_punch_req(
             Ok(Ok(mux)) => {
                 tracing::info!(%peer, %addr, "inbound punch probe landed direct connection");
                 swarm.metrics.hop_ok(DialHop::Punch);
-                insert_connection(swarm, peer, mux, ConnDirection::Outbound, ConnKind::Direct);
-                return;
+                return (Some(mux), last);
             }
             Ok(Err(err)) => last = err.to_string(),
             Err(_) => last = "probe timeout".to_string(),
         }
     }
     swarm.metrics.hop_fail(DialHop::Punch);
-    let Some(cid) = cid else {
-        tracing::warn!(%peer, last = %last, "punch probes failed and no circuit offered");
-        return;
-    };
+    (None, last)
+}
+
+/// 电路兜底：接入请求方预留的电路，握手身份一致且过门禁后入池（inbound）。
+async fn accept_circuit_fallback(swarm: &Swarm, client: &mut RelayClient, peer: PeerId, cid: u64) {
     let stream = match tokio::time::timeout(JOIN_TIMEOUT, client.connect(CircuitId(cid))).await {
         Ok(Ok(s)) => s,
         Ok(Err(e)) => {
@@ -102,11 +121,14 @@ pub(super) async fn handle_punch_req(
 }
 
 /// 电路流入站安全升级：Noise XX（被动侧）+ yamux。
-async fn secure_inbound(swarm: &Swarm, stream: BoxedStream) -> io::Result<(PeerId, Mux)> {
+pub(super) async fn secure_inbound(
+    swarm: &Swarm,
+    stream: BoxedStream,
+) -> io::Result<(PeerId, Mux)> {
     let (remote, enc) = NoiseXx::new()
         .inbound(stream, &swarm.keypair)
         .await
-        .map_err(|e| io::Error::other(e.to_string()))?;
+        .map_err(chained)?;
     let mux = Arc::new(YamuxMux::new(enc, false, MAX_STREAMS_PER_CONN));
     Ok((remote, mux))
 }

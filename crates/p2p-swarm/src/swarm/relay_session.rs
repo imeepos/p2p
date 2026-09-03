@@ -1,8 +1,8 @@
 //! relay 降级链会话（design §7.3，M3）：每条 relay 地址一个常驻会话。
 //!
 //! 职责：维持到 relay 的控制链路（断线按退避重连）；转发入站 PunchReq 给
-//! 应答侧；对外提供 Degrade 命令入口（单次降级实现在 degrade_hop）。
-//! 控制链路就绪后共享健康句柄，负载感知派发见 relay_degrade/relay_selector。
+//! 应答侧；降级命令（reserve + 信令 + 探测 + 电路兜底）见 degrade.rs。
+//! 每一跳结果发 DialHop 事件/日志，禁止静默降级（design §12）。
 //!
 //! 地址约定：信令 addrs 沿用 TransportAddr 展示格式（ip/u端口、ip/t端口），
 //! 电路接入项为 cid/<N>——PunchReq/Ack 帧形状冻结，电路号借地址串传递，
@@ -16,12 +16,13 @@ use p2p_identity::PeerId;
 use p2p_mux::{BoxedStream, MuxControl};
 use p2p_relay::{RelayClient, RelayEvent, RelayHealth, RelayLink};
 use p2p_transport::{Transport, TransportAddr};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
-use super::degrade_hop::degrade;
+use super::degrade::degrade;
 use super::relay_degrade::RelaySessionHandle;
 use super::responder::handle_punch_req;
 use super::{Mux, Swarm};
+use crate::error_chain::chained;
 use crate::Backoff;
 
 /// 控制通道注册载体电路的 TTL（取上限，控制流关闭即失效）。
@@ -81,6 +82,9 @@ pub(super) fn spawn_sessions(swarm: &Arc<Swarm>, addrs: Vec<TransportAddr>) {
     tracing::info!(count, "relay fallback wired");
 }
 
+/// 会话主循环：拨链、控制注册、事件分派与退避重连。
+/// 40+ 行理由：三条失败路径（拨链失败/注册失败/控制链关闭）日志字段各异，
+/// 就地保留原文保证可观测信号零变更；建链记账与事件分派已下沉专用函数。
 async fn session_loop(
     swarm: Arc<Swarm>,
     addr: TransportAddr,
@@ -97,16 +101,7 @@ async fn session_loop(
         }
         let link = match dial_relay_link(&swarm, &addr).await {
             Ok(link) => {
-                // 首次建链直接复位；重连须会话健康存活满时长才复位（E5 语义）
-                let healthy = match up_since {
-                    Some(t) => t.elapsed() >= MIN_HEALTHY_SESSION,
-                    None => true,
-                };
-                if healthy {
-                    backoff.reset();
-                    tracing::debug!(%addr, "backoff reset after healthy session");
-                }
-                up_since = Some(std::time::Instant::now());
+                note_link_up(&mut backoff, &mut up_since, &addr);
                 link
             }
             Err(err) => {
@@ -128,34 +123,69 @@ async fn session_loop(
         }
         // 控制链路就绪：共享健康句柄（keepalive 周期刷新 RTT/load，选择器读取）
         *health_slot.lock().expect("health slot") = client.health_handle();
-        let close_reason = loop {
-            tokio::select! {
-                _ = shutdown.changed() => return,
-                cmd = cmds.recv() => match cmd {
-                    Some(RelayCmd::Degrade { peer, reply }) => {
-                        let out = degrade(&swarm, &mut client, peer).await;
-                        let _ = reply.send(out);
-                    }
-                    None => return,
-                },
-                ev = client.next_event() => match ev {
-                    Some(RelayEvent::PunchReq(req)) => handle_punch_req(&swarm, &mut client, req).await,
-                    Some(RelayEvent::PunchAck(_)) => {
-                        tracing::debug!(%addr, "unsolicited punch ack ignored");
-                    }
-                    Some(RelayEvent::ControlClosed { reason }) => break reason,
-                    None => return,
-                },
-            }
+        let close_reason = control_loop(&swarm, &addr, &mut client, &mut cmds, &mut shutdown).await;
+        let Some(reason) = close_reason else {
+            return;
         };
-        tracing::warn!(%addr, reason = %close_reason, "relay control closed; reconnecting");
+        tracing::warn!(%addr, reason = %reason, "relay control closed; reconnecting");
         swarm.metrics.count_reconnect();
         tokio::time::sleep(backoff.next_delay()).await;
     }
 }
 
+/// 链路建立记账：首次建链直接复位退避；重连须健康存活满时长才复位（E5 语义）。
+fn note_link_up(
+    backoff: &mut Backoff,
+    up_since: &mut Option<std::time::Instant>,
+    addr: &TransportAddr,
+) {
+    let healthy = match *up_since {
+        Some(t) => t.elapsed() >= MIN_HEALTHY_SESSION,
+        None => true,
+    };
+    if healthy {
+        backoff.reset();
+        tracing::debug!(%addr, "backoff reset after healthy session");
+    }
+    *up_since = Some(std::time::Instant::now());
+}
+
+/// 控制链事件循环：处理降级命令与入站信令。
+/// None = 会话应终止（停机或命令通道关闭）；Some(reason) = 控制链关闭，外层退避重连。
+async fn control_loop(
+    swarm: &Swarm,
+    addr: &TransportAddr,
+    client: &mut RelayClient,
+    cmds: &mut mpsc::Receiver<RelayCmd>,
+    shutdown: &mut watch::Receiver<bool>,
+) -> Option<String> {
+    loop {
+        tokio::select! {
+            _ = shutdown.changed() => return None,
+            cmd = cmds.recv() => match cmd {
+                Some(RelayCmd::Degrade { peer, reply }) => {
+                    let out = degrade(swarm, client, peer).await;
+                    let _ = reply.send(out);
+                }
+                None => return None,
+            },
+            ev = client.next_event() => match ev {
+                Some(RelayEvent::PunchReq(req)) => handle_punch_req(swarm, client, req).await,
+                Some(RelayEvent::PunchAck(_)) => {
+                    tracing::debug!(%addr, "unsolicited punch ack ignored");
+                }
+                Some(RelayEvent::ControlClosed { reason }) => return Some(reason),
+                None => return None,
+            },
+        }
+    }
+}
+
 /// 拨 relay（盲拨例外：relay 仅以地址配置、身份未知，显式留痕后信任加密信道）。
-async fn dial_relay_link(swarm: &Swarm, addr: &TransportAddr) -> io::Result<Box<dyn RelayLink>> {
+pub(super) async fn dial_relay_link(
+    swarm: &Swarm,
+    addr: &TransportAddr,
+) -> io::Result<Box<dyn RelayLink>> {
     let transport: &dyn Transport = match addr {
         TransportAddr::Quic { .. } => &swarm.dial_quic,
         TransportAddr::Tcp { .. } => &swarm.dial_tcp,
@@ -164,7 +194,7 @@ async fn dial_relay_link(swarm: &Swarm, addr: &TransportAddr) -> io::Result<Box<
     let conn = transport
         .dial(addr, &swarm.keypair, None)
         .await
-        .map_err(|e| io::Error::other(e.to_string()))?;
+        .map_err(chained)?;
     Ok(Box::new(TransportRelayLink {
         peer: conn.remote.to_string(),
         mux: conn.mux,

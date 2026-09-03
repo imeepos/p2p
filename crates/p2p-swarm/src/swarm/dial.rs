@@ -9,6 +9,7 @@ use p2p_transport::{Transport, TransportAddr};
 
 use super::lifecycle::LifecycleMsg;
 use super::{Mux, Swarm};
+use crate::error_chain::chained;
 use crate::lifecycle::LifecycleEvent;
 use crate::liveness::LivenessSource;
 use crate::pool::{Admission, ConnKind};
@@ -27,8 +28,12 @@ pub(super) enum ConnDirection {
 /// 不值得占满传输层默认超时（TCP 连接 5s / QUIC 握手 10s），快速失败让位后续地址。
 const HAIRPIN_DIAL_TIMEOUT: Duration = Duration::from_secs(2);
 
-/// 按地址簿顺序逐一尝试直连；每个失败地址发 DialFailed，全部失败返回末次错误。
-/// hairpin 候选（与自身观测地址同公网前缀）施加短超时，保证 LAN 地址轮得到。
+/// 直连跳全部失败的汇总：末次错误（全跳原因链的 direct 段）。
+struct DirectHopsFailed {
+    last: Option<io::Error>,
+}
+
+/// 按地址簿顺序直连，失败进入 打洞 → 中继电路 兜底；全跳失败汇总末次原因。
 pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     if peer == swarm.local_peer_id() {
         return Err(dial_rejected(swarm, peer, "refusing to dial self"));
@@ -37,6 +42,31 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     if addrs.is_empty() {
         return Err(dial_rejected(swarm, peer, "no known address for peer"));
     }
+    match dial_direct_hops(swarm, peer, addrs).await {
+        Ok(mux) => Ok(mux),
+        Err(failed) => {
+            let direct_reason = failed
+                .last
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_else(|| "no addr attempted".to_string());
+            // 未配置 relay 则止于直连，返回直连末次错误（已留 debug 日志）
+            if !swarm.has_relay_sessions() {
+                return Err(failed
+                    .last
+                    .unwrap_or_else(|| io::Error::other("dial failed")));
+            }
+            relay_fallback_hop(swarm, peer, &direct_reason).await
+        }
+    }
+}
+
+/// 按地址簿顺序逐一尝试直连；每个失败地址发 DialFailed，全部失败返回汇总。
+async fn dial_direct_hops(
+    swarm: &Swarm,
+    peer: PeerId,
+    addrs: Vec<(TransportAddr, bool)>,
+) -> Result<Mux, DirectHopsFailed> {
     let mut tried = 0usize;
     let mut last_err: Option<io::Error> = None;
     for (addr, hairpin) in addrs {
@@ -72,39 +102,36 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
         ok: false,
         detail: format!("{tried} addr(s) tried"),
     });
-    let direct_reason = last_err
-        .as_ref()
-        .map(ToString::to_string)
-        .unwrap_or_else(|| "no addr attempted".to_string());
-    // 降级链 2/3 跳：打洞 + 中继电路（未配置 relay 则止于直连，已留 debug 日志）
-    if swarm.has_relay_sessions() {
-        match swarm.relay_degrade(peer).await {
-            Ok(mux) => {
-                insert_connection(
-                    swarm,
-                    peer,
-                    mux.clone(),
-                    ConnDirection::Outbound,
-                    ConnKind::RelayCircuit,
-                );
-                return Ok(mux);
-            }
-            Err(err) => {
-                swarm.metrics.hop_fail(DialHop::Relay);
-                swarm.emit(NodeEvent::DialHop {
-                    peer,
-                    hop: DialHop::Relay,
-                    ok: false,
-                    detail: err.to_string(),
-                });
-                // 完整原因链（E5）：同步调用方拿到的末次错误携带全部跳失败原因
-                return Err(io::Error::other(format!(
-                    "all hops failed for {peer}; direct: {direct_reason}; relay: {err}"
-                )));
-            }
+    Err(DirectHopsFailed { last: last_err })
+}
+
+/// 降级链 2/3 跳：打洞 + 中继电路。成功连接入池返回；失败汇总全跳原因（E5）。
+async fn relay_fallback_hop(swarm: &Swarm, peer: PeerId, direct_reason: &str) -> io::Result<Mux> {
+    match swarm.relay_degrade(peer).await {
+        Ok(mux) => {
+            insert_connection(
+                swarm,
+                peer,
+                mux.clone(),
+                ConnDirection::Outbound,
+                ConnKind::RelayCircuit,
+            );
+            Ok(mux)
+        }
+        Err(err) => {
+            swarm.metrics.hop_fail(DialHop::Relay);
+            swarm.emit(NodeEvent::DialHop {
+                peer,
+                hop: DialHop::Relay,
+                ok: false,
+                detail: err.to_string(),
+            });
+            // 完整原因链（E5）：同步调用方拿到的末次错误携带全部跳失败原因
+            Err(io::Error::other(format!(
+                "all hops failed for {peer}; direct: {direct_reason}; relay: {err}"
+            )))
         }
     }
-    Err(last_err.unwrap_or_else(|| io::Error::other("dial failed")))
 }
 
 fn dial_rejected(swarm: &Swarm, peer: PeerId, reason: &str) -> io::Error {
@@ -148,7 +175,7 @@ pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) 
     let conn = transport
         .dial(addr, &swarm.keypair, Some(peer))
         .await
-        .map_err(|e| io::Error::other(e.to_string()))?;
+        .map_err(chained)?;
     if !swarm.gate_allows(conn.remote).await {
         tracing::warn!(peer = %conn.remote, %addr, "outbound connection denied by gate, dropping");
         swarm.metrics.count_gate_denial();

@@ -19,7 +19,7 @@ use crate::NodeEvent;
 
 mod book;
 mod config;
-mod degrade_hop;
+mod degrade;
 mod dial;
 mod factory;
 mod hangup;
@@ -40,6 +40,8 @@ mod streams;
 
 #[cfg(test)]
 mod book_tests;
+#[cfg(test)]
+mod error_tests;
 #[cfg(test)]
 mod tests;
 
