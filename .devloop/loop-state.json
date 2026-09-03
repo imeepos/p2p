@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T15:34:29.661Z",
+  "updatedAt": "2026-09-03T15:41:47.249Z",
   "project": "p2p-base",
   "phase": "E8-parallel+E9-audit",
   "coordinatorSession": "session-93d57260-bb33-472e-b8a6-86237c64a272",
-  "note": "E8 观测与语义收拢轮在途（T7-T9 范围互斥并行）；E9 质量收拢轮预备：T10 只读审计单已派（专属新会话），审计报告+E8 收口后派 E9 修复轮（任务书只含需求与机械验收，不含源码）；metrics 就位后再议长稳复测与保活间隔自适应。",
+  "note": "E8 仅剩 T7/S1 在途（E8 主控 93d57260）；E9 修复轮依据审计报告 3debeac 启动：T11=t2 noise 测试外移、T12=t4 GUI mock 剥离经 E8 主控程序性放行先行（执行会话待认领，问询在途），S1 收口前禁触 swarm/discovery/relay/cli；报告 T1/T3/T5 与长稳复测单待 E8 全收口后由 E9 协调统一派单。",
   "tasks": [
     {
       "id": "T1",
@@ -121,6 +121,28 @@
       "scope": "仅新增 docs/notes/e9-quality-audit.md；全部代码只读；禁触 docs/coordination.md/.devloop/.agents 与 .worktrees/e8-*",
       "acceptanceCommand": "bash -c 'test -f docs/notes/e9-quality-audit.md && grep -q 结构红线 docs/notes/e9-quality-audit.md && grep -q 模块边界 docs/notes/e9-quality-audit.md && grep -q 可读性 docs/notes/e9-quality-audit.md && grep -q 测试质量 docs/notes/e9-quality-audit.md && grep -q \"E9 建议\" docs/notes/e9-quality-audit.md && test $(wc -l < docs/notes/e9-quality-audit.md) -le 400 && grep -qE \"[a-z]\\.rs:[0-9]+\" docs/notes/e9-quality-audit.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
       "note": "协调边界已通知：审计期只读，不改代码/账本/协调表，产出入 docs/notes|research；开工范围回信确认中"
+    },
+    {
+      "id": "T11",
+      "goal": "E9-Q0 报告 T2：crates/p2p-security/src/noise.rs 恰 300 行零余量，52 行内联测试外移新增 noise/tests.rs（纯移动零行为变更），产线降至 249 行（执行会话待认领，E8 主控程序性放行）",
+      "title": "E9-t2 noise.rs 测试外移",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "docs/e9-t2-noise-tests",
+      "ownerSession": "",
+      "scope": "crates/p2p-security/src/noise.rs + 新增 crates/p2p-security/src/noise/tests.rs；S1 收口前禁触 swarm/discovery/relay/cli",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && test $(wc -l < crates/p2p-security/src/noise.rs) -le 250 && test -f crates/p2p-security/src/noise/tests.rs && cargo test -p p2p-security --quiet && make check'"
+    },
+    {
+      "id": "T12",
+      "goal": "E9-Q0 报告 T4：GUI mock 后端无条件进 prod bundle（ipc.ts:4-5,22）改 VITE_MOCK_IPC 开关下动态 import；删除零引用死组件 feedback-demo-card.tsx（执行会话待认领，E8 主控程序性放行）",
+      "title": "E9-t4 GUI mock 剥离与死组件清理",
+      "priority": "P2",
+      "status": "doing",
+      "branch": "docs/e9-t4-gui-mock",
+      "ownerSession": "",
+      "scope": "apps/gui/src/lib/ipc.ts + mock-ipc.ts + mock-diagnostics.ts + 删除 apps/gui/src/components/feedback/feedback-demo-card.tsx；S1 收口前禁触 swarm/discovery/relay/cli",
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && ! grep -rq mockBackend dist/assets && test ! -f src/components/feedback/feedback-demo-card.tsx && pnpm test --run && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     }
   ]
 }
