@@ -10,6 +10,8 @@ import type {
 } from "./ipc-types";
 import { parseDialTarget } from "./dial-target";
 import { randomWalkHistory } from "./metrics-history";
+// dev 展示层与真实 app 同源：mock 默认配置镜像出厂端点（views/settings/factory-defaults）。
+import { FACTORY_LIST_DEFAULTS } from "@/views/settings/factory-defaults";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -29,11 +31,11 @@ const DEFAULT_CONFIG: GuiConfig = {
   tcpPort: 0,
   enableMdns: true,
   dataDir: "<app-data>/p2p-data",
-  bootstrap: [],
-  relayAddrs: [],
+  bootstrap: [...FACTORY_LIST_DEFAULTS.bootstrap],
+  relayAddrs: [...FACTORY_LIST_DEFAULTS.relayAddrs],
   advertisedAddrs: [],
   observationPort: null,
-  observationAddrs: [],
+  observationAddrs: [...FACTORY_LIST_DEFAULTS.observationAddrs],
 };
 
 interface MockState {
