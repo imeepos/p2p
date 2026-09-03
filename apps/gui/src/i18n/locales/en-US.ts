@@ -356,6 +356,7 @@ const enUS: typeof zhCN = {
         "Stops the node and deletes the identity seed files in the data directory. The node will start with a brand-new PeerId and existing peer records will no longer match. This cannot be undone.",
       resetInputHint: "Type the first 4 characters of the current PeerId to confirm",
       resetConfirm: "Reset identity",
+      resetting: "Resetting…",
       resetDone: "Identity reset; node stopped",
       resetFailed: "Failed to reset identity",
     },

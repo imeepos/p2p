@@ -24,6 +24,8 @@
 | frontend_log_append | lines: string[] | void | 前端错误 JSONL 批量追加到 app_log_dir/frontend.log（超 1MB 轮转 frontend.log.1）；v3 加法新增（G-H 观测） |
 | frontend_log_tail | maxLines?: number | string[] | 读 frontend.log 末尾 maxLines 行（默认 200，上限 1000）；v3 加法新增（G-H 观测） |
 | frontend_log_path | - | string | frontend.log 绝对路径（诊断页展示 + 外部 Agent 定位）；v3 加法新增（G-H 观测） |
+| update_check | - | UpdateCheckResult | 查询 GitHub 最新稳定 release 并与当前版本比较；无候选时 latestVersion 为 null；网络/解析失败返回 Err；v4 加法新增（G-U1） |
+| update_open_release_page | url: string | void | 系统浏览器打开更新页；url 必须 https 且 host 为 github.com，白名单外 Err；v4 加法新增（G-U1） |
 
 ## 2. 事件通道
 
@@ -122,3 +124,29 @@ interface MetricsPoint { tMs: number; activeConnections: number; relaySessionsAc
 - 浏览器/mock 模式（无 Tauri）：降级写 localStorage 键 `p2p-console.frontend-log`，
   mock 诊断后端（mock-diagnostics.ts）对该键提供同签名读写。
 - 感知通道语义：外部进程（Agent/运维）直接读文件即可掌握前端错误，无需打开 DevTools。
+
+## 9. 在线更新检查（v4 加法，G-U1/G-U2）
+
+- 数据源：`https://api.github.com/repos/imeepos/p2p/releases?per_page=10`（公开只读接口；
+  请求必须带自定义 User-Agent，GitHub 拒绝无 UA 请求）。
+- 候选过滤：仅取 `draft=false` 且 `prerelease=false` 且 tag_name 为三段语义版本（容忍
+  `client-v` / `v` 前缀与裸三段三种形态）的最新一条；无满足条件的条目时 latestVersion 为 null。
+- 版本比较：逐段数值比较（0.10.0 > 0.9.0），禁止字符串比较；hasUpdate = latest > current。
+- UpdateCheckResult：
+
+```ts
+interface UpdateCheckResult {
+  currentVersion: string;        // 应用当前版本（tauri.conf version）
+  latestVersion: string | null;  // 无候选时 null
+  hasUpdate: boolean;
+  releaseUrl: string | null;     // release html_url
+  releaseName: string | null;
+  releaseNotesMd: string | null; // release body 原文
+  publishedAtMs: number | null;
+  checkedAtMs: number;
+}
+```
+
+- 失败语义：网络失败 / 响应非法 / 版本解析失败一律返回 Err（可读中文）并留日志，禁止静默吞。
+- 无状态：后端不缓存不轮询；轮询节奏由前端驱动（启动后 + 定期 + 手动），无新增事件通道。
+- HTTP 超时 10s；端点为编译期常量，不做用户配置。
