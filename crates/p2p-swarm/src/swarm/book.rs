@@ -58,6 +58,27 @@ impl AddressBook {
         peer: PeerId,
         addrs: Vec<(TransportAddr, AddrSource)>,
     ) -> (bool, Vec<TransportAddr>, AddrSource) {
+        // 入簿卫生（2026-09-04 线上串址实证）：链路本地地址缺接口作用域不可拨，
+        // 一律不入簿；同一地址已被另一身份认领即串址污染，拒收并 WARN 留观测信号。
+        let addrs: Vec<(TransportAddr, AddrSource)> = addrs
+            .into_iter()
+            .filter(|(addr, _)| {
+                if is_link_local_ip(&addr_ip(addr)) {
+                    tracing::debug!(%peer, %addr, "link-local address skipped: no scope, undialable");
+                    return false;
+                }
+                if let Some(owner) = self.owner_of(addr) {
+                    if owner != peer {
+                        tracing::warn!(
+                            %peer, owner = %owner, %addr,
+                            "address claimed by another peer; dropped as suspected contamination"
+                        );
+                        return false;
+                    }
+                }
+                true
+            })
+            .collect();
         let entry = self.peers.entry(peer).or_default();
         let before = entry.len();
         for (addr, source) in addrs {
@@ -76,6 +97,14 @@ impl AddressBook {
         let all = entry.iter().map(|e| e.addr.clone()).collect();
         let source = aggregate_source(entry);
         (added, all, source)
+    }
+
+    /// 地址当前登记在哪个身份名下（串址检测）；未登记返回 None。
+    fn owner_of(&self, addr: &TransportAddr) -> Option<PeerId> {
+        self.peers
+            .iter()
+            .find(|(_, entry)| entry.iter().any(|e| e.addr == *addr))
+            .map(|(p, _)| *p)
     }
 
     /// 直连跳用：按 (来源/网段优先级, hairpin 降权, 传输层, 登记顺序) 排序。
@@ -192,6 +221,14 @@ fn transport_rank(addr: &TransportAddr) -> u8 {
     }
 }
 
+/// 链路本地判定（入簿卫生）：v4 169.254/16、v6 fe80::/10——缺接口作用域不可拨。
+fn is_link_local_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => v4.is_link_local(),
+        IpAddr::V6(v6) => v6.is_unicast_link_local(),
+    }
+}
+
 fn addr_ip(addr: &TransportAddr) -> IpAddr {
     match addr {
         TransportAddr::Quic { ip, .. } | TransportAddr::Tcp { ip, .. } => *ip,
@@ -211,5 +248,52 @@ fn aggregate_source(entry: &[BookedAddr]) -> AddrSource {
         2 => AddrSource::Mdns,
         1 => AddrSource::Rendezvous,
         _ => AddrSource::Manual,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn peer(n: u8) -> PeerId {
+        PeerId::from_bytes([n; 32])
+    }
+
+    fn quic(ip: IpAddr, port: u16) -> TransportAddr {
+        TransportAddr::Quic { ip, port }
+    }
+
+    #[test]
+    fn link_local_addresses_are_not_booked() {
+        let mut book = AddressBook::new();
+        let (added, all, _) = book.add(
+            peer(1),
+            vec![
+                (quic("fe80::1".parse().unwrap(), 4000), AddrSource::Mdns),
+                (quic("192.168.1.7".parse().unwrap(), 4000), AddrSource::Mdns),
+            ],
+        );
+        assert!(added);
+        assert_eq!(all, vec![quic("192.168.1.7".parse().unwrap(), 4000)]);
+    }
+
+    #[test]
+    fn cross_peer_address_claim_is_dropped() {
+        let mut book = AddressBook::new();
+        let a = quic("192.168.1.7".parse().unwrap(), 4000);
+        book.add(peer(1), vec![(a.clone(), AddrSource::Mdns)]);
+        let (added, all, _) = book.add(peer(2), vec![(a, AddrSource::Rendezvous)]);
+        assert!(!added, "contaminated claim must not enter the book");
+        assert!(all.is_empty());
+    }
+
+    #[test]
+    fn same_peer_duplicate_dedups_and_private_v4_survives() {
+        let mut book = AddressBook::new();
+        let a = quic("192.168.1.7".parse().unwrap(), 4000);
+        book.add(peer(1), vec![(a.clone(), AddrSource::Mdns)]);
+        let (added, all, _) = book.add(peer(1), vec![(a, AddrSource::Mdns)]);
+        assert!(!added, "duplicate within same peer dedups");
+        assert_eq!(all.len(), 1);
     }
 }
