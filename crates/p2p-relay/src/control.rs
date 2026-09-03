@@ -58,6 +58,7 @@ impl RelayServiceImpl {
             match tokio::time::timeout(silence, read_msg(rh)).await {
                 Err(_) => {
                     // 客户端静默超时：按既有控制流关闭语义清理（E4 兼容，同一收尾路径）
+                    self.lock_state().metrics.count_keepalive_failure();
                     tracing::warn!(
                         peer = %peer, silence_secs = silence.as_secs(),
                         "control keepalive silence timeout; cutting client"

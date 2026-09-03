@@ -37,6 +37,7 @@ impl RelayServiceImpl {
                 self.bridge(cid, pending, joiner, stream).await
             }
             CircuitOutcome::Rejected(code, message, mut stream) => {
+                self.lock_state().metrics.count_connect_reject();
                 tracing::warn!(peer = %joiner, circuit = cid, code, "connect rejected");
                 let _ = write_reject(&mut stream, code, message).await;
             }
@@ -84,12 +85,18 @@ impl RelayServiceImpl {
         let (res, idle_dropped) = supervise_bridge(task, base, last_sup, idle).await;
         match res {
             Ok((a_to_b, b_to_a)) => {
+                self.lock_state()
+                    .metrics
+                    .add_bridged_bytes(a_to_b.saturating_add(b_to_a));
                 tracing::info!(circuit = cid, a_to_b, b_to_a, "circuit closed cleanly")
             }
-            Err(_e) if idle_dropped => tracing::warn!(
-                circuit = cid, a = %pending.peer, b = %joiner, idle_secs = idle.as_secs(),
-                "bridged circuit idle-reclaimed; slot retired and quota released"
-            ),
+            Err(_e) if idle_dropped => {
+                self.lock_state().metrics.count_idle_reclaimed();
+                tracing::warn!(
+                    circuit = cid, a = %pending.peer, b = %joiner, idle_secs = idle.as_secs(),
+                    "bridged circuit idle-reclaimed; slot retired and quota released"
+                )
+            }
             Err(e) => tracing::warn!(circuit = cid, error = %e, "circuit aborted"),
         }
         self.release_two(&pending.peer, &joiner);

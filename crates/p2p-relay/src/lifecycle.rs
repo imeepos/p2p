@@ -72,6 +72,11 @@ impl RelayServiceImpl {
 
     /// 统一落地：待配对流给显式拒绝再关流，裸槽位只留观测日志。
     async fn discard(&self, peer: &str, released: Vec<ReleasedCircuit>, cause: &str) {
+        if !released.is_empty() {
+            self.lock_state()
+                .metrics
+                .count_recycled(released.len() as u64);
+        }
         for r in released {
             match r.holder {
                 Some(mut pending) => {
