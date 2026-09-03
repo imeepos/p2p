@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T19:41:21Z",
+  "updatedAt": "2026-09-03T20:15:26Z",
   "project": "p2p-base",
   "phase": "E10-RS-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；批次一全 done（T20 a87fb33/T21 9fbe79a/T22 35ad480，67 tests）；T25（89f85ec3）与 T23（898caa4e）并行 doing，T24∥T26→T27→T28 按依赖排队；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
+  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23 全 done（T23 5c9b9b8，34 tests 一次通过）；T25（89f85ec3）与 T26（801a58c9）并行 doing，T24 待 T25、T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
   "tasks": [
     {
       "id": "T1",
@@ -269,11 +269,14 @@
       "goal": "helper 只读工具面：sys_snapshot/fs_read/fs_list/fs_search + 路径监狱（canonicalize 授权根、符号链接逃逸拒）+ 输出门禁（单结果 256KiB 截断+truncated）；依赖 T21+T22",
       "title": "RS-P0b-T23 只读工具面",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/rs-tools-readonly",
       "ownerSession": "session-898caa4e-860c-451a-add0-21976ecd8103",
       "scope": "crates/repair-helper 工具模块",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'",
+      "mergedMain": "5c9b9b8",
+      "acceptedAt": "2026-09-03T20:14:43.710Z",
+      "note": "一次通过：两笔提交（执法接线+审计接缝 a286014 / guarded host+四工具装配 5c9b9b8），34 tests 覆盖监狱逃逸矩阵/截断字符边界/执法拒绝原因链/审计事件/宿主全链，隔离全量门禁 exit 0。"
     },
     {
       "id": "T24",
@@ -302,9 +305,9 @@
       "goal": "helper p2p 接入：ticket 双向绑定校验（签名/exp/scope/对端 PeerId/一次性）、mint-ticket 子命令、入流接 MCP 宿主、JSONL 执行审计（写失败留信号）；依赖 T23",
       "title": "RS-P0b-T26 helper p2p+票据+审计",
       "priority": "P0",
-      "status": "pending",
+      "status": "doing",
       "branch": "feat/rs-helper-p2p",
-      "ownerSession": "待派（批次三）",
+      "ownerSession": "session-801a58c9-e234-45f2-84b0-50b9e1ecef77",
       "scope": "crates/repair-helper p2p 接入/ticket/mint-ticket/审计模块",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
     },
