@@ -6,6 +6,7 @@
 
 use p2p_identity::PeerId;
 
+use super::lifecycle::LifecycleMsg;
 use super::Swarm;
 use crate::NodeEvent;
 
@@ -18,6 +19,8 @@ impl Swarm {
         tracing::info!(%peer, "peer disconnected by local hangup");
         mux.close();
         self.emit(NodeEvent::PeerDisconnected { peer: *peer });
+        // E6：挂断出册，停止自动重连（用户明确说再见，机器不再自作主张）
+        self.lifecycle.notify(LifecycleMsg::HungUp { peer: *peer });
         true
     }
 }

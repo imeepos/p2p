@@ -3,13 +3,15 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use p2p_identity::{Keypair, PeerId};
 use p2p_mux::{BoxedStream, MuxControl};
-use p2p_protocol::{HandlerRegistry, ProtocolHandler, ProtocolId};
+use p2p_protocol::ProtocolId;
 use p2p_transport::{QuicTransport, TcpTransport, TransportAddr};
 use tokio::sync::{broadcast, mpsc, watch};
 
+use crate::lifecycle::{ConnState, LifecycleEvent, PeerLifecycleConfig};
 use crate::pool::ConnectionPool;
 use crate::{ConnectionGate, NodeEvent};
 
@@ -18,7 +20,13 @@ mod config;
 mod dial;
 mod factory;
 mod hangup;
+mod lifecycle;
+mod lifecycle_handlers;
+mod lifecycle_task;
 mod listen;
+mod ping;
+mod punch;
+mod registry;
 mod relay_session;
 mod responder;
 
@@ -35,7 +43,10 @@ use config::{to_transport, EVENT_CAPACITY};
 use dial::dial_peer;
 use factory::RegistryCell;
 pub use factory::SwarmFactory;
+use lifecycle::LifecycleHandle;
+use lifecycle::LifecycleMsg;
 use listen::spawn_accept_loops;
+pub use ping::PING_PROTOCOL;
 use relay_session::{spawn_sessions, RelayCmd};
 
 /// 电路化/直连拨号共用的复用句柄别名。
@@ -55,13 +66,25 @@ pub struct Swarm {
     events: broadcast::Sender<NodeEvent>,
     relay_sessions: Mutex<Vec<mpsc::Sender<RelayCmd>>>,
     metrics: Metrics,
+    /// E6：对端连接生命周期监督句柄（状态机/探活/退避重连）。
+    lifecycle: LifecycleHandle,
     shutdown_tx: watch::Sender<bool>,
     shutdown_rx: watch::Receiver<bool>,
 }
 
 impl Swarm {
     /// 绑定 QUIC+TCP 监听并启动 accept/relay 会话；绑定失败原样上抛（装配期可见）。
+    /// 生命周期参数取默认（见 [PeerLifecycleConfig]）；可配置入口见
+    /// [Self::start_with_lifecycle]（SwarmConfig 形状冻结，配置走加法入口）。
     pub async fn start(config: SwarmConfig) -> io::Result<Arc<Self>> {
+        Self::start_with_lifecycle(config, PeerLifecycleConfig::default()).await
+    }
+
+    /// E6：指定生命周期参数的装配入口。其余语义同 [Self::start]。
+    pub async fn start_with_lifecycle(
+        config: SwarmConfig,
+        lifecycle_cfg: PeerLifecycleConfig,
+    ) -> io::Result<Arc<Self>> {
         let bind = |port: u16| SocketAddr::new(IpAddr::from([0, 0, 0, 0]), port);
         let quic = QuicTransport::bind(bind(config.quic_port), &config.keypair).await?;
         let tcp = TcpTransport::new();
@@ -71,6 +94,10 @@ impl Swarm {
             to_transport(tcp_listener.local_addr()?, false),
         ];
         let (events, _) = broadcast::channel(EVENT_CAPACITY);
+        // 内置 ping 应答注册（E6 探活的应答侧）；用户已注册时不抢占
+        let registry = ping::registry_with_ping(config.registry.clone());
+        let (lifecycle_events, _) = broadcast::channel(EVENT_CAPACITY);
+        let (lifecycle, lifecycle_rx) = LifecycleHandle::new(lifecycle_cfg, lifecycle_events);
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         let swarm = Arc::new(Self {
             keypair: config.keypair,
@@ -80,17 +107,19 @@ impl Swarm {
             advertised_addrs: config.advertised_addrs,
             observed_addrs: Mutex::new(Vec::new()),
             pool: Arc::new(ConnectionPool::new()),
-            registry: Arc::new(Mutex::new(config.registry)),
+            registry: Arc::new(Mutex::new(registry)),
             gate: Mutex::new(None),
             address_book: Mutex::new(AddressBook::new()),
             events,
             relay_sessions: Mutex::new(Vec::new()),
             metrics: Metrics::default(),
+            lifecycle,
             shutdown_tx,
             shutdown_rx,
         });
         spawn_accept_loops(&swarm, quic, tcp, tcp_listener);
         spawn_sessions(&swarm, config.relay_addrs);
+        lifecycle_task::start_supervisor(&swarm, lifecycle_rx);
         Ok(swarm)
     }
 
@@ -118,28 +147,32 @@ impl Swarm {
         self.metrics.snapshot(conns, sessions)
     }
 
-    /// 注册协议 handler：复制-改-换，进行中的分发继续使用旧快照。
-    pub fn register(&self, handler: Arc<dyn ProtocolHandler>) {
-        let mut guard = self.registry.lock().expect("registry lock");
-        let mut next = HandlerRegistry::default();
-        for id in guard.protocols() {
-            if let Some(h) = guard.get(&id) {
-                next.register(h);
-            }
-        }
-        next.register(handler);
-        *guard = Arc::new(next);
+    /// E6：peer 生命周期状态（未跟踪返回 None）。
+    pub fn peer_state(&self, peer: &PeerId) -> Option<ConnState> {
+        self.lifecycle.state_of(peer)
     }
 
-    pub fn set_gate(&self, gate: Arc<dyn ConnectionGate>) {
-        *self.gate.lock().expect("gate lock") = Some(gate);
+    /// E6：已排定的下次重连退避时长（BackingOff 态有值；观测与测试断言用）。
+    pub fn peer_scheduled_backoff(&self, peer: &PeerId) -> Option<Duration> {
+        self.lifecycle.scheduled_backoff(peer)
+    }
+
+    /// E6：订阅对端生命周期事件（状态转移/PeerDown/PeerUp）。
+    pub fn subscribe_lifecycle(&self) -> broadcast::Receiver<LifecycleEvent> {
+        self.lifecycle.events.subscribe()
     }
 
     /// 幂等连接：池内已有连接直接复用，否则走降级链 直连→打洞→中继。
+    /// E6 钩子：未跟踪 peer 的首拨建档（Disconnected→Connecting），
+    /// 失败回报监督者出册（从未连上的 peer 不自动重连）。
     pub async fn connect(&self, peer: PeerId) -> io::Result<()> {
+        if self.pool.get(&peer).is_none() {
+            self.lifecycle.notify(LifecycleMsg::DialStart { peer });
+        }
         self.pool
             .get_or_dial(peer, dial_peer(self, peer))
             .await
+            .inspect_err(|_| self.lifecycle.notify(LifecycleMsg::DialFailed { peer }))
             .map(|_| ())
     }
 
@@ -203,30 +236,6 @@ impl Swarm {
         *self.observed_addrs.lock().expect("observed lock") = addrs;
     }
 
-    /// 打洞信令宣告的地址（design §7.2）：观测地址优先（跨网可拨），
-    /// 其后为显式宣告或监听地址；去重并过滤 loopback。
-    fn punch_addrs(&self) -> Vec<TransportAddr> {
-        let mut out: Vec<TransportAddr> = Vec::new();
-        let mut push_all = |addrs: &[TransportAddr]| {
-            for addr in addrs {
-                if !out.contains(addr) {
-                    out.push(addr.clone());
-                }
-            }
-        };
-        push_all(&self.observed_addrs.lock().expect("observed lock"));
-        if self.advertised_addrs.is_empty() {
-            push_all(&self.listen_addrs);
-        } else {
-            push_all(&self.advertised_addrs);
-        }
-        filter_loopback(out)
-    }
-
-    fn punch_addrs_strs(&self) -> Vec<String> {
-        self.punch_addrs().iter().map(ToString::to_string).collect()
-    }
-
     /// 直连跳用地址：按来源/网段优先级排序，hairpin 候选同级殿后（design §7.3 + E3/E4）。
     /// 返回 (地址, 是否 hairpin 候选)。
     fn addresses_of(&self, peer: PeerId) -> Vec<(TransportAddr, bool)> {
@@ -245,15 +254,6 @@ impl Swarm {
     ) -> io::Result<BoxedStream> {
         let mux = self.pool.get_or_dial(*peer, dial_peer(self, *peer)).await?;
         mux.open_stream().await
-    }
-
-    /// 门禁裁决：未配置即放行；锁外 await，不阻塞注册路径。
-    async fn gate_allows(&self, peer: PeerId) -> bool {
-        let gate = self.gate.lock().expect("gate lock").clone();
-        match gate {
-            Some(g) => g.allow(&peer).await,
-            None => true,
-        }
     }
 
     /// 无订阅者时丢弃属正常态，不算失败路径。

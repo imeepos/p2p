@@ -11,6 +11,7 @@ use p2p_protocol::{dispatch_inbound, ProtocolError};
 use p2p_transport::{Transport, TransportAddr};
 use tokio::sync::{broadcast, watch};
 
+use super::lifecycle::LifecycleMsg;
 use super::{Mux, RegistryCell, Swarm};
 use crate::pool::{Admission, ConnectionPool};
 use crate::{DialHop, NodeEvent};
@@ -165,11 +166,14 @@ pub(super) fn insert_connection(swarm: &Swarm, peer: PeerId, mux: Mux, direction
         }
         Admission::Accepted | Admission::Replaced(_) => {
             swarm.emit(NodeEvent::PeerConnected { peer });
+            // E6 钩子：入池即连接事实（入站/出站共用唯一入口），交监督者裁决转移
+            swarm.lifecycle.notify(LifecycleMsg::Connected { peer });
             let ctx = ServeCtx {
                 pool: swarm.pool.clone(),
                 registry: swarm.registry.clone(),
                 events: swarm.events.clone(),
                 shutdown: swarm.shutdown_rx.clone(),
+                lifecycle: swarm.lifecycle.clone(),
             };
             tokio::spawn(serve_connection(ctx, peer, mux));
         }
@@ -189,6 +193,8 @@ struct ServeCtx {
     registry: RegistryCell,
     events: broadcast::Sender<NodeEvent>,
     shutdown: watch::Receiver<bool>,
+    /// E6：断链回报监督者（Connected→BackingOff 并排定重连）。
+    lifecycle: super::lifecycle::LifecycleHandle,
 }
 
 /// 收流分发循环：连接关闭或关停即出池并发 PeerDisconnected（断开路径可见）。
@@ -209,6 +215,8 @@ async fn serve_connection(ctx: ServeCtx, peer: PeerId, mux: Mux) {
     // 此刻发 PeerDisconnected 是谎报（GUI 会把活连接渲染成断开）。
     if ctx.pool.remove_if_same(&peer, &mux) {
         let _ = ctx.events.send(NodeEvent::PeerDisconnected { peer });
+        // E6 钩子：本连接确已出池（被顶替的旧连接不进来，不谎报断链）
+        ctx.lifecycle.notify(LifecycleMsg::LinkLost { peer });
     }
 }
 

@@ -1,5 +1,6 @@
 use super::*;
 use crate::DialHop;
+use p2p_protocol::HandlerRegistry;
 use std::time::Duration;
 
 fn tcp(ip: &str, port: u16) -> TransportAddr {

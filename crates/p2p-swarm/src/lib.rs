@@ -7,15 +7,18 @@ use p2p_identity::PeerId;
 
 mod backoff;
 mod gate;
+mod lifecycle;
 mod metrics;
 mod pool;
 mod swarm;
 
 pub use backoff::Backoff;
 pub use gate::{gate_fn, GateFn};
+pub use lifecycle::{ConnState, LifecycleEvent, PeerLifecycleConfig};
 pub use metrics::MetricsSnapshot;
 pub use pool::ConnectionPool;
 pub use swarm::filter_loopback;
+pub use swarm::PING_PROTOCOL;
 pub use swarm::{AddrSource, Swarm, SwarmConfig, SwarmFactory};
 
 /// 底座事件：业务只读。所有失败路径必须可见（禁止静默吞错，design §12）。
