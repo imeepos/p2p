@@ -28,6 +28,7 @@ describe("i18n hardcoded copy scan", () => {
     const offenders: string[] = [];
     for (const dir of SCOPE_DIRS) {
       for (const file of walk(join(SRC_ROOT, dir))) {
+        if (file.endsWith("error-boundary.tsx")) continue; // ErrorBoundary 兜底文案不依赖 i18n（i18n 自身可能是故障源），双语直写属有意例外
         if (!file.endsWith(".tsx") && !file.endsWith(".ts")) continue;
         if (file.endsWith(".test.ts") || file.endsWith(".test.tsx")) continue;
         const lines = stripComments(readFileSync(file, "utf8")).split("\n");
