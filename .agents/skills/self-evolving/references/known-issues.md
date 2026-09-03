@@ -173,3 +173,9 @@ failed: early eof（客户端侧超时中止）。
 - 症状：客户端邻居表出现成堆 `127.0.0.1/u<随机端口>` 且永远离线的条目，用户以为被异常节点围攻/怀疑是自己。
 - 原因：三层叠加。① 每个 data 目录一个身份 + quic_port 默认 0 临时端口，本机多实例（GUI/coordinator/maca/itest）互发现各成条目；② a9be8e2 的 filter_loopback 带「全 loopback 集合保持原样」豁免（为同机可发现性），观测失败（无 --observation 或 UDP 3402 被墙）的节点把 127.0.0.1 监听地址注册进公共 rendezvous（43.240.223.138/u3400，namespace p2p-base）；③ rendezvous 查询侧只过滤自身 PeerId，不过滤 loopback/私网，他人的泄漏条目全员可见；GUI 表格按 lastSeen 留历史，退出实例堆成「离线 · N分钟前」。
 - 修法方向（未实施）：rendezvous 服务端拒收 loopback/link-local 注册；客户端查询结果过滤私网；观测失败只注册 relay 地址并留告警日志；GUI 固定 quic_port 减少地址碎片。
+
+## 2026-09-03 拨通即闪断：发现过期谎报 + 双向拨号分家（GUI 节点列表点拨号）
+- 症状：节点列表点「拨号」提示已连接，行内状态立刻翻回离线；反复重拨同一模式（用户主诉「还是有问题」）。
+- 原因1：发现条目 TTL 过期（mDNS 15s / rendezvous 缓存 60s）在 forward_discovery 里无条件映射成 PeerDisconnected，哪怕连接池里活连接还在——发现面失联被渲染成连接面断开。
+- 原因2：两端各拨一次产生两条连接，insert 先到者优先且败者静默 drop：QUIC 最后一个句柄 drop 即关链，对端刚拨通的连接秒死；两侧各留各的还让流与 serve 循环分家，单方向 request 永远无应答，且此后每次重拨都撞 duplicate 拒收——闪断的持久来源。
+- 修法：on_peer_expired 先查连接池再决定发不发断开；insert_connection 按「恒保留较小 PeerId 一端拨出的连接」本地收敛（两端对每条连接的方向认知相反、结论一致，无需协商）；PeerDisconnected 只在 remove_if_same 真出池时发，挂断/关停改为主动补发。回归：p2p-itest/connection_liveness 四条。

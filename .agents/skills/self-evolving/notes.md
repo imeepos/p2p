@@ -95,3 +95,11 @@
   部分。red-lines 已有「GUI 必须 gui-check 绿」与白屏/可观测条目，都是执行层纪律；没预警「context-provider 按组合失效」这一类（本次已喂回 known-issues/lessons/red-lines 三处）。另 red-lines 的「管道吞 exit code」仍重踩一次（gui.sh 在主树跑假红一轮），workdir 与门禁落点对齐后收敛。
 - 重来一次会怎么做？
   新页面复用带 context 依赖的组件时，同步写「按真实组合挂载」的组件测试再动手改；冒烟测试天生于全路由循环而非入口路由；跑门禁先核对 workdir 与目标树一致。
+
+## 2026-09-03 拨通即闪断（用户节点列表点拨号报修，fix/dial-flash-disconnect）
+- 哪个坑浪费最多时间？
+  两处：①诊断测试的 echo handler 只注册在单侧，b→a 的 early eof 让我误判为连接分家的直接证据，绕了一圈；②双向拨号 pre-fix 的失败呈现依赖 interleave，回归测试在 pre-fix 代码上偶发假绿，只能 revert 修复做红→绿证明才敢下结论。
+- skill 有没有提前警告我？
+  命中：worktree 分支、红→绿双向证明（lessons 92）、管道退出码、分号链禁令。没预警：「测试只断言第一个成功事件」这一连接类测试盲区（本次已喂回 lessons）。
+- 重来一次会怎么做？
+  先写「观察窗零断开 + 后续往返可用」的连接活性测试再动代码；诊断 helper 先自证双向可用；回答「为什么测试没覆盖」时直接摆现有用例的断言终点（全部止步 PeerConnected），比口头反思有力。
