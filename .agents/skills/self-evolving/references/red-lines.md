@@ -25,3 +25,6 @@
 - run_code 模板字符串里写含反引号的 markdown（README 代码块、`inline code`）必炸
   "Expected ',', got 'ident'"：内容改单引号字符串数组 join(反斜杠+n) 再拼（2026-09-03 README 实录）。
 
+
+- 2026-09-02（协调者裁定）：skill 沉淀提交走 feature 分支再合并，禁止直落 main（W6 的 docs(skill) 直落 main 属存量先例，不构成豁免；S3 的 23abb8b 已被保留但记档下不为例）。
+- 2026-09-02（协调者裁定）：gitignore 内的验证产物（截图/报告 JSON 等）若需留档，必须在关单/worktree 清理前显式迁移到入库路径或另行声明放弃——S3 的 28 张矩阵截图随 worktree remove 丢失（原始产物有损，文档本体无损）。
