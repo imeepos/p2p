@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T19:32:29Z",
+  "updatedAt": "2026-09-03T19:41:21Z",
   "project": "p2p-base",
   "phase": "E10-RS-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；批次一 T20/T21 done（a87fb33/9fbe79a 终验过），T22 doing；T25 提前派（零依赖，89f85ec3），T23 待 T22、T24∥T26→T27→T28 按依赖排队；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
+  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；批次一全 done（T20 a87fb33/T21 9fbe79a/T22 35ad480，67 tests）；T25（89f85ec3）与 T23（898caa4e）并行 doing，T24∥T26→T27→T28 按依赖排队；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
   "tasks": [
     {
       "id": "T1",
@@ -255,20 +255,23 @@
       "goal": "repair-enforce 执法核心（纯逻辑）：read/write/danger 规则表分级、五红线无条件拒、scope 门（diag 拒 write/danger）、审批状态机（60s 超时=拒绝不可配置放行、时钟可注入、审批通道 trait 注入）、shell 白名单匹配语义（数据 T24 填充）",
       "title": "RS-P0b-T22 repair-enforce 执法核心",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/rs-enforce-core",
       "ownerSession": "session-e3d2dfca-dca6-4fea-82ff-01626ea57506",
       "scope": "新增 crates/repair-enforce/** + 根 Cargo.toml 仅追加；其余只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'",
+      "mergedMain": "35ad480",
+      "acceptedAt": "2026-09-03T19:40:40.055Z",
+      "note": "一次通过：13 文件 1929 行（risk/redline 数据+旁路测试/scope/approval/whitelist/util + pipeline 集成测试），范围合规全文件 ≤300 行；隔离全量门禁 MAKECHECK_EXIT=0。"
     },
     {
       "id": "T23",
       "goal": "helper 只读工具面：sys_snapshot/fs_read/fs_list/fs_search + 路径监狱（canonicalize 授权根、符号链接逃逸拒）+ 输出门禁（单结果 256KiB 截断+truncated）；依赖 T21+T22",
       "title": "RS-P0b-T23 只读工具面",
       "priority": "P0",
-      "status": "pending",
+      "status": "doing",
       "branch": "feat/rs-tools-readonly",
-      "ownerSession": "待派（批次二）",
+      "ownerSession": "session-898caa4e-860c-451a-add0-21976ecd8103",
       "scope": "crates/repair-helper 工具模块",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
     },
