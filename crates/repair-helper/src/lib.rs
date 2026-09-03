@@ -236,6 +236,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn shutdown_drains_in_flight_request() {
+        struct Slow;
+        #[async_trait]
+        impl Tool for Slow {
+            fn name(&self) -> &str {
+                "slow"
+            }
+            async fn call(&self, _args: Value) -> Result<ToolResult, String> {
+                sleep(Duration::from_millis(20)).await;
+                Ok(ToolResult {
+                    text: "done".into(),
+                    truncated: false,
+                })
+            }
+        }
+        let mut registry = ToolRegistry::new();
+        registry.register(Slow);
+        let host = Host::new(registry);
+        let (mut client, server) = duplex(4096);
+        let (reader, writer) = tokio::io::split(server);
+        let (tx, rx) = watch::channel(false);
+        let task = tokio::spawn(host.serve(BufReader::new(reader), writer, rx));
+        client.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"slow\"}}\n").await.unwrap();
+        tx.send(true).unwrap();
+        let mut output = String::new();
+        BufReader::new(&mut client)
+            .read_to_string(&mut output)
+            .await
+            .unwrap();
+        assert!(output.contains("\"id\":7") && output.contains("done"));
+        assert!(task.await.unwrap().is_ok());
+    }
+
+    #[tokio::test]
     async fn concurrent_calls_keep_ids() {
         struct Slow;
         #[async_trait]
