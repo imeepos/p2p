@@ -12,7 +12,7 @@ use std::time::Duration;
 use p2p_identity::{Keypair, PeerId};
 use p2p_mux::BoxedStream;
 use p2p_protocol::{read_frame, write_frame, HandlerRegistry, ProtocolHandler, ProtocolId};
-use p2p_swarm::{LifecycleEvent, NodeEvent, PING_PROTOCOL, Swarm, SwarmConfig};
+use p2p_swarm::{LifecycleEvent, NodeEvent, Swarm, SwarmConfig, PING_PROTOCOL};
 use tokio::sync::broadcast;
 
 const ECHO: &str = "/itest/echo/1";
