@@ -18,6 +18,7 @@
 | [design/wire-protocol.md](design/wire-protocol.md) | 字节级线协议规范 v1：帧格式、协议 ID 语法与内置全表、开流顺序、握手流程、PeerId 推导、版本演进策略；全部常量与 crates/ 代码对齐并标注出处 |
 | [design/idle-token-sharing-plan.md](design/idle-token-sharing-plan.md) | 闲置 LLM 额度共享网络方案（barter-first）v0：双层额度模型、预授权-结算两阶段、llm-share 三协议 ID、账本/收据/封号责任机制、合规红线与分阶段路线 |
 | [design/acp-over-p2p-design.md](design/acp-over-p2p-design.md) | ACP over P2P 方案 v0（待审核）：/dsh-acp/1 桥协议、每连接一个 agent 子进程、断线续连+resume 双路径、PeerId 策略表与工作区监狱、GUI 可视化控制 |
+| [design/social-discovery-plan.md](design/social-discovery-plan.md) | 社交化发现（好友模式）方案 v0（草案）：社区实践调研、查号台语义、O(N)→O(K) 规模算术、底座原语与业务层分层裁决、P0-P3 分阶段计划 |
 | [ops/experiment-env.md](ops/experiment-env.md) | 实验环境与多机验证方案：四机拓扑（3 局域网 + 1 公网引导）、E0-E4 阶段计划、验收清单、凭据安全红线 |
 | [research/p2p-legal-risk-cn.md](research/p2p-legal-risk-cn.md) | P2P 应用国内法律法规风险调研：金融类 P2P 为禁区、技术型 P2P 的电信资质/内容/版权合规重心 |
 | [design/remote-support-design.md](design/remote-support-design.md) | 远程电脑支持服务（AI 维修坐席）方案 v1：任意 agent 接入（临时 MCP server + 接入桥）、工具面与双端执法、执行记录与文件修改交付、0-6 工单闭环与分期 |
