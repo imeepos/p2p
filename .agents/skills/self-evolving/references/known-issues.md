@@ -150,3 +150,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：用户反馈表单「看不到加载值/恢复值」，但保存功能正常、全部测试绿；jsdom 控制台刷 Function components cannot be given refs。
 - 原因：components/ui/input.tsx 是普通函数组件（React 18 不转发 ref），react-hook-form register 的 ref 丢失后 RHF 只能改 _formValues 无法改 DOM；reset/setValue 后表单状态与输入框显示永久分裂（2026-09-02 W6-S1 探针实测：reset observationPort=3402 后 DOM value 仍 ""）。
 - 修法：受控化（useWatch 读 + setValue 写，PortField 先例）可绕过；根治是给 Input 包 forwardRef（跨 settings 边界，需单独派单）。判定"值 vs 显示"分裂用临时 probe.test 断言 input.value，跑完即删。
+
+## 2026-09-02 W6-S3：零依赖 CDP 客户端三连坑（症状→原因→修法）
+- 症状：驱动脚本无任何输出挂死。原因：自写 send() 只登记 pending 漏了 ws.send 真正发帧，Chrome 从未收到指令。修法：协议客户端先验证指令确实发出（最小 probe：/json/new + Runtime.evaluate 1+1），再怀疑对端。
+- 症状：Page.navigate 后 loadEventFired 等不到。原因：hash-only 变更是同文档导航不触发 load 事件；/json/new 的 url 参数也不保证真的导航（target 常停在 about:blank）。修法：每格用唯一 query 强制文档级导航 + 轮询 location.href 到目标 origin。
+- 症状：Runtime.evaluate 抛 SecurityError: localStorage access denied。原因：evaluate 落在 about:blank 上下文（上一条的后果）。修法：先确认 origin 再碰 localStorage。

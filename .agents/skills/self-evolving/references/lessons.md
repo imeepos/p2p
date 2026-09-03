@@ -78,3 +78,7 @@ _none yet — be the first._
 - 2026-09-03：独立 [workspace] 子 crate（src-tauri）不在根 workspace 的 fmt 门禁覆盖内，提交格式不受 rustfmt 约束——在其中跑 cargo fmt 会重排大量无关已提交代码污染提交；fmt 只在门禁覆盖范围跑，churn 一律 git checkout -- 回退，提交前 git diff --stat 核对改动文件清单与本次任务严丝合缝。
 - 2026-09-03：多会话仓库收尾竞态的实操压缩：rebase main 与 ff-only 合并放进同一条 bash 命令原子执行（本次两轮 ff 失败均因 main 在门禁窗口前进；docs-only 增量核 diff --stat 零重叠即可免重跑门禁，代码增量仍需复跑）。
 - 2026-09-03：dev mock 后端的「默认值」与真实后端默认也要同源镜像，不只行为语义——mock DEFAULT_CONFIG 全空列表让 dev 页面呈现与生产开箱态完全不同，排查时会被引向不存在的配置 bug；镜像常量从单一源 import，别抄字面量。
+- 2026-09-02：run_code 单个工具调用参数拼写错误会让整个程序体编译失败，其前面已排队的 edit/写入全部未执行——失败后必须核对哪些调用真的生效了，不能凭顺序假设。
+- 2026-09-02：bash 调用忘带 workdir 时 npx 会从注册表拉最新版工具（vite@8）而非本地 bin；启动子进程一律用 ./node_modules/.bin/xxx 加显式 workdir。
+- 2026-09-02：headless Chrome 里 localStorage 在 about:blank 上下文不可访问；跨导航持久的 localStorage 属于 profile 而非页面，批量走查用固定 profile 或单会话内切格。
+- 2026-09-02：并行协调会话共享同一仓库 refs，本分支的提交可能在收尾前已被先行合入 main——rebase 时空提交去重是正常现象，收尾必须核对树里实际有什么（git show --stat 加关键文件 grep），再决定文档怎么写。
