@@ -16,12 +16,24 @@ pub const ECHO_PROTOCOL: &str = "/p2p-lab/echo/1";
 pub const PING_PAYLOAD: &[u8] = b"p2p-ping";
 
 /// 回声 handler：读一帧写回同一帧，流关闭即完成。
-pub struct EchoHandler;
+/// 持有构造期校验过的协议 ID：非法 ID 在装配期报错，运行期 protocol() 不 panic。
+pub struct EchoHandler {
+    id: ProtocolId,
+}
+
+impl EchoHandler {
+    /// 校验内置 echo 协议 ID 并构造 handler。
+    pub fn new() -> Result<Self, String> {
+        let id =
+            ProtocolId::new(ECHO_PROTOCOL).map_err(|e| format!("内置 echo 协议 ID 非法: {e}"))?;
+        Ok(Self { id })
+    }
+}
 
 #[async_trait::async_trait]
 impl ProtocolHandler for EchoHandler {
     fn protocol(&self) -> ProtocolId {
-        ProtocolId::new(ECHO_PROTOCOL).expect("built-in echo protocol id is valid")
+        self.id.clone()
     }
 
     async fn handle(&self, mut stream: BoxedStream) -> io::Result<()> {
@@ -46,7 +58,8 @@ mod tests {
         let handler_task = tokio::spawn(async move {
             let mut server = Box::new(server);
             let _first = read_protocol_id(&mut server).await.expect("read proto id");
-            EchoHandler.handle(server).await.expect("echo ok");
+            let handler = EchoHandler::new().expect("valid echo handler");
+            handler.handle(server).await.expect("echo ok");
         });
 
         // client 侧：开流写协议 ID -> 写载荷 -> 读回帧
@@ -65,8 +78,9 @@ mod tests {
     #[tokio::test]
     async fn echo_closes_cleanly_on_eof() {
         let (client, server) = tokio::io::duplex(4096);
+        let handler = EchoHandler::new().expect("valid echo handler");
         let handler_task = tokio::spawn(async move {
-            EchoHandler
+            handler
                 .handle(Box::new(server))
                 .await
                 .expect_err("eof must surface as error");

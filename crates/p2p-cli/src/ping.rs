@@ -25,26 +25,23 @@ pub async fn run(args: PingArgs) -> Result<(), String> {
         .map_err(|why| format!("目标未在 {}s 内被发现: {why}", args.wait))?;
 
     let started = Instant::now();
-    let id = ProtocolId::new(ECHO_PROTOCOL).expect("built-in echo id is valid");
+    let id = ProtocolId::new(ECHO_PROTOCOL).map_err(|e| format!("内置 echo 协议 ID 非法: {e}"))?;
     let request_timeout = Duration::from_secs(args.request_timeout);
     let request = node.request(target, id, PING_PAYLOAD.to_vec(), request_timeout);
     tokio::pin!(request);
     // 请求期间同步打印 DialHop 逐跳事件（直连/打洞/中继），路径随结果一起留档
-    let mut reply = None;
-    while reply.is_none() {
+    let answer = loop {
         tokio::select! {
-            r = &mut request => reply = Some(r),
-            hop = next_hop(&mut events) => {
-                if let Some(line) = hop {
-                    println!("{line}");
-                } else {
-                    break;
-                }
-            }
+            r = &mut request => break Some(r),
+            hop = next_hop(&mut events) => match hop {
+                Some(line) => println!("{line}"),
+                // 事件通道关闭 = 节点已停：显式报错，不静默也不 panic
+                None => break None,
+            },
         }
-    }
-    let reply = reply
-        .expect("循环仅以应答结束")
+    };
+    let reply = answer
+        .ok_or_else(|| "事件通道已关闭，echo 请求中止".to_string())?
         .map_err(|e| format!("echo 请求失败: {e}"))?;
     let rtt = started.elapsed();
     if reply != PING_PAYLOAD {

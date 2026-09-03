@@ -74,6 +74,7 @@ async fn build_node(args: &NodeArgs) -> Result<Node, Box<dyn std::error::Error>>
         builder = builder.observation_addrs(args.observation.clone());
     }
     let node = builder.build().await?;
-    node.handle_protocol(Arc::new(EchoHandler));
+    let handler = EchoHandler::new().map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
+    node.handle_protocol(Arc::new(handler));
     Ok(node)
 }

@@ -8,4 +8,3 @@ p2p-relay E6 连接稳定性在途单覆盖中，本轮范围互斥不得触碰
 p2p-transport E7-K2 在途单覆盖中，后续轮清零收缩
 p2p-mux E7-K2 在途单覆盖中，后续轮清零收缩
 p2p-itest 测试夹具 crate，panic 属测试断言语义
-p2p-cli CLI 入口，后续轮清零收缩
