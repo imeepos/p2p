@@ -7,7 +7,20 @@ import type {
   IpcBackend,
   NodeEventJson,
 } from "./ipc-types";
-import { isValidPeerId, isValidTransportAddr } from "./dial-target";
+const PEER_ID_RE = /^[1-9A-HJ-NP-Za-km-z]{43,45}$/;
+const ADDR_RE = /^(?:\d{1,3}\.){3}\d{1,3}\/[ut]\d{1,5}$/;
+
+function isValidPeerId(value: string): boolean {
+  return PEER_ID_RE.test(value);
+}
+
+function isValidTransportAddr(value: string): boolean {
+  if (!ADDR_RE.test(value)) return false;
+  const [host, tail] = value.split("/");
+  const octets = host.split(".").map(Number);
+  const port = Number(tail.slice(1));
+  return octets.every((octet) => octet >= 0 && octet <= 255) && port >= 1 && port <= 65535;
+}
 
 // 契约 v7 §12 的 mock 侧实现（T30）：好友簿校验、发送状态事件、历史分页与
 // 媒体路径占位。持久化（friends.json/outbox/messages/media）由 src-tauri T32
