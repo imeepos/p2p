@@ -74,3 +74,7 @@ _none yet — be the first._
 
 - 2026-09-03 G-U1：依赖升大版本会重命名 feature（reqwest 0.13 把 rustls-tls 改成 rustls，TLS 实现内部化为 __rustls）——按记忆写 feature 直接 resolution 失败，报错信息列出的 available features 就是权威清单，加依赖前别背旧名。
 - 2026-09-03 G-U1：并行会话高速推进时"反向同步"是循环不是动作——合并+门禁期间 main 还会前进，收尾用 git merge-base --is-ancestor main HEAD 机械判定（exit 0 才算同步），非零就再 merge 一轮；docs-only 增量的门禁增量重跑只要几秒，别省。
+- 2026-09-03：serde 字段级默认只兜 JSON 字段缺失，不兜显式 []——旧版本/清空动作落盘的空列表会让「出厂默认」永久失效；「空回落默认」必须在装配/读取层显式实现（state.rs with_factory_fallback），且 UI 文案承诺的行为（空态提示）要在后端有对应代码，文案即契约需机械验证而非口头对齐。
+- 2026-09-03：独立 [workspace] 子 crate（src-tauri）不在根 workspace 的 fmt 门禁覆盖内，提交格式不受 rustfmt 约束——在其中跑 cargo fmt 会重排大量无关已提交代码污染提交；fmt 只在门禁覆盖范围跑，churn 一律 git checkout -- 回退，提交前 git diff --stat 核对改动文件清单与本次任务严丝合缝。
+- 2026-09-03：多会话仓库收尾竞态的实操压缩：rebase main 与 ff-only 合并放进同一条 bash 命令原子执行（本次两轮 ff 失败均因 main 在门禁窗口前进；docs-only 增量核 diff --stat 零重叠即可免重跑门禁，代码增量仍需复跑）。
+- 2026-09-03：dev mock 后端的「默认值」与真实后端默认也要同源镜像，不只行为语义——mock DEFAULT_CONFIG 全空列表让 dev 页面呈现与生产开箱态完全不同，排查时会被引向不存在的配置 bug；镜像常量从单一源 import，别抄字面量。
