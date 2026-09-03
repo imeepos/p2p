@@ -5,6 +5,7 @@
 //! frontend_log（契约 v3 加法：前端错误落盘，G-H 观测）/
 //! update（契约 v4 加法：在线更新检查，G-U1）。
 
+pub mod chat;
 pub mod commands;
 pub mod config;
 pub mod events;
@@ -45,6 +46,12 @@ pub fn run() {
             frontend_log::frontend_log_clear,
             update::update_check,
             update::update_open_release_page,
+            chat::chat_friends_list,
+            chat::chat_friend_add,
+            chat::chat_friend_remove,
+            chat::chat_history,
+            chat::chat_send,
+            chat::chat_media_file,
         ])
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
