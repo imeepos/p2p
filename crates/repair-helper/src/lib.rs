@@ -1,7 +1,16 @@
+pub mod audit;
+pub mod cap;
+pub mod enforce;
+pub mod jail;
+pub mod tools;
+
 use async_trait::async_trait;
+use audit::{AuditEvent, AuditSink};
+use enforce::Enforcement;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::{watch, Mutex};
 
@@ -69,32 +78,46 @@ struct Request {
 }
 
 #[derive(Debug, Serialize)]
-struct Response<'a> {
+struct Response {
     jsonrpc: &'static str,
     id: Value,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<ErrorObject<'a>>,
+    error: Option<ErrorObject>,
 }
 
 #[derive(Debug, Serialize)]
-struct ErrorObject<'a> {
+struct ErrorObject {
     code: i32,
-    message: &'a str,
+    message: String,
 }
 
 #[derive(Clone)]
 pub struct Host {
     registry: ToolRegistry,
+    enforcement: Option<Enforcement>,
+    audit: AuditSink,
 }
 
 impl Host {
     pub fn new(registry: ToolRegistry) -> Self {
-        Self { registry }
+        Self {
+            registry,
+            enforcement: None,
+            audit: AuditSink::default(),
+        }
     }
     pub fn empty() -> Self {
         Self::new(ToolRegistry::new())
+    }
+    /// 生产装配：tools/call 每次经执法分级后放行/拒绝，全程审计。
+    pub fn guarded(registry: ToolRegistry, enforcement: Enforcement, audit: AuditSink) -> Self {
+        Self {
+            registry,
+            enforcement: Some(enforcement),
+            audit,
+        }
     }
     pub fn negotiate(requested: Option<&str>) -> &'static str {
         match requested {
@@ -106,10 +129,10 @@ impl Host {
             None => SUPPORTED_VERSIONS[0],
         }
     }
-    async fn dispatch(&self, request: Request) -> Option<Response<'static>> {
+    async fn dispatch(&self, request: Request) -> Option<Response> {
         let id = request.id?;
         if request.jsonrpc != "2.0" {
-            return Some(error(id, -32600, "Invalid Request"));
+            return Some(error(id, -32600, "Invalid Request".to_string()));
         }
         let result = match request.method.as_str() {
             "initialize" => {
@@ -126,19 +149,11 @@ impl Host {
             "tools/call" => {
                 let input = match serde_json::from_value::<ToolCallInput>(request.params) {
                     Ok(value) => value,
-                    Err(_) => return Some(error(id, -32602, "Invalid params")),
+                    Err(_) => return Some(error(id, -32602, "Invalid params".to_string())),
                 };
-                match self.registry.call(input).await {
-                    Ok(value) => Some(
-                        json!({"content":[{"type":"text","text":value.text}],"isError":false,"truncated":value.truncated}),
-                    ),
-                    Err(message) => {
-                        tracing::warn!(%message, "tool call failed");
-                        return Some(error(id, -32602, "Tool execution failed"));
-                    }
-                }
+                Some(self.call_tool(input).await)
             }
-            _ => return Some(error(id, -32601, "Method not found")),
+            _ => return Some(error(id, -32601, "Method not found".to_string())),
         };
         Some(Response {
             jsonrpc: "2.0",
@@ -146,6 +161,66 @@ impl Host {
             result,
             error: None,
         })
+    }
+
+    /// tools/call 处理：执法分级在先（guard 宿主），放行后执行，全程审计。
+    async fn call_tool(&self, input: ToolCallInput) -> Value {
+        let started = Instant::now();
+        let tool = input.name.clone();
+        let params = cap::head(
+            &serde_json::to_string(&input.arguments).unwrap_or_default(),
+            256,
+        );
+        let risk = enforce::classify(&tool, &input.arguments);
+        let risk_name = enforce::risk_name(risk);
+        let duration = || started.elapsed().as_millis() as u64;
+        if let Some(enforcement) = &self.enforcement {
+            if let Err(reason) = enforcement.evaluate(&tool, &input.arguments) {
+                tracing::warn!(%tool, %reason, "tool call denied by enforcement");
+                let text = format!("tool error: {reason}");
+                self.audit.push(AuditEvent::new(
+                    tool,
+                    params,
+                    risk_name,
+                    "denied",
+                    reason,
+                    duration(),
+                ));
+                return tool_result_json(&text, true);
+            }
+        }
+        match self.registry.call(input).await {
+            Ok(result) => {
+                let gated = cap::apply_output_gate(result);
+                let summary = cap::head(&gated.text, 120);
+                self.audit.push(AuditEvent::new(
+                    tool,
+                    params,
+                    risk_name,
+                    "ok",
+                    summary,
+                    duration(),
+                ));
+                json!({
+                    "content": [{"type": "text", "text": gated.text}],
+                    "isError": false,
+                    "truncated": gated.truncated
+                })
+            }
+            Err(message) => {
+                tracing::warn!(%message, "tool call failed");
+                let text = format!("tool error: {message}");
+                self.audit.push(AuditEvent::new(
+                    tool,
+                    params,
+                    risk_name,
+                    "error",
+                    message,
+                    duration(),
+                ));
+                tool_result_json(&text, true)
+            }
+        }
     }
 
     pub async fn serve<R, W>(
@@ -187,7 +262,7 @@ impl Host {
     }
 }
 
-fn error(id: Value, code: i32, message: &'static str) -> Response<'static> {
+fn error(id: Value, code: i32, message: String) -> Response {
     Response {
         jsonrpc: "2.0",
         id,
@@ -196,5 +271,16 @@ fn error(id: Value, code: i32, message: &'static str) -> Response<'static> {
     }
 }
 
+/// 工具调用结果统一封装：文本 + isError（带原因）+ truncated 门禁标记。
+fn tool_result_json(text: &str, is_error: bool) -> Value {
+    json!({
+        "content": [{"type": "text", "text": text}],
+        "isError": is_error,
+        "truncated": false
+    })
+}
+
+#[cfg(test)]
+mod guarded_tests;
 #[cfg(test)]
 mod tests;
