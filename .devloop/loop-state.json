@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T16:03:45.929Z",
+  "updatedAt": "2026-09-03T16:07:47.048Z",
   "project": "p2p-base",
   "phase": "E9-repair",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -118,13 +118,14 @@
       "goal": "面向 E9 质量收拢轮的只读审计：结构红线（300 行文件/60 行函数）、模块边界（依赖方向/pub 泄漏/跨 crate 重复/12 crate 划分评价）、可读性（命名/注释废话/吞错残留/magic number，GUI 前端单列）、测试质量（占比/itest 缺口/脆弱测试），产出 docs/notes/e9-quality-audit.md（五章 + 3-5 张互斥任务单草案，每条 finding 带文件:行号证据）",
       "title": "E9-Q0 代码质量与可维护性审计",
       "priority": "P1",
-      "status": "review",
+      "status": "done",
       "branch": "docs/e9-quality-audit",
       "ownerSession": "session-22888684-378a-4978-9914-f2fd87ec8e15",
       "scope": "仅新增 docs/notes/e9-quality-audit.md；全部代码只读；禁触 docs/coordination.md/.devloop/.agents 与 .worktrees/e8-*",
       "acceptanceCommand": "bash -c 'test -f docs/notes/e9-quality-audit.md && grep -q 结构红线 docs/notes/e9-quality-audit.md && grep -q 模块边界 docs/notes/e9-quality-audit.md && grep -q 可读性 docs/notes/e9-quality-audit.md && grep -q 测试质量 docs/notes/e9-quality-audit.md && grep -q \"E9 建议\" docs/notes/e9-quality-audit.md && test $(wc -l < docs/notes/e9-quality-audit.md) -le 400 && grep -qE \"[a-z]\\.rs:[0-9]+\" docs/notes/e9-quality-audit.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
-      "note": "协调边界已通知：审计期只读，不改代码/账本/协调表，产出入 docs/notes|research；开工范围回信确认中",
-      "failCount": 2
+      "note": "devloop_accept 超时假红（failCount 2）已按 known-issues 修法冲销：原命令长超时复跑 exit 0（八项谓词全过 + make check 全门禁），代跑人 E8 主控 93d57260",
+      "failCount": 2,
+      "acceptedAt": "2026-09-03T16:07:47.048Z"
     },
     {
       "id": "T11",
