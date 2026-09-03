@@ -132,3 +132,9 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 ## 2026-09-04 模板库落地（GUI 节点资料轮收尾）
 - 反复出现的高频骨架已抽成固定模板：调试 D1-D5（信号甄别/所有权取证/时间线对撞/双路并查/渲染异常执行序）与解题 S1-S3（GUI 新特性五步走/复用锚点先行/提交拆分五问）见 references/templates.md；GUI 布局 B1-B8 见 references/layout-gui.md。
 - 分工与维护：散点经验继续进本文件；模板只收「至少锚定两个真实实例」的骨架，修订以追加「修订 日期」小节方式落在模板文件内，不改写原文。入库前对全部事实性断言（锚点文件/类名/符号/提交哈希）跑机械核对，15 项全 PASS 才准合入。
+
+## 2026-09-04 发现面削峰轮（T1-T5 多 worktree 连发）
+- run_code 里 edit 工具调用与多条 const 声明混排会炸 JS 解析（Expected ',', got ident/const，连犯三次）——单次调用只留一个 await，路径与文案全部内联字面量，别提中间变量。
+- worktree 收尾命令链里 `git merge --ff-only ... | tail -1` 管道吞退出码，ff 失败后 && 链照常往下跑（worktree 被删、分支被删）——git 收尾链禁用管道中转，失败路径用 `; echo rc=$?` 显式收码；ff 失败后分支仍在远端，`git worktree add` 重建即可按红线 rebase 重试。
+- 大并行环境下「本会话门禁绿」与「全仓 make check 绿」必须分开判定：本次 make check 三连红（panic-hygiene 不认 *_tests.rs、并行合并遗留 fmt 脏、repair-bridge 在途 crate clippy）全部非本会话产物；先 grep 日志归因到文件，别人的 crate（有活跃 worktree/coordination 退回记录）不越界修，报告里单列归因。
+- 门禁脚本自身也有盲区：panic-hygiene 排除表只精确匹配 tests.rs，仓库约定已演进到 *_tests.rs（book/error/refresh 命名）——新命名形态入册时同步扩门禁排除 + 自测夹具加用例，否则首个踩中的 crate 会假红。
