@@ -59,10 +59,7 @@ async fn upsert_registers_and_persists_across_restart() {
 async fn query_peer_without_bootstrap_is_explicit_error() {
     let node = NodeBuilder::new()
         .mdns(false)
-        .data_dir(std::env::temp_dir().join(format!(
-            "p2p-sp-qp-data-{}",
-            std::process::id()
-        )))
+        .data_dir(std::env::temp_dir().join(format!("p2p-sp-qp-data-{}", std::process::id())))
         .build()
         .await
         .expect("build ok");
