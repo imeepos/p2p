@@ -15,6 +15,7 @@ import { randomWalkHistory } from "./metrics-history";
 // dev 展示层与真实 app 同源：mock 默认配置镜像出厂端点（views/shared/factory-defaults）。
 import { FACTORY_LIST_DEFAULTS } from "@/views/shared/factory-defaults";
 import { mockUpdateCheck, mockUpdateOpenReleasePage } from "./mock-update";
+import { createMockChatBackend } from "./mock-chat";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -191,7 +192,20 @@ function emitDialHop(hop: DialHopKind, ok: boolean): void {
   });
 }
 
+// 契约 v7 §12：chat 命令面 mock（独立文件实现，经 deps 读节点态/发事件）。
+const mockChat = createMockChatBackend({
+  emit,
+  selfPeerId: () => state.peerId,
+  isRunning: () => state.running,
+  isConnected: (peer) => state.connectedPeers.has(peer),
+  addKnownPeer: (peer) => {
+    if (!state.knownPeers.includes(peer)) state.knownPeers.push(peer);
+  },
+});
+
 export const mockBackend: IpcBackend = {
+  ...mockChat,
+
   async nodeStart(cfg) {
     if (state.running) throw new Error("节点已在运行");
     await delay(START_DELAY_MS);

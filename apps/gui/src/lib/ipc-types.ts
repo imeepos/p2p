@@ -80,7 +80,10 @@ export type NodeEventJson =
   | { type: "dial_hop"; peer: string; hop: DialHopKind; ok: boolean; detail: string; tsMs?: number }
   | { type: "node_started"; listenAddrs: string[]; tsMs?: number }
   | { type: "node_stopped"; tsMs?: number }
-  | { type: "node_error"; reason: string; tsMs?: number };
+  | { type: "node_error"; reason: string; tsMs?: number }
+  // 契约 v7 §12.2 加法：入站新消息（已落盘）与本地发送状态推进。
+  | { type: "chat_message"; peer: string; message: ChatMessageJson; tsMs?: number }
+  | { type: "chat_status"; peer: string; messageId: string; status: ChatMessageStatus; tsMs?: number };
 
 export type NodeEventType = NodeEventJson["type"];
 
@@ -106,6 +109,54 @@ export interface NodeProfile {
   avatar: string | null; // data URL（png/jpeg/webp base64，总长 ≤200_000）；null = 未设置
 }
 
+// 契约 v7 §12.3 加法（IM 聊天）：与 docs/design/gui-contract.md §12.3 逐字对齐，禁止改名。
+export type ChatKind = "text" | "image" | "audio" | "video" | "file";
+
+export type ChatMessageStatus = "pending" | "sent" | "delivered" | "failed";
+
+export interface ChatFriendJson {
+  peerId: string; // base58
+  nickname: string; // trim 后 ≤64；空串回退 PeerId 缩略
+  addrs: string[]; // ip/u端口 = QUIC，ip/t端口 = TCP（对齐 §6 语法）
+  note?: string | null;
+}
+
+export interface ChatMediaInput {
+  name: string; // 原始文件名（展示用，落盘时 sanitize）
+  mime: string; // 小写；按 kind 白名单校验（设计 §5），不匹配 Err
+  dataBase64: string; // 原始字节 base64（解码后 ≤64MiB，超限 Err）
+}
+
+export interface ChatMediaJson {
+  name: string;
+  mime: string;
+  size: number; // 原始字节数
+  path?: string | null; // 本端落盘绝对路径（仅返回给本端消费）
+}
+
+export interface ChatMessageJson {
+  id: string; // UUID（发端生成）
+  peer: string;
+  sender: "me" | "them";
+  kind: ChatKind;
+  tsMs: number;
+  text?: string | null;
+  media?: ChatMediaJson | null;
+  status: ChatMessageStatus; // 本地状态字段，不跨网
+}
+
+export interface ChatSendReport {
+  message: ChatMessageJson; // status=delivered=已实时送达；否则 pending（outbox 等待）
+  delivered: boolean;
+}
+
+// chat_media_file 返回：附件落盘绝对路径（仅本端展示用，不跨网）。
+export interface ChatMediaFile {
+  path: string;
+  mime: string;
+  name: string;
+}
+
 export interface IpcBackend {
   nodeStart(cfg: GuiConfig): Promise<NodeStatus>;
   nodeStop(): Promise<NodeStatus>;
@@ -123,6 +174,25 @@ export interface IpcBackend {
   profileSave(profile: NodeProfile): Promise<NodeProfile>;
   updateCheck(): Promise<UpdateCheckResult>;
   updateOpenReleasePage(url: string): Promise<void>;
+  chatFriendsList(): Promise<ChatFriendJson[]>;
+  chatFriendAdd(
+    peerId: string,
+    nickname: string,
+    addrs: string[],
+  ): Promise<ChatFriendJson>;
+  chatFriendRemove(peerId: string): Promise<boolean>;
+  chatHistory(
+    peer: string,
+    beforeId?: string | null,
+    limit?: number,
+  ): Promise<ChatMessageJson[]>;
+  chatSend(
+    peer: string,
+    kind: ChatKind,
+    text?: string,
+    media?: ChatMediaInput,
+  ): Promise<ChatSendReport>;
+  chatMediaFile(peer: string, messageId: string): Promise<ChatMediaFile>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
 }
 

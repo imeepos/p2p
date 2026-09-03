@@ -2,6 +2,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 import type {
+  ChatFriendJson,
+  ChatMediaFile,
+  ChatMessageJson,
+  ChatSendReport,
   DialReport,
   DiagBackend,
   GuiConfig,
@@ -44,6 +48,27 @@ const tauriBackend: IpcBackend = {
   updateCheck: () => invoke<UpdateCheckResult>("update_check"),
   updateOpenReleasePage: (url) =>
     invoke<void>("update_open_release_page", { url }),
+  // 契约 v7 §12.1：chat 命令面；可选参数统一传 null（serde Option 反序列化 None）。
+  chatFriendsList: () => invoke<ChatFriendJson[]>("chat_friends_list"),
+  chatFriendAdd: (peerId, nickname, addrs) =>
+    invoke<ChatFriendJson>("chat_friend_add", { peerId, nickname, addrs }),
+  chatFriendRemove: (peerId) =>
+    invoke<boolean>("chat_friend_remove", { peerId }),
+  chatHistory: (peer, beforeId, limit) =>
+    invoke<ChatMessageJson[]>("chat_history", {
+      peer,
+      beforeId: beforeId ?? null,
+      limit: limit ?? null,
+    }),
+  chatSend: (peer, kind, text, media) =>
+    invoke<ChatSendReport>("chat_send", {
+      peer,
+      kind,
+      text: text ?? null,
+      media: media ?? null,
+    }),
+  chatMediaFile: (peer, messageId) =>
+    invoke<ChatMediaFile>("chat_media_file", { peer, messageId }),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {

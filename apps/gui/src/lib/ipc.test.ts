@@ -12,6 +12,8 @@ const invokeMock = vi.hoisted(() =>
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => {}) }));
 
+const ADDR = "192.168.1.5/u3400";
+
 describe("ipc 诊断面路由", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -38,5 +40,62 @@ describe("ipc 诊断面路由", () => {
     const status = await ipc.nodeStatus();
     expect(status).toMatchObject({ running: false });
     expect(invokeMock.mock.calls.map(([cmd]) => cmd)).not.toContain("node_status");
+  });
+});
+
+describe("ipc chat 命令映射（契约 v7 §12，真实桥接）", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    invokeMock.mockClear();
+  });
+
+  it("chat_* 封装逐字映射命令名与 camelCase 参数，可选参缺省传 null", async () => {
+    // 本文件前两个用例已按 VITE_MOCK_IPC=1 求值过模块；重置后按 0 重新求值，
+    // 才能断言真实 tauriBackend 的 chat 命令映射。
+    vi.resetModules();
+    vi.stubEnv("VITE_MOCK_IPC", "0");
+    const { ipc } = await import("./ipc");
+
+    await ipc.chatFriendsList();
+    expect(invokeMock).toHaveBeenCalledWith("chat_friends_list");
+
+    await ipc.chatFriendAdd("p1", "nick", [ADDR]);
+    expect(invokeMock).toHaveBeenCalledWith("chat_friend_add", {
+      peerId: "p1",
+      nickname: "nick",
+      addrs: [ADDR],
+    });
+
+    await ipc.chatFriendRemove("p1");
+    expect(invokeMock).toHaveBeenCalledWith("chat_friend_remove", {
+      peerId: "p1",
+    });
+
+    await ipc.chatHistory("p1", "cursor-id", 25);
+    expect(invokeMock).toHaveBeenCalledWith("chat_history", {
+      peer: "p1",
+      beforeId: "cursor-id",
+      limit: 25,
+    });
+    await ipc.chatHistory("p1");
+    expect(invokeMock).toHaveBeenCalledWith("chat_history", {
+      peer: "p1",
+      beforeId: null,
+      limit: null,
+    });
+
+    await ipc.chatSend("p1", "text", "hi");
+    expect(invokeMock).toHaveBeenCalledWith("chat_send", {
+      peer: "p1",
+      kind: "text",
+      text: "hi",
+      media: null,
+    });
+
+    await ipc.chatMediaFile("p1", "m1");
+    expect(invokeMock).toHaveBeenCalledWith("chat_media_file", {
+      peer: "p1",
+      messageId: "m1",
+    });
   });
 });
