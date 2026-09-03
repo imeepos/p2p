@@ -1,8 +1,7 @@
 //! Noise XX（TCP 场景）：握手 payload 携带 ed25519 公钥与签名。
 //!
-//! 身份绑定：签名覆盖本端 Noise X25519 静态公钥，攻击者无法在持有自己静态钥的
-//! 同时冒充他人 ed25519 身份；对端 PeerId 一律从 payload 公钥推导，不采信自报。
-//! 全握手受 deadline 约束（帧级 + 总时长双层），半开握手到期即断（安全审查 1 期 M3）。
+//! 身份绑定：签名覆盖本端 Noise X25519 静态公钥，对端 PeerId 一律从 payload 公钥推导，
+//! 不采信自报；全握手受 deadline 约束（帧级 + 总时长双层），半开握手到期即断（安全审查 1 期 M3）。
 
 use std::io;
 use std::time::Duration;
@@ -71,7 +70,7 @@ impl SecurityUpgrade for NoiseXx {
                 .to_vec();
             let peer = verify_payload(&payload, &static_pub)?;
             ensure_expected(expected, peer)?;
-            send_frame(&mut stream, &mut hs, &make_payload(keypair), deadline).await?;
+            send_frame(&mut stream, &mut hs, &make_payload(keypair)?, deadline).await?;
             let transport = hs.into_transport_mode().map_err(handshake_err)?;
             Ok((
                 peer,
@@ -94,7 +93,7 @@ impl SecurityUpgrade for NoiseXx {
             let mut stream = stream;
             let mut hs = build(keypair, false)?;
             recv_frame(&mut stream, &mut hs, deadline).await?;
-            send_frame(&mut stream, &mut hs, &make_payload(keypair), deadline).await?;
+            send_frame(&mut stream, &mut hs, &make_payload(keypair)?, deadline).await?;
             let payload = recv_frame(&mut stream, &mut hs, deadline).await?;
             let static_pub = hs
                 .get_remote_static()
@@ -138,11 +137,16 @@ fn x25519_private(keypair: &Keypair) -> [u8; 32] {
     key
 }
 
-/// X25519 静态公钥：ed25519 公钥点转蒙哥马利坐标（同一标量乘基点的结果）
-fn x25519_public(keypair: &Keypair) -> [u8; 32] {
+/// X25519 静态公钥：ed25519 公钥点转蒙哥马利坐标（同一标量乘基点的结果）。
+/// 解码失败属不可达（公钥由构造保证合法），仍显式上抛并留日志信号，禁止占位字节继续握手。
+fn x25519_public(keypair: &Keypair) -> Result<[u8; 32], crate::SecurityError> {
     use ed25519_dalek::VerifyingKey;
-    let vk = VerifyingKey::from_bytes(&keypair.public()).expect("ed25519 pubkey valid");
-    *vk.to_montgomery().as_bytes()
+    VerifyingKey::from_bytes(&keypair.public())
+        .map(|vk| *vk.to_montgomery().as_bytes())
+        .map_err(|err| {
+            tracing::error!(target: "p2p_security", "本地公钥解码失败（不可达路径）: {err}");
+            crate::SecurityError::Handshake(format!("local pubkey decode: {err}"))
+        })
 }
 
 fn build(keypair: &Keypair, initiator: bool) -> Result<HandshakeState, crate::SecurityError> {
@@ -157,15 +161,15 @@ fn build(keypair: &Keypair, initiator: bool) -> Result<HandshakeState, crate::Se
 }
 
 /// payload = 32B ed25519 公钥 + 64B 签名（覆盖本端 X25519 静态公钥 + 域分隔）
-fn make_payload(keypair: &Keypair) -> Vec<u8> {
+fn make_payload(keypair: &Keypair) -> Result<Vec<u8>, crate::SecurityError> {
     let mut msg = Vec::with_capacity(SIGN_DOMAIN.len() + 32);
     msg.extend_from_slice(SIGN_DOMAIN);
-    msg.extend_from_slice(&x25519_public(keypair));
+    msg.extend_from_slice(&x25519_public(keypair)?);
     let sig = keypair.sign(&msg);
     let mut payload = Vec::with_capacity(32 + 64);
     payload.extend_from_slice(&keypair.public());
     payload.extend_from_slice(&sig);
-    payload
+    Ok(payload)
 }
 
 fn verify_payload(payload: &[u8], remote_static: &[u8]) -> Result<PeerId, crate::SecurityError> {
@@ -198,8 +202,7 @@ fn ensure_expected(expected: Option<PeerId>, actual: PeerId) -> Result<(), crate
     }
 }
 
-/// 握手帧与传输态同格式：[u16 帧长][密文]
-/// 写缓冲需容纳最大 token 开销（XX msg2 = e32 + s48 + tag16），给足余量
+/// 握手帧与传输态同格式 [u16 帧长][密文]；写缓冲容纳最大 token 开销（XX msg2=e32+s48+tag16）
 const HANDSHAKE_FRAME_OVERHEAD: usize = 160;
 
 /// 单步 IO 受 deadline 约束：慢读慢写都会触发握手超时
