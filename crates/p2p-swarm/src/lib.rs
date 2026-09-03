@@ -23,7 +23,6 @@ pub use gate::{gate_fn, GateFn};
 pub use lifecycle::{ConnState, LifecycleEvent, PeerLifecycleConfig};
 pub use liveness::{LivenessSource, PeerLiveness};
 pub use metrics::MetricsSnapshot;
-pub use pool::ConnectionPool;
 pub use swarm::filter_loopback;
 pub use swarm::PING_PROTOCOL;
 pub use swarm::{AddrSource, ReclaimConfig, Swarm, SwarmConfig, SwarmFactory};
