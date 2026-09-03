@@ -44,7 +44,9 @@ fn peer_id_of(conn: &quinn::Connection) -> Result<PeerId, TransportError> {
     let end_entity = certs
         .first()
         .ok_or_else(|| TransportError::Handshake("empty peer certificate chain".into()))?;
-    peer_id_from_cert(end_entity).map_err(|e| TransportError::Handshake(e.to_string()))
+    peer_id_from_cert(end_entity).map_err(|e| TransportError::HandshakeChained {
+        source: Box::new(e),
+    })
 }
 
 fn secure_conn(
@@ -78,10 +80,15 @@ impl QuicTransport {
 
     /// 监听端：以给定身份接受入站 QUIC。
     pub async fn bind(addr: SocketAddr, keypair: &Keypair) -> io::Result<Self> {
-        let crypto = quic_server_config(keypair)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, format!("server tls: {e}")))?;
+        // E7-K2：内层错误经 ChainedPayload 装箱，source() 遍历可达 SecurityError
+        let crypto = quic_server_config(keypair).map_err(|e| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                crate::ChainedPayload { inner: e },
+            )
+        })?;
         let quic_crypto = QuicServerConfig::try_from(Arc::new(crypto))
-            .map_err(|e| io::Error::other(format!("quic crypto: {e}")))?;
+            .map_err(|e| io::Error::other(crate::ChainedPayload { inner: e }))?;
         let mut server = quinn::ServerConfig::with_crypto(Arc::new(quic_crypto));
         server.transport_config(stream_limits());
         let endpoint = quinn::Endpoint::server(server, addr)?;
@@ -143,10 +150,15 @@ impl Transport for QuicTransport {
                 });
             }
         };
-        let crypto =
-            quic_client_config(keypair).map_err(|e| TransportError::Handshake(e.to_string()))?;
-        let quic_crypto = QuicClientConfig::try_from(Arc::new(crypto))
-            .map_err(|e| TransportError::Handshake(format!("quic crypto: {e}")))?;
+        // E7-K2：TLS 配置失败的内层错误整体挂 source 链
+        let crypto = quic_client_config(keypair).map_err(|e| TransportError::HandshakeChained {
+            source: Box::new(e),
+        })?;
+        let quic_crypto = QuicClientConfig::try_from(Arc::new(crypto)).map_err(|e| {
+            TransportError::HandshakeChained {
+                source: Box::new(e),
+            }
+        })?;
         let mut client = quinn::ClientConfig::new(Arc::new(quic_crypto));
         let mut transport = quinn::TransportConfig::default();
         transport.keep_alive_interval(Some(KEEP_ALIVE));
@@ -158,23 +170,25 @@ impl Transport for QuicTransport {
         let connecting = self
             .endpoint
             .connect_with(client, SocketAddr::new(ip, port), SERVER_NAME)
-            .map_err(|e| TransportError::Dial {
+            .map_err(|e| TransportError::DialChained {
                 addr: addr.to_string(),
-                reason: e.to_string(),
+                source: Box::new(e),
             })?;
         let conn = match tokio::time::timeout(HANDSHAKE_TIMEOUT, connecting).await {
             Ok(Ok(conn)) => conn,
+            // E5 关联面：握手期连接错误（quinn::ConnectionError）整体挂 source 链
             Ok(Err(e)) => {
-                return Err(TransportError::Dial {
+                return Err(TransportError::DialChained {
                     addr: addr.to_string(),
-                    reason: e.to_string(),
+                    source: Box::new(e),
                 });
             }
             Err(_) => {
-                return Err(TransportError::Dial {
-                    addr: addr.to_string(),
-                    reason: format!("quic handshake timeout after {HANDSHAKE_TIMEOUT:?}"),
-                });
+                return Err(crate::dial_timeout(
+                    addr,
+                    HANDSHAKE_TIMEOUT,
+                    "quic handshake",
+                ));
             }
         };
         secure_conn(conn, expected)

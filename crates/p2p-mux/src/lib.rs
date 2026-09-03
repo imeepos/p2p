@@ -35,6 +35,27 @@ mod yamux_mux;
 pub use quic_mux::QuicMux;
 pub use yamux_mux::YamuxMux;
 
+/// E7-K2 错误链载体：std 的 `io::Error::source()` 只返回载荷自身的 source
+/// 而不返回载荷，直接 `io::Error::new(kind, inner)` 会令 source() 遍历盲视内层。
+/// 以本包装器作载荷：`err.to_string()` 保持内层原文，`err.source()` 即内层错误，
+/// 调用方沿 source 链 downcast 可还原内层类型（E5 登记项修复的基础设施）。
+#[derive(Debug)]
+pub(crate) struct ChainedPayload<E> {
+    inner: E,
+}
+
+impl<E: std::fmt::Display> std::fmt::Display for ChainedPayload<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl<E: std::error::Error + 'static> std::error::Error for ChainedPayload<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.inner)
+    }
+}
+
 /// 每连接并发流数上限（design §6 通信层防滥用）。
 /// yamux 侧同步写入协议配置；QUIC 侧叠加在 quinn 传输参数之上。
 pub const MAX_STREAMS_PER_CONN: usize = 64;

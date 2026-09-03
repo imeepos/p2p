@@ -53,6 +53,8 @@ impl YamuxMux {
 #[async_trait::async_trait]
 impl MuxControl for YamuxMux {
     async fn open_stream(&self) -> io::Result<BoxedStream> {
+        // 吞错豁免：信号量 close() 本 crate 从不调用，AcquireError 仅在
+        // close 后出现（不可达分支）；文本 BrokenPipe 即完整语义
         let permit = self
             .open_permits
             .clone()
@@ -75,7 +77,9 @@ impl MuxControl for YamuxMux {
     }
 
     fn close(&self) {
-        // 容量 1 且无其他发送方：try_send 即同步送达，驱动任务退出即关连接
+        // 容量 1 且无其他发送方：try_send 即同步送达，驱动任务退出即关连接。
+        // 吞错豁免：Full=关闭已在途（幂等目标已成立）；Closed=驱动任务已退出
+        // （连接已死，关闭目标已达成）。两态皆无需额外信号。
         let _ = self.close_tx.try_send(());
     }
 }
@@ -96,9 +100,13 @@ async fn drive(
             let opened = poll_fn(|cx| conn.poll_new_outbound(cx)).await;
             match opened {
                 Ok(stream) => {
+                    // 吞错豁免：回执对端丢弃即调用方已放弃开流（超时/句柄关闭），
+                    // 成功结果无人接收属预期，drop 即释放
                     let _ = reply.send(Ok(Box::new(stream.compat())));
                 }
                 Err(e) => {
+                    // 回执对端在则随 Err 送达；对端已放弃则此处 debug 留观测信号
+                    tracing::debug!(error = %e, "yamux open failed, reply channel dropped");
                     let _ = reply.send(Err(yamux_err(e)));
                 }
             }
@@ -153,13 +161,16 @@ fn poll_next_inbound(
     }
 }
 
+/// E7-K2 错误链保真：yamux ConnectionError 整体装箱为 io::Error 载荷，
+/// `io::Error::source` downcast 可还原类型与文案，拒绝 to_string 拍平。
+/// kind 判定维持原逻辑，本修复只补错误链。
 fn yamux_err(e: yamux::ConnectionError) -> io::Error {
     let kind = if matches!(e, yamux::ConnectionError::Closed) {
         io::ErrorKind::BrokenPipe
     } else {
         io::ErrorKind::ConnectionReset
     };
-    io::Error::new(kind, e.to_string())
+    io::Error::new(kind, super::ChainedPayload { inner: e })
 }
 
 fn mux_closed() -> io::Error {
@@ -168,7 +179,20 @@ fn mux_closed() -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::error::Error as _;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    /// E7-K2 白盒回归：yamux_err 必须保留 ConnectionError 于 source 链。
+    /// 消融：换回 e.to_string() 后本用例转红（source 变 None）。
+    #[test]
+    fn yamux_err_keeps_connection_error_source() {
+        let err = yamux_err(yamux::ConnectionError::Closed);
+        let src = err.source().expect("source must be kept, not flattened");
+        let inner = src
+            .downcast_ref::<yamux::ConnectionError>()
+            .expect("inner must downcast to yamux::ConnectionError");
+        assert!(matches!(inner, yamux::ConnectionError::Closed));
+    }
 
     #[tokio::test]
     async fn open_accept_roundtrip_between_two_muxes() {

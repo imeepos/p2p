@@ -10,3 +10,8 @@ tokio-util = { workspace = true, features = ["compat"] }
 quinn.workspace = true
 yamux.workspace = true
 tracing.workspace = true
+# E7-K2：错误链回归测试经真实 QUIC 端到端建连（E5 登记项），
+# dev-dependency 环仅作用于测试目标，正常构建不受影响
+[dev-dependencies]
+p2p-identity = { path = "../p2p-identity" }
+p2p-transport = { path = "../p2p-transport" }

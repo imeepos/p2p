@@ -39,9 +39,18 @@ async fn half_open_tcp_handshake_times_out_with_clear_error() {
         Err(e) => e,
         Ok(_) => panic!("half-open handshake must fail"),
     };
-    let reason = match &err {
-        p2p_transport::TransportError::Handshake(reason) => reason.clone(),
-        other => panic!("expected Handshake error, got: {other:?}"),
+    // E7-K2 错误链保真：安全层错误挂在 source 链，内层 SecurityError
+    // 类型与文案必须可还原（不再 to_string 拍平）
+    let source = match &err {
+        p2p_transport::TransportError::HandshakeChained { source } => source,
+        other => panic!("expected HandshakeChained, got: {other:?}"),
+    };
+    let security = source
+        .downcast_ref::<p2p_security::SecurityError>()
+        .expect("source must downcast to SecurityError");
+    let reason = match security {
+        p2p_security::SecurityError::Handshake(text) => text.clone(),
+        other => panic!("expected SecurityError::Handshake, got: {other:?}"),
     };
     assert!(
         reason.contains("handshake deadline exceeded"),

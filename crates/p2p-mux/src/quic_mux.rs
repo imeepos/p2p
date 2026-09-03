@@ -30,6 +30,8 @@ impl QuicMux {
 #[async_trait::async_trait]
 impl MuxControl for QuicMux {
     async fn open_stream(&self) -> io::Result<BoxedStream> {
+        // 吞错豁免：信号量 close() 本 crate 从不调用，AcquireError 仅在
+        // close 后出现（不可达分支）；文本 BrokenPipe 即完整语义
         let permit = self
             .open_permits
             .clone()
@@ -41,7 +43,15 @@ impl MuxControl for QuicMux {
     }
 
     async fn accept_stream(&self) -> Option<BoxedStream> {
-        let (send, recv) = self.conn.accept_bi().await.ok()?;
+        let (send, recv) = match self.conn.accept_bi().await {
+            Ok(stream) => stream,
+            // 原 .ok()? 静默吞错，E7-K2 补观测信号：连接收敛（对端挂断/
+            // 空闲超时/本地 close）本就落 None，此处 debug 留痕不刷屏
+            Err(e) => {
+                tracing::debug!(error = %e, "quic accept_bi terminated");
+                return None;
+            }
+        };
         Some(Box::new(QuicStream { send, recv }))
     }
 
@@ -106,6 +116,16 @@ impl AsyncWrite for QuicStream {
     }
 }
 
-fn transport_err(e: impl std::fmt::Display) -> io::Error {
-    io::Error::new(io::ErrorKind::ConnectionReset, e.to_string())
+/// E5 登记项修复（E7-K2 错误链保真）：quinn 错误整体装箱为 io::Error 载荷，
+/// 内层 ConnectionError/ReadError/WriteError 经 `io::Error::source` downcast
+/// 可原样还原类型与文案，拒绝 to_string 拍平。
+/// io kind 维持 ConnectionReset：本修复只补错误链，不改变既有错误语义。
+fn transport_err<E>(e: E) -> io::Error
+where
+    E: std::error::Error + Send + Sync + 'static,
+{
+    io::Error::new(
+        io::ErrorKind::ConnectionReset,
+        super::ChainedPayload { inner: e },
+    )
 }
