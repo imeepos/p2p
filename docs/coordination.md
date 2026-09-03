@@ -121,3 +121,12 @@ metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 - 2026-09-02 检查轮 31：归属更正——0698963 的抢救与合入（6f8c51d）系用户交互主会话（session-b7d42619，驻主树，非派单 worker）应答用户问询所为，时序在其推送前 origin/main 确未包含该提交（本会话此前"S 自行合入"与"制止冗余抢救"两条判断均基于其后置实况，过程无损害）；921497f、78e0386 两笔 skill 沉淀同出该会话。该会话身份已登记：用户直连主会话，不受派单 worker 规则约束，其指令优先级高于本协调表。relayed 裁决回顾：R-E4 缺陷 b 已修（6f49519），缺陷 a 授权代修实施中。
 - 2026-09-02 检查轮 33：**E4 关闭**。执行阶段验收通过——T-ECS 全节点换装（138/ECS bootstrap 重部署自 main@0289b9c、15/102 二进制更新）、三连采样 PASS：三轮均 Direct(false)→Punch(false)→Relay(true)，rtt 15.245–15.270s（极差 25ms），中继电路 ~90ms 建立；全程无配额自锁、无控制流秒断、无 30ms 断链——relay/quic/hairpin/TCP 四项修复在生产拓扑全部实证生效。执行中顺手修复采样脚本 PeerId 校验（9ea1a20，base32 误拒真实 base58 id）。结果存档 docs/notes/e4-execution-results.md。E5 候选已登记。里程碑状态：E1/E2/E3/E4 全部完成，M1-M4 里程碑达成（gossip 为可选项留 E5）。
 - 2026-09-02 检查轮 27：长稳采样拆两段——脚本准备先行派 T-ECS（feat/e4-sampling-scripts，执行等 relay 修复）；S 的 TCP 修复实施中（双 worktree，无新提交）；R-E4 消化上下文未现 git 活动，下轮若仍无活动则问询。
+- 2026-09-03 检查轮 34（协调会话 session-93d57260 接手）：E6 连接稳定性与生命周期轮派单，三单并行且范围互斥（调研 docs / p2p-swarm / p2p-relay），任务书只含需求与机械验收、不含源码；账本 .devloop/loop-state.json 同步登记。E5 候选「重连退避复位语义」「桥接后槽位 TTL 滞留清扫」随本轮正式落地；调研结论供 E7 采纳。旧 worktree verify-011（detached 038d1f2）待归属确认。
+
+## E6 连接稳定性与生命周期轮（2026-09-03 派单）
+
+| 修复单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| 成熟 P2P 连接机制调研 | p2p-E6-R1（session-a7c7bf5a） | docs/e6-conn-survey | 仅新增 docs/research/p2p-connection-lifecycle-survey.md（libp2p/Tailscale DERP/WebRTC ICE/Tox/Circuit Relay v2 对比 + 落地建议）；不改任何代码 | 文档存在且五系统要点表、横向对比、落地建议齐全；make check 全绿 |
+| swarm 对端连接生命周期 | p2p-E6-S2（session-058cee1b） | feat/e6-peer-lifecycle | crates/p2p-swarm/** + 新增 crates/p2p-itest/tests/peer_lifecycle.rs（PeerId 状态机/活性探测/PeerUp-Down 事件/指数退避+抖动+成功复位）；facade 与其余 crate 只读；冻结契约只增不改 | cargo test -p p2p-itest --test peer_lifecycle + cargo test -p p2p-swarm + make check 全绿；含退避复位消融证明 |
+| relay 链路稳定性 | p2p-E6-R3（session-e0910a2f） | feat/e6-relay-stability | crates/p2p-relay/** + 新增 crates/p2p-relay/tests/relay_stability.rs（控制面保活/失联信号上抛/桥接电路空闲 TTL 回收）；swarm/itest/facade 只读；与 E4 信令面回收语义兼容 | cargo test -p p2p-relay --test relay_stability + cargo test -p p2p-relay + make check 全绿；含回收与保活消融证明 |
