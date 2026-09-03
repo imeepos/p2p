@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T15:41:47.249Z",
+  "updatedAt": "2026-09-03T15:46:09.433Z",
   "project": "p2p-base",
   "phase": "E8-parallel+E9-audit",
   "coordinatorSession": "session-93d57260-bb33-472e-b8a6-86237c64a272",
@@ -143,6 +143,17 @@
       "ownerSession": "",
       "scope": "apps/gui/src/lib/ipc.ts + mock-ipc.ts + mock-diagnostics.ts + 删除 apps/gui/src/components/feedback/feedback-demo-card.tsx；S1 收口前禁触 swarm/discovery/relay/cli",
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && ! grep -rq mockBackend dist/assets && test ! -f src/components/feedback/feedback-demo-card.tsx && pnpm test --run && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+    },
+    {
+      "id": "T13",
+      "goal": "E9-Q0 报告 T5：relay pub 面收口与装配收敛——RelayServiceImpl 与 Mock 替身撤出产线 API（迁 p2p-itest 或 feature test-util 门控）、提供工厂返回 Arc<dyn RelayService>、crates/p2p-swarm/src/lib.rs:19 ConnectionPool 改 pub(crate) 重导出、装配样板 5 处收敛",
+      "title": "E9-t5 relay pub 面收口与装配收敛",
+      "priority": "P3",
+      "status": "todo",
+      "branch": "feat/e9-t5-relay-surface",
+      "ownerSession": "session-74a7eec9-c75c-40da-a756-9c878fae8339",
+      "scope": "crates/p2p-relay/src/{lib,link,service}.rs + 使用点（p2p-cli/src/bootstrap.rs、p2p-itest/src/lib.rs、p2p-itest/tests/relay_control_resilience.rs、p2p-itest/tests/relay_transport_persistence.rs、p2p/tests/m3_chain.rs）+ crates/p2p-swarm/src/lib.rs 仅 :19 一行；gating：待 T7/S1 收口放行后方可写入",
+      "acceptanceCommand": "bash -c '! grep -q mock_link_pair crates/p2p-relay/src/lib.rs && ! grep -rq \"RelayServiceImpl::new\" crates/p2p-cli/src crates/p2p/tests crates/p2p-itest --include=\"*.rs\" && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test --workspace --quiet && make check'"
     }
   ]
 }
