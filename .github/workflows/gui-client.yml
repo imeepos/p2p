@@ -48,7 +48,7 @@ jobs:
         include:
           - os: macos-latest          # Apple Silicon
             args: ""
-          - os: macos-13              # Intel
+          - os: macos-15-intel        # Intel
             args: ""
           - os: ubuntu-22.04
             args: "--bundles appimage deb"
@@ -92,7 +92,7 @@ jobs:
         run: pnpm exec tauri build ${{ matrix.args }}
 
       - name: 上传 macOS 产物
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-13'
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-15-intel'
         uses: actions/upload-artifact@v4
         with:
           name: p2p-console-${{ matrix.os }}
