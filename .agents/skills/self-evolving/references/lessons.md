@@ -125,3 +125,7 @@ _none yet — be the first._
 - 2026-09-03 落档轮：单人短命分支任务中途 main 被并行推进时，反向同步优先 rebase main + push --force-with-lease 分支再 ff-only——分支仅本会话消费，force-push 无旁观者，进 main 不留 merge bubble（docs/walkthrough-findings 实录：按 AGENTS.md 字面走 merge main，main 上多出 3b09e87 合并泡，核验方点名线性史偏好；与 118 号技巧的「rebase→force-with-lease→ff-only 原子化」同路数）。
 - 2026-09-04 方案落档轮：文本要过 JS 模板字面量→bash 单引号→perl/sed 正则三层时转义层数必错（写四层反斜杠、perl 静默零替换）；含 markdown 反引号的大段文本落盘后统一用 edit 工具 replace_all 清理单一短序列（如反斜杠+反引号两字符），绕开全部转义层。
 - 2026-09-04 同轮：bash 单引号闭合后与路径粘连（漏空格）时 grep 静默退化为读 stdin，返回 0 匹配制造「已清理」假象；grep -c 的结论必须先用 grep 工具（非 shell 拼接）复核目标文件，再信「替换成功」。
+- 2026-09-04 负载选路轮：cargo 不在默认 PATH 时管道接 tail 会双重吞错——输出 "cargo: command not found" 但 exit 0（退出码取自 tail）；bash 里凡 cargo 必先 export PATH="$HOME/.cargo/bin:$PATH"，判退出码必 set -o pipefail，管道后 echo EXIT=$? 才可信。
+- 2026-09-04 负载选路轮：长任务期间并行会话两次推进 main（一次在实现中途、一次恰在 ff-only 与清理之间），反向同步不是一次性动作——ff-only 前必须重查 main tip，分支可能需要二次同步 main 并重跑门禁；125 号的 rebase→force-with-lease 路数可少留合并泡（本次按 AGENTS 字面走 merge，main 上多出两个 merge node，下次改用 rebase 路）。
+- 2026-09-04 负载选路轮：并行会话的重构可能与你的新文件语义重复（对方先合了 degrade.rs 阶段化拆分，我另有 degrade_hop.rs）——解冲突时以对方文件为底、只重放自己的小增量（健康槽接线、事件 detail）并删除重复文件，比两条实现各让半步的折中合并冲突面小一个量级。
+- 2026-09-04 负载选路轮：整数 EMA 权重 1/4 自零起步时亚毫秒采样永远收敛到 0（(0*3+1)/4=0），测试当场抓住——高频小量观测要在内部用高精度单位记账（微秒），只在 API 边界向上取整换算显示单位（毫秒）。

@@ -226,3 +226,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：凭直觉写 TcpStream::set_tcp_keepalive / tokio::net::tcp::TcpKeepalive，E0599 方法不存在；该 API 在 tokio 里从未有过（属于 socket2）。
 - 原因：tokio 只有 TcpSocket::set_keepalive(bool)（OS 缺省参数），且在拨号前构造 socket 的类型上，accept 出来的 TcpStream 没有对应方法。
 - 修法：workspace.dependencies 追加 socket2（已在 tokio 传递图内，锁文件只加一条直接边），SockRef::from(&TcpStream) 借用设参；with_interval 平台门逐家核过（macOS 有，with_retries 需 all feature），编译期即暴露不兼容。
+
+## 编辑工具报 file changed since read：cargo fmt 是隐形第三方写手（2026-09-04 负载选路轮）
+- 症状：edit 报 "file changed since it was read — re-read the file"，且报错发生在与目标文件无关的门禁运行之后。
+- 原因：同批次里先跑了 cargo fmt（make 的 fmt 或脚本），rustfmt 重写了待编辑文件，编辑工具按读取快照校验失败。
+- 修法：写→fmt→再改 的批次里，fmt 之后的编辑前必须重新 read 目标区域；能改成 写→读→fmt 顺序的先改顺序。
