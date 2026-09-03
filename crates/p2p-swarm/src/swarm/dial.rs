@@ -2,19 +2,18 @@
 //! 失败进入 打洞 → 中继电路 兜底；每一跳结果发 DialHop 事件（§12）。
 
 use std::io;
-use std::sync::Arc;
 use std::time::Duration;
 
 use p2p_identity::PeerId;
-use p2p_mux::BoxedStream;
-use p2p_protocol::{dispatch_inbound, ProtocolError};
 use p2p_transport::{Transport, TransportAddr};
-use tokio::sync::{broadcast, watch};
 
 use super::lifecycle::LifecycleMsg;
-use super::{Mux, RegistryCell, Swarm};
-use crate::pool::{Admission, ConnectionPool};
-use crate::{DialHop, NodeEvent};
+use super::{Mux, Swarm};
+use crate::lifecycle::LifecycleEvent;
+use crate::liveness::LivenessSource;
+use crate::pool::{Admission, ConnKind};
+use crate::usage::unix_now;
+use crate::{CloseReason, DialHop, NodeEvent};
 
 /// 连接方向：本端主动拨出为 Outbound，对端拨入为 Inbound。
 /// 收敛裁决据此让两端对同一条连接得出一致结论（见 converge_prefers_new）。
@@ -45,7 +44,13 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
         match dial_limited(swarm, peer, &addr, hairpin).await {
             Ok(mux) => {
                 swarm.metrics.hop_ok(DialHop::Direct);
-                insert_connection(swarm, peer, mux.clone(), ConnDirection::Outbound);
+                insert_connection(
+                    swarm,
+                    peer,
+                    mux.clone(),
+                    ConnDirection::Outbound,
+                    ConnKind::Direct,
+                );
                 return Ok(mux);
             }
             Err(err) => {
@@ -75,7 +80,13 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     if swarm.has_relay_sessions() {
         match swarm.relay_degrade(peer).await {
             Ok(mux) => {
-                insert_connection(swarm, peer, mux.clone(), ConnDirection::Outbound);
+                insert_connection(
+                    swarm,
+                    peer,
+                    mux.clone(),
+                    ConnDirection::Outbound,
+                    ConnKind::RelayCircuit,
+                );
                 return Ok(mux);
             }
             Err(err) => {
@@ -141,6 +152,14 @@ pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) 
     if !swarm.gate_allows(conn.remote).await {
         tracing::warn!(peer = %conn.remote, %addr, "outbound connection denied by gate, dropping");
         swarm.metrics.count_gate_denial();
+        // E8：门禁拒绝的断链归档 Refused 档（入站对应归档见 listen.rs）
+        let _ = swarm
+            .lifecycle
+            .events
+            .send(crate::LifecycleEvent::ConnectionClosed {
+                peer: conn.remote,
+                reason: CloseReason::Refused,
+            });
         drop(conn);
         return Err(io::Error::other(format!(
             "peer {peer} denied by connection gate"
@@ -157,25 +176,37 @@ pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) 
 /// 两端对每条连接的方向认知相反、结论一致，最终两点各持同一条连接。
 /// 若无此收敛，各留各的会出现：A 池里是 A 拨的、B 池里是 B 拨的，
 /// 流与 serve 循环分家，单方向 request 永远无应答（2026-09 GUI 闪断实测根因）。
-pub(super) fn insert_connection(swarm: &Swarm, peer: PeerId, mux: Mux, direction: ConnDirection) {
+pub(super) fn insert_connection(
+    swarm: &Swarm,
+    peer: PeerId,
+    mux: Mux,
+    direction: ConnDirection,
+    kind: ConnKind,
+) {
     let prefer_new = converge_prefers_new(swarm, peer, direction);
-    match swarm.pool.admit(peer, mux.clone(), prefer_new) {
+    let (admission, usage) = swarm.pool.admit_as(peer, mux.clone(), prefer_new);
+    match admission {
         Admission::RejectedExisting(dup) => {
             tracing::debug!(%peer, "duplicate connection converged to existing, closing new");
+            // E8：收敛落选的连接也是一次本端主动关闭，归档不缺档
+            let _ = swarm
+                .lifecycle
+                .events
+                .send(LifecycleEvent::ConnectionClosed {
+                    peer,
+                    reason: CloseReason::Local,
+                });
             dup.close();
         }
         Admission::Accepted | Admission::Replaced(_) => {
             swarm.emit(NodeEvent::PeerConnected { peer });
             // E6 钩子：入池即连接事实（入站/出站共用唯一入口），交监督者裁决转移
             swarm.lifecycle.notify(LifecycleMsg::Connected { peer });
-            let ctx = ServeCtx {
-                pool: swarm.pool.clone(),
-                registry: swarm.registry.clone(),
-                events: swarm.events.clone(),
-                shutdown: swarm.shutdown_rx.clone(),
-                lifecycle: swarm.lifecycle.clone(),
-            };
-            tokio::spawn(serve_connection(ctx, peer, mux));
+            // E8：连接建成是最强活信号（活跃度 Dead 态由此恢复，见 liveness.rs）
+            swarm
+                .liveness
+                .note_alive(peer, LivenessSource::Connection, unix_now());
+            super::serve::spawn_serve(swarm, peer, mux, usage, kind);
         }
     }
 }
@@ -185,58 +216,4 @@ pub(super) fn insert_connection(swarm: &Swarm, peer: PeerId, mux: Mux, direction
 fn converge_prefers_new(swarm: &Swarm, peer: PeerId, direction: ConnDirection) -> bool {
     let keep_outbound = swarm.local_peer_id() > peer;
     (direction == ConnDirection::Outbound) == keep_outbound
-}
-
-/// serve 任务的独立组件集：不持有 Swarm 本体，生命周期与连接一致。
-struct ServeCtx {
-    pool: Arc<ConnectionPool>,
-    registry: RegistryCell,
-    events: broadcast::Sender<NodeEvent>,
-    shutdown: watch::Receiver<bool>,
-    /// E6：断链回报监督者（Connected→BackingOff 并排定重连）。
-    lifecycle: super::lifecycle::LifecycleHandle,
-}
-
-/// 收流分发循环：连接关闭或关停即出池并发 PeerDisconnected（断开路径可见）。
-async fn serve_connection(ctx: ServeCtx, peer: PeerId, mux: Mux) {
-    let mut shutdown = ctx.shutdown;
-    loop {
-        tokio::select! {
-            _ = shutdown.changed() => break,
-            stream = mux.accept_stream() => match stream {
-                Some(stream) => {
-                    tokio::spawn(dispatch_stream(ctx.registry.clone(), ctx.events.clone(), peer, stream));
-                }
-                None => break,
-            },
-        }
-    }
-    // 仅当本连接仍在册才发断开事件：被顶替的旧连接退出时池里已是新连接，
-    // 此刻发 PeerDisconnected 是谎报（GUI 会把活连接渲染成断开）。
-    if ctx.pool.remove_if_same(&peer, &mux) {
-        let _ = ctx.events.send(NodeEvent::PeerDisconnected { peer });
-        // E6 钩子：本连接确已出池（被顶替的旧连接不进来，不谎报断链）
-        ctx.lifecycle.notify(LifecycleMsg::LinkLost { peer });
-    }
-}
-
-/// 单条入站流分发：协议违规（含未注册协议）发事件；纯 io 关闭只留调试日志。
-async fn dispatch_stream(
-    registry: RegistryCell,
-    events: broadcast::Sender<NodeEvent>,
-    peer: PeerId,
-    stream: BoxedStream,
-) {
-    let snapshot = registry.lock().expect("registry lock").clone();
-    match dispatch_inbound(stream, &snapshot).await {
-        Ok(()) => {}
-        Err(ProtocolError::Io(err)) => {
-            tracing::debug!(%peer, error = %err, "inbound stream closed");
-        }
-        Err(other) => {
-            let reason = other.to_string();
-            tracing::warn!(%peer, %reason, "protocol violation on inbound stream");
-            let _ = events.send(NodeEvent::ProtocolViolation { peer, reason });
-        }
-    }
 }

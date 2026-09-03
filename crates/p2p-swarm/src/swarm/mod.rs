@@ -3,17 +3,18 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use p2p_identity::{Keypair, PeerId};
-use p2p_mux::{BoxedStream, MuxControl};
-use p2p_protocol::ProtocolId;
+use p2p_mux::MuxControl;
 use p2p_transport::{QuicTransport, TcpTransport, TransportAddr};
 use tokio::sync::{broadcast, mpsc, watch};
 
-use crate::lifecycle::{ConnState, LifecycleEvent, PeerLifecycleConfig};
+use crate::lifecycle::PeerLifecycleConfig;
+use crate::liveness::{LivenessBook, LivenessSource};
 use crate::pool::ConnectionPool;
-use crate::{ConnectionGate, NodeEvent};
+use crate::usage::unix_now;
+use crate::ConnectionGate;
+use crate::NodeEvent;
 
 mod book;
 mod config;
@@ -26,9 +27,13 @@ mod lifecycle_task;
 mod listen;
 mod ping;
 mod punch;
+mod reclaim;
 mod registry;
+mod relay_degrade;
 mod relay_session;
 mod responder;
+mod serve;
+mod streams;
 
 #[cfg(test)]
 mod book_tests;
@@ -47,6 +52,7 @@ use lifecycle::LifecycleHandle;
 use lifecycle::LifecycleMsg;
 use listen::spawn_accept_loops;
 pub use ping::PING_PROTOCOL;
+pub use reclaim::ReclaimConfig;
 use relay_session::{spawn_sessions, RelayCmd};
 
 /// 电路化/直连拨号共用的复用句柄别名。
@@ -68,22 +74,47 @@ pub struct Swarm {
     metrics: Metrics,
     /// E6：对端连接生命周期监督句柄（状态机/探活/退避重连）。
     lifecycle: LifecycleHandle,
+    /// E8：统一活跃度判定账本（观测面衍生，不驱动状态机，见 liveness.rs）。
+    liveness: Arc<LivenessBook>,
     shutdown_tx: watch::Sender<bool>,
     shutdown_rx: watch::Receiver<bool>,
 }
 
 impl Swarm {
     /// 绑定 QUIC+TCP 监听并启动 accept/relay 会话；绑定失败原样上抛（装配期可见）。
-    /// 生命周期参数取默认（见 [PeerLifecycleConfig]）；可配置入口见
-    /// [Self::start_with_lifecycle]（SwarmConfig 形状冻结，配置走加法入口）。
+    /// 生命周期与回收参数取默认（见 [PeerLifecycleConfig]/[ReclaimConfig]）；
+    /// 可配置入口见 [Self::start_with_lifecycle] / [Self::start_with_reclaim]
+    /// （SwarmConfig 形状冻结，配置一律走加法入口）。
     pub async fn start(config: SwarmConfig) -> io::Result<Arc<Self>> {
-        Self::start_with_lifecycle(config, PeerLifecycleConfig::default()).await
+        Self::assemble(
+            config,
+            PeerLifecycleConfig::default(),
+            ReclaimConfig::default(),
+        )
+        .await
     }
 
     /// E6：指定生命周期参数的装配入口。其余语义同 [Self::start]。
     pub async fn start_with_lifecycle(
         config: SwarmConfig,
         lifecycle_cfg: PeerLifecycleConfig,
+    ) -> io::Result<Arc<Self>> {
+        Self::assemble(config, lifecycle_cfg, ReclaimConfig::default()).await
+    }
+
+    /// E8：指定空闲回收参数的装配入口（加法）。其余语义同 [Self::start]。
+    pub async fn start_with_reclaim(
+        config: SwarmConfig,
+        lifecycle_cfg: PeerLifecycleConfig,
+        reclaim_cfg: ReclaimConfig,
+    ) -> io::Result<Arc<Self>> {
+        Self::assemble(config, lifecycle_cfg, reclaim_cfg).await
+    }
+
+    async fn assemble(
+        config: SwarmConfig,
+        lifecycle_cfg: PeerLifecycleConfig,
+        reclaim_cfg: ReclaimConfig,
     ) -> io::Result<Arc<Self>> {
         let bind = |port: u16| SocketAddr::new(IpAddr::from([0, 0, 0, 0]), port);
         let quic = QuicTransport::bind(bind(config.quic_port), &config.keypair).await?;
@@ -97,7 +128,8 @@ impl Swarm {
         // 内置 ping 应答注册（E6 探活的应答侧）；用户已注册时不抢占
         let registry = ping::registry_with_ping(config.registry.clone());
         let (lifecycle_events, _) = broadcast::channel(EVENT_CAPACITY);
-        let (lifecycle, lifecycle_rx) = LifecycleHandle::new(lifecycle_cfg, lifecycle_events);
+        let (lifecycle, lifecycle_rx) =
+            LifecycleHandle::new(lifecycle_cfg, lifecycle_events.clone());
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         let swarm = Arc::new(Self {
             keypair: config.keypair,
@@ -114,12 +146,14 @@ impl Swarm {
             relay_sessions: Mutex::new(Vec::new()),
             metrics: Metrics::default(),
             lifecycle,
+            liveness: Arc::new(LivenessBook::new(lifecycle_events.clone())),
             shutdown_tx,
             shutdown_rx,
         });
         spawn_accept_loops(&swarm, quic, tcp, tcp_listener);
         spawn_sessions(&swarm, config.relay_addrs);
         lifecycle_task::start_supervisor(&swarm, lifecycle_rx);
+        reclaim::spawn_reclaim(&swarm, &reclaim_cfg);
         Ok(swarm)
     }
 
@@ -145,21 +179,6 @@ impl Swarm {
         let conns = self.pool.len() as u64;
         let sessions = self.relay_sessions.lock().expect("relay lock").len() as u64;
         self.metrics.snapshot(conns, sessions)
-    }
-
-    /// E6：peer 生命周期状态（未跟踪返回 None）。
-    pub fn peer_state(&self, peer: &PeerId) -> Option<ConnState> {
-        self.lifecycle.state_of(peer)
-    }
-
-    /// E6：已排定的下次重连退避时长（BackingOff 态有值；观测与测试断言用）。
-    pub fn peer_scheduled_backoff(&self, peer: &PeerId) -> Option<Duration> {
-        self.lifecycle.scheduled_backoff(peer)
-    }
-
-    /// E6：订阅对端生命周期事件（状态转移/PeerDown/PeerUp）。
-    pub fn subscribe_lifecycle(&self) -> broadcast::Receiver<LifecycleEvent> {
-        self.lifecycle.events.subscribe()
     }
 
     /// 幂等连接：池内已有连接直接复用，否则走降级链 直连→打洞→中继。
@@ -196,6 +215,12 @@ impl Swarm {
             let mut book = self.address_book.lock().expect("addr lock");
             book.add(peer, addrs.into_iter().map(|addr| (addr, source)).collect())
         };
+        if added && source != AddrSource::Manual {
+            // 发现刷新 = 对端在网上的正信号（TTL 续期）；Manual 是静态登记，
+            // 无 TTL 语义，不构成活跃证据。
+            self.liveness
+                .note_alive(peer, LivenessSource::Discovery, unix_now());
+        }
         if added {
             let strings = known.iter().map(ToString::to_string).collect();
             self.emit(NodeEvent::PeerDiscovered {
@@ -208,23 +233,16 @@ impl Swarm {
 
     /// 发现条目过期（design §7.1：TTL 内未刷新即判离线）。池内有活连接时
     /// 不得谎报断开：缓存过期只是发现面失联，连接面仍在（「拨通即闪断」根因之一）。
+    /// 活跃度判定同样以连接面在场为豁免：活连接持续被探活证实，发现面过期
+    /// 不足以判死（判死条件与 PeerDisconnected 一致，见 liveness.rs 注释）。
     pub fn on_peer_expired(&self, peer: PeerId) {
         if self.pool.get(&peer).is_some() {
             tracing::debug!(%peer, "discovery entry expired but connection alive, keep it");
             return;
         }
+        self.liveness
+            .note_dead(peer, LivenessSource::Discovery, unix_now());
         self.emit(NodeEvent::PeerDisconnected { peer });
-    }
-
-    /// 关停：停 accept 循环并断开全部在册连接。serve 循环经关停信号退出时
-    /// 池已清空（remove_if_same 不中），断开事件由本处统一补发，GUI 侧
-    /// 节点列表才能把对端翻成离线。
-    pub fn shutdown(&self) {
-        let _ = self.shutdown_tx.send(true);
-        for peer in self.pool.clear() {
-            tracing::debug!(%peer, "connection dropped on shutdown");
-            self.emit(NodeEvent::PeerDisconnected { peer });
-        }
     }
 
     fn is_stopping(&self) -> bool {
@@ -246,55 +264,8 @@ impl Swarm {
             .sorted_addrs(&peer, &observed)
     }
 
-    /// 开裸流（协议 ID 首帧由调用方写入）：按需取/建连接。
-    pub async fn open_stream(
-        &self,
-        peer: &PeerId,
-        _protocol: &ProtocolId,
-    ) -> io::Result<BoxedStream> {
-        let mux = self.pool.get_or_dial(*peer, dial_peer(self, *peer)).await?;
-        mux.open_stream().await
-    }
-
     /// 无订阅者时丢弃属正常态，不算失败路径。
     fn emit(&self, event: NodeEvent) {
         let _ = self.events.send(event);
-    }
-
-    /// 降级链 2/3 跳（打洞 + 中继电路）经由的会话命令入口。
-    async fn relay_degrade(&self, peer: PeerId) -> io::Result<Mux> {
-        let senders = self.relay_sessions.lock().expect("relay lock").clone();
-        if senders.is_empty() {
-            tracing::debug!(%peer, "relay fallback unavailable: no relay configured");
-            return Err(io::Error::other("no relay configured"));
-        }
-        let mut last: Option<io::Error> = None;
-        for tx in senders.iter() {
-            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-            if tx
-                .send(RelayCmd::Degrade {
-                    peer,
-                    reply: reply_tx,
-                })
-                .await
-                .is_err()
-            {
-                last = Some(io::Error::other("relay session closed"));
-                continue;
-            }
-            return match reply_rx.await {
-                Ok(result) => result,
-                Err(_) => Err(io::Error::other("relay session dropped the request")),
-            };
-        }
-        Err(last.unwrap_or_else(|| io::Error::other("no relay session available")))
-    }
-
-    fn has_relay_sessions(&self) -> bool {
-        !self.relay_sessions.lock().expect("relay lock").is_empty()
-    }
-
-    fn add_relay_session(&self, tx: mpsc::Sender<RelayCmd>) {
-        self.relay_sessions.lock().expect("relay lock").push(tx);
     }
 }

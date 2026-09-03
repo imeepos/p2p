@@ -6,20 +6,27 @@
 use p2p_identity::PeerId;
 
 mod backoff;
+mod close;
 mod gate;
 mod lifecycle;
+mod liveness;
 mod metrics;
 mod pool;
+#[cfg(test)]
+mod pool_tests;
 mod swarm;
+mod usage;
 
 pub use backoff::Backoff;
+pub use close::CloseReason;
 pub use gate::{gate_fn, GateFn};
 pub use lifecycle::{ConnState, LifecycleEvent, PeerLifecycleConfig};
+pub use liveness::{LivenessSource, PeerLiveness};
 pub use metrics::MetricsSnapshot;
 pub use pool::ConnectionPool;
 pub use swarm::filter_loopback;
 pub use swarm::PING_PROTOCOL;
-pub use swarm::{AddrSource, Swarm, SwarmConfig, SwarmFactory};
+pub use swarm::{AddrSource, ReclaimConfig, Swarm, SwarmConfig, SwarmFactory};
 
 /// 底座事件：业务只读。所有失败路径必须可见（禁止静默吞错，design §12）。
 #[derive(Clone, Debug)]

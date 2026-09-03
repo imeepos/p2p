@@ -1,15 +1,34 @@
 //! 连接池：PeerId → 已升级连接，幂等 connect 与并发拨号合并（coordination.md S 包）。
+//! E8：池条目携带使用记账与连接类别；空闲回收见 reclaim_idle（调研建议 4）。
 
 use std::collections::HashMap;
 use std::future::Future;
 use std::io;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use p2p_identity::PeerId;
 use p2p_mux::MuxControl;
 use tokio::sync::Mutex as AsyncMutex;
 
+use crate::usage::{unix_now, ConnUsage};
+
 type Mux = Arc<dyn MuxControl>;
+
+/// 连接类别（E8）：中继电路断链须喂活跃度判定（RelaySlot 源），
+/// 直连断链由状态机全权处理（见 liveness.rs 模块注释）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConnKind {
+    Direct,
+    RelayCircuit,
+}
+
+/// 池条目：连接本体 + 使用记账（空闲回收的「使用中」判据）；类别在入池
+/// 时由调用方直接交给 serve 循环，不落条目。
+pub(crate) struct PoolEntry {
+    pub(crate) mux: Mux,
+    pub(crate) usage: Arc<ConnUsage>,
+}
 
 /// admit 的裁决结果：Accepted 空池直收；Replaced 新连接顶替旧连接；
 /// RejectedExisting 新连接落选（原样带回，调用方 close）。
@@ -32,7 +51,7 @@ impl std::fmt::Debug for Admission {
 
 /// 单槽连接池：每 peer 至多一条在册连接；重复入池让位于先到者。
 pub struct ConnectionPool {
-    conns: Mutex<HashMap<PeerId, Mux>>,
+    conns: Mutex<HashMap<PeerId, PoolEntry>>,
     dial_locks: Mutex<HashMap<PeerId, Arc<AsyncMutex<()>>>>,
 }
 
@@ -45,7 +64,20 @@ impl ConnectionPool {
     }
 
     pub fn get(&self, peer: &PeerId) -> Option<Mux> {
-        self.conns.lock().expect("pool lock").get(peer).cloned()
+        self.conns
+            .lock()
+            .expect("pool lock")
+            .get(peer)
+            .map(|e| e.mux.clone())
+    }
+
+    /// 在册连接的使用记账（业务流触点：touch 与在途守护）。
+    pub(crate) fn usage(&self, peer: &PeerId) -> Option<Arc<ConnUsage>> {
+        self.conns
+            .lock()
+            .expect("pool lock")
+            .get(peer)
+            .map(|e| e.usage.clone())
     }
 
     /// 在册连接数（指标水位用）。
@@ -64,26 +96,49 @@ impl ConnectionPool {
         if conns.contains_key(&peer) {
             return false;
         }
-        conns.insert(peer, mux);
+        conns.insert(peer, self.entry(mux));
         true
+    }
+
+    fn entry(&self, mux: Mux) -> PoolEntry {
+        PoolEntry {
+            mux,
+            usage: Arc::new(ConnUsage::new(unix_now())),
+        }
     }
 
     /// 收敛裁决原子入口：空池直收；冲突时按 prefer_new 二选一。
     /// 落选连接由调用方显式 close（yamux 驱动任务须停，防泄漏）。
     pub fn admit(&self, peer: PeerId, mux: Mux, prefer_new: bool) -> Admission {
+        self.admit_as(peer, mux, prefer_new).0
+    }
+
+    /// 收敛裁决并返回胜者条目的使用记账（落选为 None），
+    /// 供 serve 循环把业务流挂在正确连接的计数上（E8）。
+    pub(crate) fn admit_as(
+        &self,
+        peer: PeerId,
+        mux: Mux,
+        prefer_new: bool,
+    ) -> (Admission, Option<Arc<ConnUsage>>) {
         let mut conns = self.conns.lock().expect("pool lock");
         match conns.remove(&peer) {
             None => {
-                conns.insert(peer, mux);
-                Admission::Accepted
+                let entry = self.entry(mux);
+                let usage = entry.usage.clone();
+                conns.insert(peer, entry);
+                (Admission::Accepted, Some(usage))
             }
             Some(old) => {
                 if prefer_new {
-                    conns.insert(peer, mux);
-                    Admission::Replaced(old)
+                    let entry = self.entry(mux);
+                    let usage = entry.usage.clone();
+                    conns.insert(peer, entry);
+                    (Admission::Replaced(old.mux), Some(usage))
                 } else {
+                    let usage = old.usage.clone();
                     conns.insert(peer, old);
-                    Admission::RejectedExisting(mux)
+                    (Admission::RejectedExisting(mux), Some(usage))
                 }
             }
         }
@@ -93,7 +148,7 @@ impl ConnectionPool {
     pub fn remove_if_same(&self, peer: &PeerId, mux: &Mux) -> bool {
         let mut conns = self.conns.lock().expect("pool lock");
         match conns.get(peer) {
-            Some(current) if Arc::ptr_eq(current, mux) => {
+            Some(current) if Arc::ptr_eq(&current.mux, mux) => {
                 conns.remove(peer);
                 true
             }
@@ -103,7 +158,11 @@ impl ConnectionPool {
 
     /// 出池并返回在册连接（挂断用）；不在册返回 None。
     pub fn take(&self, peer: &PeerId) -> Option<Mux> {
-        self.conns.lock().expect("pool lock").remove(peer)
+        self.conns
+            .lock()
+            .expect("pool lock")
+            .remove(peer)
+            .map(|e| e.mux)
     }
 
     /// 清空（关停用），返回被移除的 peer 列表。
@@ -112,6 +171,22 @@ impl ConnectionPool {
         let peers = conns.keys().copied().collect();
         conns.clear();
         peers
+    }
+
+    /// 空闲回收扫描（E8）：取走空闲超过 threshold 且无在途业务流的连接。
+    /// 使用中豁免见 ConnUsage::is_idle；返回 (peer, 连接) 交调用方关闭与归因。
+    pub fn reclaim_idle(&self, threshold: Duration, now_unix: u64) -> Vec<(PeerId, Mux)> {
+        let mut conns = self.conns.lock().expect("pool lock");
+        let mut reclaimed = Vec::new();
+        conns.retain(|peer, entry| {
+            if entry.usage.is_idle(threshold, now_unix) {
+                reclaimed.push((*peer, entry.mux.clone()));
+                false
+            } else {
+                true
+            }
+        });
+        reclaimed
     }
 
     /// 幂等获取或拨号：已有连接直接复用；同 peer 并发请求经拨号锁合并为一次拨号。
@@ -145,133 +220,5 @@ impl ConnectionPool {
 impl Default for ConnectionPool {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use p2p_mux::BoxedStream;
-    use std::sync::atomic::{AtomicUsize, Ordering};
-
-    struct StubMux;
-
-    #[async_trait::async_trait]
-    impl MuxControl for StubMux {
-        async fn open_stream(&self) -> io::Result<BoxedStream> {
-            Err(io::Error::other("stub mux"))
-        }
-        async fn accept_stream(&self) -> Option<BoxedStream> {
-            None
-        }
-        fn close(&self) {}
-    }
-
-    fn stub() -> Mux {
-        Arc::new(StubMux)
-    }
-
-    #[test]
-    fn insert_is_idempotent_per_peer() {
-        let pool = ConnectionPool::new();
-        let peer = PeerId::from_bytes([1; 32]);
-        assert!(pool.insert(peer, stub()));
-        assert!(!pool.insert(peer, stub()), "second insert must lose");
-        assert!(pool.get(&peer).is_some());
-    }
-
-    #[test]
-    fn take_removes_and_returns_once() {
-        let pool = ConnectionPool::new();
-        let peer = PeerId::from_bytes([4; 32]);
-        let mux = stub();
-        assert!(pool.insert(peer, mux.clone()));
-        assert!(Arc::ptr_eq(&pool.take(&peer).expect("taken"), &mux));
-        assert!(pool.take(&peer).is_none(), "second take must find none");
-    }
-
-    #[test]
-    fn admit_accepts_into_empty_pool() {
-        let pool = ConnectionPool::new();
-        let peer = PeerId::from_bytes([5; 32]);
-        assert!(matches!(
-            pool.admit(peer, stub(), true),
-            Admission::Accepted
-        ));
-        assert_eq!(pool.len(), 1);
-    }
-
-    #[test]
-    fn admit_prefers_new_replaces_old() {
-        let pool = ConnectionPool::new();
-        let peer = PeerId::from_bytes([6; 32]);
-        let old = stub();
-        let new = stub();
-        assert!(pool.insert(peer, old.clone()));
-        match pool.admit(peer, new.clone(), true) {
-            Admission::Replaced(evicted) => {
-                assert!(Arc::ptr_eq(&evicted, &old), "evicted must be old mux");
-            }
-            other => panic!("expected Replaced, got {other:?}"),
-        }
-        assert!(Arc::ptr_eq(&pool.get(&peer).expect("kept"), &new));
-    }
-
-    #[test]
-    fn admit_prefers_existing_returns_rejection() {
-        let pool = ConnectionPool::new();
-        let peer = PeerId::from_bytes([7; 32]);
-        let old = stub();
-        let new = stub();
-        assert!(pool.insert(peer, old.clone()));
-        match pool.admit(peer, new.clone(), false) {
-            Admission::RejectedExisting(dup) => {
-                assert!(Arc::ptr_eq(&dup, &new), "rejected must be the new mux");
-            }
-            other => panic!("expected RejectedExisting, got {other:?}"),
-        }
-        assert!(Arc::ptr_eq(&pool.get(&peer).expect("kept"), &old));
-    }
-
-    #[test]
-    fn remove_if_same_spares_replacement() {
-        let pool = ConnectionPool::new();
-        let peer = PeerId::from_bytes([2; 32]);
-        let first = stub();
-        let second = stub();
-        assert!(pool.insert(peer, first.clone()));
-        assert!(
-            !pool.remove_if_same(&peer, &second),
-            "must not remove other mux"
-        );
-        assert!(pool.remove_if_same(&peer, &first));
-        assert!(!pool.remove_if_same(&peer, &first), "already removed");
-    }
-
-    /// 与 Swarm 的 dial_peer 契约一致：拨号成功方负责入池。
-    async fn dial_once(
-        pool: Arc<ConnectionPool>,
-        peer: PeerId,
-        counter: Arc<AtomicUsize>,
-    ) -> io::Result<Mux> {
-        counter.fetch_add(1, Ordering::SeqCst);
-        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
-        let mux = stub();
-        pool.insert(peer, mux.clone());
-        Ok(mux)
-    }
-
-    #[tokio::test]
-    async fn concurrent_get_or_dial_dials_once() {
-        let pool = Arc::new(ConnectionPool::new());
-        let peer = PeerId::from_bytes([3; 32]);
-        let counter = Arc::new(AtomicUsize::new(0));
-        let (r1, r2, r3) = tokio::join!(
-            pool.get_or_dial(peer, dial_once(pool.clone(), peer, counter.clone())),
-            pool.get_or_dial(peer, dial_once(pool.clone(), peer, counter.clone())),
-            pool.get_or_dial(peer, dial_once(pool.clone(), peer, counter.clone())),
-        );
-        assert!(r1.is_ok() && r2.is_ok() && r3.is_ok());
-        assert_eq!(counter.load(Ordering::SeqCst), 1, "dial must merge");
     }
 }

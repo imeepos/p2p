@@ -17,6 +17,7 @@ use p2p_transport::TransportAddr;
 use super::dial::{dial_one, insert_connection, ConnDirection};
 use super::relay_session::PROBE_TIMEOUT;
 use super::{Mux, Swarm};
+use crate::pool::ConnKind;
 use crate::DialHop;
 
 /// 等待对端接入电路上限。
@@ -51,7 +52,7 @@ pub(super) async fn handle_punch_req(
             Ok(Ok(mux)) => {
                 tracing::info!(%peer, %addr, "inbound punch probe landed direct connection");
                 swarm.metrics.hop_ok(DialHop::Punch);
-                insert_connection(swarm, peer, mux, ConnDirection::Outbound);
+                insert_connection(swarm, peer, mux, ConnDirection::Outbound, ConnKind::Direct);
                 return;
             }
             Ok(Err(err)) => last = err.to_string(),
@@ -91,7 +92,13 @@ pub(super) async fn handle_punch_req(
     }
     tracing::info!(%peer, circuit = cid, "circuit connection established (inbound)");
     swarm.metrics.hop_ok(DialHop::Relay);
-    insert_connection(swarm, remote, mux, ConnDirection::Outbound);
+    insert_connection(
+        swarm,
+        remote,
+        mux,
+        ConnDirection::Outbound,
+        ConnKind::RelayCircuit,
+    );
 }
 
 /// 电路流入站安全升级：Noise XX（被动侧）+ yamux。

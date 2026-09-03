@@ -12,7 +12,38 @@ use p2p_identity::PeerId;
 use tokio::sync::{broadcast, mpsc};
 
 use crate::lifecycle::{ConnState, LifecycleEvent, PeerLifecycleConfig, PeerMachine};
+use crate::liveness::LivenessSource;
+use crate::usage::unix_now;
 use crate::Backoff;
+
+use super::Swarm;
+
+/// Swarm 侧生命周期查询入口（E8 自 mod.rs 迁入，语义归位）。
+impl Swarm {
+    /// E6：peer 生命周期状态（未跟踪返回 None）。
+    pub fn peer_state(&self, peer: &PeerId) -> Option<ConnState> {
+        self.lifecycle.state_of(peer)
+    }
+
+    /// E6：已排定的下次重连退避时长（BackingOff 态有值；观测与测试断言用）。
+    pub fn peer_scheduled_backoff(&self, peer: &PeerId) -> Option<Duration> {
+        self.lifecycle.scheduled_backoff(peer)
+    }
+
+    /// E6：订阅对端生命周期事件（状态转移/PeerDown/PeerUp，E8 增 ConnectionClosed
+    /// 与 PeerLiveness 两种加法事件）。
+    pub fn subscribe_lifecycle(&self) -> broadcast::Receiver<LifecycleEvent> {
+        self.lifecycle.events.subscribe()
+    }
+
+    /// E8：relay 槽失活上报（统一活跃度判定的死信号入口之一）。serve 循环
+    /// 在中继电路出池时走同一账本；本方法是等价的公共上报口，供无法持有
+    /// 账本句柄的调用方（测试、运维探针）使用。
+    pub fn on_relay_slot_lost(&self, peer: PeerId) {
+        self.liveness
+            .note_dead(peer, LivenessSource::RelaySlot, unix_now());
+    }
+}
 
 /// 消息通道容量；监督者常驻排空，通道拒绝仅留告警（关停期正常）。
 pub(super) const CHANNEL_CAPACITY: usize = 128;

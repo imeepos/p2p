@@ -9,6 +9,9 @@ use p2p_identity::PeerId;
 
 use super::lifecycle::{emit_state, schedule_retry, Entry, LifecycleHandle, LifecycleMsg};
 use crate::lifecycle::{ConnState, LifecycleEvent};
+use crate::liveness::LivenessSource;
+use crate::usage::unix_now;
+use crate::CloseReason;
 
 pub(super) fn handle_msg(
     handle: &LifecycleHandle,
@@ -172,6 +175,13 @@ pub(super) fn on_probed(
             tracing::debug!(%peer, "probe recovered; miss streak cleared");
         }
         entry.misses = 0;
+        // E8：探活命中是活跃度正信号（Dead 态由此恢复翻转）
+        drop(shared);
+        if let Some(strong) = swarm.upgrade() {
+            strong
+                .liveness
+                .note_alive(peer, LivenessSource::Probe, unix_now());
+        }
         return;
     }
     entry.misses += 1;
@@ -183,6 +193,17 @@ pub(super) fn on_probed(
     if let Some(strong) = swarm.upgrade() {
         if let Some(mux) = strong.pool.take(&peer) {
             tracing::info!(%peer, "closing unresponsive connection after probe misses");
+            // E8：判死关链归因 Error 档；探活死信号喂统一活跃度判定
+            let _ = strong
+                .lifecycle
+                .events
+                .send(LifecycleEvent::ConnectionClosed {
+                    peer,
+                    reason: CloseReason::Error,
+                });
+            strong
+                .liveness
+                .note_dead(peer, LivenessSource::Probe, unix_now());
             mux.close();
         }
     }

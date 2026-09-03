@@ -8,6 +8,7 @@ use tokio::net::TcpListener;
 
 use super::dial::{insert_connection, ConnDirection};
 use super::Swarm;
+use crate::pool::ConnKind;
 
 /// accept 瞬时失败后的重试间隔，避免热循环。
 const ACCEPT_RETRY: Duration = Duration::from_millis(10);
@@ -61,13 +62,26 @@ async fn tcp_accept_loop(swarm: Arc<Swarm>, tcp: TcpTransport, listener: TcpList
     }
 }
 
-/// 入站连接：门禁不放行即断链（drop 即关闭）并留告警。
+/// 入站连接：门禁不放行即断链（drop 即关闭）并留告警与 Refused 归档。
 async fn accept_inbound(swarm: &Arc<Swarm>, conn: SecureConn) {
     let peer = conn.remote;
     if !swarm.gate_allows(peer).await {
         tracing::warn!(%peer, "inbound connection denied by gate, dropping");
         swarm.metrics.count_gate_denial();
+        let _ = swarm
+            .lifecycle
+            .events
+            .send(crate::LifecycleEvent::ConnectionClosed {
+                peer,
+                reason: crate::CloseReason::Refused,
+            });
         return;
     }
-    insert_connection(swarm, peer, conn.mux, ConnDirection::Inbound);
+    insert_connection(
+        swarm,
+        peer,
+        conn.mux,
+        ConnDirection::Inbound,
+        ConnKind::Direct,
+    );
 }

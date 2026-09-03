@@ -69,6 +69,16 @@ pub enum LifecycleEvent {
     /// 对端恢复在线——有过下线史的对端再次建成连接
     /// （重连成功或其主动拨入），与 PeerDown/PeerDisconnected 成对。
     PeerUp { peer: PeerId },
+    /// E8（加法）：连接关闭原因归档（idle/error/refused/local 四档，见
+    /// [crate::CloseReason]）。与 NodeEvent::PeerDisconnected 成对出现：
+    /// 前者归因，后者只宣告断开事实。
+    ConnectionClosed {
+        peer: PeerId,
+        reason: crate::CloseReason,
+    },
+    /// E8（加法）：统一活跃度判定（多源合并去重后的唯一活跃度事件，
+    /// 判定语义与状态机关系见 [crate::liveness] 模块注释）。
+    PeerLiveness(crate::PeerLiveness),
 }
 
 /// 非法转移：拒绝时保留 from/to 现场供日志与事件使用。
