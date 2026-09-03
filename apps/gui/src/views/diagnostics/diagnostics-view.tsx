@@ -22,6 +22,7 @@ const AUTO_REFRESH_MS = 5000;
 
 // 诊断页（G-H 观测）：前端错误缓冲 + 日志文件路径 + 持久化尾部，感知通道的人工视图。
 export function DiagnosticsView() {
+  const { t } = useTranslation();
   const [logPath, setLogPath] = useState<string | null>(null);
   const [tail, setTail] = useState<string[]>([]);
   const [version, setVersion] = useState(0);
