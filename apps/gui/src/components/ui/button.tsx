@@ -40,22 +40,22 @@ export type ButtonProps = React.ComponentProps<"button"> &
     asChild?: boolean;
   };
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: ButtonProps) {
-  const Comp = asChild ? Slot : "button";
+// forwardRef：被 Radix Slot（Tooltip/Dropdown trigger asChild）透传 ref 时不再告警，
+// 消除感知通道里持续出现的 console 噪音。
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  function Button({ className, variant, size, asChild = false, ...props }, ref) {
+    const Comp = asChild ? Slot : "button";
 
-  return (
-    <Comp
-      data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  );
-}
+    return (
+      <Comp
+        data-slot="button"
+        className={cn(buttonVariants({ variant, size, className }))}
+        {...props}
+        ref={ref}
+      />
+    );
+  },
+);
+Button.displayName = "Button";
 
 export { Button, buttonVariants };
