@@ -187,3 +187,27 @@ P2P_CLI_BIN=/bin/echo scripts/e4-ping-sample.sh --dry-run \
 ```
 
 公网节点必须带 `--observation <公网IP>:3402`，否则注册表可能只暴露 `127.0.0.1` 监听地址，跨网拨号不可用。执行阶段记录每个目标的三连 TSV 和原始日志；三轮不一致或任一轮失败均判 FAIL，并把具体失败原因留在表中。
+
+### 8.7 metrics 观测中继采样法（E9-T15，2026-09-03）
+
+E8 metrics 面就位后，中继跳指标取证不必依赖远端 bootstrap 日志：在观测方
+本机起 relay-only 观测中继（`p2p-cli metrics`），把它的地址作为 `--relay`
+首选串入采样，stdout 每 interval 打 16 项 `relay_` 前缀 key=value 指标
+（电路水位/建立/拒绝/回收、保活失败、桥接字节、打洞信令），直接 grep 取证。
+
+```sh
+# 1) 起观测中继（常驻直到 ctrl-c；停止只按 PID 精确 kill，禁按进程名）
+p2p-cli metrics --data /tmp/e9-relay-obs --listen-quic 0.0.0.0:3403 \
+  --listen-tcp 0.0.0.0:3404 --interval 10 --duration 0 > /tmp/e9-relay-obs.log 2>&1 &
+echo $! > /tmp/e9-relay-obs/relay.pid
+
+# 2) 采样：观测中继排 --relay 首位；对端 node 的 --relay 列表必须同序
+scripts/e4-ping-sample.sh --peer-id <B> --runs 3 \
+  --bootstrap 43.240.223.138/u3400 --bootstrap 121.196.193.177/u3400 \
+  --relay 192.168.0.15/u3403 --relay 43.240.223.138/u3403
+```
+
+注意：对端（102 等）node 启动必须带 `--listen-quic 0.0.0.0:<port>` 与
+`--observation <公网IP>:3402`——只绑 loopback 时 rendezvous 注册被拒
+（no routable addr），节点不可被发现（T15 实测）。首轮三连结果与保活间隔
+裁定见 docs/notes/e9-longrun-results.md。
