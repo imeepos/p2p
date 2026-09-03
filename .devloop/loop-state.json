@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T23:22:54Z",
+  "updatedAt": "2026-09-03T23:26:08Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -200,11 +200,14 @@
       "goal": "Tauri chat 接线（依赖 T29 合入）：装配 p2p-chat（FriendsBook/Store/Outbox/ChatService 实例入 state）、chat_friends_list/add/remove、chat_history、chat_send、chat_media_file 命令注册、chat_message/chat_status 事件通道（app.emit node-event 扩展）、dataDir/chat 接线、tauri.conf assetProtocol scope 含 chat/media、契约 roundtrip 单测（serde 字段名逐字对齐 v7 §12.3）",
       "title": "IM-T32 Tauri chat 接线",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "branch": "feat/im-tauri-wiring",
       "ownerSession": "session-9f5192a7-068e-4357-8fe0-70aeb72427b0",
       "scope": "apps/gui/src-tauri/**（lib.rs/state.rs/commands.rs/events.rs/proto.rs 扩展或新增 chat 模块）+ tauri.conf.json（assetProtocol scope）；不动 apps/gui/src",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/gui/src-tauri && cargo test && cargo clippy -- -D warnings && cd ../.. && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/gui/src-tauri && cargo test && cargo clippy -- -D warnings && cd ../.. && make check'",
+      "mergedMain": "968ceb5",
+      "acceptedAt": "2026-09-03T23:25:32.176Z",
+      "note": "独立验收：src-tauri cargo test 全绿（70 lib+11 契约+1 chat 冒烟+1 既有 smoke）+ clippy --all-targets -D warnings + make check 全绿（gui-check 142 测试）；媒体输出转 asset URL 对齐前端接缝（非 Windows asset://localhost/encodeURIComponent、Windows http://asset.localhost）；assetProtocol scope 含 $APPDATA/chat/media；范围合规 13 文件全在 src-tauri；三次 rebase 对抗 RS 并发推进后 ff 合入"
     },
     {
       "id": "T33",
@@ -213,7 +216,7 @@
       "priority": "P1",
       "status": "todo",
       "branch": "feat/im-e2e",
-      "ownerSession": "待派（T29+T32 合入后，T32 已开闸）",
+      "ownerSession": "待派（T29+T32 已齐）",
       "scope": "新增 crates/p2p-itest/tests/chat_e2e.rs + docs/ops/im-chat-drill.md；不动生产实现",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test chat_e2e && make check'"
     },
@@ -230,6 +233,17 @@
       "mergedMain": "f21fca4",
       "acceptedAt": "2026-09-03T21:48:19.698Z",
       "note": "一次通过：三笔提交（审批回调适配 18af8bb/shell_exec 执行工具 3d61077/宿主门接线装配 f21fca4），隔离全量门禁 exit 0。"
+    },
+    {
+      "id": "T23b2",
+      "goal": "repair-helper 装配面白名单接线：main.rs 两处 ShellWhitelist::empty() → repair_enforce::builtin()（stdio 与 serve 形态），补装配级非空断言测试，防生产装配下 shell_exec 全拒的集成缺口（T23b 遗留与 T24 数据的接缝）",
+      "title": "RS-P0b-T23b2 装配面白名单接线（补充单）",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "feat/rs-whitelist-wiring",
+      "ownerSession": "session-898caa4e-860c-451a-add0-21976ecd8103",
+      "scope": "crates/repair-helper/**；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
     }
   ]
 }
