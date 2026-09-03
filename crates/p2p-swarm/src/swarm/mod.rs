@@ -18,6 +18,7 @@ use crate::NodeEvent;
 
 mod book;
 mod config;
+mod degrade;
 mod dial;
 mod factory;
 mod hangup;
