@@ -125,3 +125,6 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 ## 2026-09-04 排查「GUI 里为什么有离线节点/幽灵条目」类问题
 - 双路并查不先读代码：一路 ps 看活进程拓扑（本例一步看到 lab 节点 maca/coordinator + console 全在线、还有周二遗留的 cargo test 僵尸进程），一路查出厂默认配置（gui config.rs default_bootstrap 指向公网共享 rendezvous 池 43.240.223.138 + 121.196.193.177）——数据来源定准了，「为什么列表里有 X」多数不是 bug 而是语义。
 - 本项目邻居表语义备忘：GUI peers 表是会话内只增不减的地址簿，「离线」= 未连接且 lastSeen 超 10 分钟（peer-status.ts DISCOVERED_FRESH_MS），后端并无删除条目的路径；lastSeen 只在「学到新地址」或连接成功时刷新（swarm/book.rs 按地址去重后才发 peer_discovered），所以在线但从未连上的节点 10 分钟后也会翻成离线。
+
+## 2026-09-04 用 run_code 探查装了 node_modules/target 的大仓
+- glob pattern="*" 会把整树文件灌进工具结果，撑破 20MB 子进程接缝上限直接报错；探查顶层结构用 bash ls（或 git ls-files），内容检索用窄 include + 具体子目录路径，别用裸 "*" 全树扫。
