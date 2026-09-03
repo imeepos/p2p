@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T15:46:09.433Z",
+  "updatedAt": "2026-09-03T15:53:08.559Z",
   "project": "p2p-base",
   "phase": "E8-parallel+E9-audit",
   "coordinatorSession": "session-93d57260-bb33-472e-b8a6-86237c64a272",
@@ -82,7 +82,8 @@
       "branch": "feat/e8-liveness-reclaim",
       "ownerSession": "session-0b4fb845-69ac-4a81-bac8-79c18c904992",
       "scope": "crates/p2p-swarm/** + crates/p2p-discovery/** + 新增 crates/p2p-itest/tests/conn_reclaim.rs",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test conn_reclaim && cargo test -p p2p-swarm && cargo test -p p2p-discovery && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test conn_reclaim && cargo test -p p2p-swarm && cargo test -p p2p-discovery && make check'",
+      "note": "轮 42 混树事故（3adc6036 误派写入）分诊中，原会话续作；0ec6db2 已备份 salvage/s1-liveness；验收前置件=分诊清单+消融证明；E9 侧收口后独立复核"
     },
     {
       "id": "T8",
@@ -148,12 +149,13 @@
       "id": "T13",
       "goal": "E9-Q0 报告 T5：relay pub 面收口与装配收敛——RelayServiceImpl 与 Mock 替身撤出产线 API（迁 p2p-itest 或 feature test-util 门控）、提供工厂返回 Arc<dyn RelayService>、crates/p2p-swarm/src/lib.rs:19 ConnectionPool 改 pub(crate) 重导出、装配样板 5 处收敛",
       "title": "E9-t5 relay pub 面收口与装配收敛",
-      "priority": "P3",
+      "priority": "P2",
       "status": "todo",
       "branch": "feat/e9-t5-relay-surface",
       "ownerSession": "session-74a7eec9-c75c-40da-a756-9c878fae8339",
       "scope": "crates/p2p-relay/src/{lib,link,service}.rs + 使用点（p2p-cli/src/bootstrap.rs、p2p-itest/src/lib.rs、p2p-itest/tests/relay_control_resilience.rs、p2p-itest/tests/relay_transport_persistence.rs、p2p/tests/m3_chain.rs）+ crates/p2p-swarm/src/lib.rs 仅 :19 一行；gating：待 T7/S1 收口放行后方可写入",
-      "acceptanceCommand": "bash -c '! grep -q mock_link_pair crates/p2p-relay/src/lib.rs && ! grep -rq \"RelayServiceImpl::new\" crates/p2p-cli/src crates/p2p/tests crates/p2p-itest --include=\"*.rs\" && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test --workspace --quiet && make check'"
+      "acceptanceCommand": "bash -c '! grep -q mock_link_pair crates/p2p-relay/src/lib.rs && ! grep -rq \"RelayServiceImpl::new\" crates/p2p-cli/src crates/p2p/tests crates/p2p-itest --include=\"*.rs\" && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test --workspace --quiet && make check'",
+      "origPriority": "P3"
     }
   ]
 }
