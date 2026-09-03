@@ -1,6 +1,5 @@
 //! mDNS TXT 记录编解码：peer 身份与端口随通告播散，对端据此还原地址集。
 
-
 use mdns_sd::ServiceInfo;
 use p2p_identity::PeerId;
 use p2p_transport::TransportAddr;
