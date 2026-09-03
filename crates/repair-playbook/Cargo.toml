@@ -1,0 +1,8 @@
+[package]
+name = "repair-playbook"
+version.workspace = true
+edition.workspace = true
+description = "playbook 结构化 markdown 解析与校验（agent 无关格式 v1，RS P0b T25）"
+
+[dependencies]
+tracing = { workspace = true }
