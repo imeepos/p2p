@@ -296,6 +296,7 @@ const zhCN = {
       advertise: "宣告与观测",
       appearance: "外观",
       identity: "身份",
+      about: "关于与更新",
     },
     network: {
       hint: "端口填 0 表示随机分配",
@@ -362,6 +363,38 @@ const zhCN = {
       restartConfirmYes: "保存并重启",
       restartDone: "节点已用新配置重启",
       restartFailed: "保存并重启失败",
+    },
+  },
+  update: {
+    reminder: {
+      title: "发现新版本 {{version}}",
+      action: "查看详情",
+    },
+    detail: {
+      dialogTitle: "新版本详情",
+      releaseName: "发布名",
+      notes: "发布说明",
+      notesTruncated: "说明内容已截断，完整内容请在浏览器中查看",
+      publishedAt: "发布时间",
+      openInBrowser: "阅读完整发布说明",
+      download: "前往下载",
+    },
+    status: {
+      checking: "检查中…",
+      upToDate: "已是最新版本",
+      failed: "检查失败",
+      retry: "重试",
+      checkedAt: "上次检查：{{time}}",
+      autoHint: "应用启动时与每 4 小时自动检查一次更新",
+    },
+    about: {
+      currentVersion: "当前版本",
+      checkNow: "检查更新",
+      skip: "跳过此版本",
+      skipped: "已跳过版本 {{version}}，将不再提醒",
+    },
+    errors: {
+      openPageFailed: "打开发布页失败",
     },
   },
   palette: {

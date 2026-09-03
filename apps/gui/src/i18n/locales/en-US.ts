@@ -303,6 +303,7 @@ const enUS: typeof zhCN = {
       advertise: "Advertise & observation",
       appearance: "Appearance",
       identity: "Identity",
+      about: "About & updates",
     },
     network: {
       hint: "Port 0 means random assignment",
@@ -370,6 +371,38 @@ const enUS: typeof zhCN = {
       restartConfirmYes: "Save & restart",
       restartDone: "Node restarted with the new config",
       restartFailed: "Save & restart failed",
+    },
+  },
+  update: {
+    reminder: {
+      title: "New version {{version}} available",
+      action: "View details",
+    },
+    detail: {
+      dialogTitle: "What's new in {{version}}",
+      releaseName: "Release",
+      notes: "Release notes",
+      notesTruncated: "Notes truncated; open in the browser for the full content",
+      publishedAt: "Published",
+      openInBrowser: "Read full release notes",
+      download: "Go to download",
+    },
+    status: {
+      checking: "Checking…",
+      upToDate: "You are up to date",
+      failed: "Check failed",
+      retry: "Retry",
+      checkedAt: "Last checked: {{time}}",
+      autoHint: "Checks for updates at startup and every 4 hours",
+    },
+    about: {
+      currentVersion: "Current version",
+      checkNow: "Check for updates",
+      skip: "Skip this version",
+      skipped: "Version {{version}} skipped; you will not be reminded",
+    },
+    errors: {
+      openPageFailed: "Failed to open the release page",
     },
   },
   palette: {
