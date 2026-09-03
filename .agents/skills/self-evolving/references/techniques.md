@@ -100,3 +100,7 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 
 ## 2026-09-03 集成测试竞态消除：服务端 metrics 当确定性同步点
 - relay 服务端有 pub metrics() 快照（circuits_active 水位）——「停车是否已被服务端处理」「回收是否已完成」这类不可从客户端观测的状态，轮询水位到目标值再断言，比 sleep(200ms) 排序稳；黑色竞态（两落地都合法）则断言并集并注释说明两分支语义。
+
+## 2026-09-03 E8-H3 mux 生命周期轮
+- TCP keepalive 参数化走 socket2：tokio 1.53 没有 TcpStream::set_tcp_keepalive（TcpKeepalive 类型也不存在，只有 TcpSocket::set_keepalive(bool) 缺省参数版）——直接 SockRef::from(&tokio TcpStream)（tokio 实现 AsFd，内部 ManuallyDrop 借用 fd 不取所有权）set_tcp_keepalive 即可，不要做 into_std/from_std 往返（from_std 有阻塞检查且失败路径已消费流无法复原）。
+- panic-hygiene 豁免收缩的消融探针：动手前先用门禁自带的 PANIC_HYGIENE_EXEMPT env 覆盖指向「目标收缩态清单」跑一次，点名出的 file:line 就是工作清单；改完同命令复跑，红→绿即消融证据，全程不改门禁本体。

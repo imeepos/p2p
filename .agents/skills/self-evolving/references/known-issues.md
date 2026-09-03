@@ -209,3 +209,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：make check line-limit 报 mod.rs 301 行，手工把 if 块压成单行省 2 行后，cargo fmt 又展开回多行——压行数压在 fmt 会重排的语句上等于白压。
 - 原因：rustfmt 会无条件展开非空单行 if/struct 字面量（3 字段起必拆多行），只对注释有保留。
 - 修法：行数预算吃紧时压缩注释/拆文件（types.rs 拆 node_event.rs 先例），fmt 敏感语句上的压缩全部无效。
+
+## tokio 没有 TCP keepalive 参数化 API（2026-09-03 E8-H3）
+- 症状：凭直觉写 TcpStream::set_tcp_keepalive / tokio::net::tcp::TcpKeepalive，E0599 方法不存在；该 API 在 tokio 里从未有过（属于 socket2）。
+- 原因：tokio 只有 TcpSocket::set_keepalive(bool)（OS 缺省参数），且在拨号前构造 socket 的类型上，accept 出来的 TcpStream 没有对应方法。
+- 修法：workspace.dependencies 追加 socket2（已在 tokio 传递图内，锁文件只加一条直接边），SockRef::from(&TcpStream) 借用设参；with_interval 平台门逐家核过（macOS 有，with_retries 需 all feature），编译期即暴露不兼容。
