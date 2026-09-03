@@ -22,6 +22,7 @@
 | [ops/experiment-env.md](ops/experiment-env.md) | 实验环境与多机验证方案：四机拓扑（3 局域网 + 1 公网引导）、E0-E4 阶段计划、验收清单、凭据安全红线 |
 | [research/p2p-legal-risk-cn.md](research/p2p-legal-risk-cn.md) | P2P 应用国内法律法规风险调研：金融类 P2P 为禁区、技术型 P2P 的电信资质/内容/版权合规重心 |
 | [design/remote-support-design.md](design/remote-support-design.md) | 远程电脑支持服务（AI 维修坐席）方案 v1：任意 agent 接入（临时 MCP server + 接入桥）、工具面与双端执法、执行记录与文件修改交付、0-6 工单闭环与分期 |
+| [design/remote-support-plan.md](design/remote-support-plan.md) | 远程支持 P0b 实施计划 v1：P0b 剪裁、repair-* 四工件接缝、协议 ID/ticket/MCP 传输/执法契约裁决、T20-T28 任务表与三批次节奏 |
 
 ## 约定
 
