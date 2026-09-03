@@ -27,7 +27,7 @@ P1 项（fs_write+备份回滚、多 runner 路由、支付、反馈工单化、
 | crates/p2p-itest/tests/repair_e2e.rs | itest | 桥 ⇄ 助手全链路 | T27 |
 | docs/ops/repair-*.md | 文档 | runner 接入与真机演练 | T28 |
 
-依赖向：T23←(T21,T22)；T24←T22；T26←T23；T27←(T20,T26)；T28←T27。T20/T21/T22/T25 互不依赖。
+依赖向：T23←(T21,T22)；T24←(T22,T25)（白名单数据按 Q7 取三类 playbook 命令并集）；T26←T23；T27←(T20,T26)；T28←T27。T20/T21/T22/T25 互不依赖。
 
 ## 3. 契约裁决（冻结；改动须报 RS 协调）
 
@@ -85,7 +85,7 @@ P1 项（fs_write+备份回滚、多 runner 路由、支付、反馈工单化、
 | T21 MCP 宿主 | feat/rs-helper-host | crates/repair-helper/**（宿主框架，注册表空）+ 根 Cargo.toml 仅追加 | cargo test -p repair-helper && make check | — |
 | T22 执法核心 | feat/rs-enforce-core | crates/repair-enforce/** + 根 Cargo.toml 仅追加 | cargo test -p repair-enforce && make check | — |
 | T23 只读工具面 | feat/rs-tools-readonly | repair-helper 工具模块（4 只读工具+监狱+门禁） | cargo test -p repair-helper && make check | T21,T22 |
-| T24 shell 白名单 | feat/rs-shell-whitelist | repair-enforce 白名单数据+shell 判定 | cargo test -p repair-enforce && make check | T22 |
+| T24 shell 白名单 | feat/rs-shell-whitelist | repair-enforce 白名单数据+shell 判定 | cargo test -p repair-enforce && make check | T22,T25 |
 | T25 playbook 格式 | feat/rs-playbook | crates/repair-playbook/** + docs/playbooks/ 三类草案 | cargo test -p repair-playbook && make check | — |
 | T26 helper p2p+票据+审计 | feat/rs-helper-p2p | repair-helper p2p 接入/ticket 校验/mint-ticket/JSONL 审计 | cargo test -p repair-helper && make check | T23 |
 | T27 全链路 E2E | feat/rs-e2e | crates/p2p-itest/tests/repair_e2e.rs | cargo test -p p2p-itest --test repair_e2e && make check | T20,T26 |
@@ -94,8 +94,8 @@ P1 项（fs_write+备份回滚、多 runner 路由、支付、反馈工单化、
 ## 5. 批次与节奏
 
 - 批次一（并行）：T20/T21/T22——三个新 crate 零交集。
-- 批次二（并行）：T23/T24/T25——三个不同工件零交集。
-- 批次三（串行）：T26 → T27 → T28。
+- 批次二（并行）：T23/T25——两个不同工件零交集。
+- 批次三（部分并行）：T24 ∥ T26 → T27 → T28。
 - 合并纪律：批次内完成即合并不等齐；根 Cargo.toml/Cargo.lock 冲突一律 feature 侧消化；收尾按 coordination.md 规则 5（rebase main 反向同步 → 主树核对后 ff-only → push origin → 清 worktree/分支）。
 - E10 轨（T17/T18 llm-share）与本轨互不动对方 crate 与账本条目；根 Cargo.toml 双方都只追加。
 
