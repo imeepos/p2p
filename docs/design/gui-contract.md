@@ -194,3 +194,78 @@ interface NodeProfile {
   warn 日志，禁止静默吞。
 - 消费点：设置页资料卡（编辑入口）、侧边栏身份徽标（头像 + 名称展示）。
 
+## 12. IM 聊天（v7 加法，2026-09-04，契约来源 docs/design/im-chat-design.md §3/§5）
+
+好友间 1:1 私聊：好友簿管理、文本/emoji、图片/音频/视频/文件附件、消息历史分页、
+发送状态可见、离线队列（outbox）。实时通话/群聊/已读回执不在本轮。底座只读，
+全部落 crates/p2p-chat + src-tauri 消费面。
+
+### 12.1 命令表（追加，全部 camelCase；参数无效一律 Err 可读中文）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| chat_friends_list | - | ChatFriendJson[] | 读好友簿（无文件返回空数组） |
+| chat_friend_add | peerId: string, nickname: string, addrs: string[] | ChatFriendJson | 校验（peerId base58 且 ≠ 本机、nickname trim ≤64、addr 语法逐条校验）后原子写好友簿；addr 同时登记地址簿可拨 |
+| chat_friend_remove | peerId: string | boolean | 从好友簿移除；never 在簿 → false（幂等），不删消息历史 |
+| chat_history | peer: string, beforeId?: string | null, limit?: number | ChatMessageJson[] | 按 time desc 分页，limit 默认 50 上限 100；beforeId 游标=严格更早 |
+| chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB |
+| chat_media_file | peer: string, messageId: string | { path: string; mime: string; name: string } | 返回附件落盘绝对路径（仅本端展示用）；消息非 media 或不存在 → Err |
+
+### 12.2 事件（追加到 NodeEventJson 判别联合）
+
+```ts
+| { type: "chat_message"; peer: string; message: ChatMessageJson }   // 入站新消息（已落盘）
+| { type: "chat_status"; peer: string; messageId: string; status: "pending"|"sent"|"delivered"|"failed" }
+```
+
+### 12.3 数据类型
+
+```ts
+type ChatKind = "text" | "image" | "audio" | "video" | "file";
+
+interface ChatFriendJson {
+  peerId: string;        // base58
+  nickname: string;      // trim 后 ≤64；空串回退 PeerId 缩略
+  addrs: string[];       // ip/u端口 = QUIC，ip/t端口 = TCP（对齐 §6 语法）
+  note?: string | null;
+}
+
+interface ChatMediaInput {
+  name: string;          // 原始文件名（展示用，落盘时 sanitize）
+  mime: string;          // 小写；按 kind 白名单校验（见设计 §5），不匹配 Err
+  dataBase64: string;    // 原始字节 base64（解码后 ≤64MiB，超限 Err）
+}
+
+interface ChatMediaJson {
+  name: string;
+  mime: string;
+  size: number;          // 原始字节数
+  path?: string | null;  // 本端落盘绝对路径（仅返回给本端消费）
+}
+
+interface ChatMessageJson {
+  id: string;            // UUID（发端生成）
+  peer: string;
+  sender: "me" | "them";
+  kind: ChatKind;
+  tsMs: number;
+  text?: string | null;
+  media?: ChatMediaJson | null;
+  status: "pending" | "sent" | "delivered" | "failed";  // 本地状态字段，不跨网
+}
+
+interface ChatSendReport {
+  message: ChatMessageJson;   // status=delivered=已实时送达；否则 pending（outbox 等待）
+  delivered: boolean;
+}
+```
+
+- 持久化位置：`<dataDir>/chat/`（friends.json / outbox/<peer>.jsonl /
+  messages/<peer>.jsonl / media/<peer>/<msgId>_<sanitizedName>），介质权限与原子写对齐 §11 纪律。
+- 媒体预览：`chat_media_file` 返回 path 后，前端经 Tauri asset protocol（assetProtocol
+  scope 须含 chat/media 目录，src-tauri 侧接线）内联展示 image/audio/video；file 展示
+  名称/大小并提供下载锚点。系统级"打开默认应用"不在本轮契约内。
+- 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase，Option 序列化 null）；
+  B 侧 TS 类型与上表逐字一致；mock 与真实实现同签名。
+
+

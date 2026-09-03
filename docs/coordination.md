@@ -211,4 +211,24 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 - 2026-09-04 检查轮 58（RS 协调）：**T22 翻 done，批次一 3/3 关闭**（35ad480，13 文件 1929 行一次通过：67 tests + 隔离全量门禁 exit 0；模块划分 risk/redline 数据+旁路/scope/approval/whitelist 与计划书逐条对齐）。**批次二开闸**：T25 playbook（零依赖，89f85ec3）与 T23 只读工具面（依赖已齐，新专属会话 898caa4e，任务书含监狱逃逸矩阵/截断断言/执法接线/审计钩子接缝）并行 doing；T24 待 T25 命令清单接口、T26 待 T23。剩余队列 T24∥T26 → T27 → T28。
 - 2026-09-04 检查轮 59（RS 协调）：**T23 翻 done**（mergedMain=5c9b9b8，一次通过）——两笔提交（执法接线+审计接缝/guarded host+四工具装配），34 tests 完整命中任务书矩阵（监狱逃逸含 symlink/dotdot/absolute、截断字符边界、执法原因链、审计事件、宿主全链），隔离全量门禁 exit 0；期间协调者误读其合并中间态为越界提交，取证（origin/feat/rs-tools-readonly tip 比对）后排除。**批次三开闸**：T26（p2p 接入+票据+审计落盘+session_report，专属新会话 801a58c9）派单；在途 T25（playbook，89f85ec3）+ T26 并行；T24 待 T25、T27 待 T26。
 - 2026-09-04 检查轮 60（RS 协调）：**T25 翻 done**（mergedMain=b7b831f，一次通过）——解析器 9 模块 1263 行（lib.rs 292 贴线合规）+ 三类草案 379 行，31 tests 绿，shell_union 导出即 Q7 白名单数据源。**T24 立即派单**（3adc549c）：内嵌白名单数据 == shell_union 并集的一致性测试机械防漂移（enforce 运行时零 playbook 依赖，dev-dep 对账），管道/重定向特征一律闭集外拒。在途 T24 ∥ T26；此后 T27 → T28 收官。
+## IM 聊天阶段（2026-09-04 派单，IM 协调 session-b7d42619，与 E10/RS 双轨并行）
+
+定位：好友间 1:1 私聊（文本/emoji/图片/音频/视频/文件附件），离线可投递，不做实时通话/群聊。
+契约出处：docs/design/im-chat-design.md（冻结基线）+ gui-contract.md §12（v7 加法）。底座（p2p-* 内核）只读；
+全部实现落新建 crates/p2p-chat + apps/gui 消费面。范围互斥：与 E10（llm-share-*）、RS（repair-*）零交集，
+根 Cargo.toml 仅三方各自追加，账本 coordinatorSession 不动、phase 记 IM-parallel。
+
+| 任务单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| T29 p2p-chat 核心 crate | p2p-IM-T29（专属新会话） | feat/im-chat-core | 新建 crates/p2p-chat/**（协议帧/模型/好友簿/存储/outbox/发送接收）+ crates/p2p-chat/tests/ + wire-protocol.md §8 登记；根 Cargo.toml 仅 workspace.members 追加；p2p-* 内核只读 | cargo test -p p2p-chat + cargo clippy -p p2p-chat -- -D warnings + make check 全绿；itest 双节点回环（文本+附件+离线 flush+ACK）；wire-protocol.md §8 已登记 |
+| T30 GUI chat 契约面（ipc/route 壳） | p2p-IM-T30（专属新会话） | feat/im-gui-shell | apps/gui/src：ipc-types/ipc/mock 的 chat 段、路由 /chat 壳页、menu.def.ts 追加、i18n 中英 chat 词条、chat 空视图组件 | cd apps/gui && pnpm build + pnpm test --run + pnpm check:i18n 全绿 + make check 全绿 |
+| T31 聊天页完整交互（依赖 T30） | 待派（T30 合入后） | feat/im-chat-ui | apps/gui/src/views/chat/ + components/chat/ + stores/chat-store.ts（会话列表/气泡/输入条/表情/附件/预览/文件打开，mock 驱动） | pnpm build + pnpm test --run 全绿；交互组件测试（发文本/选表情/选附件/状态渲染） |
+| T32 Tauri chat 接线（依赖 T29） | 待派（T29 合入后） | feat/im-tauri-wiring | apps/gui/src-tauri/**：装配 p2p-chat、chat_* 命令注册与 chat_message/chat_status 事件、dataDir/chat 接线、assetProtocol scope 含 chat/media、契约 roundtrip 测试 | cd apps/gui/src-tauri && cargo test + cargo clippy -- -D warnings + cd ../.. && make check 全绿；双命令冒烟（friends add/list） |
+| T33 全链 E2E + 演练文档（依赖 T29+T32） | 待派（T29+T32 合入后） | feat/im-e2e | crates/p2p-itest/tests/chat_e2e.rs + docs/ops/im-chat-drill.md | cargo test -p p2p-itest --test chat_e2e + make check 全绿；两节点全链（加好友→文本→附件→重启 flush→历史回读）；演练清单在位 |
+
+- 2026-09-04 检查轮 61（IM 协调 session-b7d42619，用户指令「加一个 im 聊天系统」接任阶段负责人）：设计定稿
+  docs/design/im-chat-design.md + gui-contract.md §12（v7 契约冻结）直接落 main；主树基线 make check exit 0
+  （GATE=0）确认后开闸派单。批次一 T29 ∥ T30 并行（范围互斥：新 crate vs apps/gui/src，契约 v7 双端对编程互不等）；
+  T31 待 T30、T32 待 T29、T33 待 T29+T32。任务书只含需求与机械验收、不含源码。与 E10/RS 双轨互斥确认（无文件交集）。
+
 
