@@ -352,10 +352,6 @@ const enUS: typeof zhCN = {
       restartFailed: "Save & restart failed",
     },
   },
-  errorBoundary: {
-    title: "Something went wrong",
-    retry: "Retry",
-  },
   palette: {
     placeholder: "Search pages, peers or addresses…",
     empty: "No results",

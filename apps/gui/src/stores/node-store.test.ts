@@ -1,36 +1,45 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  selectPeerCount,
+  selectPeerList,
+  type NodeStoreState,
+} from "./node-store";
 import type { PeerEntry } from "./event-reducer";
-import { selectPeerCount, selectPeerList } from "./node-store";
 
-function entry(peerId: string, lastSeenMs: number): PeerEntry {
-  return { peerId, addrs: [], connected: true, lastSeenMs, hops: [] };
-}
+const peer = (id: string, lastSeenMs: number): PeerEntry => ({
+  peerId: id,
+  addrs: [],
+  connected: true,
+  lastSeenMs,
+  hops: [],
+});
 
-function stateWith(peers: Record<string, PeerEntry>) {
-  return { peers } as unknown as Parameters<typeof selectPeerList>[0];
-}
+const state = (peers: Record<string, PeerEntry>): NodeStoreState =>
+  ({ peers } as unknown as NodeStoreState);
 
-// 回归：selectPeerList 曾每次调用返回新数组，useSyncExternalStore 快照不稳定
-// 导致 CommandPalette/peers 视图无限重渲染崩 ErrorBoundary（gui-agent errors 实证）。
-describe("selectPeerList 快照稳定性", () => {
-  it("同一 peers 引用返回同一数组（getSnapshot 缓存）", () => {
-    const state = stateWith({ a: entry("a", 1), b: entry("b", 2) });
-    expect(selectPeerList(state)).toBe(selectPeerList(state));
+// 回归：useSyncExternalStore 按引用比较快照，selector 必须返回稳定引用。
+describe("node-store selectors", () => {
+  it("selectPeerList 同一 peers 引用返回同一数组（快照稳定）", () => {
+    const s = state({ a: peer("a", 1) });
+    expect(selectPeerList(s)).toBe(selectPeerList(s));
   });
 
-  it("peers 引用变化才重算，并按 lastSeenMs 降序", () => {
-    const state = stateWith({ a: entry("a", 1), b: entry("b", 2) });
-    const first = selectPeerList(state);
-    expect(first.map((p) => p.peerId)).toEqual(["b", "a"]);
-    const changed = stateWith({ ...state.peers, c: entry("c", 3) });
-    const second = selectPeerList(changed);
-    expect(second).not.toBe(first);
-    expect(second.map((p) => p.peerId)).toEqual(["c", "b", "a"]);
+  it("selectPeerList peers 变化时返回新数组且按 lastSeenMs 降序", () => {
+    const s1 = state({ a: peer("a", 1), b: peer("b", 9) });
+    const list1 = selectPeerList(s1);
+    expect(list1.map((p) => p.peerId)).toEqual(["b", "a"]);
+
+    const s2 = state({ a: peer("a", 5) });
+    const list2 = selectPeerList(s2);
+    expect(list2).not.toBe(list1);
+    expect(list2.map((p) => p.peerId)).toEqual(["a"]);
   });
 
-  it("selectPeerCount 返回基元值，天然稳定", () => {
-    const state = stateWith({ a: entry("a", 1) });
-    expect(selectPeerCount(state)).toBe(1);
+  it("selectPeerList 空 peers 引用稳定且计数为零", () => {
+    const s = state({});
+    expect(selectPeerList(s)).toBe(selectPeerList(s));
+    expect(selectPeerList(s)).toHaveLength(0);
+    expect(selectPeerCount(s)).toBe(0);
   });
 });

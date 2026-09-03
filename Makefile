@@ -3,10 +3,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := check
 
-.PHONY: check fmt fmt-check line-limit clippy test
+.PHONY: check fmt fmt-check line-limit clippy test gui-check
 
-# 聚合门禁：快失败在前（格式 -> 行数 -> clippy -> 测试）
-check: fmt-check line-limit clippy test
+# 聚合门禁：快失败在前（格式 -> 行数 -> clippy -> 测试 -> GUI）
+check: fmt-check line-limit clippy test gui-check
 
 # 自动修复格式
 fmt:
@@ -27,3 +27,7 @@ clippy:
 # 全量测试
 test:
 	bash scripts/check/test.sh
+
+# GUI 门禁：lint + build + vitest（含启动冒烟，白屏事故后加入）
+gui-check:
+	bash scripts/check/gui.sh

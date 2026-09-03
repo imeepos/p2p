@@ -16,7 +16,7 @@ import { reduceEvent, type PeerEntry } from "./event-reducer";
 
 export type { PeerEntry };
 
-interface NodeStoreState {
+export interface NodeStoreState {
   status: NodeStatus | null;
   metrics: MetricsJson | null;
   metricsHistory: MetricsPoint[];
@@ -84,15 +84,18 @@ export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   ping: (peerId, timeoutMs) => ipc.peerPing(peerId, timeoutMs),
 }));
 
-// getSnapshot 稳定性：zustand v5（useSyncExternalStore）要求同一 peers 引用返回同一数组，
-// 否则 useNodeStore(selectPeerList) 的组件无限重渲染（Maximum update depth exceeded）。
-let peerListCache: { source: Record<string, PeerEntry>; list: PeerEntry[] } | null = null;
+// useSyncExternalStore 按引用比较快照：peers 不变时必须返回同一数组引用，
+// 否则快照永不收敛，React 无限重渲直至崩溃（白屏级启动故障）。
+let peerListCache: { peers: NodeStoreState["peers"]; list: PeerEntry[] } | null = null;
 
 export const selectPeerList = (s: NodeStoreState): PeerEntry[] => {
-  if (peerListCache?.source === s.peers) return peerListCache.list;
-  const list = Object.values(s.peers).sort((a, b) => b.lastSeenMs - a.lastSeenMs);
-  peerListCache = { source: s.peers, list };
-  return list;
+  if (peerListCache === null || peerListCache.peers !== s.peers) {
+    peerListCache = {
+      peers: s.peers,
+      list: Object.values(s.peers).sort((a, b) => b.lastSeenMs - a.lastSeenMs),
+    };
+  }
+  return peerListCache.list;
 };
 
 export const selectPeerCount = (s: NodeStoreState): number =>

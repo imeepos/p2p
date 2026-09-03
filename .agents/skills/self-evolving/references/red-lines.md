@@ -23,6 +23,5 @@
   就是系统盲区（2026-09-03 用户点名系统缺陷）。前端错误必须落盘（Tauri 文件/localStorage）
   或经桥接命令可读，全局 error/unhandledrejection/console.error/ErrorBoundary 四入口都要接。
 - run_code 模板字符串里写含反引号的 markdown（README 代码块、`inline code`）必炸
-  "Expected ',', got 'ident'"：内容改单引号字符串数组 join("
-") 再拼（2026-09-03 README 实录）。
+  "Expected ',', got 'ident'"：内容改单引号字符串数组 join(反斜杠+n) 再拼（2026-09-03 README 实录）。
 

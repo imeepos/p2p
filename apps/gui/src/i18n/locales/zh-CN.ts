@@ -344,10 +344,6 @@ const zhCN = {
       restartFailed: "保存并重启失败",
     },
   },
-  errorBoundary: {
-    title: "界面出错了",
-    retry: "重试",
-  },
   palette: {
     placeholder: "搜索页面、节点或地址…",
     empty: "无匹配结果",

@@ -125,3 +125,6 @@ failed: early eof（客户端侧超时中止）。
 - 症状：i18next 严格类型 t 报 t(I18nKey, Record<string,string>) 不匹配任何重载（值被对到 defaultValue: string）。
 - 原因：CustomTypeOptions 生成逐 key 签名后，「动态 key + 通用 values」组合无法在联合 key 上分配。
 - 修法：收口一个 LooseT = (key, values?) => string 的松散签名做 as 转换（运行时与 t 等价），模板化摘要场景集中走它，普通场景仍用严格 t（2026-09-02 gui-views-monitor 实录）。
+- 症状：Tauri/React 窗口全白无任何 UI，构建与全部测试绿。
+- 原因：渲染期 ReferenceError 或 useSyncExternalStore 快照不稳定（selector 每次返回新数组）导致无限重渲整树崩溃；vitest 独立 config 不继承 vite 的 define，build-time 注入量（__APP_VERSION__）在测试环境是裸标识符。
+- 修法：selector 按源引用 memo 或消费侧 useShallow；vitest.config 与 vite.config 的 define 对齐；jsdom 启动冒烟锁整应用可渲染（src/test/app-boot.test.tsx 先例：vi.stubEnv 后动态 import main，waitFor main 元素，断言无兜底文案）（2026-09-03 实录）。
