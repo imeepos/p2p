@@ -34,6 +34,14 @@ impl RendezvousConn {
             .map_err(|_| RendezvousError::Send("write half closed".into()))
     }
 
+    /// 发送已编码帧（快照缓存路径：应答只编码一次，命中期免重复 encode）。
+    pub async fn send_raw(&mut self, bytes: Vec<u8>) -> Result<(), RendezvousError> {
+        self.write
+            .send(bytes)
+            .await
+            .map_err(|_| RendezvousError::Send("write half closed".into()))
+    }
+
     pub async fn recv_msg<M: prost::Message + Default>(&mut self) -> Result<M, RendezvousError> {
         let bytes = self
             .read
