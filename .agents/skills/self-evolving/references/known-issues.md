@@ -196,3 +196,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：tokio::time::timeout(..).await.map_err(|_| { inner.pending.lock().await = None; .. }) 编译 E0728。原因：await 不允许出现在非 async 闭包内。修法：拆成 match + 早返回，清槽逻辑放在 Err(_) 臂里顺序 await。
 - 症状：std::sync::MutexGuard 出现「future is not Send」，service 的 tokio::spawn 拒编译。原因：if let Some(x) = self.lock_state().retire(..) { ..await.. } 的 guard 临时值活到 if-let 结束，横跨 await。修法：先 let x = self.lock_state()...; 语句收口再 if let。
 - 症状：write 工具对 worktree 内文件报 cannot overwrite without reading——主树同 commit 文件读过不算数，路径不同缓存独立。修法：对 worktree 路径先 read 再 write/edit；bash 验证同理必须显式传 workdir（默认 cwd 是主树，grep 会在错误目录出假阴性）。
+## 2026-09-03 E6 swarm 新增事件变体打断既有 itest（hairpin_fastfail）
+- 症状：swarm 在 NodeEvent 加三个生命周期变体后，cargo test 全过但 make check 的 hairpin_fastfail 红："expected PeerConnected after lan dial, got PeerStateChanged"。cargo test -p p2p-itest --test peer_lifecycle（新用例）全绿——机械验收命令跑到 make check 才暴露。
+- 原因：该用例在 connect() 后只 recv 一个事件并 match 要求必须是 PeerConnected；监督者处理 DialStart 异步先于拨号完成，新变体排到了 PeerConnected 前面。广播流的「加法」对严格 match 消费方是行为变更。
+- 修法：生命周期事件改走独立 broadcast 通道（Swarm::subscribe_lifecycle，任务书允许的「等价事件机制」），NodeEvent 冻结流零扰动，既有消费方零改动；新用例断言全部迁到新通道。
+- 教训：给共享事件流加变体前，先 grep 全部 recv 点的 match 严格度；「验收命令只点名新测试文件」不等于「只有新测试会受影响」，make check 全量才是真相。
