@@ -19,6 +19,9 @@
 | peer_ping | peerId: string, timeoutMs: number | PingOutcome | 复用 echo 协议 node.request（同 CLI ping），返回 rtt 与期间逐跳 |
 | identity_reset | confirm: boolean | NodeStatus | 危险：停止节点并删除身份数据目录内种子文件（必须 confirm=true），返回重置后的状态（未运行） |
 | metrics_history | - | MetricsPoint[] | 后端每 5s 采样最近 120 点（10 分钟窗口），供仪表盘趋势图；v2 加法新增 |
+| frontend_log_append | lines: string[] | void | 前端错误 JSONL 批量追加到 app_log_dir/frontend.log（超 1MB 轮转 frontend.log.1）；v3 加法新增（G-H 观测） |
+| frontend_log_tail | maxLines?: number | string[] | 读 frontend.log 末尾 maxLines 行（默认 200，上限 1000）；v3 加法新增（G-H 观测） |
+| frontend_log_path | - | string | frontend.log 绝对路径（诊断页展示 + 外部 Agent 定位）；v3 加法新增（G-H 观测） |
 
 ## 2. 事件通道
 
@@ -107,3 +110,13 @@ interface MetricsPoint { tMs: number; activeConnections: number; relaySessionsAc
 - A：serde 序列化字段名与上表逐字一致（camelCase，含 Option 序列化为 null）；契约单测覆盖全部类型 roundtrip。
 - B：ipc.ts 的 TS 类型与上表逐字一致；mock 与真实实现同签名。
 - 两边都不得私自改名；发现契约缺口 → 报协调会话，走加法修订。
+## 8. 前端错误落盘（v3 加法，G-H 观测）
+
+前端 `src/lib/error-report.ts` 采集 window error / unhandledrejection / console.error，
+序列化为 JSONL（字段 ts/kind/message/stack）批量调 frontend_log_append 落盘：
+
+- 路径：`app_log_dir()/frontend.log`（macOS 即 `~/Library/Logs/com.p2p.console/frontend.log`）；
+  超 1MB 轮转为 frontend.log.1（单代覆盖），tail 上限 1000 行。
+- 浏览器/mock 模式（无 Tauri）：降级写 localStorage 键 `p2p-console.frontend-log`，
+  mock 诊断后端（mock-diagnostics.ts）对该键提供同签名读写。
+- 感知通道语义：外部进程（Agent/运维）直接读文件即可掌握前端错误，无需打开 DevTools。
