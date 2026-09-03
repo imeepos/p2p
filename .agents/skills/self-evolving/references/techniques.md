@@ -109,3 +109,7 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 端口占用一步定位：lsof -nP -iTCP:<端口> -sTCP:LISTEN 拿 PID，再 ps -o pid,tty,lstart,command -p <pid,...> 看整棵进程树的起点 tty 与时间——遗留会话（十几小时前起的）与活跃会话一眼可辨。
 - tauri App 持久化日志在 ~/Library/Logs/<identifier>/（本仓 com.p2p.console/：frontend.log=webview console，p2p-console.log=Rust tracing）。frontend.log 只记 message 不含「see errors above」的编译正文，真错要去 vite 终端输出；两份日志 mtime 是否持续前移可判定进程还活着还是僵死。
 - 沙箱/工具链的 bash 是非登录 shell，不加载 ~/.zshenv，cargo 不在 PATH——跑 cargo 系命令先 export PATH="$HOME/.cargo/bin:$PATH"；用户 zsh 终端不受影响，勿把沙箱 PATH 报错（cargo metadata No such file or directory）误判成用户环境问题，先带 PATH 复现再下结论。
+
+## 2026-09-04 时区与崩溃时间线核对
+- 这台 Mac 系统时区是 PDT(UTC-7)，ps/lsof/ls/reflog 打出的全是 PDT 时间——按 +08 心算「昨天早上 8:21」直接把启动顺序推断反了。跨时区对时间线一律先 date 与 date -u 打底，再用 git log --format=%cI（ISO 带偏移）和 ps -o lstart 全量时间戳钉死，禁止裸 HH:MM 心算换算。
+- 崩溃组件栈行号比对：vite 服务的是 react-refresh 注入后的转换产物，源码第 N 行出现在栈里约第 N+4 行——拿栈行号反查源码前先按此偏移折算，别因行号对不上就误判「跑的不是这份代码」。

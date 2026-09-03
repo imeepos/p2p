@@ -241,3 +241,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：write/bash 传较大内容（4-14KB）的调用连环报 invalid arguments: missing required property "description"，报错指向参数校验；同批小调用正常。连报 6 次，期间换了 5 种写法（占位符反引号、分块 heredoc、单行、base64）全部失败，逐特征二分（反斜杠/换行/中文/体积）全部无法稳定复现。
 - 原因：code-runtime worker 进入瞬时坏状态，对超阈值参数的拒绝统一误报成 description 缺失；约 10 分钟后自愈，逐字重跑当初失败的程序全部通过——与参数内容零关联。
 - 修法：同一错误在不同参数形状（不同工具/不同内容/带不带某字段）下持续出现时，先怀疑环境瞬时故障而非参数归因；用最小探针（纯 ASCII echo）+ 逐字重跑原失败调用验证恢复，再决定是否重构写法。探针通过后直接重试原操作，别为幻觉规律改写方案。
+
+## 已修复的崩溃仍出现在持久化日志：dev webview 模块图分代（2026-09-04 日志复核轮）
+- 症状：frontend.log 里 60 条 TypeError: Cannot destructure property 'control'（FactoryDefaultsNotice@factory-defaults-notice.tsx），时间戳晚于修复提交 6 小时，且栈行号偏移显示跑的就是修复后代码——看似「修复无效」。
+- 原因：长命 tauri dev 会话的 webview 活过了整天的 HMR/依赖重优化，页面里 react-hook-form 存在两个生成实例：FormProvider 写入的 context 与 useFormContext 读到的 context 不是同一个对象（后者默认 null），解构即炸；同时段 [vite] Importing a module script failed 洪泛是同一模块图分代的旁证。磁盘代码与测试全绿，纯属 dev 会话运行态腐化。
+- 修法：判定顺序——先 git log 确认修复提交早于报错时间，再核对栈行号偏移（react-refresh 注入约 +4 行）确认跑的是新代码，然后跑 vitest 回归（relay-config-card/settings-defaults/app-boot 路由冒烟）机械证明代码侧已修；结论落到「杀旧 dev 会话重启 webview」，不要回头改已经修好的代码。
