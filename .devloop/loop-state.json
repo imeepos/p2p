@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T18:47:01Z",
+  "updatedAt": "2026-09-03T19:07:02Z",
   "project": "p2p-base",
   "phase": "E10-RS-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -227,11 +227,14 @@
       "goal": "repair-bridge 接入桥：stdio ⇄ p2p 流双向哑泵（/repair/mcp/1 首帧握手、出站直连→打洞→中继降级链复用底座、EOF/断流排空后非零退出留因），含帧对拷/握手/未知对端拒绝测试与 wire-protocol.md 登记",
       "title": "RS-P0b-T20 repair-bridge 接入桥",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/rs-bridge",
       "ownerSession": "session-c93d6dc1-c0e2-4fe8-a40d-ecadd6612190",
       "scope": "新增 crates/repair-bridge/** + docs/design/wire-protocol.md 仅追加 /repair/mcp/1 登记 + 根 Cargo.toml 仅追加；其余只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-bridge && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-bridge && make check'",
+      "mergedMain": "a87fb33",
+      "acceptedAt": "2026-09-03T19:07:02.527Z",
+      "note": "首验退回一次（缺三组测试+clippy io_other_error），返工后终验通过：4 tests 全绿（帧对拷分帧/双向透传/EOF 退出码/握手与未知协议拒绝）、clippy 干净；合并由协调者代执行（rework 分支 rebase main 后 ff，a87fb33），全量 make check 唯一红为 T21 在途件非本单。"
     },
     {
       "id": "T21",

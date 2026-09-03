@@ -1479,6 +1479,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "repair-helper"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "p2p-log",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -1,0 +1,13 @@
+[package]
+name = "repair-helper"
+version.workspace = true
+edition.workspace = true
+description = "Transport-independent MCP host for remote support"
+
+[dependencies]
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+p2p-log = { path = "../p2p-log" }
