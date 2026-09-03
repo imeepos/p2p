@@ -123,9 +123,17 @@ impl RendezvousLink for TransportLink {
 }
 
 async fn open_rendezvous_stream(conn: &SecureConn) -> io::Result<BoxedStream> {
-    let id = ProtocolId::new(RENDEZVOUS_PROTOCOL).expect("built-in protocol id is valid");
+    // panic 免除红线（E8-H3）：构造失败走错误路径留信号，不 expect
+    let id = builtin_rendezvous_id().map_err(io::Error::other)?;
     let raw = conn.mux.open_stream().await?;
     open_with_protocol(raw, &id).await
+}
+
+/// 内置 rendezvous 协议 ID 的唯一构造口：常量格式由 p2p-protocol 单测兜底，
+/// 构造本身仍按可失败处理，装配期校验一次，运行期只读克隆。
+pub(crate) fn builtin_rendezvous_id() -> Result<ProtocolId, NodeError> {
+    ProtocolId::new(RENDEZVOUS_PROTOCOL)
+        .map_err(|e| NodeError::Assembly(format!("builtin rendezvous protocol id invalid: {e}")))
 }
 
 /// BoxedStream → 长度分帧 RendezvousConn（与服务端 serve_link 帧约定一致）。
@@ -184,23 +192,26 @@ fn stream_to_conn_parts(stream: BoxedStream, connection: Option<SecureConn>) -> 
 
 /// 内置 rendezvous 服务 handler：入站流桥接到 serve_link（design §2/§5.4）。
 pub(crate) struct RendezvousServer {
+    id: ProtocolId,
     registry: Arc<RendezvousRegistry>,
 }
 
 impl RendezvousServer {
     /// 公共部署策略：拒收全 loopback/link-local 注册（E5 地址卫生，2026-09-03
     /// 邻居表 127.0.0.1 泄漏复盘）。CLI bootstrap 默认开启，--allow-private 退出。
-    pub(crate) fn with_public_only(public_only: bool) -> Self {
-        Self {
+    /// 协议 ID 在构造期校验：非法常量在装配期显式报错，而非 handler 分发时 panic。
+    pub(crate) fn with_public_only(public_only: bool) -> Result<Self, NodeError> {
+        Ok(Self {
+            id: builtin_rendezvous_id()?,
             registry: Arc::new(RendezvousRegistry::with_public_only(public_only)),
-        }
+        })
     }
 }
 
 #[async_trait]
 impl ProtocolHandler for RendezvousServer {
     fn protocol(&self) -> ProtocolId {
-        ProtocolId::new(RENDEZVOUS_PROTOCOL).expect("built-in protocol id is valid")
+        self.id.clone()
     }
 
     async fn handle(&self, stream: BoxedStream) -> io::Result<()> {
@@ -215,6 +226,17 @@ impl ProtocolHandler for RendezvousServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 回归（E8-H3 panic 免除）：内置协议 ID 在装配期校验通过，且构造口可复用。
+    #[test]
+    fn builtin_rendezvous_id_valid_at_assembly() {
+        assert!(RendezvousServer::with_public_only(false).is_ok());
+        assert!(RendezvousServer::with_public_only(true).is_ok());
+        assert_eq!(
+            builtin_rendezvous_id().expect("valid builtin id").as_str(),
+            RENDEZVOUS_PROTOCOL
+        );
+    }
 
     #[test]
     fn parse_transport_addr_roundtrip() {

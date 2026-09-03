@@ -63,7 +63,7 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     // 公共部署（rendezvous_public_only）拒收全不可路由注册（E5 地址卫生）
     swarm.register(Arc::new(RendezvousServer::with_public_only(
         cfg.rendezvous_public_only,
-    )));
+    )?));
 
     let listen_addrs = swarm.listen_addrs();
     let observed_addrs = observe::observed_transport_addrs(&observed, &listen_addrs);
