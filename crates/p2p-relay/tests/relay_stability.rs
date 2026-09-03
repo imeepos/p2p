@@ -1,7 +1,4 @@
-//! E6 稳定性回归：空闲回收 / 保活失联 / 服务端静默清理 / 既有回收语义。
-//! 消融点 1: circuit.rs supervise_bridge 空闲分支 -> idle_bridged_circuit_reclaimed_after_ttl
-//! 消融点 2: client.rs spawn_keepalive -> keepalive_misses_declare_relay_lost_and_fail_fast
-//! 消融点 3: control.rs control_loop timeout 包装 -> server_silence_timeout_reclaims_client_state
+//! E6 稳定性回归：空闲回收/保活失联/服务端静默清理/既有回收语义；消融点 1/2/3 见各用例。
 
 use std::io;
 use std::sync::{Arc, Mutex};
@@ -36,11 +33,7 @@ fn spawn_relay(
     limits: RelayLimits,
     ka: RelayKeepalive,
 ) -> Arc<RelayServiceImpl> {
-    let svc = Arc::new(RelayServiceImpl::with_keepalive(
-        Box::new(source.clone()),
-        limits,
-        ka,
-    ));
+    let svc = Arc::new(RelayServiceImpl::with_keepalive(Box::new(source.clone()), limits, ka));
     let worker = svc.clone();
     tokio::spawn(async move {
         let _ = worker.serve().await;
@@ -144,8 +137,7 @@ async fn idle_bridged_circuit_reclaimed_after_ttl() {
     };
     let (mut a, mut b, _keep) = relay_pair_with(ka(250, 10_000, 5_000, 3, 45_000), limits);
     let (mut sa, mut sb) = bridged_pair(&mut a, &mut b).await;
-    // 持续静默：两侧流必须在 idle TTL 后收敛。消融点 1 注释掉回收分支后，
-    // 此 read 永不返回 -> 5s 超时 panic 变红。
+    // 持续静默直到收敛；消融点 1 删回收分支则此 read 挂死 -> 5s 超时 panic 变红。
     let drain = async {
         let (mut ba, mut bb) = ([0u8; 4], [0u8; 4]);
         tokio::join!(sa.read(&mut ba), sb.read(&mut bb))
@@ -164,14 +156,14 @@ async fn idle_bridged_circuit_reclaimed_after_ttl() {
 /// 反例：有数据流动的电路绝不被误收（静默间隙恒小于 idle TTL）。
 #[tokio::test]
 async fn active_bridged_circuit_never_reclaimed() {
+    // E9 时序去脆弱化：窗口缩至 idle=100ms/gap=20ms（1:5），span 覆盖 ~10×TTL。
     let (mut a, mut b, _keep) =
-        relay_pair_with(ka(250, 10_000, 5_000, 3, 45_000), RelayLimits::default());
+        relay_pair_with(ka(100, 10_000, 5_000, 3, 45_000), RelayLimits::default());
     let (mut sa, mut sb) = bridged_pair(&mut a, &mut b).await;
-    // 每 ~100ms 双向各一帧，跨越 3 倍 idle TTL：任一刻静默 < TTL，桥必须存活。
-    for i in 0..8u8 {
+    for i in 0..40u8 {
         pump(&mut sa, &mut sb, &[i; 16]).await;
         pump(&mut sb, &mut sa, &[i; 16]).await;
-        tokio::time::sleep(Duration::from_millis(80)).await;
+        tokio::time::sleep(Duration::from_millis(20)).await;
     }
     pump(&mut sa, &mut sb, b"still-alive").await;
 }
@@ -181,10 +173,9 @@ async fn active_bridged_circuit_never_reclaimed() {
 async fn keepalive_misses_declare_relay_lost_and_fail_fast() {
     let ka = ka(120_000, 60, 60, 2, 45_000);
     let mut client = RelayClient::with_keepalive(Box::new(BlackHoleLink::new("black-hole")), ka);
-    // 惰性控制流需先触发：reserve 在黑洞上 5s 才超时，不等它，只建流。
+    // 惰性控制流需先触发：reserve 在黑洞上只建流不等回包。
     let _ = tokio::time::timeout(Duration::from_millis(300), client.reserve(secs(60), "")).await;
-    // 连续 2 次探测无应答 -> 失联事件。消融点 2 注释掉 spawn_keepalive 后，
-    // 永无事件 -> 3s 超时变红。
+    // 连续 2 次探测无应答 -> 失联事件；消融点 2 删 spawn_keepalive 则 3s 超时变红。
     let ev = tokio::time::timeout(secs(3), client.next_event())
         .await
         .expect("loss must be declared within 3s")
@@ -212,15 +203,20 @@ async fn server_silence_timeout_reclaims_and_keepalive_survives() {
         max_circuits_per_peer: 1,
         ..RelayLimits::default()
     };
-    let _svc = spawn_relay(&source, limits, ka(120_000, 10_000, 5_000, 3, 300));
+    let svc = spawn_relay(&source, limits, ka(120_000, 10_000, 5_000, 3, 300));
     let (cl, sl) = mock_link_pair("silent-a", "silent-a");
     source.push(Box::new(sl));
     let mut ctrl = cl.open_stream().await.expect("open control");
     let cid = manual_reserve(&mut ctrl, 3600, "").await;
-    // 裸控制流不发保活：超过 server_silence 服务端按失联清理。消融点 3 注释
-    // 掉 timeout 包装后电路滞留，①读挂死超时、②配额自锁，双双变红。
-    tokio::time::sleep(Duration::from_millis(600)).await;
-    // ① 旧电路已被回收：connect 得显式 UNKNOWN_CIRCUIT（非挂死、非停车）。
+    // 消融点 3：裸流不发保活必被清；以保活失败计数收敛替代固定 sleep（无固定时钟）。
+    for _ in 0..50_000 {
+        if svc.metrics().keepalive_failures_total >= 1 {
+            break;
+        }
+        tokio::task::yield_now().await;
+    }
+    assert!(svc.metrics().keepalive_failures_total >= 1, "静默清理未计入保活失败");
+    // ① 被清电路的 connect 得显式 UNKNOWN_CIRCUIT（非挂死、非停车）。
     let mut s = cl.open_stream().await.expect("open circuit stream");
     write_msg(&mut s, &RelayMsg::connect(cid.0))
         .await
@@ -229,18 +225,24 @@ async fn server_silence_timeout_reclaims_and_keepalive_survives() {
         Some(Kind::Reject(r)) => assert_eq!(r.code, errcode::UNKNOWN_CIRCUIT, "got {r:?}"),
         other => panic!("expected unknown-circuit reject: {other:?}"),
     }
-    // ② 配额回吐：同 Peer 换新控制流可再次注册（否则 PEER_LIMIT）。
-    let mut ctrl2 = cl.open_stream().await.expect("reopen control");
-    let _ = manual_reserve(&mut ctrl2, 3600, "").await;
-    // ③ 反例：健康客户端（50ms 保活）静默 1s（>2 倍 silence）控制流不得被清。
+    // ② 健康客户端（50ms 保活）跨 400ms（>1.3× silence，探活持续刷新服务端）
+    // 不得被清；失败计数相对基线零增量（此时无在途裸流，计数可隔离归因）。
     let (hl, hs) = mock_link_pair("healthy-b", "healthy-b");
     source.push(Box::new(hs));
     let mut h = RelayClient::with_keepalive(Box::new(hl), ka(120_000, 50, 5_000, 3, 300));
+    let failures_before = svc.metrics().keepalive_failures_total;
     h.reserve(secs(3600), "").await.expect("healthy register");
-    tokio::time::sleep(secs(1)).await;
+    tokio::time::sleep(Duration::from_millis(400)).await;
     // 若被清服务端 EOF 必达客户端成 ControlClosed 事件；无事件即保活生效
     let ev = tokio::time::timeout(Duration::from_millis(500), h.next_event()).await;
     assert!(ev.is_err(), "healthy control must survive silence: {ev:?}");
+    assert_eq!(
+        svc.metrics().keepalive_failures_total, failures_before,
+        "健康客户端不得新增保活失败"
+    );
+    // ③ 配额回吐：同 Peer 换新控制流可再次注册（否则 PEER_LIMIT）。
+    let mut ctrl2 = cl.open_stream().await.expect("reopen control");
+    let _ = manual_reserve(&mut ctrl2, 3600, "").await;
 }
 
 /// 既有回收语义回归（E4）：控制流关闭回收未桥接电路，桥接中的不受牵连。
@@ -269,9 +271,8 @@ async fn control_close_keeps_bridged_rejects_parked() {
     // 控制流关闭（EOF）：桥接电路不受牵连（E4），数据继续互通
     drop(ctrl);
     pump(&mut sa, &mut sb, b"after-close").await;
-    // 未桥接电路随控制流关闭回收（E4）。停车处理与 EOF 竞态落在哪一侧都被
-    // 回收：停车先处理则持车方收显式 CIRCUIT_EXPIRED，EOF 先处理则在途
-    // connect 收 UNKNOWN_CIRCUIT——两者都是显式错误信号而非静默悬挂。
+    // 未桥接电路随控制流关闭回收（E4）。停车/EOF 竞态落在哪侧都给显式信号：
+    // 持车方收 CIRCUIT_EXPIRED，在途 connect 收 UNKNOWN_CIRCUIT，不静默悬挂。
     let mut ctrl2 = a_cli.open_stream().await.expect("reopen control");
     let cid2 = manual_reserve(&mut ctrl2, 3600, "").await;
     assert_eq!(svc.metrics().circuits_active, 2, "cid2 slot registered");
@@ -280,12 +281,12 @@ async fn control_close_keeps_bridged_rejects_parked() {
         .await
         .expect("write connect 2");
     drop(ctrl2);
-    // 轮询槽位水位 2 -> 1：确定性等待回收完成（不依赖睡多久）
-    for _ in 0..400 {
+    // 轮询槽位水位 2 -> 1：确定性等待回收完成（yield 自旋，零真实时钟依赖）
+    for _ in 0..50_000 {
         if svc.metrics().circuits_active == 1 {
             break;
         }
-        tokio::time::sleep(Duration::from_millis(5)).await;
+        tokio::task::yield_now().await;
     }
     assert_eq!(svc.metrics().circuits_active, 1, "watermark never reached");
     match read_frame(&mut parked).await.kind {
