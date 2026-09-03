@@ -77,10 +77,7 @@ fn join_result(
     match result {
         Ok(Ok(())) => Ok(()),
         Ok(Err(error)) => Err(error),
-        Err(error) => Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!("{context}: {error}"),
-        )),
+        Err(error) => Err(io::Error::other(format!("{context}: {error}"))),
     }
 }
 
