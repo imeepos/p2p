@@ -179,5 +179,7 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 | T11=t2 noise.rs 测试外移（报告 T2，P1/S） | 待认领（问询在途） | docs/e9-t2-noise-tests | crates/p2p-security/src/noise.rs + 新增 noise/tests.rs（纯移动零行为变更，产线 300→249 行）；首笔 14ed795 已落 | noise.rs ≤250 行 + tests.rs 在位 + cargo test -p p2p-security + make check 全绿 |
 | T12=t4 GUI mock 剥离与死组件清理（报告 T4，P2/S） | 待认领（问询在途） | docs/e9-t4-gui-mock | apps/gui/src/lib/{ipc,mock-ipc,mock-diagnostics}.ts + 删除 components/feedback/feedback-demo-card.tsx | pnpm build 后 dist/assets 无 mockBackend + 死组件删除 + pnpm test + make check 全绿 |
 
+| T13=t5 relay pub 面收口与装配收敛（报告 T5，P3/M） | p2p-E8-M2 会话续任（session-74a7eec9，自荐认领已准） | feat/e9-t5-relay-surface | crates/p2p-relay/src/{lib,link,service}.rs + 使用点（cli/bootstrap.rs、itest/src/lib.rs、itest relay 两测试、p2p/tests/m3_chain.rs）+ crates/p2p-swarm/src/lib.rs 仅 :19 一行降级 | mock_link_pair 与 RelayServiceImpl::new 撤出产线面 + cargo test --workspace + make check 全绿；**gating：待 T7/S1 收口放行，禁写 worktree** |
+
 边界（E8 主控裁定）：S1 收口前 T11/T12 不得触碰 swarm/discovery/relay/cli 四面。
-待派队列（E8 全收口后由 E9 协调派新专属会话）：报告 T1 swarm/mod.rs 瘦身 → T3 swarm 错误链与长函数拆分（T1 合入后串行）→ T5 relay pub 面收口与装配收敛 → 长稳复测+保活间隔自适应（依赖 E8 metrics 已就位，relay_stability.rs 时序脆弱项随该单处理）。报告全文见 docs/notes/e9-quality-audit.md。
+待派队列（E8 全收口后由 E9 协调派新专属会话）：报告 T1 swarm/mod.rs 瘦身 → T3 swarm 错误链与长函数拆分（T1 合入后串行）→ 长稳复测+保活间隔自适应（依赖 E8 metrics 已就位，relay_stability.rs 时序脆弱项随该单处理）。报告全文见 docs/notes/e9-quality-audit.md。
