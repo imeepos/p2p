@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T16:58:47.779Z",
+  "updatedAt": "2026-09-03T18:47:01Z",
   "project": "p2p-base",
-  "phase": "E10-open",
+  "phase": "E10-RS-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E9 修复轮关闭（T13/T14/T15/T16 全 done，全量复核 exit 0）。E10 llm-share Phase 0 开轮：T17 ledger（872df061）/T18 offer（890d991b）并行 doing；第二批 T19 proxy + itest A1-A7 待 T17 落地后派。设计基线 idle-token-sharing-plan.md + 轮 52 裁决。",
+  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；批次一 T20/T21/T22 doing（专属新会话 c93d6dc1/1b10b517/e3d2dfca），批次二 T23/T25 与批次三 T24∥T26→T27→T28 按依赖待派；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
   "tasks": [
     {
       "id": "T1",
@@ -221,6 +221,105 @@
       "ownerSession": "session-890d991b-79d8-4cf0-b433-a3fbcb9c04d9",
       "scope": "新增 crates/llm-share-offer/** + 根 Cargo.toml workspace.members 追加；不改 p2p-* 内核；与 T17 零文件交集",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p llm-share-offer && cargo clippy -p llm-share-offer -- -D warnings && make check'"
+    },
+    {
+      "id": "T20",
+      "goal": "repair-bridge 接入桥：stdio ⇄ p2p 流双向哑泵（/repair/mcp/1 首帧握手、出站直连→打洞→中继降级链复用底座、EOF/断流排空后非零退出留因），含帧对拷/握手/未知对端拒绝测试与 wire-protocol.md 登记",
+      "title": "RS-P0b-T20 repair-bridge 接入桥",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "feat/rs-bridge",
+      "ownerSession": "session-c93d6dc1-c0e2-4fe8-a40d-ecadd6612190",
+      "scope": "新增 crates/repair-bridge/** + docs/design/wire-protocol.md 仅追加 /repair/mcp/1 登记 + 根 Cargo.toml 仅追加；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-bridge && make check'"
+    },
+    {
+      "id": "T21",
+      "goal": "repair-helper MCP 宿主框架：传输无关核心（AsyncRead/AsyncWrite）+ stdio 装配、行分隔 JSON-RPC 2.0、initialize 版本协商矩阵 {2025-06-18,2025-03-26,2024-11-05}、工具注册框架（空注册表）、优雅停机排空",
+      "title": "RS-P0b-T21 repair-helper MCP 宿主框架",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "feat/rs-helper-host",
+      "ownerSession": "session-1b10b517-add6-4b75-a382-e28d33ae7d96",
+      "scope": "新增 crates/repair-helper/** + 根 Cargo.toml 仅追加；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
+    },
+    {
+      "id": "T22",
+      "goal": "repair-enforce 执法核心（纯逻辑）：read/write/danger 规则表分级、五红线无条件拒、scope 门（diag 拒 write/danger）、审批状态机（60s 超时=拒绝不可配置放行、时钟可注入、审批通道 trait 注入）、shell 白名单匹配语义（数据 T24 填充）",
+      "title": "RS-P0b-T22 repair-enforce 执法核心",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "feat/rs-enforce-core",
+      "ownerSession": "session-e3d2dfca-dca6-4fea-82ff-01626ea57506",
+      "scope": "新增 crates/repair-enforce/** + 根 Cargo.toml 仅追加；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'"
+    },
+    {
+      "id": "T23",
+      "goal": "helper 只读工具面：sys_snapshot/fs_read/fs_list/fs_search + 路径监狱（canonicalize 授权根、符号链接逃逸拒）+ 输出门禁（单结果 256KiB 截断+truncated）；依赖 T21+T22",
+      "title": "RS-P0b-T23 只读工具面",
+      "priority": "P0",
+      "status": "pending",
+      "branch": "feat/rs-tools-readonly",
+      "ownerSession": "待派（批次二）",
+      "scope": "crates/repair-helper 工具模块",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
+    },
+    {
+      "id": "T24",
+      "goal": "shell_exec 白名单闭集数据与判定接线：清单按 Q7 取卡慢/弹窗清理/C 盘空间三类 playbook 命令并集，argv[0]+参数模式校验；依赖 T22+T25",
+      "title": "RS-P0b-T24 shell 白名单闭集",
+      "priority": "P0",
+      "status": "pending",
+      "branch": "feat/rs-shell-whitelist",
+      "ownerSession": "待派（批次三）",
+      "scope": "crates/repair-enforce 白名单数据+shell 判定",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'"
+    },
+    {
+      "id": "T25",
+      "goal": "playbook agent 无关格式 v1（结构化 markdown：前置条件/步骤/验收命令/红线）解析与校验 crate + docs/playbooks/ 三类草案；无依赖可与批次一并行",
+      "title": "RS-P0b-T25 playbook 格式与解析器",
+      "priority": "P1",
+      "status": "pending",
+      "branch": "feat/rs-playbook",
+      "ownerSession": "待派（批次二）",
+      "scope": "新增 crates/repair-playbook/** + docs/playbooks/ 三类草案",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-playbook && make check'"
+    },
+    {
+      "id": "T26",
+      "goal": "helper p2p 接入：ticket 双向绑定校验（签名/exp/scope/对端 PeerId/一次性）、mint-ticket 子命令、入流接 MCP 宿主、JSONL 执行审计（写失败留信号）；依赖 T23",
+      "title": "RS-P0b-T26 helper p2p+票据+审计",
+      "priority": "P0",
+      "status": "pending",
+      "branch": "feat/rs-helper-p2p",
+      "ownerSession": "待派（批次三）",
+      "scope": "crates/repair-helper p2p 接入/ticket/mint-ticket/审计模块",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
+    },
+    {
+      "id": "T27",
+      "goal": "全链路 E2E itest：桥⇄助手经 /repair/mcp/1 全链（initialize→tools/list→tools/call sys_snapshot→审批超时语义）；依赖 T20+T26",
+      "title": "RS-P0b-T27 全链路 E2E",
+      "priority": "P0",
+      "status": "pending",
+      "branch": "feat/rs-e2e",
+      "ownerSession": "待派（批次三）",
+      "scope": "新增 crates/p2p-itest/tests/repair_e2e.rs",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test repair_e2e && make check'"
+    },
+    {
+      "id": "T28",
+      "goal": "单 runner 接入文档（DSH 会话挂 repair-bridge 的 mcpServers 配置模板）与 P0b 真机演练清单；依赖 T27",
+      "title": "RS-P0b-T28 runner 接入与真机演练文档",
+      "priority": "P1",
+      "status": "pending",
+      "branch": "docs/rs-runner-integration",
+      "ownerSession": "待派（批次三）",
+      "scope": "新增 docs/ops/repair-runner-integration.md + docs/ops/repair-p0b-drill.md",
+      "acceptanceCommand": "bash -c 'test -f docs/ops/repair-runner-integration.md && test -f docs/ops/repair-p0b-drill.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     }
   ]
 }
