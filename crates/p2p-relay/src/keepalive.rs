@@ -7,7 +7,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tokio::io::AsyncWriteExt;
 use tokio::sync::mpsc;
@@ -17,6 +17,7 @@ use tokio::task::JoinHandle;
 use crate::client::RelayEvent;
 use crate::error::RelayError;
 use crate::frame::write_msg;
+use crate::health::RelayHealth;
 use crate::messages::{relay_msg::Kind, RelayMsg};
 use crate::state::CtrlWrite;
 
@@ -62,6 +63,8 @@ pub(crate) struct CtrlInner {
     pub(crate) lost: AtomicBool,
     /// 读半退出（EOF/错误）置位：保活任务据此安静退出，不重复上抛关闭事件。
     pub(crate) closed: AtomicBool,
+    /// 健康记账：keepalive 记 RTT/load，上层选择器无锁读。
+    pub(crate) health: Arc<RelayHealth>,
 }
 
 pub(crate) type PendingSlot = Arc<Mutex<Option<PendingReply>>>;
@@ -147,6 +150,7 @@ async fn keepalive_loop(
             return; // 读半已退出：关闭事件由读半上抛，不重复发
         }
         tokio::time::sleep(cfg.interval).await;
+        let started = Instant::now();
         let probe = roundtrip(
             &inner,
             &lock,
@@ -157,7 +161,11 @@ async fn keepalive_loop(
         )
         .await;
         match probe {
-            Ok(_) => {
+            Ok(reply) => {
+                inner.health.note_rtt(started.elapsed());
+                if let Some(Kind::KeepAliveAck(a)) = reply.kind {
+                    inner.health.note_load(a.load_permille);
+                }
                 if missed != 0 {
                     tracing::debug!(peer = %peer, recovered_after = missed, "relay keepalive recovered");
                 }

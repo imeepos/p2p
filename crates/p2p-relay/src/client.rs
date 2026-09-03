@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{error_from_wire, RelayError};
 use crate::frame::{read_msg, write_msg};
+use crate::health::{RelayHealth, RelayHealthSnapshot};
 use crate::keepalive::{
     roundtrip, spawn_keepalive, CtrlInner, RelayKeepalive, ReplyExpect, RoundtripLock,
 };
@@ -81,6 +82,17 @@ impl RelayClient {
         self.link.peer_id()
     }
 
+    /// 健康快照（RTT EMA + 负载水位）；控制链路未建立时返回 None。
+    pub fn health(&self) -> Option<RelayHealthSnapshot> {
+        self.ctrl.as_ref().map(|ch| ch.inner.health.snapshot())
+    }
+
+    /// 共享健康句柄：随 keepalive 周期刷新，供上层选择器无锁轮询。
+    /// 控制链路建立（首次控制往返）后可用；重连会更换句柄。
+    pub fn health_handle(&self) -> Option<Arc<RelayHealth>> {
+        self.ctrl.as_ref().map(|ch| ch.inner.health.clone())
+    }
+
     /// 申请电路；allowed_joiner 指定允许接入的对端（空串 = 仅本 Peer 可接入）。
     pub async fn reserve(
         &mut self,
@@ -95,7 +107,12 @@ impl RelayClient {
             )
             .await?;
         match reply.kind {
-            Some(Kind::Reserved(r)) => Ok(CircuitId(r.circuit_id)),
+            Some(Kind::Reserved(r)) => {
+                if let Some(ch) = self.ctrl.as_ref() {
+                    ch.inner.health.note_load(r.load_permille);
+                }
+                Ok(CircuitId(r.circuit_id))
+            }
             Some(Kind::Reject(r)) => Err(error_from_wire(r.code, r.message)),
             _ => Err(RelayError::Protocol("unexpected reply to reserve".into())),
         }
@@ -179,6 +196,7 @@ impl RelayClient {
                 pending: Arc::new(Mutex::new(None)),
                 lost: AtomicBool::new(false),
                 closed: AtomicBool::new(false),
+                health: Arc::new(RelayHealth::default()),
             });
             let lock: RoundtripLock = Arc::new(Mutex::new(()));
             let task = spawn_keepalive(
