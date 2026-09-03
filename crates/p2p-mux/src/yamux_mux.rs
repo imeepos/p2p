@@ -20,8 +20,8 @@ pub struct YamuxMux {
     open_tx: mpsc::Sender<OpenReply>,
     inbound_rx: tokio::sync::Mutex<mpsc::Receiver<BoxedStream>>,
     open_permits: Arc<Semaphore>,
-    /// 全部句柄丢弃时发送端归零，驱动任务随即关闭连接（仅持有，不主动发送）。
-    _close_tx: mpsc::Sender<()>,
+    /// 显式 close() 经此通道通知驱动任务；全部句柄丢弃同样使其归零收尾。
+    close_tx: mpsc::Sender<()>,
 }
 
 impl YamuxMux {
@@ -45,7 +45,7 @@ impl YamuxMux {
             open_tx,
             inbound_rx: tokio::sync::Mutex::new(in_rx),
             open_permits: Arc::new(Semaphore::new(max_open_streams)),
-            _close_tx: close_tx,
+            close_tx,
         }
     }
 }
@@ -72,6 +72,11 @@ impl MuxControl for YamuxMux {
     async fn accept_stream(&self) -> Option<BoxedStream> {
         let mut rx = self.inbound_rx.lock().await;
         rx.recv().await.map(|s| s as BoxedStream)
+    }
+
+    fn close(&self) {
+        // 容量 1 且无其他发送方：try_send 即同步送达，驱动任务退出即关连接
+        let _ = self.close_tx.try_send(());
     }
 }
 
