@@ -90,6 +90,41 @@ mod tests {
     use tokio::io::duplex;
 
     #[tokio::test]
+    async fn stdin_eof_returns_success_to_direction_but_pump_is_nonzero() {
+        let (stdin_w, stdin_r) = duplex(64);
+        drop(stdin_w);
+        let (stream_w, mut stream_r) = duplex(64);
+        let (peer_w, peer_r) = duplex(64);
+        drop(peer_w);
+        let (stdout_w, _stdout_r) = duplex(64);
+        let task = tokio::spawn(pump(stdin_r, stream_w, peer_r, stdout_w));
+        let error = task.await.unwrap().expect_err("bridge must reject EOF");
+        assert_eq!(error.kind(), std::io::ErrorKind::UnexpectedEof);
+        assert!(p2p_protocol::read_frame(&mut stream_r).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn protocol_id_is_first_frame_and_unknown_id_is_rejected() {
+        let id = p2p_protocol::ProtocolId::new(PROTOCOL_ID).unwrap();
+        let (mut client, mut server) = duplex(256);
+        let open =
+            tokio::spawn(async move { p2p_protocol::write_protocol_id(&mut client, &id).await });
+        let first = p2p_protocol::read_protocol_id(&mut server).await.unwrap();
+        open.await.unwrap().unwrap();
+        assert_eq!(first.as_str(), PROTOCOL_ID);
+        let unknown = p2p_protocol::ProtocolId::new("/repair/unknown/1").unwrap();
+        let (mut writer, reader) = duplex(256);
+        p2p_protocol::write_protocol_id(&mut writer, &unknown)
+            .await
+            .unwrap();
+        let registry = p2p_protocol::HandlerRegistry::default();
+        let result = p2p_protocol::dispatch_inbound(Box::new(reader), &registry).await;
+        assert!(
+            matches!(result, Err(p2p_protocol::ProtocolError::UnsupportedProtocol(value)) if value == unknown)
+        );
+    }
+
+    #[tokio::test]
     async fn large_payload_is_split_and_preserved() {
         let payload = vec![7u8; IO_CHUNK_SIZE + 17];
         let (mut source_w, source_r) = duplex(payload.len() + 1);
