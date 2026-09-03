@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { FACTORY_LIST_DEFAULTS } from "./factory-defaults";
 
-// 出厂默认端点防漂移：views/settings/factory-defaults.ts 是后端
+// 出厂默认端点防漂移：views/shared/factory-defaults.ts 是后端
 // apps/gui/src-tauri/src/config.rs default_* 的展示层镜像。本测试直接解析
 // Rust 权威源里的 vec! 字面量对表，任一侧漂移立即红。
 // 互指注释：factory-defaults.ts 头部注明权威源为 config.rs。

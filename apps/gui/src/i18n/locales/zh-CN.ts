@@ -298,8 +298,6 @@ const zhCN = {
     loadFailed: "配置加载失败，请重试",
     cards: {
       network: "网络",
-      bootstrap: "引导节点",
-      relay: "中继服务",
       advertise: "宣告与观测",
       appearance: "外观",
       identity: "身份",
@@ -319,14 +317,6 @@ const zhCN = {
       bootstrapHint: "列表为空时使用出厂默认引导端点：{{addrs}}",
       relayHint: "列表为空时使用出厂默认中继端点：{{addrs}}",
       observationHint: "列表为空时使用出厂默认观测端点：{{addrs}}",
-    },
-    bootstrap: {
-      hint: "rendezvous 引导地址，语法 ip/u端口（QUIC）或 ip/t端口（TCP）",
-      label: "引导地址列表",
-    },
-    relayCard: {
-      hint: "中继服务地址，用于打洞信令与中继兜底",
-      label: "中继地址列表",
     },
     advertise: {
       hint: "对外宣告地址与观测反射口",

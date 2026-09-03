@@ -10,8 +10,8 @@ import type {
 } from "./ipc-types";
 import { parseDialTarget } from "./dial-target";
 import { randomWalkHistory } from "./metrics-history";
-// dev 展示层与真实 app 同源：mock 默认配置镜像出厂端点（views/settings/factory-defaults）。
-import { FACTORY_LIST_DEFAULTS } from "@/views/settings/factory-defaults";
+// dev 展示层与真实 app 同源：mock 默认配置镜像出厂端点（views/shared/factory-defaults）。
+import { FACTORY_LIST_DEFAULTS } from "@/views/shared/factory-defaults";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;

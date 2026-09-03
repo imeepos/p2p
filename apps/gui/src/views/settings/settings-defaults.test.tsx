@@ -11,11 +11,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import "@/i18n";
 import type { NodeStatus } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
-import {
-  AdvertiseCard,
-  BootstrapCard,
-  RelayAddrsCard,
-} from "./address-cards";
+import { AdvertiseCard } from "./advertise-card";
 import {
   EMPTY_SETTINGS,
   settingsResolver,
@@ -134,32 +130,23 @@ describe("settings defaults display", () => {
     const formRef: FormRef = { current: null };
     render(
       <Harness values={values()} formRef={formRef}>
-        <BootstrapCard />
-        <RelayAddrsCard />
         <AdvertiseCard />
       </Harness>,
     );
-    expect(screen.getByText(/出厂默认引导端点/)).toHaveTextContent(
-      "43.240.223.138/u3400, 121.196.193.177/u3400",
+    expect(screen.getByText(/出厂默认观测端点/)).toHaveTextContent(
+      "121.196.193.177:3402",
     );
-    expect(screen.getByText(/出厂默认中继端点/)).toBeInTheDocument();
-    expect(screen.getByText(/出厂默认观测端点/)).toBeInTheDocument();
+    expect(screen.queryByText(/出厂默认引导端点/)).toBeNull();
+    expect(screen.queryByText(/出厂默认中继端点/)).toBeNull();
 
-    const restoreButtons = screen.getAllByRole("button", {
-      name: "恢复出厂默认",
-    });
-    expect(restoreButtons).toHaveLength(3);
-
-    fireEvent.click(restoreButtons[0]);
+    fireEvent.click(screen.getByRole("button", { name: "恢复出厂默认" }));
     await waitFor(() =>
       expect(screen.getByTestId("form-dirty")).toHaveTextContent("dirty"),
     );
-    expect(formRef.current?.getValues("bootstrap")).toEqual([
-      { value: "43.240.223.138/u3400" },
-      { value: "121.196.193.177/u3400" },
+    expect(formRef.current?.getValues("observationAddrs")).toEqual([
+      { value: "121.196.193.177:3402" },
     ]);
-    expect(screen.queryByText(/出厂默认引导端点/)).toBeNull();
-    expect(screen.getByText(/出厂默认中继端点/)).toBeInTheDocument();
+    expect(screen.queryByText(/出厂默认观测端点/)).toBeNull();
   });
 
   it("恢复的观测端点为 socket 语法且通过表单校验", async () => {

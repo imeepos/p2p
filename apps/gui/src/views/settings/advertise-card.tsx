@@ -11,60 +11,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SettingsFormValues } from "./config-schema";
-import { FactoryDefaultsNotice } from "./factory-defaults-notice";
+import { FactoryDefaultsNotice } from "@/views/shared/factory-defaults-notice";
 import {
   AddressListEditor,
 } from "@/views/shared/address-list-editor";
 import { ErrorText } from "@/views/shared/error-text";
 
-export function BootstrapCard() {
-  const { t } = useTranslation();
-  const { control } = useFormContext<SettingsFormValues>();
-
-  return (
-    <Card className="col-span-12 lg:col-span-6">
-      <CardHeader>
-        <CardTitle>{t("settings.cards.bootstrap")}</CardTitle>
-        <CardDescription>{t("settings.bootstrap.hint")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        <AddressListEditor
-          control={control}
-          name="bootstrap"
-          label={t("settings.bootstrap.label")}
-          placeholder="192.168.1.10/u3400"
-        />
-        <FactoryDefaultsNotice name="bootstrap" />
-      </CardContent>
-    </Card>
-  );
-}
-
-export function RelayAddrsCard() {
-  const { t } = useTranslation();
-  const { control } = useFormContext<SettingsFormValues>();
-
-  return (
-    <Card className="col-span-12 lg:col-span-6">
-      <CardHeader>
-        <CardTitle>{t("settings.cards.relay")}</CardTitle>
-        <CardDescription>{t("settings.relayCard.hint")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-2">
-        <AddressListEditor
-          control={control}
-          name="relayAddrs"
-          label={t("settings.relayCard.label")}
-          placeholder="192.168.1.10/u3402"
-        />
-        <FactoryDefaultsNotice name="relayAddrs" />
-      </CardContent>
-    </Card>
-  );
-}
-
 // 宣告与观测卡：advertisedAddrs 列表 + 可空观测端口 + observationAddrs 列表。
-// advertisedAddrs 无出厂默认，不提供恢复入口。
+// advertisedAddrs 无出厂默认，不提供恢复入口。bootstrap/relay 的编辑入口在
+// 发现页（rendezvous 地址簿）与中继页（中继地址配置），设置页不再重复。
 export function AdvertiseCard() {
   const { t } = useTranslation();
   const {

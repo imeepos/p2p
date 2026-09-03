@@ -24,6 +24,9 @@ import {
   AddressListEditor,
 } from "@/views/shared/address-list-editor";
 import {
+  FactoryDefaultsNotice,
+} from "@/views/shared/factory-defaults-notice";
+import {
   FORM_VALIDATION_MARK,
   isFlowMark,
   errorText,
@@ -85,6 +88,7 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
             placeholder="192.168.1.10/u3403"
           />
         </FormProvider>
+        <FactoryDefaultsNotice name="relayAddrs" />
         <AsyncButton
           type="button"
           size="sm"

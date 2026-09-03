@@ -4,11 +4,7 @@ import { FormProvider, useForm } from "react-hook-form";
 import { PageHeader } from "@/components/page/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ipc } from "@/lib/ipc";
-import {
-  AdvertiseCard,
-  BootstrapCard,
-  RelayAddrsCard,
-} from "./address-cards";
+import { AdvertiseCard } from "./advertise-card";
 import { AppearanceCard } from "./appearance-card";
 import {
   EMPTY_SETTINGS,
@@ -41,8 +37,6 @@ function SettingsCards() {
   return (
     <>
       <NetworkCard />
-      <BootstrapCard />
-      <RelayAddrsCard />
       <AdvertiseCard />
       <AppearanceCard />
       <IdentityCard />

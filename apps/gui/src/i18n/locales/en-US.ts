@@ -305,8 +305,6 @@ const enUS: typeof zhCN = {
     loadFailed: "Failed to load config, please retry",
     cards: {
       network: "Network",
-      bootstrap: "Bootstrap",
-      relay: "Relay service",
       advertise: "Advertise & observation",
       appearance: "Appearance",
       identity: "Identity",
@@ -326,14 +324,6 @@ const enUS: typeof zhCN = {
       bootstrapHint: "When empty, factory bootstrap endpoints apply: {{addrs}}",
       relayHint: "When empty, factory relay endpoints apply: {{addrs}}",
       observationHint: "When empty, factory observation endpoints apply: {{addrs}}",
-    },
-    bootstrap: {
-      hint: "rendezvous bootstrap addresses, syntax ip/uport (QUIC) or ip/tport (TCP)",
-      label: "Bootstrap address list",
-    },
-    relayCard: {
-      hint: "Relay service addresses for hole-punch signalling and relay fallback",
-      label: "Relay address list",
     },
     advertise: {
       hint: "Advertised addresses and observation reflection port",
