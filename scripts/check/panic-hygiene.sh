@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # panic 卫生门禁：crates/ 非测试代码禁止 .unwrap() / .expect( / panic!(
-# 范围：crates/ 全部 .rs；排除 tests|examples|benches 目录、tests.rs（测试模块文件约定）、
+# 范围：crates/ 全部 .rs；排除 tests|examples|benches 目录、tests.rs 与 *_tests.rs（测试模块文件约定）、
 #   #[cfg(test)] 模块体（按花括号配对近似界定，含同行与独立行 mod 声明两种形态）
 # 豁免：scripts/check/panic-hygiene-exempt.txt（crate 名 + 一行理由），PANIC_HYGIENE_EXEMPT 可覆盖；
 #   受保护 crate（PROTECTED，已清零范围）禁止出现在豁免清单，违者直接红
@@ -98,7 +98,7 @@ while IFS= read -r -d '' file; do
     printf '%s\n' "$hits" >&2
   fi
 done < <(find "$CRATES_DIR" -type f -name '*.rs' \
-  ! -path '*/tests/*' ! -path '*/examples/*' ! -path '*/benches/*' ! -name 'tests.rs' -print0)
+  ! -path '*/tests/*' ! -path '*/examples/*' ! -path '*/benches/*' ! -name 'tests.rs' ! -name '*_tests.rs' -print0)
 
 if [ "$status" -ne 0 ]; then
   echo "panic-hygiene: FAIL $bad_files 个文件在非测试路径存在 unwrap/expect/panic" >&2

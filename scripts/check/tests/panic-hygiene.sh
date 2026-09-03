@@ -52,6 +52,16 @@ mod tests {
     }
 }
 EOF
+  cat > "$1/crates/demo/src/cache_tests.rs" <<'EOF'
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn unit() {
+        let x: Option<u8> = None;
+        let _ = x.expect("fixture");
+    }
+}
+EOF
   printf 'pub fn it() {}\n' > "$1/crates/demo/tests/it.rs"
 }
 
@@ -63,6 +73,7 @@ plant() { # plant <dir>：植入违规样例（独立文件，整文件删除即
 echo "== 绿路径：干净夹具（测试代码含 unwrap 不计） =="
 G="$WORK/green"; make_fixture "$G"
 t "干净夹具通过" 0 "panic-hygiene: PASS" env CHECK_ROOT="$G" bash "$GATE"
+t "*_tests.rs 约定文件不计非测试路径" 0 "panic-hygiene: PASS" env CHECK_ROOT="$G" bash "$GATE"
 
 echo "== 红路径：植入违规须红 =="
 R="$WORK/red"; make_fixture "$R"; plant "$R"
