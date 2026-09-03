@@ -343,6 +343,7 @@ const zhCN = {
         "将停止节点并删除数据目录内的身份种子文件，节点下次将以全新 PeerId 启动，既有对端记录不再匹配。此操作不可撤销。",
       resetInputHint: "输入当前 PeerId 前 4 位以确认",
       resetConfirm: "确认重置",
+      resetting: "重置中…",
       resetDone: "身份已重置，节点已停止",
       resetFailed: "重置身份失败",
     },
