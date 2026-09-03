@@ -281,6 +281,10 @@ impl Discovery for RendezvousClient {
     }
 }
 
+mod on_demand;
+
+#[cfg(test)]
+mod query_peer_tests;
 #[cfg(test)]
 mod schedule_tests;
 #[cfg(test)]

@@ -117,10 +117,17 @@ impl RendezvousRegistry {
         let Some(cache) = map.get(&q.namespace) else {
             return empty;
         };
-        let peers = cache
-            .snapshot()
+        let found = match target {
+            // 单 peer 精确查询走键读取（社交化发现 P1：查号台 O(1)），
+            // 不做全表克隆；过期条目同样即时清除
+            Some(t) => cache
+                .get(&t)
+                .map(|addrs| vec![(t, addrs)])
+                .unwrap_or_default(),
+            None => cache.snapshot(),
+        };
+        let peers = found
             .into_iter()
-            .filter(|(peer, _)| target.is_none_or(|t| *peer == t))
             .map(|(peer, addrs)| PeerEntry {
                 peer_id: peer.as_bytes().to_vec(),
                 addrs: addrs.iter().map(AddrMsg::from_addr).collect(),

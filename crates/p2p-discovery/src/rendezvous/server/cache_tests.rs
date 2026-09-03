@@ -74,6 +74,27 @@ async fn snapshot_cache_never_serves_expired_entries() {
 }
 
 #[test]
+fn targeted_query_reads_key_without_full_snapshot() {
+    // P1 查号台语义：单 peer 查询按键读取，未注册对端返回空应答
+    let registry = RendezvousRegistry::new();
+    let reg = valid_reg("room-d", 60);
+    let peer_bytes = reg.peer_id.clone();
+    registry.register(&reg, unix_now()).expect("register ok");
+    let unknown = Query {
+        namespace: "room-d".to_string(),
+        peer_id: [9u8; 32].to_vec(),
+    };
+    let resp = Response::decode(registry.query_encoded(&unknown).as_slice()).expect("decode ok");
+    assert!(resp.peers.is_empty(), "未注册对端必须空应答");
+    let known = Query {
+        namespace: "room-d".to_string(),
+        peer_id: peer_bytes,
+    };
+    let resp = Response::decode(registry.query_encoded(&known).as_slice()).expect("decode ok");
+    assert_eq!(resp.peers.len(), 1, "键读取必须命中已注册对端");
+}
+
+#[test]
 fn single_peer_query_bypasses_snapshot_cache() {
     let registry = RendezvousRegistry::new();
     let reg = valid_reg("room-c", 60);
