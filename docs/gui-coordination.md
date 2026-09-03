@@ -66,7 +66,7 @@ tauri-plugin-updater 在未签名包上不可靠且需签名密钥体系；检�
 
 | 单 | 会话 | 分支 | 范围（文件所有权） | 验收（机械命令） | 状态 |
 |---|---|---|---|---|---|
-| G-U1 更新检查桥接 | GUI-U1（专属新会话） | feat/gui-update-check | `apps/gui/src-tauri/**` | src-tauri 内 `cargo clippy -- -D warnings` + `cargo test` 全绿；契约 §9 roundtrip 与注入式网络多路径用例在列 | 进行中 13:16 派单 |
+| G-U1 更新检查桥接 | GUI-U1（session-7e7898c6） | feat/gui-update-check | `apps/gui/src-tauri/**` | src-tauri 内 `cargo clippy -- -D warnings` + `cargo test` 全绿；契约 §9 roundtrip 与注入式网络多路径用例在列 | ✓ 已合并（e089600+3 merge，协调者复验：ff 至 c9f356d，make check 全绿，worktree/分支双删） |
 | G-U2 更新提醒前端 | GUI-U2（专属新会话） | feat/gui-update-remind | `apps/gui/**` 除 src-tauri | `pnpm -C apps/gui lint + test + build` + i18n-diff 全过；mock 模式可演示有更新/无更新/检查失败三态 | 进行中 13:16 派单 |
 
 合并顺序（协调者执行）：W6-S3 主题矩阵（在途）→ G-U1 → G-U2；i18n locale 冲突在 feature 侧消化；
@@ -82,3 +82,4 @@ G-U2 遵守 locale 先行独立小提交规则；两单收尾回报前必须 mer
 - 2026-09-02 23:44 回填 W1 会话 ID；会话经 session_link 新建（专属会话，不复用历史会话）。
 - 2026-09-03 11:59 主会话受用户指令直派 G-H 观测单（feat/gui-agent-observability，worktree gui-obs）：感知通道（frontend_log 三命令契约 v3 + error-report 落盘管线 + 诊断页）与 Agent 操作入口（window.__P2P_AGENT__ + scripts/gui-agent.mjs 零依赖 CDP）。首跑实证并修复存量缺陷：selectPeerList 快照不稳定致 CommandPalette 无限重渲染崩 ErrorBoundary（用户所见页面报错根因）、Button Slot ref 告警噪音。分支含 fix/gui-error-boundary(706670c) 已合基线，契约 §8 加法修订随 rust 提交。
 - 2026-09-03 13:16 用户指令：客户端发布到 GitHub Releases，增加在线更新（有新版本提醒）。协调者冻结契约 v4（§1 update_check/update_open_release_page + §9 数据源/过滤/比较/失败语义），经 session_link 新建专属会话 GUI-U1/GUI-U2 并行派单 W7 双单；v1 仅检查+提醒+引导下载，应用内自动安装待 macOS 签名后另立 v2 议题。
+- 2026-09-03 13:46 G-U1 验收合并（c9f356d）：回报 22 分钟后机械复验——范围仅 src-tauri 七文件全 ≤300 行、main 祖先关系核实、ff-only 合并、make check 五门禁全绿（vitest 67/67）、收尾四步清理毕。reqwest 0.13/chrono/tauri-plugin-opener 随行为提交引入；update 模块 15 用例含 0.10.0>0.9.0 双钉与 open 白名单 7 用例。G-U2 前端单进行中（locale 先行提交制作中）。
