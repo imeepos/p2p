@@ -198,6 +198,7 @@ const enUS: typeof zhCN = {
       title: "Rendezvous address book",
       hint: "Bootstrap addresses: the node registers with and queries the rendezvous",
       empty: "Address book is empty, add a bootstrap address",
+      factoryHint: "When empty, factory bootstrap endpoints apply: {{addrs}}",
       add: "Add address",
       addTitle: "Add bootstrap address",
       addDesc: "Syntax: ip/uport (QUIC) or ip/tport (TCP)",

@@ -192,6 +192,7 @@ const zhCN = {
       title: "rendezvous 地址簿",
       hint: "引导地址簿：节点据此向 rendezvous 注册并查询邻居",
       empty: "地址簿为空，请添加引导地址",
+      factoryHint: "列表为空时使用出厂默认引导端点：{{addrs}}",
       add: "添加地址",
       addTitle: "添加引导地址",
       addDesc: "语法：ip/u端口（QUIC）或 ip/t端口（TCP）",
