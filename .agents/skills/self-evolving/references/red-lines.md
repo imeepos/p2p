@@ -16,3 +16,13 @@
   吞掉继续提交，revert 纪律的前提是提交前验证（2026-09-02 两次实例后固化）。
 - 2026-09-02 G-A3：skill 经验沉淀（.agents/skills/ 下文件）的提交必须放在**自己的 feature 分支**随任务合并，禁止直接提交到主树/main——两次（e8cb4cb/48d170b）直接落 main 挡了协调者的 ff 线性合并，被迫手工对齐。任何"写完立刻 commit"都要先核对当前分支与提交落点是否侵犯共享主线。
 - 禁止协调者合并命令链用分号续接 branch -d / push --delete：ff 失败后链条继续会把未合并分支连删两次（2026-09-03 p2p GUI 一晚两次，靠回报中的 tip 哈希才救回）。合并尝试必须用 && 短路，或把验收/合并/清理拆成独立调用；删分支前先数 main..<branch> 确认为 0。
+- 禁止只跑 cargo 门禁就宣称 GUI 任务完成：GUI 变更必须 gui-check（lint+build+vitest 含启动冒烟）绿了才算验收，make check 已含 gui-check（2026-09-03 白屏事故固化）。
+- 禁止 zustand selector 把每次新建的数组/对象（Object.values/sort/map/filter 的直接产物）当 useSyncExternalStore 快照返回：引用漂移让 React 无限重渲直至整树崩溃。派生列表按源引用 memo 化，或消费侧 useShallow 包裹（2026-09-03 selectPeerList 白屏根因）。
+- 验证命令禁止让管道末端吃掉真实退出码：`cmd | tail` 的 $? 是 tail 的；必须 set -o pipefail 或无管道直接看退出码（2026-09-03 复盘时管道掩蔽测试失败差点假绿）。
+- 禁止把「前端错误只进 console」当作可观测：Agent/外部进程读不到 console，用户看到的报错
+  就是系统盲区（2026-09-03 用户点名系统缺陷）。前端错误必须落盘（Tauri 文件/localStorage）
+  或经桥接命令可读，全局 error/unhandledrejection/console.error/ErrorBoundary 四入口都要接。
+- run_code 模板字符串里写含反引号的 markdown（README 代码块、`inline code`）必炸
+  "Expected ',', got 'ident'"：内容改单引号字符串数组 join("
+") 再拼（2026-09-03 README 实录）。
+

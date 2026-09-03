@@ -54,4 +54,18 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   enUS: typeof zhCN 已兜底，该脚本给出独立于 tsc 的机械证据（166=166）。
 - worktree 里跑前端先 pnpm install（worktree 不共享 node_modules）；
   macOS 无 timeout 命令，dev server 冒烟用 run_code 后台 job + sleep +
-  curl 探活 + job_kill 组合。
+  curl 探活 + job_kill 组合。- GUI 启动冒烟（jsdom 挂整应用）：vi.stubEnv("VITE_MOCK_IPC","1") 后 await import("../main")，waitFor host.querySelector("main")，断言 innerHTML 非空且无 ErrorBoundary 兜底文案；手工 appendChild 的 host 在 afterEach 清空防跨测试泄漏。整跑：bash scripts/check/gui.sh。
+- 崩溃定位：ErrorBoundary 的 componentDidCatch 会 console.error 带异常消息，vitest 输出里搜「渲染异常」直接得根因；Maximum update depth 且栈里有 forceStoreRerender/updateStoreInstance = store 快照引用漂移。
+## 零依赖 CDP 页面操作入口（2026-09-03，G-H gui-agent）
+
+- Agent 要"操作/观测网页"不必上 Playwright：node ≥22 原生 WebSocket 直连 CDP。流程：
+  spawn Chrome `--headless=new --remote-debugging-port=P --user-data-dir=<mkdtemp>`，
+  轮询 /json/version 就绪，`PUT /json/new?url=` 建 target（新版必须 PUT），
+  连 ws 后先 Runtime/Page/Log enable、挂 Page.loadEventFired 监听、再 Page.navigate
+  （顺序反了会错失 load 事件）；收尾 kill 后 rmSync 临时目录可能 ENOTEMPTY，
+  延迟 + maxRetries + 降级告警，别让清理失败污染命令退出码。
+- 页面错误三通道合并比 DevTools 手翻快：Runtime.consoleAPICalled +
+  Runtime.exceptionThrown + 应用内错误缓冲（window.__P2P_AGENT__.recentErrors()）。
+  G-H 首跑即定位 selectPeerList 无限重渲染 + Button ref 告警，复验 console/exceptions
+  双清零即修复证明（截图/JSON 留档 .gui-agent/）。
+
