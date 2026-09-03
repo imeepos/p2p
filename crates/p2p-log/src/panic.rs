@@ -70,7 +70,10 @@ mod tests {
     #[test]
     fn describe_handles_non_text_payload() {
         let text = describe_ofpanic(|| std::panic::panic_any(42i32));
-        assert!(text.contains("Box<dyn Any>"), "非文本载荷要有可读占位: {text}");
+        assert!(
+            text.contains("Box<dyn Any>"),
+            "非文本载荷要有可读占位: {text}"
+        );
     }
 
     #[test]

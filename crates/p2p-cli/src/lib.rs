@@ -121,8 +121,12 @@ mod tests {
 
     #[test]
     fn run_error_display_prefixes_category() {
-        assert!(RunError::Config("x".into()).to_string().starts_with("配置错误"));
-        assert!(RunError::Runtime("y".into()).to_string().starts_with("运行失败"));
+        assert!(RunError::Config("x".into())
+            .to_string()
+            .starts_with("配置错误"));
+        assert!(RunError::Runtime("y".into())
+            .to_string()
+            .starts_with("运行失败"));
     }
 
     #[test]

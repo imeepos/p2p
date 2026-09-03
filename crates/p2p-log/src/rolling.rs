@@ -82,7 +82,10 @@ impl State {
             }
         }
         std::fs::rename(&self.base, self.suffixed(1))?;
-        let file = OpenOptions::new().create(true).append(true).open(&self.base)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.base)?;
         self.written = 0;
         self.file = Some(file);
         Ok(())
@@ -143,8 +146,12 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let nanos = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
-        let dir = std::env::temp_dir().join(format!("p2p-log-{tag}-{}-{nanos}", std::process::id()));
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("p2p-log-{tag}-{}-{nanos}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -183,7 +190,10 @@ mod tests {
         assert!(base.exists());
         assert!(base.with_file_name("app.log.1").exists());
         assert!(base.with_file_name("app.log.2").exists());
-        assert!(!base.with_file_name("app.log.3").exists(), "归档份数必须封顶");
+        assert!(
+            !base.with_file_name("app.log.3").exists(),
+            "归档份数必须封顶"
+        );
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

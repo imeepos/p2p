@@ -35,8 +35,8 @@ pub fn config_for(command: &Command) -> LogConfig {
 
 /// 常驻子命令的落盘配置：平台标准日志目录 / <子命令>.log；目录无法定位退临时目录。
 fn file_config(name: &str) -> LogConfig {
-    let dir = p2p_log::default_log_dir("p2p-cli")
-        .unwrap_or_else(|| std::env::temp_dir().join("p2p-cli"));
+    let dir =
+        p2p_log::default_log_dir("p2p-cli").unwrap_or_else(|| std::env::temp_dir().join("p2p-cli"));
     LogConfig {
         format: LogFormat::Text,
         file: Some(FileOptions::with_default_caps(dir, format!("{name}.log"))),
@@ -57,11 +57,19 @@ mod tests {
     fn resident_commands_select_file_logging() {
         let node = config_of(&["p2p-cli", "node", "--data", "d"]);
         let file = node.file.expect("node 必须选择文件落盘");
-        assert!(file.name.starts_with("node.log"), "文件名带子命令: {:?}", file.name);
+        assert!(
+            file.name.starts_with("node.log"),
+            "文件名带子命令: {:?}",
+            file.name
+        );
 
         let bootstrap = config_of(&["p2p-cli", "bootstrap", "--data", "d"]);
         let file = bootstrap.file.expect("bootstrap 必须选择文件落盘");
-        assert!(file.name.starts_with("bootstrap.log"), "文件名带子命令: {:?}", file.name);
+        assert!(
+            file.name.starts_with("bootstrap.log"),
+            "文件名带子命令: {:?}",
+            file.name
+        );
     }
 
     #[test]
@@ -83,6 +91,9 @@ mod tests {
         let node = config_of(&["p2p-cli", "node", "--data", "d"]);
         let file = node.file.unwrap();
         assert!(!file.dir.as_os_str().is_empty(), "目录必须有值");
-        assert_eq!(file.dir.file_name().map(|s| s.to_string_lossy()), Some("p2p-cli".into()));
+        assert_eq!(
+            file.dir.file_name().map(|s| s.to_string_lossy()),
+            Some("p2p-cli".into())
+        );
     }
 }

@@ -110,13 +110,15 @@ fn init_once(config: LogConfig) -> InitReport {
     let filter = build_filter(std::env::var("RUST_LOG").ok().as_deref());
     let attempt = match &config.file {
         None => FileAttempt::Off,
-        Some(opts) => match RollingFile::new(opts.dir.join(&opts.name), opts.max_bytes, opts.max_files) {
-            Ok(rolling) => FileAttempt::Ready(rolling, opts.dir.join(&opts.name)),
-            Err(e) => FileAttempt::Failed(format!(
-                "日志落盘初始化失败（dir={}），回退 stderr 输出: {e}",
-                opts.dir.display()
-            )),
-        },
+        Some(opts) => {
+            match RollingFile::new(opts.dir.join(&opts.name), opts.max_bytes, opts.max_files) {
+                Ok(rolling) => FileAttempt::Ready(rolling, opts.dir.join(&opts.name)),
+                Err(e) => FileAttempt::Failed(format!(
+                    "日志落盘初始化失败（dir={}），回退 stderr 输出: {e}",
+                    opts.dir.display()
+                )),
+            }
+        }
     };
     let mounted = match attempt {
         FileAttempt::Ready(rolling, path) => {

@@ -73,10 +73,7 @@ mod tests {
     #[test]
     fn xdg_falls_back_to_home_local_state() {
         let env = env_of(&[("HOME", "/h")]);
-        assert_eq!(
-            xdg_state_dir(&env),
-            Some(PathBuf::from("/h/.local/state"))
-        );
+        assert_eq!(xdg_state_dir(&env), Some(PathBuf::from("/h/.local/state")));
         let empty = env_of(&[("XDG_STATE_HOME", ""), ("HOME", "/h")]);
         assert_eq!(
             xdg_state_dir(&empty),
