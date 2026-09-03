@@ -71,6 +71,7 @@ pub async fn run(args: BootstrapArgs) -> Result<(), String> {
         .quic_port(quic_addr.port())
         .tcp_port(tcp_addr.port())
         .observation_responder(args.observation_port)
+        .rendezvous_public_only(!args.allow_private)
         .build()
         .await
         .map_err(|e| format!("rendezvous/监听装配失败: {e}"))?;

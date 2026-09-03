@@ -40,6 +40,9 @@ pub struct BootstrapArgs {
     /// 观测反射口（UDP，供节点学习 NAT 映射地址；默认 3402/udp）。
     #[arg(long, default_value_t = 3402)]
     pub observation_port: u16,
+    /// 允许全 loopback/link-local 地址注册（同机/内网试验用）；公共部署勿开（E5）。
+    #[arg(long, default_value_t = false)]
+    pub allow_private: bool,
 }
 
 #[derive(Debug, clap::Args, Clone)]

@@ -168,6 +168,13 @@ PeerId = base58( SHA-256( ed25519 公钥原始 32 字节 ) )
 - 服务端资源与取值约束：namespace 非空且 <=64 字节、TTL 截断到 3600s、每 namespace peer
   数上限 512、每连接注册限速 10 次/分（令牌桶）；任一地址解析失败（含端口 >65535）即
   整单拒绝，不静默丢弃（M1/L2）。
+- 地址卫生策略（E5，2026-09-03）：loopback/link-local 地址跨网不可拨。服务端公共策略
+  （registry public_only，CLI bootstrap 默认开启、`--allow-private` 退出）对全不可路由
+  地址的注册整单拒绝——签名记录不可改写，不做部分剥离；空地址注册为存量兼容语义保留。
+  默认宽松策略保留同机部署/单测的全 loopback 可发现性。客户端查询侧独立过滤：剥离
+  不可路由单条地址，全不可路由的对端整体跳过，不入地址缓存；过滤以信任域为界——
+  rendezvous 本体在同机（bootstrap 全 loopback）时关闭，保住同机可发现性。私网地址
+  两端均保留（同 NAT 直连合法用途）。
 - 地址编码 AddrMsg：quic(1, bool)、ip(2, string)、port(3, uint32)。
 
 ### 7.3 chunked transfer（大 payload 分帧）

@@ -38,6 +38,8 @@ pub struct NodeConfig {
     pub observation_port: Option<u16>,
     /// 观测口地址（ip:port），启动时学习自身公网映射地址；空则跳过观测。
     pub observation_addrs: Vec<String>,
+    /// rendezvous 服务端公共策略：拒收全不可路由注册；公共 bootstrap 部署开启。
+    pub rendezvous_public_only: bool,
 }
 
 impl Default for NodeConfig {
@@ -53,6 +55,7 @@ impl Default for NodeConfig {
             advertised_addrs: Vec::new(),
             observation_port: None,
             observation_addrs: Vec::new(),
+            rendezvous_public_only: false,
         }
     }
 }
@@ -121,6 +124,13 @@ impl NodeBuilder {
     /// 观测口地址（ip:port），启动时学习自身公网映射地址并注册进 rendezvous。
     pub fn observation_addrs(mut self, addrs: Vec<String>) -> Self {
         self.0.observation_addrs = addrs;
+        self
+    }
+
+    /// rendezvous 服务端公共策略（E5）：公共 bootstrap 部署开启，拒收全
+    /// loopback/link-local 注册；同机/单测部署保持默认宽松。
+    pub fn rendezvous_public_only(mut self, public_only: bool) -> Self {
+        self.0.rendezvous_public_only = public_only;
         self
     }
 

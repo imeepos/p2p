@@ -188,9 +188,11 @@ pub(crate) struct RendezvousServer {
 }
 
 impl RendezvousServer {
-    pub(crate) fn new() -> Self {
+    /// 公共部署策略：拒收全 loopback/link-local 注册（E5 地址卫生，2026-09-03
+    /// 邻居表 127.0.0.1 泄漏复盘）。CLI bootstrap 默认开启，--allow-private 退出。
+    pub(crate) fn with_public_only(public_only: bool) -> Self {
         Self {
-            registry: Arc::new(RendezvousRegistry::new()),
+            registry: Arc::new(RendezvousRegistry::with_public_only(public_only)),
         }
     }
 }

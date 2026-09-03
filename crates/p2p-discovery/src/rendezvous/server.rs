@@ -28,14 +28,24 @@ pub const RATE_LIMIT_QUERIES_PER_MINUTE: u32 = 120;
 pub const MAX_ADDRS_PER_REGISTER: usize = 32;
 
 /// rendezvous 注册表：namespace → 带 TTL 的地址缓存。
+/// public_only：公共部署策略，拒收全 loopback/link-local 注册（E5 地址卫生）。
+/// 签名记录不可改写，故只做整单拒收，不剥离部分地址；默认宽松（同机/单测场景）。
 #[derive(Default)]
 pub struct RendezvousRegistry {
     namespaces: Mutex<HashMap<String, MemCache>>,
+    public_only: bool,
 }
 
 impl RendezvousRegistry {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_public_only(public_only: bool) -> Self {
+        Self {
+            public_only,
+            ..Default::default()
+        }
     }
 
     /// 处理注册：namespace/签名新鲜度/资源上限校验通过后入库；失败返回 Err 并留日志。
@@ -67,6 +77,13 @@ impl RendezvousRegistry {
         // verify_register 已保证全部地址可解析且非空，此处直接收集
         let addrs: Vec<TransportAddr> = reg.addrs.iter().filter_map(AddrMsg::to_addr).collect();
         let ttl = Duration::from_secs(u64::from(reg.ttl_secs).min(MAX_TTL_SECS));
+        if self.public_only && !addrs.is_empty() && !addrs.iter().any(TransportAddr::is_routable) {
+            tracing::warn!(
+                target: "p2p_discovery",
+                "rendezvous register rejected: no routable addr, peer {peer:?}"
+            );
+            return Err("no routable addr".to_string());
+        }
         let mut map = self.namespaces.lock().unwrap_or_else(|p| p.into_inner());
         let cache = map.entry(reg.namespace.clone()).or_default();
         // 每 namespace peer 数上限：仅新增且已满才拒，覆盖已有 peer 不受限
