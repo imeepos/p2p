@@ -285,3 +285,8 @@ failed: early eof（客户端侧超时中止）。
 - 勘误对象：当日「QUIC 拨号端点只绑 0.0.0.0」分析中的「跨节点串址」论断。复核日志：DZvczj 与 EhUaawMPK 重叠的 3 个地址是 IP 相同、端口不同（/u58245 vs /u64802）——TransportAddr 含端口，二者并非同一地址；系同一物理机跑两个实例（lab 同机多节点部署形态），共享全部接口地址合法，且 macOS 多接口 + 隐私临时 v6 地址本就多达十余个。
 - 教训：判定「串址」必须比对含端口的完整 TransportAddr；共享 IP+异端口优先怀疑同机多实例，再怀疑污染。本轮 false alarm 源于只比对 IP 就下结论。
 - 复盘挖出的真缺陷：mdns decode_txt 只取地址集第一个 IP（iter().next()），多接口主机的其余合法候选全被丢弃；地址簿只增不汰，macOS 临时 v6 轮换留下死地址助长拨号风暴。修法见 fix/mdns-all-addresses：解码全量展开，去重/链路本地过滤统一由地址簿入簿卫生把关。
+
+## 2026-09-04 P1 原语轮
+- 集成测试用 NodeBuilder 默认 data_dir（./p2p-data）会把 key.seed 落进 crate 目录并被 git add 卷进提交——tests 一律 .data_dir(temp_dir)，.gitignore 兜底 p2p-data/；已误入的用 git rm --cached + amend 剔除（提交未扩散前强推自愈）。
+- cargo fmt 必须是提交前最后一步：fmt 之后又改代码（哪怕一行）再提交，make check 的 fmt-check 必红；本轮 static_peers itest 两次实锤。收尾命令顺序固化为 fmt → test → fmt --check → commit。
+- 广播事件在订阅前发送即丢：验证「启动时载入产生的登记/事件」不能靠 subscribe 后 try_recv，要么提前订阅要么走状态查询口（peer_registered/peer_addrs）——地址簿恢复类断言一律用状态口。
