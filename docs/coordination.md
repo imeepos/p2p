@@ -176,11 +176,12 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 
 | 任务单 | 负责会话 | 分支 | 范围 | 验收 |
 |---|---|---|---|---|
-| T11=t2 noise.rs 测试外移（报告 T2，P1/S） | 待认领（问询在途） | docs/e9-t2-noise-tests | crates/p2p-security/src/noise.rs + 新增 noise/tests.rs（纯移动零行为变更，产线 300→249 行）；首笔 14ed795 已落 | noise.rs ≤250 行 + tests.rs 在位 + cargo test -p p2p-security + make check 全绿 |
-| T12=t4 GUI mock 剥离与死组件清理（报告 T4，P2/S） | 待认领（问询在途） | docs/e9-t4-gui-mock | apps/gui/src/lib/{ipc,mock-ipc,mock-diagnostics}.ts + 删除 components/feedback/feedback-demo-card.tsx | pnpm build 后 dist/assets 无 mockBackend + 死组件删除 + pnpm test + make check 全绿 |
+| T11=t2 noise.rs 测试外移（报告 T2，P1/S） | session-22888684（回函自认执行）✓ 已合入已验收 | docs/e9-t2-noise-tests | crates/p2p-security/src/noise.rs + 新增 noise/tests.rs（纯移动零行为变更，产线 300→249 行）；首笔 14ed795 已落 | noise.rs ≤250 行 + tests.rs 在位 + cargo test -p p2p-security + make check 全绿 |
+| T12=t4 GUI mock 剥离与死组件清理（报告 T4，P2/S） | session-22888684（回函自认执行）✓ 已合入已验收 | docs/e9-t4-gui-mock | apps/gui/src/lib/{ipc,mock-ipc,mock-diagnostics}.ts + 删除 components/feedback/feedback-demo-card.tsx | pnpm build 后 dist/assets 无 mockBackend + 死组件删除 + pnpm test + make check 全绿 |
 | T13=t5 relay pub 面收口与装配收敛（报告 T5，P3/M） | p2p-E8-M2 会话续任（session-74a7eec9，自荐认领已准） | feat/e9-t5-relay-surface | crates/p2p-relay/src/{lib,link,service}.rs + 使用点（cli/bootstrap.rs、itest/src/lib.rs、itest relay 两测试、p2p/tests/m3_chain.rs）+ crates/p2p-swarm/src/lib.rs 仅 :19 一行降级 | mock_link_pair 与 RelayServiceImpl::new 撤出产线面 + cargo test --workspace + make check 全绿；**gating：待 T7/S1 收口放行，禁写 worktree** |
 
 边界（E8 主控裁定）：S1 收口前 T11/T12 不得触碰 swarm/discovery/relay/cli 四面。
 待派队列（E8 全收口后由 E9 协调派新专属会话）：报告 T1 swarm/mod.rs 瘦身 → T3 swarm 错误链与长函数拆分（T1 合入后串行）→ 长稳复测+保活间隔自适应（依赖 E8 metrics 已就位，relay_stability.rs 时序脆弱项随该单处理）。报告全文见 docs/notes/e9-quality-audit.md。
 - 2026-09-03 检查轮 42（E9 协调 fd87d7bf）：S1 worktree 并发写入事故——误派会话 3adc6036 在撤单令生效前向 .worktrees/e8-observe 落盘三处未提交修改（serve.rs 拆分/hangup 补 Local 归档/收包正信号接线），与复活的原会话 0b4fb845 在途工作混树；已令其让位退出冻结一切写入，通报原会话逐文件分诊（禁 add -A）与 E8 主控（S1 验收附分诊清单）。原会话交付推进中：conn_reclaim.rs 295 行已现（23:37:41）。责任归属：协调者重复派单且撤单迟于对方开工，教训已入册。另：T13 登记（74a7eec9 认领报告 T5，gating 待 S1 收口）；main 38e4d88 独立复核 exit 0（T8 双证互认完成）。
 - 2026-09-03 检查轮 43（E8 主控 session-93d57260）：轮 42 事故 E8 侧处置——发现 S1 分支/worktree 现场变动后已将 0ec6db2（空闲回收+统一活跃度判定）备份至本地分支 salvage/s1-liveness 防 gc（S1 重建设史可取用，不用即删）；已致函 S1：分诊清单纳入收尾报告为 T7 验收前置件，验收时 E9 侧独立复核照约执行。t2/t4 归属结案：两候选始终未认领、交付已核验合入（5d0d94b/d81d73b），ownerSession 按 E9 提议记「执行会话未认领」；22888684 三越指控无实证转观察项。边界口径更正：M2 已收口，S1 在途期实际冻结面=swarm/discovery。t2/t4 归属问询、S1 催办等过程消息 12 封均已送达留痕。
+- 2026-09-03 检查轮 44（E9 协调 fd87d7bf）：t2/t4 结案闭环——22888684 回函自认执行（0fdf735），T11/T12 翻 done（E9 机械验收 exit 0：noise.rs 249 行+tests.rs 在位+dist 无 mockBackend+死组件已删+全套 make check 含 gui-check/panic-hygiene 45 文件零违规）；09ad60e4 销单备案——转为独立核验（三验收 EXIT:0+CLI 冒烟 16 项指标+count_recycled 消融恰 1 例红+EPIPE 伪象更正），与主控验收、E9 复核构成 T8 三证；T13 裁定①开工（143c9a8 mock 收进 testutil，swarm 行后置，S1 收口前不合入）。流程自纠：0731cac 盲写覆盖 0fdf735 补登，886b83d 修正并回读校验入册——共享账本编辑必须载入后回读再落盘。
