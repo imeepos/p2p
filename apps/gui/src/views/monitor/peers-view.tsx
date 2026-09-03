@@ -31,6 +31,8 @@ export function PeersView() {
   const locale = i18n.language as Locale;
   const peers = useNodeStore(selectPeerList);
   const ping = useNodeStore((s) => s.ping);
+  const connect = useNodeStore((s) => s.connect);
+  const disconnect = useNodeStore((s) => s.disconnect);
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -50,6 +52,9 @@ export function PeersView() {
   const detailPeer = peers.find((peer) => peer.peerId === detailId) ?? null;
   const onPing = (peer: { peerId: string }) => () =>
     ping(peer.peerId, PING_TIMEOUT_MS);
+  const onConnect = (peer: { peerId: string }) => () => connect(peer.peerId);
+  const onDisconnect = (peer: { peerId: string }) => () =>
+    disconnect(peer.peerId);
 
   return (
     <>
@@ -69,6 +74,8 @@ export function PeersView() {
         locale={locale}
         now={now}
         onPing={onPing}
+        onConnect={onConnect}
+        onDisconnect={onDisconnect}
         onShowDetail={setDetailId}
         onOpenDial={() => setDialOpen(true)}
       />

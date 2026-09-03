@@ -24,3 +24,11 @@ tauri = { version = "2", features = ["test"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# 在线更新检查（契约 v4 §9，G-U1）：TLS 走 rustls（图内已有，不引 openssl）
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+# release published_at 的 RFC3339 解析
+chrono = { version = "0.4", default-features = false, features = ["alloc"] }
+# 系统浏览器打开发布页（命令内 Rust 侧调用，不经前端 ACL）
+tauri-plugin-opener = "2"
+# 发布页白名单校验（url 已是 tauri 传递依赖，零新增编译成本）
+url = "2"

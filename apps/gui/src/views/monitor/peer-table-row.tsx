@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
 import type { Locale } from "@/i18n";
 import type { I18nKey } from "@/i18n/types";
-import type { PingOutcome } from "@/lib/ipc-types";
+import type { DialReport, PingOutcome } from "@/lib/ipc-types";
 import { cn } from "@/lib/utils";
 import type { PeerEntry } from "@/stores/node-store";
 import { formatRelative } from "./event-clock";
@@ -47,6 +47,8 @@ interface PeerTableRowProps {
   locale: Locale;
   now: number;
   onPing: (peer: PeerEntry) => () => Promise<PingOutcome>;
+  onConnect: (peer: PeerEntry) => () => Promise<DialReport>;
+  onDisconnect: (peer: PeerEntry) => () => Promise<boolean>;
   onShowDetail: (peerId: string) => void;
 }
 
@@ -55,6 +57,8 @@ export function PeerTableRow({
   locale,
   now,
   onPing,
+  onConnect,
+  onDisconnect,
   onShowDetail,
 }: PeerTableRowProps) {
   const { t } = useTranslation();
@@ -101,6 +105,8 @@ export function PeerTableRow({
         <PeerRowActions
           peer={peer}
           onPing={onPing}
+          onConnect={onConnect}
+          onDisconnect={onDisconnect}
           onShowDetail={onShowDetail}
         />
       </TableCell>

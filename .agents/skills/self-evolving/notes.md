@@ -1,5 +1,14 @@
 # Self-Evolving Notes
 
+## 2026-09-03 GUI 节点行内拨号/挂断（feat/peer-dial-hangup）
+
+- 哪个坑浪费了最多时间？
+  提交拆分返工：预暂存文件混进第一个 commit（git add <paths> 前没查 status 暂存列），后续 commit 因 nothing to commit 静默跳过，log 复核才发现两个 commit 装错内容，reset 重拆一遍。另有 edit 按路径记账的旧坑再踩（worktree 副本未先 read）。
+- skill 有没有提前警告我？
+  部分：line-limit 教训让我直接把 disconnect 放进独立 hangup.rs，一次过；mock 语义对齐与 commit 拆分复核是新坑（已喂回 lessons.md）。
+- 重来一次会怎么做？
+  每个 commit 后立即 git log --oneline 复核数量与归属；开工时对 worktree 内所有待编辑文件先批量 read 再动手。
+
 ## 2026-09-02 V 文档整理（docs/organize）
 
 - 哪个坑浪费了最多时间？
@@ -53,3 +62,11 @@
 - skill 有没有预警：部分命中（edit 按路径记账、worktree 先 pnpm install、session_link_list 无参绑定失败绕行都有条目）；没预警的新坑：run_code 模板字符串吃 markdown 反引号（已喂回 red-lines）。
 - 重来一次怎么做：开工先 session_link_list 摸并行会话归属，binding 失败就用 git 证据 + talk 兜底对齐；本次最有价值交付是把「感知→定位→修复→复验归零」做成闭环——gui-agent 上线首跑即实证 selectPeerList 无限重渲染与 Button ref 噪音两个存量缺陷，修复后 errors 三通道全空即机械证明。
 
+
+## 2026-09-03 G-U1 在线更新检查桥接（feat/gui-update-check）
+- 哪个坑浪费了最多时间？
+  reqwest 0.13 feature 改名（rustls-tls 已不存在）浪费一轮完整编译；另 red-lines 已有的"管道吞 exit code"仍重踩（clippy 失败被 | tail 报成 exit 0），靠读输出文本兜住，下次门禁命令一律收 PIPESTATUS。
+- skill 有没有提前警告我？
+  命中：worktree 建分支、契约逐字对齐、依赖前查 Cargo.lock 复用图内包（url/chrono 零新增成本）、main 高速推进先 fetch 再定基线。没预警：reqwest feature 改名（已喂回 lessons.md）。
+- 重来一次会怎么做？
+  开工先跑一遍目标依赖的 cargo add --dry-run 或查 docs.rs features 表；合并-门禁做成可重复循环，用 is-ancestor 机械收敛。

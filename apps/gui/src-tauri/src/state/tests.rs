@@ -115,3 +115,25 @@ async fn config_save_does_not_touch_running_node() {
     state.stop().await;
     let _ = fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn empty_addr_lists_fall_back_to_factory_defaults() {
+    assert_eq!(
+        with_factory_fallback(&[], default_bootstrap),
+        default_bootstrap()
+    );
+    assert_eq!(
+        with_factory_fallback(&[], default_relay_addrs),
+        default_relay_addrs()
+    );
+    assert_eq!(
+        with_factory_fallback(&[], default_observation_addrs),
+        default_observation_addrs()
+    );
+}
+
+#[test]
+fn non_empty_addr_lists_stay_verbatim() {
+    let list = vec!["10.0.0.1/u3400".to_string()];
+    assert_eq!(with_factory_fallback(&list, default_relay_addrs), list);
+}

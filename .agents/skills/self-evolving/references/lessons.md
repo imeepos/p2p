@@ -28,6 +28,10 @@ _none yet — be the first._
 - 2026-09-02：协调派单的"只改自己 crate"与"make check 全绿"冲突时（他人测试消费我的 API），机械适配对方的测试装置属验收必需，零生产代码改动、逐文件显式 add、报告中声明即可；切勿为了守边界让门禁保持红。
 - 2026-09-02：集成冒烟在共享网络环境跑时发现面是全局的——局域网里其他会话/机器的同类节点会经 mDNS 涌进地址簿（含不可达 fe80/240e 地址），把确定性测试打崩；给 CLI 留「收窄发现面」的开关（如 --no-mdns 只走 rendezvous）是正当功能而非 hack，冒烟走确定性路径。
 - 2026-09-02：间歇性测试失败先抓「环境差分」再查代码：对比通过/失败两轮的输出差异（对端数量、地址列表长度、端口占用者），本轮失败轮发现 peer 数 4 vs 通过轮 2，直接指向 LAN 噪声而非自身 bug。
+- 2026-09-03：拆分多个 commit 前，工作树可能已有预暂存文件（status 首列 M）——git add <paths> && git commit 会把全部暂存内容打进第一个 commit；每个 commit 后立刻 git log --oneline 复核对数，"nothing to commit"（exit≠0）会让 && 链静默跳过且空输出切片看不出异常。
+- 2026-09-03：mock 后端的语义要与真实状态机对齐，不是"返回合理数据"就行——mock peerDisconnect 最初按 knownPeers.includes 返回 true，幂等挂断测试立刻打脸；给 mock 显式建 connectedPeers 状态集，断开/重连/挂断全走它。
+- 2026-09-03：往 290+ 行的文件加功能前先主动开新模块（swarm/hangup.rs 先例），别等 line-limit 红了再拆；make fmt 会改动行数统计，line-limit 评审以 fmt 之后的行数为准。
+- 2026-09-03：edit 的 read 记账是按绝对路径的（2026-09-01 旧教训的补充）：bash cat 读过、或读过主树同名文件，都不算数；worktree 下编辑前必须对同一路径先 read。
 - 2026-09-02：多树并行时验证结论锚定"产物 mtime/版本"，不锚定命令输出——cargo build 换了目录照样 Finished，跑的却是另一棵树的旧二进制；冒烟前 ls -la 产物核对时间戳，一行省一轮返工（R-E4 smoke3 假阴性实录）。
 - 2026-09-02：写"释放/回收"类服务端记账修复时，单押一个触发信号（流级 EOF）在真实环境必然漏（读半被任务钉住、半开连接、EOF 传播链断裂）；成对设计——精确信号（流关闭）+ 粗粒度兜底（链路归零），且粗粒度触发器要在 mock itest 里可复现，否则回归只验了理想路径。
 - 2026-09-02：rustfmt 会把"紧凑压行"的测试数组展开回标准样式（285→326 行），压行数不能对抗 fmt——结构性迁移到 tests/*.rs 集成测试（lib.rs pub mod 已导出即可用）才是正解。
@@ -68,3 +72,16 @@ _none yet — be the first._
 - 2026-09-03：跨层灾难要同时修发现路径和故障点：故障在渲染层，失误在门禁层（GUI 零门禁），防复发的机制修复落在 Makefile 门禁，不是改完渲染代码就完事。
 - 2026-09-03 G-H：注册拆分规则以「可回滚可审阅」为本意，硬约束优先于形式——i18n 键与视图拆开必红 tsc 时，标准做法是先提 locale 键（含未消费键）独立小提交再提视图（协调者终裁追认）。
 
+- 2026-09-03 G-U1：依赖升大版本会重命名 feature（reqwest 0.13 把 rustls-tls 改成 rustls，TLS 实现内部化为 __rustls）——按记忆写 feature 直接 resolution 失败，报错信息列出的 available features 就是权威清单，加依赖前别背旧名。
+- 2026-09-03 G-U1：并行会话高速推进时"反向同步"是循环不是动作——合并+门禁期间 main 还会前进，收尾用 git merge-base --is-ancestor main HEAD 机械判定（exit 0 才算同步），非零就再 merge 一轮；docs-only 增量的门禁增量重跑只要几秒，别省。
+- 2026-09-03：serde 字段级默认只兜 JSON 字段缺失，不兜显式 []——旧版本/清空动作落盘的空列表会让「出厂默认」永久失效；「空回落默认」必须在装配/读取层显式实现（state.rs with_factory_fallback），且 UI 文案承诺的行为（空态提示）要在后端有对应代码，文案即契约需机械验证而非口头对齐。
+- 2026-09-03：独立 [workspace] 子 crate（src-tauri）不在根 workspace 的 fmt 门禁覆盖内，提交格式不受 rustfmt 约束——在其中跑 cargo fmt 会重排大量无关已提交代码污染提交；fmt 只在门禁覆盖范围跑，churn 一律 git checkout -- 回退，提交前 git diff --stat 核对改动文件清单与本次任务严丝合缝。
+- 2026-09-03：多会话仓库收尾竞态的实操压缩：rebase main 与 ff-only 合并放进同一条 bash 命令原子执行（本次两轮 ff 失败均因 main 在门禁窗口前进；docs-only 增量核 diff --stat 零重叠即可免重跑门禁，代码增量仍需复跑）。
+- 2026-09-03：dev mock 后端的「默认值」与真实后端默认也要同源镜像，不只行为语义——mock DEFAULT_CONFIG 全空列表让 dev 页面呈现与生产开箱态完全不同，排查时会被引向不存在的配置 bug；镜像常量从单一源 import，别抄字面量。
+- 2026-09-02：run_code 单个工具调用参数拼写错误会让整个程序体编译失败，其前面已排队的 edit/写入全部未执行——失败后必须核对哪些调用真的生效了，不能凭顺序假设。
+- 2026-09-02：bash 调用忘带 workdir 时 npx 会从注册表拉最新版工具（vite@8）而非本地 bin；启动子进程一律用 ./node_modules/.bin/xxx 加显式 workdir。
+- 2026-09-02：headless Chrome 里 localStorage 在 about:blank 上下文不可访问；跨导航持久的 localStorage 属于 profile 而非页面，批量走查用固定 profile 或单会话内切格。
+- 2026-09-02：并行协调会话共享同一仓库 refs，本分支的提交可能在收尾前已被先行合入 main——rebase 时空提交去重是正常现象，收尾必须核对树里实际有什么（git show --stat 加关键文件 grep），再决定文档怎么写。
+- 2026-09-03 W6：多波会话共享同一仓库时，协调者的 ff 合并目标随时移动（本轮连续两次 ff 失败：S1 沉淀分支与 S3 分支都被其他会话推进的 main 甩下）——合并前必须重新 fetch 核对 tip，ff 失败的唯一动作是临时 detached worktree 里 rebase 后 force-with-lease 重推，禁止 merge bubble。
+- 2026-09-03 W6：派单会话的分支可能被其他波次会话顺手吞并进 main（S3 四个提交未经协调者之手就入库）——收合并前先跑 git log main..branch 判空，为空就只剩清点与补漏，不要重复合并。
+- 2026-09-03 W6：小型机械修复（dialog 家族补 forwardRef，含测试与双门禁）协调者亲做全程约 15 分钟，比再开专属会话的往返快得多——派单粒度下限：预计 30 分钟内且路径明确的修复不派单。

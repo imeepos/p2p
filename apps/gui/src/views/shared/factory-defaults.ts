@@ -1,6 +1,8 @@
 // 出厂默认端点：apps/gui/src-tauri/src/config.rs default_* 的展示层镜像。
-// 后端契约：用户显式清空的列表不会被出厂默认覆盖；此处仅用于空态提示与
-// 用户主动点击的恢复入口，禁止自动写回表单或持久层。
+// 防漂移：factory-defaults.test.ts 直接解析 config.rs 的 vec! 字面量对表。
+// 后端契约：节点装配时空列表回落出厂默认（src-tauri state.rs
+// with_factory_fallback），持久层不回写；此处用于空态提示与用户主动点击
+// 的恢复入口（仅预填表单）。
 export const FACTORY_LIST_DEFAULTS = {
   bootstrap: ["43.240.223.138/u3400", "121.196.193.177/u3400"],
   relayAddrs: ["43.240.223.138/u3403", "121.196.193.177/u3403"],

@@ -61,6 +61,11 @@ impl ConnectionPool {
         }
     }
 
+    /// 出池并返回在册连接（挂断用）；不在册返回 None。
+    pub fn take(&self, peer: &PeerId) -> Option<Mux> {
+        self.conns.lock().expect("pool lock").remove(peer)
+    }
+
     /// 清空（关停用），返回被移除的 peer 列表。
     pub fn clear(&self) -> Vec<PeerId> {
         let mut conns = self.conns.lock().expect("pool lock");
@@ -119,6 +124,7 @@ mod tests {
         async fn accept_stream(&self) -> Option<BoxedStream> {
             None
         }
+        fn close(&self) {}
     }
 
     fn stub() -> Mux {
@@ -132,6 +138,16 @@ mod tests {
         assert!(pool.insert(peer, stub()));
         assert!(!pool.insert(peer, stub()), "second insert must lose");
         assert!(pool.get(&peer).is_some());
+    }
+
+    #[test]
+    fn take_removes_and_returns_once() {
+        let pool = ConnectionPool::new();
+        let peer = PeerId::from_bytes([4; 32]);
+        let mux = stub();
+        assert!(pool.insert(peer, mux.clone()));
+        assert!(Arc::ptr_eq(&pool.take(&peer).expect("taken"), &mux));
+        assert!(pool.take(&peer).is_none(), "second take must find none");
     }
 
     #[test]

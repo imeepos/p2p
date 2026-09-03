@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FACTORY_LIST_DEFAULTS } from "@/views/shared/factory-defaults";
 import { AddAddressDialog } from "./add-address-dialog";
 import { ACTION_CANCELLED_MARK } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
@@ -107,14 +108,21 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {bootstrap.length === 0 ? (
-          <EmptyState
-            icon={NetworkIcon}
-            title={t("discovery.rendezvous.empty")}
-            description={t("discovery.rendezvous.manualUnavailable")}
-            action={
-              <AddAddressDialog existing={bootstrap} saving={saving} onAdd={addAddress} />
-            }
-          />
+          <>
+            <EmptyState
+              icon={NetworkIcon}
+              title={t("discovery.rendezvous.empty")}
+              description={t("discovery.rendezvous.manualUnavailable")}
+              action={
+                <AddAddressDialog existing={bootstrap} saving={saving} onAdd={addAddress} />
+              }
+            />
+            <p className="text-muted-foreground text-xs">
+              {t("discovery.rendezvous.factoryHint", {
+                addrs: FACTORY_LIST_DEFAULTS.bootstrap.join(", "),
+              })}
+            </p>
+          </>
         ) : (
           <RendezvousTable
             bootstrap={bootstrap}

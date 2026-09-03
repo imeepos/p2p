@@ -1,8 +1,9 @@
 //! Tauri 桥接层：把 p2p::Node 能力按 gui-contract.md §1 命令面 / §2 事件面暴露给前端。
 //!
 //! 模块划分：types（契约 serde 镜像）/ config（配置持久化）/ proto（echo 与 target 解析）/
-//! state（节点生命周期）/ events（事件转发）/ commands（9 个 IPC 命令）/
-//! frontend_log（契约 v3 加法：前端错误落盘，G-H 观测）。
+//! state（节点生命周期）/ events（事件转发）/ commands（11 个 IPC 命令）/
+//! frontend_log（契约 v3 加法：前端错误落盘，G-H 观测）/
+//! update（契约 v4 加法：在线更新检查，G-U1）。
 
 pub mod commands;
 pub mod config;
@@ -12,6 +13,7 @@ pub mod history;
 pub mod proto;
 pub mod state;
 pub mod types;
+pub mod update;
 pub mod util;
 
 use tauri::Manager;
@@ -31,12 +33,17 @@ pub fn run() {
             commands::config_get,
             commands::config_save,
             commands::peer_dial,
+            commands::peer_connect,
+            commands::peer_disconnect,
             commands::peer_ping,
             commands::identity_reset,
             frontend_log::frontend_log_append,
             frontend_log::frontend_log_tail,
             frontend_log::frontend_log_path,
+            update::update_check,
+            update::update_open_release_page,
         ])
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let dir = app
                 .path()
@@ -50,6 +57,9 @@ pub fn run() {
             let frontend_log = frontend_log::FrontendLog::new(&log_dir)
                 .map_err(|e| format!("初始化前端日志失败: {e}"))?;
             app.manage(frontend_log);
+            let checker = update::UpdateChecker::new()
+                .map_err(|e| format!("初始化更新检查器失败: {e}"))?;
+            app.manage(checker);
             Ok(())
         })
         .run(tauri::generate_context!())

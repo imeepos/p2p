@@ -82,4 +82,9 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 
 - 无 gh CLI 监控 GitHub Actions：public 仓库 REST API 匿名可用但限 60 次/时限；配 ETag + If-None-Match 条件请求（304 不计限额）即可放心 60s 轮询。node 脚本丢 background job 跑，run completed 时拉一次 jobs 详情后 exit，完成通知自动叫醒会话。
 - jobs API 里 runner_name 为空 + 零 step = job 纯排队没拿到机器（不是跑得慢），直接去查 runner 镜像是否退役/改名。
+- 2026-09-03 判断某个 Rust 子树是否在 fmt 门禁内：看该 crate Cargo.toml 有无 `[workspace]` 空表（独立 crate）+ scripts/check/fmt.sh 的 cd 基准（根目录 cargo fmt --check 只覆盖根 workspace 成员）；独立子树要格式化得单独特跑并在提交前剔除无关 churn。
+- 2026-09-03 DSH devloop_* 工具有自己的默认 projectRoot，不一定是当前会话 cwd 的项目（实例：cwd 在 p2p，devloop_scan 扫的是 plugins）——多工作区环境必须显式传 root 参数，或改用 bash git 命令直查当前树。
 
+- 2026-09-03 W6：bash heredoc 里嵌 python 正则替换时反斜杠转义会双层损耗导致静默失配（打不出错、就是不生效）——改用 s.find(marker) 定位加字符串截断，配 assert idx 大于 0 防静默；sed -i 空串写法在 macOS 可用。
+- 2026-09-03 W6：run_code 字符串数组逐行 join 写代码文件时，行内引号与 JS 外层引号同种是雷源（本次 TSX 双引号 className 行在单引号 JS 串里转义炸整个脚本）——含同种引号的行改用另一种 JS 引号承载；写完立即 grep 回读关键行。
+- 2026-09-03 W6：验证命令要截尾输出时用三段式 cmd 重定向到临时文件加分号 echo 真实退出码再加 tail，替代 cmd 管道 tail（管道末端吃退出码红线的日常化写法）。

@@ -18,6 +18,10 @@ pub trait MuxControl: Send + Sync {
 
     /// 接收对端开来的下一条逻辑流；连接关闭后返回 None。
     async fn accept_stream(&self) -> Option<BoxedStream>;
+
+    /// 本端主动关闭整条连接（挂断）；对端 accept_stream 随之返回 None。
+    /// 幂等：已关闭的连接上再调用必须无副作用。
+    fn close(&self);
 }
 
 /// 装箱为对象安全的复用句柄。
