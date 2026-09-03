@@ -20,6 +20,7 @@
 | [design/acp-over-p2p-design.md](design/acp-over-p2p-design.md) | ACP over P2P 方案 v0（待审核）：/dsh-acp/1 桥协议、每连接一个 agent 子进程、断线续连+resume 双路径、PeerId 策略表与工作区监狱、GUI 可视化控制 |
 | [ops/experiment-env.md](ops/experiment-env.md) | 实验环境与多机验证方案：四机拓扑（3 局域网 + 1 公网引导）、E0-E4 阶段计划、验收清单、凭据安全红线 |
 | [research/p2p-legal-risk-cn.md](research/p2p-legal-risk-cn.md) | P2P 应用国内法律法规风险调研：金融类 P2P 为禁区、技术型 P2P 的电信资质/内容/版权合规重心 |
+| [design/remote-support-design.md](design/remote-support-design.md) | 远程电脑支持服务（AI 维修坐席）方案 v0：拓扑裁决（客户机零 AI 第一公理）、/rsh/1 协议帧族、双端执法安全模型、支付=scope 升级与 P0-P2 分期 |
 
 ## 约定
 
