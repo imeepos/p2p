@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T22:19:00+08:00",
+  "updatedAt": "2026-09-03T14:29:12.355Z",
   "project": "p2p-base",
   "phase": "E6+E7-parallel",
-  "coordinatorSession": "session-29461bad-b11b-4a35-99eb-9c0fc17301b6",
-  "note": "E6+E7 六单全部机械验收通过并合入 main（2026-09-03 检查轮 36 收口，最终门禁 FINAL_GATE=0）。E8 候选：panic 豁免清单收缩（facade/cli/log/transport/mux）、metrics（M4 余项）、gossip pubsub、观测多反射器/v6、YamuxMux-QuicMux 生命周期语义统一。",
+  "coordinatorSession": "session-93d57260-bb33-472e-b8a6-86237c64a272",
+  "note": "E8 观测与语义收拢轮派单（T7-T9）：范围互斥可并行；依据 E6 调研落地建议第 4/5 条与 E8 候选登记项；metrics 就位后再议长稳复测与保活间隔自适应（E9）。",
   "tasks": [
     {
       "id": "T1",
@@ -72,6 +72,39 @@
       "ownerSession": "session-fd9f0141-bd9d-417d-a541-fd3ac0bd9242",
       "scope": "crates/p2p-protocol/** + crates/p2p-discovery/** + crates/p2p-identity/** + crates/p2p-security/** + 新增 scripts/check/panic-hygiene.sh + scripts/check/tests/ 自测 + Makefile 一行级挂接",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+    },
+    {
+      "id": "T7",
+      "goal": "swarm+discovery：连接池空闲回收（使用中豁免+关闭原因 idle/error/refused 事件化）+ 统一 PeerLiveness 活跃度事件源（多源信号单一判定，含 last_recv 时间戳），与 E6 状态机不回归",
+      "title": "E8-S1 连接回收与统一活跃度",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "feat/e8-conn-reclaim",
+      "ownerSession": "session-0b4fb845-69ac-4a81-bac8-79c18c904992",
+      "scope": "crates/p2p-swarm/** + crates/p2p-discovery/** + 新增 crates/p2p-itest/tests/conn_reclaim.rs",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test conn_reclaim && cargo test -p p2p-swarm && cargo test -p p2p-discovery && make check'"
+    },
+    {
+      "id": "T8",
+      "goal": "relay 真实指标埋点（电路建立/拒绝/回收计数、在路 gauge、保活失败计数）+ CLI metrics 观测入口（可 grep 至少 4 指标）+ p2p-cli panic 豁免收缩",
+      "title": "E8-M2 中继指标面与 CLI 观测",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "feat/e8-relay-metrics",
+      "ownerSession": "session-74a7eec9-c75c-40da-a756-9c878fae8339",
+      "scope": "crates/p2p-relay/** + crates/p2p-cli/** + scripts/check/panic-hygiene.sh(cli 条目) + 新增 crates/p2p-relay/tests/relay_metrics.rs",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-relay --test relay_metrics && cargo test -p p2p-relay && make check'"
+    },
+    {
+      "id": "T9",
+      "goal": "YamuxMux/QuicMux 生命周期语义四维对照与统一定稿（docs/design/mux-transport-lifecycle.md，最小代码对齐，冻结契约缺口只登记）+ facade 与 p2p-log panic 豁免收缩",
+      "title": "E8-H3 mux 语义统一与豁免收缩",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "feat/e8-mux-lifecycle-doc",
+      "ownerSession": "session-c187513b-ecca-4088-88dd-8c5a97d16e46",
+      "scope": "crates/p2p/** + crates/p2p-log/** + crates/p2p-transport/** + crates/p2p-mux/**(最小对齐) + docs/design/mux-transport-lifecycle.md + scripts/check/panic-hygiene.sh(facade/log 条目)",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p && cargo test -p p2p-log && test -f docs/design/mux-transport-lifecycle.md && make check'"
     }
   ]
 }
