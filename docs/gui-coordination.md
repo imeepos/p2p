@@ -10,7 +10,9 @@
 3. cargo 在 `$HOME/.cargo/bin`；前端包管理一律 pnpm；远端为 origin。
 4. 红线：不改 crates/**；不改 docs/coordination.md；文件 ≤300 行、函数 ≤60 行；无 emoji；失败路径必须可观测。
 5. 契约（gui-contract.md）冻结：缺口只能报协调会话加法修订，禁止私自改名。
-6. 注册类文件（menu.def.ts、i18n types+locale）的变更压成独立小提交。
+6. 注册类文件（menu.def.ts、i18n types+locale）的变更压成独立小提交；例外：i18n 新键因
+   I18nKey 类型自 zhCN 推导，与消费视图拆开必红 tsc——批准做法为先提 locale 键（含未消费键）
+   独立小提交、再提视图（2026-09-03 协调者终裁，G-H 3f00c5a 追认）。
 
 ## W1 骨架波（已完成）
 
