@@ -231,3 +231,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：edit 报 "file changed since it was read — re-read the file"，且报错发生在与目标文件无关的门禁运行之后。
 - 原因：同批次里先跑了 cargo fmt（make 的 fmt 或脚本），rustfmt 重写了待编辑文件，编辑工具按读取快照校验失败。
 - 修法：写→fmt→再改 的批次里，fmt 之后的编辑前必须重新 read 目标区域；能改成 写→读→fmt 顺序的先改顺序。
+
+## tauri dev 秒挂 Port 5173 already in use：遗留 dev 会话占口（2026-09-04 诊断轮）
+- 症状：pnpm run tauri dev 立刻 exit 1，beforeDevCommand 报 Error: Port 5173 is already in use；同时 GUI 持久化日志 frontend.log 停在数小时前的 [vite] Failed to reload 洪泛，窗口疑似僵死。
+- 原因：tauri.conf.json devUrl 固定 5173，vite 绑不上端口直接带崩 beforeDevCommand；上一份 tauri dev（pnpm→tauri CLI→vite→p2p-console 四层进程）从未退出挂在旧终端。frontend.log 的 HMR 失败是旧 vite 实例僵死所致，当前源码 tsc -b 全绿，不是代码问题。
+- 修法：lsof -nP -iTCP:5173 -sTCP:LISTEN 定位占用者，ps -o pid,tty,lstart,command 看进程树起点判定归属，kill 整树后重跑；重跑前 pnpm exec tsc -b 区分「旧会话僵死」与「真语法错」。

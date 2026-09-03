@@ -104,3 +104,8 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 ## 2026-09-03 E8-H3 mux 生命周期轮
 - TCP keepalive 参数化走 socket2：tokio 1.53 没有 TcpStream::set_tcp_keepalive（TcpKeepalive 类型也不存在，只有 TcpSocket::set_keepalive(bool) 缺省参数版）——直接 SockRef::from(&tokio TcpStream)（tokio 实现 AsFd，内部 ManuallyDrop 借用 fd 不取所有权）set_tcp_keepalive 即可，不要做 into_std/from_std 往返（from_std 有阻塞检查且失败路径已消费流无法复原）。
 - panic-hygiene 豁免收缩的消融探针：动手前先用门禁自带的 PANIC_HYGIENE_EXEMPT env 覆盖指向「目标收缩态清单」跑一次，点名出的 file:line 就是工作清单；改完同命令复跑，红→绿即消融证据，全程不改门禁本体。
+
+## 2026-09-04 tauri dev 报错诊断
+- 端口占用一步定位：lsof -nP -iTCP:<端口> -sTCP:LISTEN 拿 PID，再 ps -o pid,tty,lstart,command -p <pid,...> 看整棵进程树的起点 tty 与时间——遗留会话（十几小时前起的）与活跃会话一眼可辨。
+- tauri App 持久化日志在 ~/Library/Logs/<identifier>/（本仓 com.p2p.console/：frontend.log=webview console，p2p-console.log=Rust tracing）。frontend.log 只记 message 不含「see errors above」的编译正文，真错要去 vite 终端输出；两份日志 mtime 是否持续前移可判定进程还活着还是僵死。
+- 沙箱/工具链的 bash 是非登录 shell，不加载 ~/.zshenv，cargo 不在 PATH——跑 cargo 系命令先 export PATH="$HOME/.cargo/bin:$PATH"；用户 zsh 终端不受影响，勿把沙箱 PATH 报错（cargo metadata No such file or directory）误判成用户环境问题，先带 PATH 复现再下结论。
