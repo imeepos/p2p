@@ -43,10 +43,13 @@ mod book_tests;
 #[cfg(test)]
 mod error_tests;
 #[cfg(test)]
+mod refresh_tests;
+#[cfg(test)]
 mod tests;
 
 use crate::metrics::{Metrics, MetricsSnapshot};
 use book::AddressBook;
+mod refresh;
 pub use book::{filter_loopback, AddrSource};
 pub use config::SwarmConfig;
 use config::{to_transport, EVENT_CAPACITY};
@@ -58,6 +61,7 @@ use lifecycle::LifecycleMsg;
 use listen::spawn_accept_loops;
 pub use ping::PING_PROTOCOL;
 pub use reclaim::ReclaimConfig;
+use refresh::RefreshGate;
 use relay_degrade::RelaySessionHandle;
 use relay_selector::RelaySelectionCfg;
 use relay_session::spawn_sessions;
@@ -87,6 +91,8 @@ pub struct Swarm {
     lifecycle: LifecycleHandle,
     /// E8：统一活跃度判定账本（观测面衍生，不驱动状态机，见 liveness.rs）。
     liveness: Arc<LivenessBook>,
+    /// 重复发现重发门（refresh.rs）：地址无新增时按窗口限频重发 PeerDiscovered。
+    refresh_gate: RefreshGate,
     shutdown_tx: watch::Sender<bool>,
     shutdown_rx: watch::Receiver<bool>,
 }
@@ -160,6 +166,7 @@ impl Swarm {
             metrics: Metrics::default(),
             lifecycle,
             liveness: Arc::new(LivenessBook::new(lifecycle_events.clone())),
+            refresh_gate: RefreshGate::default(),
             shutdown_tx,
             shutdown_rx,
         });
@@ -228,13 +235,19 @@ impl Swarm {
             let mut book = self.address_book.lock().expect("addr lock");
             book.add(peer, addrs.into_iter().map(|addr| (addr, source)).collect())
         };
-        if added && source != AddrSource::Manual {
+        if source != AddrSource::Manual {
             // 发现刷新 = 对端在网上的正信号（TTL 续期）；Manual 是静态登记，
-            // 无 TTL 语义，不构成活跃证据。
+            // 无 TTL 语义，不构成活跃证据。地址无新增的重复发现同样刷新——
+            // 否则在线但对端地址不变的节点在活跃度账本里被漏记。
             self.liveness
                 .note_alive(peer, LivenessSource::Discovery, unix_now());
         }
-        if added {
+        // 重复发现限频重发（refresh.rs）：地址去重后本无事件，但上层
+        // lastSeen 只认 PeerDiscovered，每窗口放行一条把「最后活跃」推进。
+        // gate 总是过账（含首见），否则首见后的紧邻重复发现会被误放行。
+        let gated = source != AddrSource::Manual
+            && self.refresh_gate.allows(peer, std::time::Instant::now());
+        if added || gated {
             let strings = known.iter().map(ToString::to_string).collect();
             self.emit(NodeEvent::PeerDiscovered {
                 peer,
