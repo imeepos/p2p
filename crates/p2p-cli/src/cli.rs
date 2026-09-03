@@ -6,7 +6,7 @@
 use clap::{Parser, Subcommand};
 use p2p_identity::PeerId;
 
-/// 实验用 p2p 命令行工具：bootstrap（rendezvous+relay）/ node / ping / discover。
+/// 实验用 p2p 命令行工具：bootstrap（rendezvous+relay）/ node / ping / discover / metrics。
 #[derive(Debug, Parser)]
 #[command(name = "p2p-cli", version, about)]
 pub struct Cli {
@@ -24,6 +24,8 @@ pub enum Command {
     Ping(PingArgs),
     /// 列出当前发现的节点与地址。
     Discover(DiscoverArgs),
+    /// 中继指标观测（E8-M2）：relay-only 节点，stdout 周期打印 relay_ 前缀 key=value。
+    Metrics(MetricsArgs),
 }
 
 #[derive(Debug, clap::Args, Clone)]
@@ -105,6 +107,25 @@ pub struct DiscoverArgs {
     /// 关闭 mDNS 局域网发现（跨网实验只需 rendezvous 时使用）。
     #[arg(long)]
     pub no_mdns: bool,
+}
+
+#[derive(Debug, clap::Args, Clone)]
+pub struct MetricsArgs {
+    /// 身份数据目录（种子落盘，重启身份不变）。
+    #[arg(long)]
+    pub data: String,
+    /// relay QUIC 监听地址（部署约定 = bootstrap listen-quic +3 端口）。
+    #[arg(long, default_value = "0.0.0.0:3403")]
+    pub listen_quic: String,
+    /// relay TCP 监听地址（部署约定 = bootstrap listen-tcp +3 端口）。
+    #[arg(long, default_value = "0.0.0.0:3404")]
+    pub listen_tcp: String,
+    /// 快照打印周期秒数。
+    #[arg(long, default_value_t = 10)]
+    pub interval: u64,
+    /// 自动退出秒数；0 = 常驻直到 ctrl-c。
+    #[arg(long, default_value_t = 0)]
+    pub duration: u64,
 }
 
 /// 解析 `ip:port` 为 SocketAddr；失败返回可读错误（clap 展示用）。

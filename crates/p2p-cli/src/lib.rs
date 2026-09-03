@@ -8,9 +8,11 @@ pub mod cli;
 pub mod discover;
 pub mod echo;
 pub mod logging;
+pub mod metrics_cmd;
 pub mod metrics_log;
 pub mod node;
 pub mod ping;
+pub mod relay_serve;
 
 use std::fmt;
 
@@ -94,6 +96,14 @@ pub async fn run_with(cli: Cli) -> Result<i32, RunError> {
         }
         Command::Discover(args) => {
             discover::run(args).await.map_err(RunError::Runtime)?;
+            Ok(EXIT_OK)
+        }
+        Command::Metrics(args) => {
+            ensure_addrs_valid(&[
+                ("listen-quic", &args.listen_quic),
+                ("listen-tcp", &args.listen_tcp),
+            ])?;
+            metrics_cmd::run(args).await.map_err(RunError::Runtime)?;
             Ok(EXIT_OK)
         }
     }

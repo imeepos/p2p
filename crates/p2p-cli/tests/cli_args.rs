@@ -118,3 +118,40 @@ fn ping_request_timeout_defaults_to_twenty() {
     assert_eq!(ping.request_timeout, 20);
     assert!(ping.observation.is_empty());
 }
+
+#[test]
+fn metrics_args_parse_defaults_and_overrides() {
+    // E8-M2：metrics 观测入口的默认端口对齐部署约定（bootstrap +3），duration 0 常驻
+    let cli =
+        Cli::try_parse_from(["p2p-cli", "metrics", "--data", "d"]).expect("parse metrics defaults");
+    let Command::Metrics(args) = cli.command else {
+        panic!("expected metrics command");
+    };
+    assert_eq!(args.listen_quic, "0.0.0.0:3403");
+    assert_eq!(args.listen_tcp, "0.0.0.0:3404");
+    assert_eq!(args.interval, 10);
+    assert_eq!(args.duration, 0);
+
+    let cli = Cli::try_parse_from([
+        "p2p-cli",
+        "metrics",
+        "--data",
+        "d",
+        "--listen-quic",
+        "127.0.0.1:13403",
+        "--listen-tcp",
+        "127.0.0.1:13404",
+        "--interval",
+        "1",
+        "--duration",
+        "2",
+    ])
+    .expect("parse metrics overrides");
+    let Command::Metrics(args) = cli.command else {
+        panic!("expected metrics command");
+    };
+    assert_eq!(args.listen_quic, "127.0.0.1:13403");
+    assert_eq!(args.listen_tcp, "127.0.0.1:13404");
+    assert_eq!(args.interval, 1);
+    assert_eq!(args.duration, 2);
+}

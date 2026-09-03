@@ -29,6 +29,7 @@ pub fn config_for(command: &Command) -> LogConfig {
     match command {
         Command::Bootstrap(_) => file_config("bootstrap"),
         Command::Node(_) => file_config("node"),
+        Command::Metrics(_) => file_config("metrics"),
         Command::Ping(_) | Command::Discover(_) => LogConfig::default(),
     }
 }
