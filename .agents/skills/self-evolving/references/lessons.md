@@ -122,3 +122,4 @@ _none yet — be the first._
 - 2026-09-03 E9-T2：自写扫描脚本零输出时先疑过滤器再信数据——fnlen.py 扩展名集合存了 'rs' 却拿 os.path.splitext 的 '.rs' 去比，整轮静默空结果；零命中结果必须人工抽一个已知样本回验脚本。
 - 2026-09-03 E9-T4：收尾链式命令里 git 输出接管道（git merge | tail）会吞退出码，ff 失败后链继续跑、误删了未合并分支的 worktree；收尾脚本要么 set -o pipefail，要么 git 关键步骤输出不接管道直接打印。补救路径：分支引用仍在，git worktree add 回该分支 → rebase main → 重推重合，全程零丢失。
 - 2026-09-03 E9-T4：TS 顶层 await 需同时满足 tsconfig module=ESNext 与 vite build.target>=es2022（默认 target 会报 TLA 不支持），动态 import 出 prod bundle 验收用 grep dist/assets 找导出符号名，比看构建日志可靠。
+- 2026-09-03 落档轮：单人短命分支任务中途 main 被并行推进时，反向同步优先 rebase main + push --force-with-lease 分支再 ff-only——分支仅本会话消费，force-push 无旁观者，进 main 不留 merge bubble（docs/walkthrough-findings 实录：按 AGENTS.md 字面走 merge main，main 上多出 3b09e87 合并泡，核验方点名线性史偏好；与 118 号技巧的「rebase→force-with-lease→ff-only 原子化」同路数）。
