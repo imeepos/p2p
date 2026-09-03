@@ -57,6 +57,21 @@
 - 2026-09-03 03:39 恢复与收尾：休眠唤醒后一次性验收合并 G-A5 云端端点内置（50bce81）/ G-C2 趋势图（5516ff3）/ G-F 二阶段（9a81702）；第二次误删分支（sparkline）凭 2b53426 恢复，教训已写入 self-evolving red-lines（分号链禁令）。当前 main=5516ff3+协调表，待 G-A4 前端接入复核与 G-B3 打包干跑。
 | G-G 打包回归 | feat/gui-package | `pnpm tauri build`、README（GUI 章节）、最终回归 | 产物可启动 + make check 仍全绿 + 回归清单 | 待派 |
 
+## W7 在线更新波（进行中，与 W6-S3 主题矩阵并行）
+
+客户端发布到 GitHub Releases（github.com/imeepos/p2p，标签 client-v*）；本波交付"有新版本时提醒更新"。
+架构裁决（协调者 2026-09-03）：v1 只做"检查 + 提醒 + 引导下载"，不做应用内自动安装——macOS 产物未签名，
+tauri-plugin-updater 在未签名包上不可靠且需签名密钥体系；检查态零密钥零 CI 改动，全平台行为一致。
+应用内自动更新列为 macOS 签名后的 v2 议题。契约 v4（gui-contract.md §1 两命令 + §9）已冻结。
+
+| 单 | 会话 | 分支 | 范围（文件所有权） | 验收（机械命令） | 状态 |
+|---|---|---|---|---|---|
+| G-U1 更新检查桥接 | GUI-U1（专属新会话） | feat/gui-update-check | `apps/gui/src-tauri/**` | src-tauri 内 `cargo clippy -- -D warnings` + `cargo test` 全绿；契约 §9 roundtrip 与注入式网络多路径用例在列 | 进行中 13:16 派单 |
+| G-U2 更新提醒前端 | GUI-U2（专属新会话） | feat/gui-update-remind | `apps/gui/**` 除 src-tauri | `pnpm -C apps/gui lint + test + build` + i18n-diff 全过；mock 模式可演示有更新/无更新/检查失败三态 | 进行中 13:16 派单 |
+
+合并顺序（协调者执行）：W6-S3 主题矩阵（在途）→ G-U1 → G-U2；i18n locale 冲突在 feature 侧消化；
+G-U2 遵守 locale 先行独立小提交规则；两单收尾回报前必须 merge main 反向同步。
+
 ## 变更记录
 
 - 2026-09-03 02:57 W2 全部合并（G-C a823e6a / G-D ed83c7f+cdec78e）；G-B2 合并（433a05b）；G-F 派 GUI-D 两阶段；G-A3 派 GUI-A；裁决：rendezvous 手动注册/查询为 v1 非目标（底座 pub(crate) 未暴露，CLI 已覆盖）。
@@ -66,3 +81,4 @@
 - 2026-09-02 23:43 契约澄清修订：peer_dial target 语法 "<peer_id>@<addr>"、identity_reset 返回 NodeStatus（commit 4bc398f）。
 - 2026-09-02 23:44 回填 W1 会话 ID；会话经 session_link 新建（专属会话，不复用历史会话）。
 - 2026-09-03 11:59 主会话受用户指令直派 G-H 观测单（feat/gui-agent-observability，worktree gui-obs）：感知通道（frontend_log 三命令契约 v3 + error-report 落盘管线 + 诊断页）与 Agent 操作入口（window.__P2P_AGENT__ + scripts/gui-agent.mjs 零依赖 CDP）。首跑实证并修复存量缺陷：selectPeerList 快照不稳定致 CommandPalette 无限重渲染崩 ErrorBoundary（用户所见页面报错根因）、Button Slot ref 告警噪音。分支含 fix/gui-error-boundary(706670c) 已合基线，契约 §8 加法修订随 rust 提交。
+- 2026-09-03 13:16 用户指令：客户端发布到 GitHub Releases，增加在线更新（有新版本提醒）。协调者冻结契约 v4（§1 update_check/update_open_release_page + §9 数据源/过滤/比较/失败语义），经 session_link 新建专属会话 GUI-U1/GUI-U2 并行派单 W7 双单；v1 仅检查+提醒+引导下载，应用内自动安装待 macOS 签名后另立 v2 议题。
