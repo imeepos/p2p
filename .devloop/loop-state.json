@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T19:07:02Z",
+  "updatedAt": "2026-09-03T19:32:29Z",
   "project": "p2p-base",
   "phase": "E10-RS-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；批次一 T20/T21/T22 doing（专属新会话 c93d6dc1/1b10b517/e3d2dfca），批次二 T23/T25 与批次三 T24∥T26→T27→T28 按依赖待派；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
+  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；批次一 T20/T21 done（a87fb33/9fbe79a 终验过），T22 doing；T25 提前派（零依赖，89f85ec3），T23 待 T22、T24∥T26→T27→T28 按依赖排队；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
   "tasks": [
     {
       "id": "T1",
@@ -241,11 +241,14 @@
       "goal": "repair-helper MCP 宿主框架：传输无关核心（AsyncRead/AsyncWrite）+ stdio 装配、行分隔 JSON-RPC 2.0、initialize 版本协商矩阵 {2025-06-18,2025-03-26,2024-11-05}、工具注册框架（空注册表）、优雅停机排空",
       "title": "RS-P0b-T21 repair-helper MCP 宿主框架",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/rs-helper-host",
       "ownerSession": "session-1b10b517-add6-4b75-a382-e28d33ae7d96",
       "scope": "新增 crates/repair-helper/** + 根 Cargo.toml 仅追加；其余只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'",
+      "mergedMain": "9fbe79a",
+      "acceptedAt": "2026-09-03T19:31:42.514Z",
+      "note": "两次小返回：补 shutdown 排空测试（0673d6e）后 lib.rs 破 300 线退回拆分（e4359cb lib 200 行+tests.rs 103 行），drain 测试全量并行下暴露接受竞态二次退回改确定性门控（855f103）。终验：5 tests 绿、clippy 干净、隔离全量门禁 MAKECHECK_EXIT=0。"
     },
     {
       "id": "T22",
@@ -287,7 +290,7 @@
       "priority": "P1",
       "status": "pending",
       "branch": "feat/rs-playbook",
-      "ownerSession": "待派（批次二）",
+      "ownerSession": "session-89f85ec3-fc6a-44c6-93b4-49008e45c2e3",
       "scope": "新增 crates/repair-playbook/** + docs/playbooks/ 三类草案",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-playbook && make check'"
     },
