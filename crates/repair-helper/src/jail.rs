@@ -96,6 +96,22 @@ fn has_dotdot(raw: &str) -> bool {
     raw.split(['/', '\\']).any(|seg| seg == "..")
 }
 
+/// 平台分隔符：Windows 用 ';'（盘符含 ':'，与 PATH 分隔符冲突），其余用 ':'。
+/// REPAIR_ROOTS 环境变量的列表分隔面随平台定（最小改动：只在拆分点感知平台，
+/// 不改变授权根语义与既有 API）。
+pub fn platform_separator() -> char {
+    if cfg!(windows) {
+        ';'
+    } else {
+        ':'
+    }
+}
+
+/// 按平台分隔符拆分授权根列表（开发机 ':' 行为不变；Windows 生产 ';'）。
+pub fn split_roots(raw: &str) -> Vec<PathBuf> {
+    raw.split(platform_separator()).map(PathBuf::from).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,5 +225,24 @@ mod tests {
     #[test]
     fn empty_roots_rejected() {
         assert!(PathJail::from_roots(Vec::new()).is_err());
+    }
+
+    #[test]
+    fn split_roots_uses_platform_separator() {
+        let sep = platform_separator();
+        let raw = format!("one{sep}two{sep}three");
+        let roots = split_roots(&raw);
+        assert_eq!(roots.len(), 3);
+        assert_eq!(roots[0], PathBuf::from("one"));
+        assert_eq!(roots[2], PathBuf::from("three"));
+    }
+
+    #[test]
+    fn split_roots_treats_other_separator_as_plain_char() {
+        // 非本平台分隔符是普通路径字符（Windows ':' 在盘符里、unix ';' 少见）
+        let alt: char = if cfg!(windows) { ':' } else { ';' };
+        let raw = format!("x{alt}y");
+        let roots = split_roots(&raw);
+        assert_eq!(roots.len(), 1, "non-platform separator stays literal");
     }
 }

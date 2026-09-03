@@ -11,7 +11,7 @@ use repair_enforce::whitelist::ShellWhitelist;
 use repair_helper::{
     audit::{self, AuditSink},
     enforce::Enforcement,
-    jail::PathJail,
+    jail::{split_roots, PathJail},
     p2p::{Endpoint, InboundPeers},
     ticket::{mint, parse_peer_id, TicketLedger, TicketVerifier},
     tools, Host,
@@ -183,10 +183,7 @@ async fn stdio_serve() -> std::io::Result<()> {
 /// 失败的根配置必须显式报错退出，禁止静默降级。
 fn build_jail() -> std::io::Result<PathJail> {
     let jail = match std::env::var("REPAIR_ROOTS") {
-        Ok(raw) if !raw.trim().is_empty() => {
-            let roots = raw.split(':').map(PathBuf::from).collect();
-            PathJail::from_roots(roots)
-        }
+        Ok(raw) if !raw.trim().is_empty() => PathJail::from_roots(split_roots(&raw)),
         _ => PathJail::demo(),
     };
     jail.map_err(|e| {
