@@ -12,6 +12,7 @@ mdns-sd.workspace = true
 p2p-identity = { path = "../p2p-identity" }
 p2p-transport = { path = "../p2p-transport" }
 prost.workspace = true
+rand.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tokio-util = { workspace = true, features = ["codec"] }

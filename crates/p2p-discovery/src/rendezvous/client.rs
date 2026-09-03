@@ -19,6 +19,15 @@ use crate::{DiscoveredPeer, Discovery, DiscoveryEvent, Source};
 /// 新鲜度容差（±300s）与 TTL 截断（3600s）。
 const DEFAULT_REGISTER_INTERVAL: Duration = Duration::from_secs(20);
 
+/// 稳态查询间隔：全量轮询成本随池规模线性上涨（服务端每应答 O(N) 克隆+编码），
+/// 默认 30s——快启动档之后即降到此档，配合抖动错开查询相位
+/// （libp2p rendezvous 靠 cookie 增量，本实现先以降频控制全量轮询成本）。
+const DEFAULT_QUERY_INTERVAL: Duration = Duration::from_secs(30);
+/// 启动期快速查询间隔：上线后尽快填充邻居表。
+const DEFAULT_QUERY_BOOT_INTERVAL: Duration = Duration::from_secs(5);
+/// 快速档轮数：仅前 N 次重查用快速档，之后进入稳态档。
+const DEFAULT_QUERY_BOOT_ROUNDS: u32 = 2;
+
 /// 重连退避初值与上限：上限 30s 对齐服务端不可达时的探测节奏（E4 观测 ~35s 周期）。
 const BACKOFF_INITIAL: Duration = Duration::from_millis(500);
 const BACKOFF_MAX: Duration = Duration::from_secs(30);
@@ -64,8 +73,12 @@ pub struct RendezvousConfig {
     pub ttl_secs: u32,
     /// 注册刷新间隔，默认 20s（兼作控制链路 keepalive）。
     pub register_interval: Duration,
-    /// 查询间隔，默认 5s。
+    /// 稳态查询间隔，默认 30s。
     pub query_interval: Duration,
+    /// 启动期快速查询间隔，默认 5s（前 query_boot_rounds 轮生效）。
+    pub query_boot_interval: Duration,
+    /// 快速档轮数，默认 2；0 即全程稳态档。
+    pub query_boot_rounds: u32,
     /// 查询侧地址卫生（E5）：剥离 loopback/link-local。信任域以 rendezvous 位置
     /// 为界——同机 rendezvous（bootstrap 全 loopback）保持 false，否则同机可发现性
     /// 会被误伤（a9be8e2 语义）。默认 true（跨网 rendezvous 是常态）。
@@ -85,9 +98,22 @@ impl RendezvousConfig {
             addrs: Vec::new(),
             ttl_secs: 60,
             register_interval: DEFAULT_REGISTER_INTERVAL,
-            query_interval: Duration::from_secs(5),
+            query_interval: DEFAULT_QUERY_INTERVAL,
+            query_boot_interval: DEFAULT_QUERY_BOOT_INTERVAL,
+            query_boot_rounds: DEFAULT_QUERY_BOOT_ROUNDS,
             strip_unroutable: true,
         }
+    }
+
+    /// 第 query_round 次重查的等待时长：启动期走快速档，之后稳态档加 ±20% 抖动
+    /// （错开全量节点的查询相位，防 bootstrap 应答风暴同步）。
+    pub(crate) fn next_query_delay(&self, round: u32) -> Duration {
+        if round < self.query_boot_rounds {
+            return self.query_boot_interval;
+        }
+        use rand::Rng;
+        let pct = rand::thread_rng().gen_range(0.8..1.2);
+        Duration::from_secs_f64(self.query_interval.as_secs_f64() * pct)
     }
 }
 
@@ -175,6 +201,7 @@ impl RendezvousClient {
     }
 
     /// 一条连接上的注册/查询循环：断连即返回，由 run 重连。
+    /// 查询节奏见 [`Self::next_query_delay`]：快启动后进入稳态降频。
     async fn connect_and_loop(
         &self,
         events: &mpsc::Sender<DiscoveryEvent>,
@@ -188,16 +215,15 @@ impl RendezvousClient {
             tokio::time::Instant::now() + self.config.register_interval,
             self.config.register_interval,
         );
-        let query_tick = tokio::time::interval_at(
-            tokio::time::Instant::now() + self.config.query_interval,
-            self.config.query_interval,
-        );
         tokio::pin!(reg_tick);
-        tokio::pin!(query_tick);
+        let mut query_round: u32 = 0;
         loop {
             tokio::select! {
                 _ = reg_tick.tick() => self.register_or_note(&mut conn).await,
-                _ = query_tick.tick() => self.query_and_emit(&mut conn, events, cache).await?,
+                _ = tokio::time::sleep(self.config.next_query_delay(query_round)) => {
+                    self.query_and_emit(&mut conn, events, cache).await?;
+                    query_round = query_round.saturating_add(1);
+                }
             }
         }
     }
