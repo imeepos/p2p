@@ -41,13 +41,14 @@ pub mod punch;
 pub mod service;
 mod slots;
 mod state;
+pub mod testutil;
 
 pub use client::{RelayClient, RelayEvent};
 pub use error::RelayError;
 pub use frame::{read_msg, write_msg, write_reject, MAX_FRAME};
 pub use keepalive::RelayKeepalive;
 pub use limits::{PeerBuckets, RateBucket, RateLimitedStream, RelayLimits};
-pub use link::{mock_link_pair, LinkSource, MockLink, MockLinkSource, RelayLink};
+pub use link::{LinkSource, RelayLink};
 pub use messages::{
     errcode, relay_msg, Bound, Connect, PunchAck, PunchReq, Reject, RelayMsg, Reserve, Reserved,
 };

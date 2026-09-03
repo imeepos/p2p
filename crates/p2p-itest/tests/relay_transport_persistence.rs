@@ -15,9 +15,8 @@ use std::time::Duration;
 use p2p_identity::Keypair;
 use p2p_itest::expect_within;
 use p2p_mux::{BoxedStream, MuxControl};
-use p2p_relay::{
-    MockLinkSource, RelayClient, RelayEvent, RelayLimits, RelayLink, RelayServiceImpl,
-};
+use p2p_relay::testutil::MockLinkSource;
+use p2p_relay::{RelayClient, RelayEvent, RelayLimits, RelayLink, RelayServiceImpl};
 use p2p_transport::{QuicTransport, TcpTransport, Transport, TransportAddr};
 
 const LIMIT: Duration = Duration::from_secs(10);

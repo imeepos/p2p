@@ -7,9 +7,8 @@
 use std::time::Duration;
 
 use p2p_itest::expect_within;
-use p2p_relay::{
-    errcode, mock_link_pair, MockLinkSource, RelayClient, RelayError, RelayLimits, RelayServiceImpl,
-};
+use p2p_relay::testutil::{mock_link_pair, MockLinkSource};
+use p2p_relay::{errcode, RelayClient, RelayError, RelayLimits, RelayServiceImpl};
 
 const LIMIT: Duration = Duration::from_secs(10);
 /// 超过 per-peer 配额（32）的轮数：修复前第 33 轮必锁。

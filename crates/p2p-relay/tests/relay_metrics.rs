@@ -7,10 +7,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use p2p_mux::BoxedStream;
+use p2p_relay::testutil::{mock_link_pair, MockLinkSource};
 use p2p_relay::{
-    errcode, mock_link_pair, read_msg, relay_msg::Kind, write_msg, CircuitId, MockLinkSource,
-    RelayClient, RelayKeepalive, RelayLimits, RelayLink, RelayMetricsSnapshot, RelayMsg,
-    RelayService, RelayServiceImpl,
+    errcode, read_msg, relay_msg::Kind, write_msg, CircuitId, RelayClient, RelayKeepalive,
+    RelayLimits, RelayLink, RelayMetricsSnapshot, RelayMsg, RelayService, RelayServiceImpl,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 

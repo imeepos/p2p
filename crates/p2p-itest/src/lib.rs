@@ -8,7 +8,8 @@ use std::time::Duration;
 
 use futures::{SinkExt, StreamExt};
 use p2p_discovery::rendezvous::{RendezvousConn, RendezvousError, RendezvousLink};
-use p2p_relay::{MockLinkSource, RelayClient, RelayLimits, RelayServiceImpl};
+use p2p_relay::testutil::MockLinkSource;
+use p2p_relay::{RelayClient, RelayLimits, RelayServiceImpl};
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
@@ -70,8 +71,8 @@ impl RendezvousLink for SingleDuplexLink {
 /// 服务端侧链路的 peer_id 须为对端（客户端）身份：服务端据此做配额与属主校验。
 pub fn relay_pair(limits: RelayLimits, peer_a: &str, peer_b: &str) -> (RelayClient, RelayClient) {
     let source = MockLinkSource::new();
-    let (client_a, server_a) = p2p_relay::mock_link_pair(peer_a, peer_a);
-    let (client_b, server_b) = p2p_relay::mock_link_pair(peer_b, peer_b);
+    let (client_a, server_a) = p2p_relay::testutil::mock_link_pair(peer_a, peer_a);
+    let (client_b, server_b) = p2p_relay::testutil::mock_link_pair(peer_b, peer_b);
     source.push(Box::new(server_a));
     source.push(Box::new(server_b));
     RelayServiceImpl::spawn(Box::new(source), limits);
