@@ -103,7 +103,7 @@ impl Write for State {
         let file = self
             .file
             .as_mut()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "日志文件已关闭"))?;
+            .ok_or_else(|| io::Error::other("日志文件已关闭"))?;
         let n = file.write(buf)?;
         self.written += n as u64;
         Ok(n)
