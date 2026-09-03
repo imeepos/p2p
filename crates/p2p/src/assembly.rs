@@ -38,6 +38,14 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     }
     // 地址观测（design §7.2）：学习自身公网映射地址（先于注册与打洞宣告）
     let observed = observe::observe_external_addrs(&cfg.observation_addrs).await;
+    // 失败路径留观测信号（E5 复盘）：观测全失败意味着 rendezvous 注册将回退监听
+    // 地址——loopback 对远端不可拨，跨网发现/被拨全部失效，必须让运维可见
+    if !cfg.observation_addrs.is_empty() && observed.is_empty() {
+        tracing::warn!(
+            targets = ?cfg.observation_addrs,
+            "address observation failed on all targets; rendezvous registration falls back to listen addrs (loopback addrs are undialable from other machines)"
+        );
+    }
 
     let relay_addrs = parse_all(&cfg.relay_addrs)?;
     let advertised_addrs = parse_all(&cfg.advertised_addrs)?;
@@ -51,13 +59,23 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     })
     .await?;
 
-    // 底座自身能力与业务协议同机制注册（design §2 dogfooding）
-    swarm.register(Arc::new(RendezvousServer::new()));
+    // 底座自身能力与业务协议同机制注册（design §2 dogfooding）；
+    // 公共部署（rendezvous_public_only）拒收全不可路由注册（E5 地址卫生）
+    swarm.register(Arc::new(RendezvousServer::with_public_only(
+        cfg.rendezvous_public_only,
+    )));
 
     let listen_addrs = swarm.listen_addrs();
     let observed_addrs = observe::observed_transport_addrs(&observed, &listen_addrs);
     swarm.set_observed_addrs(observed_addrs);
     let reg_addrs = observe::merge_observed_with_listen(observed.first().copied(), &listen_addrs);
+    // 注册集无一条可路由地址：跨网节点无法拨到本机（E5 复盘的泄漏前兆），启动即告警
+    if !cfg.bootstrap.is_empty() && !reg_addrs.iter().any(TransportAddr::is_routable) {
+        tracing::warn!(
+            addrs = ?reg_addrs,
+            "registering no routable addr to rendezvous; peers on other machines cannot dial this node"
+        );
+    }
 
     spawn_discovery(&cfg, keypair, swarm.clone(), &reg_addrs, &listen_addrs)?;
 
@@ -130,6 +148,14 @@ fn wire_rendezvous(
     let link = Arc::new(TransportLink::new(addrs, keypair.clone())?);
     let mut rcfg = RendezvousConfig::new(DEFAULT_NAMESPACE, (**keypair).clone(), link);
     rcfg.addrs = reg_addrs.to_vec();
+    // 信任域（E5）：rendezvous 本体在同机（bootstrap 全 loopback）时关闭查询侧
+    // 过滤，保留同机全 loopback 注册的可发现性；跨网 rendezvous 一律过滤
+    let same_machine = cfg.bootstrap.iter().all(|s| {
+        parse_transport_addr(s)
+            .map(|a| !a.is_routable())
+            .unwrap_or(false)
+    });
+    rcfg.strip_unroutable = !same_machine;
     Ok(Some(Arc::new(RendezvousClient::new(rcfg))))
 }
 

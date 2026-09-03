@@ -65,6 +65,10 @@ pub struct RendezvousConfig {
     pub register_interval: Duration,
     /// 查询间隔，默认 5s。
     pub query_interval: Duration,
+    /// 查询侧地址卫生（E5）：剥离 loopback/link-local。信任域以 rendezvous 位置
+    /// 为界——同机 rendezvous（bootstrap 全 loopback）保持 false，否则同机可发现性
+    /// 会被误伤（a9be8e2 语义）。默认 true（跨网 rendezvous 是常态）。
+    pub strip_unroutable: bool,
 }
 
 impl RendezvousConfig {
@@ -81,6 +85,7 @@ impl RendezvousConfig {
             ttl_secs: 60,
             register_interval: DEFAULT_REGISTER_INTERVAL,
             query_interval: Duration::from_secs(5),
+            strip_unroutable: true,
         }
     }
 }
@@ -123,9 +128,14 @@ impl RendezvousClient {
             if peer == self.config.keypair.peer_id() {
                 continue;
             }
-            let Some(addrs) = routable_only(&addrs) else {
-                tracing::debug!(%peer, "rendezvous peer skipped: no routable addr");
-                continue;
+            let addrs = if self.config.strip_unroutable {
+                let Some(filtered) = routable_only(&addrs) else {
+                    tracing::debug!(%peer, "rendezvous peer skipped: no routable addr");
+                    continue;
+                };
+                filtered
+            } else {
+                addrs
             };
             cache.put(peer, addrs.clone(), ttl);
             let ev = DiscoveryEvent::Discovered(DiscoveredPeer {
