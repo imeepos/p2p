@@ -14,9 +14,15 @@ tokio.workspace = true
 tokio-util = { workspace = true, features = ["codec"] }
 
 [dev-dependencies]
+p2p = { path = "../p2p" }
+p2p-log = { path = "../p2p-log" }
 p2p-swarm = { path = "../p2p-swarm" }
 p2p-identity = { path = "../p2p-identity" }
 p2p-mux = { path = "../p2p-mux" }
 p2p-protocol = { path = "../p2p-protocol" }
 p2p-security = { path = "../p2p-security" }
 p2p-transport = { path = "../p2p-transport" }
+repair-bridge = { path = "../repair-bridge" }
+repair-helper = { path = "../repair-helper" }
+repair-enforce = { path = "../repair-enforce" }
+serde_json.workspace = true
