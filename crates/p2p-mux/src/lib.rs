@@ -11,6 +11,18 @@ impl<T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send> ByteStream 
 pub type BoxedStream = Box<dyn ByteStream>;
 
 /// 复用控制器：在一条已认证连接上开/收多条互相独立的逻辑流。
+///
+/// 生命周期统一语义（E8-H3 定稿，对照全文见 docs/design/mux-transport-lifecycle.md）：
+///
+/// - 连接终止只认三类事件：本端显式 [close](Self::close)、对端关闭、
+///   传输层错误/空闲超时；
+/// - close() 幂等：已关闭连接上再调用无副作用；之后 open_stream 以错误
+///   收敛，本端与对端 accept_stream 随连接收敛返回 None；
+/// - 句柄全部丢弃不是契约语义的关闭：过渡期实现差异（YamuxMux 归零即终、
+///   QuicMux 由 quinn 驱动与活跃流维持至空闲超时）已登记待裁决，上层不得
+///   依赖任一方向的丢弃行为；
+/// - 读半结束两级：流级对端 FIN 以 0 字节读（EOF）呈现；会话级终止令
+///   accept_stream 返回 None。两实现一致。
 #[async_trait::async_trait]
 pub trait MuxControl: Send + Sync {
     /// 主动开一条逻辑流。实现必须施加每连接流数上限（防滥用，design §6）。
