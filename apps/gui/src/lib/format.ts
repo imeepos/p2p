@@ -26,6 +26,13 @@ export function formatTime(epochMs: number, locale: Locale): string {
   );
 }
 
+export function formatDateTime(epochMs: number, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(epochMs);
+}
+
 export function formatNumber(value: number, locale: Locale): string {
   return new Intl.NumberFormat(locale).format(value);
 }
