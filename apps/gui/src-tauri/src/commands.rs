@@ -20,6 +20,7 @@ pub async fn node_start<R: Runtime>(
 ) -> Result<NodeStatus, String> {
     let started = state.start(cfg).await?;
     events::spawn(app.clone(), started.events);
+    events::spawn_chat(app.clone(), started.chat_events);
     events::emit(
         &app,
         NodeEventJson::NodeStarted {
