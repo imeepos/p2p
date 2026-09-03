@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T21:21:17Z",
+  "updatedAt": "2026-09-03T21:48:19Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -164,11 +164,13 @@
       "goal": "GUI chat 契约面（对 v7 §12 契约编程）：ipc-types/ipc/mock-ipc 的 chat 段（ChatKind/ChatFriendJson/ChatMediaInput/ChatMessageJson/ChatSendReport 及 chat_* 命令封装+chat_message/chat_status 事件 mock）、路由 /chat 壳页、menu.def.ts 追加 chat 菜单、i18n 中英 chat 词条（zh-CN/en-US 同步）、空聊天视图组件",
       "title": "IM-T30 GUI chat 契约面",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/im-gui-shell",
       "ownerSession": "session-9ef96f94-d6ef-4e85-bd1d-1b49a7d89814",
       "scope": "apps/gui/src：lib/ipc-types.ts、lib/ipc.ts、lib/mock-ipc.ts（chat 段+事件）、routes/chat-page.tsx、config/menu.def.ts、i18n/types.ts+locales/zh-CN.ts+locales/en-US.ts（chat 词条）、components/chat/ 空视图组件；不动 src-tauri",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && pnpm test --run && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && pnpm test --run && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "mergedMain": "4b1c44e",
+      "acceptedAt": "2026-09-03T21:34:39.752Z"
     },
     {
       "id": "T31",
@@ -208,11 +210,14 @@
       "goal": "repair-helper shell_exec 执行面：工具注册（guarded 形态）+ 进程执行（argv/cwd 授权根/timeout/输出捕获过 256KiB 门禁）+ 执行前 enforce 双判（白名单+红线+风险档，拒则不 spawn）+ 审批流接入 + 审计事件；补任务表缺口（T24 只覆盖 enforce 判定语义，执行面原无归属）",
       "title": "RS-P0b-T23b shell_exec 执行面（补充单）",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/rs-shell-exec",
       "ownerSession": "session-898caa4e-860c-451a-add0-21976ecd8103",
       "scope": "crates/repair-helper/**；repair-enforce/repair-playbook 只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'",
+      "mergedMain": "f21fca4",
+      "acceptedAt": "2026-09-03T21:48:19.698Z",
+      "note": "一次通过：三笔提交（审批回调适配 18af8bb/shell_exec 执行工具 3d61077/宿主门接线装配 f21fca4），隔离全量门禁 exit 0。"
     }
   ]
 }
