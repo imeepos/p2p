@@ -22,7 +22,6 @@ use crate::state::AppState;
 
 /// 桌面入口：初始化日志、装配状态与命令表。
 pub fn run() {
-    init_tracing();
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::node_start,
@@ -45,15 +44,16 @@ pub fn run() {
         ])
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
+            let log_dir = app
+                .path()
+                .app_log_dir()
+                .map_err(|e| format!("定位应用日志目录失败: {e}"))?;
+            init_logging(&log_dir);
             let dir = app
                 .path()
                 .app_data_dir()
                 .map_err(|e| format!("定位应用数据目录失败: {e}"))?;
             app.manage(AppState::new(dir));
-            let log_dir = app
-                .path()
-                .app_log_dir()
-                .map_err(|e| format!("定位应用日志目录失败: {e}"))?;
             let frontend_log = frontend_log::FrontendLog::new(&log_dir)
                 .map_err(|e| format!("初始化前端日志失败: {e}"))?;
             app.manage(frontend_log);
@@ -66,9 +66,18 @@ pub fn run() {
         .expect("p2p-console 启动失败");
 }
 
-/// 日志走环境变量 RUST_LOG，默认 info；失败路径全部留可观测信号。
-fn init_tracing() {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-    let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
+/// p2p-log 统一设施接入（替换自带 tracing_subscriber 初始化）：
+/// RUST_LOG 默认 info、文本格式、滚动文件落盘到 app_log_dir/p2p-console.log，
+/// 并安装 panic 钩子（写日志且回显 stderr）。落盘失败由设施回退 stderr 留告警。
+fn init_logging(log_dir: &std::path::Path) {
+    let report = p2p_log::init(p2p_log::LogConfig {
+        format: p2p_log::LogFormat::Text,
+        file: Some(p2p_log::FileOptions::with_default_caps(log_dir, "p2p-console.log")),
+    });
+    if let Some(path) = &report.file_path {
+        eprintln!("p2p-console: 日志文件 {}", path.display());
+    }
+    if let Some(fallback) = &report.fallback {
+        eprintln!("p2p-console: {fallback}");
+    }
 }

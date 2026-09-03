@@ -16,6 +16,8 @@ p2p = { path = "../../../crates/p2p" }
 # p2p-swarm 取 DialHop/MetricsSnapshot 原始类型（p2p 传递依赖）
 p2p-cli = { path = "../../../crates/p2p-cli" }
 p2p-swarm = { path = "../../../crates/p2p-swarm" }
+# 统一日志设施（E7-L1）：替换自带 tracing_subscriber 初始化
+p2p-log = { path = "../../../crates/p2p-log" }
 bs58 = "0.5"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -23,7 +25,6 @@ serde_json = "1"
 tauri = { version = "2", features = ["test"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # 在线更新检查（契约 v4 §9，G-U1）：TLS 走 rustls（图内已有，不引 openssl）
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 # release published_at 的 RFC3339 解析
