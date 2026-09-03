@@ -8,6 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { IdentityBadge } from "@/components/layout/identity-badge";
 import { MENU_ENTRIES } from "@/config/menu.def";
 import { cn } from "@/lib/utils";
 
@@ -48,6 +49,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         ))}
       </nav>
       <div className="p-2">
+        <IdentityBadge collapsed={collapsed} />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

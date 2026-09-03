@@ -10,6 +10,7 @@ import type {
   MetricsPoint,
   NodeEventJson,
   NodeEventHandler,
+  NodeProfile,
   NodeStatus,
   PingOutcome,
   UpdateCheckResult,
@@ -41,6 +42,8 @@ const tauriBackend: IpcBackend = {
     invoke<PingOutcome>("peer_ping", { peerId, timeoutMs }),
   identityReset: (confirm) =>
     invoke<NodeStatus>("identity_reset", { confirm }),
+  profileGet: () => invoke<NodeProfile>("profile_get"),
+  profileSave: (profile) => invoke<NodeProfile>("profile_save", { profile }),
   updateCheck: () => invoke<UpdateCheckResult>("update_check"),
   updateOpenReleasePage: (url) =>
     invoke<void>("update_open_release_page", { url }),

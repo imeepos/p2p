@@ -99,6 +99,13 @@ export interface UpdateCheckResult {
   checkedAtMs: number;
 }
 
+// 契约 v6 §11 加法：本机节点资料（纯展示，仅存本机，不随发现协议广播）。
+export interface NodeProfile {
+  name: string; // trim 后 ≤64 字符；空串 = 未命名
+  description: string; // ≤280 字符；可空
+  avatar: string | null; // data URL（png/jpeg/webp base64，总长 ≤200_000）；null = 未设置
+}
+
 export interface IpcBackend {
   nodeStart(cfg: GuiConfig): Promise<NodeStatus>;
   nodeStop(): Promise<NodeStatus>;
@@ -112,6 +119,8 @@ export interface IpcBackend {
   peerDisconnect(peerId: string): Promise<boolean>;
   peerPing(peerId: string, timeoutMs: number): Promise<PingOutcome>;
   identityReset(confirm: boolean): Promise<NodeStatus>;
+  profileGet(): Promise<NodeProfile>;
+  profileSave(profile: NodeProfile): Promise<NodeProfile>;
   updateCheck(): Promise<UpdateCheckResult>;
   updateOpenReleasePage(url: string): Promise<void>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;

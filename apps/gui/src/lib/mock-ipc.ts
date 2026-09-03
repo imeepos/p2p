@@ -5,10 +5,12 @@ import type {
   MetricsJson,
   NodeEventJson,
   NodeEventHandler,
+  NodeProfile,
   NodeStatus,
   UnlistenFn,
 } from "./ipc-types";
 import { parseDialTarget } from "./dial-target";
+import { validateNodeProfile } from "./profile-rules";
 import { randomWalkHistory } from "./metrics-history";
 // dev 展示层与真实 app 同源：mock 默认配置镜像出厂端点（views/shared/factory-defaults）。
 import { FACTORY_LIST_DEFAULTS } from "@/views/shared/factory-defaults";
@@ -39,10 +41,13 @@ const DEFAULT_CONFIG: GuiConfig = {
   observationAddrs: [...FACTORY_LIST_DEFAULTS.observationAddrs],
 };
 
+const DEFAULT_PROFILE: NodeProfile = { name: "", description: "", avatar: null };
+
 interface MockState {
   running: boolean;
   startedAtMs: number | null;
   config: GuiConfig;
+  profile: NodeProfile;
   listenAddrs: string[];
   peerId: string;
   knownPeers: string[];
@@ -54,6 +59,7 @@ const state: MockState = {
   running: false,
   startedAtMs: null,
   config: DEFAULT_CONFIG,
+  profile: DEFAULT_PROFILE,
   listenAddrs: [],
   peerId: randomPeerId(),
   knownPeers: [],
@@ -235,6 +241,19 @@ export const mockBackend: IpcBackend = {
     await delay(200);
     state.config = cfg;
     return { ...cfg };
+  },
+
+  async profileGet() {
+    return { ...state.profile };
+  },
+
+  // 镜像后端 profile_save：先校验（可读中文 Err）再落内存态。
+  async profileSave(profile) {
+    await delay(150);
+    const invalid = validateNodeProfile(profile);
+    if (invalid) throw new Error(invalid);
+    state.profile = { ...profile };
+    return { ...state.profile };
   },
 
   // 契约 §6 语法预检与 proto::parse_target 同规则族（base58 长度/IpAddr/u t/端口段）。
