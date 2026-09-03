@@ -265,3 +265,13 @@ failed: early eof（客户端侧超时中止）。
 - 症状一：Endpoint::new 传 tokio::net::UdpSocket 报 E0308——quinn 0.11 的 new 直接收 std::net::UdpSocket，由 TokioRuntime 自行包装；先 from_std 再传反而类型不匹配。
 - 症状二：V4 目标映射成 v4-mapped（::ffff:a.b.c.d）后 is_unspecified() 失真——0.0.0.0 变 ::ffff:0.0.0.0 不再未指定。quinn 的 connect_with 只做族校验（拒「V6 目标+非 v6 端点」），未指定地址/0 端口的确定性拒绝在 quinn-proto（endpoint 内层 connect），映射可令其被绕过，退化为吃满握手超时的悬挂。
 - 修法：映射前对未指定地址契约性拒绝（Dial 文本变体）；双栈化令「族不匹配必拒」场景消亡后，既有 invalid-remote 契约测试改用 EndpointStopping（close 后拨号）确定性触发同一 source 链契约。改契约测试前先抄下「断言的契约本体」，再为新世界找等价触发。
+
+## 2026-09-04 src-tauri 脱离根 workspace：门禁盲区里的破损潜伏一天才暴露（GUI 节点资料轮首次编译发现）
+- 症状：feature 分支首次编译 apps/gui/src-tauri 即 E0423（`Arc::new(proto::EchoHandler)` 对带字段 struct 用单元构造）+ clippy -D warnings 红于 node_event.rs 冗余导入；根 `make check` 此前长期全绿。
+- 原因：src-tauri 的 Cargo.toml 声明空 [workspace] 脱离根 workspace，根 fmt/clippy/test/panic-hygiene 四门禁与 gui-check（pnpm）都不覆盖它；6c4d882 改 p2p-cli 的 EchoHandler 形状（panic 卫生清零）时无人发现 src-tauri 消费点同步失效。
+- 修法：任何改冻结 crate 公开形状的提交，先 `grep -rn "Sym" apps/gui/src-tauri` 查桥接层消费点（它是 p2p-cli 的 path 依赖方）；给该 crate 建议补一条 `cd apps/gui/src-tauri && cargo clippy -- -D warnings && cargo test` 进 gui.sh 或单独 gate，消除盲区。
+
+## 2026-09-04 在只属于自己 scope 的 worktree 里跑全仓 cargo fmt：13 个历史文件被重排成噪声（GUI 节点资料轮）
+- 症状：后台门禁跑完 `cargo fmt` 后 git status 冒出十几个自己从未碰过的 src-tauri 文件改动，且与并行会话的编辑面冲突风险陡增。
+- 原因：src-tauri 历史提交本就未过 rustfmt（fmt 门禁只管根 workspace），在 src-tauri 目录里跑 `cargo fmt` 会把整个目录重排一遍——「格式化自己」变成了「格式化全目录」。
+- 修法：scope 纪律的格式化只对自建文件手工保证风格（贴临文件写法），不动目录级 fmt；误重排的噪声文件用 `git checkout --` 还原、自己的改动按文件清单重新落补丁。连带教训：checkout 后必须立即读回验证生效，本例首次在 src-tauri workdir 下 checkout 未生效，改从仓库根用全路径重跑才成功。

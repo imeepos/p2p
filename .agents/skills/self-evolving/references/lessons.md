@@ -132,3 +132,6 @@ _none yet — be the first._
 - 2026-09-04 会话清理轮：管理类 list 输出（workspace_list/session_link_list）≠ 用户界面真相——返回全量含已归档与残留行，验收清理效果必须看过滤面（archivedSessionIds、磁盘目录是否迁走），否则会误判「清理没生效」。
 - 2026-09-04 远程支持方案轮：技术拓扑选型先问「价值住在哪里」——能力放客户侧等于把核心资产交付给用户（客户装上 agent 就不再需要你），商业公理可以否决工程最优解；被否决的拓扑与理由要写进设计文档存档，防止后续轮次重新发明。
 - 2026-09-04 远程支持方案轮：大段 markdown 落盘的零转义路——内容按行组装成 JS 单引号字符串数组（先断言全文无 ASCII 撇号），拼 bash `cat <<'DOCEOF'` 引号定界 heredoc，反引号/美元/反斜杠全部字面通过，比 126 号的多层转义再清理少一轮。
+- 2026-09-04 GUI 节点资料轮：`cargo test 2>&1 | tail -N` 会用 tail 的退出码掩盖 cargo 失败报 exit 0 假绿——判定一律用 `cmd > log 2>&1; echo EXIT=$?` 先落码再 grep，或管道前 set -o pipefail；「命令链 exit 0」必须与日志尾部交叉核对。
+- 2026-09-04 GUI 节点资料轮：并行主树上长前台命令会间歇性静默无输出——长构建/测试转 run_in_background 后台 job，job_output(wait) 收结果，比前台硬等可靠且不阻塞并行步骤。
+- 2026-09-04 GUI 节点资料轮：cargo test 全红时先做所有权取证（git diff 上游点..HEAD --stat <失败目录>）再动手——本轮 make check 连挂两次（fmt-check/test/doctest）全是并行会话刚落的 crates 改动与编译管线瞬态，与自己的 GUI 改动零交集，机械代修（fmt）+ 复跑定性（瞬态）即可，不抢别人 scope。
