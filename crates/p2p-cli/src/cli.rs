@@ -107,6 +107,9 @@ pub struct DiscoverArgs {
     /// 关闭 mDNS 局域网发现（跨网实验只需 rendezvous 时使用）。
     #[arg(long)]
     pub no_mdns: bool,
+    /// 按 PeerId 精确查号（社交化发现 P1）：一次查询即退出，不走采集窗口。
+    #[arg(long, value_name = "PEER_ID")]
+    pub peer: Option<String>,
 }
 
 #[derive(Debug, clap::Args, Clone)]

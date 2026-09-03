@@ -12,6 +12,9 @@ pub async fn run(args: DiscoverArgs) -> Result<(), String> {
     let node = build_node(&args)
         .await
         .map_err(|e| format!("装配节点失败: {e}"))?;
+    if let Some(peer) = &args.peer {
+        return query_one(&node, peer).await;
+    }
     println!(
         "collecting discovered peers for {}s (local peer_id={})...",
         args.duration,
@@ -47,6 +50,25 @@ pub async fn run(args: DiscoverArgs) -> Result<(), String> {
         }
     }
     println!("found {} peer(s)", peers.len());
+    Ok(())
+}
+
+/// 按 PeerId 精确查号（社交化发现 P1）：一次查询即退出，bootstrap 未
+/// 配置时经 Node::query_peer 显式报错；对端未知（空应答）以退出码 1 表达。
+async fn query_one(node: &Node, peer: &str) -> Result<(), String> {
+    println!("querying {peer} via rendezvous...");
+    let addrs = node
+        .query_peer(peer)
+        .await
+        .map_err(|e| format!("查号失败: {e}"))?;
+    if addrs.is_empty() {
+        return Err(format!("对端 {peer} 未在 rendezvous 注册或已过期"));
+    }
+    println!("{peer}");
+    for a in &addrs {
+        println!("  {a}");
+    }
+    println!("found {} addr(s)", addrs.len());
     Ok(())
 }
 
