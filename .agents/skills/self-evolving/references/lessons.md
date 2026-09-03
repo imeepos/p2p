@@ -111,3 +111,7 @@ _none yet — be the first._
 - 2026-09-03 E9-Q0：协调者在主树的未提交编辑是全工作区共享风险——编辑完必须立即提交，然后才能创建/唤醒任何会话。本轮 greeting 发出 83 秒后，coordination.md 未提交编辑即被新会话扫走提交（37c326a 实录，内容侥幸零改动）；顺序应为 编辑→提交→建会话。
 - 2026-09-03 E9-Q0：勘误 21 号技巧——无参绑定工具 session_link_list 在当前宿主版本显式传 {} 可正常返回（无参直调仍报 lossless JSON）；升级后先试 {} 再绕路。
 - 2026-09-03 E9-Q0：宿主重启后部分会话转 idle 而非死亡，几十秒内会陆续自行唤醒——协调者快照里 running=false 不等于会话丢失，重复派单前必须二次核对 updatedAt 与 worktree 文件活动，否则双会话同 worktree 相撞（本轮 23:10:46 快照误判、23:18 撤单止损，幸而新会话尚未落盘）。
+- 2026-09-03 E8-M2：cargo fmt 必须在每个编辑批次内、commit 之前跑——提交后再 fmt 产生格式漂移，只能 fixup rebase 归位到正确提交（autosquash 三步：reset --soft 拆提交→--fixup→GIT_SEQUENCE_EDITOR=: rebase -i --autosquash）。
+- 2026-09-03 E8-M2：协调者活跃提交期 ff-only 合并是竞态——把「worktree rebase main → push --force-with-lease → 主树核对分支后 ff-only」压进单条 bash 原子执行并循环重试；本轮被 docs 提交连续抢跑三次，第四次窗口合并成功，全程未删 worktree。
+- 2026-09-03 E8-M2：流式后台任务的 job_output 首读即消费后续为空——长验收结论写进自管日志文件（重定向 + echo EXIT=$?），完成后 grep 文件取判决，不依赖任务流回放。
+- 2026-09-03 E8-M2：编辑工具的「先读后改」按精确路径记账——主树读过的文件不等于 worktree 同名文件已读，worktree 内批量编辑前先按 worktree 路径逐一 read，否则中途 ToolCallError 打断批次。
