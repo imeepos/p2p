@@ -172,7 +172,12 @@ async fn run_probe(
         Err(f) => (false, f.fatal, f.detail),
     };
     if let Err(err) = tx
-        .send(LifecycleMsg::Probed { peer, ok, fatal, detail })
+        .send(LifecycleMsg::Probed {
+            peer,
+            ok,
+            fatal,
+            detail,
+        })
         .await
     {
         tracing::warn!(%peer, error = %err, "lifecycle closed; probe result dropped");

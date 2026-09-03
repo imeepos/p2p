@@ -49,7 +49,9 @@ pub(super) fn mark_connected(handle: &LifecycleHandle, peer: PeerId) {
     // 探死收场（探测未命中穷尽）即便 uptime 满 min 也判不健康：uptime 需探测
     // 成功率背书，否则 30s 网格死亡循环被误判健康、退避永不升级（2026-09-04）。
     // 消融锚点：注释下方 if healthy 块，itest backoff_resets_after_healthy_reconnect 必红。
-    let healthy = entry.last_uptime.is_some_and(|up| up >= cfg.reset_min_uptime)
+    let healthy = entry
+        .last_uptime
+        .is_some_and(|up| up >= cfg.reset_min_uptime)
         && !entry.died_by_probe_miss;
     let from = match entry.machine.transition(ConnState::Connected) {
         Ok(from) => from,
