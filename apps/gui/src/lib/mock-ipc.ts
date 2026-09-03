@@ -43,6 +43,7 @@ interface MockState {
   listenAddrs: string[];
   peerId: string;
   knownPeers: string[];
+  connectedPeers: Set<string>;
   metrics: MetricsJson;
 }
 
@@ -53,6 +54,7 @@ const state: MockState = {
   listenAddrs: [],
   peerId: randomPeerId(),
   knownPeers: [],
+  connectedPeers: new Set<string>(),
   metrics: emptyMetrics(),
 };
 
@@ -133,10 +135,14 @@ function startEventStream(): void {
       emit({ type: "peer_discovered", peer, addrs: [randomAddr()] });
     }
     if (state.knownPeers.length > 0 && Math.random() < CONNECT_PROBABILITY) {
-      emit({ type: "peer_connected", peer: pickKnownPeer() });
+      const peer = pickKnownPeer();
+      state.connectedPeers.add(peer);
+      emit({ type: "peer_connected", peer });
     }
-    if (state.knownPeers.length > 0 && Math.random() < DISCONNECT_PROBABILITY) {
-      emit({ type: "peer_disconnected", peer: pickKnownPeer() });
+    if (state.connectedPeers.size > 0 && Math.random() < DISCONNECT_PROBABILITY) {
+      const peer = pickConnectedPeer();
+      state.connectedPeers.delete(peer);
+      emit({ type: "peer_disconnected", peer });
     }
     if (Math.random() < HOP_PROBABILITY) {
       emitDialHop("relay", Math.random() < 0.85);
@@ -153,6 +159,11 @@ function stopEventStream(): void {
 
 function pickKnownPeer(): string {
   return state.knownPeers[Math.floor(Math.random() * state.knownPeers.length)];
+}
+
+function pickConnectedPeer(): string {
+  const peers = [...state.connectedPeers];
+  return peers[Math.floor(Math.random() * peers.length)];
 }
 
 function emitDialHop(hop: DialHopKind, ok: boolean): void {
@@ -194,6 +205,7 @@ export const mockBackend: IpcBackend = {
     state.running = false;
     state.startedAtMs = null;
     state.listenAddrs = [];
+    state.connectedPeers.clear();
     state.metrics.activeConnections = 0;
     state.metrics.relaySessionsActive = 0;
     if (wasRunning) emit({ type: "node_stopped" });
@@ -241,11 +253,41 @@ export const mockBackend: IpcBackend = {
       hops.push({ hop: kind, ok, detail: kind + " -> " + addr });
       if (ok) {
         if (!state.knownPeers.includes(peer)) state.knownPeers.push(peer);
+        state.connectedPeers.add(peer);
         emit({ type: "peer_connected", peer });
         return { peer, hops, ok: true, totalMs: Date.now() - startedAt };
       }
     }
     return { peer, hops, ok: false, totalMs: Date.now() - startedAt };
+  },
+
+  // 已知节点行内拨号：直连一步成功；未知节点返回失败报告（对齐 peers::connect）。
+  async peerConnect(peerId) {
+    if (!state.running) throw new Error(NOT_RUNNING);
+    const startedAt = Date.now();
+    await delay(DIAL_BASE_DELAY_MS + Math.random() * 300);
+    const known = state.knownPeers.includes(peerId);
+    const hops = [
+      {
+        hop: "direct" as DialHopKind,
+        ok: known,
+        detail: known ? "direct -> ok" : "no known address for peer",
+      },
+    ];
+    if (known) {
+      state.connectedPeers.add(peerId);
+      emit({ type: "peer_connected", peer: peerId });
+    }
+    return { peer: peerId, hops, ok: known, totalMs: Date.now() - startedAt };
+  },
+
+  // 挂断幂等：未运行抛错；仅在册连接返回 true（对齐 peers::disconnect 语义）。
+  async peerDisconnect(peerId) {
+    if (!state.running) throw new Error(NOT_RUNNING);
+    await delay(150);
+    const wasConnected = state.connectedPeers.delete(peerId);
+    if (wasConnected) emit({ type: "peer_disconnected", peer: peerId });
+    return wasConnected;
   },
 
   // 未知节点与超时都返回失败 outcome（对齐 peers::ping），不抛 IPC 错。
@@ -277,6 +319,7 @@ export const mockBackend: IpcBackend = {
     state.startedAtMs = null;
     state.listenAddrs = [];
     state.knownPeers = [];
+    state.connectedPeers.clear();
     state.peerId = randomPeerId();
     state.metrics = emptyMetrics();
     if (wasRunning) emit({ type: "node_stopped" });

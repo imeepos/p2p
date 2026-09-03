@@ -93,6 +93,8 @@ export interface IpcBackend {
   configGet(): Promise<GuiConfig>;
   configSave(cfg: GuiConfig): Promise<GuiConfig>;
   peerDial(target: string): Promise<DialReport>;
+  peerConnect(peerId: string): Promise<DialReport>;
+  peerDisconnect(peerId: string): Promise<boolean>;
   peerPing(peerId: string, timeoutMs: number): Promise<PingOutcome>;
   identityReset(confirm: boolean): Promise<NodeStatus>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;

@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { Locale } from "@/i18n";
-import type { PingOutcome } from "@/lib/ipc-types";
+import type { DialReport, PingOutcome } from "@/lib/ipc-types";
 import type { PeerEntry } from "@/stores/node-store";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/views/shared/empty-state";
@@ -98,6 +98,8 @@ interface PeersTableCardProps {
   locale: Locale;
   now: number;
   onPing: (peer: PeerEntry) => () => Promise<PingOutcome>;
+  onConnect: (peer: PeerEntry) => () => Promise<DialReport>;
+  onDisconnect: (peer: PeerEntry) => () => Promise<boolean>;
   onShowDetail: (peerId: string) => void;
   onOpenDial: () => void;
 }
@@ -109,6 +111,8 @@ export function PeersTableCard({
   locale,
   now,
   onPing,
+  onConnect,
+  onDisconnect,
   onShowDetail,
   onOpenDial,
 }: PeersTableCardProps) {
@@ -185,6 +189,8 @@ export function PeersTableCard({
                     locale={locale}
                     now={now}
                     onPing={onPing}
+                    onConnect={onConnect}
+                    onDisconnect={onDisconnect}
                     onShowDetail={onShowDetail}
                   />
                 ))}
