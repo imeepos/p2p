@@ -1465,15 +1465,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
-name = "repair-bridge"
+name = "repair-helper"
 version = "0.1.0"
 dependencies = [
- "bs58",
- "clap",
- "p2p",
- "p2p-identity",
+ "async-trait",
  "p2p-log",
- "p2p-protocol",
+ "serde",
+ "serde_json",
  "tokio",
  "tracing",
 ]
