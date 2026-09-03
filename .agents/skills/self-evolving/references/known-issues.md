@@ -206,3 +206,6 @@ failed: early eof（客户端侧超时中止）。
 - 症状：验收命令 `cargo test … && make check` 经 devloop_accept 跑，几十秒后被杀，exitCode=null/verdict=fail，输出停在编译或测试刚起步——代码明明是绿的。
 - 原因：工具内置超时不可配，短于本仓 make check（编译+全测试+GUI vitest 约 2-4 分钟）实际时长；超时被杀记为 fail，是假红不是回归。
 - 修法：同一验收命令用 bash 后台任务长超时复跑，取真实 exit code 作判决并在账本/协调表备注「accept 工具超时，人工同命令复跑」；验收命令能拆出即时项（grep/test -f）的先单独跑掉。
+- 症状：make check line-limit 报 mod.rs 301 行，手工把 if 块压成单行省 2 行后，cargo fmt 又展开回多行——压行数压在 fmt 会重排的语句上等于白压。
+- 原因：rustfmt 会无条件展开非空单行 if/struct 字面量（3 字段起必拆多行），只对注释有保留。
+- 修法：行数预算吃紧时压缩注释/拆文件（types.rs 拆 node_event.rs 先例），fmt 敏感语句上的压缩全部无效。

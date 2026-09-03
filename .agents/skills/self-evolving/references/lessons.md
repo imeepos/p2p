@@ -107,3 +107,4 @@ _none yet — be the first._
 - 2026-09-03 E6：drop(Arc<T>) 不等于关停——accept 循环等后台任务持强引用时测试里的 drop 是 no-op，连接根本没拆；模拟对端死亡必须显式调 shutdown 类方法。
 - 2026-09-03 E6：状态机测试的 setup 要按合法路径驱动到目标态（machine_at helper），不能单步 transition——Disconnected 到 BackingOff 这类 setup 本身就是被测的非法转移。
 - 2026-09-03 E7：多兄弟分支逐支 ff-only 合入时，每合入一支 main 就前进，其余分支立即重新分叉——必须「rebase→合一支→再 rebase→再合一支」循环，不能一次 rebase 完批量合。
+- 2026-09-03 GUI 邻居表复盘：展示层推断字段（来源=有 dial_hop 即手动、dial_hop 也刷新 lastSeenMs）会把「拨过」伪装成「在线」。权威字段该由底座透传时就透传（地址簿本就持有来源），推断式展示字段在契约里显式登记为缺口并限期补上，不要让补丁语义长期存活。
