@@ -11,6 +11,7 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   define: { __APP_VERSION__: JSON.stringify(version) },
+  build: { target: "es2022" },
   clearScreen: false,
   server: { port: 5173, strictPort: true },
 });
