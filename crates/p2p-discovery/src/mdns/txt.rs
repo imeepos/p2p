@@ -27,17 +27,23 @@ pub(super) fn encode_txt(
 }
 
 /// 从已解析的 ServiceInfo 解码 (PeerId, 地址列表)。peer 缺失或端口非法返回 None。
+/// 地址集全量展开（addr_auto 通告携带本机全部接口地址）：只取首地址会丢掉多接口
+/// 主机的其余合法候选，配合地址簿只增不汰会放大死地址拨号风暴（2026-09-04）。
+/// 逐地址的 loopback/link-local 过滤与去重统一由地址簿入簿卫生把关。
 pub(super) fn decode_txt(info: &ServiceInfo) -> Option<(PeerId, Vec<TransportAddr>)> {
     let peer_b58 = info.get_property_val_str(TXT_KEY_PEER)?;
     let bytes: [u8; 32] = bs58::decode(peer_b58).into_vec().ok()?.try_into().ok()?;
     let peer = PeerId::from_bytes(bytes);
-    let ip: IpAddr = *info.get_addresses().iter().next()?;
+    let quic = txt_port(info, TXT_KEY_QUIC);
+    let tcp = txt_port(info, TXT_KEY_TCP);
     let mut addrs = Vec::new();
-    if let Some(port) = txt_port(info, TXT_KEY_QUIC) {
-        addrs.push(TransportAddr::Quic { ip, port });
-    }
-    if let Some(port) = txt_port(info, TXT_KEY_TCP) {
-        addrs.push(TransportAddr::Tcp { ip, port });
+    for ip in info.get_addresses() {
+        if let Some(port) = quic {
+            addrs.push(TransportAddr::Quic { ip: *ip, port });
+        }
+        if let Some(port) = tcp {
+            addrs.push(TransportAddr::Tcp { ip: *ip, port });
+        }
     }
     (!addrs.is_empty()).then_some((peer, addrs))
 }

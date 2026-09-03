@@ -1,4 +1,4 @@
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv6Addr};
 
 use super::*;
 
@@ -245,5 +245,33 @@ fn changed_addrs_reemit_discovered_but_same_addrs_just_refresh() {
     match ev {
         Some(DiscoveryEvent::Discovered(dp)) => assert_eq!(dp.addrs.len(), 2),
         other => panic!("地址变化应重发 Discovered, got {other:?}"),
+    }
+}
+
+#[test]
+fn txt_roundtrip_expands_all_interface_addresses() {
+    // 回归（2026-09-04）：addr_auto 通告携带本机全部接口地址（v4 + 多个 v6），
+    // 解码必须全量展开成候选，不得只取第一个 IP 丢掉其余合法地址。
+    let peer = PeerId::from_bytes([11u8; 32]);
+    let props = encode_txt(&peer, Some(12345), Some(12346));
+    let ips = vec![
+        IpAddr::from([192, 168, 1, 50]),
+        IpAddr::V6(Ipv6Addr::LOCALHOST),
+    ];
+    let info = ServiceInfo::new(
+        SERVICE_TYPE,
+        "node-multi-ip",
+        "node-multi-ip.local",
+        &ips[..],
+        12345,
+        props.as_slice(),
+    )
+    .expect("valid service info");
+    let (decoded, addrs) = decode_txt(&info).expect("decode");
+    assert_eq!(decoded, peer);
+    assert_eq!(addrs.len(), 4, "2 ips x (quic + tcp) must all survive");
+    for ip in ips {
+        assert!(addrs.contains(&TransportAddr::Quic { ip, port: 12345 }));
+        assert!(addrs.contains(&TransportAddr::Tcp { ip, port: 12346 }));
     }
 }
