@@ -1,5 +1,14 @@
 # Self-Evolving Notes
 
+## 2026-09-03 GUI 节点行内拨号/挂断（feat/peer-dial-hangup）
+
+- 哪个坑浪费了最多时间？
+  提交拆分返工：预暂存文件混进第一个 commit（git add <paths> 前没查 status 暂存列），后续 commit 因 nothing to commit 静默跳过，log 复核才发现两个 commit 装错内容，reset 重拆一遍。另有 edit 按路径记账的旧坑再踩（worktree 副本未先 read）。
+- skill 有没有提前警告我？
+  部分：line-limit 教训让我直接把 disconnect 放进独立 hangup.rs，一次过；mock 语义对齐与 commit 拆分复核是新坑（已喂回 lessons.md）。
+- 重来一次会怎么做？
+  每个 commit 后立即 git log --oneline 复核数量与归属；开工时对 worktree 内所有待编辑文件先批量 read 再动手。
+
 ## 2026-09-02 V 文档整理（docs/organize）
 
 - 哪个坑浪费了最多时间？
