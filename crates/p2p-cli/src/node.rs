@@ -33,8 +33,8 @@ pub async fn run(args: NodeArgs) -> Result<(), String> {
             _ = metrics_tick.tick() =>
                 tracing::info!(target: "p2p_metrics", snapshot = ?node.metrics(), "metrics snapshot"),
             ev = events.recv() => match ev {
-                Ok(NodeEvent::PeerDiscovered { peer, addrs }) =>
-                    tracing::info!(%peer, ?addrs, "discovered"),
+                Ok(NodeEvent::PeerDiscovered { peer, addrs, source }) =>
+                    tracing::info!(%peer, ?addrs, ?source, "discovered"),
                 Ok(NodeEvent::PeerConnected { peer }) =>
                     tracing::info!(%peer, "connected"),
                 Ok(NodeEvent::PeerDisconnected { peer }) =>

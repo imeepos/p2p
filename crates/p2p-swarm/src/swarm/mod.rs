@@ -192,7 +192,7 @@ impl Swarm {
         if addrs.is_empty() {
             return;
         }
-        let (added, known) = {
+        let (added, known, aggregate) = {
             let mut book = self.address_book.lock().expect("addr lock");
             book.add(peer, addrs.into_iter().map(|addr| (addr, source)).collect())
         };
@@ -201,13 +201,13 @@ impl Swarm {
             self.emit(NodeEvent::PeerDiscovered {
                 peer,
                 addrs: strings,
+                source: aggregate,
             });
         }
     }
 
     /// 发现条目过期（design §7.1：TTL 内未刷新即判离线）。池内有活连接时
-    /// 不得谎报断开：mDNS/rendezvous 缓存过期只代表发现面失联，
-    /// 连接面仍在（2026-09 GUI「拨通即闪断」实测根因之一）。
+    /// 不得谎报断开：缓存过期只是发现面失联，连接面仍在（「拨通即闪断」根因之一）。
     pub fn on_peer_expired(&self, peer: PeerId) {
         if self.pool.get(&peer).is_some() {
             tracing::debug!(%peer, "discovery entry expired but connection alive, keep it");

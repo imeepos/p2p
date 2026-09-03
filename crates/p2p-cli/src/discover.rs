@@ -24,7 +24,7 @@ pub async fn run(args: DiscoverArgs) -> Result<(), String> {
     loop {
         let budget = deadline.saturating_duration_since(tokio::time::Instant::now());
         match tokio::time::timeout(budget, events.recv()).await {
-            Ok(Ok(NodeEvent::PeerDiscovered { peer, addrs })) => {
+            Ok(Ok(NodeEvent::PeerDiscovered { peer, addrs, .. })) => {
                 let set = peers.entry(peer.to_string()).or_default();
                 for a in addrs {
                     set.insert(a);

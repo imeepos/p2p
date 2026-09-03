@@ -169,3 +169,16 @@ fn private_observed_addr_does_not_demote() {
         "private observed must not mark hairpin, got {sorted:?}"
     );
 }
+
+/// 聚合来源取最强档：Mdns > Rendezvous > Manual；手动登记不抹掉发现痕迹。
+#[test]
+fn aggregate_source_prefers_strongest_evidence() {
+    let mut book = AddressBook::new();
+    let p = peer(7);
+    let (_, _, manual) = book.add(p, vec![(tcp("10.0.0.1", 1), AddrSource::Manual)]);
+    assert_eq!(manual, AddrSource::Manual);
+    let (_, _, rendezvous) = book.add(p, vec![(tcp("10.0.0.2", 2), AddrSource::Rendezvous)]);
+    assert_eq!(rendezvous, AddrSource::Rendezvous);
+    let (_, _, mdns) = book.add(p, vec![(tcp("192.168.1.30", 3), AddrSource::Mdns)]);
+    assert_eq!(mdns, AddrSource::Mdns);
+}

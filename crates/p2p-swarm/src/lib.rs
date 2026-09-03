@@ -27,6 +27,9 @@ pub enum NodeEvent {
     PeerDiscovered {
         peer: PeerId,
         addrs: Vec<String>,
+        /// 对端聚合地址来源（Mdns > Rendezvous > Manual）：发现痕迹优先，
+        /// 手动登记不抹掉来源；GUI 来源列直读本字段，不再以拨号行为推断。
+        source: AddrSource,
     },
     PeerConnected {
         peer: PeerId,

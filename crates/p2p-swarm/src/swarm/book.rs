@@ -52,12 +52,12 @@ impl AddressBook {
     }
 
     /// 登记地址（按地址去重，保留首见来源）；mDNS 来源学习链路前缀。
-    /// 返回 (是否有新增, 该 peer 当前全部地址)。
+    /// 返回 (是否有新增, 该 peer 当前全部地址, 聚合展示来源)。
     pub(crate) fn add(
         &mut self,
         peer: PeerId,
         addrs: Vec<(TransportAddr, AddrSource)>,
-    ) -> (bool, Vec<TransportAddr>) {
+    ) -> (bool, Vec<TransportAddr>, AddrSource) {
         let entry = self.peers.entry(peer).or_default();
         let before = entry.len();
         for (addr, source) in addrs {
@@ -74,7 +74,8 @@ impl AddressBook {
         }
         let added = entry.len() > before;
         let all = entry.iter().map(|e| e.addr.clone()).collect();
-        (added, all)
+        let source = aggregate_source(entry);
+        (added, all, source)
     }
 
     /// 直连跳用：按 (来源/网段优先级, hairpin 降权, 传输层, 登记顺序) 排序。
@@ -194,5 +195,21 @@ fn transport_rank(addr: &TransportAddr) -> u8 {
 fn addr_ip(addr: &TransportAddr) -> IpAddr {
     match addr {
         TransportAddr::Quic { ip, .. } | TransportAddr::Tcp { ip, .. } => *ip,
+    }
+}
+
+/// 对端聚合展示来源：Mdns > Rendezvous > Manual，覆盖面最强者优先。
+/// 手动登记不抹掉发现痕迹：对已发现节点手动拨号不改变其来源标签。
+fn aggregate_source(entry: &[BookedAddr]) -> AddrSource {
+    let rank = |source: AddrSource| match source {
+        AddrSource::Mdns => 2u8,
+        AddrSource::Rendezvous => 1,
+        AddrSource::Manual => 0,
+    };
+    let best = entry.iter().map(|e| rank(e.source)).max().unwrap_or(0);
+    match best {
+        2 => AddrSource::Mdns,
+        1 => AddrSource::Rendezvous,
+        _ => AddrSource::Manual,
     }
 }
