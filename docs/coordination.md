@@ -158,3 +158,11 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 | 连接回收与统一活跃度 | p2p-E8-S1（session-0b4fb845） | feat/e8-conn-reclaim | crates/p2p-swarm/** + crates/p2p-discovery/** + 新增 crates/p2p-itest/tests/conn_reclaim.rs（空闲回收+使用中豁免+关闭原因 idle/error/refused 事件化+统一 PeerLiveness 单一活跃度源）；facade/relay/cli/GUI 只读；冻结契约只增不改 | cargo test -p p2p-itest --test conn_reclaim + cargo test -p p2p-swarm + cargo test -p p2p-discovery + make check 全绿；含回收消融证明 |
 | 中继指标面与 CLI 观测 | p2p-E8-M2（session-74a7eec9） | feat/e8-relay-metrics | crates/p2p-relay/**（电路建立/拒绝/回收计数、在路 gauge、保活失败计数）+ crates/p2p-cli/**（metrics 观测入口，可 grep ≥4 指标）+ panic 豁免 cli 条目收缩 + 新增 crates/p2p-relay/tests/relay_metrics.rs；swarm/discovery/facade/GUI 只读 | cargo test -p p2p-relay --test relay_metrics + cargo test -p p2p-relay + make check 全绿；报告附 CLI 冒烟证据与豁免 diff |
 | mux 语义统一与豁免收缩 | p2p-E8-H3（session-c187513b） | feat/e8-mux-lifecycle-doc | crates/p2p/** + crates/p2p-log/** + crates/p2p-transport/** + crates/p2p-mux/**（仅最小对齐）+ 新增 docs/design/mux-transport-lifecycle.md（句柄存亡/显式关闭/空闲行为/读半结束四维对照与统一定稿，冻结契约缺口只登记）+ panic 豁免 facade/log 条目收缩；swarm/relay/discovery/cli/GUI 只读 | cargo test -p p2p + cargo test -p p2p-log + 文档存在 + make check 全绿；报告附四维对照摘要与豁免 diff |
+
+## E9 预备·质量审计（2026-09-03 派单，与 E8 并行、只读零冲突）
+
+| 修复单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| E9-Q0 代码质量与可维护性审计 | p2p-E9-Q0（session-22888684） | docs/e9-quality-audit | 仅新增 docs/notes/e9-quality-audit.md（结构红线/模块边界/可读性/测试质量四章 + E9 修复轮任务单草案 3-5 张，每条 finding 带文件:行号证据，基线 abbb254）；全部代码只读 | 报告存在且五章节齐全、≤400 行、含文件:行号证据引用、make check 全绿；产出作为 E9 修复轮派单依据 |
+
+- 2026-09-03 检查轮 38（协调权移交 session-fd87d7bf，经用户指令直接生效）：接任时 E8 三单（T7-T9）开工约 10 分钟，三 worktree 均在基线 abbb254 无提交；账本 phase 订正为 E8-parallel+E9-audit。按用户「增强代码质量/可维护性/可读性、模块边界克制、职责边界清晰」指令裁定 E9 为质量收拢轮：先派 E9-Q0 只读审计单取证（专属新会话 session-22888684），E9 修复轮待 E8 收口且审计报告就绪后派单，任务书同样只含需求与机械验收、不含源码。协调者基线实测：无超 300 行文件（swarm/mod.rs 与 security/noise.rs 恰贴线 300）、零 TODO/FIXME、Rust 约 2.2 万行、GUI TS 约 1.3 万行。登记勘误：T7 实际 worktree 分支为 feat/e8-liveness-reclaim（账本登记名 feat/e8-conn-reclaim），验收一律以 git 实况为准。
