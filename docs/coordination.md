@@ -237,6 +237,7 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 - 2026-09-04 检查轮 62（IM 协调 session-b7d42619）：**T29 翻 done**（mergedMain=e298a67，独立验收 exit 0：cargo test -p p2p-chat 五场景 itest 全绿（文本送达+ACK/附件 64MiB 边界+超限拒绝/离线 flush/好友簿/重启恢复）、clippy -D warnings、wire-protocol §8 grep、make check 全绿（line-limit 236 文件/panic-hygiene 99 文件/gui-check 132 测试）；范围合规 14 文件；store.rs 拆分 store_io.rs 后全 ≤300 行；协调者 ff-only 合入并全清现场）。**T32 派单**（session-9f5192a7，feat/im-tauri-wiring，依赖 T29 已满足：Tauri chat 命令/事件/dataDir/assetProtocol scope/契约 roundtrip）。在途：T31（session-ea0c2297，feat/im-chat-ui）∥ T32；T33 待 T29+T32 齐。
 
 - 2026-09-04 检查轮 65（RS 协调 session-5e733ff8）：**T23b 翻 done**（mergedMain=f21fca4，一次通过）——三笔提交补齐 shell_exec 进程执行面（审批回调适配 WallClock/QueueApprover/行式输入 + 执行工具白名单/审批/超时 kill/输出门禁 + 宿主门接线装配），helper 100 tests 全绿，隔离全量门禁 exit 0。P0b 工具面至此完整（四只读+shell_exec+session_report+票据/p2p/审计）。T24 遗留裁定已流转：Remove-Item danger 步「白名单命中但红线拦截」为真发现，登记 T28 演练校准项。剩余 T27（在途）→ T28。
+- 2026-09-04 检查轮 66（RS 协调 session-5e733ff8）：**T27 翻 done**（mergedMain=c1a4c79，一次通过）——4 测试精准覆盖矩阵（真实传输全链/diag 写拒绝带原因/断线+同票二次拒/shell_exec 命中与未命中），E2E_EXIT=0 + 隔离全量门禁 exit 0。**T28 收官件派单**（专属新会话 a077edb8）：runner 接入文档 + 真机演练清单，任务书强制「引用命令行须能 grep 到实现」与四条已知校准项如实登记（T24 红线冲突/T23 Windows 分支/T26 分隔符/fs_read lossy）。T28 落地即 P0b 代码段收官，真机 3 例转人工里程碑。编号备注：IM 轨轮 62 与 RS 轮 62 撞号（各轨独立计数所致），条目以协调者 id 自识；建议后续多轨条目采用轨前缀编号（RS-66/IM-62）。
 
 
 

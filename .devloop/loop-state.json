@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T21:48:19Z",
+  "updatedAt": "2026-09-03T22:31:37Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -131,20 +131,23 @@
       "goal": "全链路 E2E itest：桥⇄助手经 /repair/mcp/1 全链（initialize→tools/list→tools/call sys_snapshot→审批超时语义）；依赖 T20+T26",
       "title": "RS-P0b-T27 全链路 E2E",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/rs-e2e",
       "ownerSession": "session-cfcb15a4-8680-47f6-aa7b-c95bc841be4e",
       "scope": "新增 crates/p2p-itest/tests/repair_e2e.rs",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test repair_e2e && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test repair_e2e && make check'",
+      "mergedMain": "c1a4c79",
+      "acceptedAt": "2026-09-03T22:31:11.784Z",
+      "note": "一次通过：cfee12f rebase 后 c1a4c79，4 测试（真实传输全链/diag 写拒绝带原因/断线+同票二次拒/shell_exec 命中与未命中），E2E_EXIT=0 + 隔离全量门禁 exit 0。"
     },
     {
       "id": "T28",
       "goal": "单 runner 接入文档（DSH 会话挂 repair-bridge 的 mcpServers 配置模板）与 P0b 真机演练清单；依赖 T27",
       "title": "RS-P0b-T28 runner 接入与真机演练文档",
       "priority": "P1",
-      "status": "todo",
+      "status": "doing",
       "branch": "docs/rs-runner-integration",
-      "ownerSession": "待派（批次三）",
+      "ownerSession": "session-a077edb8-324d-41e9-968a-c0e27c357df9",
       "scope": "新增 docs/ops/repair-runner-integration.md + docs/ops/repair-p0b-drill.md",
       "acceptanceCommand": "bash -c 'test -f docs/ops/repair-runner-integration.md && test -f docs/ops/repair-p0b-drill.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     },
@@ -153,11 +156,14 @@
       "goal": "p2p-chat 核心 crate：线协议 /im/chat/1（ENVELOPE/MEDIA_BEGIN/MEDIA_CHUNK/ACK 四帧）+ 消息模型（text/image/audio/video/file，64MiB 上限与 MIME 白名单校验）+ 好友簿（friends.json 原子写）+ 消息/附件本地存储（JSONL+落盘 tmp+rename）+ outbox 离线队列（PeerConnected flush）+ 发送接收与入站 handler；双节点回环 itest（文本+附件+离线 flush+ACK）+ wire-protocol.md §8 登记",
       "title": "IM-T29 p2p-chat 核心 crate",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/im-chat-core",
       "ownerSession": "session-81b095d5-24dd-4aa8-b427-6c26bb7fe60f",
       "scope": "新建 crates/p2p-chat/** + crates/p2p-chat/tests/ + docs/design/wire-protocol.md §8 + 根 Cargo.toml 仅 workspace.members 追加；p2p-* 内核只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat && cargo clippy -p p2p-chat -- -D warnings && grep -q \"/im/chat/1\" docs/design/wire-protocol.md && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat && cargo clippy -p p2p-chat -- -D warnings && grep -q \"/im/chat/1\" docs/design/wire-protocol.md && make check'",
+      "mergedMain": "e298a67",
+      "acceptedAt": "2026-09-03T22:08:02.786Z",
+      "note": "独立验收 exit 0：cargo test -p p2p-chat（5 itest 场景全绿）+ clippy -D warnings + wire-protocol §8 grep + make check（line-limit 236 文件/panic-hygiene 99 文件/gui-check 132 测试全 PASS）；范围合规 14 文件；store.rs 拆分后全 ≤300 行；协调者 ff-only 合入并全清现场"
     },
     {
       "id": "T30",
@@ -190,7 +196,7 @@
       "priority": "P1",
       "status": "todo",
       "branch": "feat/im-tauri-wiring",
-      "ownerSession": "待派（T29 合入后）",
+      "ownerSession": "session-9f5192a7-068e-4357-8fe0-70aeb72427b0",
       "scope": "apps/gui/src-tauri/**（lib.rs/state.rs/commands.rs/events.rs/proto.rs 扩展或新增 chat 模块）+ tauri.conf.json（assetProtocol scope）；不动 apps/gui/src",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/gui/src-tauri && cargo test && cargo clippy -- -D warnings && cd ../.. && make check'"
     },
@@ -201,7 +207,7 @@
       "priority": "P1",
       "status": "todo",
       "branch": "feat/im-e2e",
-      "ownerSession": "待派（T29+T32 合入后）",
+      "ownerSession": "待派（T29+T32 合入后，T32 已开闸）",
       "scope": "新增 crates/p2p-itest/tests/chat_e2e.rs + docs/ops/im-chat-drill.md；不动生产实现",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test chat_e2e && make check'"
     },
