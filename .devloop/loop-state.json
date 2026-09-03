@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T15:54:58.207Z",
+  "updatedAt": "2026-09-03T15:58:31.761Z",
   "project": "p2p-base",
   "phase": "E8-parallel+E9-audit",
   "coordinatorSession": "session-93d57260-bb33-472e-b8a6-86237c64a272",
-  "note": "E8 仅剩 T7/S1（0ec6db2 已由 E8 主控 salvage/s1-liveness 备份，S1 重建取用，分诊清单为验收前置）；t2/t4 归属结案：执行会话未认领、交付已合入（5d0d94b/d81d73b），T11/T12 机械验收复核中；T13 经裁定①先行开工（relay/cli/itest/facade 面放行，swarm lib.rs:19 后置，S1 收口前不合入）；T1/T3/长稳复测单待 E8 全收口后派新专属会话。",
+  "note": "E8 仅剩 T7/S1（0ec6db2 已 salvage/s1-liveness 备份，重建取用，分诊清单为验收前置）；t2/t4 归属结案：22888684 回函自认执行（0fdf735），交付实证 5d0d94b/d81d73b 已核验，T11/T12 机械验收 exit 0 已翻 done；T13 按裁定① doing（143c9a8，swarm 行后置、S1 收口前不合入）；T1/T3/长稳复测单待 E8 全收口后派新专属会话。",
   "tasks": [
     {
       "id": "T1",
@@ -116,21 +116,22 @@
       "goal": "面向 E9 质量收拢轮的只读审计：结构红线（300 行文件/60 行函数）、模块边界（依赖方向/pub 泄漏/跨 crate 重复/12 crate 划分评价）、可读性（命名/注释废话/吞错残留/magic number，GUI 前端单列）、测试质量（占比/itest 缺口/脆弱测试），产出 docs/notes/e9-quality-audit.md（五章 + 3-5 张互斥任务单草案，每条 finding 带文件:行号证据）",
       "title": "E9-Q0 代码质量与可维护性审计",
       "priority": "P1",
-      "status": "doing",
+      "status": "review",
       "branch": "docs/e9-quality-audit",
       "ownerSession": "session-22888684-378a-4978-9914-f2fd87ec8e15",
       "scope": "仅新增 docs/notes/e9-quality-audit.md；全部代码只读；禁触 docs/coordination.md/.devloop/.agents 与 .worktrees/e8-*",
       "acceptanceCommand": "bash -c 'test -f docs/notes/e9-quality-audit.md && grep -q 结构红线 docs/notes/e9-quality-audit.md && grep -q 模块边界 docs/notes/e9-quality-audit.md && grep -q 可读性 docs/notes/e9-quality-audit.md && grep -q 测试质量 docs/notes/e9-quality-audit.md && grep -q \"E9 建议\" docs/notes/e9-quality-audit.md && test $(wc -l < docs/notes/e9-quality-audit.md) -le 400 && grep -qE \"[a-z]\\.rs:[0-9]+\" docs/notes/e9-quality-audit.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
-      "note": "协调边界已通知：审计期只读，不改代码/账本/协调表，产出入 docs/notes|research；开工范围回信确认中"
+      "note": "协调边界已通知：审计期只读，不改代码/账本/协调表，产出入 docs/notes|research；开工范围回信确认中",
+      "failCount": 2
     },
     {
       "id": "T11",
       "goal": "E9-Q0 报告 T2：crates/p2p-security/src/noise.rs 恰 300 行零余量，52 行内联测试外移新增 noise/tests.rs（纯移动零行为变更），产线降至 249 行（执行会话待认领，E8 主控程序性放行）",
       "title": "E9-t2 noise.rs 测试外移",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "docs/e9-t2-noise-tests",
-      "ownerSession": "执行会话未认领",
+      "ownerSession": "session-22888684（回函自认执行，0fdf735 补登）",
       "scope": "crates/p2p-security/src/noise.rs + 新增 crates/p2p-security/src/noise/tests.rs；S1 收口前禁触 swarm/discovery/relay/cli",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && test $(wc -l < crates/p2p-security/src/noise.rs) -le 250 && test -f crates/p2p-security/src/noise/tests.rs && cargo test -p p2p-security --quiet && make check'",
       "note": "执行会话自认（2026-09-03 回函）：以 38e4d88 程序性放行与 08dc2cc T2/T4 先行登记为据，独立 worktree 短分支 ff-only 合入，全门禁绿"
@@ -140,9 +141,9 @@
       "goal": "E9-Q0 报告 T4：GUI mock 后端无条件进 prod bundle（ipc.ts:4-5,22）改 VITE_MOCK_IPC 开关下动态 import；删除零引用死组件 feedback-demo-card.tsx（执行会话待认领，E8 主控程序性放行）",
       "title": "E9-t4 GUI mock 剥离与死组件清理",
       "priority": "P2",
-      "status": "doing",
+      "status": "done",
       "branch": "docs/e9-t4-gui-mock",
-      "ownerSession": "执行会话未认领",
+      "ownerSession": "session-22888684（回函自认执行，0fdf735 补登）",
       "scope": "apps/gui/src/lib/ipc.ts + mock-ipc.ts + mock-diagnostics.ts + 删除 apps/gui/src/components/feedback/feedback-demo-card.tsx；S1 收口前禁触 swarm/discovery/relay/cli",
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && ! grep -rq mockBackend dist/assets && test ! -f src/components/feedback/feedback-demo-card.tsx && pnpm test --run && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
       "note": "执行会话自认（2026-09-03 回函）：以 38e4d88 程序性放行与 08dc2cc T2/T4 先行登记为据，独立 worktree 短分支 ff-only 合入，全门禁绿"
