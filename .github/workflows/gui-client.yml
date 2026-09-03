@@ -1,11 +1,15 @@
 # p2p-console 客户端打包流水线：三平台构建 Tauri 应用并上传产物
-# 触发：手动 / client-v* 标签（附 GitHub Release）/ main 分支 GUI 相关路径变更
+# 触发：手动 / client-v* 标签（附 GitHub Release）/ main 分支 push 与 PR
+# main push 刻意不做 paths 过滤：paths 与 tags 同块时 tag 事件可能被静默滤掉（发布不可静默失败），
+# 宁可 gate 对全部 main push 运行（超集，见 docs/release-gates.md §2 L4）
 # 说明：macOS 产物未签名（内部使用）；Linux 走 AppImage+deb；Windows 走 NSIS+MSI
 name: gui-client
 
 on:
   workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - "client-v*"
   pull_request:
@@ -20,12 +24,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 快门禁：合并前先把类型/lint/单测跑掉，失败不进打包矩阵
+  # 快门禁：合并/发布前先把版本、类型/lint/单测跑掉，失败不进打包矩阵
   gate:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # fetch-depth 0：tag 祖先校验需要全历史（origin/main 可达性判定）
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 仅 tag 触发时校验：tag 指向的 commit 必须已在 origin/main 历史内，
+      # 防止 feature 分支未合并代码被 tag 直接发布；PR/分支/手动运行不受影响
+      - name: tag 祖先校验（tag 提交必须在 origin/main 上）
+        if: startsWith(github.ref, 'refs/tags/client-v')
+        run: |
+          set -euo pipefail
+          git fetch --prune origin +refs/heads/main:refs/remotes/origin/main
+          commit="$(git rev-parse "${GITHUB_SHA}^{commit}")"
+          if git merge-base --is-ancestor "$commit" origin/main; then
+            echo "tag-gate: PASS $commit 在 origin/main 历史内"
+          else
+            echo "tag-gate: FAIL $commit 不在 origin/main 上，拒绝发布（tag 只允许打在已合并 main 的提交）" >&2
+            exit 1
+          fi
+
+      - run: bash scripts/check/version.sh
       - uses: pnpm/action-setup@v4
         with:
           version: 11
@@ -40,8 +64,10 @@ jobs:
       - run: pnpm -C apps/gui build
       - run: bash apps/gui/scripts/check/i18n-diff.sh
 
+  # 打包矩阵：main push 只跑上面的 gate；tag/手动/PR 才进构建
   build:
     needs: gate
+    if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/client-v')
     strategy:
       fail-fast: false
       matrix:

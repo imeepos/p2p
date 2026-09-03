@@ -3,6 +3,10 @@
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
 _none yet — be the first._
+## 2026-09-03 版本 bump 只在 tag 首次暴露测试失败
+症状：版本 bump 直推 main 后没有失败反馈，直到推 client-v tag 才在发布流水线看到 hardcoded version 断言失败。
+原因：实际远端是 GitHub，但 GUI workflow 只有 tag/PR 触发；预留的 Gitea workflow 未执行，且无本地 hook/主线 push 全量 CI。
+修法：GitHub 主线 push 与 PR 均执行全量 make check；GUI tag workflow 单独执行 GUI gate 并校验 tag commit 在 origin/main 历史内；发布前用 version-check/release-check 和不自动 push 的 release.sh。
 ## 2026-09-01 rustc 1.98 io::Error API 变化（downcast_ref 消失）
 症状：`err.downcast_ref::<E>()` 报 E0599 "no method named downcast_ref"；`err.into_inner()` 返回 `Option<Box<dyn Error + Send + Sync>>` 而非裸 Box。
 原因：本机工具链 rustc 1.98.0 (2026-08) 的 std::io::Error API 已演进，旧写法全部失效。

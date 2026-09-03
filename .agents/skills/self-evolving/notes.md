@@ -1,5 +1,14 @@
 # Self-Evolving Notes
 
+## 2026-09-03 发布门禁事故复盘（feat/release-gates）
+
+- 哪个坑浪费了最多时间？
+  不是修断言本身，而是确认 CI 实际覆盖面：GitHub workflow 只在 PR/tag 跑，Gitea workflow 虽写了但当前仓库没有 gitea remote，因此 bump 直推 main 完全没有门禁。
+- skill 有没有提前警告我？
+  已有经验提醒不能只跑 cargo、GUI 必须 gui-check，也提醒远端名要实测；但没有把“CI 文件存在不等于实际触发”和“门禁脚本自身必须被门禁”固化。此次补入 known-issues/lessons。
+- 重来一次会怎么做？
+  开始先画提交→触发器→required check→tag 的路径矩阵，逐个确认实际远端和事件覆盖；任何新门禁同时写成功/失败夹具并纳入 make check，避免门禁代码自身成为未测试盲区。
+
 ## 2026-09-03 GUI 节点行内拨号/挂断（feat/peer-dial-hangup）
 
 - 哪个坑浪费了最多时间？
