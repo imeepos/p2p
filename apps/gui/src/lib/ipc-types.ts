@@ -84,6 +84,18 @@ export type NodeEventType = NodeEventJson["type"];
 export type NodeEventHandler = (event: NodeEventJson) => void;
 export type UnlistenFn = () => void;
 
+// 契约 v4 §9 加法（G-U1/G-U2）：与 docs/design/gui-contract.md 逐字对齐，禁止改名。
+export interface UpdateCheckResult {
+  currentVersion: string; // 应用当前版本（tauri.conf version）
+  latestVersion: string | null; // 无候选时 null
+  hasUpdate: boolean;
+  releaseUrl: string | null; // release html_url
+  releaseName: string | null;
+  releaseNotesMd: string | null; // release body 原文
+  publishedAtMs: number | null;
+  checkedAtMs: number;
+}
+
 export interface IpcBackend {
   nodeStart(cfg: GuiConfig): Promise<NodeStatus>;
   nodeStop(): Promise<NodeStatus>;
@@ -95,6 +107,8 @@ export interface IpcBackend {
   peerDial(target: string): Promise<DialReport>;
   peerPing(peerId: string, timeoutMs: number): Promise<PingOutcome>;
   identityReset(confirm: boolean): Promise<NodeStatus>;
+  updateCheck(): Promise<UpdateCheckResult>;
+  updateOpenReleasePage(url: string): Promise<void>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
 }
 

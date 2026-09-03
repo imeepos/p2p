@@ -14,6 +14,7 @@ import type {
   NodeEventHandler,
   NodeStatus,
   PingOutcome,
+  UpdateCheckResult,
 } from "./ipc-types";
 
 const NODE_EVENT_CHANNEL = "node-event";
@@ -33,6 +34,9 @@ const tauriBackend: IpcBackend = {
     invoke<PingOutcome>("peer_ping", { peerId, timeoutMs }),
   identityReset: (confirm) =>
     invoke<NodeStatus>("identity_reset", { confirm }),
+  updateCheck: () => invoke<UpdateCheckResult>("update_check"),
+  updateOpenReleasePage: (url) =>
+    invoke<void>("update_open_release_page", { url }),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {

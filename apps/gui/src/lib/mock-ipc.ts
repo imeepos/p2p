@@ -10,6 +10,7 @@ import type {
 } from "./ipc-types";
 import { parseDialTarget } from "./dial-target";
 import { randomWalkHistory } from "./metrics-history";
+import { mockUpdateCheck, mockUpdateOpenReleasePage } from "./mock-update";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -282,6 +283,10 @@ export const mockBackend: IpcBackend = {
     if (wasRunning) emit({ type: "node_stopped" });
     return snapshot();
   },
+
+  updateCheck: () => mockUpdateCheck(),
+
+  updateOpenReleasePage: (url) => mockUpdateOpenReleasePage(url),
 
   onNodeEvent(handler): Promise<UnlistenFn> {
     handlers.add(handler);
