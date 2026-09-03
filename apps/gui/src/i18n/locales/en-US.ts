@@ -307,6 +307,10 @@ const enUS: typeof zhCN = {
   chat: {
     title: "Chat",
     description: "1:1 direct chat with friends: text, emoji and attachments",
+    friends: "Friend list",
+    conversation: "Conversation",
+    conversationEmpty: "No conversation yet",
+    inputPlaceholder: "Type a message…",
     placeholder: {
       title: "Conversation view under construction",
       hint: "Friend book and message contract are ready; the conversation UI lands in the next wave",

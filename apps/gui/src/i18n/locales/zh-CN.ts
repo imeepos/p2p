@@ -300,6 +300,10 @@ const zhCN = {
   chat: {
     title: "聊天",
     description: "好友 1:1 私聊：文本、表情与附件",
+    friends: "好友",
+    conversation: "会话",
+    conversationEmpty: "暂无会话，选择好友开始聊天",
+    inputPlaceholder: "输入消息…",
     placeholder: {
       title: "会话视图建设中",
       hint: "好友簿与消息契约已就绪，会话列表与消息界面将在下一波接入",
