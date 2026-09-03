@@ -14,6 +14,7 @@ pub mod risk;
 pub mod scope;
 pub mod util;
 pub mod whitelist;
+pub mod whitelist_data;
 
 #[cfg(test)]
 mod redline_bypass_tests;
@@ -24,7 +25,8 @@ pub use approval::{Approval, ApprovalState, ApprovalVerdict, Approver, Clock, AP
 pub use redline::Redline;
 pub use risk::{Risk, RiskRule, ToolCall};
 pub use scope::{GateDecision, Scope};
-pub use whitelist::{ArgPat, ShellRule, ShellWhitelist};
+pub use whitelist::{ArgPat, ShellDenyReason, ShellRule, ShellWhitelist};
+pub use whitelist_data::{builtin, WhitelistEntry, WHITELIST_TABLE};
 
 /// 执法流水线的一次裁决。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -61,8 +63,11 @@ impl<'a> Enforcer<'a> {
         if let Some(rl) = redline::check_tool_call(call) {
             return Verdict::Redline(rl);
         }
-        if call.tool == "shell_exec" && !self.whitelist.is_allowed(&call.shell_argv()) {
-            return Verdict::WhitelistDenied;
+        if call.tool == "shell_exec" {
+            if let Some(reason) = self.whitelist.deny_reason(&call.shell_argv()) {
+                tracing::debug!(tool = "shell_exec", reason = ?reason, "shell 白名单闭集拒绝");
+                return Verdict::WhitelistDenied;
+            }
         }
         let risk = risk::classify(call);
         match scope::gate(self.scope, risk) {

@@ -37,6 +37,7 @@ futures = "0.3"
 x509-cert = "0.2"
 ring = "0.17"
 der = "0.7"
+repair-playbook = { path = "crates/repair-playbook" }
 
 [profile.release]
 lto = "thin"

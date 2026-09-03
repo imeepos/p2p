@@ -1484,6 +1484,10 @@ dependencies = [
 [[package]]
 name = "repair-enforce"
 version = "0.1.0"
+dependencies = [
+ "repair-playbook",
+ "tracing",
+]
 
 [[package]]
 name = "repair-helper"

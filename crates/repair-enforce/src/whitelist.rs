@@ -2,8 +2,8 @@
 //!
 //! 语义（remote-support-plan.md §3.4）：shell_exec 只能执行白名单内的程序，
 //! 且参数必须匹配该程序声明的模式序列，任何不在闭集内的组合直接拒绝。
-//! 清单数据本批为空（[ShellWhitelist::empty] 拒全部），由 T24 填充三类
-//! playbook 命令并集。
+//! 数据由 T24 按 Q7 三类 playbook 命令并集填充（[crate::whitelist_data]），
+//! 含管道/重定向/命令替换特征的调用属闭集外一律拒（[ShellDenyReason::CompoundShell]）。
 //!
 //! 匹配约定：程序名大小写不敏感（Windows 语义），支持裸名与全路径 argv[0]
 //! （比较裸名时剥离目录与已知可执行扩展名）；参数模式逐位匹配、超长参数
@@ -89,14 +89,42 @@ impl ShellWhitelist {
 
     /// 闭集匹配：argv[0] 命中白名单且参数逐位满足模式才放行，其余一律拒。
     pub fn is_allowed(&self, argv: &[String]) -> bool {
-        let Some(rule) = self.find(argv) else {
-            return false;
+        self.deny_reason(argv).is_none()
+    }
+
+    /// 闭集判定带原因：None=放行；Some=拒绝原因（T24，拒绝带原因）。
+    ///
+    /// 判定顺序：复合 shell 特征（管道/重定向/命令替换，一律拒，属闭集外）→
+    /// argv[0] 白名单 → 参数模式。同程序多形态（如 netsh show/reset、Stop-Process
+    /// -Id/-Name）任一规则满足即放行，与 [ShellWhitelist::find] 的首条命中语义
+    /// 互补（find 供查询，判定用本方法遍历全部规则）。
+    pub fn deny_reason(&self, argv: &[String]) -> Option<ShellDenyReason> {
+        let Some(argv0) = argv.first() else {
+            return Some(ShellDenyReason::UnknownProgram);
         };
-        argv.len() - 1 <= rule.args.len()
-            && argv[1..]
-                .iter()
-                .zip(rule.args.iter())
-                .all(|(arg, pat)| pat.matches(arg))
+        if argv.iter().any(|t| has_compound_feature(t)) {
+            return Some(ShellDenyReason::CompoundShell);
+        }
+        let mut saw_program = false;
+        for rule in &self.rules {
+            if !rule.program_matches(argv0) {
+                continue;
+            }
+            saw_program = true;
+            if argv.len() - 1 <= rule.args.len()
+                && argv[1..]
+                    .iter()
+                    .zip(rule.args.iter())
+                    .all(|(arg, pat)| pat.matches(arg))
+            {
+                return None;
+            }
+        }
+        Some(if saw_program {
+            ShellDenyReason::ArgMismatch
+        } else {
+            ShellDenyReason::UnknownProgram
+        })
     }
 
     /// 按 argv[0] 找规则（大小写不敏感，支持裸名/全路径）。
@@ -106,6 +134,34 @@ impl ShellWhitelist {
     }
 }
 
+/// shell 闭集判定拒绝原因（T24，需求 3：拒绝带原因）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShellDenyReason {
+    /// argv 含管道/重定向/命令替换特征，属闭集外，一律拒。
+    CompoundShell,
+    /// argv[0] 不在白名单。
+    UnknownProgram,
+    /// 程序在白名单但参数不匹配（含参数过多）。
+    ArgMismatch,
+}
+
+impl ShellDenyReason {
+    /// 人类可读原因（审计/日志用）。
+    pub fn reason(&self) -> &'static str {
+        match self {
+            Self::CompoundShell => "含管道/重定向/命令替换特征，属闭集外",
+            Self::UnknownProgram => "argv[0] 不在白名单",
+            Self::ArgMismatch => "参数不匹配白名单模式",
+        }
+    }
+}
+
+/// argv 是否含管道/重定向/命令替换特征（不做完备 shell 解析，命中即闭集外）。
+/// 覆盖：管道 |、重定向 > < >> 2>、命令替换 $( 与反引号、语句分隔 ; 与链式 &。
+fn has_compound_feature(token: &str) -> bool {
+    const FEATURES: &[&str] = &["|", ">", "<", "$(", "`", ";", "&&", "||"];
+    FEATURES.iter().any(|f| token.contains(f))
+}
 /// 剥离目录与已知可执行扩展名，得到比较用裸名。
 fn base_name(argv0: &str) -> String {
     let tail = argv0.rsplit(['/', '\\']).next().unwrap_or(argv0);

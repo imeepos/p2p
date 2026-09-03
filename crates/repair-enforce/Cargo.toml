@@ -5,3 +5,7 @@ edition.workspace = true
 description = "本地执法核心：风险分级/红线/scope 门/审批状态机/shell 白名单语义（纯逻辑无 IO，RS P0b T22）"
 
 [dependencies]
+tracing = { workspace = true }
+
+[dev-dependencies]
+repair-playbook = { workspace = true }
