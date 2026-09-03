@@ -107,6 +107,12 @@
 - skill 有没有预警：known-issues 已有 keepalive/tcp 条目，但没预警「客户端周期与服务端超时窗口同值贴线竞速」与「拨号 socket 协议族和地址簿地址族不对齐」这两类（本次已喂回）；周期性日志先算相邻差分找恒定周期（sigma<5ms 即定时器）这一排查手法已补进本条。
 - 重来一次怎么做：拿到周期性日志先做时间差分表，恒定周期必对应代码常量，grep Duration 常量对表；凡 A 端周期性动作对 B 端超时窗口，必问谁先谁后、输了会怎样。
 
+## 2026-09-04 诊断真实日志与一键清理
+
+- 哪个坑浪费最多时间：委派任务超时后已写入提交但仍有未完成 UI，且翻译键重复导致全量测试失败；连续 edit 也因文件被前序工具修改而触发 stale-read 保护。
+- skill 有没有提前警告：已有先读后改、提交复核与失败门禁经验，但没有提醒委派超时后先完整审计 diff，也没有提醒批量插入 locale 键前先 grep 防重复。
+- 重来一次会怎么做：委派返回超时后立即以 git diff/status 和关键文件 read 盘点；每次 locale 修改前 grep 目标键；全量测试失败必须修复后再提交并再次跑完整门禁。
+
 ## 2026-09-04 五连修执行轮（relay 保活/QUIC 双栈/探活判死/地址簿卫生/日志降噪）
 - 哪个坑浪费最多时间：fmt 门禁两轮红——第一轮只 fmt 改动的三个 crate，第二轮才用 --all 收口；expect_err 条目 known-issues 已有仍踩进去（SecureConn 无 Debug），凭惯性手滑，说明条目必须写到「替代写法」层级才防得住（本次已补 match 取 Err 臂写法在案）。
 - skill 有没有预警：worktree 按路径读缓存条目防住了（先读后改一次过）；expect_err 有条目没防住；新坑 quinn Endpoint::new 收 std socket 与 v4-mapped 令 is_unspecified 失真已喂回 known-issues。

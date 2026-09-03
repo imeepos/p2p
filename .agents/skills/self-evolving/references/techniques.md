@@ -56,6 +56,8 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   macOS 无 timeout 命令，dev server 冒烟用 run_code 后台 job + sleep +
   curl 探活 + job_kill 组合。- GUI 启动冒烟（jsdom 挂整应用）：vi.stubEnv("VITE_MOCK_IPC","1") 后 await import("../main")，waitFor host.querySelector("main")，断言 innerHTML 非空且无 ErrorBoundary 兜底文案；手工 appendChild 的 host 在 afterEach 清空防跨测试泄漏。整跑：bash scripts/check/gui.sh。
 - 崩溃定位：ErrorBoundary 的 componentDidCatch 会 console.error 带异常消息，vitest 输出里搜「渲染异常」直接得根因；Maximum update depth 且栈里有 forceStoreRerender/updateStoreInstance = store 快照引用漂移。
+- 2026-09-04 诊断 mock 残留核查：先 grep 诊断视图、IPC 路由和类型契约的 mock 引用，再检查运行时选择逻辑；测试文件中的 vi.mock/mock fixture 属于测试隔离，不应误删。
+
 ## 零依赖 CDP 页面操作入口（2026-09-03，G-H gui-agent）
 
 - Agent 要"操作/观测网页"不必上 Playwright：node ≥22 原生 WebSocket 直连 CDP。流程：

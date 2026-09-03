@@ -2,7 +2,12 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
-_none yet — be the first._
+_none yet — be the first.
+
+## 2026-09-04 诊断清理改动后的 stale-read 与重复 locale 键
+症状：连续 edit 同一批文件时出现 file changed since it was read，或全量测试报 locale object duplicate key。
+原因：前一步工具已修改文件但本轮仍使用旧读取快照；批量插入 locale 时没有先确认键是否已经存在。
+修法：每次 edit 失败或前一步可能改过文件，立即重新 read；插入翻译键前先 grep 目标键并用 git diff 检查重复。_
 ## 2026-09-03 E8 itest 裸流直写帧被对端拒识成 EOF
 症状：itest 里 `Swarm::open_stream` 拿流直接 write_frame/read_frame，对端读侧报 ProtocolViolation，本端 read 得 early EOF，误判成连接层断链。
 原因：open_stream 交付裸流，协议 ID 首帧由调用方写（design §5.4 契约）；不写协议 ID 就发业务帧，对端 dispatch 把业务帧当协议 ID 拒识。
