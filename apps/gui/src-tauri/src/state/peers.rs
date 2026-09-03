@@ -1,4 +1,5 @@
-//! peer 操作（gui-contract.md §1/§6）：peer_dial 逐跳回收与 peer_ping 测距。
+//! peer 操作（gui-contract.md §1/§6）：peer_dial/peer_connect 逐跳回收、
+//! peer_ping 测距与 peer_disconnect 挂断。
 
 use std::time::{Duration, Instant};
 
@@ -40,6 +41,40 @@ impl AppState {
                 })
             }
         }
+    }
+
+    /// peer_connect：按地址簿直连已知节点（免重复登记），逐跳报告同 peer_dial。
+    pub(crate) async fn connect(&self, peer_id: &str) -> Result<DialReport, String> {
+        let peer = proto::parse_peer_id(peer_id)?;
+        let node = self.running_node().await?;
+        let mut rx = node.events();
+        let started = Instant::now();
+        let result = node.connect(peer).await;
+        let hops = drain_hops(&mut rx);
+        match result {
+            Ok(()) => Ok(DialReport {
+                peer: peer.to_string(),
+                hops,
+                ok: true,
+                total_ms: elapsed_ms(started),
+            }),
+            Err(e) => {
+                warn!(error = %e, peer = %peer, "连接已知节点失败");
+                Ok(DialReport {
+                    peer: peer.to_string(),
+                    hops,
+                    ok: false,
+                    total_ms: elapsed_ms(started),
+                })
+            }
+        }
+    }
+
+    /// peer_disconnect：挂断与该节点的连接；幂等，未在册连接返回 false。
+    pub(crate) async fn disconnect(&self, peer_id: &str) -> Result<bool, String> {
+        let peer = proto::parse_peer_id(peer_id)?;
+        let node = self.running_node().await?;
+        Ok(node.disconnect(&peer))
     }
 
     /// peer_ping：复用 echo 协议 request（同 p2p-cli ping），期间逐跳一并回收。

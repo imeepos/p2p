@@ -29,6 +29,8 @@ const tauriBackend: IpcBackend = {
   configGet: () => invoke<GuiConfig>("config_get"),
   configSave: (cfg) => invoke<GuiConfig>("config_save", { cfg }),
   peerDial: (target) => invoke<DialReport>("peer_dial", { target }),
+  peerConnect: (peerId) => invoke<DialReport>("peer_connect", { peerId }),
+  peerDisconnect: (peerId) => invoke<boolean>("peer_disconnect", { peerId }),
   peerPing: (peerId, timeoutMs) =>
     invoke<PingOutcome>("peer_ping", { peerId, timeoutMs }),
   identityReset: (confirm) =>

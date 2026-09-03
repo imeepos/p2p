@@ -17,6 +17,7 @@ mod book;
 mod config;
 mod dial;
 mod factory;
+mod hangup;
 mod listen;
 mod relay_session;
 mod responder;

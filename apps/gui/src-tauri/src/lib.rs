@@ -1,7 +1,7 @@
 //! Tauri 桥接层：把 p2p::Node 能力按 gui-contract.md §1 命令面 / §2 事件面暴露给前端。
 //!
 //! 模块划分：types（契约 serde 镜像）/ config（配置持久化）/ proto（echo 与 target 解析）/
-//! state（节点生命周期）/ events（事件转发）/ commands（9 个 IPC 命令）/
+//! state（节点生命周期）/ events（事件转发）/ commands（11 个 IPC 命令）/
 //! frontend_log（契约 v3 加法：前端错误落盘，G-H 观测）/
 //! update（契约 v4 加法：在线更新检查，G-U1）。
 
@@ -33,6 +33,8 @@ pub fn run() {
             commands::config_get,
             commands::config_save,
             commands::peer_dial,
+            commands::peer_connect,
+            commands::peer_disconnect,
             commands::peer_ping,
             commands::identity_reset,
             frontend_log::frontend_log_append,

@@ -1,4 +1,5 @@
 // 出厂默认端点：apps/gui/src-tauri/src/config.rs default_* 的展示层镜像。
+// 防漂移：factory-defaults.test.ts 直接解析 config.rs 的 vec! 字面量对表。
 // 后端契约：用户显式清空的列表不会被出厂默认覆盖；此处仅用于空态提示与
 // 用户主动点击的恢复入口，禁止自动写回表单或持久层。
 export const FACTORY_LIST_DEFAULTS = {

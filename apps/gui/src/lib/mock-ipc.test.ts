@@ -95,6 +95,47 @@ describe("mock-ipc", () => {
     await stopIfRunning();
   });
 
+  it("peerConnect/peerDisconnect：未知节点失败报告，已知节点连接与幂等挂断", async () => {
+    const peer = "3xY9abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQ";
+    await expect(mockBackend.peerConnect(peer)).rejects.toThrow(/节点未运行/);
+    await expect(mockBackend.peerDisconnect(peer)).rejects.toThrow(/节点未运行/);
+
+    const start = mockBackend.nodeStart(CFG);
+    await vi.advanceTimersByTimeAsync(1000);
+    await start;
+
+    const miss = mockBackend.peerConnect(
+      "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    const missReport = await miss;
+    expect(missReport.ok).toBe(false);
+    expect(missReport.hops[0]?.detail).toMatch(/no known address/);
+
+    const dial = mockBackend.peerDial(`${peer}@192.168.1.5/u3400`);
+    await vi.advanceTimersByTimeAsync(2000);
+    await dial;
+
+    const events: string[] = [];
+    const unlisten = await mockBackend.onNodeEvent((e) => events.push(e.type));
+
+    const connect = mockBackend.peerConnect(peer);
+    await vi.advanceTimersByTimeAsync(1000);
+    const report = await connect;
+    expect(report.ok).toBe(true);
+    expect(report.hops[0]?.ok).toBe(true);
+
+    const hang = mockBackend.peerDisconnect(peer);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await hang).toBe(true);
+    const again = mockBackend.peerDisconnect(peer);
+    await vi.advanceTimersByTimeAsync(300);
+    expect(await again).toBe(false);
+    expect(events).toContain("peer_disconnected");
+    unlisten();
+    await stopIfRunning();
+  });
+
   it("peerPing 未运行抛错；未知节点返回失败 outcome；reset 需显式 confirm", async () => {
     await expect(mockBackend.peerPing("zzz", 1000)).rejects.toThrow(
       /节点未运行/,

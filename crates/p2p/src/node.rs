@@ -64,6 +64,11 @@ impl Node {
         Ok(())
     }
 
+    /// 挂断与该 peer 的连接（幂等）：返回是否确有在册连接被关闭。
+    pub fn disconnect(&self, peer: &PeerId) -> bool {
+        self.swarm.disconnect(peer)
+    }
+
     /// 主动开流：首帧协议 ID 已写，之后即业务帧（design §5.1）。
     pub async fn new_stream(
         &self,

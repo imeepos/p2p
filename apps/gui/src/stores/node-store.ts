@@ -28,6 +28,8 @@ export interface NodeStoreState {
   startNode: (cfg: GuiConfig) => Promise<NodeStatus>;
   stopNode: () => Promise<NodeStatus>;
   dial: (target: string) => Promise<DialReport>;
+  connect: (peerId: string) => Promise<DialReport>;
+  disconnect: (peerId: string) => Promise<boolean>;
   ping: (peerId: string, timeoutMs: number) => Promise<PingOutcome>;
 }
 
@@ -81,6 +83,8 @@ export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   },
 
   dial: (target) => ipc.peerDial(target),
+  connect: (peerId) => ipc.peerConnect(peerId),
+  disconnect: (peerId) => ipc.peerDisconnect(peerId),
   ping: (peerId, timeoutMs) => ipc.peerPing(peerId, timeoutMs),
 }));
 
