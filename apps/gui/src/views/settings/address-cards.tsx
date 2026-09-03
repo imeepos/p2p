@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { SettingsFormValues } from "./config-schema";
+import { FactoryDefaultsNotice } from "./factory-defaults-notice";
 import {
   AddressListEditor,
 } from "@/views/shared/address-list-editor";
@@ -26,13 +27,14 @@ export function BootstrapCard() {
         <CardTitle>{t("settings.cards.bootstrap")}</CardTitle>
         <CardDescription>{t("settings.bootstrap.hint")}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-2">
         <AddressListEditor
           control={control}
           name="bootstrap"
           label={t("settings.bootstrap.label")}
           placeholder="192.168.1.10/u3400"
         />
+        <FactoryDefaultsNotice name="bootstrap" />
       </CardContent>
     </Card>
   );
@@ -48,19 +50,21 @@ export function RelayAddrsCard() {
         <CardTitle>{t("settings.cards.relay")}</CardTitle>
         <CardDescription>{t("settings.relayCard.hint")}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-2">
         <AddressListEditor
           control={control}
           name="relayAddrs"
           label={t("settings.relayCard.label")}
           placeholder="192.168.1.10/u3402"
         />
+        <FactoryDefaultsNotice name="relayAddrs" />
       </CardContent>
     </Card>
   );
 }
 
 // 宣告与观测卡：advertisedAddrs 列表 + 可空观测端口 + observationAddrs 列表。
+// advertisedAddrs 无出厂默认，不提供恢复入口。
 export function AdvertiseCard() {
   const { t } = useTranslation();
   const {
@@ -92,6 +96,7 @@ export function AdvertiseCard() {
             inputMode="numeric"
             min={1}
             max={65535}
+            placeholder={t("settings.advertise.observationPortPlaceholder")}
             {...register("observationPort", { valueAsNumber: true })}
           />
           <ErrorText code={errors.observationPort?.message} />
@@ -99,12 +104,15 @@ export function AdvertiseCard() {
             {t("settings.advertise.observationPortHint")}
           </p>
         </div>
-        <AddressListEditor
-          control={control}
-          name="observationAddrs"
-          label={t("settings.advertise.observationAddrs")}
-          placeholder="203.0.113.5/u3402"
-        />
+        <div className="flex flex-col gap-2">
+          <AddressListEditor
+            control={control}
+            name="observationAddrs"
+            label={t("settings.advertise.observationAddrs")}
+            placeholder="203.0.113.5:3402"
+          />
+          <FactoryDefaultsNotice name="observationAddrs" />
+        </div>
       </CardContent>
     </Card>
   );

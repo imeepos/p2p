@@ -6,11 +6,40 @@ import type { GuiConfig } from "@/lib/ipc-types";
 import {
   addrRowsField,
   fromRows,
+  isValidIpv4,
+  isValidTransportAddr,
   observationPortField,
   portField,
   toRows,
   type AddressRow,
 } from "@/views/shared/address-rules";
+
+// 观测地址契约语法为 socket（ip:port，gui-contract.md §3）；transport 语法
+// 兼容既有输入。出厂默认观测端点为 socket 语法，恢复默认后必须通过校验。
+function isValidObservationAddr(value: string): boolean {
+  const matched = value.match(/^(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})$/);
+  if (matched) {
+    const port = Number(matched[2]);
+    return isValidIpv4(matched[1]) && port >= 1 && port <= 65535;
+  }
+  return isValidTransportAddr(value);
+}
+
+const observationRowField = z.object({
+  value: z
+    .string()
+    .min(1, "addrRequired")
+    .refine(isValidObservationAddr, "addrFormat"),
+});
+
+function observationRowsField() {
+  return z
+    .array(observationRowField)
+    .refine(
+      (rows) => new Set(rows.map((row) => row.value)).size === rows.length,
+      "addrDuplicate",
+    );
+}
 
 // useFieldArray 要求数组元素为对象，地址列表以 { value } 行编辑，出入转换。
 export interface SettingsFormValues {
@@ -34,7 +63,7 @@ export const settingsSchema = z.object({
   relayAddrs: addrRowsField("addrDuplicate"),
   advertisedAddrs: addrRowsField("addrDuplicate"),
   observationPort: observationPortField,
-  observationAddrs: addrRowsField("addrDuplicate"),
+  observationAddrs: observationRowsField(),
 });
 
 // z.preprocess 的输入类型与表单值不同，此处收口为 Resolver。

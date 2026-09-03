@@ -65,7 +65,10 @@ export function IdentityCard() {
         <PeerIdRow peerId={peerId} />
         <div className="flex flex-col gap-1">
           <Label>{t("settings.identity.dataDir")}</Label>
-          <code className="bg-muted truncate rounded px-2 py-1 font-mono text-xs">
+          <code
+            className="bg-muted block min-w-0 truncate rounded px-2 py-1 font-mono text-xs"
+            title={dataDir || undefined}
+          >
             {dataDir || "-"}
           </code>
         </div>
