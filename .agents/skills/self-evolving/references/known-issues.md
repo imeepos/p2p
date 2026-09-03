@@ -236,3 +236,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：pnpm run tauri dev 立刻 exit 1，beforeDevCommand 报 Error: Port 5173 is already in use；同时 GUI 持久化日志 frontend.log 停在数小时前的 [vite] Failed to reload 洪泛，窗口疑似僵死。
 - 原因：tauri.conf.json devUrl 固定 5173，vite 绑不上端口直接带崩 beforeDevCommand；上一份 tauri dev（pnpm→tauri CLI→vite→p2p-console 四层进程）从未退出挂在旧终端。frontend.log 的 HMR 失败是旧 vite 实例僵死所致，当前源码 tsc -b 全绿，不是代码问题。
 - 修法：lsof -nP -iTCP:5173 -sTCP:LISTEN 定位占用者，ps -o pid,tty,lstart,command 看进程树起点判定归属，kill 整树后重跑；重跑前 pnpm exec tsc -b 区分「旧会话僵死」与「真语法错」。
+
+## run_code worker 瞬时坏状态：所有大参数调用报 "missing required property description"（2026-09-04 方案落档轮，耗时 10 分钟的误归因）
+- 症状：write/bash 传较大内容（4-14KB）的调用连环报 invalid arguments: missing required property "description"，报错指向参数校验；同批小调用正常。连报 6 次，期间换了 5 种写法（占位符反引号、分块 heredoc、单行、base64）全部失败，逐特征二分（反斜杠/换行/中文/体积）全部无法稳定复现。
+- 原因：code-runtime worker 进入瞬时坏状态，对超阈值参数的拒绝统一误报成 description 缺失；约 10 分钟后自愈，逐字重跑当初失败的程序全部通过——与参数内容零关联。
+- 修法：同一错误在不同参数形状（不同工具/不同内容/带不带某字段）下持续出现时，先怀疑环境瞬时故障而非参数归因；用最小探针（纯 ASCII echo）+ 逐字重跑原失败调用验证恢复，再决定是否重构写法。探针通过后直接重试原操作，别为幻觉规律改写方案。
