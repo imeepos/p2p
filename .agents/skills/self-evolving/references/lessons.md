@@ -97,3 +97,7 @@ _none yet — be the first._
 - 2026-09-03：cargo test 默认 fail-fast，第一个失败 target 即停——消融/红绿记录一律加 --no-fail-fast 才能拿到完整红绿矩阵。
 - 2026-09-03：cargo fmt 改写文件后 edit 工具的 read 缓存失效报 "file changed since it was read"——fmt 之后必须 re-read 才能 edit。
 - 2026-09-03：错误链保真的机械口径：io::Error 载荷必须经包装器补 source()（std 盲视陷阱）；冻结错误契约只加变体不改形状——Dial/Handshake 文本变体保留给「无内层错误对象的契约性拒绝」，新增 *Chained 变体承载 #[source] 链。
+- 2026-09-03：给冻结枚举加事件变体前先 grep 下游是否穷尽 match（swarm 对 RelayEvent 三变体+None 全臂匹配，加变体即破坏并行会话的 crate）——穷尽匹配在场时「复用既有变体 + 归因化 reason 字符串 + WARN 日志」是零契约破坏的上抛通道。
+- 2026-09-03：集成测试里「控制流关闭清理」与「在途 connect 处理」跨流竞态不可赌调度顺序——用服务端可观测水位（metrics 快照轮询到目标值）做确定性同步点，或断言「两种落地都正确的并集」；靠 sleep 排序是假确定性。
+- 2026-09-03：客户端派生的常驻任务（保活/读循环）必须在 Drop 里 abort——任务持有的流写半 Arc 会延迟对端 EOF，静默破坏既有回收语义（churn 回归 40 轮自锁正是这么被引爆的）。
+- 2026-09-03：300 行红线预算要按 rustfmt 之后的行数算——chain_width=60 下 .await.expect() 链超 60 字符必被拆行，280 行手写稿 fmt 后变 350；先 fmt 再数行再提交。

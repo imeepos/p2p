@@ -191,3 +191,8 @@ failed: early eof（客户端侧超时中止）。
 - 原因：std 的 `io::Error::source()` 返回「载荷自身的 source」而非载荷本身；载荷只能经 get_ref()/downcast_ref() 取到。直接装箱内层错误，source() 遍历对内层盲视，「沿 source() 还原内层」的验收形同虚设。
 - 修法：薄包装器 `ChainedPayload<E>{inner}` 作载荷——Display 委托内层（err.to_string() 即内层原文），Error::source() 返回 Some(&inner)（遍历可达、可 downcast 还原类型与文案）。见 p2p-mux/src/lib.rs、p2p-transport/src/lib.rs。
 - 同场加映：`Result::expect_err` 要求 Ok 值实现 Debug——SecureConn/BoxedStream 都没有；测试断言一律写 match 取 Err 臂（Err(e) => e, Ok(_) => panic!(...)），不用 expect_err。
+
+## 2026-09-03 E6-R3 三则编译/工具陷阱（当场红，改法已验证）
+- 症状：tokio::time::timeout(..).await.map_err(|_| { inner.pending.lock().await = None; .. }) 编译 E0728。原因：await 不允许出现在非 async 闭包内。修法：拆成 match + 早返回，清槽逻辑放在 Err(_) 臂里顺序 await。
+- 症状：std::sync::MutexGuard 出现「future is not Send」，service 的 tokio::spawn 拒编译。原因：if let Some(x) = self.lock_state().retire(..) { ..await.. } 的 guard 临时值活到 if-let 结束，横跨 await。修法：先 let x = self.lock_state()...; 语句收口再 if let。
+- 症状：write 工具对 worktree 内文件报 cannot overwrite without reading——主树同 commit 文件读过不算数，路径不同缓存独立。修法：对 worktree 路径先 read 再 write/edit；bash 验证同理必须显式传 workdir（默认 cwd 是主树，grep 会在错误目录出假阴性）。
