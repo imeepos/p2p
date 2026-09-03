@@ -26,6 +26,8 @@
 | frontend_log_path | - | string | frontend.log 绝对路径（诊断页展示 + 外部 Agent 定位）；v3 加法新增（G-H 观测） |
 | update_check | - | UpdateCheckResult | 查询 GitHub 最新稳定 release 并与当前版本比较；无候选时 latestVersion 为 null；网络/解析失败返回 Err；v4 加法新增（G-U1） |
 | update_open_release_page | url: string | void | 系统浏览器打开更新页；url 必须 https 且 host 为 github.com，白名单外 Err；v4 加法新增（G-U1） |
+| profile_get | - | NodeProfile | 读持久化节点资料，无文件返回默认值（全空）；v6 加法新增（§11） |
+| profile_save | profile: NodeProfile | NodeProfile | 校验（长度/头像格式）后原子写盘；不改变运行中节点，无需重启即生效；v6 加法新增（§11） |
 
 ## 2. 事件通道
 
@@ -169,4 +171,25 @@ interface UpdateCheckResult {
   的 peer_discovered（本端自身登记）、dial_hop（成败均可能出现）、peer_disconnected
   （可能来自发现缓存 TTL 过期）均不刷新。已发现/离线徽标据此推导，拨号失败不再把
   死节点渲染成"已发现"。
+
+## 11. 节点资料 profile（v6 加法，2026-09-03）
+
+本机节点的展示层资料（name/description/avatar）。定位：纯 GUI 展示属性，仅存本机
+（app 数据目录 node-profile.json，原子写），不进底座、不随发现协议广播；对端资料
+互通属后续协议扩展，不在本契约范围内。与 GuiConfig 完全独立：不进 node_start，
+保存后无需重启节点即生效。
+
+```ts
+interface NodeProfile {
+  name: string;          // trim 后 ≤64 字符；空串 = 未命名（界面回退 PeerId 缩略/占位文案）
+  description: string;   // ≤280 字符；可空
+  avatar: string | null; // data URL：data:image/png|jpeg|webp;base64,…，总长 ≤200_000；null = 未设置
+}
+```
+
+- profile_save 校验失败一律 Err（可读中文）：name/description 超长、avatar 超
+  200_000 字符、MIME 不在 png/jpeg/webp 白名单、base64 载荷含非法字符。
+- 校验通过原样落盘（后端不 trim，表单侧负责）；持久化层损坏/缺文件回退默认值并留
+  warn 日志，禁止静默吞。
+- 消费点：设置页资料卡（编辑入口）、侧边栏身份徽标（头像 + 名称展示）。
 

@@ -5,6 +5,7 @@
 use tauri::{AppHandle, Runtime, State};
 
 use crate::events;
+use crate::profile::NodeProfile;
 use crate::state::AppState;
 use crate::history::MetricsPoint;
 use crate::types::{DialReport, GuiConfig, MetricsJson, NodeEventJson, NodeStatus, PingOutcome};
@@ -64,6 +65,21 @@ pub async fn config_get(state: State<'_, AppState>) -> Result<GuiConfig, String>
 #[tauri::command]
 pub async fn config_save(state: State<'_, AppState>, cfg: GuiConfig) -> Result<GuiConfig, String> {
     state.config_save(cfg)
+}
+
+/// profile_get：读持久化节点资料，无文件返回默认值（契约 v6 §11）。
+#[tauri::command]
+pub async fn profile_get(state: State<'_, AppState>) -> Result<NodeProfile, String> {
+    Ok(state.profile_get())
+}
+
+/// profile_save：校验（长度/头像格式）后原子写盘；不改变运行中节点，无需重启即生效。
+#[tauri::command]
+pub async fn profile_save(
+    state: State<'_, AppState>,
+    profile: NodeProfile,
+) -> Result<NodeProfile, String> {
+    state.profile_save(profile)
 }
 
 /// peer_dial：target 形如 "<peer_id>@<addr>"（契约 §6），逐跳报告随 DialReport 回收。

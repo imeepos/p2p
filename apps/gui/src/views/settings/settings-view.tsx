@@ -14,6 +14,7 @@ import {
 } from "./config-schema";
 import { IdentityCard } from "./identity-card";
 import { NetworkCard } from "./network-card";
+import { ProfileCard } from "./profile-card";
 import { AboutUpdateCard } from "@/views/update/about-update-card";
 import {
   SettingsSaveBar,
@@ -40,6 +41,7 @@ function SettingsCards() {
       <NetworkCard />
       <AdvertiseCard />
       <AppearanceCard />
+      <ProfileCard />
       <IdentityCard />
       <AboutUpdateCard />
     </>

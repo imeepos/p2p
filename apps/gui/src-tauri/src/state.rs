@@ -16,6 +16,7 @@ use crate::config::{
     default_bootstrap, default_observation_addrs, default_relay_addrs, ConfigStore,
 };
 use crate::history::{spawn_metrics_sampler, MetricsHistory, MetricsPoint};
+use crate::profile::{NodeProfile, ProfileStore};
 use crate::proto;
 use crate::types::{GuiConfig, MetricsJson, NodeStatus};
 
@@ -43,13 +44,15 @@ pub struct StartedNode {
 pub struct AppState {
     running: Mutex<Option<RunningNode>>,
     config: ConfigStore,
+    profile: ProfileStore,
 }
 
 impl AppState {
     pub fn new(app_data_dir: PathBuf) -> Self {
         Self {
             running: Mutex::new(None),
-            config: ConfigStore::new(app_data_dir),
+            config: ConfigStore::new(app_data_dir.clone()),
+            profile: ProfileStore::new(app_data_dir),
         }
     }
 
@@ -60,7 +63,11 @@ impl AppState {
             return Err("节点已在运行，请勿重复启动".into());
         }
         let node = build_node(&cfg).await?;
-        node.handle_protocol(Arc::new(proto::EchoHandler));
+        let echo = proto::EchoHandler::new().map_err(|e| {
+            warn!(error = %e, "echo 协议装配失败");
+            format!("echo 协议装配失败: {e}")
+        })?;
+        node.handle_protocol(Arc::new(echo));
         let events = node.events();
         let listen_addrs = node.listen_addrs();
         let peer_id = node.local_peer_id().to_string();
@@ -145,6 +152,18 @@ impl AppState {
     pub fn config_save(&self, cfg: GuiConfig) -> Result<GuiConfig, String> {
         self.config.save(&cfg)?;
         Ok(cfg)
+    }
+
+    /// profile_get：读持久化节点资料，无文件返回默认值（契约 v6 §11）。
+    pub fn profile_get(&self) -> NodeProfile {
+        self.profile.load()
+    }
+
+    /// profile_save：校验后原子写盘；纯展示属性，不触碰运行中节点。
+    pub fn profile_save(&self, profile: NodeProfile) -> Result<NodeProfile, String> {
+        profile.validate()?;
+        self.profile.save(&profile)?;
+        Ok(profile)
     }
 
     /// identity_reset：停节点（若在跑）+ 删身份数据目录内种子文件；confirm 校验在命令层。

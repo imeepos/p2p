@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use quinn::crypto::rustls::{QuicClientConfig, QuicServerConfig};
-use socket2::{Domain, Protocol, Socket, Type};
 use quinn::rustls::pki_types::CertificateDer;
+use socket2::{Domain, Protocol, Socket, Type};
 
 use p2p_identity::{Keypair, PeerId};
 use p2p_mux::{QuicMux, MAX_STREAMS_PER_CONN};
@@ -111,12 +111,19 @@ impl QuicTransport {
         match Self::dual_stack_endpoint() {
             Ok(endpoint) => {
                 tracing::info!(bind = "[::]:0", "quic dial endpoint dual-stack");
-                Ok(Self { endpoint, dual_stack: true })
+                Ok(Self {
+                    endpoint,
+                    dual_stack: true,
+                })
             }
             Err(v6_err) => {
                 tracing::warn!(error = %v6_err, "host without IPv6; quic dial endpoint falls back to IPv4-only");
-                let endpoint = quinn::Endpoint::client(SocketAddr::new(IpAddr::from([0, 0, 0, 0]), 0))?;
-                Ok(Self { endpoint, dual_stack: false })
+                let endpoint =
+                    quinn::Endpoint::client(SocketAddr::new(IpAddr::from([0, 0, 0, 0]), 0))?;
+                Ok(Self {
+                    endpoint,
+                    dual_stack: false,
+                })
             }
         }
     }
@@ -153,7 +160,10 @@ impl QuicTransport {
         server.transport_config(stream_limits());
         let endpoint = quinn::Endpoint::server(server, addr)?;
         // 监听端点不是拨号出口（swarm 拨号恒走 new() 端点），双栈映射不适用
-        Ok(Self { endpoint, dual_stack: false })
+        Ok(Self {
+            endpoint,
+            dual_stack: false,
+        })
     }
 
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
