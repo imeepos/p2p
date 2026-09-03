@@ -165,13 +165,16 @@ async fn run_probe(
     };
     let result = match strong.pool.get(&peer) {
         Some(mux) => ping::probe_once(&mux, timeout).await,
-        None => Err("no pooled connection".to_string()),
+        None => Err(ping::ProbeFail::new("no pooled connection".into(), false)),
     };
-    let (ok, detail) = match result {
-        Ok(()) => (true, String::new()),
-        Err(detail) => (false, detail),
+    let (ok, fatal, detail) = match result {
+        Ok(()) => (true, false, String::new()),
+        Err(f) => (false, f.fatal, f.detail),
     };
-    if let Err(err) = tx.send(LifecycleMsg::Probed { peer, ok, detail }).await {
+    if let Err(err) = tx
+        .send(LifecycleMsg::Probed { peer, ok, fatal, detail })
+        .await
+    {
         tracing::warn!(%peer, error = %err, "lifecycle closed; probe result dropped");
     }
 }

@@ -60,10 +60,11 @@ pub(super) enum LifecycleMsg {
     DialFailed { peer: PeerId },
     /// 用户挂断：停止跟踪与重连。
     HungUp { peer: PeerId },
-    /// 探测结果（run_probe 回报）。
+    /// 探测结果（run_probe 回报）。fatal = 连接层已死（EOF 类），监督者立即判死。
     Probed {
         peer: PeerId,
         ok: bool,
+        fatal: bool,
         detail: String,
     },
     /// 重连拨号结果（run_reconnect 回报）。
@@ -90,6 +91,11 @@ pub(super) struct Entry {
     pub(super) reconnect_at: Option<tokio::time::Instant>,
     /// 已排定的退避时长（观测：peer_scheduled_backoff）。
     pub(super) scheduled: Option<Duration>,
+    /// 上一段会话是否死于探测未命中穷尽。探死收场（哪怕 uptime 满
+    /// reset_min_uptime）不得触发退避复位：uptime 需探测成功率背书，否则
+    /// 「每 30s 准时死亡的会话」被误判健康、退避永不升级（2026-09-04 线上
+    /// 重连风暴根因之一）。
+    pub(super) died_by_probe_miss: bool,
 }
 
 impl Entry {
@@ -105,6 +111,7 @@ impl Entry {
             next_probe_at: None,
             reconnect_at: None,
             scheduled: None,
+            died_by_probe_miss: false,
         }
     }
 }

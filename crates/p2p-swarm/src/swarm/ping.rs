@@ -56,33 +56,65 @@ pub(crate) fn registry_with_ping(registry: Arc<HandlerRegistry>) -> Arc<HandlerR
     Arc::new(next)
 }
 
+/// 探测失败的结构化原因：fatal = 连接层已死（对端关流/EOF 类 io 错误），
+/// 监督者不必等满未命中窗口即可判死（2026-09-04 线上：电路被 relay 回收后
+/// 每轮白等 2 次探测多挂 20s）。
+#[derive(Debug, Clone)]
+pub(crate) struct ProbeFail {
+    pub(crate) detail: String,
+    pub(crate) fatal: bool,
+}
+
+impl ProbeFail {
+    pub(crate) fn new(detail: String, fatal: bool) -> Self {
+        Self { detail, fatal }
+    }
+}
+
+/// 连接层已死类 io 错误：EOF/管道断裂/重置/未连接，均表示对端或链路已消失。
+fn fatal_io(e: &std::io::Error) -> bool {
+    matches!(
+        e.kind(),
+        std::io::ErrorKind::UnexpectedEof
+            | std::io::ErrorKind::BrokenPipe
+            | std::io::ErrorKind::ConnectionReset
+            | std::io::ErrorKind::NotConnected
+    )
+}
+
 /// 对在册连接做一次探测往返：开流 → 协议握手 → 写 nonce → 回读比对。
-/// 任何失败都带原因返回（观测用，禁止静默）；整体受 timeout 约束。
-pub(crate) async fn probe_once(mux: &Mux, timeout: Duration) -> Result<(), String> {
+/// 任何失败都带结构化原因返回（观测用，禁止静默）；整体受 timeout 约束。
+pub(crate) async fn probe_once(mux: &Mux, timeout: Duration) -> Result<(), ProbeFail> {
     let id = ping_id();
     let call = async {
         let raw = mux
             .open_stream()
             .await
-            .map_err(|e| format!("open stream: {e}"))?;
+            .map_err(|e| ProbeFail::new(format!("open stream: {e}"), false))?;
         let mut stream = open_with_protocol(raw, &id)
             .await
-            .map_err(|e| format!("protocol handshake: {e}"))?;
+            .map_err(|e| ProbeFail::new(format!("protocol handshake: {e}"), fatal_io(&e)))?;
         let nonce = nonce_bytes();
         write_frame(&mut stream, &nonce)
             .await
-            .map_err(|e| format!("write nonce: {e}"))?;
+            .map_err(|e| ProbeFail::new(format!("write nonce: {e}"), fatal_io(&e)))?;
         let reply = read_frame(&mut stream)
             .await
-            .map_err(|e| format!("read reply: {e}"))?;
+            .map_err(|e| ProbeFail::new(format!("read reply: {e}"), fatal_io(&e)))?;
         if reply != nonce {
-            return Err(format!("echo mismatch: {} bytes back", reply.len()));
+            return Err(ProbeFail::new(
+                format!("echo mismatch: {} bytes back", reply.len()),
+                false,
+            ));
         }
         Ok(())
     };
     match tokio::time::timeout(timeout, call).await {
         Ok(result) => result,
-        Err(_) => Err(format!("probe timed out after {timeout:?}")),
+        Err(_) => Err(ProbeFail::new(
+            format!("probe timed out after {timeout:?}"),
+            false,
+        )),
     }
 }
 

@@ -24,7 +24,12 @@ pub(super) fn handle_msg(
         LifecycleMsg::DialStart { peer } => on_dial_start(handle, peer),
         LifecycleMsg::DialFailed { peer } => on_dial_failed(handle, peer),
         LifecycleMsg::HungUp { peer } => on_hung_up(handle, peer),
-        LifecycleMsg::Probed { peer, ok, detail } => on_probed(swarm, handle, peer, ok, detail),
+        LifecycleMsg::Probed {
+            peer,
+            ok,
+            fatal,
+            detail,
+        } => on_probed(swarm, handle, peer, ok, fatal, detail),
         LifecycleMsg::Reconnected { peer, ok } => on_reconnected(handle, peer, ok),
     }
 }
@@ -38,13 +43,14 @@ pub(super) fn mark_connected(handle: &LifecycleHandle, peer: PeerId) {
         .entry(peer)
         .or_insert_with(|| Entry::new(&cfg));
     // 复位触发点（E5 候选「重连退避复位语义」正式落地）：
-    // 连接建成时，若上一段会话存活满 reset_min_uptime（健康），退避序列归零——
-    // 故障期确定结束，此后离线从 base 重新爬升。闪断（< min）不复位：
+    // 连接建成时，若上一段会话存活满 reset_min_uptime 且非探死收场，退避序列
+    // 归零——故障期确定结束，此后离线从 base 重新爬升。闪断（< min）不复位：
     // 防止「连上即断」的对端把重连间隔钉死在 base，形成紧密重连风暴。
+    // 探死收场（探测未命中穷尽）即便 uptime 满 min 也判不健康：uptime 需探测
+    // 成功率背书，否则 30s 网格死亡循环被误判健康、退避永不升级（2026-09-04）。
     // 消融锚点：注释下方 if healthy 块，itest backoff_resets_after_healthy_reconnect 必红。
-    let healthy = entry
-        .last_uptime
-        .is_some_and(|up| up >= cfg.reset_min_uptime);
+    let healthy = entry.last_uptime.is_some_and(|up| up >= cfg.reset_min_uptime)
+        && !entry.died_by_probe_miss;
     let from = match entry.machine.transition(ConnState::Connected) {
         Ok(from) => from,
         Err(err) => {
@@ -52,6 +58,7 @@ pub(super) fn mark_connected(handle: &LifecycleHandle, peer: PeerId) {
             tracing::debug!(%peer, from = err.from.as_str(), "connected while already connected; session refreshed");
             entry.up_since = Some(Instant::now());
             entry.misses = 0;
+            entry.died_by_probe_miss = false;
             return;
         }
     };
@@ -60,6 +67,7 @@ pub(super) fn mark_connected(handle: &LifecycleHandle, peer: PeerId) {
         tracing::info!(%peer, uptime = ?entry.last_uptime, "backoff reset: previous session healthy");
     }
     entry.misses = 0;
+    entry.died_by_probe_miss = false;
     entry.probing = false;
     entry.dialing = false;
     entry.reconnect_at = None;
@@ -87,6 +95,8 @@ pub(super) fn on_link_lost(handle: &LifecycleHandle, peer: PeerId) {
         return;
     }
     entry.last_uptime = entry.up_since.map(|t| t.elapsed());
+    // 链路层断开 ≠ 探测判死：不背探死黑名单（复位资格不受影响）
+    entry.died_by_probe_miss = false;
     match entry.machine.transition(ConnState::BackingOff) {
         Ok(from) => {
             emit_state(&handle.events, peer, from, ConnState::BackingOff);
@@ -157,6 +167,7 @@ pub(super) fn on_probed(
     handle: &LifecycleHandle,
     peer: PeerId,
     ok: bool,
+    fatal: bool,
     detail: String,
 ) {
     let mut shared = handle.shared.lock().expect("lifecycle lock");
@@ -185,7 +196,19 @@ pub(super) fn on_probed(
         return;
     }
     entry.misses += 1;
-    tracing::warn!(%peer, misses = entry.misses, max = cfg.max_probe_misses, detail = %detail, "liveness probe missed");
+    // EOF 型失败（对端关流/链路已死）立即判死：等满窗口只会在已知死链上白耗
+    // (max_misses-1)×interval 的断链时间。misses 记满值让 PeerDown 原因自洽。
+    if fatal {
+        entry.misses = cfg.max_probe_misses;
+    }
+    tracing::warn!(
+        %peer,
+        misses = entry.misses,
+        max = cfg.max_probe_misses,
+        fatal,
+        detail = %detail,
+        "liveness probe missed"
+    );
     if entry.misses < cfg.max_probe_misses {
         return;
     }
@@ -208,6 +231,7 @@ pub(super) fn on_probed(
         }
     }
     entry.last_uptime = entry.up_since.map(|t| t.elapsed());
+    entry.died_by_probe_miss = true;
     if let Err(err) = entry.machine.transition(ConnState::BackingOff) {
         tracing::warn!(%peer, error = %err, "transition rejected on probe down");
         return;

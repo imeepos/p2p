@@ -12,7 +12,7 @@ use std::time::Duration;
 use p2p_identity::{Keypair, PeerId};
 use p2p_mux::BoxedStream;
 use p2p_protocol::{read_frame, write_frame, HandlerRegistry, ProtocolHandler, ProtocolId};
-use p2p_swarm::{NodeEvent, Swarm, SwarmConfig};
+use p2p_swarm::{LifecycleEvent, NodeEvent, PING_PROTOCOL, Swarm, SwarmConfig};
 use tokio::sync::broadcast;
 
 const ECHO: &str = "/itest/echo/1";
@@ -20,6 +20,9 @@ const SETTLE: Duration = Duration::from_secs(1);
 const CONVERGE: Duration = Duration::from_millis(500);
 const WINDOW: Duration = Duration::from_secs(3);
 const ECHO_TIMEOUT: Duration = Duration::from_secs(3);
+/// 单个探测周期余量（默认 probe_interval 10s + 5s 调度裕量）：
+/// EOF 型判死必须在该窗口内出 PeerDown，超过即等满多周期、修复失效。
+const ONE_CYCLE: Duration = Duration::from_secs(15);
 
 struct Echo;
 
@@ -31,6 +34,20 @@ impl ProtocolHandler for Echo {
     async fn handle(&self, mut stream: BoxedStream) -> io::Result<()> {
         let req = read_frame(&mut stream).await?;
         write_frame(&mut stream, &req).await
+    }
+}
+
+/// 失聪对端：以同名 ping ID 抢注空应答 handler（registry_with_ping 对已注册
+/// ID 不注入内置回声），探测流到达即关——本端读应答必得 EOF。
+struct DeafPing;
+
+#[async_trait::async_trait]
+impl ProtocolHandler for DeafPing {
+    fn protocol(&self) -> ProtocolId {
+        ProtocolId::new(PING_PROTOCOL).expect("valid ping protocol id")
+    }
+    async fn handle(&self, _stream: BoxedStream) -> io::Result<()> {
+        Ok(())
     }
 }
 
@@ -188,4 +205,39 @@ async fn discovery_expiry_still_reports_offline_peer() {
         disconnected(&events, peer),
         "expiry without a live connection must report offline: {events:?}"
     );
+}
+
+/// 回归5（2026-09-04 线上重连风暴）：EOF 型探测失败（对端关流/链路已死）必须
+/// 立即判死，PeerDown 须在单个探测周期内到达；修复前要等满 3 次未命中，
+/// 在已知死链上多挂 2×interval。
+#[tokio::test]
+async fn deaf_peer_probe_eof_closes_within_one_cycle() {
+    let a = Swarm::start(config()).await.expect("bind a");
+    let mut reg = HandlerRegistry::default();
+    reg.register(Arc::new(DeafPing));
+    let b = Swarm::start(SwarmConfig {
+        registry: Arc::new(reg),
+        ..config()
+    })
+    .await
+    .expect("bind b");
+    let peer = b.local_peer_id();
+    a.add_peer_addresses(peer, b.listen_addrs());
+    a.connect(peer).await.expect("dial b");
+
+    let mut down = a.subscribe_lifecycle();
+    let deadline = tokio::time::Instant::now() + ONE_CYCLE;
+    loop {
+        match tokio::time::timeout_at(deadline, down.recv()).await {
+            Ok(Ok(LifecycleEvent::PeerDown { peer: p, reason })) if p == peer => {
+                assert!(
+                    reason.contains("probe missed"),
+                    "PeerDown must attribute probe misses: {reason}"
+                );
+                return;
+            }
+            Ok(Ok(_)) => continue,
+            _ => panic!("PeerDown must arrive within one probe cycle for EOF-type failure"),
+        }
+    }
 }
