@@ -113,3 +113,11 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 ## 2026-09-04 时区与崩溃时间线核对
 - 这台 Mac 系统时区是 PDT(UTC-7)，ps/lsof/ls/reflog 打出的全是 PDT 时间——按 +08 心算「昨天早上 8:21」直接把启动顺序推断反了。跨时区对时间线一律先 date 与 date -u 打底，再用 git log --format=%cI（ISO 带偏移）和 ps -o lstart 全量时间戳钉死，禁止裸 HH:MM 心算换算。
 - 崩溃组件栈行号比对：vite 服务的是 react-refresh 注入后的转换产物，源码第 N 行出现在栈里约第 N+4 行——拿栈行号反查源码前先按此偏移折算，别因行号对不上就误判「跑的不是这份代码」。
+
+## 2026-09-04 DSH 会话记录清理（GUI 侧，p2p 73→10）
+- 数据根 `~/.dsh/dsh012-clean/`（--profile web，默认端口 18181）：记录在 `sessions/<工作区路径编码>/session-<uuid>/session.jsonl.zstd`；归档标志在 `storages/workspace.json` 的 `global.archivedSessionIds`；成员关系在 `tables.workspaces.<id>.sessionIds`。动手前先拿自有会话的 sessionId 在磁盘反查，确认数据根归属（这台机器跑着多套 profile/端口）。
+- 顺序两步不可颠倒：先逐个 `workspace_session_manage{action:"archiveSession"}`（宿主自己写注册表，侧边栏立即隐藏），再把对应记录目录 mv 进 `sessions-quarantine/prune-<时间戳>/`（可恢复，不直接 rm）；先删盘会让归档调用读到缺失目录。
+- 「1小时前」用 epoch 比：session_link_list 行的 updatedAt（毫秒）对 Date.now()-3_600_000；ls/ps 打的是本机时区（这台是 PDT），肉眼对表必错。
+- 排除集：self、running、updatedAt≥截止线的会话；无 `session-` 前缀的 uuid 目录是历史残留记录，按 mtime 过线一并隔离。
+- 验收看过滤面：workspace_list / session_link_list 是管理视图，返回全量（含已归档、索引残留），不代表侧边栏；真效果 = archivedSessionIds 含目标 + 磁盘目录已迁走。
+- `storages/session-query.sqlite`（persisted_sessions/persisted_docs）先 SELECT 确认有目标行再删（本例 p2p 会话为 0 行），宿主是否持句柄用 lsof 判，别按目录臆测索引内容。
