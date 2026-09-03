@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T22:31:37Z",
+  "updatedAt": "2026-09-03T23:22:54Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -145,11 +145,14 @@
       "goal": "单 runner 接入文档（DSH 会话挂 repair-bridge 的 mcpServers 配置模板）与 P0b 真机演练清单；依赖 T27",
       "title": "RS-P0b-T28 runner 接入与真机演练文档",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "docs/rs-runner-integration",
       "ownerSession": "session-a077edb8-324d-41e9-968a-c0e27c357df9",
       "scope": "新增 docs/ops/repair-runner-integration.md + docs/ops/repair-p0b-drill.md",
-      "acceptanceCommand": "bash -c 'test -f docs/ops/repair-runner-integration.md && test -f docs/ops/repair-p0b-drill.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'test -f docs/ops/repair-runner-integration.md && test -f docs/ops/repair-p0b-drill.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "mergedMain": "41b46e6",
+      "acceptedAt": "2026-09-03T23:22:54.575Z",
+      "note": "一次通过：41b46e6 两文档在位（runner 接入 + 真机演练清单），引用命令行与代码一致性自查随报告提交，make check exit 0（panic-hygiene 99 文件零违规）。P0b 代码段 T20-T28+T23b 全 done，真机 3 例转人工里程碑。"
     },
     {
       "id": "T29",
@@ -183,11 +186,14 @@
       "goal": "聊天页完整交互（依赖 T30 合入，mock 驱动）：会话列表（好友+最后消息+时间排序）、消息气泡（sender 左右/时间/状态角标 pending→delivered→failed 渲染）、输入条（多行文本+回车发送）、表情选择器（常用 unicode emoji 插入）、附件按钮（选文件→kind 推断→mock 发送）、媒体展示（image 预览/audio+video 内联播放/file 信息卡+下载锚点）",
       "title": "IM-T31 聊天页完整交互",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "branch": "feat/im-chat-ui",
       "ownerSession": "待派（T30 合入后）",
       "scope": "apps/gui/src/views/chat/** + apps/gui/src/components/chat/** + apps/gui/src/stores/chat-store.ts + 交互组件测试（仅 T30 已建文件之外的新建文件）",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && pnpm test --run && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && pnpm test --run && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "mergedMain": "c09ed6e",
+      "acceptedAt": "2026-09-03T22:36:54.774Z",
+      "note": "独立验收 exit 0：pnpm build + vitest 交互测试（列表/选好友/发文本/表情/附件/事件/分页/状态）+ make check 全绿；两次 rebase（RS 轨并发推进 main）后复跑仍绿；范围合规 16 文件全在 apps/gui/src；协调者 ff-only 合入并全清现场"
     },
     {
       "id": "T32",

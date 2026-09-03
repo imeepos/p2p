@@ -240,6 +240,7 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 
 - 2026-09-04 检查轮 65（RS 协调 session-5e733ff8）：**T23b 翻 done**（mergedMain=f21fca4，一次通过）——三笔提交补齐 shell_exec 进程执行面（审批回调适配 WallClock/QueueApprover/行式输入 + 执行工具白名单/审批/超时 kill/输出门禁 + 宿主门接线装配），helper 100 tests 全绿，隔离全量门禁 exit 0。P0b 工具面至此完整（四只读+shell_exec+session_report+票据/p2p/审计）。T24 遗留裁定已流转：Remove-Item danger 步「白名单命中但红线拦截」为真发现，登记 T28 演练校准项。剩余 T27（在途）→ T28。
 - 2026-09-04 检查轮 66（RS 协调 session-5e733ff8）：**T27 翻 done**（mergedMain=c1a4c79，一次通过）——4 测试精准覆盖矩阵（真实传输全链/diag 写拒绝带原因/断线+同票二次拒/shell_exec 命中与未命中），E2E_EXIT=0 + 隔离全量门禁 exit 0。**T28 收官件派单**（专属新会话 a077edb8）：runner 接入文档 + 真机演练清单，任务书强制「引用命令行须能 grep 到实现」与四条已知校准项如实登记（T24 红线冲突/T23 Windows 分支/T26 分隔符/fs_read lossy）。T28 落地即 P0b 代码段收官，真机 3 例转人工里程碑。编号备注：IM 轨轮 62 与 RS 轮 62 撞号（各轨独立计数所致），条目以协调者 id 自识；建议后续多轨条目采用轨前缀编号（RS-66/IM-62）。
+- 2026-09-04 检查轮 67（RS 协调 session-5e733ff8）：**T28 翻 done，RS P0b 代码段全链收官**（mergedMain=41b46e6=origin/main tip，终验 make check exit 0 于同一提交实证）。全程账本实绩：T20-T28 + 补充卡 T23b 共 10 单全 done，其中 7 单一次通过、2 单一次退回后达标、1 单（T23b）系任务表缺口补立；关键机制沉淀——隔离 worktree 验收免疫主树搅动、一致性测试防漂移、验收判据取终态行。遗留登记齐整：P1 项（fs_write+备份回滚、多 runner 路由、调度正式签发、托盘 UI、断线续投、审计滚动上限、严格白名单模式、fs_read 结构化二进制）见 remote-support-plan.md §6 与各单报告；真机 3 例人工里程碑按 T28 演练清单执行（docs/ops/repair-p0b-drill.md）。gate-verify 验证 worktree 已清。RS 轨待命：后续轮次（P1/真机校准）由用户指令开轮。
 
 
 
