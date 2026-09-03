@@ -3,6 +3,18 @@
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
 _none yet — be the first._
+## 2026-09-03 E8 itest 裸流直写帧被对端拒识成 EOF
+症状：itest 里 `Swarm::open_stream` 拿流直接 write_frame/read_frame，对端读侧报 ProtocolViolation，本端 read 得 early EOF，误判成连接层断链。
+原因：open_stream 交付裸流，协议 ID 首帧由调用方写（design §5.4 契约）；不写协议 ID 就发业务帧，对端 dispatch 把业务帧当协议 ID 拒识。
+修法：裸流先过 `p2p_protocol::open_with_protocol(raw, &id)` 再读写帧；echo/探针类助手统一封这一步。
+## 2026-09-03 E8 快速回收配置淹没 Error 档断链归因测试
+症状：conn_reclaim 的 Error 档用例 5s 内收不到 ConnectionClosed{Error}，默认配置节点却能收到。
+原因：被测节点挂了阈值 1s 的快速回收，对端 shutdown 的拆链传播（quinn 关闭握手）到达前，空闲回收已抢先出池连接，serve 的 remove_if_same 不中，Error 路径被 Idle 路径顶掉。
+修法：断链归因类用例一律用默认（慢）回收配置；测「拆链传播」语义时不同时注入快速回收变量。
+## 2026-09-03 E8 cargo fmt 改盘后 write 工具拒绝覆盖
+症状：跑过 cargo fmt 后再用 write 工具整文件重写，报 file changed since it was read。
+原因：fmt 修改了磁盘文件，工具读写一致性校验以最近一次 read 为基线。
+修法：任何会改盘的命令（fmt/checksum/生成器）之后，写前必须重新 read。
 ## 2026-09-03 版本 bump 只在 tag 首次暴露测试失败
 症状：版本 bump 直推 main 后没有失败反馈，直到推 client-v tag 才在发布流水线看到 hardcoded version 断言失败。
 原因：实际远端是 GitHub，但 GUI workflow 只有 tag/PR 触发；预留的 Gitea workflow 未执行，且无本地 hook/主线 push 全量 CI。

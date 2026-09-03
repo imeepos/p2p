@@ -3,6 +3,9 @@
 <!-- 一条经验一行。格式：当 X 发生时，修复是 Y。skill 没提前警告我。 -->
 
 _none yet — be the first._
+- 2026-09-03：GUI types/node_event.rs 对 NodeEvent 无通配符穷举匹配，swarm 侧新增事件变体必须走 LifecycleEvent 独立通道加法（E6/E8 两次先例），加变体前先 grep 全部 recv 点匹配严格度。
+- 2026-09-03：run_code 写 Rust 代码文件时，JS 双引号串会被 Rust 内嵌双引号截断（Expected ',' got 'ident'）；全部行改用 JS 单引号串（Rust 源内几乎无单引号字符），且整文件构建+写入必须在同一次 run_code 调用内完成（跨调用无内存）。
+- 2026-09-03：会话宿主重启丢工作区后，靠协调者 wip 检查点提交 + 承接会话「审阅→补全→补 itest→过验收」流程恢复；恢复后先 git log/git status 对账，不盲信记忆中的文件状态。
 - 2026-09-03：CI workflow 文件存在不等于门禁生效；先按实际 git remote 与事件触发矩阵核对，主线直推、PR、tag 三条路径都必须有可执行 gate。
 - 2026-09-03：门禁脚本本身也必须被成功/失败夹具覆盖并纳入聚合门禁，否则新增检查可能悄悄退化成假绿。
 - 2026-09-01 harness 的 edit 工具按文件路径记账：主树读过的文件，在 worktree 下的同名文件仍需先 read 再 edit，否则直接拒绝。
