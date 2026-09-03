@@ -47,6 +47,7 @@
 | 单 | 分支 | 范围 | 验收 | 状态 |
 |---|---|---|---|---|
 - 2026-09-03 04:30 事故记录与恢复：协调者验收 G-E 时 ff 失败后命令链误删未合并分支（`;` 续链所致）；凭回报中 tip f630439 恢复分支→rebase→gui-gate 复验→正常合并，零丢失。教训：合并尝试后续命令必须用 && 短路。同轮：G-A3/G-E/G-F 三单合并、契约 v2（metrics_history）冻结、GitHub Actions 打包流水线上线。
+- 2026-09-03 10:10 G-B3 打包预演复验合并（75e7007：全套 icons/bundle 配置/打包 README，rebase 后四门禁全绿）；W4 最终验收启动：main 上正式 tauri build 后台执行中。至此 G-A/G-A2~A4/G-B/B2/B3/C/C2/D/E/F 全部单据合并完毕，仅余打包产物核验。
 - 2026-09-03 03:39 恢复与收尾：休眠唤醒后一次性验收合并 G-A5 云端端点内置（50bce81）/ G-C2 趋势图（5516ff3）/ G-F 二阶段（9a81702）；第二次误删分支（sparkline）凭 2b53426 恢复，教训已写入 self-evolving red-lines（分号链禁令）。当前 main=5516ff3+协调表，待 G-A4 前端接入复核与 G-B3 打包干跑。
 | G-G 打包回归 | feat/gui-package | `pnpm tauri build`、README（GUI 章节）、最终回归 | 产物可启动 + make check 仍全绿 + 回归清单 | 待派 |
 
