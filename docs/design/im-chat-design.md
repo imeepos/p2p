@@ -45,8 +45,13 @@ IM = 好友间 1:1 私聊，消息可离线投递（重连即 flush），发件/
 
 - 时序：ENVELOPE →（可选 MEDIA_BEGIN → MEDIA_CHUNK×n）→ 对端 ACK。任意一帧校验失败
   （超上限/类型序非法/信封缺字段）→ 断流并留告警日志，发端收到失败即消息落 failed 态。
-- 信封必须含 `sender` 字段，收端校验其与本流对端 PeerId 一致（防伪装，底座已保证流安全，
-  此校验为纵深防御，不一致即断流告警）。
+- 信封含 `sender` 字段：线上恒为 `me`，收端校验非 `me` 即断流告警（防伪装的降级实现）。
+  **协调裁决（2026-09-04）**：设计原要求「收端校验信封 sender 与本流对端 PeerId 一致」，
+  但冻结契约 `ProtocolHandler::handle` 只注入 stream、不注入对端 PeerId（swarm serve.rs
+  知道 peer 但分发时不传给 handler），此校验当前不可实现。裁决：接受降级——收端信任底座
+  传输层认证（TLS1.3/Noise 已保证流安全），信封 `peer` 字段承载发端自身 PeerId 供落盘路由；
+  收端不再跨层校验流对端身份，缺口登记（后续底座若为 handler 增加对端身份注入再收紧，
+  属冻结契约加法路径）。
 - 消息 id：发端生成 UUID（攻击面最小化，拒绝接受对端 dict 的 id）。
 - wire-protocol.md 登记内容：协议 ID、四帧类型表、信封 JSON 字段、时序、64MiB 上限。
 
