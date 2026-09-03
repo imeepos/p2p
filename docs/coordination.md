@@ -231,5 +231,6 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
   （GATE=0）确认后开闸派单。批次一 T29 ∥ T30 并行（范围互斥：新 crate vs apps/gui/src，契约 v7 双端对编程互不等）；
   T31 待 T30、T32 待 T29、T33 待 T29+T32。任务书只含需求与机械验收、不含源码。与 E10/RS 双轨互斥确认（无文件交集）。
 - 2026-09-04 检查轮 62（RS 协调 session-5e733ff8，顺延 IM 轨占用的 61 号）：**T25 翻 done**（mergedMain=b7b831f，一次通过 31 tests + 隔离全量门禁 exit 0）——完工报告补记：三类草案命令并集经 shell_union 导出为 T24 数据源（Q7 闭环）。事故自纠存档：T25 会话 worktree 内 gui-check 软链主树 node_modules 致主树 apps/gui/node_modules 损坏，其自用 pnpm install --frozen-lockfile 重建并复跑 gui-check PASS 自愈；教训已由其沉淀——worktree 内 gui-check 禁软链主树 node_modules。T24 补充输入已流转（Disable-ScheduledTask/Get-Package 卸载类命令 argv0/参数边界需再核对）。RS 在途：T24 ∥ T26，此后 T27 → T28。
+- 2026-09-04 检查轮 63（RS 协调）：**T26 翻 done**（mergedMain=0e0222d，一次通过）——四笔提交链（票据矩阵 7c47bc5/JSONL 后端 df4db1d/session_report 1896372/p2p 端点受理 0e0222d），helper 77 tests，LoopbackHub 复刻真实收流全链，隔离全量门禁 exit 0。**任务表缺口补充立卡 T23b**：shell_exec 进程执行面原无归属（T24 仅覆盖 enforce 判定语义），派 T23 会话（898caa4e，自荐待命）承接，branch feat/rs-shell-exec；**T27 提前派**（依赖 T20+T26 已齐，新专属会话 cfcb15a4）：桥⇄助手全链 E2E，时序纪律在册。在途 T24 ∥ T23b ∥ T27；T28 待 T27。第三轨备注：IM 聊天轨（IM 协调 b7d42619）占 coordination 变更记录 61 号，RS 自 62 号顺延。
 
 
