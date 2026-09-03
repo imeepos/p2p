@@ -12,8 +12,9 @@ ROOT="${CHECK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 EXEMPT_FILE="${PANIC_HYGIENE_EXEMPT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/panic-hygiene-exempt.txt}"
 CRATES_DIR="$ROOT/crates"
 
-# 已完成清零、门禁直接管辖的四 crate：不得进豁免清单（防门禁自宽）
-PROTECTED=" p2p-protocol p2p-discovery p2p-identity p2p-security "
+# 已完成清零、门禁直接管辖的六 crate：不得进豁免清单（防门禁自宽）。
+# p2p/p2p-log 系 E8-H3 收缩（此前豁免，清零后转保护）
+PROTECTED=" p2p-protocol p2p-discovery p2p-identity p2p-security p2p p2p-log "
 
 if [ ! -d "$CRATES_DIR" ]; then
   echo "panic-hygiene: FAIL 找不到目录 $CRATES_DIR" >&2
