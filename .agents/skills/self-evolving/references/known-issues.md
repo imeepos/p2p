@@ -173,6 +173,7 @@ failed: early eof（客户端侧超时中止）。
 - 症状：客户端邻居表出现成堆 `127.0.0.1/u<随机端口>` 且永远离线的条目，用户以为被异常节点围攻/怀疑是自己。
 - 原因：三层叠加。① 每个 data 目录一个身份 + quic_port 默认 0 临时端口，本机多实例（GUI/coordinator/maca/itest）互发现各成条目；② a9be8e2 的 filter_loopback 带「全 loopback 集合保持原样」豁免（为同机可发现性），观测失败（无 --observation 或 UDP 3402 被墙）的节点把 127.0.0.1 监听地址注册进公共 rendezvous（43.240.223.138/u3400，namespace p2p-base）；③ rendezvous 查询侧只过滤自身 PeerId，不过滤 loopback/私网，他人的泄漏条目全员可见；GUI 表格按 lastSeen 留历史，退出实例堆成「离线 · N分钟前」。
 - 修法方向（未实施）：rendezvous 服务端拒收 loopback/link-local 注册；客户端查询结果过滤私网；观测失败只注册 relay 地址并留告警日志；GUI 固定 quic_port 减少地址碎片。
+- 落地更正（同日晚，086c55b..5791e4e）：查询过滤已实施但必须以信任域为界——rendezvous 本体在同机（bootstrap 全 loopback）时关闭，否则误伤 a9be8e2 保留的同机可发现性（observe_addr 集成回归实证）；服务端 public_only 整单拒收（签名记录不可部分剥离）；观测失败/不可路由注册启动 WARN。完整生效还需 138/ECS bootstrap 重部署换装新二进制；GUI 固定 quic_port 砍去不做（多实例同机合法场景会撞端口）。
 
 ## 2026-09-03 拨通即闪断：发现过期谎报 + 双向拨号分家（GUI 节点列表点拨号）
 - 症状：节点列表点「拨号」提示已连接，行内状态立刻翻回离线；反复重拨同一模式（用户主诉「还是有问题」）。
