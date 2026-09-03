@@ -115,3 +115,7 @@ _none yet — be the first._
 - 2026-09-03 E8-M2：协调者活跃提交期 ff-only 合并是竞态——把「worktree rebase main → push --force-with-lease → 主树核对分支后 ff-only」压进单条 bash 原子执行并循环重试；本轮被 docs 提交连续抢跑三次，第四次窗口合并成功，全程未删 worktree。
 - 2026-09-03 E8-M2：流式后台任务的 job_output 首读即消费后续为空——长验收结论写进自管日志文件（重定向 + echo EXIT=$?），完成后 grep 文件取判决，不依赖任务流回放。
 - 2026-09-03 E8-M2：编辑工具的「先读后改」按精确路径记账——主树读过的文件不等于 worktree 同名文件已读，worktree 内批量编辑前先按 worktree 路径逐一 read，否则中途 ToolCallError 打断批次。
+- 2026-09-03 E9-T2/T4：DSH run_code 里大段文本用 JS 模板字面量会炸转换层（"Expected ',' got ';'" / "content is not defined" 两连炸），落盘内容一律改走 bash 引号 heredoc（<<'EOF'）或工具直写，模板字面量只留短字符串。
+- 2026-09-03 E9-T2：自写扫描脚本零输出时先疑过滤器再信数据——fnlen.py 扩展名集合存了 'rs' 却拿 os.path.splitext 的 '.rs' 去比，整轮静默空结果；零命中结果必须人工抽一个已知样本回验脚本。
+- 2026-09-03 E9-T4：收尾链式命令里 git 输出接管道（git merge | tail）会吞退出码，ff 失败后链继续跑、误删了未合并分支的 worktree；收尾脚本要么 set -o pipefail，要么 git 关键步骤输出不接管道直接打印。补救路径：分支引用仍在，git worktree add 回该分支 → rebase main → 重推重合，全程零丢失。
+- 2026-09-03 E9-T4：TS 顶层 await 需同时满足 tsconfig module=ESNext 与 vite build.target>=es2022（默认 target 会报 TLA 不支持），动态 import 出 prod bundle 验收用 grep dist/assets 找导出符号名，比看构建日志可靠。
