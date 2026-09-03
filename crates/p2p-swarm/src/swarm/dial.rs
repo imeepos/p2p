@@ -12,8 +12,16 @@ use p2p_transport::{Transport, TransportAddr};
 use tokio::sync::{broadcast, watch};
 
 use super::{Mux, RegistryCell, Swarm};
-use crate::pool::ConnectionPool;
+use crate::pool::{Admission, ConnectionPool};
 use crate::{DialHop, NodeEvent};
+
+/// 连接方向：本端主动拨出为 Outbound，对端拨入为 Inbound。
+/// 收敛裁决据此让两端对同一条连接得出一致结论（见 converge_prefers_new）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ConnDirection {
+    Outbound,
+    Inbound,
+}
 
 /// hairpin 候选地址的拨号预算（E4）：同 NAT 回环路径要么毫秒级通、要么不通，
 /// 不值得占满传输层默认超时（TCP 连接 5s / QUIC 握手 10s），快速失败让位后续地址。
@@ -36,7 +44,7 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
         match dial_limited(swarm, peer, &addr, hairpin).await {
             Ok(mux) => {
                 swarm.metrics.hop_ok(DialHop::Direct);
-                insert_connection(swarm, peer, mux.clone());
+                insert_connection(swarm, peer, mux.clone(), ConnDirection::Outbound);
                 return Ok(mux);
             }
             Err(err) => {
@@ -66,7 +74,7 @@ pub(super) async fn dial_peer(swarm: &Swarm, peer: PeerId) -> io::Result<Mux> {
     if swarm.has_relay_sessions() {
         match swarm.relay_degrade(peer).await {
             Ok(mux) => {
-                insert_connection(swarm, peer, mux.clone());
+                insert_connection(swarm, peer, mux.clone(), ConnDirection::Outbound);
                 return Ok(mux);
             }
             Err(err) => {
@@ -140,20 +148,39 @@ pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) 
     Ok(conn.mux)
 }
 
-/// 幂等入池：入池成功发 PeerConnected 并启动收流分发；重复连接丢弃（先到者优先）。
-pub(super) fn insert_connection(swarm: &Swarm, peer: PeerId, mux: Mux) {
-    if !swarm.pool.insert(peer, mux.clone()) {
-        tracing::debug!(%peer, "duplicate connection dropped, keeping existing");
-        return;
+/// 幂等入池：按收敛规则入池或顶替，胜者发 PeerConnected 并启动收流分发；
+/// 落选连接显式 close（静默 drop 会遗留 yamux 驱动任务，对端还以为连着）。
+///
+/// 双向同时拨号竞态（两端各拨一次产生两条连接）的收敛规则：
+/// 恒保留「较小 PeerId 一端拨出的那条」。本端只需方向 + 本地/对端 id 即可本地裁决，
+/// 两端对每条连接的方向认知相反、结论一致，最终两点各持同一条连接。
+/// 若无此收敛，各留各的会出现：A 池里是 A 拨的、B 池里是 B 拨的，
+/// 流与 serve 循环分家，单方向 request 永远无应答（2026-09 GUI 闪断实测根因）。
+pub(super) fn insert_connection(swarm: &Swarm, peer: PeerId, mux: Mux, direction: ConnDirection) {
+    let prefer_new = converge_prefers_new(swarm, peer, direction);
+    match swarm.pool.admit(peer, mux.clone(), prefer_new) {
+        Admission::RejectedExisting(dup) => {
+            tracing::debug!(%peer, "duplicate connection converged to existing, closing new");
+            dup.close();
+        }
+        Admission::Accepted | Admission::Replaced(_) => {
+            swarm.emit(NodeEvent::PeerConnected { peer });
+            let ctx = ServeCtx {
+                pool: swarm.pool.clone(),
+                registry: swarm.registry.clone(),
+                events: swarm.events.clone(),
+                shutdown: swarm.shutdown_rx.clone(),
+            };
+            tokio::spawn(serve_connection(ctx, peer, mux));
+        }
     }
-    swarm.emit(NodeEvent::PeerConnected { peer });
-    let ctx = ServeCtx {
-        pool: swarm.pool.clone(),
-        registry: swarm.registry.clone(),
-        events: swarm.events.clone(),
-        shutdown: swarm.shutdown_rx.clone(),
-    };
-    tokio::spawn(serve_connection(ctx, peer, mux));
+}
+
+/// 新连接是否胜出：local < remote 时胜者是 Inbound（小 id 一端拨出的），
+/// local > remote 时胜者是 Outbound。与本端第几条到达无关，只看方向。
+fn converge_prefers_new(swarm: &Swarm, peer: PeerId, direction: ConnDirection) -> bool {
+    let keep_outbound = swarm.local_peer_id() > peer;
+    (direction == ConnDirection::Outbound) == keep_outbound
 }
 
 /// serve 任务的独立组件集：不持有 Swarm 本体，生命周期与连接一致。
@@ -178,8 +205,11 @@ async fn serve_connection(ctx: ServeCtx, peer: PeerId, mux: Mux) {
             },
         }
     }
-    ctx.pool.remove_if_same(&peer, &mux);
-    let _ = ctx.events.send(NodeEvent::PeerDisconnected { peer });
+    // 仅当本连接仍在册才发断开事件：被顶替的旧连接退出时池里已是新连接，
+    // 此刻发 PeerDisconnected 是谎报（GUI 会把活连接渲染成断开）。
+    if ctx.pool.remove_if_same(&peer, &mux) {
+        let _ = ctx.events.send(NodeEvent::PeerDisconnected { peer });
+    }
 }
 
 /// 单条入站流分发：协议违规（含未注册协议）发事件；纯 io 关闭只留调试日志。

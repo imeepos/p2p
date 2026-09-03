@@ -11,6 +11,25 @@ use tokio::sync::Mutex as AsyncMutex;
 
 type Mux = Arc<dyn MuxControl>;
 
+/// admit 的裁决结果：Accepted 空池直收；Replaced 新连接顶替旧连接；
+/// RejectedExisting 新连接落选（原样带回，调用方 close）。
+/// Mux 非 Debug，手工实现只报变体与是否带连接，不展开内容。
+pub enum Admission {
+    Accepted,
+    Replaced(Mux),
+    RejectedExisting(Mux),
+}
+
+impl std::fmt::Debug for Admission {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Admission::Accepted => f.write_str("Accepted"),
+            Admission::Replaced(_) => f.write_str("Replaced(..)"),
+            Admission::RejectedExisting(_) => f.write_str("RejectedExisting(..)"),
+        }
+    }
+}
+
 /// 单槽连接池：每 peer 至多一条在册连接；重复入池让位于先到者。
 pub struct ConnectionPool {
     conns: Mutex<HashMap<PeerId, Mux>>,
@@ -47,6 +66,27 @@ impl ConnectionPool {
         }
         conns.insert(peer, mux);
         true
+    }
+
+    /// 收敛裁决原子入口：空池直收；冲突时按 prefer_new 二选一。
+    /// 落选连接由调用方显式 close（yamux 驱动任务须停，防泄漏）。
+    pub fn admit(&self, peer: PeerId, mux: Mux, prefer_new: bool) -> Admission {
+        let mut conns = self.conns.lock().expect("pool lock");
+        match conns.remove(&peer) {
+            None => {
+                conns.insert(peer, mux);
+                Admission::Accepted
+            }
+            Some(old) => {
+                if prefer_new {
+                    conns.insert(peer, mux);
+                    Admission::Replaced(old)
+                } else {
+                    conns.insert(peer, old);
+                    Admission::RejectedExisting(mux)
+                }
+            }
+        }
     }
 
     /// 仅当在册连接与 mux 同源时移除，防止误删重连后的新连接。
@@ -148,6 +188,49 @@ mod tests {
         assert!(pool.insert(peer, mux.clone()));
         assert!(Arc::ptr_eq(&pool.take(&peer).expect("taken"), &mux));
         assert!(pool.take(&peer).is_none(), "second take must find none");
+    }
+
+    #[test]
+    fn admit_accepts_into_empty_pool() {
+        let pool = ConnectionPool::new();
+        let peer = PeerId::from_bytes([5; 32]);
+        assert!(matches!(
+            pool.admit(peer, stub(), true),
+            Admission::Accepted
+        ));
+        assert_eq!(pool.len(), 1);
+    }
+
+    #[test]
+    fn admit_prefers_new_replaces_old() {
+        let pool = ConnectionPool::new();
+        let peer = PeerId::from_bytes([6; 32]);
+        let old = stub();
+        let new = stub();
+        assert!(pool.insert(peer, old.clone()));
+        match pool.admit(peer, new.clone(), true) {
+            Admission::Replaced(evicted) => {
+                assert!(Arc::ptr_eq(&evicted, &old), "evicted must be old mux");
+            }
+            other => panic!("expected Replaced, got {other:?}"),
+        }
+        assert!(Arc::ptr_eq(&pool.get(&peer).expect("kept"), &new));
+    }
+
+    #[test]
+    fn admit_prefers_existing_returns_rejection() {
+        let pool = ConnectionPool::new();
+        let peer = PeerId::from_bytes([7; 32]);
+        let old = stub();
+        let new = stub();
+        assert!(pool.insert(peer, old.clone()));
+        match pool.admit(peer, new.clone(), false) {
+            Admission::RejectedExisting(dup) => {
+                assert!(Arc::ptr_eq(&dup, &new), "rejected must be the new mux");
+            }
+            other => panic!("expected RejectedExisting, got {other:?}"),
+        }
+        assert!(Arc::ptr_eq(&pool.get(&peer).expect("kept"), &old));
     }
 
     #[test]

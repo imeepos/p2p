@@ -6,7 +6,7 @@ use std::time::Duration;
 use p2p_transport::{QuicTransport, SecureConn, TcpTransport};
 use tokio::net::TcpListener;
 
-use super::dial::insert_connection;
+use super::dial::{insert_connection, ConnDirection};
 use super::Swarm;
 
 /// accept 瞬时失败后的重试间隔，避免热循环。
@@ -69,5 +69,5 @@ async fn accept_inbound(swarm: &Arc<Swarm>, conn: SecureConn) {
         swarm.metrics.count_gate_denial();
         return;
     }
-    insert_connection(swarm, peer, conn.mux);
+    insert_connection(swarm, peer, conn.mux, ConnDirection::Inbound);
 }

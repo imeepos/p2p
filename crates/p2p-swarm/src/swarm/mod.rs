@@ -172,17 +172,25 @@ impl Swarm {
         }
     }
 
-    /// 发现条目过期（design §7.1：TTL 内未刷新即判离线），发断开事件。
+    /// 发现条目过期（design §7.1：TTL 内未刷新即判离线）。池内有活连接时
+    /// 不得谎报断开：mDNS/rendezvous 缓存过期只代表发现面失联，
+    /// 连接面仍在（2026-09 GUI「拨通即闪断」实测根因之一）。
     pub fn on_peer_expired(&self, peer: PeerId) {
-        tracing::debug!(%peer, "discovery entry expired");
+        if self.pool.get(&peer).is_some() {
+            tracing::debug!(%peer, "discovery entry expired but connection alive, keep it");
+            return;
+        }
         self.emit(NodeEvent::PeerDisconnected { peer });
     }
 
-    /// 关停：停 accept 循环并断开全部在册连接；serve 循环退出时各自发断开事件。
+    /// 关停：停 accept 循环并断开全部在册连接。serve 循环经关停信号退出时
+    /// 池已清空（remove_if_same 不中），断开事件由本处统一补发，GUI 侧
+    /// 节点列表才能把对端翻成离线。
     pub fn shutdown(&self) {
         let _ = self.shutdown_tx.send(true);
         for peer in self.pool.clear() {
             tracing::debug!(%peer, "connection dropped on shutdown");
+            self.emit(NodeEvent::PeerDisconnected { peer });
         }
     }
 
