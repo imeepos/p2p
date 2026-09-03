@@ -84,8 +84,10 @@ async fn dial_direct_hops(
                 return Ok(mux);
             }
             Err(err) => {
-                // 每个失败地址都留 info 日志 + DialFailed 事件，生产默认级别即可归因
-                tracing::info!(%peer, %addr, error = %err, "direct addr failed; trying next");
+                // 逐地址失败降 debug（2026-09-04 降噪）：配置级全灭时 12 地址/30s
+                // 的逐条 info 会刷屏淹没真告警；信号不丢——DialFailed 事件照发、
+                // 指标照记、全跳失败由下方聚合 WARN 收口。
+                tracing::debug!(%peer, %addr, error = %err, "direct addr failed; trying next");
                 swarm.metrics.count_addr_dial_fail();
                 swarm.emit(NodeEvent::DialFailed {
                     peer: Some(peer),
@@ -96,6 +98,13 @@ async fn dial_direct_hops(
         }
     }
     swarm.metrics.hop_fail(DialHop::Direct);
+    // 聚合留痕：全跳失败一条 WARN 带尝试总量与末次原因，替代逐地址刷屏
+    tracing::warn!(
+        %peer,
+        tried,
+        last_error = ?last_err.as_ref().map(ToString::to_string),
+        "direct hops failed; degrading"
+    );
     swarm.emit(NodeEvent::DialHop {
         peer,
         hop: DialHop::Direct,
