@@ -100,7 +100,7 @@ async fn p2p_serve(args: ServeArgs) -> std::io::Result<()> {
         inbound.clone(),
         jail,
         audit,
-        ShellWhitelist::empty(),
+        shell_whitelist(),
         shell_clock(),
         shell_approver(),
     )?;
@@ -170,7 +170,7 @@ fn mint_ticket(args: MintArgs) -> std::io::Result<()> {
 /// stdio 模式（T21/T23 存量）：本地临时 MCP server，不经票据。
 async fn stdio_serve() -> std::io::Result<()> {
     let jail = build_jail()?;
-    let enforcement = Enforcement::new(repair_enforce::Scope::Diag, ShellWhitelist::empty());
+    let enforcement = Enforcement::new(repair_enforce::Scope::Diag, shell_whitelist());
     let shell = tools::shell_exec::ShellExec::new(
         jail.clone(),
         enforcement.clone(),
@@ -186,6 +186,12 @@ async fn stdio_serve() -> std::io::Result<()> {
             shutdown_rx,
         )
         .await
+}
+
+/// 装配白名单：T24 的 repair_enforce::builtin()（23 条 playbook 命令并集）。
+/// 全仓唯一装配入口——两处形态（stdio/p2p）共用，防零散接线再退化为 empty。
+fn shell_whitelist() -> ShellWhitelist {
+    repair_enforce::builtin()
 }
 
 /// 审批墙钟（WallClock：真实 60s 超时即拒）与空队列审批通道
@@ -246,5 +252,37 @@ fn hex_val(b: u8) -> Option<u8> {
         b'a'..=b'f' => Some(b - b'a' + 10),
         b'A'..=b'F' => Some(b - b'A' + 10),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 装配回归防线：main 装配白名单来自 T24 builtin，退化为 empty 会拒绝
+    /// 一切 shell_exec（T23b2 立卡缘由），此处机械拦截再退化。
+    #[test]
+    fn assembly_whitelist_is_builtin_non_empty() {
+        let w = shell_whitelist();
+        assert!(
+            !w.rules().is_empty(),
+            "装配白名单为空：shell_exec 将拒绝一切"
+        );
+        assert!(
+            w.find(&["netsh".to_string()]).is_some(),
+            "builtin 应含 T24 playbook 表内程序（netsh）"
+        );
+    }
+
+    /// 已知条目参数模式仍放行（接线后再退化即红）。
+    #[test]
+    fn builtin_allows_known_playbook_command() {
+        let w = shell_whitelist();
+        assert!(w.is_allowed(&[
+            "netsh".to_string(),
+            "winhttp".to_string(),
+            "show".to_string(),
+            "proxy".to_string(),
+        ]));
     }
 }
