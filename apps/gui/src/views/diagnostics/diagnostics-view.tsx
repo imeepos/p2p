@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/card";
 import { getRecentErrors, clearRecentErrors } from "@/lib/error-report";
 import { diag, useMockIpc } from "@/lib/ipc";
+import { copyText } from "@/views/shared/clipboard";
 
 const TAIL_LINES = 50;
 const AUTO_REFRESH_MS = 5000;
@@ -59,10 +60,10 @@ function EnvCard({ logPath }: { logPath: string | null }) {
   const { t } = useTranslation();
   const copyPath = () => {
     if (!logPath) return;
-    navigator.clipboard
-      .writeText(logPath)
-      .then(() => toastSuccess(t("diagnostics.env.copied")))
-      .catch((err) => toastError(String(err)));
+    void copyText(logPath, {
+      done: t("diagnostics.env.copied"),
+      failed: t("common.copyFailed"),
+    });
   };
   return (
     <Card className="col-span-12">

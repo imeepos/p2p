@@ -19,6 +19,10 @@ export interface AsyncButtonProps
   action: () => Promise<unknown>;
   onSuccess?: (result: unknown) => void;
   onError?: (error: unknown) => void;
+  /** loading 期间替代 children 的进行中文案（长耗时动作必备） */
+  loadingLabel?: ReactNode;
+  /** 图标按钮：busy/结果态只渲染状态图标，避免与 children 图标重复 */
+  iconOnly?: boolean;
   children?: ReactNode;
 }
 
@@ -52,6 +56,8 @@ export function AsyncButton({
   action,
   onSuccess,
   onError,
+  loadingLabel,
+  iconOnly = false,
   children,
   disabled,
   ...props
@@ -82,6 +88,9 @@ export function AsyncButton({
   }, [action, onError, onSuccess, status]);
 
   const busy = status !== "idle";
+  const label =
+    status === "loading" && loadingLabel !== undefined ? loadingLabel : children;
+  const hideLabel = iconOnly && busy;
 
   return (
     <Button
@@ -91,7 +100,7 @@ export function AsyncButton({
       {...props}
     >
       <StatusIcon status={status} />
-      {children}
+      {hideLabel ? null : label}
     </Button>
   );
 }

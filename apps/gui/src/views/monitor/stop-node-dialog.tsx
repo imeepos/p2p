@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useNodeStore } from "@/stores/node-store";
+import { errorText } from "@/views/shared/form-flow";
 
 interface StopNodeDialogProps {
   open: boolean;
@@ -44,13 +45,17 @@ export function StopNodeDialog({ open, onOpenChange }: StopNodeDialogProps) {
           <AsyncButton
             variant="destructive"
             action={onStop}
+            loadingLabel={t("common.state.stopping")}
             onSuccess={() => {
               onOpenChange(false);
               toastSuccess(t("common.actions.stopSucceeded"));
             }}
             onError={(error) => {
               console.error("[dashboard] 停止节点失败", error);
-              toastError(String(error));
+              toastError(t("common.actions.stopFailed"), {
+                description: errorText(error),
+                context: "node.stop",
+              });
             }}
           >
             {t("common.actions.confirm")}

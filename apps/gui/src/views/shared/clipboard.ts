@@ -1,4 +1,5 @@
 import { toastError, toastSuccess } from "@/components/feedback/toast";
+import { errorText } from "@/views/shared/form-flow";
 
 interface CopyMessages {
   done: string;
@@ -13,7 +14,7 @@ export async function copyText(text: string, messages: CopyMessages): Promise<bo
     return true;
   } catch (error) {
     console.error("[views] 复制失败", error);
-    toastError(messages.failed);
+    toastError(messages.failed, { description: errorText(error) });
     return false;
   }
 }

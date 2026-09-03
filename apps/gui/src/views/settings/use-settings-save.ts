@@ -16,12 +16,18 @@ import { toFormValues, toGuiConfig, type SettingsFormValues } from "./config-sch
 
 function reportSaveFailure(t: TFunction, error: unknown): void {
   console.error("[settings] config_save 失败", error);
-  toastError(t("settings.saveBar.saveFailed"), errorText(error));
+  toastError(t("settings.saveBar.saveFailed"), {
+    description: errorText(error),
+    context: "settings.config_save",
+  });
 }
 
 function reportRestartFailure(t: TFunction, error: unknown): void {
   console.error("[settings] 保存并重启失败", error);
-  toastError(t("settings.saveBar.restartFailed"), errorText(error));
+  toastError(t("settings.saveBar.restartFailed"), {
+    description: errorText(error),
+    context: "settings.save_restart",
+  });
 }
 
 // 设置页保存流：保存后回读重置（往返闭环）；组合按钮走确认->保存->stop->start。

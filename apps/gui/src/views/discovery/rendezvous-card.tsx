@@ -2,6 +2,7 @@ import { NetworkIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { AsyncButton } from "@/components/feedback/async-button";
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import {
   Card,
@@ -10,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AddAddressDialog } from "./add-address-dialog";
+import { ACTION_CANCELLED_MARK } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
 
 interface RendezvousCardProps {
@@ -29,11 +30,9 @@ interface RendezvousCardProps {
 
 function RendezvousTable({
   bootstrap,
-  saving,
   onDelete,
 }: {
   bootstrap: string[];
-  saving: boolean;
   onDelete: (addr: string) => Promise<void>;
 }) {
   const { t } = useTranslation();
@@ -51,15 +50,18 @@ function RendezvousTable({
           <TableRow key={addr}>
             <TableCell className="font-mono text-xs">{addr}</TableCell>
             <TableCell>
-              <Button
+              <AsyncButton
                 variant="ghost"
                 size="icon"
+                iconOnly
                 aria-label={t("discovery.rendezvous.deleteAction")}
-                disabled={saving}
-                onClick={() => void onDelete(addr)}
+                action={() => onDelete(addr)}
+                onError={() => {
+                  // 取消/上游已 toast：fail 图标即反馈，不重复弹错
+                }}
               >
                 <Trash2Icon aria-hidden />
-              </Button>
+              </AsyncButton>
             </TableCell>
           </TableRow>
         ))}
@@ -84,7 +86,7 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
     }
   };
 
-  const removeAddr = async (addr: string) => {
+  const removeAddr = async (addr: string): Promise<void> => {
     const ok = await confirm({
       title: t("discovery.rendezvous.deleteTitle"),
       description: t("discovery.rendezvous.deleteDesc", { addr }),
@@ -92,13 +94,9 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
       cancelText: t("common.actions.cancel"),
       destructive: true,
     });
-    if (!ok) return;
-    setSaving(true);
-    try {
-      await onChange(bootstrap.filter((item) => item !== addr));
-    } finally {
-      setSaving(false);
-    }
+    if (!ok) throw new Error(ACTION_CANCELLED_MARK);
+    const saved = await onChange(bootstrap.filter((item) => item !== addr));
+    if (!saved) throw new Error("bootstrap save failed");
   };
 
   return (
@@ -120,7 +118,6 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
         ) : (
           <RendezvousTable
             bootstrap={bootstrap}
-            saving={saving}
             onDelete={removeAddr}
           />
         )}

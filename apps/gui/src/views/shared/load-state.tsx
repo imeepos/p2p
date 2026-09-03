@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { AsyncButton } from "@/components/feedback/async-button";
 import { toastError } from "@/components/feedback/toast";
 import type { I18nKey } from "@/i18n/types";
+import { errorText } from "@/views/shared/form-flow";
 
 interface LoadFailedNoticeProps {
   onRetry: () => Promise<void>;
@@ -23,7 +24,10 @@ export function LoadFailedNotice({ onRetry, messageKey }: LoadFailedNoticeProps)
         action={onRetry}
         onError={(error) => {
           console.error("[views] config_get 重试失败", error);
-          toastError(t(messageKey));
+          toastError(t(messageKey), {
+            description: errorText(error),
+            context: "config.get_retry",
+          });
         }}
       >
         {t("common.actions.refresh")}

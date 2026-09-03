@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MENU_ENTRIES } from "@/config/menu.def";
 import { useEscapeKey } from "@/hooks/use-hotkeys";
 import { useNodeStore, selectPeerList } from "@/stores/node-store";
+import { errorText } from "@/views/shared/form-flow";
 
 const MAX_PEER_ITEMS = 8;
 const MAX_ADDRESS_ITEMS = 8;
@@ -52,7 +53,8 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       toastSuccess(message);
       close();
     } catch (error) {
-      toastError(String(error));
+      console.error("[palette] 复制失败", error);
+      toastError(t("common.copyFailed"), { description: errorText(error) });
     }
   };
 

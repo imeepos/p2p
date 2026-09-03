@@ -71,7 +71,12 @@ export function FeedbackDemoCard() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => toastError(t("dashboard.demo.toastError"))}
+          onClick={() =>
+            toastError(t("dashboard.demo.toastError"), {
+              description: t("dashboard.demo.toastErrorDetail"),
+              context: "demo.toast",
+            })
+          }
         >
           {t("dashboard.demo.toastError")}
         </Button>

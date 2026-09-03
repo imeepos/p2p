@@ -2,6 +2,7 @@ import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { AsyncButton } from "@/components/feedback/async-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,7 +26,7 @@ interface AddDialogViewProps {
   error: string | undefined;
   onDraftChange: (value: string) => void;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
 }
 
 function AddDialogView({
@@ -59,13 +60,13 @@ function AddDialogView({
         <Button type="button" variant="outline" onClick={onCancel}>
           {t("common.actions.cancel")}
         </Button>
-        <Button
+        <AsyncButton
           type="button"
           disabled={error !== undefined || busy || draft.trim().length === 0}
-          onClick={onConfirm}
+          action={onConfirm}
         >
           {t("common.actions.confirm")}
-        </Button>
+        </AsyncButton>
       </DialogFooter>
     </DialogContent>
   );
@@ -82,7 +83,6 @@ export function AddAddressDialog({ existing, saving, onAdd }: AddAddressDialogPr
   const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [draft, setDraft] = useState("");
-  const [adding, setAdding] = useState(false);
 
   const trimmed = draft.trim();
   const draftError = trimmed.length === 0
@@ -93,12 +93,11 @@ export function AddAddressDialog({ existing, saving, onAdd }: AddAddressDialogPr
         ? "addrDuplicate"
         : undefined;
 
-  const addDraft = async () => {
-    if (draftError !== undefined || adding || saving) return;
-    setAdding(true);
+  // 保存失败由 discovery-view toast；校验错误内联红字：这里以异常中断按钮即可。
+  const addDraft = async (): Promise<void> => {
+    if (draftError !== undefined || saving) return;
     const saved = await onAdd(trimmed);
-    setAdding(false);
-    if (!saved) return;
+    if (!saved) throw new Error("bootstrap save failed");
     setDraft("");
     setDialogOpen(false);
   };
@@ -119,11 +118,11 @@ export function AddAddressDialog({ existing, saving, onAdd }: AddAddressDialogPr
       </DialogTrigger>
       <AddDialogView
         draft={draft}
-        busy={adding || saving}
+        busy={saving}
         error={draftError}
         onDraftChange={setDraft}
         onCancel={() => setDialogOpen(false)}
-        onConfirm={() => void addDraft()}
+        onConfirm={addDraft}
       />
     </Dialog>
   );

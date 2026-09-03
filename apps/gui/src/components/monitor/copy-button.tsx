@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button, type ButtonProps } from "@/components/ui/button";
+import { errorText } from "@/views/shared/form-flow";
 
 type CopyButtonProps = { value: string } & Omit<
   ButtonProps,
@@ -18,8 +19,8 @@ export function CopyButton({ value, ...props }: CopyButtonProps) {
       await navigator.clipboard.writeText(value);
       toastSuccess(t("common.copied"));
     } catch (error) {
-      console.warn("[clipboard] 写入失败", error);
-      toastError(t("common.copyFailed"));
+      console.error("[clipboard] 写入失败", error);
+      toastError(t("common.copyFailed"), { description: errorText(error) });
     }
   };
 

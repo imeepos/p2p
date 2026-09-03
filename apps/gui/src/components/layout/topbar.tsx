@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { I18nKey } from "@/i18n/types";
 import { changeLocale, SUPPORTED_LOCALES, type Locale } from "@/i18n";
+import { errorText } from "@/views/shared/form-flow";
 import { cn } from "@/lib/utils";
 import { ipc } from "@/lib/ipc";
 import { useNodeStore } from "@/stores/node-store";
@@ -64,6 +65,9 @@ function StartStopButton() {
       size="sm"
       variant={running ? "destructive" : "default"}
       action={action}
+      loadingLabel={
+        running ? t("common.state.stopping") : t("common.state.starting")
+      }
       onSuccess={() =>
         toastSuccess(
           t(
@@ -73,7 +77,18 @@ function StartStopButton() {
           ),
         )
       }
-      onError={(error) => toastError(String(error))}
+      onError={(error) => {
+        console.error("[topbar] 节点启停失败", error);
+        toastError(
+          running
+            ? t("common.actions.stopFailed")
+            : t("common.actions.startFailed"),
+          {
+            description: errorText(error),
+            context: running ? "node.stop" : "node.start",
+          },
+        );
+      }}
     >
       {running ? t("common.actions.stop") : t("common.actions.start")}
     </AsyncButton>

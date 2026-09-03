@@ -80,6 +80,75 @@ describe("AsyncButton", () => {
     expect(container.querySelector(".lucide-x")).toBeFalsy();
   });
 
+  it("fail 态驻留结束回 idle 后可再次点击并成功", async () => {
+    vi.useFakeTimers();
+    const d1 = deferred<void>();
+    const action = vi
+      .fn()
+      .mockImplementationOnce(() => d1.promise)
+      .mockImplementationOnce(() => Promise.resolve("ok"));
+    const { getByRole, container } = render(
+      <AsyncButton action={action}>Go</AsyncButton>,
+    );
+    const btn = getByRole("button");
+    fireEvent.click(btn);
+    await act(async () => {
+      d1.reject(new Error("boom"));
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(container.querySelector(".lucide-x")).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200);
+    });
+    expect(container.querySelector(".lucide-x")).toBeFalsy();
+
+    // 恢复 idle：可再次点击并走到 success
+    fireEvent.click(btn);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(action).toHaveBeenCalledTimes(2);
+    expect(container.querySelector(".lucide-check")).toBeTruthy();
+  });
+
+  it("loading 期间 loadingLabel 替代 children", async () => {
+    vi.useFakeTimers();
+    const d = deferred<void>();
+    const { getByRole } = render(
+      <AsyncButton action={() => d.promise} loadingLabel="重启中…">
+        保存并重启
+      </AsyncButton>,
+    );
+    fireEvent.click(getByRole("button", { name: "保存并重启" }));
+    expect(getByRole("button", { name: "重启中…" })).toBeTruthy();
+    expect(() => getByRole("button", { name: "保存并重启" })).toThrow();
+  });
+
+  it("iconOnly busy 期间隐藏 children，只渲染状态图标", async () => {
+    vi.useFakeTimers();
+    const d = deferred<void>();
+    const { getByRole, container } = render(
+      <AsyncButton iconOnly action={() => d.promise}>
+        <span data-testid="row-icon">X</span>
+      </AsyncButton>,
+    );
+    const btn = getByRole("button");
+    expect(container.querySelector('[data-testid="row-icon"]')).toBeTruthy();
+    fireEvent.click(btn);
+    expect(container.querySelector('[data-testid="row-icon"]')).toBeFalsy();
+    expect(container.querySelector(".lucide-loader-circle")).toBeTruthy();
+    await act(async () => {
+      d.resolve(undefined);
+      await vi.advanceTimersByTimeAsync(300);
+    });
+    expect(container.querySelector('[data-testid="row-icon"]')).toBeFalsy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200);
+    });
+    expect(container.querySelector('[data-testid="row-icon"]')).toBeTruthy();
+  });
+
   it("busy 期间忽略重复点击", async () => {
     vi.useFakeTimers();
     const d = deferred<void>();

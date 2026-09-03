@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
+import { errorText } from "@/views/shared/form-flow";
 
 interface MdnsCardProps {
   config: GuiConfig | null;
@@ -31,10 +32,10 @@ export function MdnsCard({ config, onSaved }: MdnsCardProps) {
       toastSuccess(t("discovery.mdns.saved"));
     } catch (error) {
       console.error("[discovery] mDNS 开关保存失败", error);
-      toastError(
-        t("discovery.mdns.saveFailed"),
-        error instanceof Error ? error.message : String(error),
-      );
+      toastError(t("discovery.mdns.saveFailed"), {
+        description: errorText(error),
+        context: "discovery.mdns_save",
+      });
     }
   };
 

@@ -5,6 +5,7 @@ import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import type { PingOutcome } from "@/lib/ipc-types";
 import type { PeerEntry } from "@/stores/node-store";
+import { errorText } from "@/views/shared/form-flow";
 
 interface PeerRowActionsProps {
   peer: PeerEntry;
@@ -35,13 +36,14 @@ export function PeerRowActions({
             t("peers.pingOk", { rtt: (result as PingOutcome).rttMs }),
           )
         }
-        onError={(error) =>
-          toastError(
-            t("peers.pingFail", {
-              reason: String(error).replace(/^Error:\s*/, ""),
-            }),
-          )
-        }
+        onError={(error) => {
+          const reason = errorText(error);
+          toastError(t("peers.pingFail", { reason }), {
+            description: reason,
+            detail: `ping ${peer.peerId}: ${reason}`,
+            context: "peer.ping",
+          });
+        }}
       >
         {t("common.actions.ping")}
       </AsyncButton>

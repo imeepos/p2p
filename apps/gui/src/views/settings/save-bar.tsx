@@ -46,6 +46,7 @@ export function SettingsSaveBar({
               size="sm"
               variant="outline"
               action={onSaveAndRestart}
+              loadingLabel={t("settings.saveBar.saveAndRestarting")}
               onError={(error) => {
                 if (isFlowMark(error, ACTION_CANCELLED_MARK)) return;
                 if (isFlowMark(error, FORM_VALIDATION_MARK)) return;
@@ -65,6 +66,7 @@ export function SettingsSaveBar({
           type="button"
           disabled={!dirty || !loaded}
           action={onSubmit}
+          loadingLabel={t("settings.saveBar.saving")}
           onError={(error) => {
             if (isFlowMark(error, FORM_VALIDATION_MARK)) return;
             onReportSaveError(error);

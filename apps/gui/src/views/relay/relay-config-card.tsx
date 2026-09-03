@@ -94,7 +94,10 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
           onError={(error) => {
             if (isFlowMark(error, FORM_VALIDATION_MARK)) return;
             console.error("[relay] relayAddrs 保存失败", error);
-            toastError(t("relay.config.saveFailed"), errorText(error));
+            toastError(t("relay.config.saveFailed"), {
+              description: errorText(error),
+              context: "relay.relayAddrs_save",
+            });
           }}
         >
           {t("relay.config.save")}

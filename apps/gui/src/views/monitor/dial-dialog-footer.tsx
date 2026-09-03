@@ -4,6 +4,7 @@ import { AsyncButton } from "@/components/feedback/async-button";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import type { DialReport } from "@/lib/ipc-types";
+import { errorText } from "@/views/shared/form-flow";
 
 interface DialDialogFooterProps {
   canSubmit: boolean;
@@ -29,15 +30,28 @@ export function DialDialogFooter({
       <AsyncButton
         disabled={!canSubmit}
         action={onSubmit}
+        loadingLabel={t("common.state.dialing")}
         onSuccess={(result) => {
           const rep = result as DialReport;
-          if (rep.ok) toastSuccess(t("peers.dial.succeeded"));
-          else toastError(t("peers.dial.failed"));
+          if (rep.ok) {
+            toastSuccess(t("peers.dial.succeeded"));
+            return;
+          }
+          const failReason =
+            rep.hops.find((hop) => !hop.ok)?.detail ??
+            t("peers.dial.failedReasonUnknown");
+          toastError(t("peers.dial.failed"), {
+            description: failReason,
+            context: "peer.dial",
+          });
         }}
         onError={(error) => {
-          console.warn("[peers] 手动拨号失败", error);
-          onCommandError(String(error));
-          toastError(String(error));
+          console.error("[peers] 手动拨号命令失败", error);
+          onCommandError(errorText(error));
+          toastError(t("peers.dial.failed"), {
+            description: errorText(error),
+            context: "peer.dial",
+          });
         }}
       >
         {t("peers.dial.submit")}

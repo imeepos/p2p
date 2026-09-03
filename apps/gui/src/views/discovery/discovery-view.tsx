@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
+import { errorText } from "@/views/shared/form-flow";
 import { DiscoveredTableCard } from "./discovered-table-card";
 import { MdnsCard } from "./mdns-card";
 import { RendezvousCard } from "./rendezvous-card";
@@ -29,10 +30,10 @@ export function DiscoveryView() {
         return true;
       } catch (error) {
         console.error("[discovery] rendezvous 地址簿保存失败", error);
-        toastError(
-          t("discovery.rendezvous.saveFailed"),
-          error instanceof Error ? error.message : String(error),
-        );
+        toastError(t("discovery.rendezvous.saveFailed"), {
+          description: errorText(error),
+          context: "discovery.bootstrap_save",
+        });
         return false;
       }
     },
