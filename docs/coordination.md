@@ -230,5 +230,6 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
   docs/design/im-chat-design.md + gui-contract.md §12（v7 契约冻结）直接落 main；主树基线 make check exit 0
   （GATE=0）确认后开闸派单。批次一 T29 ∥ T30 并行（范围互斥：新 crate vs apps/gui/src，契约 v7 双端对编程互不等）；
   T31 待 T30、T32 待 T29、T33 待 T29+T32。任务书只含需求与机械验收、不含源码。与 E10/RS 双轨互斥确认（无文件交集）。
+- 2026-09-04 检查轮 62（RS 协调 session-5e733ff8，顺延 IM 轨占用的 61 号）：**T25 翻 done**（mergedMain=b7b831f，一次通过 31 tests + 隔离全量门禁 exit 0）——完工报告补记：三类草案命令并集经 shell_union 导出为 T24 数据源（Q7 闭环）。事故自纠存档：T25 会话 worktree 内 gui-check 软链主树 node_modules 致主树 apps/gui/node_modules 损坏，其自用 pnpm install --frozen-lockfile 重建并复跑 gui-check PASS 自愈；教训已由其沉淀——worktree 内 gui-check 禁软链主树 node_modules。T24 补充输入已流转（Disable-ScheduledTask/Get-Package 卸载类命令 argv0/参数边界需再核对）。RS 在途：T24 ∥ T26，此后 T27 → T28。
 
 
