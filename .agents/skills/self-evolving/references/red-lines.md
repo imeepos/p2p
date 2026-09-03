@@ -30,3 +30,5 @@
 - 2026-09-02（协调者裁定）：gitignore 内的验证产物（截图/报告 JSON 等）若需留档，必须在关单/worktree 清理前显式迁移到入库路径或另行声明放弃——S3 的 28 张矩阵截图随 worktree remove 丢失（原始产物有损，文档本体无损）。
 - 禁止启动/路由冒烟只踩默认路由：每个注册路由都要真实导航并断言不落入 ErrorBoundary 兜底，且断言含「数据就绪才出现」的标记而非骨架屏——relay 页白屏（FormProvider 外解构 useFormContext 的 control）越过只测 dashboard 的启动冒烟直达用户（2026-09-03 实证）。
 - 禁止连接生命周期事件（PeerConnected/PeerDisconnected）的发起点与连接真实状态脱钩：断开事件只能由「该连接确已出池」触发，被顶替/被拒收的连接、发现层缓存过期都不得谎报；配套的挂断/关停/关停全节点路径必须主动补发断开，否则要么闪断要么状态卡死（2026-09-03 拨通闪断实证）。
+- 禁止在共享主树上使用 git commit --amend：amend 前不核对 HEAD 会把暂存内容卷进并行会话刚落的提交（2026-09-04 实证：协调者把 docs 修正 amend 进别人的 style(discovery) 提交 bf6f782 且已被推送合并，无法重写只能入册）。提交前 git log -1 核对 HEAD，编辑与提交同轮完成，只 add 显式路径。
+- 禁止在 run_code 里用模板字符串承载含反引号/复杂引号的文件内容与 commit message：反引号提前闭合模板导致解析错（2026-09-04 两次实证）。稳法：内容用单引号行数组 join、commit message 落 -F 文件、大文件走 write 工具。
