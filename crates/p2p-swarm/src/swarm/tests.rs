@@ -10,7 +10,7 @@ fn tcp(ip: &str, port: u16) -> TransportAddr {
     }
 }
 
-fn test_config() -> SwarmConfig {
+pub(super) fn test_config() -> SwarmConfig {
     SwarmConfig {
         keypair: Arc::new(Keypair::generate()),
         quic_port: 0,

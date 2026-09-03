@@ -9,6 +9,7 @@ use p2p_transport::{Transport, TransportAddr};
 
 use super::lifecycle::LifecycleMsg;
 use super::{Mux, Swarm};
+use crate::error_chain::chained;
 use crate::lifecycle::LifecycleEvent;
 use crate::liveness::LivenessSource;
 use crate::pool::{Admission, ConnKind};
@@ -174,7 +175,7 @@ pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) 
     let conn = transport
         .dial(addr, &swarm.keypair, Some(peer))
         .await
-        .map_err(|e| io::Error::other(e.to_string()))?;
+        .map_err(chained)?;
     if !swarm.gate_allows(conn.remote).await {
         tracing::warn!(peer = %conn.remote, %addr, "outbound connection denied by gate, dropping");
         swarm.metrics.count_gate_denial();

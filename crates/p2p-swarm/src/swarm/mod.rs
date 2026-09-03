@@ -39,6 +39,8 @@ mod streams;
 #[cfg(test)]
 mod book_tests;
 #[cfg(test)]
+mod error_tests;
+#[cfg(test)]
 mod tests;
 
 use crate::metrics::{Metrics, MetricsSnapshot};

@@ -21,6 +21,7 @@ use tokio::sync::{mpsc, watch};
 use super::degrade::degrade;
 use super::responder::handle_punch_req;
 use super::{Mux, Swarm};
+use crate::error_chain::chained;
 use crate::Backoff;
 
 /// 控制通道注册载体电路的 TTL（取上限，控制流关闭即失效）。
@@ -109,8 +110,7 @@ async fn session_loop(swarm: Arc<Swarm>, addr: TransportAddr, mut cmds: mpsc::Re
             tokio::time::sleep(backoff.next_delay()).await;
             continue;
         }
-        let close_reason =
-            control_loop(&swarm, &addr, &mut client, &mut cmds, &mut shutdown).await;
+        let close_reason = control_loop(&swarm, &addr, &mut client, &mut cmds, &mut shutdown).await;
         let Some(reason) = close_reason else {
             return;
         };
@@ -181,7 +181,7 @@ pub(super) async fn dial_relay_link(
     let conn = transport
         .dial(addr, &swarm.keypair, None)
         .await
-        .map_err(|e| io::Error::other(e.to_string()))?;
+        .map_err(chained)?;
     Ok(Box::new(TransportRelayLink {
         peer: conn.remote.to_string(),
         mux: conn.mux,

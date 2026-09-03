@@ -17,6 +17,7 @@ use p2p_transport::TransportAddr;
 use super::degrade::PROBE_TIMEOUT;
 use super::dial::{dial_one, insert_connection, ConnDirection};
 use super::{Mux, Swarm};
+use crate::error_chain::chained;
 use crate::pool::ConnKind;
 use crate::DialHop;
 
@@ -120,11 +121,14 @@ async fn accept_circuit_fallback(swarm: &Swarm, client: &mut RelayClient, peer: 
 }
 
 /// 电路流入站安全升级：Noise XX（被动侧）+ yamux。
-pub(super) async fn secure_inbound(swarm: &Swarm, stream: BoxedStream) -> io::Result<(PeerId, Mux)> {
+pub(super) async fn secure_inbound(
+    swarm: &Swarm,
+    stream: BoxedStream,
+) -> io::Result<(PeerId, Mux)> {
     let (remote, enc) = NoiseXx::new()
         .inbound(stream, &swarm.keypair)
         .await
-        .map_err(|e| io::Error::other(e.to_string()))?;
+        .map_err(chained)?;
     let mux = Arc::new(YamuxMux::new(enc, false, MAX_STREAMS_PER_CONN));
     Ok((remote, mux))
 }

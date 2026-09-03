@@ -14,6 +14,7 @@ use p2p_security::{NoiseXx, SecurityUpgrade};
 use super::dial::dial_one;
 use super::responder::parse_probe_addr;
 use super::{Mux, Swarm};
+use crate::error_chain::chained;
 use crate::{DialHop, NodeEvent};
 
 /// 电路预留 TTL；对端未在期内接入即由 relay 回收。
@@ -77,7 +78,7 @@ async fn reserve_circuit(
         .await
         .map_err(|e| {
             emit_punch_fail(swarm, peer, format!("relay reserve: {e}"));
-            io::Error::other(e.to_string())
+            chained(e)
         })
 }
 
@@ -104,9 +105,9 @@ async fn signal_with_retries(
             }
             Err(e) => {
                 emit_punch_fail(swarm, peer, format!("signaling: {e}"));
-                return Err(io::Error::other(format!(
+                return Err(chained(io::Error::other(format!(
                     "punch signaling failed: {e}"
-                )));
+                ))));
             }
         }
     }
@@ -116,16 +117,12 @@ async fn signal_with_retries(
 /// 发起侧状态推进：RequestSent。生产路径上恒成功（Idle 发起即合法），
 /// 失败分支只有单测可达，独立成 fn 供回归测试断言错误链。
 pub(super) fn stage_request_sent(session: &mut PunchSession) -> io::Result<()> {
-    session
-        .mark_request_sent()
-        .map_err(|e| io::Error::other(e.to_string()))
+    session.mark_request_sent().map_err(chained)
 }
 
 /// 发起侧状态推进：Probing（收 Ack）。同上，失败分支只有单测可达。
 pub(super) fn stage_on_ack(session: &mut PunchSession) -> io::Result<()> {
-    session
-        .on_ack()
-        .map_err(|e| io::Error::other(e.to_string()))
+    session.on_ack().map_err(chained)
 }
 
 /// 探测对端 Ack 携带的宣告地址；直连落地即返回，全部失败返回 None。
@@ -167,7 +164,7 @@ pub(super) async fn join_circuit(
     tokio::time::timeout(JOIN_TIMEOUT, client.connect(CircuitId(circuit)))
         .await
         .map_err(|_| io::Error::other("circuit join timed out"))?
-        .map_err(|e| io::Error::other(e.to_string()))
+        .map_err(chained)
 }
 
 /// 电路流出站安全升级：Noise XX（expected 绑定对端）+ yamux（发起侧）。
@@ -179,7 +176,7 @@ pub(super) async fn secure_outbound(
     let (remote, enc) = NoiseXx::new()
         .outbound(stream, &swarm.keypair, Some(peer))
         .await
-        .map_err(|e| io::Error::other(e.to_string()))?;
+        .map_err(chained)?;
     if remote != peer {
         return Err(io::Error::other(format!(
             "circuit peer mismatch: expected {peer}, got {remote}"

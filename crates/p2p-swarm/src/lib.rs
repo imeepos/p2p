@@ -7,6 +7,7 @@ use p2p_identity::PeerId;
 
 mod backoff;
 mod close;
+mod error_chain;
 mod gate;
 mod lifecycle;
 mod liveness;
