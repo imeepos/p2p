@@ -22,7 +22,11 @@ describe("app boot smoke", () => {
     document.body.innerHTML = "";
   });
 
-  it("启动后渲染出布局与内容，而非空白", async () => {
+  // 启动 + 全路由冒烟：main.tsx 模块只求值一次（双 boot 无效），
+  // 路由遍历必须与启动同用例。原启动冒烟只踩默认路由，
+  // 放过过 relay 页整树崩溃（FormProvider 外解构 useFormContext 的
+  // control，2026-09-03 用户实测白屏）；逐路由真实导航兜住同类事故。
+  it("启动后逐路由渲染，无整树崩溃兜底", async () => {
     const host = await bootApp();
     await vi.waitFor(
       () => {
@@ -32,7 +36,34 @@ describe("app boot smoke", () => {
     );
     expect(host.innerHTML.length).toBeGreaterThan(100);
     expect(host.textContent).not.toContain("界面出错了");
-  });
+
+    // 路由就绪才出现的标记：锁"数据加载完成"而非骨架屏，
+    // relay/settings 的崩溃恰好发生在配置就绪挂载表单卡那一刻。
+    const readyMarkers: Record<string, string> = {
+      "#/relay": "中继地址配置",
+      "#/settings": "局域网发现（mDNS）",
+    };
+    for (const hash of [
+      "#/peers",
+      "#/discovery",
+      "#/relay",
+      "#/events",
+      "#/settings",
+      "#/diagnostics",
+    ]) {
+      window.location.hash = hash;
+      await vi.waitFor(
+        () => {
+          expect(host.querySelector("main")).not.toBeNull();
+          const marker = readyMarkers[hash];
+          if (marker) expect(host.textContent).toContain(marker);
+          expect(host.textContent).not.toContain("界面出错了");
+        },
+        { timeout: 3000 },
+      );
+    }
+    window.location.hash = "#/";
+  }, 30000);
 
   it("渲染崩溃时 ErrorBoundary 显示兜底文案而非白屏", () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});

@@ -87,8 +87,10 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
             label={t("relay.config.label")}
             placeholder="192.168.1.10/u3403"
           />
+          {/* FactoryDefaultsNotice 消费 useFormContext，必须在 Provider 内；
+              挂在外面拿到 null 的 control，解构即整页崩溃 */}
+          <FactoryDefaultsNotice name="relayAddrs" />
         </FormProvider>
-        <FactoryDefaultsNotice name="relayAddrs" />
         <AsyncButton
           type="button"
           size="sm"
