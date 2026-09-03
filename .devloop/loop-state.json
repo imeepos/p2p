@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T15:53:08.559Z",
+  "updatedAt": "2026-09-03T15:54:12.620Z",
   "project": "p2p-base",
   "phase": "E8-parallel+E9-audit",
   "coordinatorSession": "session-93d57260-bb33-472e-b8a6-86237c64a272",
@@ -130,9 +130,10 @@
       "priority": "P1",
       "status": "doing",
       "branch": "docs/e9-t2-noise-tests",
-      "ownerSession": "",
+      "ownerSession": "session-22888684-378a-4978-9914-f2fd87ec8e15",
       "scope": "crates/p2p-security/src/noise.rs + 新增 crates/p2p-security/src/noise/tests.rs；S1 收口前禁触 swarm/discovery/relay/cli",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && test $(wc -l < crates/p2p-security/src/noise.rs) -le 250 && test -f crates/p2p-security/src/noise/tests.rs && cargo test -p p2p-security --quiet && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && test $(wc -l < crates/p2p-security/src/noise.rs) -le 250 && test -f crates/p2p-security/src/noise/tests.rs && cargo test -p p2p-security --quiet && make check'",
+      "note": "执行会话自认（2026-09-03 回函）：以 38e4d88 程序性放行与 08dc2cc T2/T4 先行登记为据，独立 worktree 短分支 ff-only 合入，全门禁绿"
     },
     {
       "id": "T12",
@@ -141,9 +142,10 @@
       "priority": "P2",
       "status": "doing",
       "branch": "docs/e9-t4-gui-mock",
-      "ownerSession": "",
+      "ownerSession": "session-22888684-378a-4978-9914-f2fd87ec8e15",
       "scope": "apps/gui/src/lib/ipc.ts + mock-ipc.ts + mock-diagnostics.ts + 删除 apps/gui/src/components/feedback/feedback-demo-card.tsx；S1 收口前禁触 swarm/discovery/relay/cli",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && ! grep -rq mockBackend dist/assets && test ! -f src/components/feedback/feedback-demo-card.tsx && pnpm test --run && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm build && ! grep -rq mockBackend dist/assets && test ! -f src/components/feedback/feedback-demo-card.tsx && pnpm test --run && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "note": "执行会话自认（2026-09-03 回函）：以 38e4d88 程序性放行与 08dc2cc T2/T4 先行登记为据，独立 worktree 短分支 ff-only 合入，全门禁绿"
     },
     {
       "id": "T13",
