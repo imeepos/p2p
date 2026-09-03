@@ -95,7 +95,9 @@ TCP 侧 YamuxMux 触发 close-on-drop 立即自毁；QUIC 侧因 quinn 端点驱
 
 a. 句柄存亡语义的最终统一（契约缺口本体）。候选方向：
    ① 统一 close-on-drop：给 QuicMux 加 Drop。会立即杀掉全部活跃流，牵动 relay 的
-   流级桥接与 E8-S1 空闲回收的「使用中豁免」判定，须先完成上层持有审计；
+   流级桥接与 E8-S1 空闲回收的「使用中豁免」判定，须先完成上层持有审计
+   （审计已完成，结论见 §8.3：relay 牵动不成立，前置条件收敛为 S1 回收路径
+   确认永不丢持流 mux；另 §8.2 两个现存缺口与此裁决无关，可独立修复）；
    ② 统一「句柄不锚定存亡」（libp2p Swarm 模式）：YamuxMux 驱动任务脱离句柄
    存活，所有上层路径补显式 close，改造面大；
    ③ 维持现状 + 本文档（本轮采纳）。按「实测复现缺陷才修」原则，①② 待实测
@@ -130,3 +132,47 @@ d. Transport trait 无连接级 close 挂点：QuicTransport::close 是 endpoint
   （rendezvous.rs 两处 expect 被点名），清零修复后 exit 0；keepalive 无读回
   API，无机械消融，以 p2p-transport 既有 echo/tcp_timeout 回归兜底，失败路径
   留 "tcp set_keepalive failed" WARN 观测信号。
+## 8. 上层持有审计（§5a 裁决取证，基线 main@481d735，全部只读核验）
+
+写 §5a 时 ① 方向的「会杀活跃流」风险是粗粒度推断；本轮逐持有点核验后
+细化为下表。审计不修改任何代码，结论供句柄存亡语义裁决与 E9 派单引用。
+
+### 8.1 持有点清单
+
+| 持有点 | 持有物 | 释放路径 | 显式 close |
+|---|---|---|---|
+| swarm 池（pool.rs:12 Mux 别名） | Arc<dyn MuxControl> | take（挂断/判死）、remove_if_same（serve 退出）、clear（关停） | 仅 take 路径 |
+| swarm serve 任务（dial.rs:201-221） | 入池句柄的克隆 | accept 返回 None 或关停信号 | 否（出池即丢） |
+| 双向拨号收敛（dial.rs:167） | Replaced 旧句柄 | match 臂直接丢弃 | 否（仅 RejectedExisting 分支 close 新连接） |
+| swarm relay_session.rs:58,170 | mux 存于中继会话结构 | 会话生命周期覆盖 | 会话结束即丢，不 close |
+| facade rendezvous（rendezvous.rs:144,158） | SecureConn 挂写任务闭包（E4 方案 A） | RendezvousConn 写端关闭 | 否（依赖丢弃语义） |
+| p2p-cli bootstrap（bootstrap.rs:25,173,199） | mux 包进 RelayLink | 进程退出 | 否（进程生命周期覆盖，无 linger 影响） |
+| p2p-relay | 无（纯流级，crate 内零 SecureConn/mux 引用） | — | — |
+
+### 8.2 两个现存缺口（证据在列；修复属 swarm 范围，本文件只登记）
+
+1. 关停不关闭：Swarm::shutdown（swarm/mod.rs:222-228）经 pool.clear
+   （pool.rs:110-115）丢弃全部句柄但从不调 close。TCP 靠 close-on-drop
+   兜底成立；QUIC 连接在 serve 任务随关停信号退出、句柄真正归零后仍由
+   quinn 驱动维持至 QUIC_IDLE_TIMEOUT（30s），期间对端视角「还连着」，
+   属 §3 规则 2 点名的「丢弃仍存活」慢性错。
+2. 被顶替连接无人关：admit 注释（pool.rs:72）要求「落选连接由调用方显式
+   close」，但唯一消费点 dial.rs:167 只对 RejectedExisting（新连接落选）
+   close，Admission::Replaced(_)（旧连接落选）直接丢弃。旧连接的 serve
+   任务仍持句柄且不退（无关停信号、accept 不会 None），两传输都继续收
+   入站流、探活只管池内新连接——形成不受管理的第二连接，直至传输层
+   自行报错。与句柄语义裁决无关，两传输都须在 Replaced 分支补显式 close。
+
+### 8.3 对两候选方向的修订结论
+
+- ① QuicMux 加 Drop：原「杀 relay 流级桥接」风险不成立——relay 不持 mux，
+  relay_session 与 bootstrap 都自行持有 mux，丢弃时机即会话/进程结束，
+  关连接正是期望。①可修复 8.2.1 的 QUIC 侧（serve 任务退出、句柄归零后
+  Drop 生效）；8.2.2 旧连接被 serve 任务持活，①不覆盖，仍须显式 close。
+  剩余前置条件收敛为一条：E8-S1 空闲回收路径确认永不丢「持流 mux」。
+- ② 句柄不锚定存亡：须给 8.2 两处补显式 close 才不劣化，改造面不小于 ①
+  且多出所有权迁移设计；①无实证受害者的现状下优先级进一步降低。
+- 8.2 两条缺口建议以「显式 close 补齐」独立成单（shutdown 遍历 close、
+  Replaced 分支 close，各配回归测试），不依赖语义裁决，建议入 E9 或
+  S1 在途单（feat/e8-liveness-reclaim）叠加，派单裁决归协调会话。
+
