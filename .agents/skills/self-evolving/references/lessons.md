@@ -93,3 +93,7 @@ _none yet — be the first._
 - 2026-09-03：连接/会话类测试只断言「第一个成功事件」是系统性盲区——dialhop 系用例全部止步于 PeerConnected，没有任何用例断言「此后观察窗内无 PeerDisconnected」或「连接仍可承载真实往返」，闪断类回归必然漏网。连接测试的最小完备断言：成功事件 + 观察窗零断开事件 + 一轮真实 request/response。
 - 2026-09-03：跨层事件语义接线（发现层 Expired → 连接层 Disconnected 这类一行映射）要有自己的测试——它改变用户可见语义，却既不在源层单测也不在目标层单测的覆盖内。
 - 2026-09-03：诊断测试的 helper 缺陷会把根因带偏（echo handler 只注册单侧，双向 echo 失败被误读成连接分家的直接证据）——诊断结论落地为回归测试前，先单独验证 helper 自身（两侧各测一次已知通路）。
+- 2026-09-03：消融证明要逐点对齐——每个回归测试对应它实际触发的那条映射路径（E7-K2 第一轮撤了握手错误路径却没撤 connect_with 路径，对应测试仍绿=假消融）；撤错点不算消融，测试各自对应的点全撤完、全红才算。
+- 2026-09-03：cargo test 默认 fail-fast，第一个失败 target 即停——消融/红绿记录一律加 --no-fail-fast 才能拿到完整红绿矩阵。
+- 2026-09-03：cargo fmt 改写文件后 edit 工具的 read 缓存失效报 "file changed since it was read"——fmt 之后必须 re-read 才能 edit。
+- 2026-09-03：错误链保真的机械口径：io::Error 载荷必须经包装器补 source()（std 盲视陷阱）；冻结错误契约只加变体不改形状——Dial/Handshake 文本变体保留给「无内层错误对象的契约性拒绝」，新增 *Chained 变体承载 #[source] 链。
