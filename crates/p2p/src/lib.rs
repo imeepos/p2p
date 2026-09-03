@@ -8,6 +8,7 @@ mod discovery;
 mod node;
 mod observe;
 mod rendezvous;
+mod static_peers;
 
 use std::path::PathBuf;
 
@@ -40,6 +41,8 @@ pub struct NodeConfig {
     pub observation_addrs: Vec<String>,
     /// rendezvous 服务端公共策略：拒收全不可路由注册；公共 bootstrap 部署开启。
     pub rendezvous_public_only: bool,
+    /// 静态对端登记文件（社交化发现 P1）：启动载入 + upsert 落盘；None = 不启用。
+    pub static_peers_file: Option<PathBuf>,
 }
 
 impl Default for NodeConfig {
@@ -56,6 +59,7 @@ impl Default for NodeConfig {
             observation_port: None,
             observation_addrs: Vec::new(),
             rendezvous_public_only: false,
+            static_peers_file: None,
         }
     }
 }
@@ -131,6 +135,13 @@ impl NodeBuilder {
     /// loopback/link-local 注册；同机/单测部署保持默认宽松。
     pub fn rendezvous_public_only(mut self, public_only: bool) -> Self {
         self.0.rendezvous_public_only = public_only;
+        self
+    }
+
+    /// 静态对端登记文件（社交化发现 P1）：启动载入 AddressBook（Manual
+    /// 来源），配合 [`Node::upsert_static_peer`] 落盘，重启后可直拨。
+    pub fn static_peers_file(mut self, path: PathBuf) -> Self {
+        self.0.static_peers_file = Some(path);
         self
     }
 

@@ -40,6 +40,7 @@ mod streams;
 
 #[cfg(test)]
 mod book_tests;
+mod book_view;
 #[cfg(test)]
 mod error_tests;
 #[cfg(test)]

@@ -7,3 +7,4 @@ dist/
 .DS_Store
 .gui-agent/
 apps/gui/src-tauri/gen/
+p2p-data/

@@ -16,6 +16,7 @@ use crate::discovery::forward_discovery;
 use crate::node::Node;
 use crate::observe;
 use crate::rendezvous::{parse_transport_addr, RendezvousServer, TransportLink};
+use crate::{node::parse_peer_id, static_peers};
 use crate::{NodeConfig, NodeError};
 
 /// rendezvous 默认命名空间（design §4：唯一分组原语，业务含义由业务层定义）。
@@ -77,9 +78,39 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
         );
     }
 
-    spawn_discovery(&cfg, keypair, swarm.clone(), &reg_addrs, &listen_addrs)?;
+    let rendezvous = spawn_discovery(&cfg, keypair, swarm.clone(), &reg_addrs, &listen_addrs)?;
 
-    Ok(Node::new(swarm, reflector_addr))
+    let static_peers = match &cfg.static_peers_file {
+        Some(path) => {
+            let file = static_peers::StaticPeersFile::load(path.clone()).map_err(NodeError::Io)?;
+            for entry in file.entries() {
+                register_static_entry(&swarm, &entry);
+            }
+            Some(file)
+        }
+        None => None,
+    };
+
+    Ok(Node::new(
+        swarm,
+        reflector_addr,
+        rendezvous,
+        static_peers.map(Arc::new),
+    ))
+}
+
+/// 登记一条静态对端；坏条目 warn 跳过不拖垮启动（数据文件可人工编辑）。
+fn register_static_entry(swarm: &Swarm, entry: &static_peers::StaticPeerEntry) {
+    let parsed = parse_peer_id(&entry.peer_id)
+        .and_then(|peer| parse_all(&entry.addrs).map(|addrs| (peer, addrs)));
+    match parsed {
+        Ok((peer, addrs)) => swarm.add_peer_addresses(peer, addrs),
+        Err(e) => tracing::warn!(
+            peer_id = %entry.peer_id,
+            error = %e,
+            "static peer entry skipped"
+        ),
+    }
 }
 
 /// 批量解析传输地址；任一非法即装配失败（显式配置错误必须响亮）。
@@ -112,7 +143,7 @@ fn spawn_discovery(
     swarm: Arc<Swarm>,
     reg_addrs: &[TransportAddr],
     listen_addrs: &[TransportAddr],
-) -> Result<(), NodeError> {
+) -> Result<Option<Arc<RendezvousClient>>, NodeError> {
     let (tx, rx) = mpsc::channel(DISCOVERY_EVENTS);
     if cfg.enable_mdns {
         let (quic_port, tcp_port) = listen_ports(listen_addrs);
@@ -122,15 +153,19 @@ fn spawn_discovery(
         tokio::spawn(Arc::new(MdnsDiscovery::new(mdns_cfg)).run(tx.clone()));
         tracing::info!(?quic_port, ?tcp_port, "mdns discovery enabled");
     }
-    match wire_rendezvous(cfg, &keypair, reg_addrs)? {
+    let rendezvous = match wire_rendezvous(cfg, &keypair, reg_addrs)? {
         Some(client) => {
-            tokio::spawn(client.run(tx));
+            tokio::spawn(client.clone().run(tx));
             tracing::info!(bootstrap = ?cfg.bootstrap, "rendezvous wired");
+            Some(client)
         }
-        None => tracing::info!("bootstrap empty, rendezvous wiring skipped"),
-    }
+        None => {
+            tracing::info!("bootstrap empty, rendezvous wiring skipped");
+            None
+        }
+    };
     tokio::spawn(forward_discovery(rx, swarm));
-    Ok(())
+    Ok(rendezvous)
 }
 
 fn wire_rendezvous(

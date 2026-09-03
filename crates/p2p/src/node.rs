@@ -11,21 +11,35 @@ use p2p_protocol::{
     StreamFactory,
 };
 use p2p_swarm::{ConnectionGate, MetricsSnapshot, NodeEvent, Swarm, SwarmFactory};
+use p2p_transport::TransportAddr;
 use tokio::sync::broadcast;
 
+use p2p_discovery::RendezvousClient;
+
 use crate::rendezvous::parse_transport_addr;
-use crate::{NodeBuilder, NodeError};
+use crate::{static_peers, NodeBuilder, NodeError};
 
 pub struct Node {
     swarm: Arc<Swarm>,
     observation_addr: Option<SocketAddr>,
+    /// rendezvous 客户端句柄（bootstrap 未接线为 None）：按需查号入口。
+    rendezvous: Option<Arc<RendezvousClient>>,
+    /// 静态对端登记文件句柄（未配置为 None）。
+    static_peers: Option<Arc<static_peers::StaticPeersFile>>,
 }
 
 impl Node {
-    pub(crate) fn new(swarm: Arc<Swarm>, observation_addr: Option<SocketAddr>) -> Self {
+    pub(crate) fn new(
+        swarm: Arc<Swarm>,
+        observation_addr: Option<SocketAddr>,
+        rendezvous: Option<Arc<RendezvousClient>>,
+        static_peers: Option<Arc<static_peers::StaticPeersFile>>,
+    ) -> Self {
         Self {
             swarm,
             observation_addr,
+            rendezvous,
+            static_peers,
         }
     }
 
@@ -100,6 +114,53 @@ impl Node {
         Ok(())
     }
 
+    /// 按 PeerId 向 rendezvous 做一次精确查号（社交化发现 P1 原语）。
+    /// bootstrap 未接线时显式报错（不静默返回空）；地址已按策略过滤。
+    pub async fn query_peer(&self, peer: &str) -> Result<Vec<String>, NodeError> {
+        let client = self
+            .rendezvous
+            .as_ref()
+            .ok_or_else(|| NodeError::Assembly("rendezvous not wired: bootstrap empty".into()))?;
+        let peer_id = parse_peer_id(peer)?;
+        let addrs = client
+            .query_peer(peer_id)
+            .await
+            .map_err(|e| NodeError::Assembly(e.to_string()))?;
+        Ok(addrs.iter().map(ToString::to_string).collect())
+    }
+
+    /// 登记静态对端并落盘（社交化发现 P1 原语）：立即进入地址簿
+    /// （Manual 来源，可拨），同时持久化到 static_peers_file。
+    pub fn upsert_static_peer(
+        &self,
+        peer_id: &str,
+        addrs: Vec<String>,
+        note: &str,
+    ) -> Result<(), NodeError> {
+        let file = self
+            .static_peers
+            .as_ref()
+            .ok_or_else(|| NodeError::Assembly("static_peers_file not configured".into()))?;
+        let peer = parse_peer_id(peer_id)?;
+        let parsed: Vec<TransportAddr> = addrs
+            .iter()
+            .map(|s| parse_transport_addr(s))
+            .collect::<Result<_, _>>()?;
+        file.upsert(peer_id.to_string(), addrs, note.to_string())?;
+        self.swarm.add_peer_addresses(peer, parsed);
+        Ok(())
+    }
+
+    /// 对端是否已在地址簿（含静态登记；观测/测试用）。
+    pub fn peer_registered(&self, peer: &PeerId) -> bool {
+        !self.swarm.peer_addrs(peer).is_empty()
+    }
+
+    /// 对端当前登记地址（观测/测试用）。
+    pub fn peer_addrs(&self, peer: &PeerId) -> Vec<String> {
+        self.swarm.peer_addrs(peer)
+    }
+
     /// 本节点监听地址（0.0.0.0 已换成 127.0.0.1，可直接用于拨号/登记）。
     pub fn listen_addrs(&self) -> Vec<String> {
         self.swarm.listen_addr_strings()
@@ -114,4 +175,16 @@ impl Node {
     pub fn shutdown(&self) {
         self.swarm.shutdown();
     }
+}
+
+/// base58 → PeerId；长度/编码错误显式上抛（与 CLI 解析同规则）。
+pub(crate) fn parse_peer_id(s: &str) -> Result<PeerId, NodeError> {
+    let bytes = bs58::decode(s)
+        .into_vec()
+        .map_err(|e| NodeError::Assembly(format!("bad peer id: {e}")));
+    let bytes = bytes?;
+    let arr: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| NodeError::Assembly(format!("bad peer id length: {s}")))?;
+    Ok(PeerId::from_bytes(arr))
 }

@@ -924,6 +924,7 @@ name = "p2p"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bs58",
  "bytes",
  "futures",
  "p2p-discovery",
@@ -933,6 +934,8 @@ dependencies = [
  "p2p-relay",
  "p2p-swarm",
  "p2p-transport",
+ "serde",
+ "serde_json",
  "thiserror 1.0.69",
  "tokio",
  "tokio-util",

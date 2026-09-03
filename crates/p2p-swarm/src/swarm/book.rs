@@ -1,17 +1,9 @@
 //! 地址簿：PeerId → 带来源标记的地址列表，直连跳按优先级排序。
-//!
-//! 排序规则（design §7.2 + E3/E4 同 NAT 缺陷）：
-//! 1. mDNS 来源（同链路）最优先
-//! 2. 与任一 mDNS 学习到的链路前缀同网段（v4 /24、v6 /64）次之
-//! 3. rendezvous 观测到的全局地址再次
-//! 4. 其余（显式登记、loopback 等）殿后
-//!
-//! hairpin 降权（E4）：对端地址与自身观测地址同公网前缀（v4 /24、v6 /64）
-//! 时大概率同 NAT，拨号走 NAT 内回环（hairpin）路径，多数 NAT 不支持或
-//! 表现不稳定——该类地址在同级殿后，并由拨号侧施加短超时
-//! （见 dial::HAIRPIN_DIAL_TIMEOUT），refused/黑洞不得吃满单地址预算。
-//!
-//! 同级保持登记顺序（stable sort）。
+//! 排序规则（design §7.2 + E3/E4 同 NAT 缺陷）：1. mDNS 来源（同链路）最优先；
+//! 2. 与任一 mDNS 链路前缀同网段（v4 /24、v6 /64）次之；3. rendezvous 全局地址再次；
+//! 4. 其余（显式登记、loopback 等）殿后。hairpin 降权（E4）：对端地址与自身
+//! 观测地址同公网前缀时大概率同 NAT，多数 NAT 不支持或回环不稳定——该类地址
+//! 同级殿后并由拨号侧施加短超时（dial::HAIRPIN_DIAL_TIMEOUT）；同级保持登记顺序。
 
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -158,6 +150,14 @@ impl AddressBook {
     /// 是否与任一学习到的链路前缀同网段。
     fn in_lan(&self, ip: &IpAddr) -> bool {
         self.lan_ips.iter().any(|lan| prefix_match(lan, ip))
+    }
+
+    /// 当前登记地址的展示串（观测面：GUI 详情/集成测试断言用）。
+    pub(crate) fn addrs_of(&self, peer: &PeerId) -> Vec<String> {
+        self.peers
+            .get(peer)
+            .map(|e| e.iter().map(|b| b.addr.to_string()).collect())
+            .unwrap_or_default()
     }
 }
 
