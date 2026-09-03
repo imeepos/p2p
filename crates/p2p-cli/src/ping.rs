@@ -8,9 +8,6 @@ use tokio::sync::broadcast;
 use crate::cli::{parse_peer_id, PingArgs};
 use crate::echo::{ECHO_PROTOCOL, PING_PAYLOAD};
 
-/// echo request 的超时：含逐地址拨号回退，多接口地址簿需较长预算。
-const REQUEST_TIMEOUT: Duration = Duration::from_secs(20);
-
 /// 测目标 RTT：等待被发现 -> echo request -> 计算往返耗时。
 pub async fn run(args: PingArgs) -> Result<(), String> {
     let target = parse_peer_id(&args.peer_id)?;
@@ -29,7 +26,8 @@ pub async fn run(args: PingArgs) -> Result<(), String> {
 
     let started = Instant::now();
     let id = ProtocolId::new(ECHO_PROTOCOL).expect("built-in echo id is valid");
-    let request = node.request(target, id, PING_PAYLOAD.to_vec(), REQUEST_TIMEOUT);
+    let request_timeout = Duration::from_secs(args.request_timeout);
+    let request = node.request(target, id, PING_PAYLOAD.to_vec(), request_timeout);
     tokio::pin!(request);
     // 请求期间同步打印 DialHop 逐跳事件（直连/打洞/中继），路径随结果一起留档
     let mut reply = None;
@@ -83,7 +81,8 @@ fn tmp_data_dir(tag: &str) -> std::path::PathBuf {
     std::env::temp_dir().join(format!("{tag}-{}", std::process::id()))
 }
 
-/// 装配 ping 节点：mdns on（局域网直连）+ 可选 bootstrap（跨网发现）。
+/// 装配 ping 节点：mdns on（局域网直连）+ 可选 bootstrap（跨网发现）+
+/// 观测反射（E5：注册可路由地址，地址卫生过滤下无观测即不可被发现）。
 async fn build_node(args: &PingArgs) -> Result<Node, Box<dyn std::error::Error>> {
     let mut builder = NodeBuilder::new()
         .mdns(!args.no_mdns)
@@ -93,6 +92,9 @@ async fn build_node(args: &PingArgs) -> Result<Node, Box<dyn std::error::Error>>
     }
     if !args.relay.is_empty() {
         builder = builder.relay_addrs(args.relay.clone());
+    }
+    if !args.observation.is_empty() {
+        builder = builder.observation_addrs(args.observation.clone());
     }
     Ok(builder.build().await?)
 }

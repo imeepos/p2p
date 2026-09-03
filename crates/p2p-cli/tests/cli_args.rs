@@ -79,3 +79,42 @@ fn node_bootstrap_and_relay_default_empty() {
     assert!(args.bootstrap.is_empty());
     assert!(args.relay.is_empty());
 }
+
+#[test]
+fn ping_observation_and_request_timeout_parse() {
+    // E5：地址卫生过滤下 ping 必须能带观测反射；黑洞直连需可调请求预算
+    let args = crate::Cli::try_parse_from([
+        "p2p-cli",
+        "ping",
+        "APzebna1TYjK8WNA6gWbDAD6SuBTnvMbk4fw2FFSht91",
+        "--bootstrap",
+        "1.1.1.1/u3400",
+        "--observation",
+        "121.196.193.177:3402",
+        "--request-timeout",
+        "45",
+    ])
+    .expect("parse ping with observation");
+    let crate::Command::Ping(ping) = args.command else {
+        panic!("expected ping command");
+    };
+    assert_eq!(ping.observation, ["121.196.193.177:3402"]);
+    assert_eq!(ping.request_timeout, 45);
+}
+
+#[test]
+fn ping_request_timeout_defaults_to_twenty() {
+    let args = crate::Cli::try_parse_from([
+        "p2p-cli",
+        "ping",
+        "APzebna1TYjK8WNA6gWbDAD6SuBTnvMbk4fw2FFSht91",
+        "--bootstrap",
+        "1.1.1.1/u3400",
+    ])
+    .expect("parse default ping");
+    let crate::Command::Ping(ping) = args.command else {
+        panic!("expected ping command");
+    };
+    assert_eq!(ping.request_timeout, 20);
+    assert!(ping.observation.is_empty());
+}

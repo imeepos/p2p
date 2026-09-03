@@ -83,6 +83,12 @@ pub struct PingArgs {
     /// 等待目标被发现的最大秒数。
     #[arg(long, default_value_t = 15)]
     pub wait: u64,
+    /// echo request 超时秒数（E5：云端安全组黑洞直连会吃满拨号预算，可调大）。
+    #[arg(long, default_value_t = 20)]
+    pub request_timeout: u64,
+    /// 观测口地址（ip:port，可多次传入）：注册可路由地址，地址卫生过滤下无观测不可被发现。
+    #[arg(long = "observation", value_name = "HOST:PORT", action = clap::ArgAction::Append)]
+    pub observation: Vec<String>,
     /// 关闭 mDNS 局域网发现（跨网实验只需 rendezvous 时使用）。
     #[arg(long)]
     pub no_mdns: bool,
