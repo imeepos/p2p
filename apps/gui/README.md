@@ -27,6 +27,29 @@ bash scripts/check/gui-gate.sh   # 仓库根：GUI 合并门禁（rust clippy/te
 
 约定：单文件 ≤300 行；i18n locale 只允许文件末尾按命名空间追加（append-only，
 注册变更独立小提交）；menu.def.ts 注册制，新增视图先登记再挂路由。
+## Agent 观测与操作入口（G-H）
+
+前端错误不再只进 console：`src/lib/error-report.ts` 采集 window error /
+unhandledrejection / console.error（含 ErrorBoundary），JSONL 落盘
+
+- Tauri 环境：`~/Library/Logs/com.p2p.console/frontend.log`（超 1MB 轮转 .1），
+  外部直接 `tail -f` 即可感知前端报错，无需打开 DevTools；
+- 浏览器 mock 模式：降级 localStorage 键 `p2p-console.frontend-log`。
+
+应用内入口：侧栏"诊断"页（/diagnostics）——错误缓冲、日志路径、持久化尾部。
+
+页面操作入口（dev，默认 mock IPC）：
+
+```bash
+pnpm -C apps/gui dev                      # 先起 vite（或复用已跑的 dev server）
+node scripts/gui-agent.mjs snap out.png   # 全页截图
+node scripts/gui-agent.mjs errors         # 控制台+未捕获异常+应用内错误缓冲（JSON）
+node scripts/gui-agent.mjs eval "1+1"     # 页面内任意 JS
+node scripts/gui-agent.mjs click "button" # querySelector 点击
+```
+
+零依赖 CDP 实现（node 原生 WebSocket + 本机 Chrome，`CHROME_BIN` 可覆盖）；
+dev 之外（打包版）在 URL hash 加 `agent=1` 同样暴露 `window.__P2P_AGENT__`。
 
 ## 打包
 
