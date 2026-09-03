@@ -1,7 +1,6 @@
 //! mDNS 局域网发现（design §7.1）：通告本机 + 浏览局域网，事件推入统一 channel。
 
 use std::collections::HashMap;
-use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -10,15 +9,13 @@ use p2p_identity::PeerId;
 use p2p_transport::TransportAddr;
 use tokio::sync::mpsc;
 
+use self::txt::{decode_txt, encode_txt};
 use crate::{DiscoveredPeer, Discovery, DiscoveryEvent, Source};
 
 /// 服务类型：局域网上所有 p2p-base 节点共用。
 /// mdns-sd 0.13 要求以带尾点的 '._udp.local.' 结尾（register/browse 共用，防 E1 阻断回归）。
 pub const SERVICE_TYPE: &str = "_p2pbase._udp.local.";
 
-const TXT_KEY_PEER: &str = "peer";
-const TXT_KEY_QUIC: &str = "quic";
-const TXT_KEY_TCP: &str = "tcp";
 /// 过期扫描周期：比通告 TTL 小一个量级即可。
 const SCAN_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -57,39 +54,6 @@ struct LiveEntry {
     expires_at: Instant,
 }
 
-/// 编码通告 TXT 记录：peer(base58) + 可选 quic/tcp 端口。
-fn encode_txt(peer: &PeerId, quic: Option<u16>, tcp: Option<u16>) -> Vec<(&'static str, String)> {
-    let mut props = vec![(TXT_KEY_PEER, peer.to_string())];
-    if let Some(port) = quic {
-        props.push((TXT_KEY_QUIC, port.to_string()));
-    }
-    if let Some(port) = tcp {
-        props.push((TXT_KEY_TCP, port.to_string()));
-    }
-    props
-}
-
-/// 从已解析的 ServiceInfo 解码 (PeerId, 地址列表)。peer 缺失或端口非法返回 None。
-fn decode_txt(info: &ServiceInfo) -> Option<(PeerId, Vec<TransportAddr>)> {
-    let peer_b58 = info.get_property_val_str(TXT_KEY_PEER)?;
-    let bytes: [u8; 32] = bs58::decode(peer_b58).into_vec().ok()?.try_into().ok()?;
-    let peer = PeerId::from_bytes(bytes);
-    let ip: IpAddr = *info.get_addresses().iter().next()?;
-    let mut addrs = Vec::new();
-    if let Some(port) = txt_port(info, TXT_KEY_QUIC) {
-        addrs.push(TransportAddr::Quic { ip, port });
-    }
-    if let Some(port) = txt_port(info, TXT_KEY_TCP) {
-        addrs.push(TransportAddr::Tcp { ip, port });
-    }
-    (!addrs.is_empty()).then_some((peer, addrs))
-}
-
-/// 读取 TXT 端口属性并解析为 u16。
-fn txt_port(info: &ServiceInfo, key: &str) -> Option<u16> {
-    info.get_property_val_str(key).and_then(|s| s.parse().ok())
-}
-
 /// mDNS 发现源：以独立任务运行，事件推入 channel。
 pub struct MdnsDiscovery {
     config: MdnsConfig,
@@ -101,7 +65,8 @@ impl MdnsDiscovery {
     }
 
     /// 本机通告信息：空地址 + addr_auto，由 mdns-sd 自动填充本机 IP。
-    fn announce_info(&self) -> ServiceInfo {
+    /// 输入均来自配置，格式非法（服务名/实例名/TXT 值）时返回 Err，由调用方发 Failed 事件。
+    fn announce_info(&self) -> Result<ServiceInfo, String> {
         let port = self.config.quic_port.or(self.config.tcp_port).unwrap_or(0);
         let host = format!("{}.local.", self.config.instance);
         let props = encode_txt(
@@ -117,8 +82,27 @@ impl MdnsDiscovery {
             port,
             props.as_slice(),
         )
-        .expect("valid mdns service info")
-        .enable_addr_auto()
+        .map_err(|err| err.to_string())
+        .map(ServiceInfo::enable_addr_auto)
+    }
+
+    /// 通告一次：构造或注册失败都发 Failed 事件（可观测，不 panic）。
+    async fn announce_once(
+        &self,
+        daemon: &ServiceDaemon,
+        events: &mpsc::Sender<DiscoveryEvent>,
+        label: &str,
+    ) {
+        let info = match self.announce_info() {
+            Ok(info) => info,
+            Err(reason) => {
+                emit_failed(events, format!("{label}: {reason}")).await;
+                return;
+            }
+        };
+        if let Err(err) = daemon.register(info) {
+            emit_failed(events, format!("{label}: {err}")).await;
+        }
     }
 
     /// 把 mdns-sd 事件映射为 DiscoveryEvent；跳过自身通告。
@@ -239,9 +223,7 @@ impl Discovery for MdnsDiscovery {
                 return;
             }
         };
-        if let Err(err) = daemon.register(self.announce_info()) {
-            emit_failed(&events, format!("register: {err}")).await;
-        }
+        self.announce_once(&daemon, &events, "register").await;
         let (tx, mut rx) = mpsc::channel(64);
         if let Err(err) = self.start_browse(&daemon, tx.clone()) {
             emit_failed(&events, format!("browse: {err}")).await;
@@ -273,9 +255,7 @@ impl Discovery for MdnsDiscovery {
                 }
                 _ = announce.tick() => {
                     // 周期重通告刷新 TTL（mdns-sd 允许对同一服务反复 register）
-                    if let Err(err) = daemon.register(self.announce_info()) {
-                        emit_failed(&events, format!("re-announce: {err}")).await;
-                    }
+                    self.announce_once(&daemon, &events, "re-announce").await;
                 }
                 _ = scan.tick() => {
                     for peer in self.expiry_scan(&mut live, Instant::now()) {
@@ -294,6 +274,7 @@ impl Discovery for MdnsDiscovery {
 }
 
 mod probe;
+mod txt;
 
 #[cfg(test)]
 mod tests;

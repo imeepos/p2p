@@ -1,3 +1,5 @@
+use std::net::IpAddr;
+
 use super::*;
 
 #[test]
@@ -133,7 +135,7 @@ fn announce_hostname_ends_with_local_dot() {
     // mdns-sd 运行期校验 hostname 必须以 '.local.' 结尾；缺尾点会让
     // register/re-announce 全部失败（E1 实测：p2p-XXXXXXXX.local 被拒）。
     let disc = MdnsDiscovery::new(MdnsConfig::new(PeerId::from_bytes([12u8; 32])));
-    let info = disc.announce_info();
+    let info = disc.announce_info().expect("valid mdns service info");
     let host = info.get_hostname();
     assert!(
         host.ends_with(".local."),
