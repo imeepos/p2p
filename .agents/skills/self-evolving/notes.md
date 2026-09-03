@@ -78,3 +78,11 @@
   命中：locale 先行小提交、mock-ipc 行数余量自查（297/300 惊险守住）、react-refresh 纯组件导出红线提前把 helper 拆文件。没预警：edit 工具巨量回显伪影差点误判文件损坏（已喂回 known-issues：大文件编辑后 git diff 权威核验）。
 - 重来一次会怎么做？
   zustand 组件测试从第一个用例就统一 act() 包 setState；写夹具 helper 时把「哪些字段是断言目标」列清，禁止 helper 隐式重置被测状态；协调者 talk 巡检正好像心跳，主动在关键节点（locale 落盘/验收全绿）回报一次省得被动等查。
+
+## 2026-09-03 relay 页 FormProvider 白屏（用户打开即报错，fix/relay-form-provider-crash）
+- 哪个坑浪费最多时间？
+  修 bug 本身 5 分钟；真正耗时是向用户论证「为什么 95 个测试全绿还会白屏」——测试盲区有三层：启动冒烟只踩默认路由、relay 目录零渲染测试、notice 组件只被 settings 组合的测试覆盖。红→绿双向证明（stash 修复跑新冒烟确认必红）补齐了证据链。
+- skill 有没有提前警告我？
+  部分。red-lines 已有「GUI 必须 gui-check 绿」与白屏/可观测条目，都是执行层纪律；没预警「context-provider 按组合失效」这一类（本次已喂回 known-issues/lessons/red-lines 三处）。另 red-lines 的「管道吞 exit code」仍重踩一次（gui.sh 在主树跑假红一轮），workdir 与门禁落点对齐后收敛。
+- 重来一次会怎么做？
+  新页面复用带 context 依赖的组件时，同步写「按真实组合挂载」的组件测试再动手改；冒烟测试天生于全路由循环而非入口路由；跑门禁先核对 workdir 与目标树一致。

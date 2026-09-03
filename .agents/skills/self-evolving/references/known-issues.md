@@ -159,3 +159,8 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-03 W7-G-U2 更新提醒前端轮
 
 - 症状：edit 工具编辑 400+ 行 locale 文件后，回显的 after 全文里 relay 段看似出现重复块+内容变异，疑似文件损坏。原因：巨量 before/after 回显经 spill 截断渲染产生的显示伪影，不是磁盘真实状态。修法：大文件编辑后一律 git diff 权威核验（本次 diff 干净：恰好 +33 行），不要凭回显判断、更不要在惊慌中回滚。
+
+## 2026-09-03 relay 页白屏：useFormContext 解构 null（react-hook-form v7）
+- 症状：一进 relay 页整树落 ErrorBoundary（"界面出错了 / Something went wrong"），TypeError: Cannot destructure property 'control' of null；设置页用同一组件却正常，95 个测试全绿。
+- 原因：RHF v7 的 FormContext 默认值是 null，useFormContext() 在 FormProvider 外返回 null，而其 TS 类型签名声称非空（编译器零告警）；RelayConfigCard 的 FormProvider 只包住 AddressListEditor，FactoryDefaultsNotice 挂在 Provider 外。设置页不炸是因为 settings-view 把全部卡包在顶层 Provider 内——context 缺失按「调用点组合」发生，单组合的测试看不见。
+- 修法：Provider 必须包住该表单全部 context 消费者（useFormContext/useWatch/useFieldArray 同理）；组件测试按真实页面组合挂载（不带外部 provider），修复前必红；启动冒烟升级为逐路由导航断言无 ErrorBoundary 兜底。

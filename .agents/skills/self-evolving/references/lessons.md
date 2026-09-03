@@ -85,3 +85,6 @@ _none yet — be the first._
 - 2026-09-03 W6：多波会话共享同一仓库时，协调者的 ff 合并目标随时移动（本轮连续两次 ff 失败：S1 沉淀分支与 S3 分支都被其他会话推进的 main 甩下）——合并前必须重新 fetch 核对 tip，ff 失败的唯一动作是临时 detached worktree 里 rebase 后 force-with-lease 重推，禁止 merge bubble。
 - 2026-09-03 W6：派单会话的分支可能被其他波次会话顺手吞并进 main（S3 四个提交未经协调者之手就入库）——收合并前先跑 git log main..branch 判空，为空就只剩清点与补漏，不要重复合并。
 - 2026-09-03 W6：小型机械修复（dialog 家族补 forwardRef，含测试与双门禁）协调者亲做全程约 15 分钟，比再开专属会话的往返快得多——派单粒度下限：预计 30 分钟内且路径明确的修复不派单。
+- 2026-09-03：同一组件在 A 页组合能渲染不代表 B 页组合能跑——context 消费（useFormContext 等）的 provider 覆盖是按挂载点独立的；把组件复用到新页面先问「它的 context 谁提供」，组件测试按每个真实组合挂载（不带外部 provider 的组合尤其要测）。
+- 2026-09-03：react-hook-form 的 useFormContext() 类型签名声称非空，运行时在 Provider 外返回 null——TS 对 context 缺失零防御，解构崩溃只在运行时爆；凡 context hook 返回值都按「可能 null」对待。
+- 2026-09-03：测试红→绿要双向证明——写完回归测试先在未修复代码上跑一遍确认必红，再应用修复确认转绿；单向「绿了」无法区分「测住了」和「本来就绿」。

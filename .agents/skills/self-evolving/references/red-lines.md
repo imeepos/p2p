@@ -28,3 +28,4 @@
 
 - 2026-09-02（协调者裁定）：skill 沉淀提交走 feature 分支再合并，禁止直落 main（W6 的 docs(skill) 直落 main 属存量先例，不构成豁免；S3 的 23abb8b 已被保留但记档下不为例）。
 - 2026-09-02（协调者裁定）：gitignore 内的验证产物（截图/报告 JSON 等）若需留档，必须在关单/worktree 清理前显式迁移到入库路径或另行声明放弃——S3 的 28 张矩阵截图随 worktree remove 丢失（原始产物有损，文档本体无损）。
+- 禁止启动/路由冒烟只踩默认路由：每个注册路由都要真实导航并断言不落入 ErrorBoundary 兜底，且断言含「数据就绪才出现」的标记而非骨架屏——relay 页白屏（FormProvider 外解构 useFormContext 的 control）越过只测 dashboard 的启动冒烟直达用户（2026-09-03 实证）。
