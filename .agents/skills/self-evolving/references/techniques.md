@@ -94,3 +94,6 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - vitest + zustand：测试里 store.setState 放 act() 外时，React 订阅组件的重渲染与 effect 异步冲刷，紧随其后的断言读到旧值（toast 调用次数 0）——setState 一律包 act()。另注意测试夹具 helper 若顺手重置去重标记（如 reminderShownFor），会把要测的轮询去重逻辑本身破坏。
 - vi.mock 工厂要引用顶层 vi.fn() 时必须走 vi.hoisted(() => ({...}))，普通 const 会被提升后的工厂在初始化前访问（TDZ 报错）。
 - fake timers 下等微任务（mock IPC 立即 resolve 的检查流程）用 await vi.advanceTimersByTimeAsync(0) 冲刷，比 await Promise.resolve() 更稳。
+
+## 2026-09-03 邻居表 127.0.0.1 条目归属判定
+- `lsof -nP -iUDP | grep -E "<端口1>|<端口2>"` 一步判定端口是否本机在听：在听=自己人（ps 对 PID 看 --data 参数定身份），不在听=他人 loopback 泄漏条目；自身 PeerId 与 GUI 设置页身份卡对照。比逐个「详情/拨号」试错快得多。

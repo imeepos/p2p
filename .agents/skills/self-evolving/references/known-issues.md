@@ -168,3 +168,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：一进 relay 页整树落 ErrorBoundary（"界面出错了 / Something went wrong"），TypeError: Cannot destructure property 'control' of null；设置页用同一组件却正常，95 个测试全绿。
 - 原因：RHF v7 的 FormContext 默认值是 null，useFormContext() 在 FormProvider 外返回 null，而其 TS 类型签名声称非空（编译器零告警）；RelayConfigCard 的 FormProvider 只包住 AddressListEditor，FactoryDefaultsNotice 挂在 Provider 外。设置页不炸是因为 settings-view 把全部卡包在顶层 Provider 内——context 缺失按「调用点组合」发生，单组合的测试看不见。
 - 修法：Provider 必须包住该表单全部 context 消费者（useFormContext/useWatch/useFieldArray 同理）；组件测试按真实页面组合挂载（不带外部 provider），修复前必红；启动冒烟升级为逐路由导航断言无 ErrorBoundary 兜底。
+
+## 2026-09-03 GUI 邻居列表大量 127.0.0.1 条目（rendezvous 全 loopback 豁免泄漏）
+- 症状：客户端邻居表出现成堆 `127.0.0.1/u<随机端口>` 且永远离线的条目，用户以为被异常节点围攻/怀疑是自己。
+- 原因：三层叠加。① 每个 data 目录一个身份 + quic_port 默认 0 临时端口，本机多实例（GUI/coordinator/maca/itest）互发现各成条目；② a9be8e2 的 filter_loopback 带「全 loopback 集合保持原样」豁免（为同机可发现性），观测失败（无 --observation 或 UDP 3402 被墙）的节点把 127.0.0.1 监听地址注册进公共 rendezvous（43.240.223.138/u3400，namespace p2p-base）；③ rendezvous 查询侧只过滤自身 PeerId，不过滤 loopback/私网，他人的泄漏条目全员可见；GUI 表格按 lastSeen 留历史，退出实例堆成「离线 · N分钟前」。
+- 修法方向（未实施）：rendezvous 服务端拒收 loopback/link-local 注册；客户端查询结果过滤私网；观测失败只注册 relay 地址并留告警日志；GUI 固定 quic_port 减少地址碎片。
