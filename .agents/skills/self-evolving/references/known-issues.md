@@ -201,3 +201,8 @@ failed: early eof（客户端侧超时中止）。
 - 原因：该用例在 connect() 后只 recv 一个事件并 match 要求必须是 PeerConnected；监督者处理 DialStart 异步先于拨号完成，新变体排到了 PeerConnected 前面。广播流的「加法」对严格 match 消费方是行为变更。
 - 修法：生命周期事件改走独立 broadcast 通道（Swarm::subscribe_lifecycle，任务书允许的「等价事件机制」），NodeEvent 冻结流零扰动，既有消费方零改动；新用例断言全部迁到新通道。
 - 教训：给共享事件流加变体前，先 grep 全部 recv 点的 match 严格度；「验收命令只点名新测试文件」不等于「只有新测试会受影响」，make check 全量才是真相。
+
+## devloop_accept 内置超时短于全量门禁时长（2026-09-03 E7 轮）
+- 症状：验收命令 `cargo test … && make check` 经 devloop_accept 跑，几十秒后被杀，exitCode=null/verdict=fail，输出停在编译或测试刚起步——代码明明是绿的。
+- 原因：工具内置超时不可配，短于本仓 make check（编译+全测试+GUI vitest 约 2-4 分钟）实际时长；超时被杀记为 fail，是假红不是回归。
+- 修法：同一验收命令用 bash 后台任务长超时复跑，取真实 exit code 作判决并在账本/协调表备注「accept 工具超时，人工同命令复跑」；验收命令能拆出即时项（grep/test -f）的先单独跑掉。

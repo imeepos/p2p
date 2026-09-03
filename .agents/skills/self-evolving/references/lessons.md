@@ -106,3 +106,4 @@ _none yet — be the first._
 - 2026-09-03 E6：集成点设计前先看目标文件行数余量（mod.rs 恰好 300 行时任何接线都放不下）——先做零行为搬移（内聚块独立成文件）腾余量再接线，红线检查脚本提前跑一次。
 - 2026-09-03 E6：drop(Arc<T>) 不等于关停——accept 循环等后台任务持强引用时测试里的 drop 是 no-op，连接根本没拆；模拟对端死亡必须显式调 shutdown 类方法。
 - 2026-09-03 E6：状态机测试的 setup 要按合法路径驱动到目标态（machine_at helper），不能单步 transition——Disconnected 到 BackingOff 这类 setup 本身就是被测的非法转移。
+- 2026-09-03 E7：多兄弟分支逐支 ff-only 合入时，每合入一支 main 就前进，其余分支立即重新分叉——必须「rebase→合一支→再 rebase→再合一支」循环，不能一次 rebase 完批量合。
