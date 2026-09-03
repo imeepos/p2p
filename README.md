@@ -26,8 +26,8 @@
 | `crates/p2p-mux` | 流复用抽象：QUIC 原生流 / yamux 统一为 BoxedStream，每连接 64 流上限 |
 | `crates/p2p-protocol` | 帧（varint 长度前缀 + 1 MiB 上限）、ProtocolId、handler 注册表、request-response、chunked transfer |
 | `crates/p2p-discovery` | mDNS 局域网发现、rendezvous 签名注册/查询客户端、带 TTL 地址缓存 |
-| `crates/p2p-relay` | 中继服务端/客户端（reserve/connect）、打洞信令、密文桥接、每 Peer 限流；内置协议 ID 常量在此登记 |
-| `crates/p2p-swarm` | 连接编排契约：NodeEvent 事件、ConnectionGate 门禁（S 阶段填实现） |
+| `crates/p2p-relay` | 中继服务端/客户端（reserve/connect）、打洞信令、密文桥接、每 Peer 限流；水位经 Reserved/KeepAliveAck 广播供负载感知选路；内置协议 ID 常量在此登记 |
+| `crates/p2p-swarm` | 连接编排契约：NodeEvent 事件、ConnectionGate 门禁（S 阶段填实现）、多中继负载感知降级派发（满载沉底/RTT 决胜/失败换候选） |
 | `crates/p2p` | 对外 facade：Node/NodeBuilder/NodeConfig，S 阶段预组装上述全部 crate |
 
 依赖方向：facade -> swarm -> relay/discovery/protocol -> transport/security/mux -> identity；
