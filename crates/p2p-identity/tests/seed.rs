@@ -1,6 +1,7 @@
 //! 种子落盘/加载的行为测试：持久性、权限收紧、非法文件拒绝。
 
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -39,6 +40,7 @@ fn load_or_generate_is_stable_across_calls() {
     let _ = fs::remove_file(&path);
 }
 
+#[cfg(unix)]
 #[test]
 fn saved_file_has_private_permissions() {
     let path = unique_path("perm");
@@ -48,6 +50,7 @@ fn saved_file_has_private_permissions() {
     let _ = fs::remove_file(&path);
 }
 
+#[cfg(unix)]
 #[test]
 fn load_tightens_loose_permissions() {
     let path = unique_path("tighten");

@@ -2,6 +2,7 @@
 
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
+#[cfg(unix)]
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::Path;
 
@@ -44,11 +45,19 @@ pub fn save(path: &Path, keypair: &Keypair) -> io::Result<()> {
             fs::create_dir_all(dir)?;
         }
     }
+    // unix 以 0600 创建；非 unix 平台沿用用户目录默认 ACL（目录已按用户隔离）。
+    #[cfg(unix)]
     let mut file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
         .mode(0o600)
+        .open(path)?;
+    #[cfg(not(unix))]
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
         .open(path)?;
     file.write_all(&keypair.to_seed_bytes())?;
     file.flush()
