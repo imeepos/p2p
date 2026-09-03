@@ -1,0 +1,9 @@
+[package]
+name = "p2p-log"
+version.workspace = true
+edition.workspace = true
+description = "统一日志设施：RUST_LOG 默认级别、text/json 输出、滚动文件落盘、幂等初始化、panic 钩子（E7-L1）"
+
+[dependencies]
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["json"] }
