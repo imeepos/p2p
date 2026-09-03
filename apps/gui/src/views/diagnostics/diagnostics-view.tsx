@@ -46,7 +46,7 @@ export function DiagnosticsView() {
       await diag.logClear();
       setTail([]);
       setVersion((v) => v + 1);
-      toastSuccess("诊断数据已清理");
+      toastSuccess(t("diagnostics.cleared"));
     } catch (err) {
       toastError(String(err));
     }

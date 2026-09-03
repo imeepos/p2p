@@ -434,7 +434,7 @@ const zhCN = {
     description: "前端错误缓冲、日志文件路径与持久化尾部——Agent 感知通道的人工视图。",
     refresh: "刷新",
     clearAll: "一键清理诊断数据",
-    clearAll: "一键清理诊断数据",
+    cleared: "诊断数据已清理",
     env: {
       title: "运行环境",
       description: "IPC 模式与前端错误日志位置（外部直接读文件即可掌握前端报错）。",

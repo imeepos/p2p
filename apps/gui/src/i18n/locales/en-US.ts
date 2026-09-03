@@ -443,6 +443,7 @@ const enUS: typeof zhCN = {
       "Frontend error buffer, log file path and persisted tail — human view of the agent perception channel.",
     refresh: "Refresh",
     clearAll: "Clear diagnostics",
+    cleared: "Diagnostics cleared",
     env: {
       title: "Runtime",
       description:
