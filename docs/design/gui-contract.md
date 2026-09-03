@@ -16,6 +16,8 @@
 | config_get | - | GuiConfig | 读持久化配置（无文件返回默认值） |
 | config_save | cfg: GuiConfig | GuiConfig | 原子写盘；不改变运行中节点 |
 | peer_dial | target: string | DialReport | add_peer_address + node.connect，回收期间 DialHop 事件为逐跳报告 |
+| peer_connect | peerId: string | DialReport | node.connect（地址簿直连，已知节点免重复登记），逐跳报告同 peer_dial；v4 加法新增 |
+| peer_disconnect | peerId: string | boolean（wasConnected） | 出池并关闭该 peer 连接；幂等，未在册连接返回 false；PeerDisconnected 事件照常发出；v4 加法新增 |
 | peer_ping | peerId: string, timeoutMs: number | PingOutcome | 复用 echo 协议 node.request（同 CLI ping），返回 rtt 与期间逐跳 |
 | identity_reset | confirm: boolean | NodeStatus | 危险：停止节点并删除身份数据目录内种子文件（必须 confirm=true），返回重置后的状态（未运行） |
 | metrics_history | - | MetricsPoint[] | 后端每 5s 采样最近 120 点（10 分钟窗口），供仪表盘趋势图；v2 加法新增 |

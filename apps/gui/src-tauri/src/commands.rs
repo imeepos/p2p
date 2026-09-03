@@ -1,4 +1,4 @@
-//! gui-contract.md §1 的 9 个 Tauri 命令：薄封装，业务在 state，事件在 events。
+//! gui-contract.md §1 的 11 个 Tauri 命令：薄封装，业务在 state，事件在 events。
 //!
 //! 参数名经 Tauri 自动转 camelCase（peerId/timeoutMs），与契约逐字对齐；Err 一律中文。
 
@@ -70,6 +70,24 @@ pub async fn config_save(state: State<'_, AppState>, cfg: GuiConfig) -> Result<G
 #[tauri::command]
 pub async fn peer_dial(state: State<'_, AppState>, target: String) -> Result<DialReport, String> {
     state.dial(&target).await
+}
+
+/// peer_connect：按地址簿连接已知节点（节点页行内拨号），逐跳随 DialReport 回收。
+#[tauri::command]
+pub async fn peer_connect(
+    state: State<'_, AppState>,
+    peer_id: String,
+) -> Result<DialReport, String> {
+    state.connect(&peer_id).await
+}
+
+/// peer_disconnect：挂断与该节点的连接；幂等，返回是否确有连接被关闭。
+#[tauri::command]
+pub async fn peer_disconnect(
+    state: State<'_, AppState>,
+    peer_id: String,
+) -> Result<bool, String> {
+    state.disconnect(&peer_id).await
 }
 
 /// peer_ping：复用 echo 协议 request（同 CLI ping），返回 rtt 与期间逐跳。
