@@ -135,7 +135,7 @@ function startEventStream(): void {
     if (Math.random() < DISCOVER_PROBABILITY) {
       const peer = randomPeerId();
       state.knownPeers.push(peer);
-      emit({ type: "peer_discovered", peer, addrs: [randomAddr()] });
+      emit({ type: "peer_discovered", peer, addrs: [randomAddr()], source: "rendezvous" });
     }
     if (state.knownPeers.length > 0 && Math.random() < CONNECT_PROBABILITY) {
       const peer = pickKnownPeer();

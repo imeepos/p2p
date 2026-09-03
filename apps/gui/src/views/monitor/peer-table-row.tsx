@@ -33,13 +33,15 @@ const STATUS_KEY: Record<PeerStatusKind, I18nKey> = {
 };
 
 const SOURCE_KEY: Record<PeerSourceKind, I18nKey> = {
+  mdns: "peers.source.mdns",
+  rendezvous: "peers.source.rendezvous",
   manual: "peers.source.manual",
-  discovered: "peers.source.discovered",
 };
 
 const SOURCE_HINT_KEY: Record<PeerSourceKind, I18nKey> = {
+  mdns: "peers.source.mdnsHint",
+  rendezvous: "peers.source.rendezvousHint",
   manual: "peers.source.manualHint",
-  discovered: "peers.source.discoveredHint",
 };
 
 interface PeerTableRowProps {

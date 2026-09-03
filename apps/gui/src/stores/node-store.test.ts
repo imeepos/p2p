@@ -11,6 +11,7 @@ import type { PeerEntry } from "./event-reducer";
 const peer = (id: string, lastSeenMs: number): PeerEntry => ({
   peerId: id,
   addrs: [],
+  source: "rendezvous",
   connected: true,
   lastSeenMs,
   hops: [],

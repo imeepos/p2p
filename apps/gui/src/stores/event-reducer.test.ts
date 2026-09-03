@@ -32,16 +32,60 @@ function emptySlice(): EventStateSlice {
 }
 
 describe("reduceEvent", () => {
-  it("peer_discovered 建档，peer_connected/disconnected 翻转连接态", () => {
+  it("peer_discovered 建档并记录来源，peer_connected/disconnected 翻转连接态", () => {
     let s = emptySlice();
-    s = reduceEvent(s, { type: "peer_discovered", peer: "p1", addrs: ["1.2.3.4/3400"] });
-    expect(s.peers.p1).toMatchObject({ connected: false, addrs: ["1.2.3.4/3400"] });
+    s = reduceEvent(s, {
+      type: "peer_discovered",
+      peer: "p1",
+      addrs: ["1.2.3.4/3400"],
+      source: "rendezvous",
+    });
+    expect(s.peers.p1).toMatchObject({
+      connected: false,
+      addrs: ["1.2.3.4/3400"],
+      source: "rendezvous",
+    });
 
     s = reduceEvent(s, { type: "peer_connected", peer: "p1" });
     expect(s.peers.p1.connected).toBe(true);
 
     s = reduceEvent(s, { type: "peer_disconnected", peer: "p1" });
     expect(s.peers.p1.connected).toBe(false);
+  });
+
+  it("lastSeenMs 只由正向证据刷新：manual 发现、dial_hop、disconnected 均不刷新", () => {
+    let s = emptySlice();
+    // manual 来源是本端自身登记，不证明对端存活：建档但保持 lastSeenMs=0
+    s = reduceEvent(s, {
+      type: "peer_discovered",
+      peer: "manual-peer",
+      addrs: ["1.2.3.4/3400"],
+      source: "manual",
+    });
+    expect(s.peers["manual-peer"].lastSeenMs).toBe(0);
+
+    // 发现源消息是正向证据
+    s = reduceEvent(s, {
+      type: "peer_discovered",
+      peer: "fresh-peer",
+      addrs: ["1.2.3.5/3400"],
+      source: "mdns",
+    });
+    expect(s.peers["fresh-peer"].lastSeenMs).toBeGreaterThan(0);
+    const freshAt = s.peers["fresh-peer"].lastSeenMs;
+
+    // dial_hop（成功或失败）与 disconnected 都不是在线证据
+    s = reduceEvent(s, {
+      type: "dial_hop",
+      peer: "fresh-peer",
+      hop: "relay",
+      ok: false,
+      detail: "offline",
+    });
+    s = reduceEvent(s, { type: "peer_disconnected", peer: "fresh-peer" });
+    expect(s.peers["fresh-peer"].hops.length).toBe(1);
+    expect(s.peers["fresh-peer"].connected).toBe(false);
+    expect(s.peers["fresh-peer"].lastSeenMs).toBe(freshAt);
   });
 
   it("dial_hop 前插逐跳历史且受 MAX_HOPS_PER_PEER 环形上限", () => {

@@ -1,7 +1,8 @@
+import type { PeerSource } from "@/lib/ipc-types";
 import type { PeerEntry } from "@/stores/node-store";
 
 export type PeerStatusKind = "connected" | "discovered" | "offline";
-export type PeerSourceKind = "manual" | "discovered";
+export type PeerSourceKind = PeerSource;
 
 const DISCOVERED_FRESH_MS = 10 * 60 * 1000;
 
@@ -13,8 +14,8 @@ export function peerStatusKind(peer: PeerEntry, now: number): PeerStatusKind {
   return "offline";
 }
 
-// 契约暂无来源字段：有 dial_hop 记录视为本端手动拨号，否则视为发现获知。
-// mdns/rendezvous 细分待契约补 source 字段后接入（缺口已报协调会话）。
+// 契约 v5：来源直读 peer_discovered.source（地址簿聚合 mdns > rendezvous > manual），
+// 不再以本端拨号行为（hops）推断。
 export function peerSourceKind(peer: PeerEntry): PeerSourceKind {
-  return peer.hops.length > 0 ? "manual" : "discovered";
+  return peer.source;
 }

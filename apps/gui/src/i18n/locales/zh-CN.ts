@@ -144,8 +144,6 @@ const zhCN = {
       mdnsHint: "mDNS 同链路发现，局域网直连可达",
       rendezvousHint: "经 rendezvous 云端目录获知",
       manualHint: "地址来自手动登记（拨号对话框）",
-      discovered: "发现",
-      discoveredHint: "经发现协议（mDNS/rendezvous）获知",
     },
     pingOk: "Ping 成功：{{rtt}} ms",
     pingFail: "Ping 失败：{{reason}}",

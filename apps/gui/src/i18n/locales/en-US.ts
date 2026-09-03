@@ -149,8 +149,6 @@ const enUS: typeof zhCN = {
       mdnsHint: "Discovered via mDNS on the same link",
       rendezvousHint: "Learned from the rendezvous directory",
       manualHint: "Address registered manually via dial dialog",
-      discovered: "Discovered",
-      discoveredHint: "Learned via discovery (mDNS/rendezvous)",
     },
     pingOk: "Ping ok: {{rtt}} ms",
     pingFail: "Ping failed: {{reason}}",

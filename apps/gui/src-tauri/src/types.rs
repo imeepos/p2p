@@ -1,13 +1,16 @@
 //! gui-contract.md §2/§3 契约类型的 serde 镜像。
 //!
-//! 字段名与契约逐字对齐（camelCase），Option 序列化为 null；事件为 type 判别联合，
-//! 全变体携带可选 tsMs（发射时由 events::emit 统一盖戳，无值序列化时省略）。
+//! 字段名与契约逐字对齐（camelCase），Option 序列化为 null；事件类型（NodeEventJson）
+//! 见子模块 node_event——拆出原委见该文件头注释，此处 re-export 保持 types:: 路径稳定。
 
-use p2p::NodeEvent;
-use p2p_swarm::{DialHop, MetricsSnapshot};
+use p2p_swarm::MetricsSnapshot;
 use serde::{Deserialize, Serialize};
+
 #[cfg(test)]
 pub(crate) mod testing;
+mod node_event;
+
+pub use node_event::{NodeEventJson, SourceKind};
 
 /// 节点启停配置（契约 §3 GuiConfig）。
 ///
@@ -98,12 +101,12 @@ pub enum HopKind {
     Relay,
 }
 
-impl From<DialHop> for HopKind {
-    fn from(hop: DialHop) -> Self {
+impl From<p2p_swarm::DialHop> for HopKind {
+    fn from(hop: p2p_swarm::DialHop) -> Self {
         match hop {
-            DialHop::Direct => Self::Direct,
-            DialHop::Punch => Self::Punch,
-            DialHop::Relay => Self::Relay,
+            p2p_swarm::DialHop::Direct => Self::Direct,
+            p2p_swarm::DialHop::Punch => Self::Punch,
+            p2p_swarm::DialHop::Relay => Self::Relay,
         }
     }
 }
@@ -137,143 +140,8 @@ pub struct PingOutcome {
     pub error: Option<String>,
 }
 
-/// 节点事件（契约 §2 NodeEventJson）：app.emit("node-event") 的载荷。
-///
-/// 变体名按 snake_case 判别；应用级事件 node_started / node_stopped / node_error
-/// 由桥接层自产。各变体的可选 ts_ms 在 events::emit 出口统一盖发射时刻戳。
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum NodeEventJson {
-    PeerDiscovered {
-        peer: String,
-        addrs: Vec<String>,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    PeerConnected {
-        peer: String,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    PeerDisconnected {
-        peer: String,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    ListenFailed {
-        addr: String,
-        reason: String,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    DialFailed {
-        peer: Option<String>,
-        reason: String,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    ProtocolViolation {
-        peer: String,
-        reason: String,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    DialHop {
-        peer: String,
-        hop: HopKind,
-        ok: bool,
-        detail: String,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    #[serde(rename_all = "camelCase")]
-    NodeStarted {
-        listen_addrs: Vec<String>,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    NodeStopped {
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-    NodeError {
-        reason: String,
-        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
-        ts_ms: Option<u64>,
-    },
-}
-
-impl NodeEventJson {
-    /// 发射前盖发射时刻毫秒戳；emit 出口统一调用（契约 §2 可选 tsMs）。
-    pub fn stamped(mut self, ts_ms: u64) -> Self {
-        let ts = Some(ts_ms);
-        match &mut self {
-            Self::PeerDiscovered { ts_ms, .. }
-            | Self::PeerConnected { ts_ms, .. }
-            | Self::PeerDisconnected { ts_ms, .. }
-            | Self::ListenFailed { ts_ms, .. }
-            | Self::DialFailed { ts_ms, .. }
-            | Self::ProtocolViolation { ts_ms, .. }
-            | Self::DialHop { ts_ms, .. }
-            | Self::NodeStarted { ts_ms, .. }
-            | Self::NodeStopped { ts_ms }
-            | Self::NodeError { ts_ms, .. } => *ts_ms = ts,
-        }
-        self
-    }
-}
-
 #[cfg(test)]
 mod event_tests;
 
 #[cfg(test)]
 mod tests;
-
-impl From<NodeEvent> for NodeEventJson {
-    fn from(ev: NodeEvent) -> Self {
-        // ts_ms 交给 emit 出口统一盖戳，此处恒为 None
-        match ev {
-            NodeEvent::PeerDiscovered { peer, addrs } => Self::PeerDiscovered {
-                peer: peer.to_string(),
-                addrs,
-                ts_ms: None,
-            },
-            NodeEvent::PeerConnected { peer } => Self::PeerConnected {
-                peer: peer.to_string(),
-                ts_ms: None,
-            },
-            NodeEvent::PeerDisconnected { peer } => Self::PeerDisconnected {
-                peer: peer.to_string(),
-                ts_ms: None,
-            },
-            NodeEvent::ListenFailed { addr, reason } => Self::ListenFailed {
-                addr,
-                reason,
-                ts_ms: None,
-            },
-            NodeEvent::DialFailed { peer, reason } => Self::DialFailed {
-                peer: peer.map(|p| p.to_string()),
-                reason,
-                ts_ms: None,
-            },
-            NodeEvent::ProtocolViolation { peer, reason } => Self::ProtocolViolation {
-                peer: peer.to_string(),
-                reason,
-                ts_ms: None,
-            },
-            NodeEvent::DialHop {
-                peer,
-                hop,
-                ok,
-                detail,
-            } => Self::DialHop {
-                peer: peer.to_string(),
-                hop: hop.into(),
-                ok,
-                detail,
-                ts_ms: None,
-            },
-        }
-    }
-}
-

@@ -37,6 +37,9 @@ export interface MetricsJson {
 
 export type DialHopKind = "direct" | "punch" | "relay";
 
+// 契约 v5 加法：peer_discovered.source，地址簿聚合来源（mdns > rendezvous > manual）。
+export type PeerSource = "mdns" | "rendezvous" | "manual";
+
 export interface DialHopJson {
   hop: DialHopKind;
   ok: boolean;
@@ -68,7 +71,7 @@ export interface MetricsPoint {
 
 // 契约 §2 修订：全变体可带可选 tsMs（后端 emit 出口统一盖发射时刻戳，缺省字段不出现在载荷）。
 export type NodeEventJson =
-  | { type: "peer_discovered"; peer: string; addrs: string[]; tsMs?: number }
+  | { type: "peer_discovered"; peer: string; addrs: string[]; source: PeerSource; tsMs?: number }
   | { type: "peer_connected"; peer: string; tsMs?: number }
   | { type: "peer_disconnected"; peer: string; tsMs?: number }
   | { type: "listen_failed"; addr: string; reason: string; tsMs?: number }

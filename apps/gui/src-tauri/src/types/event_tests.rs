@@ -1,6 +1,6 @@
 //! 契约 §2 事件联合 serde 单测：判别名/字段名逐字断言 + NodeEvent 全变体映射 + 可选 tsMs。
 
-use super::{HopKind, NodeEventJson};
+use super::{HopKind, NodeEventJson, SourceKind};
 use super::testing::{roundtrip};
 use serde_json::{json, Value};
 
@@ -10,9 +10,15 @@ fn node_event_discovered_connected_disconnected() {
         &NodeEventJson::PeerDiscovered {
             peer: "PeerA".into(),
             addrs: vec!["1.2.3.4/u3400".into()],
+            source: SourceKind::Rendezvous,
             ts_ms: None,
         },
-        json!({ "type": "peer_discovered", "peer": "PeerA", "addrs": ["1.2.3.4/u3400"] }),
+        json!({
+            "type": "peer_discovered",
+            "peer": "PeerA",
+            "addrs": ["1.2.3.4/u3400"],
+            "source": "rendezvous"
+        }),
     );
     roundtrip(
         &NodeEventJson::PeerConnected { peer: "PeerA".into(), ts_ms: None },
@@ -111,7 +117,7 @@ fn ts_ms_absent_when_none() {
 #[test]
 fn ts_ms_stamped_on_every_variant() {
     let events = vec![
-        NodeEventJson::PeerDiscovered { peer: "p".into(), addrs: vec![], ts_ms: None },
+        NodeEventJson::PeerDiscovered { peer: "p".into(), addrs: vec![], source: SourceKind::Mdns, ts_ms: None },
         NodeEventJson::PeerConnected { peer: "p".into(), ts_ms: None },
         NodeEventJson::PeerDisconnected { peer: "p".into(), ts_ms: None },
         NodeEventJson::ListenFailed { addr: "a".into(), reason: "r".into(), ts_ms: None },
@@ -156,10 +162,12 @@ fn node_event_from_kernel_event_maps_every_variant() {
             p2p::NodeEvent::PeerDiscovered {
                 peer,
                 addrs: vec!["1.2.3.4/u3400".into()],
+                source: p2p_swarm::AddrSource::Rendezvous,
             },
             NodeEventJson::PeerDiscovered {
                 peer: peer_str.clone(),
                 addrs: vec!["1.2.3.4/u3400".into()],
+                source: SourceKind::Rendezvous,
                 ts_ms: None,
             },
         ),
