@@ -10,6 +10,7 @@ pub mod config;
 pub mod events;
 pub mod frontend_log;
 pub mod history;
+pub mod profile;
 pub mod proto;
 pub mod state;
 pub mod types;
@@ -31,6 +32,8 @@ pub fn run() {
             commands::metrics_history,
             commands::config_get,
             commands::config_save,
+            commands::profile_get,
+            commands::profile_save,
             commands::peer_dial,
             commands::peer_connect,
             commands::peer_disconnect,
