@@ -84,16 +84,25 @@ pub struct Reject {
     pub message: String,
 }
 
+/// 保活探测（E6 连接稳定性轮）：客户端周期发送，服务端即时应答。
+/// 无状态、无副作用；往返本身即链路存活证据。
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct KeepAlive {}
+
+/// 保活应答：服务端收到 KeepAlive 后原路回发。
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct KeepAliveAck {}
+
 /// 控制面信封：一帧一个 RelayMsg，kind 只装一个子消息。
 #[derive(Clone, PartialEq, prost::Message)]
 pub struct RelayMsg {
-    #[prost(oneof = "relay_msg::Kind", tags = "1, 2, 3, 4, 5, 6, 7")]
+    #[prost(oneof = "relay_msg::Kind", tags = "1, 2, 3, 4, 5, 6, 7, 8, 9")]
     pub kind: Option<relay_msg::Kind>,
 }
 
 /// 信封载荷。
 pub mod relay_msg {
-    /// 七种控制面帧。
+    /// 控制面帧（E6 起新增 KeepAlive/KeepAliveAck，只增不改）。
     #[derive(Clone, PartialEq, prost::Oneof)]
     pub enum Kind {
         #[prost(message, tag = "1")]
@@ -110,6 +119,10 @@ pub mod relay_msg {
         PunchAck(super::PunchAck),
         #[prost(message, tag = "7")]
         Reject(super::Reject),
+        #[prost(message, tag = "8")]
+        KeepAlive(super::KeepAlive),
+        #[prost(message, tag = "9")]
+        KeepAliveAck(super::KeepAliveAck),
     }
 }
 
@@ -165,6 +178,18 @@ impl RelayMsg {
                 code,
                 message: message.into(),
             })),
+        }
+    }
+
+    pub fn keep_alive() -> Self {
+        Self {
+            kind: Some(relay_msg::Kind::KeepAlive(KeepAlive {})),
+        }
+    }
+
+    pub fn keep_alive_ack() -> Self {
+        Self {
+            kind: Some(relay_msg::Kind::KeepAliveAck(KeepAliveAck {})),
         }
     }
 }

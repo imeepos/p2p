@@ -195,6 +195,15 @@ impl RelayState {
             })
             .collect()
     }
+
+    /// 桥接结束（正常关闭或空闲回收）即退役槽位：移除并回吐属主配额。
+    /// 返回桥后误停在槽上的流（若有），由调用方显式拒绝并回吐其配额——
+    /// 收口 E5「桥接后槽位滞留至 TTL 清扫」：槽随桥终，不再滞留。
+    pub(crate) fn retire_bridged_circuit(&mut self, cid: u64) -> Option<PendingStream> {
+        let slot = self.circuits.remove(&cid)?;
+        self.release_circuit_load(&slot.owner);
+        slot.pending.inspect(|p| self.release_circuit_load(&p.peer))
+    }
 }
 
 #[cfg(test)]

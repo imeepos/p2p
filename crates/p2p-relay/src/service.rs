@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use p2p_mux::BoxedStream;
 
 use crate::frame::{read_msg, write_reject};
+use crate::keepalive::RelayKeepalive;
 use crate::limits::{PeerBuckets, RateBucket, RelayLimits};
 use crate::link::{LinkSource, RelayLink};
 use crate::messages::{errcode, relay_msg::Kind};
@@ -27,6 +28,7 @@ const REJECT_IDLE: Duration = Duration::from_secs(10);
 pub struct RelayServiceImpl {
     source: Box<dyn LinkSource>,
     limits: RelayLimits,
+    keepalive: RelayKeepalive,
     buckets: PeerBuckets,
     state: Mutex<RelayState>,
     /// 控制流代次发生器：每条新控制流一个唯一代次，电路记账据此归属。
@@ -35,10 +37,20 @@ pub struct RelayServiceImpl {
 
 impl RelayServiceImpl {
     pub fn new(source: Box<dyn LinkSource>, limits: RelayLimits) -> Self {
+        Self::with_keepalive(source, limits, RelayKeepalive::default())
+    }
+
+    /// 指定保活/静默/空闲回收参数的服务端（E6）；默认值依据见 RelayKeepalive。
+    pub fn with_keepalive(
+        source: Box<dyn LinkSource>,
+        limits: RelayLimits,
+        keepalive: RelayKeepalive,
+    ) -> Self {
         Self {
             source,
             buckets: PeerBuckets::new(limits.clone()),
             limits,
+            keepalive,
             state: Mutex::new(RelayState::new()),
             ctrl_epoch: AtomicU64::new(1),
         }
@@ -51,6 +63,10 @@ impl RelayServiceImpl {
 
     pub(crate) fn limits(&self) -> &RelayLimits {
         &self.limits
+    }
+
+    pub(crate) fn keepalive(&self) -> &RelayKeepalive {
+        &self.keepalive
     }
 
     /// 中毒恢复而非 panic（审查 L3）：临界区均为单段无 await 的短操作，

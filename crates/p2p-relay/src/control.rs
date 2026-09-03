@@ -51,9 +51,20 @@ impl RelayServiceImpl {
         epoch: u64,
         mut punch: RateBucket,
     ) {
+        let silence = self.keepalive().server_silence;
         loop {
-            match read_msg(rh).await {
-                Ok(Some(msg)) => {
+            // [E6 消融点 3] 服务端静默超时：把 timeout 包装退化回裸 read_msg(rh)
+            // 即关闭该逻辑（保活超时清理回归用例必须随之变红）。
+            match tokio::time::timeout(silence, read_msg(rh)).await {
+                Err(_) => {
+                    // 客户端静默超时：按既有控制流关闭语义清理（E4 兼容，同一收尾路径）
+                    tracing::warn!(
+                        peer = %peer, silence_secs = silence.as_secs(),
+                        "control keepalive silence timeout; cutting client"
+                    );
+                    break;
+                }
+                Ok(Ok(Some(msg))) => {
                     if !self
                         .dispatch_control(peer, msg, write, epoch, &mut punch)
                         .await
@@ -61,8 +72,8 @@ impl RelayServiceImpl {
                         break;
                     }
                 }
-                Ok(None) => break,
-                Err(e) => {
+                Ok(Ok(None)) => break,
+                Ok(Err(e)) => {
                     tracing::warn!(peer = %peer, error = %e, "control read failed; cutting");
                     break;
                 }
@@ -90,6 +101,10 @@ impl RelayServiceImpl {
             Some(Kind::PunchAck(a)) => {
                 self.forward_punch(peer, write, a.peer_id, a.addrs, false, punch)
                     .await
+            }
+            Some(Kind::KeepAlive(_)) => {
+                tracing::debug!(peer = %peer, "keepalive answered");
+                send_ctrl(write, RelayMsg::keep_alive_ack()).await.is_ok()
             }
             other => {
                 tracing::warn!(peer = %peer, kind = ?other, "protocol violation on control stream; cutting");

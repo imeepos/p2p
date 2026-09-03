@@ -2,19 +2,23 @@
 //!
 //! 状态机：reserve 发 Reserve 收 Reserved 发放 CircuitId；connect 发 Connect 收
 //! Bound 后该流即电路对端；punch 走控制流，入站信号经事件队列交付调用方。
+//! E6：控制流建立即启动保活任务，连续超时判定失联并上抛事件（见 keepalive 模块）。
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
 use p2p_mux::BoxedStream;
 use tokio::io::{split, ReadHalf};
-use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::sync::{mpsc, Mutex};
 
 use crate::error::{error_from_wire, RelayError};
 use crate::frame::{read_msg, write_msg};
+use crate::keepalive::{
+    roundtrip, spawn_keepalive, CtrlInner, RelayKeepalive, ReplyExpect, RoundtripLock,
+};
 use crate::link::RelayLink;
-use crate::messages::{errcode, relay_msg::Kind, PunchAck, RelayMsg};
-use crate::state::CtrlWrite;
+use crate::messages::{errcode, relay_msg::Kind, PunchAck, PunchReq, RelayMsg};
 use crate::CircuitId;
 
 /// 控制请求回包超时。
@@ -23,18 +27,19 @@ const REPLY_TIMEOUT: Duration = Duration::from_secs(5);
 const EVENT_CAPACITY: usize = 32;
 
 /// 异步事件：入站打洞信令与控制链路关闭（关闭必带原因，E5 原因链）。
+/// E6 起保活判失联同样经 ControlClosed 上抛，reason 带 keepalive 归因。
 #[derive(Debug)]
 pub enum RelayEvent {
-    PunchReq(crate::messages::PunchReq),
-    PunchAck(crate::messages::PunchAck),
+    PunchReq(PunchReq),
+    PunchAck(PunchAck),
     ControlClosed { reason: String },
 }
 
-type PendingSlot = Arc<Mutex<Option<oneshot::Sender<RelayMsg>>>>;
-
 struct CtrlChannel {
-    write: Arc<CtrlWrite>,
-    pending: PendingSlot,
+    inner: Arc<CtrlInner>,
+    lock: RoundtripLock,
+    /// 保活任务句柄：client drop 时中止，防写半被任务钉住、服务端收不到 EOF。
+    keepalive: tokio::task::JoinHandle<()>,
 }
 
 /// 中继客户端；一个实例对应一条到 relay 的链路。
@@ -43,16 +48,31 @@ pub struct RelayClient {
     ctrl: Option<CtrlChannel>,
     events_tx: mpsc::Sender<RelayEvent>,
     events_rx: mpsc::Receiver<RelayEvent>,
+    keepalive: RelayKeepalive,
+}
+
+impl Drop for RelayClient {
+    fn drop(&mut self) {
+        if let Some(ch) = self.ctrl.take() {
+            ch.keepalive.abort();
+        }
+    }
 }
 
 impl RelayClient {
     pub fn new(link: Box<dyn RelayLink>) -> Self {
+        Self::with_keepalive(link, RelayKeepalive::default())
+    }
+
+    /// 指定保活参数的客户端；间隔/超时/失联阈值见 [RelayKeepalive]。
+    pub fn with_keepalive(link: Box<dyn RelayLink>, keepalive: RelayKeepalive) -> Self {
         let (events_tx, events_rx) = mpsc::channel(EVENT_CAPACITY);
         Self {
             link,
             ctrl: None,
             events_tx,
             events_rx,
+            keepalive,
         }
     }
 
@@ -71,6 +91,7 @@ impl RelayClient {
             .control_roundtrip(
                 RelayMsg::reserve(ttl.as_secs().max(1), allowed_joiner),
                 "reserve",
+                ReplyExpect::Reserved,
             )
             .await?;
         match reply.kind {
@@ -108,7 +129,11 @@ impl RelayClient {
         addrs: Vec<String>,
     ) -> Result<PunchAck, RelayError> {
         let reply = self
-            .control_roundtrip(RelayMsg::punch_req(target, addrs), "punch-ack")
+            .control_roundtrip(
+                RelayMsg::punch_req(target, addrs),
+                "punch-ack",
+                ReplyExpect::PunchAck,
+            )
             .await?;
         match reply.kind {
             Some(Kind::PunchAck(a)) => Ok(a),
@@ -121,7 +146,7 @@ impl RelayClient {
     pub async fn reply_punch(&mut self, ack: PunchAck) -> Result<(), RelayError> {
         let ch = self.ensure_ctrl().await?;
         write_msg(
-            &mut *ch.write.lock().await,
+            &mut *ch.inner.write.lock().await,
             &RelayMsg {
                 kind: Some(Kind::PunchAck(ack)),
             },
@@ -139,26 +164,36 @@ impl RelayClient {
         &mut self,
         msg: RelayMsg,
         what: &'static str,
+        expect: ReplyExpect,
     ) -> Result<RelayMsg, RelayError> {
         let ch = self.ensure_ctrl().await?;
-        let (tx, rx) = oneshot::channel();
-        *ch.pending.lock().await = Some(tx);
-        write_msg(&mut *ch.write.lock().await, &msg).await?;
-        let reply = tokio::time::timeout(REPLY_TIMEOUT, rx).await.map_err(|_| {
-            tracing::warn!(waiting = what, "control roundtrip timed out");
-            RelayError::Timeout(what)
-        })?;
-        reply.map_err(|_| RelayError::LinkClosed)
+        roundtrip(&ch.inner, &ch.lock, msg, expect, what, REPLY_TIMEOUT).await
     }
 
     async fn ensure_ctrl(&mut self) -> Result<&CtrlChannel, RelayError> {
         if self.ctrl.is_none() {
             let stream = self.link.open_stream().await?;
             let (rh, wh) = split(stream);
-            let pending: PendingSlot = Arc::new(Mutex::new(None));
-            tokio::spawn(read_ctrl_loop(rh, pending.clone(), self.events_tx.clone()));
-            let write: Arc<CtrlWrite> = Arc::new(Mutex::new(wh));
-            self.ctrl = Some(CtrlChannel { write, pending });
+            let inner = Arc::new(CtrlInner {
+                write: Arc::new(Mutex::new(wh)),
+                pending: Arc::new(Mutex::new(None)),
+                lost: AtomicBool::new(false),
+                closed: AtomicBool::new(false),
+            });
+            let lock: RoundtripLock = Arc::new(Mutex::new(()));
+            let task = spawn_keepalive(
+                inner.clone(),
+                lock.clone(),
+                self.events_tx.clone(),
+                self.keepalive.clone(),
+                self.link.peer_id().to_string(),
+            );
+            tokio::spawn(read_ctrl_loop(rh, inner.clone(), self.events_tx.clone()));
+            self.ctrl = Some(CtrlChannel {
+                inner,
+                lock,
+                keepalive: task,
+            });
         }
         Ok(self.ctrl.as_ref().expect("control channel just set"))
     }
@@ -166,13 +201,13 @@ impl RelayClient {
 
 async fn read_ctrl_loop(
     mut rh: ReadHalf<BoxedStream>,
-    pending: PendingSlot,
+    inner: Arc<CtrlInner>,
     events: mpsc::Sender<RelayEvent>,
 ) {
     let reason;
     loop {
         match read_msg(&mut rh).await {
-            Ok(Some(msg)) => dispatch_ctrl(&pending, &events, msg).await,
+            Ok(Some(msg)) => dispatch_ctrl(&inner, &events, msg).await,
             Ok(None) => {
                 reason = "control stream eof (clean close by peer)".to_string();
                 break;
@@ -184,28 +219,41 @@ async fn read_ctrl_loop(
             }
         }
     }
-    if let Some(tx) = pending.lock().await.take() {
-        let _ = tx.send(RelayMsg::error(errcode::PROTOCOL, "control stream closed"));
+    inner.closed.store(true, Ordering::Relaxed);
+    if let Some(tx) = inner.pending.lock().await.take() {
+        let _ = tx
+            .tx
+            .send(RelayMsg::error(errcode::PROTOCOL, "control stream closed"));
     }
     let _ = events.send(RelayEvent::ControlClosed { reason }).await;
 }
 
-async fn dispatch_ctrl(pending: &PendingSlot, events: &mpsc::Sender<RelayEvent>, msg: RelayMsg) {
+/// 控制帧分发：回包投给形态匹配的待应答者，信令进事件队列，违规留告警。
+async fn dispatch_ctrl(inner: &Arc<CtrlInner>, events: &mpsc::Sender<RelayEvent>, msg: RelayMsg) {
+    let Some(kind) = msg.kind else {
+        tracing::warn!("empty control frame; ignored");
+        return;
+    };
     let reply_shaped = matches!(
-        msg.kind,
-        Some(Kind::Reserved(_)) | Some(Kind::PunchAck(_)) | Some(Kind::Reject(_))
+        kind,
+        Kind::Reserved(_) | Kind::PunchAck(_) | Kind::KeepAliveAck(_) | Kind::Reject(_)
     );
     if reply_shaped {
-        if let Some(tx) = pending.lock().await.take() {
-            let _ = tx.send(msg);
-            return;
+        let mut slot = inner.pending.lock().await;
+        if slot.as_ref().is_some_and(|p| p.matches(&kind)) {
+            if let Some(p) = slot.take() {
+                drop(slot);
+                let _ = p.tx.send(RelayMsg { kind: Some(kind) });
+                return;
+            }
         }
+        drop(slot);
     }
-    match msg.kind {
-        Some(Kind::PunchReq(p)) => push_event(events, RelayEvent::PunchReq(p)).await,
-        Some(Kind::PunchAck(a)) => push_event(events, RelayEvent::PunchAck(a)).await,
-        Some(Kind::Reserved(_)) | Some(Kind::Reject(_)) => {
-            tracing::warn!("control reply arrived with no pending request; dropped");
+    match kind {
+        Kind::PunchReq(p) => push_event(events, RelayEvent::PunchReq(p)).await,
+        Kind::PunchAck(a) => push_event(events, RelayEvent::PunchAck(a)).await,
+        Kind::Reserved(_) | Kind::Reject(_) | Kind::KeepAliveAck(_) => {
+            tracing::warn!("control reply arrived with no matching pending request; dropped");
         }
         other => tracing::warn!(kind = ?other, "unexpected frame on control stream; ignored"),
     }
