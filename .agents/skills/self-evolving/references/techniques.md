@@ -54,4 +54,5 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   enUS: typeof zhCN 已兜底，该脚本给出独立于 tsc 的机械证据（166=166）。
 - worktree 里跑前端先 pnpm install（worktree 不共享 node_modules）；
   macOS 无 timeout 命令，dev server 冒烟用 run_code 后台 job + sleep +
-  curl 探活 + job_kill 组合。
+  curl 探活 + job_kill 组合。- GUI 启动冒烟（jsdom 挂整应用）：vi.stubEnv("VITE_MOCK_IPC","1") 后 await import("../main")，waitFor host.querySelector("main")，断言 innerHTML 非空且无 ErrorBoundary 兜底文案；手工 appendChild 的 host 在 afterEach 清空防跨测试泄漏。整跑：bash scripts/check/gui.sh。
+- 崩溃定位：ErrorBoundary 的 componentDidCatch 会 console.error 带异常消息，vitest 输出里搜「渲染异常」直接得根因；Maximum update depth 且栈里有 forceStoreRerender/updateStoreInstance = store 快照引用漂移。
