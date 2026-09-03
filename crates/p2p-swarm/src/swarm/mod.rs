@@ -2,12 +2,13 @@
 
 use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 
 use p2p_identity::{Keypair, PeerId};
 use p2p_mux::MuxControl;
 use p2p_transport::{QuicTransport, TcpTransport, TransportAddr};
-use tokio::sync::{broadcast, mpsc, watch};
+use tokio::sync::{broadcast, watch};
 
 use crate::lifecycle::PeerLifecycleConfig;
 use crate::liveness::{LivenessBook, LivenessSource};
@@ -18,6 +19,7 @@ use crate::NodeEvent;
 
 mod book;
 mod config;
+mod degrade_hop;
 mod dial;
 mod factory;
 mod hangup;
@@ -30,6 +32,7 @@ mod punch;
 mod reclaim;
 mod registry;
 mod relay_degrade;
+mod relay_selector;
 mod relay_session;
 mod responder;
 mod serve;
@@ -53,7 +56,9 @@ use lifecycle::LifecycleMsg;
 use listen::spawn_accept_loops;
 pub use ping::PING_PROTOCOL;
 pub use reclaim::ReclaimConfig;
-use relay_session::{spawn_sessions, RelayCmd};
+use relay_degrade::RelaySessionHandle;
+use relay_selector::RelaySelectionCfg;
+use relay_session::spawn_sessions;
 
 /// 电路化/直连拨号共用的复用句柄别名。
 pub(super) type Mux = Arc<dyn MuxControl>;
@@ -70,7 +75,11 @@ pub struct Swarm {
     gate: Mutex<Option<Arc<dyn ConnectionGate>>>,
     address_book: Mutex<AddressBook>,
     events: broadcast::Sender<NodeEvent>,
-    relay_sessions: Mutex<Vec<mpsc::Sender<RelayCmd>>>,
+    relay_sessions: Mutex<Vec<RelaySessionHandle>>,
+    /// 上次降级选中的会话下标（滞回输入；越界自动作废）。
+    last_relay_idx: AtomicUsize,
+    /// 中继选择参数（门槛默认；配置入口留待需要时加法）。
+    relay_selection_cfg: RelaySelectionCfg,
     metrics: Metrics,
     /// E6：对端连接生命周期监督句柄（状态机/探活/退避重连）。
     lifecycle: LifecycleHandle,
@@ -144,6 +153,8 @@ impl Swarm {
             address_book: Mutex::new(AddressBook::new()),
             events,
             relay_sessions: Mutex::new(Vec::new()),
+            last_relay_idx: AtomicUsize::new(0),
+            relay_selection_cfg: RelaySelectionCfg::default(),
             metrics: Metrics::default(),
             lifecycle,
             liveness: Arc::new(LivenessBook::new(lifecycle_events.clone())),

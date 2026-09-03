@@ -14,8 +14,8 @@ use p2p_relay::{CircuitId, PunchSession, RelayClient};
 use p2p_security::{NoiseXx, SecurityUpgrade};
 use p2p_transport::TransportAddr;
 
+use super::degrade_hop::PROBE_TIMEOUT;
 use super::dial::{dial_one, insert_connection, ConnDirection};
-use super::relay_session::PROBE_TIMEOUT;
 use super::{Mux, Swarm};
 use crate::pool::ConnKind;
 use crate::DialHop;
