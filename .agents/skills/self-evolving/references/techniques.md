@@ -121,3 +121,7 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 排除集：self、running、updatedAt≥截止线的会话；无 `session-` 前缀的 uuid 目录是历史残留记录，按 mtime 过线一并隔离。
 - 验收看过滤面：workspace_list / session_link_list 是管理视图，返回全量（含已归档、索引残留），不代表侧边栏；真效果 = archivedSessionIds 含目标 + 磁盘目录已迁走。
 - `storages/session-query.sqlite`（persisted_sessions/persisted_docs）先 SELECT 确认有目标行再删（本例 p2p 会话为 0 行），宿主是否持句柄用 lsof 判，别按目录臆测索引内容。
+
+## 2026-09-04 排查「GUI 里为什么有离线节点/幽灵条目」类问题
+- 双路并查不先读代码：一路 ps 看活进程拓扑（本例一步看到 lab 节点 maca/coordinator + console 全在线、还有周二遗留的 cargo test 僵尸进程），一路查出厂默认配置（gui config.rs default_bootstrap 指向公网共享 rendezvous 池 43.240.223.138 + 121.196.193.177）——数据来源定准了，「为什么列表里有 X」多数不是 bug 而是语义。
+- 本项目邻居表语义备忘：GUI peers 表是会话内只增不减的地址簿，「离线」= 未连接且 lastSeen 超 10 分钟（peer-status.ts DISCOVERED_FRESH_MS），后端并无删除条目的路径；lastSeen 只在「学到新地址」或连接成功时刷新（swarm/book.rs 按地址去重后才发 peer_discovered），所以在线但从未连上的节点 10 分钟后也会翻成离线。
