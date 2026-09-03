@@ -130,4 +130,5 @@ export interface IpcBackend {
 export interface DiagBackend {
   logPath(): Promise<string>;
   logTail(maxLines: number): Promise<string[]>;
+  logClear(): Promise<void>;
 }

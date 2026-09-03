@@ -3035,6 +3035,7 @@ dependencies = [
  "p2p-identity",
  "p2p-transport",
  "prost",
+ "rand 0.8.8",
  "thiserror 1.0.69",
  "tokio",
  "tokio-util",

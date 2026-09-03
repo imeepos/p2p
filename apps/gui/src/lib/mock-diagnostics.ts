@@ -15,4 +15,8 @@ export const mockDiagBackend: DiagBackend = {
     const lines = readLocalLogLines();
     return lines.slice(Math.max(0, lines.length - Math.max(1, maxLines)));
   },
+
+  async logClear() {
+    localStorage.removeItem("p2p-console.frontend-log");
+  },
 };

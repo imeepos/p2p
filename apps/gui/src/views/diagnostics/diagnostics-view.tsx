@@ -13,7 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getRecentErrors, clearRecentErrors } from "@/lib/error-report";
+import { clearErrorBufferAndQueue, getRecentErrors } from "@/lib/error-report";
 import { diag } from "@/lib/ipc";
 import { copyText } from "@/views/shared/clipboard";
 
@@ -40,6 +40,18 @@ export function DiagnosticsView() {
     load();
   }, [load]);
 
+  const clearAll = useCallback(async () => {
+    try {
+      clearErrorBufferAndQueue();
+      await diag.logClear();
+      setTail([]);
+      setVersion((v) => v + 1);
+      toastSuccess("诊断数据已清理");
+    } catch (err) {
+      toastError(String(err));
+    }
+  }, []);
+
   useEffect(() => {
     load();
     const timer = window.setInterval(load, AUTO_REFRESH_MS);
@@ -50,7 +62,7 @@ export function DiagnosticsView() {
     <>
       <PageHeader titleKey="diagnostics.title" descriptionKey="diagnostics.description" />
       <EnvCard logPath={logPath} />
-      <ErrorBufferCard version={version} onRefresh={refresh} />
+      <ErrorBufferCard version={version} onRefresh={refresh} onClear={clearAll} />
       <LogTailCard tail={tail} onRefresh={refresh} />
     </>
   );
@@ -89,7 +101,7 @@ function EnvCard({ logPath }: { logPath: string | null }) {
   );
 }
 
-function ErrorBufferCard({ version, onRefresh }: { version: number; onRefresh: () => void }) {
+function ErrorBufferCard({ version, onRefresh, onClear }: { version: number; onRefresh: () => void; onClear: () => void }) {
   const { t } = useTranslation();
   const entries = [...getRecentErrors()].reverse();
   return (
@@ -101,16 +113,8 @@ function ErrorBufferCard({ version, onRefresh }: { version: number; onRefresh: (
           <Button variant="outline" size="sm" onClick={onRefresh}>
             {t("diagnostics.refresh")}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              clearRecentErrors();
-              onRefresh();
-              toastSuccess(t("diagnostics.errors.cleared"));
-            }}
-          >
-            {t("diagnostics.errors.clear")}
+          <Button variant="outline" size="sm" onClick={onClear}>
+            {t("diagnostics.clearAll")}
           </Button>
         </CardAction>
       </CardHeader>

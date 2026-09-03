@@ -42,6 +42,7 @@ pub fn run() {
             frontend_log::frontend_log_append,
             frontend_log::frontend_log_tail,
             frontend_log::frontend_log_path,
+            frontend_log::frontend_log_clear,
             update::update_check,
             update::update_open_release_page,
         ])

@@ -61,6 +61,7 @@ export const ipc: IpcBackend = mockIpc ?? tauriBackend;
 const tauriDiagBackend: DiagBackend = {
   logPath: () => invoke<string>("frontend_log_path"),
   logTail: (maxLines) => invoke<string[]>("frontend_log_tail", { maxLines }),
+  logClear: () => invoke<void>("frontend_log_clear"),
 };
 
 export const diag: DiagBackend = tauriDiagBackend;

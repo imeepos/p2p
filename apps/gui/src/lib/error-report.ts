@@ -61,6 +61,22 @@ export function clearRecentErrors(): void {
   buffer = [];
 }
 
+/// 一键清理（内存侧）：清空最近错误缓冲与待发送队列，并取消防抖刷写，
+/// 避免清空后残留队列又把旧错误写回持久层。
+export function clearErrorBufferAndQueue(): void {
+  buffer = [];
+  unsent = [];
+  if (flushTimer !== null) {
+    window.clearTimeout(flushTimer);
+    flushTimer = null;
+  }
+  try {
+    localStorage.removeItem(LOG_STORAGE_KEY);
+  } catch (err) {
+    originalConsoleError?.("[error-report] localStorage 清理失败:", err);
+  }
+}
+
 function record(entry: Omit<FrontendErrorEntry, "ts">): void {
   const full: FrontendErrorEntry = { ts: new Date().toISOString(), ...entry };
   buffer.push(full);

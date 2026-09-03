@@ -51,6 +51,13 @@ impl FrontendLog {
         let _guard = self.lock.lock().expect("frontend_log 锁中毒");
         tail_lines(&self.path, max_lines)
     }
+
+    /// 一键清理：删除 frontend.log 与轮转代 frontend.log.1（幂等，缺文件不算错）。
+    pub fn clear(&self) -> std::io::Result<()> {
+        let _guard = self.lock.lock().expect("frontend_log 锁中毒");
+        remove_if_exists(&self.path)?;
+        remove_if_exists(&self.path.with_file_name(ROTATED_FILE))
+    }
 }
 
 /// 超限轮转：frontend.log → frontend.log.1（单代覆盖），控制 tail 整读内存上界。
@@ -63,6 +70,15 @@ fn rotate_if_needed(path: &Path) -> std::io::Result<()> {
         return Ok(());
     }
     fs::rename(path, path.with_file_name(ROTATED_FILE))
+}
+
+/// 删除文件；不存在视为已清理（幂等），其余错误上抛。
+fn remove_if_exists(path: &Path) -> std::io::Result<()> {
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e),
+    }
 }
 
 /// 读文件末尾 max 行；文件不存在返回空（首次启动合法状态，不算错误）。
@@ -107,6 +123,14 @@ pub async fn frontend_log_tail(
 #[tauri::command]
 pub async fn frontend_log_path(state: State<'_, FrontendLog>) -> Result<String, String> {
     Ok(state.path().display().to_string())
+}
+
+/// frontend_log_clear：一键清理 frontend.log 与 frontend.log.1（幂等）。
+#[tauri::command]
+pub async fn frontend_log_clear(state: State<'_, FrontendLog>) -> Result<(), String> {
+    state
+        .clear()
+        .map_err(|e| format!("前端日志清理失败: {e}"))
 }
 
 #[cfg(test)]
@@ -159,6 +183,22 @@ mod tests {
         log.append(&["after-rotate".into()]).unwrap();
         assert!(dir.join(ROTATED_FILE).exists());
         assert_eq!(log.tail(1).unwrap(), vec!["after-rotate"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn clear_removes_current_and_rotated_then_stays_usable() {
+        let dir = temp_dir("clear");
+        let log = FrontendLog::new(&dir).unwrap();
+        log.append(&["stale".into()]).unwrap();
+        fs::write(dir.join(ROTATED_FILE), "rotated-stale").unwrap();
+        log.clear().unwrap();
+        assert!(!dir.join(LOG_FILE).exists());
+        assert!(!dir.join(ROTATED_FILE).exists());
+        // 幂等：文件已缺再清不报错；清后 append/tail 恢复正常。
+        log.clear().unwrap();
+        log.append(&["fresh".into()]).unwrap();
+        assert_eq!(log.tail(10).unwrap(), vec!["fresh"]);
         let _ = fs::remove_dir_all(&dir);
     }
 }
