@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use quinn::crypto::rustls::{QuicClientConfig, QuicServerConfig};
+use socket2::{Domain, Protocol, Socket, Type};
 use quinn::rustls::pki_types::CertificateDer;
 
 use p2p_identity::{Keypair, PeerId};
@@ -33,6 +34,33 @@ fn stream_limits() -> Arc<quinn::TransportConfig> {
         quinn::IdleTimeout::try_from(QUIC_IDLE_TIMEOUT).expect("idle timeout fits varint"),
     ));
     Arc::new(transport)
+}
+
+/// 连接地址裁决（拨号出口统一过此关）：
+/// - 未指定地址（0.0.0.0 / ::）契约性拒绝：映射成 v4-mapped 后 is_unspecified
+///   失真，会绕过 quinn-proto 的确定性拒绝，退化为吃满握手超时的悬挂；
+/// - 宿主无 IPv6（端点回退 IPv4-only）时 V6 目标契约性拒绝，报因可读；
+/// - 双栈端点上 V4 目标以 v4-mapped（::ffff:a.b.c.d）表达，内核自动落 V4 路径。
+fn connect_target(
+    addr: &TransportAddr,
+    ip: IpAddr,
+    port: u16,
+    dual_stack: bool,
+) -> Result<SocketAddr, TransportError> {
+    if ip.is_unspecified() {
+        return Err(TransportError::Dial {
+            addr: addr.to_string(),
+            reason: "unspecified address is not dialable".into(),
+        });
+    }
+    match (ip, dual_stack) {
+        (IpAddr::V4(v4), true) => Ok(SocketAddr::new(IpAddr::V6(v4.to_ipv6_mapped()), port)),
+        (IpAddr::V6(_), false) => Err(TransportError::Dial {
+            addr: addr.to_string(),
+            reason: "local quic endpoint is IPv4-only (host without IPv6); cannot dial IPv6".into(),
+        }),
+        _ => Ok(SocketAddr::new(ip, port)),
+    }
 }
 
 fn peer_id_of(conn: &quinn::Connection) -> Result<PeerId, TransportError> {
@@ -70,13 +98,44 @@ fn secure_conn(
 /// QUIC 传输：单端点同时支持拨号与监听。
 pub struct QuicTransport {
     endpoint: quinn::Endpoint,
+    /// 拨号端点是否双栈（[::]:0 且 V6ONLY 关）：决定 V4 目标是否走 v4-mapped。
+    dual_stack: bool,
 }
 
 impl QuicTransport {
-    /// 仅拨号端：绑定随机本地端口。
+    /// 仅拨号端：优先绑 [::]:0 双栈（V6ONLY 关，V4 目标经 v4-mapped 出网，
+    /// quinn 对 v4-mapped 目标原生支持，见 quinn-rs/quinn#1765）；宿主无 IPv6
+    /// 时回退 0.0.0.0 并对 V6 目标显式拒拨。2026-09-04 线上事故：单绑 0.0.0.0
+    /// 使地址簿全部 IPv6 候选在本地即拒（invalid remote address），直连全灭。
     pub fn new() -> io::Result<Self> {
-        let endpoint = quinn::Endpoint::client(SocketAddr::new(IpAddr::from([0, 0, 0, 0]), 0))?;
-        Ok(Self { endpoint })
+        match Self::dual_stack_endpoint() {
+            Ok(endpoint) => {
+                tracing::info!(bind = "[::]:0", "quic dial endpoint dual-stack");
+                Ok(Self { endpoint, dual_stack: true })
+            }
+            Err(v6_err) => {
+                tracing::warn!(error = %v6_err, "host without IPv6; quic dial endpoint falls back to IPv4-only");
+                let endpoint = quinn::Endpoint::client(SocketAddr::new(IpAddr::from([0, 0, 0, 0]), 0))?;
+                Ok(Self { endpoint, dual_stack: false })
+            }
+        }
+    }
+
+    /// socket2 建 IPV6_V6ONLY=false 的 UDP socket 交 quinn 作底层（社区标准
+    /// 双栈做法）：set_only_v6 必须先于 bind，Windows 同样要求。
+    fn dual_stack_endpoint() -> io::Result<quinn::Endpoint> {
+        let sock = Socket::new(Domain::IPV6, Type::DGRAM, Some(Protocol::UDP))?;
+        sock.set_only_v6(false)?;
+        sock.bind(&SocketAddr::new(IpAddr::from([0u16; 8]), 0).into())?;
+        sock.set_nonblocking(true)?;
+        let std_sock: std::net::UdpSocket = sock.into();
+        quinn::Endpoint::new(
+            quinn::EndpointConfig::default(),
+            None,
+            std_sock,
+            Arc::new(quinn::TokioRuntime),
+        )
+        .map_err(|e| io::Error::other(e.to_string()))
     }
 
     /// 监听端：以给定身份接受入站 QUIC。
@@ -93,7 +152,8 @@ impl QuicTransport {
         let mut server = quinn::ServerConfig::with_crypto(Arc::new(quic_crypto));
         server.transport_config(stream_limits());
         let endpoint = quinn::Endpoint::server(server, addr)?;
-        Ok(Self { endpoint })
+        // 监听端点不是拨号出口（swarm 拨号恒走 new() 端点），双栈映射不适用
+        Ok(Self { endpoint, dual_stack: false })
     }
 
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
@@ -168,9 +228,10 @@ impl Transport for QuicTransport {
         ));
         client.transport_config(Arc::new(transport));
 
+        let connect_addr = connect_target(addr, ip, port, self.dual_stack)?;
         let connecting = self
             .endpoint
-            .connect_with(client, SocketAddr::new(ip, port), SERVER_NAME)
+            .connect_with(client, connect_addr, SERVER_NAME)
             .map_err(|e| TransportError::DialChained {
                 addr: addr.to_string(),
                 source: Box::new(e),

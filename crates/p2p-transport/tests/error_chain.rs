@@ -52,17 +52,21 @@ async fn tcp_dial_refused_keeps_io_error_source() {
 }
 
 #[tokio::test]
-async fn quic_dial_invalid_remote_keeps_connect_error_source() {
+async fn quic_dial_connect_error_keeps_source_chain() {
+    // 2026-09-04 双栈端点落地后「族不匹配即拒」不复存在（V4 走 v4-mapped、V6 可
+    // 直拨），quinn 层 ConnectError 改以 EndpointStopping 确定性触发：端点关停后
+    // 拨号必被 connect_with 立拒。钉死的契约不变：connect 层错误必须保持
+    // DialChained 且 source 链可还原 quinn::ConnectError。
     let client = p2p_transport::QuicTransport::new().expect("client transport");
+    client.close();
     let kp = Keypair::generate();
-    // 拨号端点绑 IPv4，拨 IPv6 地址必被 quinn 以 ConnectError 拒绝（确定性）
     let addr = TransportAddr::Quic {
-        ip: IpAddr::from([0, 0, 0, 0, 0, 0, 0, 1]),
+        ip: IpAddr::from([127, 0, 0, 1]),
         port: 1,
     };
     let err = match tokio::time::timeout(DIAL_WAIT, client.dial(&addr, &kp, None)).await {
         Ok(Err(e)) => e,
-        Ok(Ok(_)) => panic!("invalid remote must fail"),
+        Ok(Ok(_)) => panic!("dial on stopped endpoint must fail"),
         Err(_) => panic!("dial must fail fast, not hang"),
     };
     match &err {
