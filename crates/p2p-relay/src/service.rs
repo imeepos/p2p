@@ -122,6 +122,17 @@ impl RelayServiceImpl {
 #[async_trait]
 impl RelayService for RelayServiceImpl {
     async fn serve(self: Arc<Self>) -> io::Result<()> {
+        // 配置防线（2026-09-04 线上事故）：静默窗口压不住客户端失联窗口时，
+        // 健康客户端会被逐周期误切——启动即高声告警，不静默带病运行。
+        let ka = &self.keepalive;
+        if ka.server_silence <= ka.interval * ka.max_missed {
+            tracing::warn!(
+                silence_secs = ka.server_silence.as_secs(),
+                interval_secs = ka.interval.as_secs(),
+                max_missed = ka.max_missed,
+                "relay silence window is not above the client loss window; healthy clients will be cut — raise server_silence or lower client interval"
+            );
+        }
         let sweeper = tokio::spawn(self.clone().sweep_loop());
         while let Some(link) = self.source.next_link().await {
             tracing::debug!(peer = %link.peer_id(), "relay accepted link");

@@ -24,13 +24,15 @@ use crate::state::CtrlWrite;
 /// 保活间隔/超时/失联阈值、服务端静默上限与桥接空闲 TTL（全部可配）。
 #[derive(Debug, Clone)]
 pub struct RelayKeepalive {
-    /// 客户端保活间隔。默认 10s：远小于常见 NAT UDP 映射寿命（约 30-60s），
-    /// 保活兼防 NAT 表项过期；开销为每链路 6 帧/分钟。
+    /// 客户端保活间隔。默认 5s：须显著小于服务端静默窗口（默认 45s），杜绝与
+    /// 对端超时窗口同值贴线竞速（2026-09-04 线上 10s 对 10s 每轮必输 RTT/2 的
+    /// 重连风暴）；同时远小于常见 NAT UDP 映射寿命（约 30-60s），保活兼防
+    /// NAT 表项过期，开销为每链路 12 帧/分钟。
     pub interval: Duration,
     /// 单次保活往返超时。默认 5s：E3 采样跨公网 relay RTT 为毫秒级，5s 含
     /// 数十倍抖动余量；仍无应答记一次失联计数。
     pub timeout: Duration,
-    /// 连续失联判定阈值。默认 3：连续 3 次无应答（约 interval×3 = 30s）才
+    /// 连续失联判定阈值。默认 3：连续 3 次无应答（约 interval×3 = 15s）才
     /// 判失联，单次抖动不误杀。
     pub max_missed: u32,
     /// 服务端控制流静默上限：多久收不到任何帧即按客户端失联清理（与控制流
@@ -46,7 +48,7 @@ pub struct RelayKeepalive {
 impl Default for RelayKeepalive {
     fn default() -> Self {
         Self {
-            interval: Duration::from_secs(10),
+            interval: Duration::from_secs(5),
             timeout: Duration::from_secs(5),
             max_missed: 3,
             server_silence: Duration::from_secs(45),
