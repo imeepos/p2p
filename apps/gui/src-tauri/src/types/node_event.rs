@@ -7,8 +7,6 @@ use p2p::NodeEvent;
 use p2p_swarm::AddrSource;
 use serde::{Deserialize, Serialize};
 
-use super::HopKind;
-
 /// 地址来源（契约 v5：mdns | rendezvous | manual），AddrSource 的 JSON 镜像。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

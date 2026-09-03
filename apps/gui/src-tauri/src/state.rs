@@ -60,7 +60,11 @@ impl AppState {
             return Err("节点已在运行，请勿重复启动".into());
         }
         let node = build_node(&cfg).await?;
-        node.handle_protocol(Arc::new(proto::EchoHandler));
+        let echo = proto::EchoHandler::new().map_err(|e| {
+            warn!(error = %e, "echo 协议装配失败");
+            format!("echo 协议装配失败: {e}")
+        })?;
+        node.handle_protocol(Arc::new(echo));
         let events = node.events();
         let listen_addrs = node.listen_addrs();
         let peer_id = node.local_peer_id().to_string();
