@@ -2,7 +2,7 @@
 
 use clap::Parser;
 
-use p2p_cli::cli::{Cli, Command};
+use p2p_cli::cli::Cli;
 
 #[test]
 fn discover_stays_on_stderr() {
