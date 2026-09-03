@@ -366,6 +366,37 @@ const enUS: typeof zhCN = {
     open: "Command palette",
     hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..7 to switch pages; Esc to close",
   },
+  diagnostics: {
+    title: "Diagnostics",
+    description:
+      "Frontend error buffer, log file path and persisted tail — human view of the agent perception channel.",
+    refresh: "Refresh",
+    env: {
+      title: "Runtime",
+      description:
+        "IPC mode and frontend error log location (read the file directly to follow frontend failures).",
+      mode: "IPC mode",
+      mock: "Browser mock",
+      tauri: "Tauri bridge",
+      logPath: "Log file",
+      copy: "Copy path",
+      copied: "Path copied",
+    },
+    errors: {
+      title: "Recent errors (in-memory buffer)",
+      description:
+        "Collected from window error / unhandledrejection / console.error, last 100 entries.",
+      empty: "No errors — the page is healthy",
+      clear: "Clear buffer",
+      cleared: "Error buffer cleared",
+    },
+    tail: {
+      title: "Persisted log tail",
+      description:
+        "Last 50 lines of frontend.log (browser mock mode degrades to a localStorage key).",
+      empty: "Log is empty",
+    },
+  },
 };
 
 export default enUS;

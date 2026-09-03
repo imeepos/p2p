@@ -358,6 +358,33 @@ const zhCN = {
     open: "命令面板",
     hint: "Cmd/Ctrl+K 打开；Cmd/Ctrl+1..7 切换页面；Esc 关闭",
   },
+  diagnostics: {
+    title: "诊断",
+    description: "前端错误缓冲、日志文件路径与持久化尾部——Agent 感知通道的人工视图。",
+    refresh: "刷新",
+    env: {
+      title: "运行环境",
+      description: "IPC 模式与前端错误日志位置（外部直接读文件即可掌握前端报错）。",
+      mode: "IPC 模式",
+      mock: "浏览器 mock",
+      tauri: "Tauri 桥接",
+      logPath: "日志文件",
+      copy: "复制路径",
+      copied: "路径已复制",
+    },
+    errors: {
+      title: "最近错误（内存缓冲）",
+      description: "window error / unhandledrejection / console.error 采集，最近 100 条。",
+      empty: "暂无错误——页面运行正常",
+      clear: "清空缓冲",
+      cleared: "错误缓冲已清空",
+    },
+    tail: {
+      title: "持久化日志尾部",
+      description: "frontend.log 末 50 行（浏览器 mock 模式降级为 localStorage 键）。",
+      empty: "日志暂无内容",
+    },
+  },
 };
 
 export default zhCN;

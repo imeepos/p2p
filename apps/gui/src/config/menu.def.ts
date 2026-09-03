@@ -6,6 +6,7 @@ import {
   Network,
   Radar,
   Settings,
+  Stethoscope,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -25,4 +26,5 @@ export const MENU_ENTRIES: readonly MenuEntry[] = [
   { path: "/relay", titleKey: "relay.title", icon: Waypoints },
   { path: "/events", titleKey: "events.title", icon: Activity },
   { path: "/settings", titleKey: "settings.title", icon: Settings },
+  { path: "/diagnostics", titleKey: "diagnostics.title", icon: Stethoscope },
 ];
