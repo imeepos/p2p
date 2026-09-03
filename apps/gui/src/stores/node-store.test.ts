@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  hasDialableAddr,
   selectPeerCount,
   selectPeerList,
   type NodeStoreState,
@@ -41,5 +42,25 @@ describe("node-store selectors", () => {
     expect(selectPeerList(s)).toBe(selectPeerList(s));
     expect(selectPeerList(s)).toHaveLength(0);
     expect(selectPeerCount(s)).toBe(0);
+  });
+
+  it("仅剩 loopback 地址的离线对端被隐藏（E5：rendezvous 泄漏废条目）", () => {
+    const junk = { ...peer("junk", 3), connected: false, addrs: ["127.0.0.1/u60736", "::1/u40000"] };
+    const lan = { ...peer("lan", 2), connected: false, addrs: ["192.168.1.5/u40001"] };
+    const live = { ...peer("live", 1), connected: true, addrs: ["127.0.0.1/u40002"] };
+    const s = state({ junk, lan, live });
+    expect(selectPeerList(s).map((p) => p.peerId)).toEqual(["lan", "live"]);
+    expect(selectPeerCount(s)).toBe(2);
+  });
+
+  it("hasDialableAddr 覆盖 loopback/链路本地/私网/公网", () => {
+    expect(hasDialableAddr("127.0.0.1/u60736")).toBe(false);
+    expect(hasDialableAddr("::1/u40000")).toBe(false);
+    expect(hasDialableAddr("fe80::1/u40001")).toBe(false);
+    expect(hasDialableAddr("localhost/u40002")).toBe(false);
+    expect(hasDialableAddr("/u40003")).toBe(false);
+    expect(hasDialableAddr("192.168.1.5/u40004")).toBe(true);
+    expect(hasDialableAddr("203.0.113.7/t40005")).toBe(true);
+    expect(hasDialableAddr("240e:abcd::1/u40006")).toBe(true);
   });
 });
