@@ -352,6 +352,10 @@ const enUS: typeof zhCN = {
       restartFailed: "Save & restart failed",
     },
   },
+  errorBoundary: {
+    title: "Something went wrong",
+    retry: "Retry",
+  },
   palette: {
     placeholder: "Search pages, peers or addresses…",
     empty: "No results",
@@ -360,7 +364,7 @@ const enUS: typeof zhCN = {
     copyAddress: "Copy address",
     copied: "Copied to clipboard",
     open: "Command palette",
-    hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..6 to switch pages; Esc to close",
+    hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..7 to switch pages; Esc to close",
   },
 };
 
