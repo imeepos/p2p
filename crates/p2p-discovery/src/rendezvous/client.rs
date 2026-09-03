@@ -282,4 +282,6 @@ impl Discovery for RendezvousClient {
 }
 
 #[cfg(test)]
+mod schedule_tests;
+#[cfg(test)]
 mod tests;
