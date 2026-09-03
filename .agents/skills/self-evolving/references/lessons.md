@@ -72,3 +72,5 @@ _none yet — be the first._
 - 2026-09-03：跨层灾难要同时修发现路径和故障点：故障在渲染层，失误在门禁层（GUI 零门禁），防复发的机制修复落在 Makefile 门禁，不是改完渲染代码就完事。
 - 2026-09-03 G-H：注册拆分规则以「可回滚可审阅」为本意，硬约束优先于形式——i18n 键与视图拆开必红 tsc 时，标准做法是先提 locale 键（含未消费键）独立小提交再提视图（协调者终裁追认）。
 
+- 2026-09-03 G-U1：依赖升大版本会重命名 feature（reqwest 0.13 把 rustls-tls 改成 rustls，TLS 实现内部化为 __rustls）——按记忆写 feature 直接 resolution 失败，报错信息列出的 available features 就是权威清单，加依赖前别背旧名。
+- 2026-09-03 G-U1：并行会话高速推进时"反向同步"是循环不是动作——合并+门禁期间 main 还会前进，收尾用 git merge-base --is-ancestor main HEAD 机械判定（exit 0 才算同步），非零就再 merge 一轮；docs-only 增量的门禁增量重跑只要几秒，别省。
