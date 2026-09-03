@@ -1,0 +1,19 @@
+[package]
+name = "p2p-chat"
+version.workspace = true
+edition.workspace = true
+description = "IM 聊天核心 crate：好友簿/消息历史/outbox 离线队列/线协议 /im/chat/1（T29）"
+
+[dependencies]
+async-trait.workspace = true
+bs58.workspace = true
+p2p = { path = "../p2p" }
+p2p-identity = { path = "../p2p-identity" }
+p2p-mux = { path = "../p2p-mux" }
+p2p-protocol = { path = "../p2p-protocol" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true

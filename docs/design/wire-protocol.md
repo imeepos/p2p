@@ -212,6 +212,34 @@ Reject(7)/KeepAlive(8)/KeepAliveAck(9)。
    `p2p-noise-xx-v1` 各含版本段；破坏性传输变更升位后，版本不匹配在握手期即失败，
    不会进入半兼容连接。
 
+### 8.1 业务协议登记：/im/chat/1（IM 聊天）
+
+出处 crates/p2p-chat/src/wire.rs。好友间 1:1 私聊协议（design im-chat-design.md §3），
+一条出站流 = 一个消息事务（send-once）：开流 → 写信封帧 → 有附件再写媒体块帧 →
+读 ACK → 关流。帧封装复用 §2（varint 长度前缀 + payload，≤1 MiB/帧），
+帧 payload 首字节为类型头（与 chunked §7.3 同风格）：
+
+| 类型头 | 值 | 载荷 |
+|---|---|---|
+| ENVELOPE | 0x01 | 信封 JSON（字段见下，单帧） |
+| MEDIA_BEGIN | 0x02 | 媒体头 JSON：{len, name, mime, kind}（单帧） |
+| MEDIA_CHUNK | 0x03 | 原始附件分片（每帧 ≤ 1 MiB - 1 字节，chunked 规则） |
+| ACK | 0x04 | JSON：{id, ok, reason?} —— 对端确认已收完整消息 |
+
+- 信封 JSON 字段：id（UUID，发端生成）、peer（线上 = 发端自身 PeerId，base58；
+  底座 handler 拿不到对端 PeerId，收端据此落盘 messages/<peer>.jsonl）、
+  sender（发端恒为 me；收端校验非 me 即伪装断流）、kind
+  （text/image/audio/video/file）、tsMs（发端本地毫秒时间戳）、text?
+  （kind=text 时，trim 后 1..=2000 字符）、media?（{name, mime, size}）；
+  path/status 为本地字段不跨网。
+- 时序：ENVELOPE →（可选 MEDIA_BEGIN → MEDIA_CHUNK×n）→ 对端 ACK。
+  任意帧校验失败（帧超上限/类型序非法/信封缺字段或校验不过/媒体长度不一致）→
+  断流并留告警日志，发端收失败即消息落 failed 态。
+- 单条消息（含附件原始字节）≤ 64 MiB（对齐 chunked.rs MAX_MESSAGE_SIZE），
+  超限发送前拒绝、入站断流；附件 MIME 按 kind 白名单校验（image/audio/video
+  前缀匹配，其余归 file），不匹配即 Err/断流，不猜测不降级。
+- 幂等：收端按消息 id 去重，重复投递仅回 ACK 不重复落盘（重发安全）。
+
 ## 9. 常量速查表
 
 | 常量 | 值 | 出处 |
