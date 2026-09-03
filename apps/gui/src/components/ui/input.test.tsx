@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
@@ -56,5 +56,31 @@ describe("Input", () => {
     expect(input.value).toBe("10.0.0.9/u3400");
     fireEvent.click(screen.getByRole("button", { name: "恢复默认" }));
     expect(input.value).toBe("43.240.223.138/u3400");
+  });
+
+  it("register + setValue 编程式改值后 DOM 跟随更新", async () => {
+    function SetValueHarness() {
+      const { register, setValue } = useForm<FormValues>({
+        defaultValues: { endpoint: "10.0.0.9/u3400" },
+      });
+      return (
+        <form>
+          <Input data-testid="endpoint" {...register("endpoint")} />
+          <button
+            type="button"
+            onClick={() => setValue("endpoint", "121.196.193.177/u3403")}
+          >
+            setValue
+          </button>
+        </form>
+      );
+    }
+    render(<SetValueHarness />);
+    const input = screen.getByTestId("endpoint") as HTMLInputElement;
+    expect(input.value).toBe("10.0.0.9/u3400");
+    fireEvent.click(screen.getByRole("button", { name: "setValue" }));
+    await waitFor(() =>
+      expect(input.value).toBe("121.196.193.177/u3403"),
+    );
   });
 });
