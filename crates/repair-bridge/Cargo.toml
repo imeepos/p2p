@@ -1,0 +1,19 @@
+[package]
+name = "repair-bridge"
+version.workspace = true
+edition.workspace = true
+description = "stdio to p2p repair MCP byte bridge"
+
+[[bin]]
+name = "repair-bridge"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+bs58 = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+p2p = { path = "../p2p" }
+p2p-identity = { path = "../p2p-identity" }
+p2p-protocol = { path = "../p2p-protocol" }
+p2p-log = { path = "../p2p-log" }

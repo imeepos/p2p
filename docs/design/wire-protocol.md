@@ -63,6 +63,7 @@
 | `/p2p-base/rendezvous/1` | 签名注册/查询节点地址（带 TTL） | 客户端与注册表已实现（crates/p2p-discovery/src/rendezvous/，经 link 接缝对接传输） |
 | `/p2p-base/relay/1` | 中继电路申请、打洞信令 | 已实现（crates/p2p-relay/src/control.rs） |
 | `/p2p-base/circuit/1` | 中继电路数据桥接（密文透传） | 已实现（crates/p2p-relay/src/circuit.rs、state.rs） |
+| `/repair/mcp/1` | repair-helper 与 repair-bridge 的 MCP stdio 字节隧道 | repair-bridge 哑泵（T20） |
 
 业务协议 ID（如 `/myapp/chat/1`）与内置 ID 使用完全相同的注册与路由机制，无特权差别。
 
