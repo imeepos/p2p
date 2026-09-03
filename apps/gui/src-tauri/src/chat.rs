@@ -68,8 +68,10 @@ pub async fn chat_history(
     limit: Option<usize>,
 ) -> Result<Vec<p2p_chat::ChatEnvelope>, String> {
     let chat = state.chat().await?;
-    chat.history(&peer, before_id.as_deref(), limit.unwrap_or(0))
-        .map_err(|e| e.to_string())
+    let msgs = chat
+        .history(&peer, before_id.as_deref(), limit.unwrap_or(0))
+        .map_err(|e| e.to_string())?;
+    Ok(msgs.into_iter().map(crate::util::to_asset_media).collect())
 }
 
 /// chat_send：校验 → 信封 → 落 outbox → 尝试投递；delivered=true 表示实时送达。
@@ -83,9 +85,12 @@ pub async fn chat_send(
 ) -> Result<ChatSendReport, String> {
     let chat = state.chat().await?;
     let media = media.map(decode_media_input).transpose()?;
-    chat.send(&peer, kind, text, media)
+    let mut report = chat
+        .send(&peer, kind, text, media)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    report.message = crate::util::to_asset_media(report.message);
+    Ok(report)
 }
 
 /// chat_media_file：附件落盘绝对路径（仅本端展示用）；非媒体或不存在 → Err。
@@ -101,7 +106,7 @@ pub async fn chat_media_file(
         .map_err(|e| e.to_string())?;
     let path = meta.path.ok_or_else(|| "附件路径缺失".to_string())?;
     Ok(ChatMediaFileJson {
-        path,
+        path: crate::util::to_asset_url(&path),
         mime: meta.mime,
         name: meta.name,
     })

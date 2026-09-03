@@ -183,7 +183,8 @@ impl From<p2p_chat::ChatEvent> for NodeEventJson {
         match ev {
             p2p_chat::ChatEvent::ChatMessage { peer, message } => Self::ChatMessage {
                 peer,
-                message,
+                // 输出边界转 asset URL（前端 MediaContent 只认 https:/blob:/data:/asset:）
+                message: crate::util::to_asset_media(message),
                 ts_ms: None,
             },
             p2p_chat::ChatEvent::ChatStatus {
