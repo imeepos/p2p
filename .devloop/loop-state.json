@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T21:10:22Z",
+  "updatedAt": "2026-09-03T21:21:17Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -89,11 +89,14 @@
       "goal": "shell_exec 白名单闭集数据与判定接线：清单按 Q7 取卡慢/弹窗清理/C 盘空间三类 playbook 命令并集，argv[0]+参数模式校验；依赖 T22+T25",
       "title": "RS-P0b-T24 shell 白名单闭集",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/rs-shell-whitelist",
       "ownerSession": "session-3adc549c-18b1-4276-b190-e4d5d3730a92",
       "scope": "crates/repair-enforce 白名单数据+shell 判定",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'",
+      "mergedMain": "e592714",
+      "acceptedAt": "2026-09-03T21:21:17.104Z",
+      "note": "一次通过：白名单闭集数据填充+判定接线（e592714），一致性测试 shell_union_covers_three_categories 机械防漂移生效；隔离全量门禁 exit 0。"
     },
     {
       "id": "T25",
