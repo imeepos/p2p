@@ -1,0 +1,12 @@
+# panic-hygiene 豁免清单（scripts/check/panic-hygiene.sh 消费）
+# 格式：crate 名 + 至少一个空格 + 一行理由；# 开头为注释行
+# 收缩规则：对应 crate 非测试路径清零后即删条目
+# 受保护 crate（p2p-protocol/p2p-discovery/p2p-identity/p2p-security 已清零）禁止加入，门禁机械拒绝
+p2p-swarm E6 连接稳定性在途单覆盖中，本轮范围互斥不得触碰
+p2p-relay E6 连接稳定性在途单覆盖中，本轮范围互斥不得触碰
+p2p-transport E7-K2 在途单覆盖中，后续轮清零收缩
+p2p-mux E7-K2 在途单覆盖中，后续轮清零收缩
+p2p-itest 测试夹具 crate，panic 属测试断言语义
+p2p 组装层入口，后续轮清零收缩
+p2p-cli CLI 入口，后续轮清零收缩
+p2p-log 日志 crate 尚未纳入任何 hygiene 轮次，后续轮清零收缩

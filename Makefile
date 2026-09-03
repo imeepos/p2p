@@ -3,10 +3,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := check
 
-.PHONY: check fmt fmt-check line-limit clippy test gui-check version-check gate-tests release-check
+.PHONY: check fmt fmt-check line-limit clippy test gui-check version-check gate-tests panic-hygiene release-check
 
-# 聚合门禁：先验证门禁脚本，再跑版本/格式/行数/clippy/测试/GUI
-check: gate-tests version-check fmt-check line-limit clippy test gui-check
+# 聚合门禁：先验证门禁脚本，再跑版本/格式/行数/clippy/测试/GUI/panic 卫生
+check: gate-tests version-check fmt-check line-limit clippy test gui-check panic-hygiene
 
 # 自动修复格式
 fmt:
@@ -39,6 +39,11 @@ version-check:
 # 门禁脚本自身的成功/失败路径回归，防止门禁实现退化为假绿
 gate-tests:
 	bash scripts/check/tests/release-gates.sh
+	bash scripts/check/tests/panic-hygiene.sh
+
+# panic 卫生门禁：范围 crate 非测试路径 unwrap/expect/panic 清零（豁免清单见脚本同目录）
+panic-hygiene:
+	bash scripts/check/panic-hygiene.sh
 
 # 发布总门禁：main 分支 + 干净工作树 + 版本一致 + make check（打 client-v tag 前在主树跑）
 # 分支项可用 RELEASE_ALLOW_BRANCH=1 绕过（CI/测试环境不在 main 上时）
