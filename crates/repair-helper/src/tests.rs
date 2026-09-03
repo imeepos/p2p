@@ -1,5 +1,6 @@
 use super::*;
 use tokio::io::{duplex, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::sync::oneshot;
 use tokio::time::{sleep, Duration};
 
 async fn run(input: &str) -> String {
@@ -38,14 +39,18 @@ async fn list_is_empty_and_notification_has_no_reply() {
 
 #[tokio::test]
 async fn shutdown_drains_in_flight_request() {
-    struct Slow;
+    let (release_tx, release_rx) = oneshot::channel();
+    let gate = std::sync::Arc::new(tokio::sync::Mutex::new(Some(release_rx)));
+    struct Slow(std::sync::Arc<tokio::sync::Mutex<Option<oneshot::Receiver<()>>>>);
     #[async_trait]
     impl Tool for Slow {
         fn name(&self) -> &str {
             "slow"
         }
         async fn call(&self, _args: Value) -> Result<ToolResult, String> {
-            sleep(Duration::from_millis(20)).await;
+            if let Some(receiver) = self.0.lock().await.take() {
+                let _ = receiver.await;
+            }
             Ok(ToolResult {
                 text: "done".into(),
                 truncated: false,
@@ -53,13 +58,15 @@ async fn shutdown_drains_in_flight_request() {
         }
     }
     let mut registry = ToolRegistry::new();
-    registry.register(Slow);
+    registry.register(Slow(gate));
     let (mut client, server) = duplex(4096);
     let (reader, writer) = tokio::io::split(server);
     let (tx, rx) = watch::channel(false);
     let task = tokio::spawn(Host::new(registry).serve(BufReader::new(reader), writer, rx));
     client.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"name\":\"slow\"}}\n").await.unwrap();
+    sleep(Duration::from_millis(50)).await;
     tx.send(true).unwrap();
+    release_tx.send(()).unwrap();
     let mut output = String::new();
     BufReader::new(&mut client)
         .read_to_string(&mut output)
