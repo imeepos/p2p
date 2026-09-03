@@ -15,6 +15,7 @@ tokio-util = { workspace = true, features = ["codec"] }
 
 [dev-dependencies]
 p2p = { path = "../p2p" }
+p2p-chat = { path = "../p2p-chat" }
 p2p-log = { path = "../p2p-log" }
 p2p-swarm = { path = "../p2p-swarm" }
 p2p-identity = { path = "../p2p-identity" }

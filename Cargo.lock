@@ -1017,6 +1017,7 @@ dependencies = [
  "bytes",
  "futures",
  "p2p",
+ "p2p-chat",
  "p2p-discovery",
  "p2p-identity",
  "p2p-log",
