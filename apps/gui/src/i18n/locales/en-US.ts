@@ -446,8 +446,7 @@ const enUS: typeof zhCN = {
       title: "Runtime",
       description:
         "IPC mode and frontend error log location (read the file directly to follow frontend failures).",
-      mode: "IPC mode",
-      mock: "Browser mock",
+      mode: "Diagnostics IPC mode",
       tauri: "Tauri bridge",
       logPath: "Log file",
       copy: "Copy path",
@@ -464,7 +463,7 @@ const enUS: typeof zhCN = {
     tail: {
       title: "Persisted log tail",
       description:
-        "Last 50 lines of frontend.log (browser mock mode degrades to a localStorage key).",
+        "Last 50 lines of frontend.log, read live via Tauri IPC (fails loudly without the Tauri runtime).",
       empty: "Log is empty",
     },
   },

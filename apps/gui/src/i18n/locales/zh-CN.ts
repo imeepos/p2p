@@ -436,8 +436,7 @@ const zhCN = {
     env: {
       title: "运行环境",
       description: "IPC 模式与前端错误日志位置（外部直接读文件即可掌握前端报错）。",
-      mode: "IPC 模式",
-      mock: "浏览器 mock",
+      mode: "诊断 IPC 模式",
       tauri: "Tauri 桥接",
       logPath: "日志文件",
       copy: "复制路径",
@@ -452,7 +451,7 @@ const zhCN = {
     },
     tail: {
       title: "持久化日志尾部",
-      description: "frontend.log 末 50 行（浏览器 mock 模式降级为 localStorage 键）。",
+      description: "frontend.log 末 50 行，经 Tauri IPC 实时读取（无 Tauri 运行时将显式报错）。",
       empty: "日志暂无内容",
     },
   },

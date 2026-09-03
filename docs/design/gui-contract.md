@@ -128,8 +128,9 @@ interface MetricsPoint { tMs: number; activeConnections: number; relaySessionsAc
 
 - 路径：`app_log_dir()/frontend.log`（macOS 即 `~/Library/Logs/com.p2p.console/frontend.log`）；
   超 1MB 轮转为 frontend.log.1（单代覆盖），tail 上限 1000 行。
-- 浏览器/mock 模式（无 Tauri）：降级写 localStorage 键 `p2p-console.frontend-log`，
-  mock 诊断后端（mock-diagnostics.ts）对该键提供同签名读写。
+- 浏览器/mock 模式（无 Tauri）：降级写 localStorage 键 `p2p-console.frontend-log`；
+  mock 诊断后端（mock-diagnostics.ts）保留同签名实现，仅供测试内使用——
+  运行时诊断固定走 Tauri IPC，诊断页禁止展示 mock 数据（2026-09-03 裁决）。
 - 感知通道语义：外部进程（Agent/运维）直接读文件即可掌握前端错误，无需打开 DevTools。
 
 ## 9. 在线更新检查（v4 加法，G-U1/G-U2）

@@ -23,9 +23,6 @@ export const useMockIpc = import.meta.env.VITE_MOCK_IPC === "1";
 // mock 后端仅在 VITE_MOCK_IPC=1 时动态加载：静态 import 会把 mock 全量打进
 // prod bundle（E9-Q0 T4）；顶层 await 使本模块成为异步模块，vite/vitest 均支持。
 const mockIpc = useMockIpc ? (await import("./mock-ipc")).mockBackend : null;
-const mockDiag = useMockIpc
-  ? (await import("./mock-diagnostics")).mockDiagBackend
-  : null;
 
 const tauriBackend: IpcBackend = {
   nodeStart: (cfg) => invoke<NodeStatus>("node_start", { cfg }),
@@ -59,9 +56,11 @@ const tauriBackend: IpcBackend = {
 export const ipc: IpcBackend = mockIpc ?? tauriBackend;
 
 // 契约 v3 加法（G-H 观测）：诊断命令面，与节点控制面分离；诊断视图只准经由 diag。
+// 诊断固定走真实 Tauri IPC（2026-09-03 裁决：诊断页禁止展示 mock 数据）；
+// mock-diagnostics 仅测试内 vi.mock 使用，运行时不再按 VITE_MOCK_IPC 切换。
 const tauriDiagBackend: DiagBackend = {
   logPath: () => invoke<string>("frontend_log_path"),
   logTail: (maxLines) => invoke<string[]>("frontend_log_tail", { maxLines }),
 };
 
-export const diag: DiagBackend = mockDiag ?? tauriDiagBackend;
+export const diag: DiagBackend = tauriDiagBackend;

@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getRecentErrors, clearRecentErrors } from "@/lib/error-report";
-import { diag, useMockIpc } from "@/lib/ipc";
+import { diag } from "@/lib/ipc";
 import { copyText } from "@/views/shared/clipboard";
 
 const TAIL_LINES = 50;
@@ -74,9 +74,8 @@ function EnvCard({ logPath }: { logPath: string | null }) {
       <CardContent className="flex flex-col gap-3 text-sm">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground">{t("diagnostics.env.mode")}</span>
-          <Badge variant={useMockIpc ? "secondary" : "default"}>
-            {useMockIpc ? t("diagnostics.env.mock") : t("diagnostics.env.tauri")}
-          </Badge>
+          {/* 诊断数据固定走真实 Tauri IPC（禁止 mock），运行环境恒为 Tauri 桥接 */}
+          <Badge>{t("diagnostics.env.tauri")}</Badge>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-muted-foreground">{t("diagnostics.env.logPath")}</span>
