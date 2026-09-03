@@ -111,3 +111,7 @@
 - 哪个坑浪费最多时间：fmt 门禁两轮红——第一轮只 fmt 改动的三个 crate，第二轮才用 --all 收口；expect_err 条目 known-issues 已有仍踩进去（SecureConn 无 Debug），凭惯性手滑，说明条目必须写到「替代写法」层级才防得住（本次已补 match 取 Err 臂写法在案）。
 - skill 有没有预警：worktree 按路径读缓存条目防住了（先读后改一次过）；expect_err 有条目没防住；新坑 quinn Endpoint::new 收 std socket 与 v4-mapped 令 is_unspecified 失真已喂回 known-issues。
 - 重来一次怎么做：改代码批次收尾一律 cargo fmt --all 再提交，不等 fmt-check 抓；五任务串行时每个任务一气呵成 走 worktree（建/改/测/提交/合并/清）模板化 bash，实测单任务 3-4 分钟。
+## 2026-09-04 遗留事项消灭轮（relay 重部署 + 串址勘误 + mDNS 全地址解码）
+- 哪个坑浪费最多时间：上一轮把「共享 IP+异端口」误判成串址并写进了 known-issues，本轮消灭遗留事项时复核日志才发现端口不同——误判已按 append-only 勘误条目纠正。多花的时间在补勘误与重验，比当初多比对一眼端口划算。
+- skill 有没有预警：没有。「下结论前比对完整键（含端口）」这类证据纪律条目已随勘误条目落地。
+- 重来一次怎么做：凡是「两条记录共享 X」类指控，先把 X 的完整字段摆出来再定性；部署类动作（deploy 脚本）直接用仓内既有脚本，先读脚本确认幂等性与凭据来源再执行。
