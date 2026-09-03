@@ -221,6 +221,30 @@ fn from_chat_event_maps_both_variants() {
         }
     );
 
+    // 带媒体消息：输出边界把落盘绝对路径转成 asset URL（前端 MediaContent 接缝）
+    let media_msg = sample_envelope(Some(ChatMediaMeta {
+        name: "photo.png".into(),
+        mime: "image/png".into(),
+        size: 4,
+        path: Some("/data/chat/media/PeerA/id-1_photo.png".into()),
+    }));
+    let mapped: NodeEventJson = p2p_chat::ChatEvent::ChatMessage {
+        peer: "PeerA".into(),
+        message: media_msg,
+    }
+    .into();
+    match mapped {
+        NodeEventJson::ChatMessage { message, .. } => {
+            let path = message.media.expect("媒体仍在").path.expect("path 已转换");
+            assert!(
+                path.starts_with("asset://localhost/"),
+                "事件媒体 path 应为 asset URL: {path}"
+            );
+            assert!(path.contains("photo.png"), "文件名保留: {path}");
+        }
+        other => panic!("期望 chat_message，实得 {other:?}"),
+    }
+
     let mapped: NodeEventJson = p2p_chat::ChatEvent::ChatStatus {
         peer: "PeerA".into(),
         message_id: "m-9".into(),
