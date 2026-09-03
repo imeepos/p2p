@@ -176,7 +176,9 @@ crates/p2p-cli/src/bootstrap.rs:84-85 中继端口 +3 偏移（有注释无具�
 
 范围互斥可并行（唯 T1 到 T3 因 relay_session.rs 交叉显式串行）；均不依赖 E8 metrics，与「长稳复测+保活间隔自适应」单零文件交集（relay_stability.rs 已让给该单）。
 
-### T1 swarm/mod.rs 瘦身拆分 [P1, S]
+协调边界（检查轮 39/41）：涉及 swarm/relay/cli 的 T1/T3/T5 三单均待 E8 S1/M2 收口后复核行号与冲突面再执行；T2/T4（security/gui）已先行合入（5d0d94b、d81d73b）。
+
+### T1 swarm/mod.rs 瘦身拆分 [P1, S]（待 E8 S1/M2 收口后复核）
 
 - 范围：crates/p2p-swarm/src/swarm/mod.rs、book.rs、relay_session.rs（纯移动，零行为变更）
 - 问题：恰 300 行零余量（1.2），E8 并行追加必破线
@@ -192,7 +194,7 @@ crates/p2p-cli/src/bootstrap.rs:84-85 中继端口 +3 偏移（有注释无具�
 - 验收：test $(wc -l < crates/p2p-security/src/noise.rs) -le 250 && cargo test -p p2p-security --quiet
 - 规模：S（半小时级）；优先级 P1
 
-### T3 swarm 错误链保真与长函数拆分 [P1, M]（须在 T1 合入后执行）
+### T3 swarm 错误链保真与长函数拆分 [P1, M]（须在 T1 合入后执行；待 E8 S1/M2 收口后复核）
 
 - 范围：crates/p2p-swarm/src/swarm/relay_session.rs、dial.rs、responder.rs
 - 问题：io::Error::other(to_string) 拍平错误链与 mux ChainedPayload 模式冲突（3.2）；degrade 84 行 / handle_punch_req 67 行 / dial_peer 65 行超 60 红线（1.3）
