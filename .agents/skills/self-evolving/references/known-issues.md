@@ -180,3 +180,8 @@ failed: early eof（客户端侧超时中止）。
 - 原因1：发现条目 TTL 过期（mDNS 15s / rendezvous 缓存 60s）在 forward_discovery 里无条件映射成 PeerDisconnected，哪怕连接池里活连接还在——发现面失联被渲染成连接面断开。
 - 原因2：两端各拨一次产生两条连接，insert 先到者优先且败者静默 drop：QUIC 最后一个句柄 drop 即关链，对端刚拨通的连接秒死；两侧各留各的还让流与 serve 循环分家，单方向 request 永远无应答，且此后每次重拨都撞 duplicate 拒收——闪断的持久来源。
 - 修法：on_peer_expired 先查连接池再决定发不发断开；insert_connection 按「恒保留较小 PeerId 一端拨出的连接」本地收敛（两端对每条连接的方向认知相反、结论一致，无需协商）；PeerDisconnected 只在 remove_if_same 真出池时发，挂断/关停改为主动补发。回归：p2p-itest/connection_liveness 四条。
+
+## 2026-09-03 DSH 协调派发轮（devloop_ledger schema 与无参工具调用）
+- 症状：devloop_ledger save 连环报账本校验失败（version expected 1 / updatedAt 非ISO / tasks[].goal、priority、status 缺失或取值非法）。原因：账本 schema 固定校验，不接受自由命名字段。修法：顶层带 version:1 与 ISO updatedAt；每条任务必带 goal（非空一句话）、priority（P0/P1/P2）、status（todo/doing/review/done/debt）、acceptanceCommand；title/scope/branch 等自由字段可并存。
+- 症状：run_code 里无参调用 tools.session_link_list() 报 binding arguments must be lossless JSON。原因：undefined 不是合法 JSON 参数。修法：无参工具也要显式传 {}。
+- 经验：并行派单任务书只写需求、范围红线与可机械执行的验收命令（用固定新测试文件名让验收命令确定性成立），不贴源码；三单范围互斥（docs / p2p-swarm / p2p-relay）才敢真并行，派单前先核对分支全合并、worktree 干净。
