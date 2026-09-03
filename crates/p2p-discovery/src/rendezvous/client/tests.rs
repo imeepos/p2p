@@ -85,6 +85,56 @@ async fn client_registers_and_discovers_other_peer() {
 }
 
 #[tokio::test]
+async fn register_rejection_does_not_block_discovery() {
+    // E5 回归（2026-09-03 线上实证）：public_only 注册簿拒收本端 loopback
+    // 注册后，发现会话必须存活——查询能力独立于注册（libp2p rendezvous 语义），
+    // 否则无观测节点（GUI/discover/soak）被发现能力整体清零
+    let (client_side, server_side) = tokio::io::duplex(4096);
+    let link: Arc<dyn RendezvousLink> = Arc::new(MockLink::new(client_side));
+    let mut config = RendezvousConfig::new("room-a", Keypair::generate(), link);
+    config.addrs = vec![TransportAddr::Quic {
+        ip: "127.0.0.1".parse().unwrap(),
+        port: 40000,
+    }];
+    let client = RendezvousClient::new(config);
+
+    let registry = Arc::new(RendezvousRegistry::with_public_only(true));
+    let other = Keypair::generate();
+    let other_addrs = vec![TransportAddr::Quic {
+        ip: "10.0.0.9".parse().unwrap(),
+        port: 9000,
+    }];
+    let reg = sign_register(&other, "room-a", &other_addrs, 60, unix_now());
+    registry
+        .register(&reg, unix_now())
+        .expect("other registered");
+    let server_registry = registry.clone();
+    let server_task = tokio::spawn(async move {
+        let mut server = conn_from_duplex(server_side);
+        let _ = serve_link(&mut server, &server_registry).await;
+    });
+
+    let (tx, mut rx) = mpsc::channel(16);
+    let cache = MemCache::new();
+    let mut conn = client.config.link.connect().await.expect("connect");
+    // 本端全 loopback 注册必被 public_only 拒收；错误被记录而不得外抛
+    client.register_or_note(&mut conn).await;
+    client
+        .query_and_emit(&mut conn, &tx, &cache)
+        .await
+        .expect("query 必须在注册被拒后照常工作");
+
+    match rx.recv().await {
+        Some(DiscoveryEvent::Discovered(dp)) => {
+            assert_eq!(dp.peer, other.peer_id());
+            assert_eq!(dp.addrs, other_addrs);
+        }
+        other_ev => panic!("expected Discovered, got {other_ev:?}"),
+    }
+    server_task.abort();
+}
+
+#[tokio::test]
 async fn register_timer_fires_periodically() {
     // 回归（E2/E3 链路抖动）：重注册定时器必须周期触发——
     // 初始注册后每 register_interval 再注册一次，兼作控制链路 keepalive

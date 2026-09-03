@@ -1,5 +1,6 @@
 //! rendezvous 客户端：周期签名注册 + 查询 + last-known-good 缓存，事件推入统一 channel。
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -93,11 +94,16 @@ impl RendezvousConfig {
 /// rendezvous 发现源：以独立任务运行，周期注册/查询，失败发 Failed 事件。
 pub struct RendezvousClient {
     config: RendezvousConfig,
+    /// 注册被拒首告警开关（E5）：同因反复失败只 WARN 一次，之后降级 debug。
+    register_reject_warned: AtomicBool,
 }
 
 impl RendezvousClient {
     pub fn new(config: RendezvousConfig) -> Self {
-        Self { config }
+        Self {
+            config,
+            register_reject_warned: AtomicBool::new(false),
+        }
     }
 
     /// 签名注册本机地址；注册失败即让上层走 Failed 事件 + 重连。
@@ -151,6 +157,23 @@ impl RendezvousClient {
         Ok(())
     }
 
+    /// 注册失败不阻断发现会话（E5 回归）：查询能力独立于本端注册
+    /// （libp2p rendezvous 语义），无观测节点被拒后仍须能发现别人。
+    /// 首次被拒 WARN 留痕，同因反复失败降级 debug；恢复成功即复位。
+    async fn register_or_note(&self, conn: &mut RendezvousConn) {
+        match self.register(conn).await {
+            Ok(()) => self.register_reject_warned.store(false, Ordering::Relaxed),
+            Err(e) => {
+                let warned = self.register_reject_warned.swap(true, Ordering::Relaxed);
+                if warned {
+                    tracing::debug!(error = %e, "rendezvous register rejected; continuing query-only");
+                } else {
+                    tracing::warn!(error = %e, "rendezvous register rejected; continuing query-only");
+                }
+            }
+        }
+    }
+
     /// 一条连接上的注册/查询循环：断连即返回，由 run 重连。
     async fn connect_and_loop(
         &self,
@@ -158,7 +181,7 @@ impl RendezvousClient {
         cache: &MemCache,
     ) -> Result<(), RendezvousError> {
         let mut conn = self.config.link.connect().await?;
-        self.register(&mut conn).await?;
+        self.register_or_note(&mut conn).await;
         self.query_and_emit(&mut conn, events, cache).await?;
 
         let reg_tick = tokio::time::interval_at(
@@ -173,7 +196,7 @@ impl RendezvousClient {
         tokio::pin!(query_tick);
         loop {
             tokio::select! {
-                _ = reg_tick.tick() => self.register(&mut conn).await?,
+                _ = reg_tick.tick() => self.register_or_note(&mut conn).await,
                 _ = query_tick.tick() => self.query_and_emit(&mut conn, events, cache).await?,
             }
         }
