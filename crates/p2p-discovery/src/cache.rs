@@ -31,6 +31,15 @@ impl MemCache {
         self.entries.lock().unwrap_or_else(|p| p.into_inner())
     }
 
+    /// 当前条目的最早过期时刻（None=空表）；过期条目顺带清除。
+    /// 供 rendezvous 应答快照缓存按真实 TTL 计算有效窗口。
+    pub fn earliest_expiry(&self) -> Option<Instant> {
+        let now = Instant::now();
+        let mut map = self.lock();
+        map.retain(|_, e| e.expires_at > now);
+        map.values().map(|e| e.expires_at).min()
+    }
+
     /// 返回全部未过期条目（并清除过期项），供 rendezvous 服务端应答全量查询。
     pub fn snapshot(&self) -> Vec<(PeerId, Vec<TransportAddr>)> {
         let now = Instant::now();
