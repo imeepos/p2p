@@ -11,4 +11,11 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+base64 = { workspace = true }
+bs58 = { workspace = true }
+clap = { workspace = true }
+p2p = { path = "../p2p" }
+p2p-identity = { path = "../p2p-identity" }
+p2p-protocol = { path = "../p2p-protocol" }
 p2p-log = { path = "../p2p-log" }
+repair-bridge = { path = "../repair-bridge" }

@@ -1490,7 +1490,14 @@ name = "repair-helper"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "base64",
+ "bs58",
+ "clap",
+ "p2p",
+ "p2p-identity",
  "p2p-log",
+ "p2p-protocol",
+ "repair-bridge",
  "repair-enforce",
  "serde",
  "serde_json",
