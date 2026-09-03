@@ -1,9 +1,9 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T14:48:51.736Z",
+  "updatedAt": "2026-09-03T15:15:47.173Z",
   "project": "p2p-base",
   "phase": "E8-parallel+E9-audit",
-  "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
+  "coordinatorSession": "session-93d57260-bb33-472e-b8a6-86237c64a272",
   "note": "E8 观测与语义收拢轮在途（T7-T9 范围互斥并行）；E9 质量收拢轮预备：T10 只读审计单已派（专属新会话），审计报告+E8 收口后派 E9 修复轮（任务书只含需求与机械验收，不含源码）；metrics 就位后再议长稳复测与保活间隔自适应。",
   "tasks": [
     {
@@ -79,7 +79,7 @@
       "title": "E8-S1 连接回收与统一活跃度",
       "priority": "P0",
       "status": "doing",
-      "branch": "feat/e8-conn-reclaim",
+      "branch": "feat/e8-liveness-reclaim",
       "ownerSession": "session-0b4fb845-69ac-4a81-bac8-79c18c904992",
       "scope": "crates/p2p-swarm/** + crates/p2p-discovery/** + 新增 crates/p2p-itest/tests/conn_reclaim.rs",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test conn_reclaim && cargo test -p p2p-swarm && cargo test -p p2p-discovery && make check'"
@@ -100,11 +100,13 @@
       "goal": "YamuxMux/QuicMux 生命周期语义四维对照与统一定稿（docs/design/mux-transport-lifecycle.md，最小代码对齐，冻结契约缺口只登记）+ facade 与 p2p-log panic 豁免收缩",
       "title": "E8-H3 mux 语义统一与豁免收缩",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/e8-mux-lifecycle-doc",
       "ownerSession": "session-c187513b-ecca-4088-88dd-8c5a97d16e46",
       "scope": "crates/p2p/** + crates/p2p-log/** + crates/p2p-transport/** + crates/p2p-mux/**(最小对齐) + docs/design/mux-transport-lifecycle.md + scripts/check/panic-hygiene.sh(facade/log 条目)",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p && cargo test -p p2p-log && test -f docs/design/mux-transport-lifecycle.md && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p && cargo test -p p2p-log && test -f docs/design/mux-transport-lifecycle.md && make check'",
+      "mergedMain": "c388b01+5060149+d80d6b8+f5de44d",
+      "acceptedAt": "2026-09-03T15:15:47.173Z"
     },
     {
       "id": "T10",
@@ -115,7 +117,8 @@
       "branch": "docs/e9-quality-audit",
       "ownerSession": "session-22888684-378a-4978-9914-f2fd87ec8e15",
       "scope": "仅新增 docs/notes/e9-quality-audit.md；全部代码只读；禁触 docs/coordination.md/.devloop/.agents 与 .worktrees/e8-*",
-      "acceptanceCommand": "bash -c 'test -f docs/notes/e9-quality-audit.md && grep -q 结构红线 docs/notes/e9-quality-audit.md && grep -q 模块边界 docs/notes/e9-quality-audit.md && grep -q 可读性 docs/notes/e9-quality-audit.md && grep -q 测试质量 docs/notes/e9-quality-audit.md && grep -q \"E9 建议\" docs/notes/e9-quality-audit.md && test $(wc -l < docs/notes/e9-quality-audit.md) -le 400 && grep -qE \"[a-z]\\.rs:[0-9]+\" docs/notes/e9-quality-audit.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'test -f docs/notes/e9-quality-audit.md && grep -q 结构红线 docs/notes/e9-quality-audit.md && grep -q 模块边界 docs/notes/e9-quality-audit.md && grep -q 可读性 docs/notes/e9-quality-audit.md && grep -q 测试质量 docs/notes/e9-quality-audit.md && grep -q \"E9 建议\" docs/notes/e9-quality-audit.md && test $(wc -l < docs/notes/e9-quality-audit.md) -le 400 && grep -qE \"[a-z]\\.rs:[0-9]+\" docs/notes/e9-quality-audit.md && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "note": "协调边界已通知：审计期只读，不改代码/账本/协调表，产出入 docs/notes|research；开工范围回信确认中"
     }
   ]
 }
