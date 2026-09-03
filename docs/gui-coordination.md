@@ -60,3 +60,4 @@
 - 2026-09-02 23:40 协调会话创建本表；规划/契约冻结；W1 双单派发（G-A/G-B）。
 - 2026-09-02 23:43 契约澄清修订：peer_dial target 语法 "<peer_id>@<addr>"、identity_reset 返回 NodeStatus（commit 4bc398f）。
 - 2026-09-02 23:44 回填 W1 会话 ID；会话经 session_link 新建（专属会话，不复用历史会话）。
+- 2026-09-03 11:59 主会话受用户指令直派 G-H 观测单（feat/gui-agent-observability，worktree gui-obs）：感知通道（frontend_log 三命令契约 v3 + error-report 落盘管线 + 诊断页）与 Agent 操作入口（window.__P2P_AGENT__ + scripts/gui-agent.mjs 零依赖 CDP）。首跑实证并修复存量缺陷：selectPeerList 快照不稳定致 CommandPalette 无限重渲染崩 ErrorBoundary（用户所见页面报错根因）、Button Slot ref 告警噪音。分支含 fix/gui-error-boundary(706670c) 已合基线，契约 §8 加法修订随 rust 提交。
