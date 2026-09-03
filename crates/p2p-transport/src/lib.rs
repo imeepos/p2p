@@ -24,6 +24,23 @@ impl std::fmt::Display for TransportAddr {
     }
 }
 
+impl TransportAddr {
+    /// 跨网可拨性判定（rendezvous 地址卫生，E5）：loopback 只在本机有效；
+    /// v4 link-local（169.254/16）与 v6 链路本地（fe80::/10）缺接口作用域，
+    /// 注册/发现语义下均不可拨。私网地址保留（同 NAT 直连合法用途）。
+    pub fn is_routable(&self) -> bool {
+        let (Self::Quic { ip, .. } | Self::Tcp { ip, .. }) = self;
+        match ip {
+            IpAddr::V4(v4) => !v4.is_loopback() && !v4.is_link_local(),
+            IpAddr::V6(v6) => {
+                let o = v6.octets();
+                let link_local = o[0] == 0xfe && (o[1] & 0xc0) == 0x80;
+                !v6.is_loopback() && !link_local
+            }
+        }
+    }
+}
+
 /// 已完成安全握手与身份互认的连接。
 pub struct SecureConn {
     /// 对端身份：握手时从证书/Noise 静态密钥推导，不可由对端自报字符串冒充。
@@ -58,3 +75,31 @@ pub use quic::QuicTransport;
 pub use tcp::TcpTransport;
 
 pub use p2p_mux::MAX_STREAMS_PER_CONN;
+
+#[cfg(test)]
+mod addr_tests {
+    use super::*;
+
+    fn quic(ip: &str) -> TransportAddr {
+        TransportAddr::Quic {
+            ip: ip.parse().unwrap(),
+            port: 4000,
+        }
+    }
+
+    #[test]
+    fn loopback_and_link_local_not_routable() {
+        assert!(!quic("127.0.0.1").is_routable());
+        assert!(!quic("::1").is_routable());
+        assert!(!quic("169.254.3.4").is_routable());
+        assert!(!quic("fe80::1").is_routable());
+    }
+
+    #[test]
+    fn public_private_and_global_v6_routable() {
+        assert!(quic("203.0.113.7").is_routable());
+        assert!(quic("10.0.0.5").is_routable());
+        assert!(quic("192.168.1.5").is_routable());
+        assert!(quic("240e:abcd::1").is_routable());
+    }
+}

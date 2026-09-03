@@ -123,6 +123,10 @@ impl RendezvousClient {
             if peer == self.config.keypair.peer_id() {
                 continue;
             }
+            let Some(addrs) = routable_only(&addrs) else {
+                tracing::debug!(%peer, "rendezvous peer skipped: no routable addr");
+                continue;
+            };
             cache.put(peer, addrs.clone(), ttl);
             let ev = DiscoveryEvent::Discovered(DiscoveredPeer {
                 peer,
@@ -164,6 +168,13 @@ impl RendezvousClient {
             }
         }
     }
+}
+
+/// 查询侧地址卫生（E5）：丢弃 loopback/link-local 不可拨地址；全部不可路由
+/// 返回 None（对端整体跳过，不产出「永远离线」条目污染邻居表）。私网保留。
+pub(crate) fn routable_only(addrs: &[TransportAddr]) -> Option<Vec<TransportAddr>> {
+    let out: Vec<TransportAddr> = addrs.iter().filter(|a| a.is_routable()).cloned().collect();
+    (!out.is_empty()).then_some(out)
 }
 
 /// 把服务端应答解析为 (PeerId, 地址列表)；peer_id 非法或地址为空即跳过。

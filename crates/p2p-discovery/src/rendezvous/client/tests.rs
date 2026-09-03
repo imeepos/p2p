@@ -167,3 +167,39 @@ fn backoff_doubles_to_cap_then_resets_after_healthy_session() {
     backoff.reset();
     assert_eq!(backoff.step(), Duration::from_millis(500), "复位后回到初值");
 }
+
+fn quic(ip: &str, port: u16) -> TransportAddr {
+    TransportAddr::Quic {
+        ip: ip.parse().unwrap(),
+        port,
+    }
+}
+
+#[test]
+fn routable_only_drops_peer_with_only_unroutable_addrs() {
+    // E5 回归：全 loopback/link-local 对端整体跳过——这正是邻居表
+    // 「127.0.0.1/随机端口 永远离线」废条目的唯一来源，必须不入册
+    let addrs = vec![
+        quic("127.0.0.1", 40000),
+        quic("169.254.3.4", 40001),
+        quic("fe80::1", 40002),
+    ];
+    assert!(routable_only(&addrs).is_none());
+}
+
+#[test]
+fn routable_only_strips_unroutable_keeps_rest() {
+    // 私网保留（同 NAT 直连合法），loopback/link-local 单条剥离
+    let addrs = vec![
+        quic("127.0.0.1", 40000),
+        quic("192.168.1.5", 40001),
+        TransportAddr::Tcp {
+            ip: "203.0.113.7".parse().unwrap(),
+            port: 40002,
+        },
+    ];
+    let out = routable_only(&addrs).expect("存在可路由地址");
+    assert_eq!(out.len(), 2);
+    assert!(out.iter().all(TransportAddr::is_routable));
+    assert!(out.contains(&quic("192.168.1.5", 40001)));
+}
