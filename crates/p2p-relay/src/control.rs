@@ -105,7 +105,9 @@ impl RelayServiceImpl {
             }
             Some(Kind::KeepAlive(_)) => {
                 tracing::debug!(peer = %peer, "keepalive answered");
-                send_ctrl(write, RelayMsg::keep_alive_ack()).await.is_ok()
+                send_ctrl(write, RelayMsg::keep_alive_ack(self.load_permille()))
+                    .await
+                    .is_ok()
             }
             other => {
                 tracing::warn!(peer = %peer, kind = ?other, "protocol violation on control stream; cutting");
@@ -130,6 +132,7 @@ impl RelayServiceImpl {
         );
         match issued {
             Ok(cid) => {
+                let load = self.load_permille();
                 self.lock_state().metrics.count_issued();
                 tracing::info!(
                     peer = %peer,
@@ -138,7 +141,7 @@ impl RelayServiceImpl {
                     joiner = %r.allowed_joiner,
                     "circuit reserved"
                 );
-                RelayMsg::reserved(cid)
+                RelayMsg::reserved(cid, load)
             }
             Err(errcode::PEER_LIMIT) => {
                 self.lock_state().metrics.count_reserve_reject();

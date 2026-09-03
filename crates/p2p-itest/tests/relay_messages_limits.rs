@@ -14,7 +14,9 @@ const LIMIT: Duration = Duration::from_secs(10);
 fn all_kinds() -> Vec<RelayMsg> {
     vec![
         RelayMsg::reserve(300, "peer-b"),
-        RelayMsg::reserved(7),
+        RelayMsg::reserved(7, 500),
+        RelayMsg::keep_alive(),
+        RelayMsg::keep_alive_ack(500),
         RelayMsg::connect(7),
         RelayMsg::bound(7),
         RelayMsg::punch_req("peer-b", vec!["10.0.0.1:4000".into()]),

@@ -91,6 +91,20 @@ impl RelayServiceImpl {
         state.metrics.snapshot(&state)
     }
 
+    /// 负载水位（permille）：链路/电路/限速桶三资源占用率取最大——
+    /// 剩余服务能力由最弱资源决定（瓶颈口径，供负载感知选路）。
+    pub(crate) fn load_permille(&self) -> u32 {
+        let state = self.lock_state();
+        crate::load::compute_load_permille(
+            state.links.values().sum::<usize>(),
+            self.limits.max_total_links,
+            state.circuits.len(),
+            self.limits.max_total_circuits,
+            self.buckets.occupied(),
+            self.limits.max_total_buckets,
+        )
+    }
+
     /// 装配样板收敛点（E9-Q0 审计 2.4）：构造 + 后台 serve，serve 退出留 error 信号。
     /// 返回实现句柄而非 trait 对象：服务端指标快照（metrics）挂在实现类型上。
     pub fn spawn(source: Box<dyn LinkSource>, limits: RelayLimits) -> Arc<RelayServiceImpl> {

@@ -145,11 +145,16 @@ PeerId = base58( SHA-256( ed25519 公钥原始 32 字节 ) )
 ### 7.1 relay 控制面（/p2p-base/relay/1）
 
 出处 crates/p2p-relay/src/messages.rs。帧 payload = RelayMsg protobuf 信封，
-`oneof kind` tag 1-7：Reserve(1)/Reserved(2)/Connect(3)/Bound(4)/PunchReq(5)/PunchAck(6)/Reject(7)。
+`oneof kind` tag 1-9：Reserve(1)/Reserved(2)/Connect(3)/Bound(4)/PunchReq(5)/PunchAck(6)/
+Reject(7)/KeepAlive(8)/KeepAliveAck(9)。
 
 - 控制流首帧必须是 Reserve，接入流首帧必须是 Connect；服务端按首帧分流（service.rs:1-3）。
 - 状态机违规回 `Reject` 并断流；错误码（messages.rs:12-23）：1 未知电路、2 电路过期、
-  3 每 Peer 配额超限、4 协议违规、5 打洞目标不在场。
+  3 每 Peer 配额超限、4 协议违规、5 打洞目标不在场、6 接入方不在允许名单、7 全站资源打满。
+- 负载水位广播：`Reserved` = circuit_id(1) + load_permille(2)，`KeepAliveAck` =
+  load_permille(1)；permille 0..=1000，取链路/电路/限速桶三资源占用率最大
+  （service.rs `load_permille`，瓶颈口径）。客户端据此做负载感知的中继选择；
+  旧端未知字段自动忽略（字段只增不改）。
 - `PunchReq`/`PunchAck` 即打洞信令（类 DCUtR）：peer_id 字段指明目的地，relay 转发时
   改写为实际发送方，接收方看到的就是对端真实身份（messages.rs:3-5）。
 - 电路建好后 `/p2p-base/circuit/1` 流上只搬运密文字节，relay 不解不存（lib.rs:3）。

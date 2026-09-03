@@ -94,7 +94,9 @@ mod tests {
     fn samples() -> Vec<RelayMsg> {
         vec![
             RelayMsg::reserve(300, "peer-b"),
-            RelayMsg::reserved(7),
+            RelayMsg::reserved(7, 500),
+            RelayMsg::keep_alive(),
+            RelayMsg::keep_alive_ack(500),
             RelayMsg::connect(7),
             RelayMsg::bound(7),
             RelayMsg::punch_req("peer-b", vec!["1.2.3.4:5".into()]),

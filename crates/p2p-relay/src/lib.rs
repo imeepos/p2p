@@ -35,6 +35,7 @@ mod keepalive;
 mod lifecycle;
 pub mod limits;
 pub mod link;
+mod load;
 pub mod messages;
 mod metrics;
 pub mod punch;

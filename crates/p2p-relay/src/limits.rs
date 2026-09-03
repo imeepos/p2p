@@ -133,6 +133,11 @@ impl PeerBuckets {
             .remove(peer)
             .is_some()
     }
+
+    /// 在册 Peer 桶数（负载水位观测用；降级共享桶不计）。
+    pub fn occupied(&self) -> usize {
+        self.map.lock().expect("peer buckets poisoned").len()
+    }
 }
 
 /// 出口限速流：读直通，写扣令牌，超额返回 WriteZero。
@@ -248,6 +253,17 @@ mod tests {
         assert!(!Arc::ptr_eq(&b1, &b2));
         assert!(pb.release("p1"));
         assert!(!pb.release("p2"), "降级桶不在表中，无可回收项");
+    }
+
+    #[test]
+    fn occupied_counts_registered_buckets_only() {
+        let pb = PeerBuckets::new(RelayLimits::default());
+        assert_eq!(pb.occupied(), 0);
+        let _ = pb.bucket_for("p1");
+        let _ = pb.bucket_for("p2");
+        assert_eq!(pb.occupied(), 2);
+        assert!(pb.release("p1"));
+        assert_eq!(pb.occupied(), 1);
     }
 
     #[tokio::test]

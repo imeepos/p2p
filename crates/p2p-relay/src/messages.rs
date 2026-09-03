@@ -32,11 +32,13 @@ pub struct Reserve {
     pub allowed_joiner: String,
 }
 
-/// 服务端发放电路标识。
+/// 服务端发放电路标识；load_permille 为当前负载水位（0..=1000，0=空闲）。
 #[derive(Clone, PartialEq, prost::Message)]
 pub struct Reserved {
     #[prost(uint64, tag = "1")]
     pub circuit_id: u64,
+    #[prost(uint32, tag = "2")]
+    pub load_permille: u32,
 }
 
 /// 接入电路：同号第二条连接到达即开始桥接。
@@ -89,9 +91,13 @@ pub struct Reject {
 #[derive(Clone, PartialEq, prost::Message)]
 pub struct KeepAlive {}
 
-/// 保活应答：服务端收到 KeepAlive 后原路回发。
+/// 保活应答：服务端收到 KeepAlive 后原路回发，顺带捎带负载水位。
 #[derive(Clone, PartialEq, prost::Message)]
-pub struct KeepAliveAck {}
+pub struct KeepAliveAck {
+    /// 负载水位 permille（0..=1000）：链路/电路/限速桶占用率取最大。
+    #[prost(uint32, tag = "1")]
+    pub load_permille: u32,
+}
 
 /// 控制面信封：一帧一个 RelayMsg，kind 只装一个子消息。
 #[derive(Clone, PartialEq, prost::Message)]
@@ -136,9 +142,12 @@ impl RelayMsg {
         }
     }
 
-    pub fn reserved(circuit_id: u64) -> Self {
+    pub fn reserved(circuit_id: u64, load_permille: u32) -> Self {
         Self {
-            kind: Some(relay_msg::Kind::Reserved(Reserved { circuit_id })),
+            kind: Some(relay_msg::Kind::Reserved(Reserved {
+                circuit_id,
+                load_permille,
+            })),
         }
     }
 
@@ -187,9 +196,11 @@ impl RelayMsg {
         }
     }
 
-    pub fn keep_alive_ack() -> Self {
+    pub fn keep_alive_ack(load_permille: u32) -> Self {
         Self {
-            kind: Some(relay_msg::Kind::KeepAliveAck(KeepAliveAck {})),
+            kind: Some(relay_msg::Kind::KeepAliveAck(KeepAliveAck {
+                load_permille,
+            })),
         }
     }
 }
