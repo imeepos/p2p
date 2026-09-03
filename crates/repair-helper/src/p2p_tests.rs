@@ -3,7 +3,7 @@
 //! 复刻真实节点收流路径）；票据矩阵另见 ticket_tests.rs。
 
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use p2p_identity::{Keypair, PeerId};
 use p2p_protocol::{
@@ -11,12 +11,14 @@ use p2p_protocol::{
     ProtocolId, StreamFactory,
 };
 use repair_bridge::PROTOCOL_ID;
+use repair_enforce::approval::{Approver, Clock};
 use repair_enforce::whitelist::ShellWhitelist;
 
 use crate::audit::AuditSink;
 use crate::jail::PathJail;
 use crate::p2p::{Endpoint, InboundPeers};
 use crate::ticket::{mint, TicketLedger, TicketVerifier, SCOPE_DIAG};
+use crate::tools::approval::{QueueApprover, WallClock};
 
 fn platform() -> Keypair {
     Keypair::from_seed(&[7u8; 32])
@@ -43,12 +45,19 @@ fn fixture_root(tag: &str) -> PathBuf {
 
 fn new_endpoint(peers: InboundPeers, ledger: TicketLedger, audit: AuditSink) -> Endpoint {
     let jail = PathJail::from_roots(vec![fixture_root("ep")]).unwrap();
+    let clock: Arc<dyn Clock + Send + Sync> = Arc::new(WallClock::new());
+    let approver: Arc<Mutex<Box<dyn Approver + Send>>> = Arc::new(Mutex::new(Box::new(
+        QueueApprover::new(),
+    )
+        as Box<dyn Approver + Send>));
     Endpoint::new(
         TicketVerifier::new(platform().public(), ledger),
         peers,
         jail,
         audit,
         ShellWhitelist::empty(),
+        clock,
+        approver,
     )
     .unwrap()
 }

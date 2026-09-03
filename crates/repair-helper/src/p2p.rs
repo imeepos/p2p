@@ -7,7 +7,8 @@
 //!
 //! 断线语义（§3.7）：帧泵任一方向终止（对端断流/写侧失败）即结束受理——
 //! Host::serve 的 reader 随 in_tx 关闭收到 EOF 自然收尾；挂起中的审批视同
-//! 拒绝（P0b 无挂起：NeedApproval 在 enforce 接线直接拒，断线更无放行路径）。
+//! 拒绝（T23b：审批状态机 60s 超时即拒，断线无人应答自然超时，无放行路径）。
+//! shell_exec 在 fix scope 走工具内审批（approval 通道经 Endpoint 注入）。
 
 use std::io;
 use std::sync::{Arc, Mutex};
@@ -17,6 +18,7 @@ use p2p::{gate_fn, BoxedStream, ConnectionGate, ProtocolHandler, ProtocolId};
 use p2p_identity::PeerId;
 use p2p_protocol::{read_frame, write_frame};
 use repair_bridge::PROTOCOL_ID;
+use repair_enforce::approval::{Approver, Clock};
 use repair_enforce::{scope::Scope, whitelist::ShellWhitelist};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader, DuplexStream};
 use tokio::sync::watch;
@@ -26,7 +28,7 @@ use crate::enforce::Enforcement;
 use crate::jail::PathJail;
 use crate::session_report::SessionReport;
 use crate::ticket::{TicketPayload, TicketVerifier, SCOPE_DIAG};
-use crate::tools;
+use crate::tools::{self, shell_exec::ShellExec};
 use crate::Host;
 
 /// 帧泵双工的缓冲字节数（Host 行读写与桥帧速率的背压缓冲）。
@@ -75,6 +77,8 @@ pub struct Endpoint {
     jail: PathJail,
     audit: AuditSink,
     whitelist: ShellWhitelist,
+    clock: Arc<dyn Clock + Send + Sync>,
+    approver: Arc<Mutex<Box<dyn Approver + Send>>>,
     protocol: ProtocolId,
 }
 
@@ -86,6 +90,8 @@ impl Endpoint {
         jail: PathJail,
         audit: AuditSink,
         whitelist: ShellWhitelist,
+        clock: Arc<dyn Clock + Send + Sync>,
+        approver: Arc<Mutex<Box<dyn Approver + Send>>>,
     ) -> Result<Self, io::Error> {
         let protocol = ProtocolId::new(PROTOCOL_ID)
             .map_err(|e| io::Error::other(format!("protocol id {PROTOCOL_ID}: {e}")))?;
@@ -95,6 +101,8 @@ impl Endpoint {
             jail,
             audit,
             whitelist,
+            clock,
+            approver,
             protocol,
         })
     }
@@ -145,15 +153,18 @@ impl Endpoint {
             _ => Scope::Fix,
         };
         let mut registry = tools::read_only_registry(self.jail.clone());
+        let enforcement = Enforcement::new(scope, self.whitelist.clone());
+        registry.register(ShellExec::new(
+            self.jail.clone(),
+            enforcement.clone(),
+            self.clock.clone(),
+            self.approver.clone(),
+        ));
         registry.register(SessionReport::new(
             self.audit.clone(),
             payload.ticket_id.clone(),
         ));
-        Host::guarded(
-            registry,
-            Enforcement::new(scope, self.whitelist.clone()),
-            self.audit.clone(),
-        )
+        Host::guarded(registry, enforcement, self.audit.clone())
     }
 }
 

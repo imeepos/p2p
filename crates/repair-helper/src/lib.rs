@@ -179,7 +179,7 @@ impl Host {
         let risk_name = enforce::risk_name(risk);
         let duration = || started.elapsed().as_millis() as u64;
         if let Some(enforcement) = &self.enforcement {
-            if let Err(reason) = enforcement.evaluate(&tool, &input.arguments) {
+            if let enforce::GateOutcome::Deny(reason) = enforcement.gate(&tool, &input.arguments) {
                 tracing::warn!(%tool, %reason, "tool call denied by enforcement");
                 let text = format!("tool error: {reason}");
                 self.audit.push(AuditEvent::new(

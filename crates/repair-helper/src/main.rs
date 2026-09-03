@@ -7,6 +7,7 @@
 use clap::{Parser, Subcommand};
 use p2p::Node;
 use p2p_identity::Keypair;
+use repair_enforce::approval::Approver;
 use repair_enforce::whitelist::ShellWhitelist;
 use repair_helper::{
     audit::{self, AuditSink},
@@ -17,7 +18,7 @@ use repair_helper::{
     tools, Host,
 };
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::io::BufReader;
 use tokio::sync::watch;
 
@@ -100,6 +101,8 @@ async fn p2p_serve(args: ServeArgs) -> std::io::Result<()> {
         jail,
         audit,
         ShellWhitelist::empty(),
+        shell_clock(),
+        shell_approver(),
     )?;
     let node = Node::builder()
         .data_dir(args.data_dir.clone())
@@ -167,8 +170,14 @@ fn mint_ticket(args: MintArgs) -> std::io::Result<()> {
 /// stdio 模式（T21/T23 存量）：本地临时 MCP server，不经票据。
 async fn stdio_serve() -> std::io::Result<()> {
     let jail = build_jail()?;
-    let registry = tools::read_only_registry(jail);
     let enforcement = Enforcement::new(repair_enforce::Scope::Diag, ShellWhitelist::empty());
+    let shell = tools::shell_exec::ShellExec::new(
+        jail.clone(),
+        enforcement.clone(),
+        shell_clock(),
+        shell_approver(),
+    );
+    let registry = tools::helper_registry(jail, shell);
     let (_shutdown_tx, shutdown_rx) = watch::channel(false);
     Host::guarded(registry, enforcement, AuditSink::default())
         .serve(
@@ -177,6 +186,18 @@ async fn stdio_serve() -> std::io::Result<()> {
             shutdown_rx,
         )
         .await
+}
+
+/// 审批墙钟（WallClock：真实 60s 超时即拒）与空队列审批通道
+/// （无人应答即超时拒绝；行式/托盘通道由部署面接线，见 tools::approval）。
+fn shell_clock() -> Arc<dyn repair_enforce::approval::Clock + Send + Sync> {
+    Arc::new(repair_helper::tools::approval::WallClock::new())
+}
+
+fn shell_approver() -> Arc<Mutex<Box<dyn Approver + Send>>> {
+    Arc::new(Mutex::new(
+        Box::new(repair_helper::tools::approval::QueueApprover::new()) as Box<dyn Approver + Send>,
+    ))
 }
 
 /// 授权根：REPAIR_ROOTS（: 分隔）显式配置，缺省临时演示根。
