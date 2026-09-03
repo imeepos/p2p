@@ -84,8 +84,16 @@ export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   ping: (peerId, timeoutMs) => ipc.peerPing(peerId, timeoutMs),
 }));
 
-export const selectPeerList = (s: NodeStoreState): PeerEntry[] =>
-  Object.values(s.peers).sort((a, b) => b.lastSeenMs - a.lastSeenMs);
+// getSnapshot 稳定性：zustand v5（useSyncExternalStore）要求同一 peers 引用返回同一数组，
+// 否则 useNodeStore(selectPeerList) 的组件无限重渲染（Maximum update depth exceeded）。
+let peerListCache: { source: Record<string, PeerEntry>; list: PeerEntry[] } | null = null;
+
+export const selectPeerList = (s: NodeStoreState): PeerEntry[] => {
+  if (peerListCache?.source === s.peers) return peerListCache.list;
+  const list = Object.values(s.peers).sort((a, b) => b.lastSeenMs - a.lastSeenMs);
+  peerListCache = { source: s.peers, list };
+  return list;
+};
 
 export const selectPeerCount = (s: NodeStoreState): number =>
   Object.keys(s.peers).length;
