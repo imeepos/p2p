@@ -135,3 +135,5 @@ _none yet — be the first._
 - 2026-09-04 GUI 节点资料轮：`cargo test 2>&1 | tail -N` 会用 tail 的退出码掩盖 cargo 失败报 exit 0 假绿——判定一律用 `cmd > log 2>&1; echo EXIT=$?` 先落码再 grep，或管道前 set -o pipefail；「命令链 exit 0」必须与日志尾部交叉核对。
 - 2026-09-04 GUI 节点资料轮：并行主树上长前台命令会间歇性静默无输出——长构建/测试转 run_in_background 后台 job，job_output(wait) 收结果，比前台硬等可靠且不阻塞并行步骤。
 - 2026-09-04 GUI 节点资料轮：cargo test 全红时先做所有权取证（git diff 上游点..HEAD --stat <失败目录>）再动手——本轮 make check 连挂两次（fmt-check/test/doctest）全是并行会话刚落的 crates 改动与编译管线瞬态，与自己的 GUI 改动零交集，机械代修（fmt）+ 复跑定性（瞬态）即可，不抢别人 scope。
+- 2026-09-04 RS P0b 轮：跨任务接缝需要装配级测试兜底——E2E 夹具自建 Enforcement 绕过了 main.rs 生产装配，ShellWhitelist::empty() 集成缺口三层验收（单测/E2E/门禁）全部绿灯通过，直到人工盘点才暴露；装配路径必须有自己的非空/连通断言。
+- 2026-09-04 RS P0b 轮：完工报告里的「自曝遗留」必须在验收时逐条判定归属并回写账本——「白名单数据仍为空闭集」一行小字即生产全拒缺口；验收判据=exit code + 需求逐条对表 + 自曝遗留逐条处置，三者缺一。
