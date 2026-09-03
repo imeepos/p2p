@@ -246,3 +246,17 @@ failed: early eof（客户端侧超时中止）。
 - 症状：frontend.log 里 60 条 TypeError: Cannot destructure property 'control'（FactoryDefaultsNotice@factory-defaults-notice.tsx），时间戳晚于修复提交 6 小时，且栈行号偏移显示跑的就是修复后代码——看似「修复无效」。
 - 原因：长命 tauri dev 会话的 webview 活过了整天的 HMR/依赖重优化，页面里 react-hook-form 存在两个生成实例：FormProvider 写入的 context 与 useFormContext 读到的 context 不是同一个对象（后者默认 null），解构即炸；同时段 [vite] Importing a module script failed 洪泛是同一模块图分代的旁证。磁盘代码与测试全绿，纯属 dev 会话运行态腐化。
 - 修法：判定顺序——先 git log 确认修复提交早于报错时间，再核对栈行号偏移（react-refresh 注入约 +4 行）确认跑的是新代码，然后跑 vitest 回归（relay-config-card/settings-defaults/app-boot 路由冒烟）机械证明代码侧已修；结论落到「杀旧 dev 会话重启 webview」，不要回头改已经修好的代码。
+## 2026-09-04 relay 控制流被服务端静默窗口精确切断：客户端周期不得与服务端超时同值贴线（线上重连风暴日志分析）
+- 症状：两台独立 relay 的控制流都在 connected 后恰好 +10.008s / +10.034s 被 control stream eof (clean close by peer) 切断，周期恒定 10.5s 无限重连；客户端 keepalive interval=10s 的首次 KeepAlive 与服务端静默窗口同刻竞速，服务端计时器随 Reserve 处理启动、恒早 RTT/2，客户端永远输。
+- 原因：本仓默认 server_silence=45s 且正常应答 KeepAlive（keepalive.rs 默认值、control.rs 控制循环），线上 relay 却按 10s 切流——跑的是旧默认或被配成 10s，违反自家庄不变式 server_silence > interval x max_missed（keepalive.rs 测试断言在守）。连带伤害：控制流一切 release_epoch_circuits 释放该代次全部电路，走该 relay 的 peer 连接同时死。
+- 修法：服务端升级/改配 server_silence 不小于 45s，用服务端指标 keepalive_failures_total 验证（每周期 +1 即实锤）；客户端 keepalive interval 压到服务端窗口 1/3 以下（如 5s）。通用规则：凡周期性保活类参数，禁止与对端任一超时窗口同值或贴线。
+
+## 2026-09-04 QUIC 拨号端点只绑 0.0.0.0：地址簿 IPv6 候选全数 invalid remote address（线上日志分析）
+- 症状：每次重连地址簿逐个拨全失败，每地址 1-2ms 内报 invalid remote address: [fe80::...]（含全局 240e:: 段地址），直连跳 100% 全灭，流量全压 relay。
+- 原因：QuicTransport 拨号端点绑 0.0.0.0:0（quic.rs new，纯 IPv4 socket），对任何 IPv6 目标族不匹配在本地即拒；地址簿候选又全是 IPv6（fe80:: 链路本地无 scope id 本就不可拨，还混进 fe80::1 路由器地址），filter_loopback 只滤 loopback 不滤 link-local。
+- 修法：拨号端点双栈（绑 [::]:0 开 v4-mapped，或按目标地址族持双端点择路）；地址入簿/拨号前统一剥 link-local。通用规则：监听/拨号 socket 的协议族与地址簿地址族要用测试对齐，族不匹配应在入簿时拒，而不是拨号时逐个撞墙刷屏。
+
+## 2026-09-04 reset_min_uptime 恰等于探测死亡窗口：0% 探测成功的会话被判健康（线上日志分析）
+- 症状：三个 peer 会话寿命恒为 30.004-30.008s（3x10s 探测网格，首探即 early eof），每次重连都打 backoff reset: previous session healthy，退避永不升级，delay 恒 800ms、attempts 恒 1，30s 周期重连风暴无限循环。
+- 原因：mark_connected 以 uptime 不小于 reset_min_uptime(30s) 判健康，而会话寿命恰被 max_probe_misses x probe_interval = 3x10s 钉死在 30s——「活得够久」与「探测成功」完全脱钩，参数互撞使健康判定形同虚设；且 EOF（对端关流/连接已死）与超时不分，白等满 3 次才断链。
+- 修法：健康判定追加「本会话至少一次 probe 成功」；EOF 型探测失败立即断链不等满次数；新增超时参数时先核对与既有定时器网格（探测间隔/退避/保活）的倍数关系，避免语义相消。
