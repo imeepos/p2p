@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T23:26:08Z",
+  "updatedAt": "2026-09-03T23:30:49.006Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -216,7 +216,7 @@
       "priority": "P1",
       "status": "todo",
       "branch": "feat/im-e2e",
-      "ownerSession": "待派（T29+T32 已齐）",
+      "ownerSession": "session-d69ac632-5a23-4502-b755-a9ad71447c30",
       "scope": "新增 crates/p2p-itest/tests/chat_e2e.rs + docs/ops/im-chat-drill.md；不动生产实现",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test chat_e2e && make check'"
     },
