@@ -90,6 +90,19 @@ impl RelayServiceImpl {
         let state = self.lock_state();
         state.metrics.snapshot(&state)
     }
+
+    /// 装配样板收敛点（E9-Q0 审计 2.4）：构造 + 后台 serve，serve 退出留 error 信号。
+    /// 返回实现句柄而非 trait 对象：服务端指标快照（metrics）挂在实现类型上。
+    pub fn spawn(source: Box<dyn LinkSource>, limits: RelayLimits) -> Arc<RelayServiceImpl> {
+        let svc = Arc::new(RelayServiceImpl::new(source, limits));
+        let worker = Arc::clone(&svc);
+        tokio::spawn(async move {
+            if let Err(e) = RelayService::serve(worker).await {
+                tracing::error!(error = %e, "relay service exited with error");
+            }
+        });
+        svc
+    }
 }
 
 #[async_trait]

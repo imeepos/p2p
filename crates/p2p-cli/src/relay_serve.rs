@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use p2p_identity::Keypair;
 use p2p_mux::{BoxedStream, MuxControl};
-use p2p_relay::{LinkSource, RelayLimits, RelayLink, RelayService, RelayServiceImpl};
+use p2p_relay::{LinkSource, RelayLimits, RelayLink, RelayServiceImpl};
 use p2p_transport::{QuicTransport, TcpTransport};
 use tokio::sync::mpsc;
 
@@ -68,13 +68,7 @@ pub async fn spawn_relay(
 ) -> io::Result<Arc<RelayServiceImpl>> {
     let (tx, rx) = mpsc::channel::<Box<dyn RelayLink>>(32);
     let source = Box::new(RelayConnSource::new(rx));
-    let svc = Arc::new(RelayServiceImpl::new(source, RelayLimits::default()));
-    let serve_handle = Arc::clone(&svc);
-    tokio::spawn(async move {
-        if let Err(e) = RelayService::serve(serve_handle).await {
-            tracing::error!(error = %e, "relay service exited with error");
-        }
-    });
+    let svc = RelayServiceImpl::spawn(source, RelayLimits::default());
 
     let quic = QuicTransport::bind(quic_addr, &keypair).await?;
     tokio::spawn(accept_quic_loop(quic, tx.clone()));

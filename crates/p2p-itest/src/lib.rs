@@ -4,12 +4,11 @@
 //! 断言全部在各 tests/ 用例内；失败必须显式 panic，不允许静默通过。
 
 use std::future::Future;
-use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{SinkExt, StreamExt};
 use p2p_discovery::rendezvous::{RendezvousConn, RendezvousError, RendezvousLink};
-use p2p_relay::{MockLinkSource, RelayClient, RelayLimits, RelayService, RelayServiceImpl};
+use p2p_relay::{MockLinkSource, RelayClient, RelayLimits, RelayServiceImpl};
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 
@@ -75,10 +74,7 @@ pub fn relay_pair(limits: RelayLimits, peer_a: &str, peer_b: &str) -> (RelayClie
     let (client_b, server_b) = p2p_relay::mock_link_pair(peer_b, peer_b);
     source.push(Box::new(server_a));
     source.push(Box::new(server_b));
-    let svc = Arc::new(RelayServiceImpl::new(Box::new(source), limits));
-    tokio::spawn(async move {
-        let _ = RelayService::serve(svc).await;
-    });
+    RelayServiceImpl::spawn(Box::new(source), limits);
     (
         RelayClient::new(Box::new(client_a)),
         RelayClient::new(Box::new(client_b)),

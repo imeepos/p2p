@@ -16,7 +16,7 @@ use p2p_identity::Keypair;
 use p2p_itest::expect_within;
 use p2p_mux::{BoxedStream, MuxControl};
 use p2p_relay::{
-    MockLinkSource, RelayClient, RelayEvent, RelayLimits, RelayLink, RelayService, RelayServiceImpl,
+    MockLinkSource, RelayClient, RelayEvent, RelayLimits, RelayLink, RelayServiceImpl,
 };
 use p2p_transport::{QuicTransport, TcpTransport, Transport, TransportAddr};
 
@@ -46,13 +46,7 @@ impl RelayLink for ConnLink {
 /// 起中继服务端，返回入站链路注入口。
 fn spawn_relay_server() -> MockLinkSource {
     let source = MockLinkSource::new();
-    let svc = Arc::new(RelayServiceImpl::new(
-        Box::new(source.clone()),
-        RelayLimits::default(),
-    ));
-    tokio::spawn(async move {
-        let _ = RelayService::serve(svc).await;
-    });
+    RelayServiceImpl::spawn(Box::new(source.clone()), RelayLimits::default());
     source
 }
 

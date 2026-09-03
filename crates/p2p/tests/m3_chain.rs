@@ -14,7 +14,7 @@ use std::time::Duration;
 use p2p::{Node, NodeEvent, ProtocolHandler, ProtocolId};
 use p2p_mux::BoxedStream;
 use p2p_protocol::{read_frame, write_frame};
-use p2p_relay::{LinkSource, RelayLimits, RelayLink, RelayService, RelayServiceImpl};
+use p2p_relay::{LinkSource, RelayLimits, RelayLink, RelayServiceImpl};
 use p2p_transport::{QuicTransport, TcpTransport};
 use tokio::sync::{broadcast, mpsc};
 
@@ -45,15 +45,7 @@ fn tmp_dir(tag: &str) -> PathBuf {
 /// peer_id = 握手互认的对端身份（红线）。
 async fn spawn_relay_server() -> io::Result<String> {
     let (tx, rx) = mpsc::channel::<Box<dyn RelayLink>>(32);
-    let svc = Arc::new(RelayServiceImpl::new(
-        Box::new(LinkChanSource::new(rx)),
-        RelayLimits::default(),
-    ));
-    tokio::spawn(async move {
-        if let Err(e) = RelayService::serve(svc).await {
-            tracing::error!(error = %e, "relay service exited");
-        }
-    });
+    RelayServiceImpl::spawn(Box::new(LinkChanSource::new(rx)), RelayLimits::default());
 
     let keypair = p2p_identity::Keypair::generate();
     let quic = QuicTransport::bind(sock(0), &keypair).await?;

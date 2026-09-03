@@ -6,12 +6,9 @@
 
 use std::time::Duration;
 
-use std::sync::Arc;
-
 use p2p_itest::expect_within;
 use p2p_relay::{
-    errcode, mock_link_pair, MockLinkSource, RelayClient, RelayError, RelayLimits, RelayService,
-    RelayServiceImpl,
+    errcode, mock_link_pair, MockLinkSource, RelayClient, RelayError, RelayLimits, RelayServiceImpl,
 };
 
 const LIMIT: Duration = Duration::from_secs(10);
@@ -21,11 +18,7 @@ const CHURN_GAP: Duration = Duration::from_millis(20);
 
 fn spawn_relay(limits: RelayLimits) -> MockLinkSource {
     let source = MockLinkSource::new();
-    let svc: Arc<RelayServiceImpl> =
-        Arc::new(RelayServiceImpl::new(Box::new(source.clone()), limits));
-    tokio::spawn(async move {
-        let _ = RelayService::serve(svc).await;
-    });
+    RelayServiceImpl::spawn(Box::new(source.clone()), limits);
     source
 }
 
