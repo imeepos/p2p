@@ -302,6 +302,7 @@ const zhCN = {
       network: "网络",
       advertise: "宣告与观测",
       appearance: "外观",
+      profile: "节点资料",
       identity: "身份",
       about: "关于与更新",
     },
@@ -348,6 +349,7 @@ const zhCN = {
       resetFailed: "重置身份失败",
     },
     profile: {
+      loadFailed: "节点资料加载失败，请重试",
       hint: "节点资料仅保存在本机，用于界面展示，不随发现协议广播",
       name: "节点名称",
       namePlaceholder: "未命名节点",

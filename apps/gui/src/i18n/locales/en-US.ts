@@ -309,6 +309,7 @@ const enUS: typeof zhCN = {
       network: "Network",
       advertise: "Advertise & observation",
       appearance: "Appearance",
+      profile: "Node profile",
       identity: "Identity",
       about: "About & updates",
     },
@@ -355,6 +356,7 @@ const enUS: typeof zhCN = {
       resetFailed: "Failed to reset identity",
     },
     profile: {
+      loadFailed: "Failed to load the node profile, please retry",
       hint: "The node profile is stored locally for display only; it is never broadcast via discovery",
       name: "Node name",
       namePlaceholder: "Unnamed node",
