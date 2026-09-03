@@ -129,6 +129,7 @@ failed: early eof（客户端侧超时中止）。
 - 原因：渲染期 ReferenceError 或 useSyncExternalStore 快照不稳定（selector 每次返回新数组）导致无限重渲整树崩溃；vitest 独立 config 不继承 vite 的 define，build-time 注入量（__APP_VERSION__）在测试环境是裸标识符。
 - 修法：selector 按源引用 memo 或消费侧 useShallow；vitest.config 与 vite.config 的 define 对齐；jsdom 启动冒烟锁整应用可渲染（src/test/app-boot.test.tsx 先例：vi.stubEnv 后动态 import main，waitFor main 元素，断言无兜底文案）（2026-09-03 实录）。
 
+
 ## 2026-09-02 W6-S2 反馈打磨轮
 
 - 症状：run_code 里用模板串写含 markdown 反引号的文档 → 语法错误 `Expected ',', got 'ident'`。原因：内容里的反引号终止了 JS 模板串。修法：内容改为字符串数组 `join("\n")`，或转义所有反引号。
@@ -144,3 +145,8 @@ failed: early eof（客户端侧超时中止）。
 - 原因：macos-13 runner 镜像 2025-12-04 退役（官方 changelog 2025-09-19），job 永远排不到机器；同时 workflow 标签重推触发 concurrency cancel-in-progress，把上一个还在跑的 run 连带取消，形成「重推→互杀」循环。
 - 修法：换 macos-15-intel（Intel 末班镜像）；发版流水线跑着的时候不要重推同一标签。
 
+## 2026-09-02 W6-S1 默认值打磨轮
+
+- 症状：用户反馈表单「看不到加载值/恢复值」，但保存功能正常、全部测试绿；jsdom 控制台刷 Function components cannot be given refs。
+- 原因：components/ui/input.tsx 是普通函数组件（React 18 不转发 ref），react-hook-form register 的 ref 丢失后 RHF 只能改 _formValues 无法改 DOM；reset/setValue 后表单状态与输入框显示永久分裂（2026-09-02 W6-S1 探针实测：reset observationPort=3402 后 DOM value 仍 ""）。
+- 修法：受控化（useWatch 读 + setValue 写，PortField 先例）可绕过；根治是给 Input 包 forwardRef（跨 settings 边界，需单独派单）。判定"值 vs 显示"分裂用临时 probe.test 断言 input.value，跑完即删。

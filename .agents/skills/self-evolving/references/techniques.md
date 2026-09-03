@@ -68,6 +68,12 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   Runtime.exceptionThrown + 应用内错误缓冲（window.__P2P_AGENT__.recentErrors()）。
   G-H 首跑即定位 selectPeerList 无限重渲染 + Button ref 告警，复验 console/exceptions
   双清零即修复证明（截图/JSON 留档 .gui-agent/）。
+- DSH glob/grep 工具锚定会话 cwd，对兄弟 worktree 路径直接失配（静默返回空）：
+  worktree 里一律改用 bash find / git -C <tree>，别被空结果骗成"没有测试文件"。
+- eslint react-hooks/refs 禁渲染期写 ref：测试桩要把 form 实例递出 render 树时用
+  useEffect 赋值——RTL 的 render/fireEvent 包 act，effect 提交即刷，后续断言可同步读。
+- 表单"状态对、显示错"先写 probe 测试锁 DOM value 再动手：一分类（受控 vs register）
+  就知道该改组件还是改表单接法（2026-09-02 W6-S1 settings-defaults 实录）。
 
 - sonner 在 jsdom/vitest 下 toast 是异步 mount：`act(() => toast.x())` 后 DOM 立即查询为空，必须 `await screen.findByRole/findByText` 等待；先用一次性 probe 测试 dump `container.innerHTML` 可 1 分钟定位此类渲染时机问题。
 - sonner 测试间模块级队列残留：afterEach 里 `cleanup()` 后再 `act(() => toast.dismiss())` 清全局队列，否则下个用例看到上轮 toast。
