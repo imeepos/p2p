@@ -57,13 +57,18 @@ rendezvous 当前是"全网大教室"：客户端周期拉取整个 namespace �
 - 客户端查询退避：快启动 2×5s 后进入稳态 30s±20% 抖动（cd0793d）；
 - 服务端全量应答快照缓存：register 即失效、按条目真实 TTL 重建（8878e36）。
 
-### P1 按需精确查询 + 好友地址簿（可独立交付）
+### P1 按需精确查询 + 好友地址簿（主体已落地，2026-09-04）
 
-- `RendezvousClient::query_peer(peer_id)`：单查并刷新 last-known-good 缓存；
-- 好友表持久化：data-dir 下 `friends.json`（peer_id + 备注 + last-known-good
-  地址 + 添加时刻），启动时加载入 AddressBook（Manual 来源，语义不变）；
-- 建连路径改造：connect(peer) 无池内连接且地址簿过期时先 query_peer 再拨；
-- 验收：断网重启后好友可直拨；发现面不再产生全量查询流量。
+- ✅ `RendezvousClient::query_peer(peer_id)`：独立建连一次查号即断
+  （8406941）；服务端单查走 MemCache 键读取，免全表克隆；
+- ✅ `Node::query_peer` facade 原语（bootstrap 未接线显式报错）+
+  `static_peers_file` 静态对端登记持久化（0600、tmp+rename，启动载入
+  AddressBook Manual 来源）+ `Node::peer_registered/peer_addrs` 观测面
+  + CLI `discover --peer` 用户面（2ebb7b7/c0248fa）；
+- 建连路径改造（未做）：connect(peer) 无池内连接且地址簿过期时先
+  query_peer 再拨——好友业务层可先行用「查号 → upsert → connect」
+  组合原语替代，底座内建推迟到出现第二个使用方再定形；
+- 验收：断网重启后好友可直拨（地址簿前提已测：重启恢复登记 itest）。
 
 ### P2 添加好友流程（含鸡生蛋解法）
 
