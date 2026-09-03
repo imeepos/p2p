@@ -97,3 +97,9 @@ export interface IpcBackend {
   identityReset(confirm: boolean): Promise<NodeStatus>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
 }
+
+// 契约 v3 加法（G-H 观测）：诊断命令面，与节点控制面分离；mock/tauri 同签名。
+export interface DiagBackend {
+  logPath(): Promise<string>;
+  logTail(maxLines: number): Promise<string[]>;
+}
