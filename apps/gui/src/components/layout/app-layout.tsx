@@ -11,6 +11,8 @@ import {
   useNumberRouteHotkeys,
 } from "@/hooks/use-hotkeys";
 import { useNodeStore } from "@/stores/node-store";
+import { useUpdateStore } from "@/stores/update-store";
+import { UpdateNotice } from "@/views/update/update-notice";
 
 const REFRESH_INTERVAL_MS = 5000;
 
@@ -21,6 +23,8 @@ export function AppLayout() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const bootstrap = useNodeStore((s) => s.bootstrap);
   const refresh = useNodeStore((s) => s.refresh);
+  const startAutoCheck = useUpdateStore((s) => s.startAutoCheck);
+  const stopAutoCheck = useUpdateStore((s) => s.stopAutoCheck);
   const openPalette = useCallback(() => setPaletteOpen(true), []);
 
   useNumberRouteHotkeys();
@@ -29,6 +33,12 @@ export function AppLayout() {
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
+
+  // 更新自动检查：启动即查一次 + 每 4h 轮询（定时器在 store 模块层，幂等启停）
+  useEffect(() => {
+    startAutoCheck();
+    return () => stopAutoCheck();
+  }, [startAutoCheck, stopAutoCheck]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -58,6 +68,7 @@ export function AppLayout() {
         <StatusBar />
       </div>
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <UpdateNotice />
     </div>
   );
 }
