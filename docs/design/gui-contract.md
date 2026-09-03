@@ -31,7 +31,9 @@
 
 后端 `app.emit("node-event", <NodeEventJson>)`；前端 `listen("node-event", ...)` 单例订阅入 store。
 
-NodeEventJson 判别联合（type 字段）；所有变体均可携带可选 `tsMs?: number`（后端发射时刻毫秒时间戳，前端缺省时以本地接收时间兜底，加法字段不破坏既有实现）：
+NodeEventJson 判别联合（type 字段）；所有变体均可携带可选 `tsMs?: number`（后端发射时刻毫秒时间戳，前端缺省时以本地接收时间兜底，加法字段不破坏既有实现）。
+
+`peer_discovered` 自 v5 起携带必填 `source: "mdns" | "rendezvous" | "manual"`（加法字段，语义见 §10）：
 
 ```ts
 | { type: "peer_discovered"; peer: string; addrs: string[] }
@@ -153,3 +155,18 @@ interface UpdateCheckResult {
 - 失败语义：网络失败 / 响应非法 / 版本解析失败一律返回 Err（可读中文）并留日志，禁止静默吞。
 - 无状态：后端不缓存不轮询；轮询节奏由前端驱动（启动后 + 定期 + 手动），无新增事件通道。
 - HTTP 超时 10s；端点为编译期常量，不做用户配置。
+
+## 10. 邻居来源字段 source（v5 加法，2026-09-03 邻居表复盘）
+
+`peer_discovered` 事件新增必填 `source` 字段（`"mdns" | "rendezvous" | "manual"`），
+值来自 swarm 地址簿的按端聚合来源，取覆盖面最强档：mdns > rendezvous > manual。
+
+- 语义：来源是"地址知识从哪来"，与连通性无关；对已发现节点手动拨号不会改变其来源
+  （manual 地址仅在拨号对话框等显式登记路径产生）。
+- 前端消费：邻居表来源列直读该字段，废除"有 dial_hop 记录即视为手动"的推断。
+- 前端活跃度语义（展示层约定，随本修订一并生效）：`lastSeenMs`（最后活跃）只由正向
+  证据刷新——发现源（mdns/rendezvous）的 peer_discovered 与 peer_connected；manual 来源
+  的 peer_discovered（本端自身登记）、dial_hop（成败均可能出现）、peer_disconnected
+  （可能来自发现缓存 TTL 过期）均不刷新。已发现/离线徽标据此推导，拨号失败不再把
+  死节点渲染成"已发现"。
+
