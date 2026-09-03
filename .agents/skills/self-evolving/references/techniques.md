@@ -88,3 +88,9 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-03 W6：bash heredoc 里嵌 python 正则替换时反斜杠转义会双层损耗导致静默失配（打不出错、就是不生效）——改用 s.find(marker) 定位加字符串截断，配 assert idx 大于 0 防静默；sed -i 空串写法在 macOS 可用。
 - 2026-09-03 W6：run_code 字符串数组逐行 join 写代码文件时，行内引号与 JS 外层引号同种是雷源（本次 TSX 双引号 className 行在单引号 JS 串里转义炸整个脚本）——含同种引号的行改用另一种 JS 引号承载；写完立即 grep 回读关键行。
 - 2026-09-03 W6：验证命令要截尾输出时用三段式 cmd 重定向到临时文件加分号 echo 真实退出码再加 tail，替代 cmd 管道 tail（管道末端吃退出码红线的日常化写法）。
+
+## 2026-09-03 W7-G-U2 更新提醒前端轮
+
+- vitest + zustand：测试里 store.setState 放 act() 外时，React 订阅组件的重渲染与 effect 异步冲刷，紧随其后的断言读到旧值（toast 调用次数 0）——setState 一律包 act()。另注意测试夹具 helper 若顺手重置去重标记（如 reminderShownFor），会把要测的轮询去重逻辑本身破坏。
+- vi.mock 工厂要引用顶层 vi.fn() 时必须走 vi.hoisted(() => ({...}))，普通 const 会被提升后的工厂在初始化前访问（TDZ 报错）。
+- fake timers 下等微任务（mock IPC 立即 resolve 的检查流程）用 await vi.advanceTimersByTimeAsync(0) 冲刷，比 await Promise.resolve() 更稳。

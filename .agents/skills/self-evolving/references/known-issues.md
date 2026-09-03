@@ -155,3 +155,7 @@ failed: early eof（客户端侧超时中止）。
 - 症状：驱动脚本无任何输出挂死。原因：自写 send() 只登记 pending 漏了 ws.send 真正发帧，Chrome 从未收到指令。修法：协议客户端先验证指令确实发出（最小 probe：/json/new + Runtime.evaluate 1+1），再怀疑对端。
 - 症状：Page.navigate 后 loadEventFired 等不到。原因：hash-only 变更是同文档导航不触发 load 事件；/json/new 的 url 参数也不保证真的导航（target 常停在 about:blank）。修法：每格用唯一 query 强制文档级导航 + 轮询 location.href 到目标 origin。
 - 症状：Runtime.evaluate 抛 SecurityError: localStorage access denied。原因：evaluate 落在 about:blank 上下文（上一条的后果）。修法：先确认 origin 再碰 localStorage。
+
+## 2026-09-03 W7-G-U2 更新提醒前端轮
+
+- 症状：edit 工具编辑 400+ 行 locale 文件后，回显的 after 全文里 relay 段看似出现重复块+内容变异，疑似文件损坏。原因：巨量 before/after 回显经 spill 截断渲染产生的显示伪影，不是磁盘真实状态。修法：大文件编辑后一律 git diff 权威核验（本次 diff 干净：恰好 +33 行），不要凭回显判断、更不要在惊慌中回滚。

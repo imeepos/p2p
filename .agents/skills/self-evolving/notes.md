@@ -70,3 +70,11 @@
   命中：worktree 建分支、契约逐字对齐、依赖前查 Cargo.lock 复用图内包（url/chrono 零新增成本）、main 高速推进先 fetch 再定基线。没预警：reqwest feature 改名（已喂回 lessons.md）。
 - 重来一次会怎么做？
   开工先跑一遍目标依赖的 cargo add --dry-run 或查 docs.rs features 表；合并-门禁做成可重复循环，用 is-ancestor 机械收敛。
+
+## 2026-09-03 G-U2 更新提醒前端（feat/gui-update-remind）
+- 哪个坑浪费了最多时间？
+  两处都是测试侧：vi.mock 工厂引用顶层 vi.fn() 的 TDZ（vi.hoisted 才对）；zustand setState 不包 act() 导致 effect 异步冲刷、断言读旧值，加上夹具 helper 顺手重置去重标记把被测逻辑破坏——4 个失败全在测试自身而非实现。
+- skill 有没有提前警告我？
+  命中：locale 先行小提交、mock-ipc 行数余量自查（297/300 惊险守住）、react-refresh 纯组件导出红线提前把 helper 拆文件。没预警：edit 工具巨量回显伪影差点误判文件损坏（已喂回 known-issues：大文件编辑后 git diff 权威核验）。
+- 重来一次会怎么做？
+  zustand 组件测试从第一个用例就统一 act() 包 setState；写夹具 helper 时把「哪些字段是断言目标」列清，禁止 helper 隐式重置被测状态；协调者 talk 巡检正好像心跳，主动在关键节点（locale 落盘/验收全绿）回报一次省得被动等查。
