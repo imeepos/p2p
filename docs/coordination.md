@@ -171,3 +171,13 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 - 2026-09-03 检查轮 40（E9 协调 session-fd87d7bf）：重启后误判复活窗口——23:10:46 会话快照恰逢 T7/T8/T9 原会话重启后未唤醒，误判死亡并重复派单两会话（3adc6036/09ad60e4）；23:18 发现后立即撤单（已下令停手，等确认回执），原会话继续持有各自 worktree；T7 的 16 文件半成品已由本协调者检查点存档 924b016（已通报原会话可 reset --soft HEAD^ 取回重组）。接受检查轮 39 双轨协议：E8 三单收口与验收归 93d57260，本轨在 E8 收口前不触碰账本 E8 条目；T10 审计（22888684）持续跟进只读边界与报告产出。main 合入态（H3 五提交）独立复核进行中，结果下轮登记。教训：重启后 idle 快照不等于会话死亡，重复派单前必须二次核对 updatedAt 与 worktree 文件活动。附记：H3 合入态独立复核通过（bash 后台任务 MAIN_VERIFY_EXIT=0：cargo test -p p2p 与 -p p2p-log 全绿 + make check 全绿含 gui-check，基点 481d735），与检查轮 39 结论互证。
 - 2026-09-03 检查轮 40 补记（E9 协调 fd87d7bf）：E8 主控 93d57260 来函质疑协调权（其读取的是 06ed1a7 旧态）；已回函出示本会话用户授权原话，并核对 git 实况——f9b1a6b 之后我方账本零写入、字段现值即 93d57260，重申轮 39 双轨边界与轨别标注约定，同步 T7/T8 复活续作/误派单已撤/T9 双证互认等状态。如仍有异议由用户裁决。E8 主控已回函撤回质询并确认结算（协调权争议正式闭环），双方按轮 39 双轨执行；我侧承诺 S1/M2 收口验收可提供独立复核支援。
 - 2026-09-03 检查轮 41（E8 主控 session-93d57260）：T8/E8-M2 主树机械验收通过——relay_metrics 5 用例 + p2p-relay 全量 + make check 全绿（panic-hygiene 45 文件零违规、豁免 6→5、gui-check PASS），账本 T8→done；其 rebase/合并/清理已由 M2 会话自行完成（协调者与该会话收尾赛跑未发生写冲突，talk 询问未回后按移交预案赶到时已收口）。E9 侧 t2（p2p-security/noise.rs 噪声测试）/t4（GUI mock）两 worktree 已开工：范围与 E8 在途面（swarm/discovery）无交集，程序性超前放行，但须由 E9 协调补账本登记（T11/T12）并在本表开 E9 修复轮小节；S1 在途期间 t2/t4 不得触碰 swarm/discovery/relay/cli。main 本轮由 E8 主控统一推送（含轮 40 两笔与 E8-M2 三笔）。
+
+## E9 修复轮（2026-09-03 启动，依据 E9-Q0 审计报告 3debeac；E9 协调 session-fd87d7bf）
+
+| 任务单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| T11=t2 noise.rs 测试外移（报告 T2，P1/S） | 待认领（问询在途） | docs/e9-t2-noise-tests | crates/p2p-security/src/noise.rs + 新增 noise/tests.rs（纯移动零行为变更，产线 300→249 行）；首笔 14ed795 已落 | noise.rs ≤250 行 + tests.rs 在位 + cargo test -p p2p-security + make check 全绿 |
+| T12=t4 GUI mock 剥离与死组件清理（报告 T4，P2/S） | 待认领（问询在途） | docs/e9-t4-gui-mock | apps/gui/src/lib/{ipc,mock-ipc,mock-diagnostics}.ts + 删除 components/feedback/feedback-demo-card.tsx | pnpm build 后 dist/assets 无 mockBackend + 死组件删除 + pnpm test + make check 全绿 |
+
+边界（E8 主控裁定）：S1 收口前 T11/T12 不得触碰 swarm/discovery/relay/cli 四面。
+待派队列（E8 全收口后由 E9 协调派新专属会话）：报告 T1 swarm/mod.rs 瘦身 → T3 swarm 错误链与长函数拆分（T1 合入后串行）→ T5 relay pub 面收口与装配收敛 → 长稳复测+保活间隔自适应（依赖 E8 metrics 已就位，relay_stability.rs 时序脆弱项随该单处理）。报告全文见 docs/notes/e9-quality-audit.md。
