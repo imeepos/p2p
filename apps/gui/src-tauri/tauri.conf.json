@@ -26,7 +26,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg"],
+    "targets": "all",
     "category": "DeveloperTool",
     "shortDescription": "p2p 节点可视化控制台",
     "longDescription": "本机 p2p 节点的启停与配置、邻居节点发现与连接、降级链（直连/打洞/中继）路径可视化与事件流观测。纯可视化界面，不新增协议语义。",
