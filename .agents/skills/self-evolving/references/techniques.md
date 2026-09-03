@@ -69,3 +69,6 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   G-H 首跑即定位 selectPeerList 无限重渲染 + Button ref 告警，复验 console/exceptions
   双清零即修复证明（截图/JSON 留档 .gui-agent/）。
 
+- sonner 在 jsdom/vitest 下 toast 是异步 mount：`act(() => toast.x())` 后 DOM 立即查询为空，必须 `await screen.findByRole/findByText` 等待；先用一次性 probe 测试 dump `container.innerHTML` 可 1 分钟定位此类渲染时机问题。
+- sonner 测试间模块级队列残留：afterEach 里 `cleanup()` 后再 `act(() => toast.dismiss())` 清全局队列，否则下个用例看到上轮 toast。
+

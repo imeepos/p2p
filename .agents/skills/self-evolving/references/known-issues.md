@@ -128,3 +128,10 @@ failed: early eof（客户端侧超时中止）。
 - 症状：Tauri/React 窗口全白无任何 UI，构建与全部测试绿。
 - 原因：渲染期 ReferenceError 或 useSyncExternalStore 快照不稳定（selector 每次返回新数组）导致无限重渲整树崩溃；vitest 独立 config 不继承 vite 的 define，build-time 注入量（__APP_VERSION__）在测试环境是裸标识符。
 - 修法：selector 按源引用 memo 或消费侧 useShallow；vitest.config 与 vite.config 的 define 对齐；jsdom 启动冒烟锁整应用可渲染（src/test/app-boot.test.tsx 先例：vi.stubEnv 后动态 import main，waitFor main 元素，断言无兜底文案）（2026-09-03 实录）。
+
+## 2026-09-02 W6-S2 反馈打磨轮
+
+- 症状：run_code 里用模板串写含 markdown 反引号的文档 → 语法错误 `Expected ',', got 'ident'`。原因：内容里的反引号终止了 JS 模板串。修法：内容改为字符串数组 `join("\n")`，或转义所有反引号。
+- 症状：`git add ... && git commit -F - <<'MSG' ... MSG && git add ...` 链式 heredoc 只执行了第一段。修法：heredoc 提交逐条单独跑，不进 && 链；每次 commit 后 `git log` 核对落盘。
+- 症状：改共享函数签名（toastError 二参 string → options 对象）后，边界外的 W6-S1 文件编译报错。修法：共享 API 变更一律带兼容层（`string | Options` 归一化），不越界改他人文件，回报中标注。
+
