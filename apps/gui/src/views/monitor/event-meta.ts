@@ -29,6 +29,8 @@ const BADGE_VARIANT: Record<NodeEventType, BadgeVariant> = {
   node_started: "secondary",
   node_stopped: "secondary",
   node_error: "destructive",
+  chat_message: "default",
+  chat_status: "secondary",
 };
 
 export const ALL_EVENT_TYPES: readonly NodeEventType[] = Object.keys(
@@ -46,6 +48,8 @@ export const EVENT_TYPE_KEY: Record<NodeEventType, I18nKey> = {
   node_started: "events.types.node_started",
   node_stopped: "events.types.node_stopped",
   node_error: "events.types.node_error",
+  chat_message: "events.types.chat_message",
+  chat_status: "events.types.chat_status",
 };
 
 export function isNodeEventError(event: NodeEventJson): boolean {
@@ -129,5 +133,9 @@ export function eventSummary(
         key: "events.summary.nodeError",
         values: { reason: event.reason },
       };
+    case "chat_message":
+      return { key: "events.summary.chatMessage", values: { peer: short(event.peer) } };
+    case "chat_status":
+      return { key: "events.summary.chatStatus", values: { id: event.messageId.slice(0, 8), status: event.status } };
   }
 }

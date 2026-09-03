@@ -27,5 +27,9 @@ export function describeNodeEvent(event: NodeEventJson): string {
       return "node_stopped";
     case "node_error":
       return "node_error " + event.reason;
+    case "chat_message":
+      return "chat_message " + short(event.peer);
+    case "chat_status":
+      return "chat_status " + short(event.peer) + " " + event.status;
   }
 }
