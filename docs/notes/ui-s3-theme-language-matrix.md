@@ -86,3 +86,15 @@
 - 即时性探针输出：themeFlips=true，langSwitchImmediate=true（见 §三）。
 - 走查驱动脚本（零依赖 CDP，/tmp 运行不入库）：7 路由×2 主题×2 语言单
   Chrome 会话批测，逐格刷新+静置+探针+截图。
+
+## 七、合并说明（分支收尾）
+
+- 本轮代码四提交（2a9e311 input forwardRef / 48b2b2f resetting key /
+  a7bd469 重置弹框 AsyncButton 化 / c948eeb 防漂移断言）在走查进行期间由
+  协调者先行合入 main；分支收尾 rebase 到 ad9af4a 时空提交自动去重，本分支
+  仅余本文档提交。
+- 上游 2fe5c3b 将 factory-defaults 迁至 views/shared/（目录重命名检测把
+  对应测试一并带过去），防漂移测试与互指注释完整保留并保持绿；上游
+  f6630fd 在后端补了空列表回落出厂默认（state.rs with_factory_fallback），
+  与本文 §四 F4 的展示层镜像契约互补。
+- rebase 后全量门禁复跑：make check 退出码 0，check:i18n PASS（zh=324 en=324）。
