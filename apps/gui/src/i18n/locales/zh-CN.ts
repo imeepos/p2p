@@ -277,6 +277,8 @@ const zhCN = {
       node_started: "启动",
       node_stopped: "停止",
       node_error: "错误",
+      chat_message: "聊天消息",
+      chat_status: "消息状态",
     },
     summary: {
       peerDiscovered: "发现节点 {{peer}}（{{addr}}）",
@@ -289,9 +291,19 @@ const zhCN = {
       nodeStarted: "节点已启动，监听 {{addrs}}",
       nodeStopped: "节点已停止",
       nodeError: "节点错误：{{reason}}",
+      chatMessage: "收到 {{peer}} 的消息",
+      chatStatus: "消息 {{id}} 状态：{{status}}",
     },
     outcome: { ok: "成功", fail: "失败" },
     detail: { payload: "原始负载", receivedAt: "接收时间" },
+  },
+  chat: {
+    title: "聊天",
+    description: "好友 1:1 私聊：文本、表情与附件",
+    placeholder: {
+      title: "会话视图建设中",
+      hint: "好友簿与消息契约已就绪，会话列表与消息界面将在下一波接入",
+    },
   },
   settings: {
     title: "设置",
@@ -427,7 +439,7 @@ const zhCN = {
     copyAddress: "复制地址",
     copied: "已复制到剪贴板",
     open: "命令面板",
-    hint: "Cmd/Ctrl+K 打开；Cmd/Ctrl+1..7 切换页面；Esc 关闭",
+    hint: "Cmd/Ctrl+K 打开；Cmd/Ctrl+1..8 切换页面；Esc 关闭",
   },
   diagnostics: {
     title: "诊断",

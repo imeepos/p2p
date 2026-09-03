@@ -284,6 +284,8 @@ const enUS: typeof zhCN = {
       node_started: "Start",
       node_stopped: "Stop",
       node_error: "Error",
+      chat_message: "Chat message",
+      chat_status: "Chat status",
     },
     summary: {
       peerDiscovered: "Discovered peer {{peer}} ({{addr}})",
@@ -296,9 +298,19 @@ const enUS: typeof zhCN = {
       nodeStarted: "Node started, listening on {{addrs}}",
       nodeStopped: "Node stopped",
       nodeError: "Node error: {{reason}}",
+      chatMessage: "Message from {{peer}}",
+      chatStatus: "Message {{id}} status: {{status}}",
     },
     outcome: { ok: "ok", fail: "failed" },
     detail: { payload: "Raw payload", receivedAt: "Received at" },
+  },
+  chat: {
+    title: "Chat",
+    description: "1:1 direct chat with friends: text, emoji and attachments",
+    placeholder: {
+      title: "Conversation view under construction",
+      hint: "Friend book and message contract are ready; the conversation UI lands in the next wave",
+    },
   },
   settings: {
     title: "Settings",
@@ -435,7 +447,7 @@ const enUS: typeof zhCN = {
     copyAddress: "Copy address",
     copied: "Copied to clipboard",
     open: "Command palette",
-    hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..7 to switch pages; Esc to close",
+    hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..8 to switch pages; Esc to close",
   },
   diagnostics: {
     title: "Diagnostics",

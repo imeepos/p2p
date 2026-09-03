@@ -3,6 +3,7 @@
 import {
   Activity,
   LayoutDashboard,
+  MessageCircle,
   Network,
   Radar,
   Settings,
@@ -24,6 +25,7 @@ export const MENU_ENTRIES: readonly MenuEntry[] = [
   { path: "/peers", titleKey: "peers.title", icon: Network },
   { path: "/discovery", titleKey: "discovery.title", icon: Radar },
   { path: "/relay", titleKey: "relay.title", icon: Waypoints },
+  { path: "/chat", titleKey: "chat.title", icon: MessageCircle },
   { path: "/events", titleKey: "events.title", icon: Activity },
   { path: "/settings", titleKey: "settings.title", icon: Settings },
   { path: "/diagnostics", titleKey: "diagnostics.title", icon: Stethoscope },

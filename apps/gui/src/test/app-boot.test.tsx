@@ -42,11 +42,13 @@ describe("app boot smoke", () => {
     const readyMarkers: Record<string, string> = {
       "#/relay": "中继地址配置",
       "#/settings": "局域网发现（mDNS）",
+      "#/chat": "会话视图建设中",
     };
     for (const hash of [
       "#/peers",
       "#/discovery",
       "#/relay",
+      "#/chat",
       "#/events",
       "#/settings",
       "#/diagnostics",

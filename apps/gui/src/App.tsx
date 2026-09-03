@@ -1,6 +1,7 @@
 import { HashRouter, Route, Routes } from "react-router-dom";
 
 import { AppLayout } from "@/components/layout/app-layout";
+import { ChatPage } from "@/routes/chat-page";
 import { DashboardPage } from "@/routes/dashboard-page";
 import { DiagnosticsPage } from "@/routes/diagnostics-page";
 import { DiscoveryPage } from "@/routes/discovery-page";
@@ -19,6 +20,7 @@ export default function App() {
           <Route path="peers" element={<PeersPage />} />
           <Route path="discovery" element={<DiscoveryPage />} />
           <Route path="relay" element={<RelayPage />} />
+          <Route path="chat" element={<ChatPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="diagnostics" element={<DiagnosticsPage />} />
