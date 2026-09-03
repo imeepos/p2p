@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T15:58:59.553Z",
+  "updatedAt": "2026-09-03T16:03:45.929Z",
   "project": "p2p-base",
-  "phase": "E9-fix-round",
+  "phase": "E9-repair",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E8 观测与语义收拢轮三单（T7/T8/T9）全部机械验收通过并合入 main，轮正式关闭；协调权按双轨协议移交 E9 协调（fd87d7bf），T13 gating 解除，T1/T3 与长稳复测单可排期。E8 主控（93d57260）转监督待命。",
+  "note": "E8 关闭（轮 45），协调权移交 E9 协调 fd87d7bf。E9 在途：T13=t5 relay pub 面收口（143c9a8+，gating 已解除，S1 收口后可合入）；T14=报告 T3 错误链与长函数拆分（新专属会话 9bdaba46，5 处拍平点位实测在位）；T11/T12 done。待排：长稳复测+保活间隔自适应（待 T13 关闭 relay 面后派）、调研余项 6（路径寿命 cliff 探测）/8（回归保持）候选 E9 二批。审计报告 T1 前提已被 S1 落地消化（mod.rs 271 行），不再另立单。",
   "tasks": [
     {
       "id": "T1",
@@ -161,6 +161,17 @@
       "scope": "crates/p2p-relay/src/{lib,link,service}.rs + 使用点（p2p-cli/src/bootstrap.rs、p2p-itest/src/lib.rs、p2p-itest/tests/relay_control_resilience.rs、p2p-itest/tests/relay_transport_persistence.rs、p2p/tests/m3_chain.rs）+ crates/p2p-swarm/src/lib.rs 仅 :19 一行；gating：裁定①先行——relay/cli/itest/facade 消费面已放行，swarm lib.rs:19 后置至 S1 合入后，S1 收口前不得合入 main，开发期定向门禁（relay/cli）",
       "acceptanceCommand": "bash -c '! grep -q mock_link_pair crates/p2p-relay/src/lib.rs && ! grep -rq \"RelayServiceImpl::new\" crates/p2p-cli/src crates/p2p/tests crates/p2p-itest --include=\"*.rs\" && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test --workspace --quiet && make check'",
       "origPriority": "P3"
+    },
+    {
+      "id": "T14",
+      "goal": "E9-Q0 报告 T3（按 558522d 实况重 scopes）：swarm 错误链保真——修复 responder.rs:109 与 relay_session.rs:167/181/210/214 共 5 处 io::Error::other(e.to_string()) 拍平（保 source 链）并全 crate 复查同类；≥60 行函数按阶段语义拆分（40-59 行重点观察）零行为变更；回归断言 source() 链含消融证明",
+      "title": "E9-T3 swarm 错误链保真与长函数拆分",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "feat/e9-t3-swarm-errors",
+      "ownerSession": "session-9bdaba46-5ae7-46c9-aac0-78f54a10ff0b",
+      "scope": "crates/p2p-swarm/**；其他 crate 只读（T13 在 relay/cli/itest 在途）；冻结契约只增不改",
+      "acceptanceCommand": "bash -c '! grep -rq \"io::Error::other(e.to_string())\" crates/p2p-swarm/src && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-swarm && cargo test -p p2p-itest --test conn_reclaim --test peer_lifecycle && make check'"
     }
   ]
 }
