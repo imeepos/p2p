@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T20:15:26Z",
+  "updatedAt": "2026-09-03T20:25:41Z",
   "project": "p2p-base",
   "phase": "E10-RS-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23 全 done（T23 5c9b9b8，34 tests 一次通过）；T25（89f85ec3）与 T26（801a58c9）并行 doing，T24 待 T25、T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
+  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23/T25 全 done（T25 b7b831f，31 tests 一次通过，shell_union 即白名单数据源）；T24（3adc549c，一致性测试机械防漂移）与 T26（801a58c9）并行 doing，T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。",
   "tasks": [
     {
       "id": "T1",
@@ -283,9 +283,9 @@
       "goal": "shell_exec 白名单闭集数据与判定接线：清单按 Q7 取卡慢/弹窗清理/C 盘空间三类 playbook 命令并集，argv[0]+参数模式校验；依赖 T22+T25",
       "title": "RS-P0b-T24 shell 白名单闭集",
       "priority": "P0",
-      "status": "pending",
+      "status": "doing",
       "branch": "feat/rs-shell-whitelist",
-      "ownerSession": "待派（批次三）",
+      "ownerSession": "session-3adc549c-18b1-4276-b190-e4d5d3730a92",
       "scope": "crates/repair-enforce 白名单数据+shell 判定",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'"
     },
@@ -294,11 +294,14 @@
       "goal": "playbook agent 无关格式 v1（结构化 markdown：前置条件/步骤/验收命令/红线）解析与校验 crate + docs/playbooks/ 三类草案；无依赖可与批次一并行",
       "title": "RS-P0b-T25 playbook 格式与解析器",
       "priority": "P1",
-      "status": "pending",
+      "status": "done",
       "branch": "feat/rs-playbook",
       "ownerSession": "session-89f85ec3-fc6a-44c6-93b4-49008e45c2e3",
       "scope": "新增 crates/repair-playbook/** + docs/playbooks/ 三类草案",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-playbook && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-playbook && make check'",
+      "mergedMain": "b7b831f",
+      "acceptedAt": "2026-09-03T20:25:13.018Z",
+      "note": "一次通过：219b4d2（解析器 9 模块 1263 行，lib.rs 292 贴线合规）+ b7b831f（README 格式规范 + 三类草案 379 行）；31 tests 绿，shell_union 导出即 T24 数据源，隔离全量门禁 exit 0。"
     },
     {
       "id": "T26",
