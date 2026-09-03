@@ -1073,6 +1073,7 @@ dependencies = [
  "p2p-mux",
  "p2p-security",
  "quinn",
+ "socket2 0.6.5",
  "thiserror 1.0.69",
  "tokio",
  "tokio-util",

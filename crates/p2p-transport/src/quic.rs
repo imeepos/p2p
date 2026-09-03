@@ -16,7 +16,8 @@ use crate::{SecureConn, Transport, TransportAddr, TransportError};
 
 /// 身份校验不依赖证书域名，SNI 用固定占位即可
 const SERVER_NAME: &str = "p2p-base";
-const KEEP_ALIVE: Duration = Duration::from_secs(10);
+/// TCP 侧 keepalive 复用同一间隔（E8-H3 空闲维度统一，见 tcp.rs）。
+pub(crate) const KEEP_ALIVE: Duration = Duration::from_secs(10);
 /// QUIC 空闲连接回收上限：半开连接不得长期占用（安全审查 1 期 M3）
 pub const QUIC_IDLE_TIMEOUT: Duration = Duration::from_secs(30);
 /// QUIC 握手（connecting/Incoming resolve）总时长上限
