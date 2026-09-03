@@ -106,3 +106,8 @@
 - 哪个坑浪费最多时间：日志三种现象并存（peer 30s 循环、relay 10.5s 循环、直连全灭），容易先入为主去查探测协议；真正突破口是机械时间指纹——uptime 恒 30.00x s、控制流关闭恰在 connected 后 +10.008s，把现象钉到定时器网格而非网络抖动。
 - skill 有没有预警：known-issues 已有 keepalive/tcp 条目，但没预警「客户端周期与服务端超时窗口同值贴线竞速」与「拨号 socket 协议族和地址簿地址族不对齐」这两类（本次已喂回）；周期性日志先算相邻差分找恒定周期（sigma<5ms 即定时器）这一排查手法已补进本条。
 - 重来一次怎么做：拿到周期性日志先做时间差分表，恒定周期必对应代码常量，grep Duration 常量对表；凡 A 端周期性动作对 B 端超时窗口，必问谁先谁后、输了会怎样。
+
+## 2026-09-04 五连修执行轮（relay 保活/QUIC 双栈/探活判死/地址簿卫生/日志降噪）
+- 哪个坑浪费最多时间：fmt 门禁两轮红——第一轮只 fmt 改动的三个 crate，第二轮才用 --all 收口；expect_err 条目 known-issues 已有仍踩进去（SecureConn 无 Debug），凭惯性手滑，说明条目必须写到「替代写法」层级才防得住（本次已补 match 取 Err 臂写法在案）。
+- skill 有没有预警：worktree 按路径读缓存条目防住了（先读后改一次过）；expect_err 有条目没防住；新坑 quinn Endpoint::new 收 std socket 与 v4-mapped 令 is_unspecified 失真已喂回 known-issues。
+- 重来一次怎么做：改代码批次收尾一律 cargo fmt --all 再提交，不等 fmt-check 抓；五任务串行时每个任务一气呵成 走 worktree（建/改/测/提交/合并/清）模板化 bash，实测单任务 3-4 分钟。

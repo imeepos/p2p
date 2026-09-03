@@ -260,3 +260,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：三个 peer 会话寿命恒为 30.004-30.008s（3x10s 探测网格，首探即 early eof），每次重连都打 backoff reset: previous session healthy，退避永不升级，delay 恒 800ms、attempts 恒 1，30s 周期重连风暴无限循环。
 - 原因：mark_connected 以 uptime 不小于 reset_min_uptime(30s) 判健康，而会话寿命恰被 max_probe_misses x probe_interval = 3x10s 钉死在 30s——「活得够久」与「探测成功」完全脱钩，参数互撞使健康判定形同虚设；且 EOF（对端关流/连接已死）与超时不分，白等满 3 次才断链。
 - 修法：健康判定追加「本会话至少一次 probe 成功」；EOF 型探测失败立即断链不等满次数；新增超时参数时先核对与既有定时器网格（探测间隔/退避/保活）的倍数关系，避免语义相消。
+
+## 2026-09-04 quinn 0.11 双栈端点两处 API/语义陷阱（T2 双栈化实测）
+- 症状一：Endpoint::new 传 tokio::net::UdpSocket 报 E0308——quinn 0.11 的 new 直接收 std::net::UdpSocket，由 TokioRuntime 自行包装；先 from_std 再传反而类型不匹配。
+- 症状二：V4 目标映射成 v4-mapped（::ffff:a.b.c.d）后 is_unspecified() 失真——0.0.0.0 变 ::ffff:0.0.0.0 不再未指定。quinn 的 connect_with 只做族校验（拒「V6 目标+非 v6 端点」），未指定地址/0 端口的确定性拒绝在 quinn-proto（endpoint 内层 connect），映射可令其被绕过，退化为吃满握手超时的悬挂。
+- 修法：映射前对未指定地址契约性拒绝（Dial 文本变体）；双栈化令「族不匹配必拒」场景消亡后，既有 invalid-remote 契约测试改用 EndpointStopping（close 后拨号）确定性触发同一 source 链契约。改契约测试前先抄下「断言的契约本体」，再为新世界找等价触发。
