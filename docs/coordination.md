@@ -149,3 +149,12 @@ metrics（M4 余项）与 gossip pubsub（可选）排 E5，不在本轮。
 | GUI 邻居表来源直读与最后活跃只认正向证据（契约 v5 加法修订） | 用户主会话（session-da3dffd3，用户直派，不受派单 worker 规则约束） | feat/gui-peer-source ✓ 已合入（3ca3b7e 契约 v5 / 0688e59 i18n locale 先行 / 55f3cdb swarm PeerDiscovered 加法 source+cli 适配 / 93cc57f gui 消费+types 拆分） | docs/design/gui-contract.md + crates/p2p-swarm + crates/p2p-cli 适配 + apps/gui/src-tauri + apps/gui | 协调者核验 git 实况与回报一致；main 总门禁协调者复跑 GATE=0（89497cb） |
 
 E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范围）、metrics（M4 余项）、gossip pubsub、观测多反射器/v6、YamuxMux/QuicMux 生命周期语义统一。
+- 2026-09-03 检查轮 37（协调权收回 session-93d57260，已向前任 session-29461bad 发通知）：复核 E6 三单交付（peer_lifecycle 3 用例 / relay_stability 5 用例 / swarm 全量在 main 复跑全绿）；gui-peer-source 合入核验无误。裁定 E8 观测与语义收拢轮并派单三单，范围互斥：E8-S1（swarm+discovery，调研落地建议第 4/5 条：空闲连接回收+关闭原因事件化+统一 PeerLiveness 单一活跃度源）、E8-M2（relay+cli，metrics 埋点+CLI metrics 入口+cli 豁免收缩）、E8-H3（facade+log+transport/mux，Yamux/Quic 生命周期四维对照文档化与最小对齐+facade/log 豁免收缩）。任务书只含需求与机械验收、不含源码；账本 T7-T9 同步登记。metrics 就位后 E9 再议长稳复测/保活间隔自适应/gossip/多反射器。
+
+## E8 观测与语义收拢轮（2026-09-03 派单）
+
+| 修复单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| 连接回收与统一活跃度 | p2p-E8-S1（session-0b4fb845） | feat/e8-conn-reclaim | crates/p2p-swarm/** + crates/p2p-discovery/** + 新增 crates/p2p-itest/tests/conn_reclaim.rs（空闲回收+使用中豁免+关闭原因 idle/error/refused 事件化+统一 PeerLiveness 单一活跃度源）；facade/relay/cli/GUI 只读；冻结契约只增不改 | cargo test -p p2p-itest --test conn_reclaim + cargo test -p p2p-swarm + cargo test -p p2p-discovery + make check 全绿；含回收消融证明 |
+| 中继指标面与 CLI 观测 | p2p-E8-M2（session-74a7eec9） | feat/e8-relay-metrics | crates/p2p-relay/**（电路建立/拒绝/回收计数、在路 gauge、保活失败计数）+ crates/p2p-cli/**（metrics 观测入口，可 grep ≥4 指标）+ panic 豁免 cli 条目收缩 + 新增 crates/p2p-relay/tests/relay_metrics.rs；swarm/discovery/facade/GUI 只读 | cargo test -p p2p-relay --test relay_metrics + cargo test -p p2p-relay + make check 全绿；报告附 CLI 冒烟证据与豁免 diff |
+| mux 语义统一与豁免收缩 | p2p-E8-H3（session-c187513b） | feat/e8-mux-lifecycle-doc | crates/p2p/** + crates/p2p-log/** + crates/p2p-transport/** + crates/p2p-mux/**（仅最小对齐）+ 新增 docs/design/mux-transport-lifecycle.md（句柄存亡/显式关闭/空闲行为/读半结束四维对照与统一定稿，冻结契约缺口只登记）+ panic 豁免 facade/log 条目收缩；swarm/relay/discovery/cli/GUI 只读 | cargo test -p p2p + cargo test -p p2p-log + 文档存在 + make check 全绿；报告附四维对照摘要与豁免 diff |
