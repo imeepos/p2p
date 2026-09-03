@@ -2,6 +2,10 @@ pub mod audit;
 pub mod cap;
 pub mod enforce;
 pub mod jail;
+pub mod p2p;
+pub mod session_report;
+pub mod ticket;
+pub mod ticket_ledger;
 pub mod tools;
 
 use async_trait::async_trait;
@@ -283,4 +287,8 @@ fn tool_result_json(text: &str, is_error: bool) -> Value {
 #[cfg(test)]
 mod guarded_tests;
 #[cfg(test)]
+mod p2p_tests;
+#[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod ticket_tests;
