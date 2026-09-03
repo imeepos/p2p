@@ -20,6 +20,7 @@ use crate::profile::{NodeProfile, ProfileStore};
 use crate::proto;
 use crate::types::{GuiConfig, MetricsJson, NodeStatus};
 
+mod chat;
 mod peers;
 
 /// 运行中的节点及其生效配置。
@@ -38,6 +39,8 @@ pub struct StartedNode {
     pub listen_addrs: Vec<String>,
     /// 启动即订阅，缩小启动窗口丢事件的可能。
     pub events: broadcast::Receiver<NodeEvent>,
+    /// chat 事件接收端（chat_message/chat_status 转发任务由命令层接管）。
+    pub chat_events: broadcast::Receiver<p2p_chat::ChatEvent>,
 }
 
 /// 全局应用状态：Tauri managed。
@@ -45,6 +48,7 @@ pub struct AppState {
     running: Mutex<Option<RunningNode>>,
     config: ConfigStore,
     profile: ProfileStore,
+    chat: chat::ChatSlot,
 }
 
 impl AppState {
@@ -52,7 +56,8 @@ impl AppState {
         Self {
             running: Mutex::new(None),
             config: ConfigStore::new(app_data_dir.clone()),
-            profile: ProfileStore::new(app_data_dir),
+            profile: ProfileStore::new(app_data_dir.clone()),
+            chat: chat::ChatSlot::new(app_data_dir),
         }
     }
 
@@ -75,6 +80,11 @@ impl AppState {
         let node = Arc::new(node);
         let history = Arc::new(MetricsHistory::new());
         spawn_metrics_sampler(node.clone(), history.clone());
+        // chat 装配依赖运行中的 node；失败回滚（停 node、不占槽），不留半启动状态
+        let chat_events = self.chat.install(node.clone()).await.inspect_err(|_| {
+            node.shutdown();
+            history.stop_and_clear();
+        })?;
         *slot = Some(RunningNode {
             node,
             config: cfg.clone(),
@@ -93,6 +103,7 @@ impl AppState {
             },
             listen_addrs,
             events,
+            chat_events,
         })
     }
 
@@ -103,6 +114,7 @@ impl AppState {
             Some(running) => {
                 running.node.shutdown();
                 running.history.stop_and_clear();
+                self.chat.uninstall().await;
                 true
             }
             None => false,
@@ -176,6 +188,9 @@ impl AppState {
                 None => (self.config.load().data_dir, false),
             }
         };
+        if was_running {
+            self.chat.uninstall().await;
+        }
         remove_seed(Path::new(&data_dir))?;
         Ok((self.status().await, was_running))
     }
@@ -203,6 +218,11 @@ impl AppState {
         slot.as_ref()
             .map(|r| r.node.clone())
             .ok_or_else(|| "节点未运行，请先启动节点".into())
+    }
+
+    /// 取聊天实例；节点未启动返回可读中文 Err（契约 v7 §12）。
+    pub async fn chat(&self) -> Result<Arc<p2p_chat::Chat>, String> {
+        self.chat.get().await
     }
 }
 

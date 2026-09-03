@@ -30,7 +30,8 @@ impl From<AddrSource> for SourceKind {
 ///
 /// 变体名按 snake_case 判别；应用级事件 node_started / node_stopped / node_error
 /// 由桥接层自产。各变体的可选 ts_ms 在 events::emit 出口统一盖发射时刻戳。
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+// ChatEnvelope 无 Eq（p2p-chat 只派生 PartialEq），故整体降级为 PartialEq。
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum NodeEventJson {
     PeerDiscovered {
@@ -91,6 +92,24 @@ pub enum NodeEventJson {
         #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
         ts_ms: Option<u64>,
     },
+    /// 入站新消息（已落盘，契约 v7 §12.2）。
+    #[serde(rename = "chat_message")]
+    ChatMessage {
+        peer: String,
+        message: p2p_chat::ChatEnvelope,
+        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
+        ts_ms: Option<u64>,
+    },
+    /// 发送状态迁移（契约 v7 §12.2）。
+    #[serde(rename = "chat_status")]
+    ChatStatus {
+        peer: String,
+        #[serde(rename = "messageId")]
+        message_id: String,
+        status: p2p_chat::ChatStatus,
+        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
+        ts_ms: Option<u64>,
+    },
 }
 
 impl NodeEventJson {
@@ -107,7 +126,9 @@ impl NodeEventJson {
             | Self::DialHop { ts_ms, .. }
             | Self::NodeStarted { ts_ms, .. }
             | Self::NodeStopped { ts_ms }
-            | Self::NodeError { ts_ms, .. } => *ts_ms = ts,
+            | Self::NodeError { ts_ms, .. }
+            | Self::ChatMessage { ts_ms, .. }
+            | Self::ChatStatus { ts_ms, .. } => *ts_ms = ts,
         }
         self
     }
@@ -151,6 +172,28 @@ impl From<NodeEvent> for NodeEventJson {
                 hop: hop.into(),
                 ok,
                 detail,
+                ts_ms: None,
+            },
+        }
+    }
+}
+
+impl From<p2p_chat::ChatEvent> for NodeEventJson {
+    fn from(ev: p2p_chat::ChatEvent) -> Self {
+        match ev {
+            p2p_chat::ChatEvent::ChatMessage { peer, message } => Self::ChatMessage {
+                peer,
+                message,
+                ts_ms: None,
+            },
+            p2p_chat::ChatEvent::ChatStatus {
+                peer,
+                message_id,
+                status,
+            } => Self::ChatStatus {
+                peer,
+                message_id,
+                status,
                 ts_ms: None,
             },
         }

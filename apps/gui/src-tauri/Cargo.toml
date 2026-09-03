@@ -16,13 +16,18 @@ p2p = { path = "../../../crates/p2p" }
 # p2p-swarm 取 DialHop/MetricsSnapshot 原始类型（p2p 传递依赖）
 p2p-cli = { path = "../../../crates/p2p-cli" }
 p2p-swarm = { path = "../../../crates/p2p-swarm" }
+# IM 聊天门面（契约 v7 §12，T32 消费面）
+p2p-chat = { path = "../../../crates/p2p-chat" }
 # 统一日志设施（E7-L1）：替换自带 tracing_subscriber 初始化
 p2p-log = { path = "../../../crates/p2p-log" }
 bs58 = "0.5"
+# 附件 dataBase64 解码（契约 §12.3 ChatMediaInput）
+base64 = "0.22"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# test feature 供集成测试用 mock runtime 直调命令层（不起 webview）
-tauri = { version = "2", features = ["test"] }
+# test feature 供集成测试用 mock runtime 直调命令层（不起 webview）；
+# protocol-asset 供 assetProtocol（契约 v7 §12：chat 媒体预览 convertFileSrc）
+tauri = { version = "2", features = ["test", "protocol-asset"] }
 tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
 tracing = "0.1"
 # 在线更新检查（契约 v4 §9，G-U1）：TLS 走 rustls（图内已有，不引 openssl）
