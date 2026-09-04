@@ -58,6 +58,13 @@ cargo test --workspace                        # 全绿即开发环境就绪
 cargo clippy --workspace -- -D warnings       # 提交门禁，零告警
 ```
 
+全新 clone 后需一次性引导 git 钩子（新建 worktree 自动接入 .env，机制见
+docs/ops/env-worktree-bootstrap.md）：
+
+```bash
+git config core.hooksPath "$(pwd)/githooks"   # 在仓库根执行，必须绝对路径
+```
+
 无需外部服务即可跑通全部单测（mDNS 真实组播用例默认 `#[ignore]`）。
 改代码请先读 `AGENTS.md`（分支/worktree/提交纪律）与 `docs/coordination.md`（并行规则）。
 
