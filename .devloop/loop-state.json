@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T06:21:29.000Z",
+  "updatedAt": "2026-09-04T06:37:00.326Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -87,11 +87,14 @@
       "goal": "聊天页好友在线状态：好友列表条目显示在线/离线标识（数据源现成——node-store.peers[peerId].connected，event-reducer 已按 peer_connected/peer_disconnected 翻转）；会话头部同步显示当前对端状态；口径裁决：底层连接建立即在线（展示语义，非端到端心跳）；测试：事件驱动状态切换（connected 置绿/disconnected 置灰）、刷新后初始态与事件流一致、多好友混合状态、节点未启动时全部离线态不异常、状态标识不干扰点击选择；zh/en i18n 全覆盖；【追加热修】协调者识图审计确认聊天页布局崩坏（右侧会话区塌缩约 100px 窄条致空态文案两字一行竖排、标题行与按钮对齐差、主操作重复、内容偏左右半屏空白）——本单先以独立 fix 提交修复布局崩坏（识图复核：左 16rem 好友栏+右侧 1fr 填满+空态居中可读），再提交在线状态 feat 提交；验收新增：修复后重截图（无头 Chrome 1440x900）右栏占比>60% 且空态文案每行>=8 字",
       "title": "IM-T45 好友在线状态与状态测试",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/im-online-status",
       "ownerSession": "session-db548dc0-31ef-4112-a786-eae3f439e0bb",
       "scope": "apps/gui/src：components/chat/conversation-list.tsx、views/chat/chat-view.tsx、stores/chat-store.ts（如需）、i18n 词条、新增 views/chat/online-status.test.tsx；crates 与 src-tauri 只读",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/online-status.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"在线\" apps/gui/src/views/chat/online-status.test.tsx'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/online-status.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"在线\" apps/gui/src/views/chat/online-status.test.tsx'",
+      "mergedMain": "43db63d",
+      "acceptedAt": "2026-09-04T06:36:29.772Z",
+      "note": "独立验收双绿：机械（在线状态 5/5+i18n 423=423+守卫+tip 全量门禁 bash-331 exit 0）+识图（右栏 58%、文案横排、比例 1:2.5）；识图复核发现三处栅格残留已打回，补丁 1f6a8ee 合入后像素级终验通过（竖缝消失/底边齐 y=827/空白带 433→40px，无新问题）——打回-复验闭环首次完整走通"
     },
     {
       "id": "IM-T46A",
@@ -113,9 +116,9 @@
       "goal": "回复消息·GUI 交互与引用渲染：消息气泡提供回复动作（悬停菜单或右键），触发后输入区显示引用预览（被引用消息摘要，取消可退）；发送携带 replyTo；气泡内渲染引用块（点击滚动到被引用消息——本地历史有则滚动高亮，无则显示占位文案，不白屏）；五种消息类型均可被回复且引用预览按类型显示摘要（图片显示[图片]/音频[音频]等 i18n 文案）；测试：回复旅程（收到消息→回复→气泡含引用块→对方视角入站渲染含引用）、引用取消、被引用消息不在本地的占位、五类型引用预览矩阵、旧消息（无 replyTo）渲染不回归；依赖 IM-T46A 合入（类型字段）与 IM-T42 合入（气泡菜单文件互斥）",
       "title": "IM-T46B 回复消息·GUI 交互与引用渲染",
       "priority": "P1",
-      "status": "todo",
+      "status": "doing",
       "branch": "feat/im-reply-gui",
-      "ownerSession": "待派（依赖 IM-T46A + IM-T42 合入）",
+      "ownerSession": "session-7ac3fd05-8f44-4be4-b2ca-dfbffd304700",
       "scope": "apps/gui/src：components/chat/**、stores/chat-store.ts、lib/ipc-types.ts+ipc.ts+mock-chat.ts（replyTo 类型与透传）、i18n 词条、新增 views/chat/chat-reply.test.tsx；crates 与 src-tauri 只读",
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-reply.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"replyTo\" apps/gui/src/lib/ipc-types.ts && grep -rln \"chatSend\" apps/gui/src/components | grep -v test | grep -q .'"
     },
