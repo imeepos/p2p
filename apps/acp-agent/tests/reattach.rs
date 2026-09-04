@@ -80,9 +80,21 @@ async fn reattach_full_chain_replays_cached_updates_in_order() {
     let forwarded = read_line(&mut first).await.expect("forwarded request");
     assert!(forwarded.contains("request_permission"), "{forwarded}");
     drop(first);
-
+    // 条件等待替代盲睡：桥感知断流（ClientGone 审计）后再蓄窗口缓存
+    let gone = tokio::time::Instant::now() + Duration::from_secs(5);
+    while !rig
+        .audit
+        .contains(|ev| matches!(ev, AuditEvent::ClientGone { .. }))
+    {
+        assert!(
+            tokio::time::Instant::now() < gone,
+            "client gone not observed: {:?}",
+            rig.audit.snapshot(),
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
     // 窗口内：缓存积累窗口期 update
-    tokio::time::sleep(Duration::from_millis(400)).await;
+    tokio::time::sleep(Duration::from_millis(250)).await;
 
     let mut second = open_stream(&rig).await;
     let hello =
