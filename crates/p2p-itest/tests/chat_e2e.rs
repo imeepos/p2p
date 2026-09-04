@@ -1,6 +1,6 @@
 //! IM 全链回环 itest（T33）：roles A/B 真实双 Node + p2p-chat 门面。
-//! 五场景：加好友可见 / 文本实时送达 / ≥1MiB 附件字节一致 /
-//!         B 重启后 A outbox flush / A 历史回读（重启前后全量 + beforeId 分页）。
+//! 六场景：加好友可见 / 文本实时送达 / ≥1MiB 附件字节一致 / B 重启后 flush /
+//!         A 历史回读 / A 引用 B 消息回复（replyTo 透传 + 旧格式行读回兼容）。
 //! 端口纪律：NodeBuilder 默认端口 0（随机）+ mDNS 关闭，并行测试不撞口；
 //! 身份持久化：data_dir 内 key.seed，重启同 data_dir 即同 PeerId（design §4）。
 
@@ -59,14 +59,14 @@ async fn friend_both(r: &Rig) {
 }
 
 #[rustfmt::skip]
-async fn send_text(chat: &Chat, peer: &str, text: &str) -> ChatSendReport {
-    chat.send(peer, ChatKind::Text, Some(text.into()), None).await.unwrap()
+async fn send_text(chat: &Chat, peer: &str, text: &str, reply_to: Option<String>) -> ChatSendReport {
+    chat.send(peer, ChatKind::Text, Some(text.into()), None, reply_to).await.unwrap()
 }
 
 #[rustfmt::skip]
 async fn send_media(chat: &Chat, peer: &str, data: Vec<u8>) -> ChatSendReport {
     let media = ChatMediaInput { name: "pic.png".into(), mime: "image/png".into(), data };
-    chat.send(peer, ChatKind::Image, None, Some(media)).await.unwrap()
+    chat.send(peer, ChatKind::Image, None, Some(media), None).await.unwrap()
 }
 
 /// 同 data_dir 重启节点并重装配 Chat：身份不变，历史/好友簿/outbox 继承。
@@ -153,7 +153,7 @@ async fn text_delivered_realtime() {
     let a_peer = r.a_node.local_peer_id().to_string();
     let b_peer = r.b_node.local_peer_id().to_string();
     let mut bev = r.b_chat.events();
-    let report = send_text(&r.a_chat, &b_peer, "hello e2e").await;
+    let report = send_text(&r.a_chat, &b_peer, "hello e2e", None).await;
     assert!(report.delivered, "在线文本必须 delivered：{report:?}");
     let message = wait_chat_message(&mut bev, "B 收到文本", |e| {
         matches!(e, ChatEvent::ChatMessage { peer, message } if peer == &a_peer && message.text.as_deref() == Some("hello e2e"))
@@ -192,20 +192,13 @@ async fn offline_pending_then_flush_after_restart() {
     friend_both(&r).await;
     let a_peer = r.a_node.local_peer_id().to_string();
     let b_peer = r.b_node.local_peer_id().to_string();
-    let warm = send_text(&r.a_chat, &b_peer, "warm").await;
+    let warm = send_text(&r.a_chat, &b_peer, "warm", None).await;
     assert!(warm.delivered, "链路预热必须在线送达");
     r.b_node.shutdown();
     wait_node_disconnected(&r.a_node, &b_peer).await;
-    let report = send_text(&r.a_chat, &b_peer, "offline-msg").await;
-    assert!(
-        !report.delivered,
-        "B 下线后必须 delivered=false：{report:?}"
-    );
-    assert_eq!(
-        report.message.status,
-        ChatStatus::Pending,
-        "离线消息必须保持 pending"
-    );
+    let report = send_text(&r.a_chat, &b_peer, "offline-msg", None).await;
+    assert!(!report.delivered, "下线发送不得实时送达：{report:?}");
+    assert_eq!(report.message.status, ChatStatus::Pending, "须保持 pending");
     let offline_id = report.message.id.clone();
     // B2 同 data_dir 重启：身份不变，历史/好友簿继承
     let (b2_node, b2_chat) = restart_chat(r.root.join("b"), &b_peer).await;
@@ -240,11 +233,11 @@ async fn history_readback_with_pagination() {
     let b_peer = r.b_node.local_peer_id().to_string();
     let mut want: Vec<String> = Vec::new();
     for i in 0..2 {
-        let rep = send_text(&r.a_chat, &b_peer, &format!("a{i}")).await;
+        let rep = send_text(&r.a_chat, &b_peer, &format!("a{i}"), None).await;
         assert!(rep.delivered);
         want.push(rep.message.id.clone());
         tokio::time::sleep(Duration::from_millis(10)).await; // 保证 tsMs 严格递增（分页游标确定性）
-        let rep = send_text(&r.b_chat, &a_peer, &format!("b{i}")).await;
+        let rep = send_text(&r.b_chat, &a_peer, &format!("b{i}"), None).await;
         assert!(rep.delivered);
         want.push(rep.message.id.clone());
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -269,6 +262,38 @@ async fn history_readback_with_pagination() {
     w.sort();
     g.sort();
     assert_eq!(g, w, "分页必须覆盖全部消息：{got:?} vs {want:?}");
+    a2_node.shutdown();
+    teardown(r);
+}
+
+/// 场景 f：A 引用 B 的消息回复，B 端信封 replyTo 指向被引用 id；旧格式行（无 replyTo）读回兼容。
+#[tokio::test]
+#[rustfmt::skip]
+async fn reply_reference_and_legacy_envelope_readback() {
+    let r = rig("reply").await;
+    friend_both(&r).await;
+    let a_peer = r.a_node.local_peer_id().to_string();
+    let b_peer = r.b_node.local_peer_id().to_string();
+    let quoted = send_text(&r.b_chat, &a_peer, "quote-me", None).await;
+    assert!(quoted.delivered, "被引用消息必须先送达");
+    let mut bev = r.b_chat.events();
+    let reply = send_text(&r.a_chat, &b_peer, "reply", Some(quoted.message.id.clone())).await;
+    assert_eq!(reply.message.reply_to.as_deref(), Some(quoted.message.id.as_str()));
+    let inbound = wait_chat_message(&mut bev, "B 收到回复信封", |e| {
+        matches!(e, ChatEvent::ChatMessage { message, .. } if message.id == reply.message.id)
+    }).await;
+    assert_eq!(inbound.reply_to.as_deref(), Some(quoted.message.id.as_str()));
+    // 旧格式（无 replyTo 字段）行混入 A 的历史文件：重启读回不报错且无引用
+    let legacy = serde_json::json!({"id": "legacy-1", "peer": b_peer, "sender": "me",
+        "kind": "text", "tsMs": 1, "text": "old", "media": null, "status": "pending"}).to_string();
+    let path = r.root.join("a/chat/messages").join(format!("{b_peer}.jsonl"));
+    let mut f = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
+    use std::io::Write as _;
+    f.write_all(legacy.as_bytes()).unwrap();
+    let (a2_node, a2_chat) = restart_chat(r.root.join("a"), &a_peer).await;
+    let legacy_msg = a2_chat.history(&b_peer, None, 100).unwrap().into_iter()
+        .find(|m| m.id == "legacy-1").expect("旧格式行必须读回");
+    assert_eq!(legacy_msg.reply_to, None, "缺 replyTo 读回 = 无引用");
     a2_node.shutdown();
     teardown(r);
 }
