@@ -24,14 +24,16 @@ function OptionButton({
   onClick: () => void;
   children: string;
 }) {
-  // 未选中态保留可见描边（IM-V1 S2）：与选中实心 primary 拉开形态差。
+  // 未选中态加强描边（IM-V2 S2）：gray-300 深一档，浅色底上边界可辨。
   return (
     <Button
       type="button"
       size="sm"
       variant={active ? "default" : "outline"}
       aria-pressed={active}
-      className={active ? undefined : "border-border bg-background"}
+      className={
+        active ? undefined : "border-gray-300 bg-background dark:border-gray-600"
+      }
       onClick={onClick}
     >
       {children}

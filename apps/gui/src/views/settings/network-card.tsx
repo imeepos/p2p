@@ -105,10 +105,10 @@ export function NetworkCard() {
           effective={effectivePort(listenAddrs, true)}
         />
         <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col">
             <Label htmlFor="settings-mdns">{t("settings.network.mdns")}</Label>
-            {/* 长描述限宽（IM-V1 S4）：防止与右侧开关贴挤换行错位 */}
-            <p className="text-muted-foreground max-w-md text-xs">
+            {/* 长描述限宽 + 行高统一（IM-V2 S4）：与短标签行同一节奏 */}
+            <p className="text-muted-foreground max-w-sm text-xs leading-5">
               {t("settings.network.mdnsHint")}
             </p>
           </div>

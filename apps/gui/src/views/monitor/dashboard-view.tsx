@@ -15,17 +15,20 @@ export function DashboardView() {
   const events = useNodeStore((s) => s.events);
   const subscriptionLive = useNodeStore((s) => s.subscriptionLive);
 
-  // [&_[data-slot=card]]:h-full：同一 grid 行内卡片等高（状态卡 x4 与
-  // 指标卡 x4 统一最小高度；底部双卡失衡同解），不触碰共享 StatCard。
+  // 内层包裹只罩住两行状态/指标卡：[&_[data-slot=card]] 的选择器特异性
+  // 高于卡片自身类，若罩全页会压掉底部卡的 min-h-40（D4），故收窄作用域。
+  // h-full + min-h-28：两行卡等高且共享同一最小高度（IM-V2 D2）。
   return (
-    <div className="col-span-12 grid grid-cols-12 gap-4 [&_[data-slot=card]]:h-full">
+    <div className="col-span-12 grid grid-cols-12 gap-4">
       <PageHeader
         titleKey="dashboard.title"
         descriptionKey="dashboard.description"
       />
       <DashboardQuickActions />
-      <DashboardStatusCards status={status} />
-      <DashboardMetricCards metrics={metrics} />
+      <div className="col-span-12 grid grid-cols-12 gap-4 [&_[data-slot=card]]:h-full [&_[data-slot=card]]:min-h-28">
+        <DashboardStatusCards status={status} />
+        <DashboardMetricCards metrics={metrics} />
+      </div>
       <DashboardTrendCard
         history={metricsHistory}
         running={status?.running ?? false}

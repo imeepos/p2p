@@ -60,10 +60,12 @@ function StartStopButton() {
     }
   };
 
+  // 运行中停止操作走中性边框（IM-V2 D1）：红色 destructive 只保留在
+  // 二次确认弹框内，页面常驻按钮不再出现红色系。
   return (
     <AsyncButton
       size="sm"
-      variant={running ? "destructive" : "default"}
+      variant={running ? "outline" : "default"}
       action={action}
       loadingLabel={
         running ? t("common.state.stopping") : t("common.state.starting")

@@ -21,10 +21,11 @@ function WatermarkValue({
   value: number;
   locale: Locale;
 }) {
+  // IM-V2 R2：分立嵌套框（边框小卡）+ 缩小字号，与左列表单卡节奏对齐。
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="text-2xl font-semibold tabular-nums">
+    <div className="min-w-0 rounded-md border p-3">
+      <span className="text-muted-foreground block text-xs">{label}</span>
+      <span className="mt-1 block text-lg font-semibold tabular-nums">
         {formatNumber(value, locale)}
       </span>
     </div>
@@ -32,7 +33,7 @@ function WatermarkValue({
 }
 
 // 水位卡：中继会话与重连计数，实时读 store metrics。
-// 数字层级（IM-V1 R2）：text-2xl + semibold，与卡片层级协调。
+// 数字层级（IM-V2 R2）：嵌套边框小卡 + text-lg semibold，与配置卡同高同节奏。
 export function RelayWatermarkCard() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;

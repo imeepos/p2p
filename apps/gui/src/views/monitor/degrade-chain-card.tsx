@@ -68,7 +68,7 @@ export function DegradeChainCard({ metrics, loading }: DegradeChainCardProps) {
 
   return (
     <div className="col-span-12 lg:col-span-6">
-      <Card className="h-full gap-3 py-4">
+      <Card className="h-full min-h-40 gap-3 py-4">
         <CardHeader className="px-4">
           <CardTitle className="text-base">{t("dashboard.chain.title")}</CardTitle>
         </CardHeader>

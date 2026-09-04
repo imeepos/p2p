@@ -63,7 +63,8 @@ export function PeersToolbar({
             <TabsTrigger
               key={filter}
               value={filter}
-              className="data-[state=active]:border-border data-[state=active]:text-foreground"
+              // IM-V2 P2：选中项实心填充 + 未选中弱化（覆盖 ui/tabs 底态）
+              className="text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:border-primary dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground"
             >
               {t(FILTER_LABEL[filter])}
             </TabsTrigger>

@@ -75,7 +75,7 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
     });
 
   return (
-    <Card className="col-span-12 lg:col-span-6">
+    <Card className="col-span-12 h-full lg:col-span-6">
       <CardHeader>
         <CardTitle>{t("relay.config.title")}</CardTitle>
         <CardDescription>{t("relay.config.hint")}</CardDescription>

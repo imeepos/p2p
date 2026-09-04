@@ -23,7 +23,7 @@ export function RecentEventsCard({ events, loading }: RecentEventsCardProps) {
 
   return (
     <div className="col-span-12 lg:col-span-6">
-      <Card className="flex h-full flex-col gap-3 py-4">
+      <Card className="flex h-full min-h-40 flex-col gap-3 py-4">
         <CardHeader className="px-4">
           <CardTitle className="text-base">
             {t("dashboard.cards.recentEvents")}

@@ -59,7 +59,8 @@ export function SettingsSaveBar({
         </div>
       ) : null}
       <div className="bg-background/95 col-span-12 sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t py-3 backdrop-blur">
-        <p className="text-foreground/70 text-xs">
+        {/* IM-V2 S6：提示与保存同行（justify-between），对比度提至 AA */}
+        <p className="text-xs text-gray-600 dark:text-gray-300">
           {dirty ? t("settings.saveBar.dirty") : t("settings.saveBar.clean")}
         </p>
         <AsyncButton

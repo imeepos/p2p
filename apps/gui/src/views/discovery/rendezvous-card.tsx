@@ -55,7 +55,7 @@ function RendezvousTable({
                 variant="ghost"
                 size="icon"
                 iconOnly
-                className="size-8"
+                className="size-9"
                 aria-label={t("discovery.rendezvous.deleteAction")}
                 action={() => onDelete(addr)}
                 onError={() => {
@@ -102,7 +102,7 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
   };
 
   return (
-    <Card className="col-span-12 lg:col-span-8">
+    <Card className="col-span-12 h-full lg:col-span-8">
       <CardHeader>
         <CardTitle>{t("discovery.rendezvous.title")}</CardTitle>
         <CardDescription>{t("discovery.rendezvous.hint")}</CardDescription>

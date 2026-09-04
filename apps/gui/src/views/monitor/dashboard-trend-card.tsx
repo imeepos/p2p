@@ -51,7 +51,7 @@ export function DashboardTrendCard({ history, running }: DashboardTrendCardProps
         <CardContent className="px-4">
           {history.length === 0 ? (
             <div
-              className="text-muted-foreground flex flex-col items-center gap-1 rounded-md border border-dashed py-8"
+              className="text-muted-foreground flex flex-col items-center gap-1 rounded-md border border-dashed py-5"
               role="status"
             >
               <span className="text-sm">{t("dashboard.trend.empty")}</span>

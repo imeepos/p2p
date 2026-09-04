@@ -157,7 +157,8 @@ export function ProfileCard() {
                     </Button>
                   ) : null}
                 </div>
-                <p className="text-foreground/70 text-xs">
+                {/* IM-V2 S1：说明文字对比度提到 WCAG AA（text-gray-600 级） */}
+                <p className="text-xs text-gray-600 dark:text-gray-300">
                   {t("settings.profile.avatarHint")}
                 </p>
               </div>
