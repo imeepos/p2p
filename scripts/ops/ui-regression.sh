@@ -24,7 +24,7 @@ fail() { echo "UI-REG-ERROR {\"code\":\"$1\",\"message\":\"$2\"}" >&2; exit 2; }
 fail_arg() { echo "UI-REG-ERROR {\"code\":\"ARG_INVALID\",\"message\":\"$1\"}" >&2; exit 2; }
 
 KEEP_DIR=""
-case "$1" in
+case "${1:-}" in
     "") ;;
     --keep)
         [ $# -ge 2 ] || fail_arg "--keep 需要目录参数"
