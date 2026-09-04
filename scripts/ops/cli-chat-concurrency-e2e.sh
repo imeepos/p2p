@@ -6,9 +6,11 @@
 #      CLI 冷读合并视图条数恰为 2N+1（CRDT 合并、无需文件锁，零静默丢失）、
 #      成员无孤儿（peer 全落在预期集内）、无重复、磁盘日志头行合法且更新行
 #      恰 2N+1（一次变更一行，行级完整）、两次独立冷读一致、无 panic；
-#   2) 双流并发 chat send 各 N 笔（各发各的不可达 peer，消息以 pending 落盘）：
-#      每 peer 恰 N 条、id 唯一、内容与发送序一致、CLI history == 磁盘、
-#      messages/ 目录无孤儿文件、未送达结构化信号（未送达）、无 panic。
+#   2) chat send 流各 N 笔（各自不可达 peer，消息以 pending 落盘）：D6 起同
+#      数据目录身份单进程持有（try_lock_identity 被占即结构化拒绝），跨进程
+#      并发 send 属被拒语义，故流间串行、并发拒绝另设确定性探针；每 peer
+#      恰 N 条、id 唯一、内容与发送序一致、CLI history == 磁盘、messages/
+#      目录无孤儿文件、未送达结构化信号（未送达）、无 panic。
 # 幂等：临时数据目录隔离，trap 清理（造数不过夜）。末行 N2-R2-OK。
 set -euo pipefail
 
@@ -116,6 +118,27 @@ print(f"CLI 两次独立冷读一致（{len(a)} 条）")
 PY
 }
 
+
+# D6 确定性探针（独立临时目录）：首笔 send 持身份锁约 1s（未送达重投等待窗），
+# 期内第二笔必须被结构化拒绝（身份被占用，rc=1）——同目录多程序并行不静默并存。
+assert_d6_identity_busy_rejection() {
+  local dd p1 out2 rc2
+  dd="$(mktemp -d "${TMPDIR:-/tmp}/n2-r2-d6.XXXXXX")"
+  "$CTL" chat friends add "$(peer_id 40)" --nickname d6-warmup --json --data-dir "$dd" \
+    >/dev/null || fail "D6 探针预热失败"
+  "$CTL" chat send --peer "$(peer_id 41)" --text d6-holder --timeout-secs 1 --json \
+    --data-dir "$dd" > "$dd/first.out" 2>&1 & p1=$!
+  sleep 0.3
+  out2=$("$CTL" chat send --peer "$(peer_id 42)" --text d6-loser --timeout-secs 1 --json \
+    --data-dir "$dd" 2>&1) && rc2=0 || rc2=$?
+  wait "$p1" || true
+  [ "$rc2" -ne 0 ] || fail "D6 探针：并发第二笔竟成功（身份锁未生效）"
+  printf "%s" "$out2" | grep -q "身份被占用" || fail "D6 探针拒绝缺结构化信号: $out2"
+  grep -q "未送达" "$dd/first.out" || fail "D6 探针：持锁首笔缺未送达信号"
+  rm -rf "$dd"
+  echo "D6 实测：同目录并发 send 被身份锁结构化拒绝（身份被占用），无静默并存"
+}
+
 # 每 peer 消息文件：恰 N 条、id 唯一、内容与发送序一致、状态 pending。
 assert_peer_messages() {
   python3 - "$1" "$N" "$2" <<'PY'
@@ -186,13 +209,12 @@ collect_friends_view
 assert_friends_file
 assert_friends_view_stable
 
-echo "== 2. 双流并发 chat send 各 $N 笔（各自不可达 peer，pending 落盘） =="
+echo "== 2. chat send 流各 $N 笔（pending 落盘；D6 单身份单进程，流间串行） =="
 SA_LOG="$DD/sa.log"; SB_LOG="$DD/sb.log"
-stream_send A "$DD" "$SA_LOG" "$SA_ID" & PS=$!
-stream_send B "$DD" "$SB_LOG" "$SB_ID" & PT=$!
-wait "$PS" || fail "A 流 chat send 中止"
-wait "$PT" || fail "B 流 chat send 中止"
+stream_send A "$DD" "$SA_LOG" "$SA_ID"
+stream_send B "$DD" "$SB_LOG" "$SB_ID"
 assert_no_panic "$SA_LOG" send-A; assert_no_panic "$SB_LOG" send-B
+assert_d6_identity_busy_rejection
 assert_messages_dir_clean
 assert_peer_messages "$DD/chat/messages/$SA_ID.jsonl" A
 assert_peer_messages "$DD/chat/messages/$SB_ID.jsonl" B

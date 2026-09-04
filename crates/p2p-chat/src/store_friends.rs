@@ -4,7 +4,9 @@
 //! remove 走 yrs tombstone。旧 JSON 数组首次载入自动迁移并备份原文件。
 //! 好友簿写不再加文件锁（store_lock 退役）；消息 JSONL 不在 CRDT 范围。
 
+use std::fs;
 use std::io;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -14,7 +16,7 @@ use yrs::updates::decoder::Decode;
 use yrs::{Any, Doc, Map, Out, ReadTxn, StateVector, Transact, Update};
 
 use crate::model::ChatFriend;
-use crate::store_io::{append_line, atomic_write};
+use crate::store_io::atomic_write;
 
 /// 沿用旧文件名：GUI watcher 与运维脚本按 `chat/friends.json` 观测。
 pub(crate) const FILE_NAME: &str = "friends.json";
@@ -22,6 +24,18 @@ pub(crate) const FILE_NAME: &str = "friends.json";
 const FORMAT_KEY: &str = "p2p-friends";
 const FORMAT_VER: &str = "yrs-v1";
 const FRIENDS_MAP: &str = "friends";
+
+/// 每 Doc 独立 clientID：同进程共享一份 Doc（同 client 时钟递增），跨进程必须
+/// 互异——yrs 默认 ClientID::random 走 fastrand，实测本机同时刻并发进程会产出
+/// 相同种子（同 ID 的 update 被当已知块静默忽略，丢写），故改用 uuid v4（OS 熵）
+/// 派生 53bit ID（JS-safe 区间；0 为非法值时置 1）。
+fn new_doc() -> Doc {
+    let mut id = (uuid::Uuid::new_v4().as_u128() as u64) & ((1u64 << 53) - 1);
+    if id == 0 {
+        id = 1;
+    }
+    Doc::with_client_id(id)
+}
 
 pub(crate) struct FriendsBook {
     doc: Doc,
@@ -35,7 +49,7 @@ impl FriendsBook {
             Ok(raw) => Self::parse(path, raw),
             Err(e) if e.kind() == io::ErrorKind::NotFound => {
                 atomic_write(path, &header_bytes())?;
-                Ok(Self { doc: Doc::new() })
+                Ok(Self { doc: new_doc() })
             }
             Err(e) => {
                 tracing::warn!(
@@ -43,7 +57,7 @@ impl FriendsBook {
                     error = %e,
                     "friends.json 读取失败，按空簿处理"
                 );
-                Ok(Self { doc: Doc::new() })
+                Ok(Self { doc: new_doc() })
             }
         }
     }
@@ -103,9 +117,9 @@ impl FriendsBook {
             tracing::warn!(path = %path.display(), "friends.json 未知格式，原样备份后按空簿重建");
             backup_original(path)?;
             atomic_write(path, &header_bytes())?;
-            return Ok(Self { doc: Doc::new() });
+            return Ok(Self { doc: new_doc() });
         }
-        let doc = Doc::new();
+        let doc = new_doc();
         for (i, line) in lines.enumerate() {
             if line.trim().is_empty() {
                 continue;
@@ -131,10 +145,10 @@ impl FriendsBook {
                 let backup = backup_original(path)?;
                 atomic_write(path, &header_bytes())?;
                 tracing::info!(backup = %backup.display(), "损坏旧簿已备份");
-                return Ok(Self { doc: Doc::new() });
+                return Ok(Self { doc: new_doc() });
             }
         };
-        let doc = Doc::new();
+        let doc = new_doc();
         let map = doc.get_or_insert_map(FRIENDS_MAP);
         let mut txn = doc.transact_mut();
         for f in &friends {
@@ -176,7 +190,14 @@ fn update_line(bytes: &[u8]) -> String {
 }
 
 fn append_update_line(path: &Path, bytes: &[u8]) -> io::Result<()> {
-    append_line(path, &update_line(bytes))
+    // 单次 write_all 提交整行（行+换行）：O_APPEND 下跨进程并发追加各自连续
+    // 落盘，不产生行间交错；分行两次写会让相邻进程的行拼接成损坏行（实测丢友）。
+    // 消息 JSONL 不走此路径（append_line 保持原状，R6 红线）。
+    let mut line = update_line(bytes);
+    line.push('\n');
+    let mut f = fs::OpenOptions::new().create(true).append(true).open(path)?;
+    f.write_all(line.as_bytes())?;
+    f.flush()
 }
 
 /// 解析并应用一行更新日志；任何损坏都以 Err 上浮给调用方 warn（不静默吞）。
