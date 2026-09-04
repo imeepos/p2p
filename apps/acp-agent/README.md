@@ -71,6 +71,12 @@ ACP over P2P 的 agent 侧端点：监听 `/dsh-acp/1`，按策略表把远程 p
 - `owner`：继承桥 cwd（全 root）。**仅限本机 loopback 场景授予**，远程 peer 授予
   owner 等同交出整机，属操作者责任（TOFU + 指纹确认面拦截）。
 
+### 桥自身退出
+
+- 收到 SIGTERM/Ctrl-C：先停监听，再向全部活槽位广播 Shutdown，各子进程按
+  退出阶梯收尾（stdin EOF -> 宽限 -> SIGKILL），限时等待、超时留 error 日志
+  并由 kill_on_drop 兜底。幂等可重复调用。
+
 ### 其他桥约定
 
 - 客户端行的 `session/new` 之外的字节零改动透传；子进程行除上述两个安全改写点外
