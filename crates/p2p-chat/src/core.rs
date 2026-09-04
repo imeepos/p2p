@@ -131,10 +131,11 @@ impl ChatCore {
     /// ACK 后置 delivered：outbox 删条目，messages 更新状态。
     pub(crate) fn mark_delivered(&self, peer: &str, env: &ChatEnvelope) -> Result<(), ChatError> {
         self.store.remove_outbox(peer, &env.id)?;
-        if self.store.has_message(peer, &env.id) {
-            self.store
-                .update_message_status(peer, &env.id, ChatStatus::Delivered)?;
-        } else {
+        // 以磁盘 patch 命中与否判定，跨进程交错下不再凭内存视图重复追加（D2）。
+        let patched = self
+            .store
+            .update_message_status(peer, &env.id, ChatStatus::Delivered)?;
+        if !patched {
             let mut env = env.clone();
             env.status = ChatStatus::Delivered;
             self.store.append_message(&env)?;

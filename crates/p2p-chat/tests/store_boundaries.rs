@@ -105,15 +105,45 @@ async fn jsonl_empty_no_newline_corrupt_and_duplicate_are_observable() {
         .expect("corrupt line is skipped");
     assert_eq!(
         rows.len(),
-        3,
-        "corrupt line skipped while duplicates remain"
+        2,
+        "corrupt line skipped and same-id lines collapse"
     );
     assert_eq!(
         rows.iter().filter(|m| m.id == "two").count(),
-        2,
-        "duplicate entries are visible"
+        1,
+        "same-id lines collapse to last-wins"
     );
     node3.shutdown();
+    let _ = fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn same_id_status_progression_collapses_to_latest() {
+    let dir = temp_dir("dupstatus");
+    let peer = "11111111111111111111111111111111";
+    let path = dir.join("chat/messages").join(format!("{peer}.jsonl"));
+    fs::create_dir_all(path.parent().expect("messages parent")).expect("create messages");
+    let mut pending = envelope("dup-1", 10);
+    pending["status"] = serde_json::json!("pending");
+    let mut delivered = envelope("dup-1", 10);
+    delivered["status"] = serde_json::json!("delivered");
+    fs::write(
+        &path,
+        format!(
+            "{}\n{}\n",
+            serde_json::to_string(&pending).expect("serialize"),
+            serde_json::to_string(&delivered).expect("serialize")
+        ),
+    )
+    .expect("write status progression JSONL");
+    let (node, chat) = chat_at(&dir).await;
+    let rows = chat.history(peer, None, 10).expect("history reads");
+    assert_eq!(rows.len(), 1, "same id collapses to single row");
+    assert_eq!(
+        rows[0].status, p2p_chat::ChatStatus::Delivered,
+        "last-wins keeps the final status"
+    );
+    node.shutdown();
     let _ = fs::remove_dir_all(dir);
 }
 
