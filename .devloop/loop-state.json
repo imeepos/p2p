@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T01:38:06Z",
+  "updatedAt": "2026-09-04T01:39:55.783Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -258,7 +258,7 @@
       "priority": "P0",
       "status": "doing",
       "branch": "test/im-chat-core-boundaries",
-      "ownerSession": "待派（专属新会话）",
+      "ownerSession": "session-756b9949-feba-4d74-a444-2b6bfeef6d93",
       "scope": "仅新增 crates/p2p-chat/tests/model_boundaries.rs、crates/p2p-chat/tests/store_boundaries.rs；生产源码只读，apps/gui 与 p2p-itest 只读",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test model_boundaries --test store_boundaries && cargo test -p p2p-chat && cargo clippy -p p2p-chat -- -D warnings && make check'"
     },
@@ -269,7 +269,7 @@
       "priority": "P0",
       "status": "doing",
       "branch": "test/im-gui-boundaries",
-      "ownerSession": "待派（专属新会话）",
+      "ownerSession": "session-112c27b4-b9c8-49d5-b22e-c0ae1ce4835f",
       "scope": "仅新增 apps/gui/src/views/chat/chat-boundaries.test.tsx、apps/gui/src/lib/chat-boundaries.test.ts、必要测试 fixtures；apps/gui/src 生产实现与 src-tauri 只读",
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-boundaries.test.tsx src/lib/chat-boundaries.test.ts && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     },
@@ -280,7 +280,7 @@
       "priority": "P0",
       "status": "doing",
       "branch": "test/im-tauri-protocol-boundaries",
-      "ownerSession": "待派（专属新会话）",
+      "ownerSession": "session-4f6ad1d0-4aa6-4bfe-a544-15d304dffdb7",
       "scope": "仅新增 apps/gui/src-tauri/tests/chat_boundaries.rs、crates/p2p-chat/tests/wire_boundaries.rs；既有生产源码只读，GUI 生产实现只读",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test wire_boundaries && cd apps/gui/src-tauri && cargo test --test chat_boundaries && cargo clippy --all-targets -- -D warnings && cd ../.. && make check'"
     },
@@ -294,6 +294,39 @@
       "ownerSession": "session-89f85ec3-fc6a-44c6-93b4-49008e45c2e3",
       "scope": "crates/repair-playbook 测试文件；其余只读",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-playbook && make check'"
+    },
+    {
+      "id": "T38",
+      "goal": "repair-bridge 边界测试补充：帧边界（空载荷/恰好1MiB上限/超限拒/半帧多次到达重组/多帧粘包单次写入）、stdin 二进制字节保真（NUL/非UTF-8）、双向同时收发小样本、未知对端查无退出码语义、stdin 立即 EOF 非静默、缺参校验；只加测试不改行为，暴露真实缺陷报协调裁决（≤10行无歧义修复可同分支独立 fix 提交+消融证据）",
+      "title": "RS-边界轮-T38 bridge 边界测试",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "test/rs-bridge-boundary",
+      "ownerSession": "session-c93d6dc1-c0e2-4fe8-a40d-ecadd6612190",
+      "scope": "crates/repair-bridge 测试文件；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-bridge && make check'"
+    },
+    {
+      "id": "T39",
+      "goal": "repair-helper 边界测试补充：MCP 行协议畸形矩阵（坏JSON/缺jsonrpc/id三型string-number-null/notification带id/超长行/CRLF/BOM）、版本协商 protocolVersion 缺失-null-空串、tools/call 缺name/name非字符串/未知工具/空arguments、jail 边界（根=文件非目录/尾斜杠/嵌套根/大小写不敏感文件系统/多根首根选择）、ticket exp==now 恰好过期/iat未来/base64url非法字符/payload非对象、cap 恰256KiB不截断与多字节字符边界截断、audit 特殊字符转义与并发写行完整性；只加测试不改行为，缺陷报裁决",
+      "title": "RS-边界轮-T39 helper 边界测试",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "test/rs-helper-boundary",
+      "ownerSession": "session-898caa4e-860c-451a-add0-21976ecd8103",
+      "scope": "crates/repair-helper 测试文件；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
+    },
+    {
+      "id": "T40",
+      "goal": "repair-enforce 边界测试补充：红线路径匹配组件级边界（/home/user vs /home/user2 不误伤/相对路径/大小写变体/中段包含按数据表语义固化）、argv 边界（空argv/仅程序名/含空格参数/超长参数/非字符串元素）、复合特征检测边界（反引号/$()括号/换行注入、特征字符在参数值内部vs分隔位置）、白名单参数模式 exact 语义边界与 any 位零或多匹配固化、未知工具=danger 语义保持、diag/fix 全工具判定矩阵复核；只加测试不改行为，缺陷报裁决",
+      "title": "RS-边界轮-T40 enforce 边界测试",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "test/rs-enforce-boundary",
+      "ownerSession": "session-e3d2dfca-dca6-4fea-82ff-01626ea57506",
+      "scope": "crates/repair-enforce 测试文件；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'"
     }
   ]
 }
