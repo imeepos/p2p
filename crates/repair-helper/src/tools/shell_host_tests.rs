@@ -48,8 +48,8 @@ fn host_with_shell(root: PathBuf, scope: Scope, wl: ShellWhitelist) -> (Host, Au
         clock(),
         approver_approved(),
     );
-    let registry = tools::helper_registry(jail, shell);
     let audit = AuditSink::default();
+    let registry = tools::helper_registry(jail, shell, audit.clone());
     (
         Host::guarded(registry, Enforcement::new(scope, wl), audit.clone()),
         audit,
