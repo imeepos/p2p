@@ -26,7 +26,8 @@ const { mocks } = vi.hoisted(() => ({
       (peer: string, beforeId?: string | null, limit?: number) => Promise<ChatMessageJson[]>
     >(),
     send: vi.fn<() => Promise<ChatSendReport>>(),
-    eventHandler: { current: null as NodeEventHandler | null },
+    // 群/1:1 两个 store 各注册一个监听（真实 ipc 事件总线一对多）
+    handlers: [] as NodeEventHandler[],
   },
 }));
 
@@ -36,7 +37,7 @@ vi.mock("@/lib/ipc", () => ({
     chatHistory: mocks.history,
     chatSend: mocks.send,
     onNodeEvent: (handler: NodeEventHandler) => {
-      mocks.eventHandler.current = handler;
+      mocks.handlers.push(handler);
       return Promise.resolve(() => {});
     },
   },
@@ -59,7 +60,9 @@ async function mountWithHistory(history: ChatMessageJson[]): Promise<void> {
 // 对端视角注入：mock 事件直接打 chat-store 订阅回调（等同真实 chat_message）。
 function emitInbound(message: ChatMessageJson): void {
   act(() => {
-    mocks.eventHandler.current?.({ type: "chat_message", peer: PEER, message });
+    for (const handler of mocks.handlers) {
+      handler({ type: "chat_message", peer: PEER, message });
+    }
   });
 }
 

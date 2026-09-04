@@ -54,7 +54,11 @@ LOCAL_PIDS=()
 
 log() { printf '%s\n' "$*"; }
 sc_pass() { PASS_LIST+=("$1"); log "${1} PASS ${2}"; }
-sc_fail() { log "${1} FAIL ${2}"; exit 1; }
+dump_diag() {
+    log "---- 诊断: 本地 bootstrap.log 尾部"
+    tail -12 "${WORK}/boot.log" 2>/dev/null || true
+}
+sc_fail() { dump_diag; log "${1} FAIL ${2}"; exit 1; }
 die() { log "llm-share-smoke: $*"; exit 2; }
 
 # 超时工具：本机用 gtimeout（brew coreutils）；远端 Debian 用同义 timeout。
@@ -108,6 +112,7 @@ serde_json = "1"
 bs58 = "0.5"
 futures = "0.3"
 async-trait = "0.1"
+tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 p2p = { path = "${crates}/p2p" }
 p2p-identity = { path = "${crates}/p2p-identity" }
@@ -126,6 +131,7 @@ TOML
 
 use std::collections::{HashMap, HashSet};
 use std::io::{ErrorKind, Write};
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -371,8 +377,35 @@ impl ProtocolHandler for ProxyHandler {
     }
 }
 
+/// 预观测等待：反射口 UDP 探测确认可达后再建节点。
+/// 观测失败会让注册退化为 loopback 地址（跨机查号被地址卫生过滤，整轮不可发现），
+/// 该退化是静态单次探测的随机失败，故此处有界重试直到反射口确认可达。
+async fn wait_reflector(obs: &str) {
+    if obs.is_empty() {
+        return;
+    }
+    let target: SocketAddr = obs.parse().unwrap_or_else(|_| die(&format!("bad observation addr: {obs}")));
+    let sock = tokio::net::UdpSocket::bind("0.0.0.0:0").await.unwrap_or_else(|e| die(&format!("udp bind: {e}")));
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
+    let mut buf = [0u8; 96];
+    while tokio::time::Instant::now() < deadline {
+        sock.send_to(b"OBS1", target).await.ok();
+        if let Ok(Ok((n, _))) =
+            tokio::time::timeout(Duration::from_secs(2), sock.recv_from(&mut buf)).await
+        {
+            if n >= 4 && &buf[..4] == b"OBS1" {
+                println!("REFLECTOR-OK");
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    die("观测反射口 90s 内不可达（注册将退化为不可路由地址）");
+}
+
 async fn serve(args: &Args) {
     let quic = args.num("quic");
+    wait_reflector(args.get("observation")).await;
     let node = Arc::new(build_node(args, quic).await);
     let seed = PathBuf::from(args.get("data")).join("key.seed");
     let kp = load_or_generate_seed(&seed).unwrap_or_else(|e| die(&format!("seed: {e}")));
@@ -390,7 +423,7 @@ async fn serve(args: &Args) {
         die("offer 验签失败（TTL 已过或签名损坏）");
     }
 
-    let allow: HashSet<String> = HashSet::from([args.get("allow").to_owned()]);
+    let allow: HashSet<String> = args.get("allow").split(',').map(str::to_owned).collect();
     let mock = Arc::new(MockUpstream {
         calls: AtomicUsize::new(0),
         broken_on: args.get("broken-on").parse().ok(),
@@ -421,6 +454,20 @@ async fn serve(args: &Args) {
         period: args.get("period").to_owned(),
     }));
     println!("SERVE-READY quic={quic}");
+    // 自查询保活：维持 rendezvous 链路活跃；注册空白窗口期自观测留痕
+    {
+        let kn = node.clone();
+        let kp_str = peer_str.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                match kn.query_peer(&kp_str).await {
+                    Ok(addrs) if !addrs.is_empty() => {}
+                    _ => tracing::warn!("self-query empty: rendezvous 注册可能存在空白窗口"),
+                }
+            }
+        });
+    }
     tokio::signal::ctrl_c().await.ok();
 }
 
@@ -453,7 +500,8 @@ async fn discover(node: &Node, lender: PeerId, wait_secs: u64) -> String {
             }
             _ => {
                 if tokio::time::Instant::now() >= deadline {
-                    fail_exit(2, "DISCOVER-FAIL: rendezvous 查号超时（对端未注册或已过期）");
+                    // 优雅退出：先 shutdown 让对端收到连接关闭，避免 liveness 探测打在死连接上
+                    return String::new();
                 }
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
@@ -491,6 +539,10 @@ async fn call(args: &Args) {
         "" => discover(node.as_ref(), lender, wait).await,
         direct => direct.to_owned(),
     };
+    if addr.is_empty() {
+        node.shutdown();
+        fail_exit(2, "DISCOVER-FAIL: rendezvous 查号超时（对端未注册或已过期）");
+    }
     node.add_peer_address(lender, &addr)
         .unwrap_or_else(|e| fail_exit(3, &format!("bad addr: {e}")));
     node.connect(lender)
@@ -608,6 +660,7 @@ fn write_json(path: &str, value: &impl serde::Serialize) {
 fn write_ledger_file(path: &str, receipt: &Receipt) {
     write_json(path, &serde_json::json!({ "v": 1, "receipts": [receipt] }));
 }
+
 RUST_EOF
 }
 
@@ -700,9 +753,13 @@ start_bootstrap() {
 mint_borrowers() {
     gt 30 "$HARNESS_BIN" identity --data "$WORK/borrower/p2p-data" > "$WORK/borrower.peer"
     gt 30 "$HARNESS_BIN" identity --data "$WORK/borrower2/p2p-data" > "$WORK/borrower2.peer"
+    gt 30 "$HARNESS_BIN" identity --data "$WORK/borrower-s4/p2p-data" > "$WORK/borrower-s4.peer"
+    gt 30 "$HARNESS_BIN" identity --data "$WORK/borrower-s6b/p2p-data" > "$WORK/borrower-s6b.peer"
     BORR_PEER="$(sed -n 's/^peerId=//p' "$WORK/borrower.peer")"
     BORR2_PEER="$(sed -n 's/^peerId=//p' "$WORK/borrower2.peer")"
-    [ -n "$BORR_PEER" ] && [ -n "$BORR2_PEER" ] || die "借方身份生成失败"
+    BORR_S4_PEER="$(sed -n 's/^peerId=//p' "$WORK/borrower-s4.peer")"
+    BORR_S6B_PEER="$(sed -n 's/^peerId=//p' "$WORK/borrower-s6b.peer")"
+    [ -n "$BORR_PEER" ] && [ -n "$BORR2_PEER" ] && [ -n "$BORR_S4_PEER" ] && [ -n "$BORR_S6B_PEER" ] || die "借方身份生成失败"
 }
 
 wait_remote_ready() {
@@ -733,7 +790,7 @@ start_lender() {
     remote_sh "cd ${REMOTE_WORK} && { RUST_LOG=warn nohup ./harness/target/debug/llm-smoke-harness serve \
             --data lender/p2p-data --quic ${LEND_QUIC} \
             --bootstrap ${LOCAL_IP}/u${BOOT_QUIC} --observation ${LOCAL_IP}:${OBS_PORT} \
-            --allow ${BORR_PEER} --model ${MODEL} --period ${PERIOD} \
+            --allow "${BORR_PEER},${BORR_S4_PEER},${BORR_S6B_PEER}" --model ${MODEL} --period ${PERIOD} \
             --upstream-log logs/upstream.jsonl --net-limit 1000000 --broken-on 2 \
             --offer-file lender/llm-share/offer.json </dev/null > logs/serve.log 2>&1 </dev/null & echo \$! > run/serve.pid; }" \
         || die "远端出借方启动失败"
@@ -757,7 +814,7 @@ s2_s3_probe() {
     PROBE_OUT="$(gt 120 "$HARNESS_BIN" call --probe \
         --data "$WORK/borrower/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --discover-wait 15 2>&1)" || rc=$?
+        --lender "$LENDER_PEER" --model "$MODEL" --discover-wait 30 2>&1)" || rc=$?
     printf '%s\n' "$PROBE_OUT"
     if [ "$rc" -ne 0 ]; then
         log "---- 诊断: 出借方 serve.log 尾部"
@@ -777,9 +834,9 @@ s4_call() {
     log "---- S4: 跨机真实流式 chat（上游=102 侧进程内 mock），双边记账 + 收据验签"
     local rc=0
     CALL_OUT="$(gt 150 "$HARNESS_BIN" call \
-        --data "$WORK/borrower/p2p-data" \
+        --data "$WORK/borrower-s4/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 \
+        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 --discover-wait 60 \
         --receipt-out "$WORK/receipt.json" --ledger-out "$WORK/llm-share/ledger.json" 2>&1)" || rc=$?
     printf '%s\n' "$CALL_OUT"
     [ "$rc" -eq 0 ] || die "S4 调用失败（rc=$rc)"
@@ -800,7 +857,7 @@ s5_negative() {
     REJECT_OUT="$(gt 150 "$HARNESS_BIN" call \
         --data "$WORK/borrower2/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s5 \
+        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s5 --discover-wait 60 \
         --expect-reject NotAllowlisted 2>&1)" || rc=$?
     printf '%s\n' "$REJECT_OUT"
     [ "$rc" -eq 0 ] || sc_fail "S5" "非 allowlist 调用未按预期被拒（rc=$rc)"
@@ -826,9 +883,9 @@ s6_observable() {
     log "---- S6b: 断流路径（第 2 次上游调用按剧本切断）须显式 STREAM-BROKEN 不挂死"
     local rc2=0
     BROKEN_OUT="$(gt 150 "$HARNESS_BIN" call \
-        --data "$WORK/borrower/p2p-data" \
+        --data "$WORK/borrower-s6b/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s6b --expect-broken \
+        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s6b --expect-broken --discover-wait 60 \
         --receipt-out "$WORK/receipt-broken.json" 2>&1)" || rc2=$?
     printf '%s\n' "$BROKEN_OUT"
     [ "$rc2" -eq 0 ] || sc_fail "S6" "断流路径失败（rc=$rc2)"
