@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -203,10 +203,10 @@ describe("IPC 调用点静态守卫", () => {
   };
 
   function listFiles(dir: string): string[] {
-    if (!statSync(dir).isDirectory()) return [];
-    return readdirSync(dir).flatMap((name) => {
-      const path = join(dir, name);
-      if (statSync(path).isDirectory()) return listFiles(path);
+    // withFileTypes 免去逐项 statSync：全量套件并行下 fs 系统调用排队是超时主源
+    return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) return listFiles(path);
       return /.(tsx|ts)$/.test(path) && !/\.test\.(tsx|ts)$/.test(path) ? [path] : [];
     });
   }
@@ -218,24 +218,32 @@ describe("IPC 调用点静态守卫", () => {
     return [...source.slice(start, end).matchAll(/^\s{2}(chat\w+)\(/gm)].map((m) => m[1]!);
   }
 
-  it("IpcBackend 全部 chat 方法在 views/components 有非测试调用点（豁免清单制）", () => {
-    const methods = chatMethodsOfIpcBackend();
-    expect(methods.length).toBeGreaterThan(0);
-    const files = SCAN_DIRS.flatMap((dir) => listFiles(join(SRC, dir)));
-    const missing = methods.filter((method) => {
-      const called = files.some((file) => readFileSync(file, "utf8").includes(method));
-      return !called && !(method in EXEMPT);
-    });
-    expect(missing).toEqual([]);
-    // 本任务红线：chatFriendAdd 必须有真实界面调用点，不得进豁免清单
-    expect(methods).toContain("chatFriendAdd");
-    expect(
-      files.some((file) => readFileSync(file, "utf8").includes("chatFriendAdd")),
-    ).toBe(true);
-    // IM-T42 起红线：chatFriendRemove 必须有真实界面调用点，不得进豁免清单
-    expect(methods).toContain("chatFriendRemove");
-    expect(
-      files.some((file) => readFileSync(file, "utf8").includes("chatFriendRemove")),
-    ).toBe(true);
-  });
+  it(
+    "IpcBackend 全部 chat 方法在 views/components 有非测试调用点（豁免清单制）",
+    // vitest 4：options 位于第二参；纯 fs 扫描用例在全量套件并行下 IO 排队
+    // 远超 5s 默认值（GC3b 负载型假红根因）——上调只是给预算，断言零弱化
+    { timeout: 30_000 },
+    () => {
+      const methods = chatMethodsOfIpcBackend();
+      expect(methods.length).toBeGreaterThan(0);
+      const files = SCAN_DIRS.flatMap((dir) => listFiles(join(SRC, dir)));
+      // 每文件只读一次缓存：守卫语义不变，fs 读次数从 方法数×文件数 降为 文件数
+      const contents = files.map((file) => readFileSync(file, "utf8"));
+      const missing = methods.filter((method) => {
+        const called = contents.some((content) => content.includes(method));
+        return !called && !(method in EXEMPT);
+      });
+      expect(missing).toEqual([]);
+      // 本任务红线：chatFriendAdd 必须有真实界面调用点，不得进豁免清单
+      expect(methods).toContain("chatFriendAdd");
+      expect(
+        contents.some((content) => content.includes("chatFriendAdd")),
+      ).toBe(true);
+      // IM-T42 起红线：chatFriendRemove 必须有真实界面调用点，不得进豁免清单
+      expect(methods).toContain("chatFriendRemove");
+      expect(
+        contents.some((content) => content.includes("chatFriendRemove")),
+      ).toBe(true);
+    },
+  );
 });
