@@ -196,7 +196,6 @@ describe("IPC 调用点静态守卫", () => {
   const SCAN_DIRS = ["views", "components"];
   // 显式豁免清单：确无 views/components 入口的方法必须登记原因（防后端有能力、界面无入口复发）
   const EXEMPT: Record<string, string> = {
-    chatFriendRemove: "移除好友入口属 IM-T42（账本在途单），实现前显式豁免",
     chatFriendsList: "好友列表刷新统一由 stores/chat-store.loadFriends 调用（数据层）",
     chatHistory: "历史加载统一由 stores/chat-store（selectPeer/loadOlder/loadFriends）调用",
     chatSend: "消息发送统一由 stores/chat-store.sendText/sendMedia 调用（Composer 经 store）",
@@ -232,6 +231,11 @@ describe("IPC 调用点静态守卫", () => {
     expect(methods).toContain("chatFriendAdd");
     expect(
       files.some((file) => readFileSync(file, "utf8").includes("chatFriendAdd")),
+    ).toBe(true);
+    // IM-T42 起红线：chatFriendRemove 必须有真实界面调用点，不得进豁免清单
+    expect(methods).toContain("chatFriendRemove");
+    expect(
+      files.some((file) => readFileSync(file, "utf8").includes("chatFriendRemove")),
     ).toBe(true);
   });
 });

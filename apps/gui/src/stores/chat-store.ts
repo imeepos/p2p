@@ -36,6 +36,7 @@ export interface ChatStoreState {
     media: ChatMediaInput,
   ) => Promise<ChatMessageJson>;
   cancelPending: (peer: string, localMessageId: string) => void;
+  forgetFriend: (peer: string) => void;
   subscribeEvents: () => Promise<void>;
 }
 
@@ -183,6 +184,16 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         ...s.messagesByPeer,
         [peer]: removeLocal(s.messagesByPeer[peer] ?? [], localMessageId),
       },
+    }));
+  },
+
+  // chatFriendRemove 成功后的本地收尾：列表即时更新；被移除者是当前会话则清空选中
+  // 回空态。IPC 调用在 ChatFriendRemoveDialog（界面入口层，调用点守卫要求）。
+  // 不删本地消息历史（契约 §12.1），缓存保留供回加后继续使用。
+  forgetFriend: (peer) => {
+    set((s) => ({
+      friends: s.friends.filter((f) => f.peerId !== peer),
+      selectedPeer: s.selectedPeer === peer ? null : s.selectedPeer,
     }));
   },
 
