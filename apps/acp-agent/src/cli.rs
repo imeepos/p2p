@@ -49,6 +49,9 @@ pub struct Cli {
     /// request_permission 应答上限秒数
     #[arg(long)]
     pub permission_timeout_secs: Option<u64>,
+    /// MCP 定义文件路径（JSON object：名称 -> 服务定义）
+    #[arg(long)]
+    pub mcp_definitions_path: Option<String>,
 }
 
 pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
@@ -95,6 +98,10 @@ pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
     if let Some(v) = cli.permission_timeout_secs {
         cfg.permission_timeout_secs = v;
     }
+    if let Some(v) = &cli.mcp_definitions_path {
+        cfg.mcp_definitions_path = Some(v.clone());
+    }
+    cfg.load_mcp_definitions()?;
     cfg.validate()?;
     Ok(cfg)
 }
