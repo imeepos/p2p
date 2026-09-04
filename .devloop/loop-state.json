@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T07:12:12.867Z",
+  "updatedAt": "2026-09-04T07:14:12.861Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -116,11 +116,14 @@
       "goal": "回复消息·GUI 交互与引用渲染：消息气泡提供回复动作（悬停菜单或右键），触发后输入区显示引用预览（被引用消息摘要，取消可退）；发送携带 replyTo；气泡内渲染引用块（点击滚动到被引用消息——本地历史有则滚动高亮，无则显示占位文案，不白屏）；五种消息类型均可被回复且引用预览按类型显示摘要（图片显示[图片]/音频[音频]等 i18n 文案）；测试：回复旅程（收到消息→回复→气泡含引用块→对方视角入站渲染含引用）、引用取消、被引用消息不在本地的占位、五类型引用预览矩阵、旧消息（无 replyTo）渲染不回归；依赖 IM-T46A 合入（类型字段）与 IM-T42 合入（气泡菜单文件互斥）",
       "title": "IM-T46B 回复消息·GUI 交互与引用渲染",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/im-reply-gui",
       "ownerSession": "session-7ac3fd05-8f44-4be4-b2ca-dfbffd304700",
       "scope": "apps/gui/src：components/chat/**、stores/chat-store.ts、lib/ipc-types.ts+ipc.ts+mock-chat.ts（replyTo 类型与透传）、i18n 词条、新增 views/chat/chat-reply.test.tsx；crates 与 src-tauri 只读",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-reply.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"replyTo\" apps/gui/src/lib/ipc-types.ts && grep -rln \"chatSend\" apps/gui/src/components | grep -v test | grep -q .'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-reply.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"replyTo\" apps/gui/src/lib/ipc-types.ts && grep -rln \"chatSend\" apps/gui/src/components | grep -v test | grep -q .'",
+      "mergedMain": "44dfe44",
+      "acceptedAt": "2026-09-04T07:13:36.518Z",
+      "note": "独立验收 exit 0（回复测试 10/10+build+i18n 433=433+replyTo 类型守卫+祖先链核实）；聊天域深交互视觉留待 T48 终态走查复核"
     },
     {
       "id": "IM-T47",
@@ -141,9 +144,9 @@
       "goal": "GUI 视觉走查与布局打磨（收尾单，全部功能落地后终态走查）：走查矩阵沿用 ui-s2/ui-s3 先例——聊天页/好友列表/添加好友对话框/回复引用块/移除确认框的间距对齐分组、暗色与亮色主题、zh/en 双语文案长度溢出（按钮换行/截断策略）、空态/加载态/错误态三态视觉一致、长昵称/长文件名/超长文本的截断与换行、状态标识色彩语义（在线/离线/失败）可辨识；产出 docs/notes/ui-im-visual-audit-matrix.md（走查项×结果×截图路径）+ CSS 级修复；发现结构性布局问题报协调裁决不擅自大改；【裁决追加】IM-T47 观察项：chat-store.dropPending 失败回滚时同步修正 lastMessageByPeer（媒体发送失败后列表摘要残留占位文件名，外观级自愈缺陷），随本轮一并修复",
       "title": "IM-T48 GUI 视觉走查与布局打磨",
       "priority": "P2",
-      "status": "todo",
+      "status": "doing",
       "branch": "feat/im-visual-audit",
-      "ownerSession": "待派（依赖 T42/T45/T46B/T47 全部合入）",
+      "ownerSession": "session-5cc1a8aa-3fa5-4da0-94ea-fc9f62d30a02",
       "scope": "apps/gui/src 样式与组件微调（CSS/className 级）+ docs/notes/ui-im-visual-audit-matrix.md；不改行为逻辑，行为问题报裁决",
       "acceptanceCommand": "bash -c 'test -f docs/notes/ui-im-visual-audit-matrix.md && cd apps/gui && pnpm build && pnpm test --run && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     },
