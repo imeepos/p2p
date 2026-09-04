@@ -281,3 +281,13 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-05 ACP3：长流双向泵（WS⇄yamux）挂死自愈配方——spawn 双任务 + select 首侧结束 abort 另一侧（join 双侧都 pending 就永不结束）+ 写 16KiB 块/5s 超时重 kick + 读 30s 超时重 kick + PeerDisconnected 事件竞速兜底；yamux 批量窗口更新（<半窗不发）遇 echo 停等流量会饿死写侧（known-issues 同日条）。
 - 2026-09-05 移动分组修复：Radix Select 在 jsdom 的可测配方——`fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" })` 开下拉（react-select 源码硬性检查 `pointerType === "mouse"`，缺省空串直接不开），option 用 `findByRole("option", { name })` 拿到后 `pointerUp`+`click` 各一次；前置桩 scrollIntoView/hasPointerCapture/releasePointerCapture 三件套。先探针 `node -e` 验证 jsdom 有 PointerEvent 再写测试，省一轮盲调。
 - 2026-09-05 移动分组修复：收尾 push 判活别信 `cmd | tail; echo $?`——那是 tail 的退出码；开头 `set -o pipefail` 或 `${PIPESTATUS[0]}`（ff5831e 已沉淀过此课，本次仍复犯，验证脚本要模板化）。
+
+
+## 2026-09-04 T22 门禁脚本环境加固轮
+
+- run_code 里 tools.write 整写 bash 脚本（TS 模板串 + 反斜杠花括号转义）后必须 read 回读 + bash -n + 真跑三连验证：本次回读抓出两处静态读不出的 bug——local 临时变量被 EXIT trap 引用（trap 触发时函数已返回、local 已出作用域，set -u 下 unbound 污染退出码；trap 要引用的临时路径改存全局变量）与变量改名漏网的引用行（fakebin 仍指旧名）。
+- bash 自测夹具伪造"可执行二进制"：touch 建的文件 644 不可执行，被测脚本里 [ -x ] 前置判定会直接走"缺失需重建"分支（本次 self-test 场景连红实锤）——夹具建文件后补 chmod +x。
+- 抽共享 lib-*.sh 前先查门禁自测夹具的复制面：tests/cli-parity.sh 只 cp 单脚本进临时夹具树，主脚本 source lib-*.sh 在夹具里必然缺文件（set -e 即死），而夹具测试文件常在红线禁改清单——加固逻辑选择脚本内联自包含，重复 ~40 行换夹具兼容。
+- 并行会话密集推进 main 时 ff-only 前置三查：git fetch 后核对（1）本地 main == origin/main；（2）merge-base --is-ancestor main <合并点>；（3）主树 status 干净。本轮 main 在会话中段从 895c3a4 前进到 544b1ae，三查全过才 ff。
+- worktree 新 checkout 跑 make check 前先补环境：apps/gui/node_modules 不进 git，gui-check 的 eslint 直接 command not found（环境假红非代码红，归因先看报错形态）；pnpm install 后 ls node_modules/.bin/eslint 确认再重跑。cargo 侧 worktree 首跑必全量编译，先后台预热 cargo build 再跑验收脚本。
+- 脚本双 bash 兼容验证法：/bin/bash -n + /opt/homebrew/bin/bash -n 各过一遍语法，--self-test 两边各跑一遍（验收链用哪个 bash 取决于调用方 PATH，不能只验一个）；变量展开一律花括号化（延续 90e062a 对 bash 5.3 多字节相邻展开的防御）。
