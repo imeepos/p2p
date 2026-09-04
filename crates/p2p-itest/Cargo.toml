@@ -14,6 +14,9 @@ tokio.workspace = true
 tokio-util = { workspace = true, features = ["codec"] }
 
 [dev-dependencies]
+llm-share-ledger = { path = "../llm-share-ledger" }
+llm-share-offer = { path = "../llm-share-offer" }
+llm-share-proxy = { path = "../llm-share-proxy" }
 p2p = { path = "../p2p" }
 p2p-chat = { path = "../p2p-chat" }
 p2p-log = { path = "../p2p-log" }
