@@ -11,7 +11,6 @@ import {
   conversationRow,
   deferred,
   isBefore,
-  makeEmitter,
   mediaFile,
   mountChat,
   resetChatStore,
@@ -24,7 +23,8 @@ const { mocks, toastSpies } = vi.hoisted(() => ({
     friends: vi.fn<() => Promise<ChatFriendJson[]>>(),
     history: vi.fn<(peer: string, beforeId?: string | null, limit?: number) => Promise<ChatMessageJson[]>>(),
     send: vi.fn<() => Promise<ChatSendReport>>(),
-    handler: { current: null as NodeEventHandler | null },
+    // 群/1:1 两个 store 各注册一个监听（真实 ipc 事件总线一对多）
+    handlers: [] as NodeEventHandler[],
   },
   toastSpies: { error: vi.fn() },
 }));
@@ -35,7 +35,7 @@ vi.mock("@/lib/ipc", () => ({
     chatHistory: mocks.history,
     chatSend: mocks.send,
     onNodeEvent: (handler: NodeEventHandler) => {
-      mocks.handler.current = handler;
+      mocks.handlers.push(handler);
       return Promise.resolve(() => {});
     },
   },
@@ -55,7 +55,12 @@ vi.mock("@/components/feedback/toast", async (importOriginal) => {
 
 import "@/i18n";
 
-const emit = makeEmitter(mocks.handler);
+// 一对多投递（群/1:1 store 各自订阅），act 包裹与 makeEmitter 同纪律。
+const emit = (event: Parameters<NodeEventHandler>[0]): void => {
+  act(() => {
+    for (const handler of mocks.handlers) handler(event);
+  });
+};
 const PEER = MATRIX_PEER;
 
 interface MediaRow {
