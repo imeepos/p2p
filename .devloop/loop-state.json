@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T20:16:06.318Z",
+  "updatedAt": "2026-09-04T20:47:22.899Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -90,11 +90,14 @@
       "goal": "agent 安全加固（设计 §5/§6）：cwd 监狱（sandbox=<root>/<peerId>/ 每 peer 监狱、workspace 锁定授权目录、owner 全 root，远程 peer 不可自指任意路径）；session/new.mcpServers 默认整字段剥离、allow_mcp 白名单 peer 仅按名引用；权限瀑布（静态策略 read/think/fetch=allow、execute/edit/delete=ask；ask 路由远程 GUI 60s 超时自动 reject，per-peer 可配 owner 本机；一次性 grant 永不持久化）；续连窗口 90s 可配（流断不杀子进程、update 进每会话 8MiB 环形缓存、outstanding request_permission 立即代答 reject-once、reattach 票据命中同 PeerId 补放缓存更新、过期走退出阶梯）；每层拒绝路径与补放序测试",
       "title": "ACP4 acp-agent 安全与续连（监狱/MCP 剥离/权限瀑布/续连窗口）",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "branch": "feat/acp-agent-security",
       "ownerSession": "session-68834414-ea76-4d72-a5cd-e28e666d9e91",
       "scope": "apps/acp-agent/** 内演进；不碰 acp-console/acp-common",
-      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-acp-agent-target; exec /opt/homebrew/bin/gtimeout -k 30 3600 bash -c '''export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/acp-agent && cargo fmt --check && cargo test && cargo clippy --all-targets -- -D warnings && cd ../.. && make check''''"
+      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-acp-agent-target; exec /opt/homebrew/bin/gtimeout -k 30 3600 bash -c '''export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/acp-agent && cargo fmt --check && cargo test && cargo clippy --all-targets -- -D warnings && cd ../.. && make check''''",
+      "mergedMain": "fa71e8d",
+      "acceptedAt": "2026-09-04T20:47:22.899Z",
+      "note": "协调验收：反向同步 beb86ef 后 FMT=0/TEST=0（27 lib+21 集成=48 tests）/CLIPPY=0，make check 主树 mc4 基线绿"
     },
     {
       "id": "ACP5",
