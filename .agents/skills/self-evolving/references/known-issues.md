@@ -361,3 +361,9 @@ wt-t36-boundary 执行（vitest 栈路径实证），且 exit null 被记为 fai
 修法：在目标树手动跑 acceptanceCommand 拿权威 exit code，再用
 devloop_ledger(action=save) 修正任务记录（note 写明误跑根因）；
 并行会话 worktree 里跑别人 WIP 的测试有污染面，重跑前先确认。
+## 2026-09-04 GC2：WKWebView takeSnapshot 回调永不到达——with_webview 闭包内阻塞等待主队列回调互锁
+- 症状：控制通道 /screenshot 恒返 CAPTURE_FAILED「快照完成回调 4s 未到」；`sample` 佐证主线程全程在事件循环、recv 栈全在非主线程；权限预检通过后必现，截图录屏（共用 FrameSource）全灭。
+- 原因：RealFrameSource::capture 在 with_webview 闭包内同步 recv_timeout(4s) 等 takeSnapshot 完成回调——回调走主队列，闭包占着主线程（或非主线程调 WKWebView 致回调不派发），互锁必超时。集成测试全用合成帧源，真实快照路径自声明「由 GUI 运行态验证」却从未验证——「文档说验证过」不等于验证过。
+- 修法：闭包内只发起快照立即返回，完成回调（WebKit copy block，主队列异步执行）持有 channel 发送端回传结果；等待统一收敛到服务线程既有 5s 外层 recv。修后真机 60KB PNG / 51KB GIF 正常产出。
+
+

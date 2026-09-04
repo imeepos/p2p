@@ -200,3 +200,5 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   双证据比脆弱的浏览器解析稳。
 - git worktree remove 后原 cwd 里再跑 git 命令 exit 128 not a git
   repository——是目录已删，不是仓库坏了；回主树验证。
+- 验证二进制产物新旧：`grep -a` 直接按字节搜 UTF-8 中文标记（strings 丢非 ASCII 全是 0）；配合 ls -l mtime——注意 ls 出的是机器本地时区，DSH 会话上下文的时区标签可能与机器不一致，别被「00:16」骗成十五小时前。
+- run_code 写/改含引号与中文的文件：单引号行数组 join + base64 + python3 精确替换（替换前后 assert count==1），绕开 JS 转义地雷（双引号串内嵌转义引号会随机解析炸，模板字符串同险）；edit 工具的 old_string/new_string 走 Buffer roundtrip 同效。
