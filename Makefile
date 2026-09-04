@@ -3,10 +3,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := check
 
-.PHONY: check fmt fmt-check line-limit clippy test gui-check version-check gate-tests panic-hygiene cli-parity release-check
+.PHONY: check fmt fmt-check line-limit clippy test gui-check version-check gate-tests panic-hygiene cli-parity ai-docs-sync release-check
 
 # 聚合门禁：先验证门禁脚本，再跑版本/格式/行数/clippy/测试/GUI/panic 卫生
-check: gate-tests version-check fmt-check line-limit clippy test gui-check panic-hygiene cli-parity
+check: gate-tests version-check fmt-check line-limit clippy test gui-check panic-hygiene cli-parity ai-docs-sync
 
 # 自动修复格式
 fmt:
@@ -45,6 +45,10 @@ gate-tests:
 # CLI 对等守卫：GUI generate_handler 全集 ↔ p2pctl 实测命令面（映射表 cli-parity.tsv）
 cli-parity:
 	bash scripts/check/cli-parity.sh
+
+# AI 文档防漂移守卫：p2pctl 实测命令面 ↔ docs/ops/p2pctl-ai-guide.md（N1）
+ai-docs-sync:
+	bash scripts/check/ai-docs-sync.sh
 
 # panic 卫生门禁：范围 crate 非测试路径 unwrap/expect/panic 清零（豁免清单见脚本同目录）
 panic-hygiene:
