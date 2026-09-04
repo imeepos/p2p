@@ -142,9 +142,10 @@ stream-json，design §9），即可复用同一套工具面、票据与执法�
 
 ## 9. 已知限制与校准项
 
-- serve/stdio 装配当前注入 ShellWhitelist::empty()（main.rs），
-  CLI 演练中 shell_exec 一律拒（原因 not in closed whitelist）；
-  T24 白名单数据（builtin()）已就绪但未在 helper 装配接线，见 repair-p0b-drill.md §2。
+- 2026-09-04 勘误：serve/stdio 装配已接线 repair_enforce::builtin()（23 条 playbook
+  命令并集），stdio/p2p 白名单语义一致；闭集外命令仍拒（not in closed whitelist）。
+  同轮修复：session_report 补入 stdio 装配（六工具闭集）、盲拨连接 ping 应答、
+  rendezvous 客户端链路失败判死重连（见 repair-p0b-drill.md §2a）。
 - bridge 身份为进程临时（temp 目录含 pid，无 --data-dir 参数），重启身份即变；
   演练期需固定桥身份，方法见 repair-p0b-drill.md §1。
 - 其余校准项（Remove-Item 红线冲突 / sys_snapshot Windows 分支 / REPAIR_ROOTS 分隔符 /

@@ -17,7 +17,11 @@ mod shell_exec_tests;
 mod shell_host_tests;
 
 use crate::jail::PathJail;
-use crate::ToolRegistry;
+use crate::session_report::SessionReport;
+use crate::{AuditSink, ToolRegistry};
+
+/// stdio 形态无票据，session_report 以本常量标识本机会话（runner-integration §7）。
+pub const STDIO_TICKET_ID: &str = "stdio-local";
 
 /// 只读四件套注册表（T23）：sys_snapshot/fs_read/fs_list/fs_search。
 pub fn read_only_registry(jail: PathJail) -> ToolRegistry {
@@ -29,9 +33,19 @@ pub fn read_only_registry(jail: PathJail) -> ToolRegistry {
     registry
 }
 
-/// 全量注册表：只读四件套 + shell_exec（T23b）。
-pub fn helper_registry(jail: PathJail, shell: shell_exec::ShellExec) -> ToolRegistry {
+/// 全量注册表：只读四件套 + shell_exec（T23b）+ session_report。
+/// audit 必须与 Host::guarded 同源，session_report 才能导出全部调用记录；
+/// p2p 形态按票据逐例装配（p2p.rs host_for），工单号来自票据 payload。
+pub fn helper_registry(
+    jail: PathJail,
+    shell: shell_exec::ShellExec,
+    audit: AuditSink,
+) -> ToolRegistry {
     let mut registry = read_only_registry(jail);
     registry.register(shell);
+    registry.register(SessionReport::new(audit, STDIO_TICKET_ID));
     registry
 }
+
+#[cfg(test)]
+mod registry_tests;

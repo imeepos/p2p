@@ -131,6 +131,41 @@ pub struct PingOutcome {
     pub error: Option<String>,
 }
 
+/// 运行时指标快照（契约 v2 MetricsJson）：未运行时全零，字段与 GUI 逐字同形。
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetricsJson {
+    pub dial_direct_ok: u64,
+    pub dial_direct_fail: u64,
+    pub dial_punch_ok: u64,
+    pub dial_punch_fail: u64,
+    pub dial_relay_ok: u64,
+    pub dial_relay_fail: u64,
+    pub addr_dial_failures: u64,
+    pub relay_reconnects: u64,
+    pub gate_denials_total: u64,
+    pub active_connections: u64,
+    pub relay_sessions_active: u64,
+}
+
+impl From<p2p_swarm::MetricsSnapshot> for MetricsJson {
+    fn from(m: p2p_swarm::MetricsSnapshot) -> Self {
+        Self {
+            dial_direct_ok: m.dial_direct_ok,
+            dial_direct_fail: m.dial_direct_fail,
+            dial_punch_ok: m.dial_punch_ok,
+            dial_punch_fail: m.dial_punch_fail,
+            dial_relay_ok: m.dial_relay_ok,
+            dial_relay_fail: m.dial_relay_fail,
+            addr_dial_failures: m.addr_dial_failures,
+            relay_reconnects: m.relay_reconnects,
+            gate_denials_total: m.gate_denials_total,
+            active_connections: m.active_connections,
+            relay_sessions_active: m.relay_sessions_active,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,7 +186,7 @@ mod tests {
         assert_eq!(cfg.quic_port, 3400);
         assert!(cfg.enable_mdns, "缺失字段补默认");
         assert_eq!(cfg.bootstrap, default_bootstrap());
-        let json = serde_json::to_value(&GuiConfig::default()).unwrap();
+        let json = serde_json::to_value(GuiConfig::default()).unwrap();
         assert!(json.get("quicPort").is_some());
         assert!(json.get("relayAddrs").is_some());
     }

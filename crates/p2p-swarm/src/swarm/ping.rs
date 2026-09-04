@@ -27,7 +27,8 @@ fn ping_id() -> ProtocolId {
 }
 
 /// 应答侧：读一帧原样回一帧，返回即关流。帧上限由 read_frame 统一把关。
-pub(crate) struct PingHandler;
+/// 导出给 facade 盲拨链接线：裸链不进 swarm，须自行应答探活（RS 排障 2026-09-04）。
+pub struct PingHandler;
 
 #[async_trait::async_trait]
 impl ProtocolHandler for PingHandler {

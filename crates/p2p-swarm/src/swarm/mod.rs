@@ -38,6 +38,8 @@ mod responder;
 mod serve;
 mod streams;
 
+pub use ping::PingHandler;
+
 #[cfg(test)]
 mod book_tests;
 mod book_view;

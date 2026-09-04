@@ -84,7 +84,7 @@ fn render(cfg: &GuiConfig) -> String {
         Some(p) => p.to_string(),
         None => "-".into(),
     };
-    vec![
+    [
         format!("quicPort={}", cfg.quic_port),
         format!("tcpPort={}", cfg.tcp_port),
         format!("enableMdns={}", cfg.enable_mdns),

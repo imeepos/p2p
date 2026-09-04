@@ -23,6 +23,9 @@
 - 2026-09-02 edit/run_code 里嵌 Rust 代码片段时用模板字符串包裹，别用双引号 JS 字符串——内嵌的双引号要逐层转义极易错；也别把 Rust 字符串改成单引号（Rust 无单引号字符串字面量，format!('...') 直接语法错误，本会话返工实录）。
 - 2026-09-02 长任务中途发现自己的 worktree/本地分支凭空消失：先 `git log --oneline main` + `git worktree list` + `git ls-remote`，大概率已被协调会话验收合入（squash 成新 hash）并执行收尾四步清理——代码在 main 上，别当事故排查（2026-09-02 E4 hairpin 实录：我推的 ff0388d 被合为 0f1c73b，diff 核对逐字节一致）。
 - 2026-09-02 免 sshpass 的密码 SSH 通道：mktemp 生成只含 `printf %s "$SSH_PASSWORD"` 引用的 700 权限 askpass 脚本，配 SSH_ASKPASS_REQUIRE=force + DISPLAY=:0——密码经环境变量传递，不进 argv 不落文件，macOS 自带 OpenSSH>=8.4 即可（ECS 部署实录；sshpass -e 为等效备选）。
+- 2026-09-04 harness run_code 的 bash workdir 参数失效（固定跑在会话 cwd）：树相关操作（cargo test / git）一律命令内 `cd /path/to/tree &&` 前缀，首行加 `pwd && git branch --show-current` 自证归属；本轮曾在主树跑测试得出全绿假象（测的是未修改代码）。
+- 2026-09-04 run_code 模板字符串里写 shell heredoc/脚本：`${VAR}` 会被 JS 插值、内容里的反引号会终止模板串（Rust 文档注释的 [`X`] 也踩）——多行脚本用 write 工具落盘，或行数组 join 后再 edit；行内确需字面 ${ 就整体换成 write。
+- 2026-09-04 长命令跨 job 收集：bash 后台 job 的 stdout 只在 job_output 里取，超长输出截尾时改用「命令重定向到文件 + 后续 cat 文件」模式，保证拿到完整日志（本轮 rz/helper 日志即此法）。
 - 2026-09-02 测 UDP 映射空闲寿命定界传输层问题：向对端 UDP 反射口（如观测口 3402）同一 socket 间隔发探针，看应答与外部端口是否漂移——ECS 实测空闲 12s 映射稳定，一句话排除「NAT/安全组 5s 掉会话」假设，把排查收敛到应用层。
 - 2026-09-02 网络断链类 bug 的消融三板斧（/t3401 实录）：① 真实 TCP + 用户态窄管道泵（read ≤SEGMENT→write_all→flush→sleep，双向各一任务）模拟公网分段/RTT，SEGMENT=256/JITTER=2ms 比真实公网苛刻；② 逐层替换跑同链路（纯 Noise / 纯 yamux / Noise+yamux）锁定层；③ 生命周期对照——对可疑句柄 std::mem::forget（测试短命可接受），全绿即证实「句柄丢弃自毁」假设。
 
@@ -167,3 +170,11 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 共享账本未提交改动的归属判断：git diff 看 updatedAt 与 task 状态变化属于哪个会话的轮次（本轮 diff 是 CLI 协调的 CL3-done/CL4-doing，13:15 刚写）；归属他轮则整文件不碰、不卷进自己提交，自己的叙事缺口走 coordination.md 入册补齐，账本 note 折叠留给下一个写账本的人。
 - 契约加法落地后的文档对齐清单（四遍扫，防「字段登记了、描述面没跟」）：①契约文档引言的能力枚举 ②演练/操作清单的场景+标注+模板行 ③docs/README.md 索引 ④README 进度与 crate 地图。本轮 replyTo 前两项字段面已齐，但①②③④全漏。
 - markdown 手写表格里的路径占位符容易顺手写成 HTML 实体（&lt;peer&gt;）；提交前 git diff 扫一眼与全文风格对齐（本仓库用裸 <peer>）。
+
+## 2026-09-04 CL4·CLI 对等收官轮（bash 守卫 + rust 新命令域）
+- 用 run_code 写多行 bash/脚本文件时不要塞进 JS 模板字面量：`${...}`、`\\[` 一层层转义必错（本轮连错两次）。可靠做法：JS 字符串数组逐行 push、含 `$` 的行用拼接（'...'+ '$' + '{BASH_SOURCE[0]}'），或 bash heredoc 配 chr(92) 做替换。
+- bash 守卫解析 TSV 要用 `cut -f` 而不是 `IFS=$'\t' read`：read 把连续 TAB 折叠成一个分隔符，空字段（豁免行的 invocation 列）被吞、理由列整体错位——这种错不报错只给假结论，靠自测反夹具才暴露。
+- 给「固定追加 --help 的守卫」写 fake CLI 夹具时，case 匹配必须先剥掉 --help 再按路径分发（`$1` 是 --help 时顶层直接落进 `*)` 分支，命令面收集为空）。
+- 自写 printf 行生成 TSV 时单引号里 `\t` 不解释，要 `printf '%b\n'`；真实表格文件用写工具直写真 TAB。
+- run_code 的 tools.bash 换 workdir 前先确认目录已创建（worktree 未建好时 spawn bash 直接 ENOENT）；tools.edit 前必须用 tools.read 读过（bash cat/sed 看过不算数）。
+- 检查脚本里提取 `generate_handler![...]` 用 awk 区间 + `grep -oE '模块::名'` 取末段再滤掉 `generate_handler` 自身，比正则硬吃整块稳；正反夹具自测（tests/cli-parity.sh 挂 gate-tests）照 release-gates 先例，防门禁假绿。

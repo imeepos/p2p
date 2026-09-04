@@ -55,6 +55,7 @@ function RendezvousTable({
                 variant="ghost"
                 size="icon"
                 iconOnly
+                className="size-8"
                 aria-label={t("discovery.rendezvous.deleteAction")}
                 action={() => onDelete(addr)}
                 onError={() => {

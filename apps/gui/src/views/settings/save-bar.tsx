@@ -59,7 +59,7 @@ export function SettingsSaveBar({
         </div>
       ) : null}
       <div className="bg-background/95 col-span-12 sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t py-3 backdrop-blur">
-        <p className="text-muted-foreground text-xs">
+        <p className="text-foreground/70 text-xs">
           {dirty ? t("settings.saveBar.dirty") : t("settings.saveBar.clean")}
         </p>
         <AsyncButton

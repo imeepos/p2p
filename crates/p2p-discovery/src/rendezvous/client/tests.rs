@@ -117,8 +117,12 @@ async fn register_rejection_does_not_block_discovery() {
     let (tx, mut rx) = mpsc::channel(16);
     let cache = MemCache::new();
     let mut conn = client.config.link.connect().await.expect("connect");
-    // 本端全 loopback 注册必被 public_only 拒收；错误被记录而不得外抛
-    client.register_or_note(&mut conn).await;
+    // 本端全 loopback 注册必被 public_only 拒收；协议拒绝不判死连接，
+    // 链路级失败才上抛（RS 排障 2026-09-04 语义切分）
+    client
+        .register_or_fail(&mut conn)
+        .await
+        .expect("protocol rejection must not be a link failure");
     client
         .query_and_emit(&mut conn, &tx, &cache)
         .await
@@ -202,20 +206,33 @@ fn default_register_interval_within_freshness_and_ttl() {
 
 #[test]
 fn backoff_doubles_to_cap_then_resets_after_healthy_session() {
-    // E4 回归：退避逐次翻倍封顶 30s；健康会话正常收尾必须复位——
-    // 否则长时间在线后一次断连也要等满上限（退避只该惩罚连续失败）
+    // E4 回归：退避逐次翻倍封顶 30s（每步 ±20% 抖动错相位）；健康会话正常
+    // 收尾必须复位——否则长时间在线后一次断连也要等满上限（只惩罚连续失败）
+    let jitter = |base: Duration, wait: Duration| {
+        let v = wait.as_secs_f64();
+        (base.as_secs_f64() * 0.8..=base.as_secs_f64() * 1.2).contains(&v)
+    };
     let mut backoff = ReconnectBackoff::new();
-    let seq: Vec<Duration> = (0..8).map(|_| backoff.step()).collect();
-    assert_eq!(seq[0], Duration::from_millis(500));
-    assert_eq!(seq[1], Duration::from_secs(1));
-    assert_eq!(seq[2], Duration::from_secs(2));
-    assert_eq!(seq[3], Duration::from_secs(4));
-    assert_eq!(seq[4], Duration::from_secs(8));
-    assert_eq!(seq[5], Duration::from_secs(16));
-    assert_eq!(seq[6], Duration::from_secs(30), "超出上限必须封顶 30s");
-    assert_eq!(seq[7], Duration::from_secs(30));
+    let bases = [
+        Duration::from_millis(500),
+        Duration::from_secs(1),
+        Duration::from_secs(2),
+        Duration::from_secs(4),
+        Duration::from_secs(8),
+        Duration::from_secs(16),
+        Duration::from_secs(30),
+        Duration::from_secs(30),
+    ];
+    for base in bases {
+        let wait = backoff.step();
+        assert!(jitter(base, wait), "{wait:?} vs base {base:?}");
+    }
     backoff.reset();
-    assert_eq!(backoff.step(), Duration::from_millis(500), "复位后回到初值");
+    let wait = backoff.step();
+    assert!(
+        jitter(Duration::from_millis(500), wait),
+        "复位后回到初值: {wait:?}"
+    );
 }
 
 fn quic(ip: &str, port: u16) -> TransportAddr {

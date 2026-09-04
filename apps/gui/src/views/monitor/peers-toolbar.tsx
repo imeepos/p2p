@@ -1,3 +1,4 @@
+import { SearchIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -41,19 +42,29 @@ export function PeersToolbar({
 
   return (
     <div className="col-span-12 flex flex-wrap items-center gap-2">
-      <Input
-        value={query}
-        onChange={(event) => onQueryChange(event.target.value)}
-        placeholder={t("peers.searchPlaceholder")}
-        className="h-9 w-56"
-      />
+      <div className="relative w-56">
+        <SearchIcon
+          className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+          aria-hidden
+        />
+        <Input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder={t("peers.searchPlaceholder")}
+          className="h-9 pl-8"
+        />
+      </div>
       <Tabs
         value={statusFilter}
         onValueChange={(value) => onStatusFilterChange(value as StatusFilter)}
       >
         <TabsList>
           {filters.map((filter) => (
-            <TabsTrigger key={filter} value={filter}>
+            <TabsTrigger
+              key={filter}
+              value={filter}
+              className="data-[state=active]:border-border data-[state=active]:text-foreground"
+            >
               {t(FILTER_LABEL[filter])}
             </TabsTrigger>
           ))}

@@ -147,12 +147,7 @@ export function PeersTableCard({
                 }
                 action={
                   bufferEmpty ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={onOpenDial}
-                    >
+                    <Button type="button" size="sm" onClick={onOpenDial}>
                       {t("peers.emptyAction")}
                     </Button>
                   ) : undefined

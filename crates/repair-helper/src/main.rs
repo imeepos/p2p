@@ -177,9 +177,10 @@ async fn stdio_serve() -> std::io::Result<()> {
         shell_clock(),
         shell_approver(),
     );
-    let registry = tools::helper_registry(jail, shell);
+    let audit = AuditSink::default();
+    let registry = tools::helper_registry(jail, shell, audit.clone());
     let (_shutdown_tx, shutdown_rx) = watch::channel(false);
-    Host::guarded(registry, enforcement, AuditSink::default())
+    Host::guarded(registry, enforcement, audit)
         .serve(
             BufReader::new(tokio::io::stdin()),
             tokio::io::stdout(),

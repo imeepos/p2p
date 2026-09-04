@@ -2,6 +2,21 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-04 tokio::select! 相对 sleep 被更快 interval tick 永久饿死
+症状：rendezvous 客户端在死连接上以固定 20s 周期空转报错（write half closed）达数十分钟，永不重连；查询分支再也没执行过。
+原因：connect_and_loop 的 select! 每轮循环重建相对 sleep（30s 查询档），20s 注册 tick 先到期就把 sleep 丢掉重建——查询分支的 30s 永远到不了期，错误永不传播。
+修法：周期分支用绝对时刻（tokio::time::Instant + sleep_until），触发后再推算下一截止；链路级错误必须在当轮上抛触发重连，不能只记日志继续循环（rendezvous_facade_link itest + reconnect_tests 锚定）。
+
+## 2026-09-04 裸传输链不自 accept 入站流被对端 liveness 掐线
+症状：经 TransportLink 盲拨的连接约 33s 被 facade 对端判死关链（probe missed ×3），客户端只见 Link("connection lost")；E4 修复（持有 SecureConn）后仍复现。
+原因：裸链不进 swarm，连接只被当作出站流用；对端 liveness probe 在该连接上开 ping 流，本端无人 mux.accept_stream，探活永不命中。
+修法：TransportLink::connect 起 spawn_link_responder 循环，accept 入站流并 dispatch 内置 PingHandler；未注册协议 debug 关流（crates/p2p/src/rendezvous.rs）。E4「句柄持有」与本次「入站应答」是同一坑的上下半场。
+
+## 2026-09-04 harness bash workdir 参数失效导致错树假绿
+症状：run_code 的 bash 传了 workdir 指向 worktree，pwd 实际仍在会话主树；cargo test 测的是未修改的主树代码，全绿假象（本轮实录，修复前测试全绿但绿的是旧代码）。
+原因：该 harness 会话 bash 固定以会话 cwd 运行，workdir 参数被忽略。
+修法：命令内显式 cd 前缀 + 首行 pwd && git branch --show-current 自证；涉及树归属的结论（测试/提交）一律先看这两个输出。
+
 _none yet — be the first.
 
 ## 2026-09-04 诊断清理改动后的 stale-read 与重复 locale 键

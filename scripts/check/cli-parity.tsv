@@ -1,0 +1,30 @@
+# GUI 命令 → CLI 子命令对等映射表（由 scripts/check/cli-parity.sh 机械消费）。
+# 列（TAB 分隔）：gui_command<TAB>mapped|exempt<TAB>cli_invocation<TAB>reason（exempt 必填）。
+# cli_invocation 是空格分层的子命令路径；守卫用 p2pctl --help 实测存在性，禁止只对表不验命令。
+# 新增 GUI 命令必须登记一行（mapped 或带理由的 exempt），否则守卫非 0 退出。
+node_start	mapped	node start	
+node_stop	mapped	node stop	
+node_status	mapped	node status	
+metrics_get	mapped	metrics get	
+metrics_history	exempt		GUI 语义为运行期 5s 采样 120 点的环形历史，CLI 等价实现需守护进程新增采样行为（非薄封装）；CL4 按 R7 权限边界不擅自扩，已回报待裁决（对应即时快照 metrics get 已补齐）
+config_get	mapped	config get	
+config_save	mapped	config save	
+profile_get	mapped	profile get	
+profile_save	mapped	profile save	
+peer_dial	mapped	peer dial	
+peer_connect	mapped	peer connect	
+peer_disconnect	mapped	peer disconnect	
+peer_ping	mapped	peer ping	
+identity_reset	mapped	identity reset	
+frontend_log_append	exempt		GUI 前端专属行为：浏览器侧 error/unhandledrejection/console.error 采集后落盘，CLI 无浏览器运行时、不存在采集源，提供对等子命令无意义
+frontend_log_tail	mapped	log tail	
+frontend_log_path	mapped	log path	
+frontend_log_clear	mapped	log clear	
+update_check	mapped	update check	
+update_open_release_page	mapped	update open	CLI 语义差异：不开浏览器，校验白名单后输出 release 页 URL（映射说明，非豁免）
+chat_friends_list	mapped	chat friends list	
+chat_friend_add	mapped	chat friends add	
+chat_friend_remove	mapped	chat friends remove	
+chat_history	mapped	chat history	
+chat_send	mapped	chat send	
+chat_media_file	mapped	chat media file	

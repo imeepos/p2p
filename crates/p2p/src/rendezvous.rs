@@ -13,7 +13,10 @@ use p2p_discovery::rendezvous::{serve_link, RendezvousConn, RendezvousError, Ren
 use p2p_discovery::RendezvousRegistry;
 use p2p_identity::Keypair;
 use p2p_mux::BoxedStream;
-use p2p_protocol::{open_with_protocol, ProtocolHandler, ProtocolId};
+use p2p_protocol::{
+    dispatch_inbound, open_with_protocol, HandlerRegistry, ProtocolHandler, ProtocolId,
+};
+use p2p_swarm::PingHandler;
 use p2p_transport::{QuicTransport, SecureConn, TcpTransport, Transport, TransportAddr};
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
@@ -40,7 +43,8 @@ pub(crate) fn parse_transport_addr(s: &str) -> Result<TransportAddr, NodeError> 
 }
 
 /// 客户端连接缝：拨号 bootstrap → 开流 → 协议握手 → 长度分帧。
-pub(crate) struct TransportLink {
+/// 导出给 itest 驱动生产盲拨路径（facade 服务端 ↔ 裸链客户端）。
+pub struct TransportLink {
     addrs: Vec<TransportAddr>,
     /// 与 addrs 一一对应：该地址当前故障序列是否已 WARN（AtomicBool 适配 &self connect）。
     blind_dial_failed_warned: Vec<AtomicBool>,
@@ -50,7 +54,7 @@ pub(crate) struct TransportLink {
 }
 
 impl TransportLink {
-    pub(crate) fn new(addrs: Vec<TransportAddr>, keypair: Arc<Keypair>) -> io::Result<Self> {
+    pub fn new(addrs: Vec<TransportAddr>, keypair: Arc<Keypair>) -> io::Result<Self> {
         let warned = (0..addrs.len()).map(|_| AtomicBool::new(false)).collect();
         Ok(Self {
             addrs,
@@ -110,6 +114,7 @@ impl RendezvousLink for TransportLink {
             match open_rendezvous_stream(&conn).await {
                 Ok(stream) => {
                     self.blind_dial_failed_warned[idx].store(false, Ordering::Relaxed);
+                    spawn_link_responder(&conn);
                     return Ok(stream_to_conn_owned(stream, conn));
                 }
                 Err(e) => {
@@ -120,6 +125,25 @@ impl RendezvousLink for TransportLink {
         }
         Err(last.unwrap_or_else(|| RendezvousError::Link("no bootstrap addrs".into())))
     }
+}
+
+/// 盲拨连接的入站应答循环：应答内置 ping（facade liveness 探针），未注册
+/// 协议留 debug 日志后关流，不猜测降级。裸链不进 swarm，若无此循环对端探活
+/// 永不命中，约 33s 即被判死掐线（RS 排障 2026-09-04，rendezvous_facade_link
+/// itest 锚定：探活窗口生存契约）。
+fn spawn_link_responder(conn: &SecureConn) {
+    let mut handlers = HandlerRegistry::default();
+    handlers.register(Arc::new(PingHandler));
+    let handlers = Arc::new(handlers);
+    let mux = conn.mux.clone();
+    tokio::spawn(async move {
+        while let Some(stream) = mux.accept_stream().await {
+            if let Err(e) = dispatch_inbound(stream, &handlers).await {
+                tracing::debug!(error = %e, "rendezvous link inbound stream ended");
+            }
+        }
+        tracing::debug!("rendezvous link responder ended; connection closed");
+    });
 }
 
 async fn open_rendezvous_stream(conn: &SecureConn) -> io::Result<BoxedStream> {

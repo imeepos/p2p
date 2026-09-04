@@ -188,6 +188,10 @@ const enUS: typeof zhCN = {
     mdns: {
       title: "mDNS LAN discovery",
       hint: "Switch reads the persisted config; toggling saves instantly, effective on next start",
+      runningDetail:
+        "Broadcasting this node on the LAN: peers on the same link can discover and dial it directly.",
+      stoppedDetail:
+        "LAN broadcast is off: peer discovery relies on rendezvous bootstrap addresses.",
       saved: "mDNS config saved",
       saveFailed: "Failed to save mDNS config",
     },

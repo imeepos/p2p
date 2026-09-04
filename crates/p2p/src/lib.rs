@@ -17,6 +17,7 @@ pub use p2p_identity::PeerId;
 pub use p2p_mux::BoxedStream;
 pub use p2p_protocol::{ProtocolHandler, ProtocolId};
 pub use p2p_swarm::{gate_fn, ConnectionGate, GateFn, NodeEvent};
+pub use rendezvous::TransportLink;
 
 /// 节点配置（design §4 builder 入参）。
 #[derive(Clone, Debug)]

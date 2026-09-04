@@ -8,6 +8,8 @@ mod daemon;
 mod error;
 mod identity;
 mod lifecycle;
+mod log;
+mod metrics;
 mod node;
 mod ops;
 mod output;
@@ -16,6 +18,7 @@ mod peer;
 mod profile;
 mod store;
 mod types;
+mod update;
 
 use clap::Parser;
 
@@ -40,5 +43,8 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Profile { command } => profile::run(command).await,
         cli::Command::Peer { command } => peer::run(command).await,
         cli::Command::Identity { command } => identity::run(command).await,
+        cli::Command::Log { command } => log::run(command).await,
+        cli::Command::Metrics { command } => metrics::run(command).await,
+        cli::Command::Update { command } => update::run(command).await,
     }
 }

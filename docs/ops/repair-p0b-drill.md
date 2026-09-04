@@ -72,6 +72,26 @@ repair-helper mint-ticket --key key.seed \
       白名单数据 builtin() 已就绪但未接线，修复类 shell 步骤本次演练预期观察拒绝路径；
    b) bridge 无 --data-dir、不自打印 PeerId，演练用 §1 wrapper 固定身份（P1 建议补参数）。
 
+## 2a. 勘误与状态更新（2026-09-04 RS 排障轮，基线见 git log）
+
+1. **2.5a 已失效：白名单已全形态接线**——main.rs shell_whitelist() 返回
+   repair_enforce::builtin()（23 条 playbook 命令并集），stdio/p2p 两形态一致；
+   闭集外命令仍拒（not in closed whitelist），修复类步骤按 fix scope 走审批。
+2. **session_report 已接入 stdio 装配**——helper_registry 此前缺注册，tools/list
+   实发 5 工具；现补齐为六工具闭集（registry_tests 锚定）。注意：工具调用为
+   并发处理，session_report 导出的是处理时刻已完成的事件，runner 需在收尾
+   （响应排空后）调用才能拿到全量对账。
+3. **盲拨连接探活修复**——TransportLink 从不应答入站流，facade liveness probe
+   3 次未达后约 33s 掐线，桥/演练连接频繁断；现挂 PingHandler 应答循环。
+   回归锚定 crates/p2p-itest/tests/rendezvous_facade_link.rs（37s 探活窗口生存）。
+4. **rendezvous 客户端判死重连**——链路级注册失败原先在死连接上 20s 空转、查询
+   分支被 select 饿死；现失败即退避重连（±20% 抖动）+ 重连即重注册。
+5. **票据文件需去尾随换行**——bridge load_ticket 按字面读文件，尾随 \n 会触发
+   base64url Invalid symbol；铸票后用 tr -d '\n' 落盘。
+6. **单机演练地址卫生约束**——helper 广播地址为 127.0.0.1 时，LAN/公网 rendezvous
+   查询侧按 E5 卫生直接过滤（不可发现）；单机全链演练 bootstrap 须全 loopback
+   地址（same_machine 语义保留可发现性），或让观测反射看到可路由地址。
+
 ## 3. 类别一：电脑卡慢（docs/playbooks/slow-diagnostics.md，performance-slow）
 
 诊断（diag scope，只读）：

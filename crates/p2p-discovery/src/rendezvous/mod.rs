@@ -3,6 +3,7 @@
 pub mod client;
 pub mod link;
 pub mod messages;
+pub(crate) mod reconnect;
 pub mod server;
 
 pub use client::{RendezvousClient, RendezvousConfig};

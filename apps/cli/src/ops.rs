@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use p2p::{Node, NodeEvent, PeerId, ProtocolId};
 use serde_json::{json, Value};
 
-use crate::types::{DialHopJson, DialReport, HopKind, NodeStatus, PingOutcome};
+use crate::types::{DialHopJson, DialReport, HopKind, MetricsJson, NodeStatus, PingOutcome};
 
 /// 解析 base58 PeerId（32 字节定长，规则同 GUI proto::parse_peer_id）。
 pub fn parse_peer_id(s: &str) -> Result<PeerId, String> {
@@ -158,6 +158,12 @@ pub async fn ping(node: &Node, peer_id: &str, timeout_ms: u64) -> Result<Value, 
 
 fn elapsed_ms(started: Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+/// metrics_get：运行时指标快照（语义同 GUI AppState::metrics 运行分支）。
+pub fn metrics(node: &Node) -> Result<Value, String> {
+    let snapshot = MetricsJson::from(node.metrics());
+    serde_json::to_value(&snapshot).map_err(|e| format!("指标快照序列化失败: {e}"))
 }
 
 /// 收缓冲区内 DialHop 事件（同 GUI drain_hops）。
