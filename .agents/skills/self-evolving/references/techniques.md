@@ -248,3 +248,8 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - macOS 本机 `lsof <文件路径>` 会无限挂住（当日实测两连挂，进程明明存在也查不出持有者）——查进程句柄一律 `lsof -p <pid>`，别对锁文件做文件级 lsof。
 - 多会话 workspace（本机 84 会话在册）并行 cargo 是常态：动手前先 ps 全景再行动；孤儿验收链特征 = bash -c 包裹 + 日志在 /tmp + 父会话已关（/tmp/t49-*.log 命名即此类）。
 - rust-analyzer 也抢 ./target 锁：VS Code settings 设 "rust-analyzer.cargo.targetDir": true（落 target/rust-analyzer）消除编辑器与终端 cargo 互相阻塞。
+
+## 2026-09-04 IM-T49 轮
+- `git commit --amend` 永远只打 HEAD：多提交序列里修非 HEAD 的提交，amend 必错位（当日把 wire 测试修复并进了命令层提交）。重排未推送历史的可靠姿势 = `git reset --soft <基点>` 后按文件分组重新 commit；要合并进指定提交用 `git commit --fixup=<hash>` + `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <基点>`，且 fixup 前确认目标哈希未被 amend 改写（目标一变 autosquash 静默 no-op）。
+- `cargo xxx | tail` 的退出码是 tail 的，cargo 失败也「completed」——门禁判决一律把整链输出重定向进日志文件并追加 `echo EXIT=$?`，以日志里的标记行定成败，不信管道外层。
+- 通知会打断 job_output 等待（报 abort）但进程往往还活着：先 ps 查 PID 与日志尾再决定 kill，别盲目重启造成双跑。被并行会话毒化的主树验收，干净判决用 CARGO_TARGET_DIR 指独立目录整链重跑（本次隔离跑 11 分钟 exit 0）。

@@ -422,3 +422,16 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 定性：ps 看 TIME(CPU 秒)/ELAPSED 比 + pgrep -lP <pid> 看子进程，CPU≈0 且无子进程超 10 分钟即挂死（编译中必有 rustc 子进程且 CPU 上涨）。
 - 修法：从最老祖先 kill 整链（bash 包装 + cargo）；锁随进程死亡立即释放，无需删 .cargo-lock 文件（其 mtime 与锁无关）。
 - 预防：后台验收链整链包 timeout + CARGO_TARGET_DIR 指独立目录 + 测试用随机端口（本文件 310 行固定端口 flake 同族）。
+
+## 2026-09-04 IM-T49：根 workspace clippy 是假阴性——不覆盖 apps/gui/src-tauri 独立子 workspace
+- 症状：仓库根 `cargo clippy --all-targets -- -D warnings` Finished 零告警，随后在 apps/gui/src-tauri 内跑同命令却报 error（clippy 1.98 needless_borrow，control/handlers.rs）。
+- 原因：src-tauri 是独立 workspace（自带 Cargo.lock），不是根 workspace 成员；根级 clippy 根本不编译 p2p-console。「根目录 clippy 绿」不能作为全仓门禁绿的证据。
+- 修法：验收链必须在 src-tauri 目录内单独跑一次 clippy（账本命令本就如此编排）；给 make check 补独立 workspace lint 覆盖已立 OPS-P1 治理卡。
+
+## 2026-09-04 IM-T49：线上契约加字段无 serde(default)，旧帧跨版本必炸
+- 症状：采纳 T36 旧测试时，含「信封缺 replyTo 字段」的原始线上帧在当前 main 全部解析失败断流。
+- 原因：T46A 给 WireEnvelope 加 reply_to 未标 serde(default)——Option 字段没有 default 时反序列化仍要求键存在；线上格式无版本协商，旧版本发出的帧直接被判非法。
+- 影响与修法：契约演进规则=线上结构体加可选字段必须带 serde(default)（本地落盘结构已有「缺字段读回」容忍惯例可循）；当日以「缺 replyTo 断流」对抗用例锁定现行为，是否补 default 交协调裁决。
+
+## 2026-09-04 IM-T49：git 工具链断点汇总（当日三踩）
+- 见 techniques 同日条：amend 错位打 HEAD、fixup 目标被 amend 后 autosquash 静默落空、`| tail` 吞退出码——三类都让「提交历史看似正确实则内容错位」且绿标误导，重整后必须 `git show --stat` 逐提交核对文件归属再加验证。

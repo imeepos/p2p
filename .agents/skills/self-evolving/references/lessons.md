@@ -220,3 +220,5 @@ _none yet — be the first._
 - 2026-09-04 IM-T50：主树 make check 是并行轮的共享资源，load 40+ 下 vitest 超时与 cargo 子进程竞态都是环境病——先隔离定性再错峰重跑，别对着环境红改代码。
 - 2026-09-04 IM-T50：被协调者通牒/接管时，第一动作是只读核查自己工作区状态并秒回事实清单（已交付提交/未提交面/后台任务），迟到的沉默会被误读成无进展。
 - 2026-09-04 IM-T50：known-issues 登记过的坑（zustand 选择器 `?? []` 快照不稳）写测试时没回忆起来又踩——写涉及 store 的代码前先 grep 一遍 references 再动手。
+- 2026-09-04 IM-T49：rustup 升级（clippy 1.98）会让已合入 main 的存量代码突然门禁红（needless_borrow/suspicious_open_options 新 lint），与在途改动无关——验收红先看报错里的 lint 名与 clippy 版本再定性，零行为机械修复按 IM-T47 先例随当前分支独立 fix 提交并在报告披露。
+- 2026-09-04 IM-T49：残留 worktree 的增强测试拖 17 天不评估，API 已漂移四处（Chat::send 加参/WireEnvelope 加字段/命令加参/端口夹具），适配成本随时间只涨不跌——盘点类清理任务要早办，评估结论本身就是适配点的清单。
