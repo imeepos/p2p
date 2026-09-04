@@ -44,12 +44,12 @@ pub async fn run(
     } else {
         ensure_current_page(&channel, page).await?;
     }
-    let body = json!({
-        "page": page,
-        "action": action,
-        "requestId": new_request_id(),
-        "args": parse_pairs(pairs)?,
-    });
+    let args = parse_pairs(pairs)?;
+    // args 缺省时整个省略字段：显式 null 会原样穿透到前端桥，契约语义是「未传」。
+    let mut body = json!({ "page": page, "action": action, "requestId": new_request_id() });
+    if !args.is_null() {
+        body["args"] = args;
+    }
     let data = channel.post("/page/action", body).await?;
     let text = render_result(&data)?;
     output::emit(out.json, &data, &text)
