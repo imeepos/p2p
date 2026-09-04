@@ -242,3 +242,9 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - run_code 的 bash 命令写在反引号模板里时，shell 循环变量 ${i} 会被 TS 先插值报 ReferenceError——含 shell 变量/循环的命令一律用单引号字符串承载（与 red-lines 反引号条同族，本条补变量插值变种）。
 - 验收红定性三步：隔离复跑最小面（cargo test -p 单包 / 单文件 vitest）+ 查可疑产物 mtime + 同码他树全绿对照；三步齐才允许记为环境竞态并错峰重跑全量。
 - edit 批量修改生产文件后先跑最小面单测（本次 mock-chat 11 连崩由一条 edit 引出，单文件 vitest 半分钟定位），不要攒到全量门禁才发现。
+
+## 2026-09-04 cargo 锁竞争排查工具箱
+- 定位链路：ps aux | grep -E '[c]argo|[r]ustc' → ps -o pid,ppid,lstart,etime,%cpu,command 看族谱 → pgrep -lP <pid> 验有无编译子进程 → sample <pid> 2 看内核栈卡点；CPU 秒数是「活着干活」与「挂死占坑」的唯一硬指标。
+- macOS 本机 `lsof <文件路径>` 会无限挂住（当日实测两连挂，进程明明存在也查不出持有者）——查进程句柄一律 `lsof -p <pid>`，别对锁文件做文件级 lsof。
+- 多会话 workspace（本机 84 会话在册）并行 cargo 是常态：动手前先 ps 全景再行动；孤儿验收链特征 = bash -c 包裹 + 日志在 /tmp + 父会话已关（/tmp/t49-*.log 命名即此类）。
+- rust-analyzer 也抢 ./target 锁：VS Code settings 设 "rust-analyzer.cargo.targetDir": true（落 target/rust-analyzer）消除编辑器与终端 cargo 互相阻塞。

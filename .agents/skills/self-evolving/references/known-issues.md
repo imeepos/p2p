@@ -415,3 +415,10 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 症状二：同轮主树 vitest 3 用例撞 5s/30s 超时上限 + 1 例「找到多个取消按钮」；同码 worktree 侧 256/256 全绿。
 - 原因：load 34-45 下多会话并发 cargo/vitest——集成测试起子进程时 bin 目标正被并行构建短暂移换；vitest 用例 CPU 配额被挤压，RTL waitFor 类断言在慢时钟下偶发失真。
 - 修法：全量验收红先三步定性——隔离复跑最小面（cargo test -p 单包 / 单文件 vitest）、查产物 mtime、同码他树全绿对照——确认环境竞态后错峰重跑，不对环境红改代码；与 IM-T45 端口互踩条同族，本条补二进制竞态与负载超时两个变种。
+
+## 2026-09-04 cargo 验收链挂死持锁——clippy/check 全家排队 25 分钟根因
+- 症状：任意 cargo 命令停在 "Blocking waiting for file lock on build directory" 半小时以上无输出。
+- 根因：另一 cargo 进程挂死未死透仍持 target/.cargo-lock（flock 随进程存活，进程不死锁不放）；cargo 锁等待无超时参数，只能干等。现场：凌晨 2:19 的 t49 验收链 cargo test --workspace 卡在某测试 Running 后，持锁 15 小时全程 0.13s CPU，后续所有 cargo 全部排队；另一条 CARGO_TARGET_DIR 隔离链也挂死在 Compiling 中途（rustc 子进程全消失、无网络句柄），挂死不限于测试阶段。
+- 定性：ps 看 TIME(CPU 秒)/ELAPSED 比 + pgrep -lP <pid> 看子进程，CPU≈0 且无子进程超 10 分钟即挂死（编译中必有 rustc 子进程且 CPU 上涨）。
+- 修法：从最老祖先 kill 整链（bash 包装 + cargo）；锁随进程死亡立即释放，无需删 .cargo-lock 文件（其 mtime 与锁无关）。
+- 预防：后台验收链整链包 timeout + CARGO_TARGET_DIR 指独立目录 + 测试用随机端口（本文件 310 行固定端口 flake 同族）。
