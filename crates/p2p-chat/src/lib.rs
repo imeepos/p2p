@@ -1,9 +1,13 @@
-//! p2p-chat：IM 聊天核心 crate（design §1-§6；契约 gui-contract.md §12）。
-//! 好友簿 / 消息历史 / outbox 离线队列 / 线协议 /im/chat/1 收发；底座 p2p-* 只读。
-//! 发送：校验 → 落 outbox → 连接 → 开流帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
+//! p2p-chat：IM 聊天核心（design §1-§6 + im-group-design）：1:1 与群聊收发，底座只读。
+//! 发送：校验 → 落 outbox → 连接 → 帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
 
 mod core;
 mod friend;
+mod group;
+mod group_core;
+mod group_model;
+mod group_store;
+mod group_wire;
 mod identity_lock;
 mod model;
 mod outbox;
@@ -22,6 +26,9 @@ use p2p::Node;
 use tokio::sync::broadcast;
 
 pub use friend::{validate_group, ChatFriend, FriendPatch, MAX_GROUP_CHARS};
+pub use group::{
+    Group, GroupEvent, GroupInfo, GroupMessage, GroupSendReport, GroupState, GROUP_PROTOCOL,
+};
 pub use model::{
     sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatEvent, ChatKind,
     ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
@@ -32,12 +39,11 @@ use core::ChatCore;
 /// 线协议 ID（wire-protocol.md §8 登记）。
 pub const CHAT_PROTOCOL: &str = "/im/chat/1";
 
-/// 事件通道容量。
-const EVENT_CAPACITY: usize = 128;
+const EVENT_CAPACITY: usize = 128; // 1:1 与群各自独立事件通道
 
-/// 聊天门面：好友簿 / 发送 / 历史 / 媒体路径，内部持有核心与 outbox 任务。
 pub struct Chat {
     core: Arc<ChatCore>,
+    pub group: Group, // 群门面：group_* 命令经此调用（与 1:1 API 命名空间分离）
 }
 
 impl Chat {
@@ -57,13 +63,18 @@ impl Chat {
             p2p::ProtocolId::new(CHAT_PROTOCOL).map_err(|e| ChatError::Protocol(e.to_string()))?;
         core.node
             .handle_protocol(Arc::new(wire::ChatHandler::new(core.clone(), proto)));
-        outbox::spawn_outbox_task(core.clone());
-        Ok(Self { core })
+        let group = group::Group::mount(core.clone(), &data_dir)?;
+        outbox::spawn_outbox_task(core.clone(), group.core.clone());
+        Ok(Self { core, group })
     }
 
     /// chat_message / chat_status 事件订阅。
     pub fn events(&self) -> broadcast::Receiver<ChatEvent> {
         self.core.events.subscribe()
+    }
+
+    pub fn group_events(&self) -> broadcast::Receiver<GroupEvent> {
+        self.group.events()
     }
 
     /// 好友簿列表（无文件返回空数组）。
@@ -270,7 +281,7 @@ impl Chat {
         })
     }
 
-    /// 排空该 peer 的 outbox（CLI one-shot 收尾，D5）：连接后 flush，返回补投条目数。
+    /// 排空该 peer 的 outbox（CLI one-shot，D5）：返回补投条目数。
     pub async fn drain_peer(&self, peer: &str, budget: Duration) -> Result<usize, ChatError> {
         let pid = model::parse_peer_id(peer)?;
         let before = self.core.store.outbox_for(peer).len();
