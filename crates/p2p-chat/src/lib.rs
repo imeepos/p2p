@@ -5,6 +5,7 @@
 //! 入站：handler 读信封 → 收媒体 → 回 ACK → 落盘 → chat_message 事件。
 
 mod core;
+mod friend;
 mod model;
 mod store;
 mod store_io;
@@ -17,9 +18,10 @@ use std::sync::Arc;
 use p2p::Node;
 use tokio::sync::broadcast;
 
+pub use friend::{validate_group, ChatFriend, FriendPatch, MAX_GROUP_CHARS};
 pub use model::{
-    sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatEvent, ChatFriend,
-    ChatKind, ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
+    sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatEvent, ChatKind,
+    ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
 };
 
 use core::ChatCore;
@@ -90,6 +92,7 @@ impl Chat {
             nickname,
             addrs,
             note,
+            group: None,
         };
         self.core.store.upsert_friend(friend.clone())?;
         Ok(friend)
@@ -99,6 +102,49 @@ impl Chat {
     pub fn friend_remove(&self, peer_id: &str) -> Result<bool, ChatError> {
         let _ = model::parse_peer_id(peer_id)?;
         Ok(self.core.store.remove_friend(peer_id)?)
+    }
+
+    /// 更新好友资料补丁（IM-T43）：group/nickname/note 至少一项；addrs 不可经此修改；
+    /// peer 不在簿 Err。group 提供空串 = 移出分组（归一化 None，落盘无空串组名）。
+    pub fn friend_update(
+        &self,
+        peer_id: &str,
+        patch: &FriendPatch,
+    ) -> Result<ChatFriend, ChatError> {
+        let _ = model::parse_peer_id(peer_id)?;
+        if patch.is_empty() {
+            return Err(ChatError::InvalidUpdate(
+                "更新内容为空：group/nickname/note 至少提供一项".into(),
+            ));
+        }
+        let group = friend::validate_group(patch.group.as_deref())?;
+        let nickname = patch
+            .nickname
+            .as_deref()
+            .map(model::validate_nickname)
+            .transpose()?;
+        let note = match patch.note.as_deref() {
+            Some(n) if n.trim().is_empty() => Some(None),
+            Some(n) => Some(Some(n.to_string())),
+            None => None,
+        };
+        let mut friends = self.core.store.friends_list()?;
+        let slot = friends
+            .iter_mut()
+            .find(|f| f.peer_id == peer_id)
+            .ok_or_else(|| ChatError::NotFound(format!("好友不在簿：{peer_id}")))?;
+        if patch.group.is_some() {
+            slot.group = group;
+        }
+        if let Some(name) = nickname {
+            slot.nickname = name;
+        }
+        if let Some(value) = note {
+            slot.note = value;
+        }
+        let updated = slot.clone();
+        self.core.store.upsert_friend(updated.clone())?;
+        Ok(updated)
     }
 
     /// 历史分页：time desc；beforeId = 严格更早游标；limit 默认 50 上限 100。

@@ -360,6 +360,18 @@ const enUS: typeof zhCN = {
       delivered: "Delivered",
       failed: "Failed",
     },
+    group: {
+      moveAction: "Move to group",
+      moveTitle: "Move to group",
+      ungrouped: "Ungrouped",
+      nameLabel: "Group name",
+      namePlaceholder: "Type or pick a group name",
+      nameTooLong: "Group name cannot exceed 32 characters after trim",
+      clearHint: "Submit with an empty name to remove from the group",
+      submit: "Move",
+      confirming: "Moving…",
+      failed: "Group update failed: ",
+    },
     addFriend: {
       action: "Add friend",
       title: "Add friend",

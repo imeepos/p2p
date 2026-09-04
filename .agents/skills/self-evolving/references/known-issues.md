@@ -451,6 +451,17 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：bash 工具层中断打断了 checkout 中段；分支 ref 已写、worktree 注册未完成。
 - 修法：rm -rf 残留目录 → git branch -D 悬空分支 → 重新 worktree add（给足 timeoutMs）；重建后 ls 抽查关键子目录（如 apps/gui/src/views 与 src/stores 同时存在才算完整）。
 
+## 2026-09-04 IM-T43：vitest「Failed to start worker / Timeout waiting for worker to respond」是纯负载假红，有对照判别法
+- 症状：单文件 vitest run 60s 后 worker 启动超时（forks/threads 两池皆可复现），Tests no tests；当时 load 26-49（并行会话 rustc + vscode rg 索引）。
+- 坑：第一反应是怀疑自己新写的测试文件 import 链有问题，差点开始改代码。
+- 判别法：拿一个既有测试文件原样跑一遍——同样超时即为环境问题，自己的代码无罪；既有可能间歇通过（本次首跑就真跑起来暴露过真实断言错误），失败后隔几分钟重试即可。
+- 修法：等负载回落重试；不要为此改 vitest 配置或测试代码。
+
+## 2026-09-04 IM-T43：行尾中文注释触发 hardcoded-copy 守卫（stripComments 盲区）
+- 症状：i18n/hardcoded-copy.test.ts 报 components 文件违规，行内容形如 `name: string | null; // null = 未分组虚拟组`。
+- 原因：守卫的 stripComments 只删行首注释与块注释，行尾 // 注释保留后过 CJK 正则。
+- 修法：components/views 下所有中文注释一律独立成行（守卫能删到）；不要改守卫来适配自己的写法。
+- 快速定位法：把守卫的 stripComments+CJK 逻辑写成 /tmp 临时 .cjs 用 node 跑，一次列出全部 offender（awk 转义写这个太容易翻车）。
 
 ## 2026-09-04 U1：worktree remove / 大目录删除被 bash 默认超时反复击杀
 - 症状：git worktree remove（含数 GB target 产物）静默无输出返回，目录与注册都还在；链上后续 branch -d 全没执行。

@@ -9,6 +9,7 @@ const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 export const MAX_TEXT_CHARS = 2000;
 export const MAX_MEDIA_BYTES = 64 * 1024 * 1024; // 与 chunked.rs MAX_MESSAGE_SIZE 一致
 export const MAX_NICKNAME_CHARS = 64;
+export const MAX_GROUP_CHARS = 32; // 与 p2p-chat friend::MAX_GROUP_CHARS 同口径
 
 export function isValidPeerId(value: string): boolean {
   return PEER_ID_RE.test(value);
@@ -97,6 +98,19 @@ function validateSend(
 export function validateReplyTo(replyTo: string | null | undefined): string | null {
   if (replyTo == null) return null;
   if (replyTo.trim().length === 0) return `回复引用非法：${replyTo}`;
+  return null;
+}
+
+// 分组名校验（IM-T43，与 p2p-chat friend::validate_group 三方同口径）：
+// trim 后 1..=32 字符；空串/纯空白 = 合法（移出分组语义），返回 null。
+// 字符数按 Array.from 计（与 Rust chars() 对齐，emoji 不双计）。
+export function validateGroupName(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return null;
+  if (Array.from(trimmed).length > MAX_GROUP_CHARS) {
+    return `分组名超过 ${MAX_GROUP_CHARS} 字符上限`;
+  }
   return null;
 }
 
