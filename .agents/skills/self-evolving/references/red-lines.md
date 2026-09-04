@@ -41,3 +41,5 @@
 - 禁止在 zustand/useSyncExternalStore 选择器内联派生新引用（`s.x[id] ?? []`、`?? {}`、map/filter）：每次调用返回新对象即快照不稳，React 无限重渲直崩 Maximum update depth exceeded（2026-09-04 IM-T50 测试 Harness 实证，known-issues 2026-09-03 同族条目仍再踩）。稳法：选择器只取 record 引用，`??` 派生放组件体。
 - 禁止 edit 的 old_string 覆盖「无需修改的上下文行」而不在 new_string 原样带回（2026-09-04 IM-T50 实证：替换块吞掉 mock-ipc 的 addKnownPeer 属性，11 用例连崩）；边界取最小可唯一定位区段，替换后立即 read 回核。
 - 禁止后台跑 cargo 验收/构建链不带 timeout 裸奔（2026-09-04 实证：t49 链 cargo test 挂死持 target 锁 15 小时，全家 clippy/check 排队 25 分钟起；cargo 锁等待无超时参数，挂死即无限堵）。稳法：整链 timeout/gtimeout 包裹 + CARGO_TARGET_DIR 指独立目录 + 定期 ps 清点孤儿 cargo。
+
+- 禁止对 apps/gui/src-tauri 跑 `cargo fmt` / `cargo fmt --check`（gui-updater 轮实证）：fmt/clippy 门禁（scripts/check/fmt.sh、clippy.sh）都从根 workspace 跑，根 Cargo.toml 已 exclude src-tauri，该子树从未按本地 rustfmt 基线格式化；一跑全库爆 diff，极易诱导出一个违反提交纪律的巨石「格式化提交」。src-tauri 的质量信号是 cargo check + cargo test。
