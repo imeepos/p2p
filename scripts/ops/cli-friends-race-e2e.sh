@@ -2,10 +2,9 @@
 # R1 friends 并发写 E2E：两 p2pctl 进程并发 friend add 各 5 笔，断言零静默丢失。
 # 场景：预热 1 笔（生成 key.seed 与 chat/ 目录，规避并发首生成竞态）→
 #   A/B 双流并发各 add 5 笔（定值互异 peer）→ 终态断言：
-#   friends.json 合法 JSON、恰 2N+1 = 11 笔全量在（少一笔即红）、
-#   无重复、无孤儿（peer 全落在预期集内）、CLI 读回 == 磁盘、双流无 panic。
-# 丢写即红对应红线：并发写不允许无提示丢失；锁僵持走显式超时报错
-# （「拒绝静默覆盖」），冲突路径可观测而非静默。
+#   CLI 冷读 yrs 日志合并视图恰 2N+1 = 11 笔全量在（少一笔即红，Y1 起 CRDT
+#   合并无需文件锁）、无重复、无孤儿（peer 全落在预期集内）、磁盘日志头行
+#   合法且更新行恰 2N+1、两次独立冷读一致、双流无 panic。
 # 幂等：临时数据目录隔离，trap 清理（造数不过夜）。末行 FRIENDS-RACE-OK。
 set -euo pipefail
 
@@ -53,35 +52,46 @@ stream_add() {
   done
 }
 
-# friends.json 终态：恰 2N+1 笔全量在簿、无重复、无孤儿。
+# CLI 冷读磁盘 yrs 日志合并视图（每次调用均为新进程直读磁盘）。
+collect_friends_view() {
+  "$CTL" chat friends list --json --data-dir "$DD" > "$DD/.view.json" \
+    || fail "friends list 读回失败"
+}
+
+# 终态：合并视图恰 2N+1 笔全量在簿、无重复、无孤儿；日志头行合法、更新行恰 2N+1。
 assert_friends_full() {
-  python3 - "$DD/chat/friends.json" "$((2 * N + 1))" \
+  python3 - "$DD/.view.json" "$DD/chat/friends.json" "$((2 * N + 1))" \
     "$W_ID" "${A_IDS[@]}" "${B_IDS[@]}" <<'PY'
-import json, sys
-path, want = sys.argv[1], int(sys.argv[2])
-expected = set(sys.argv[3:])
-with open(path) as f:
-    book = json.load(f)
-assert isinstance(book, list), "friends.json 不是 JSON 数组"
+import base64, json, sys
+view_path, log_path, want = sys.argv[1], sys.argv[2], int(sys.argv[3])
+expected = set(sys.argv[4:])
+book = json.load(open(view_path))
 ids = [f["peerId"] for f in book]
 assert len(ids) == len(set(ids)), f"好友 peer 重复: {ids}"
 assert len(ids) == want, f"好友条数 {len(ids)} ≠ 全量 {want}：并发写发生静默丢失"
 orphans = [i for i in ids if i not in expected]
 assert not orphans, f"孤儿好友记录: {orphans}"
-print(f"friends.json 全量 {want} 笔在簿，零丢失零重复零孤儿")
+lines = open(log_path).read().splitlines()
+header = json.loads(lines[0])
+assert header.get("p2p-friends") == "yrs-v1", f"日志头行异常: {lines[0]}"
+updates = [json.loads(l) for l in lines[1:] if l.strip()]
+for u in updates:
+    base64.b64decode(u["u"], validate=True)
+assert len(updates) == want, f"更新行数 {len(updates)} ≠ 变更数 {want}：追加丢失或损坏"
+print(f"yrs 日志合并视图全量 {want} 笔在簿，更新行 {len(updates)} 行级完整，零丢失零重复零孤儿")
 PY
 }
 
-# CLI 读回 == 磁盘文件（同一份好友簿两种读路径一致）。
-assert_friends_view_matches_disk() {
-  "$CTL" chat friends list --json --data-dir "$DD" > "$DD/.view.json" \
-    || fail "friends list 读回失败"
-  python3 - "$DD/.view.json" "$DD/chat/friends.json" <<'PY'
+# 两次独立冷读一致：yrs 日志解码确定性，磁盘权威态稳定可读。
+assert_friends_view_stable() {
+  "$CTL" chat friends list --json --data-dir "$DD" > "$DD/.view2.json" \
+    || fail "friends list 二次读回失败"
+  python3 - "$DD/.view.json" "$DD/.view2.json" <<'PY'
 import json, sys
-view = json.load(open(sys.argv[1]))
-disk = json.load(open(sys.argv[2]))
-assert view == disk, "CLI 好友簿读回与磁盘文件不一致"
-print(f"CLI 好友簿读回 == 磁盘（{len(view)} 条）")
+a = json.load(open(sys.argv[1]))
+b = json.load(open(sys.argv[2]))
+assert a == b, "两次独立冷读不一致（解码非确定）"
+print(f"CLI 两次独立冷读一致（{len(a)} 条）")
 PY
 }
 
@@ -98,7 +108,7 @@ echo "预热完成 key.seed=$DD/key.seed"
 A_IDS=() B_IDS=()
 for i in 1 2 3 4 5; do A_IDS+=("$(peer_id "$i")"); B_IDS+=("$(peer_id "$((i + 10))")"); done
 
-echo "== 1. 双流并发 friends add 各 $N 笔（跨进程文件锁串行合并） =="
+echo "== 1. 双流并发 friends add 各 $N 笔（yrs CRDT 合并，无文件锁） =="
 A_LOG="$DD/a.log"; B_LOG="$DD/b.log"
 stream_add A "$DD" "$A_LOG" "${A_IDS[@]}" & PA=$!
 stream_add B "$DD" "$B_LOG" "${B_IDS[@]}" & PB=$!
@@ -107,8 +117,9 @@ wait "$PB" || fail "B 流 friends add 中止"
 assert_no_panic "$A_LOG" A; assert_no_panic "$B_LOG" B
 
 echo "== 2. 终态断言：2N+1 全量在簿（零静默丢失） =="
+collect_friends_view
 assert_friends_full
-assert_friends_view_matches_disk
-rm -f "$DD/.view.json"
-echo "并发语义实测：好友簿跨进程文件锁串行合并，10 并发笔全量落盘"
+assert_friends_view_stable
+rm -f "$DD/.view.json" "$DD/.view2.json"
+echo "并发语义实测：好友簿 yrs CRDT 合并（无锁），10 并发笔全量落盘"
 echo "FRIENDS-RACE-OK"

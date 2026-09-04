@@ -281,11 +281,17 @@ invoke 白名单刻意只收只读命令（`apps/gui/src-tauri/src/control/invok
 
 ### 9.4 并发写语义（实测 + 读码，子脚本末行 N2-R2-OK）
 
-- `chat/friends.json`：原子写（tmp+rename）保证单次写完整，但无跨进程锁：
-  每个 p2pctl 进程启动时整簿加载、写时整簿回写，两个进程并发各加 N 笔为
-  last-write-wins，可能丢更新（实测终态条数落在 [N+1, 2N+1]：末写者视图必含
-  本流全部与预热友；无损坏、无重复、无孤儿、无 panic）。契约建议：好友簿写
-  按单写者串行使用。
+- `chat/friends.json`（Y1 起，yrs CRDT 承载）：好友簿由 yrs（Yjs 官方 Rust 移植）
+  Doc 承载为逐行更新日志——首行为格式头 `{"p2p-friends":"yrs-v1"}`，其余每行为
+  一次实际变更的 base64 yrs update（O_APPEND 追加）。yrs update 幂等可交换，
+  双进程并发 add/remove **无需文件锁**即全量保留（每次操作前以磁盘日志重建
+  权威态再合并，CRDT 合并语义取代原文件锁串行化），remove 走 yrs tombstone，
+  并发 add/remove 按 yrs 语义合并；同 peer 并发改写由 yrs 确定性裁决。旧 JSON
+  数组首次载入自动迁移，原文件备份为 `friends.json.bak-yrs-<ts>`；store 对外
+  API（add/remove/list）签名与语义不变，CLI/GUI 无感。每行日志解析失败跳过
+  并 warn（可观测），文件名沿用 `friends.json`（watcher 归类不变）。消息 JSONL
+  不在 CRDT 范围（append-only 已行级完整）；好友簿日志随变更笔数线性增长，
+  compaction 留待 Y2 决策。
 - `chat/messages/`、`chat/outbox/`：JSONL 追加式（O_APPEND 行级写入），状态
   改写走整文件重写并原样保留未知行；双流并发各发 N 笔（各 peer 一文件）实测
   恰 N 条、id 唯一、CLI history 与磁盘逐条一致、messages/ 目录无孤儿文件。

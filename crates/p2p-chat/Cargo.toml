@@ -11,12 +11,14 @@ p2p = { path = "../p2p" }
 p2p-identity = { path = "../p2p-identity" }
 p2p-mux = { path = "../p2p-mux" }
 p2p-protocol = { path = "../p2p-protocol" }
+base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 uuid.workspace = true
+yrs.workspace = true
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

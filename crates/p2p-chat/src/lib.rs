@@ -12,6 +12,9 @@ mod identity_lock;
 mod model;
 mod outbox;
 mod store;
+mod store_friends;
+#[cfg(test)]
+mod store_friends_tests;
 mod store_io;
 mod store_lock;
 mod wire;
