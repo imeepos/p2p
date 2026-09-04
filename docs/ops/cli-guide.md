@@ -184,7 +184,13 @@ bash scripts/ops/cli-node-e2e.sh        # CL2：node/config/peer/identity 全链
 bash scripts/ops/cli-chat-e2e.sh        # CL3：chat 好友/历史/发送/附件双节点（末行 CL3-E2E-OK）
 bash scripts/ops/cli-log-update-e2e.sh  # CL4：log/metrics/update 域（末行 CL4-E2E-OK）
 bash scripts/ops/cli-gui-e2e.sh        # GC2：gui 域 × 真实 GUI 控制通道（末行 GC2-E2E-OK）
+bash scripts/ops/cli-gui-data-e2e.sh   # N2：GUI×CLI 数据面互操作（末行 N2-E2E-OK）
 ```
+
+`cli-gui-data-e2e.sh` 以临时 HOME 隔离启动真实 GUI，与 CLI 指向同一数据目录：
+CLI 冷写 config/profile/chat → invoke 白名单读回断言一致 → 运行中再写实测感知
+语义 → R2 并发写子脚本 `cli-chat-concurrency-e2e.sh`（末行 N2-R2-OK）。
+一致性语义结论见 §9。
 
 `cli-gui-e2e.sh` 会构建并后台启动**真实 GUI**，轮询端点状态文件就绪后走全链路
 断言；已有 GUI 实例运行时先备份 `endpoint.json`、以 pid 匹配本实例、退出后还原，
@@ -203,3 +209,50 @@ bash scripts/ops/cli-gui-e2e.sh        # GC2：gui 域 × 真实 GUI 控制通�
 
 新增 GUI 命令时必须同步登记映射表（mapped 或带理由的 exempt），否则 `make check` 必红。
 守卫自身有正反夹具自测（`scripts/check/tests/cli-parity.sh`，随 `gate-tests` 运行）。
+
+## 9. 数据面一致性语义（N2 实测）
+
+GUI（apps/gui）与 CLI（p2pctl）共用同一数据目录：CLI `--data-dir` 即 GUI app
+数据目录（macOS `~/Library/Application Support/com.p2p.console`），其下
+`gui-config.json`、`node-profile.json`、`chat/`（好友簿与消息库）为两端口径
+同一份文件；控制通道状态在 `control/` 子目录。实测脚本：
+`scripts/ops/cli-gui-data-e2e.sh`（末行 N2-E2E-OK）。
+
+### 9.1 冷启动一致性（实测）
+
+GUI 启动即按目录约定读盘：先 CLI 写 `config save` / `profile save` /
+`chat friends add`，再启动 GUI，经 `p2pctl gui invoke` 白名单只读命令
+（config_get / profile_get）读回，与 CLI 读路径 JSON 深比较逐字段一致；
+chat 好友簿以 CLI 读路径与磁盘文件比对验证（见 9.3 缺口）。
+
+### 9.2 运行中实时性（实测结论）
+
+| GUI 侧读路径 | CLI 写入后的感知 | 机理 |
+|---|---|---|
+| invoke config_get / profile_get | 即时可见，无需刷新或重启 | 每次调用直读磁盘文件 |
+| node_status 的 config 字段 | 节点运行中为启动时快照 | RunningNode 缓存启动配置，需节点重启生效（读码） |
+| GUI 前端页面（设置/发现/中继等） | 不自动刷新 | 页面挂载时经 IPC 拉取（useGuiConfig），需重进路由或触发 reload（读码） |
+| GUI chat 视图 | 未纳入断言 | invoke 白名单无 chat 只读命令（缺口，见 9.3） |
+
+### 9.3 白名单缺口（R4 回报项，不阻断）
+
+invoke 白名单刻意只收只读命令（`apps/gui/src-tauri/src/control/invoke_allow.rs`
+红线：写操作永不入列），config_save / profile_save / chat_friend_add 等写命令
+一律 `INVOKE_FORBIDDEN`。因此「GUI 写 → CLI 读回」无法经控制通道驱动验证：
+需 GUI 前端手动操作，或另立卡评估「可观察写命令入白名单」；E2E 以拒绝断言
+记录该缺口。chat 只读命令（chat_friends_list）同样不在白名单，GUI 侧 chat
+视图一致性暂无 CLI 观测面。
+
+### 9.4 并发写语义（实测 + 读码，子脚本末行 N2-R2-OK）
+
+- `chat/friends.json`：原子写（tmp+rename）保证单次写完整，但无跨进程锁：
+  每个 p2pctl 进程启动时整簿加载、写时整簿回写，两个进程并发各加 N 笔为
+  last-write-wins，可能丢更新（实测终态条数落在 [N+1, 2N+1]：末写者视图必含
+  本流全部与预热友；无损坏、无重复、无孤儿、无 panic）。契约建议：好友簿写
+  按单写者串行使用。
+- `chat/messages/`、`chat/outbox/`：JSONL 追加式（O_APPEND 行级写入），状态
+  改写走整文件重写并原样保留未知行；双流并发各发 N 笔（各 peer 一文件）实测
+  恰 N 条、id 唯一、CLI history 与磁盘逐条一致、messages/ 目录无孤儿文件。
+  同 peer 跨进程高频并发追加存在行间交错的理论窗口（读取时跳过损坏行并
+  warn），属存储层已知边界，未纳入断言。
+
