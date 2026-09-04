@@ -2589,6 +2589,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d9d19d1d6efa0109d2f65ff4c85cddd50bd572e5a00127ab10987290bcefae"
 
 [[package]]
+name = "llm-share-ledger"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "p2p-identity",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
+]
+
+[[package]]
+name = "llm-share-offer"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "p2p-discovery",
+ "p2p-identity",
+ "p2p-transport",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3172,6 +3198,8 @@ dependencies = [
  "bs58",
  "bytes",
  "clap",
+ "llm-share-ledger",
+ "llm-share-offer",
  "p2p",
  "p2p-identity",
  "p2p-log",
@@ -3179,6 +3207,8 @@ dependencies = [
  "p2p-protocol",
  "p2p-relay",
  "p2p-transport",
+ "serde",
+ "serde_json",
  "tokio",
  "tokio-util",
  "tracing",
