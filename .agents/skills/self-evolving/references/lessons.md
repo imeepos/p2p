@@ -170,3 +170,6 @@ _none yet — be the first._
 - 2026-09-03 CL3 轮：底座 chat 链路（含 itest）按 TCP 地址验证——CLI E2E 建好友取 listenAddrs 里 /t 地址，取 /u（QUIC）会间歇性第二发消息 failed（连接重建竞态）。
 - 2026-09-04 IM-T46A 轮：并行会话高峰期，门禁绿与 ff 合并之间别做任何别的事——本轮验收绿后 main 被推进两次，每次都得 rebase+全量复跑（约 4 分钟/轮）；零交集 rebase 很便宜，但门禁必须在新基线重跑，合并动作本身要抢窗口立即执行。
 - 2026-09-04 IM-T46A 轮：`git diff --name-only <branch>..main` 列出的是双方全部差异（含自己分支的改动），grep 它当「文件交集检查」会满屏自己——交集判断要看对方新提交碰了哪些已知范围。
+- 2026-09-04 IM-V1 轮：并行会话高峰期主树 make check 会瞬态红（target 目录锁/缓存竞争，本轮首次 exit 2 零源码错误）——主树验收失败先原样重跑一次再定性，增量编译自愈即假红；连续两红才立案。
+- 2026-09-04 IM-V1 轮：识图任务派给无视觉输入的模型（如 GLM-5.3-Flash）时 read_image 直接拒载——自查手段降级为 headless Chrome --dump-dom 断言关键类名/DOM 标记 + 截图入库存档留人工复核，不要在 inability 上反复重试。
+- 2026-09-04 IM-V1 轮：范围受限单（如「只改 views/shared」）需要共享布局效果时，用页面级 Tailwind 任意变体（[&_[data-slot=card]]:h-full）替代改共享组件——不越 scope 拿到同等效果，shared 只留真正跨页复用的规范组件。
