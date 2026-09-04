@@ -17,8 +17,8 @@ pub const DESCRIPTION_MAX_CHARS: usize = 280;
 /// avatar data URL 总长上限（ASCII 字符数，契约 §11）。
 pub const AVATAR_MAX_LEN: usize = 200_000;
 
-/// 资料文件名。
-const FILE_NAME: &str = "node-profile.json";
+/// 资料文件名（pub(crate) 供 watcher 白名单按 store 层语义归类）。
+pub(crate) const FILE_NAME: &str = "node-profile.json";
 
 /// 允许的 avatar data URL 前缀（契约 §11 MIME 白名单）。
 const AVATAR_MIME_PREFIXES: [&str; 3] = [

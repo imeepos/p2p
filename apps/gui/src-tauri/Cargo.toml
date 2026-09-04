@@ -51,6 +51,10 @@ png = "0.17"
 gif = "0.13"
 # 控制通道 token 生成（OS 随机源，已是 tauri 传递依赖）
 getrandom = "0.2"
+# W1 数据目录文件监听：非递归 watch + 防抖归并（禁递归风暴）。
+# notify 统一经 notify_debouncer_mini 的 re-export 使用，禁止直连依赖：
+# 两处版本漂移会让 Watcher trait 不匹配（notify 7/8 双版本编译错误）。
+notify-debouncer-mini = "0.5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # WKWebView takeSnapshot 截图：与 wry 同版 objc2 生态（0.3.x 配 objc2 0.6），不引新增大依赖
