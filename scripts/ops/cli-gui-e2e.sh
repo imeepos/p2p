@@ -131,7 +131,7 @@ sleep 2
 REC_OUT="$(run_guarded "$CTL" gui record stop)"
 printf "%s\n" "$REC_OUT" | grep -q "^path=" || fail "record stop 输出缺 path=: $REC_OUT"
 [ -s "$REC" ] || fail "record 产物为空或不存在: $REC"
-head -c 6 "$REC" | xxd -p | grep -qi "^1f4946" || fail "产物非 GIF magic: $REC"
+head -c 6 "$REC" | xxd -p | grep -qi "^474946" || fail "产物非 GIF magic: $REC"
 echo "record 产物 $(wc -c < "$REC" | tr -d " ") 字节 GIF"
 
 echo "== 7. gui invoke 白名单回包 + 越权拒绝 =="
