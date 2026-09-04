@@ -738,16 +738,15 @@ s1_supply() {
 # ---- 拓扑：本地 bootstrap（rendezvous+观测反射）+ 102 出借方 ----
 
 start_bootstrap() {
-    log "---- S2 进度: 本地拉起 bootstrap（rendezvous 注册/查号 + 观测反射口）"
-    nohup "$HARNESS_BIN" bootstrap --data "$WORK/boot" --quic "$BOOT_QUIC" \
-        > "$WORK/boot.log" 2>&1 &
-    LOCAL_PIDS+=("$!")
+    log "---- S2 进度: 102 侧拉起 bootstrap（rendezvous 注册/查号 + 观测反射口；与出借方同机，发现链路不跨机）"
+    remote_sh "cd ${REMOTE_WORK} && rm -rf boot && mkdir -p boot && RUST_LOG=warn nohup ./harness/target/debug/llm-smoke-harness bootstrap --data boot --quic ${BOOT_QUIC} </dev/null > logs/boot.log 2>&1 & echo \$! > run/boot.pid" \
+        || die "远端 bootstrap 启动失败"
     local i
     for i in $(seq 1 40); do
-        grep -q BOOTSTRAP-READY "$WORK/boot.log" 2>/dev/null && return 0
+        if remote_sh "grep -q BOOTSTRAP-READY ${REMOTE_WORK}/logs/boot.log 2>/dev/null"; then return 0; fi
         sleep 0.5
     done
-    die "bootstrap 启动超时（$WORK/boot.log）"
+    die "bootstrap 启动超时（远端 logs/boot.log）"
 }
 
 mint_borrowers() {
@@ -789,7 +788,7 @@ start_lender() {
         || true
     remote_sh "cd ${REMOTE_WORK} && { RUST_LOG=warn nohup ./harness/target/debug/llm-smoke-harness serve \
             --data lender/p2p-data --quic ${LEND_QUIC} \
-            --bootstrap ${LOCAL_IP}/u${BOOT_QUIC} --observation ${LOCAL_IP}:${OBS_PORT} \
+            --bootstrap ${REMOTE_IP}/u${BOOT_QUIC} --observation ${REMOTE_IP}:${OBS_PORT} \
             --allow "${BORR_PEER},${BORR_S4_PEER},${BORR_S6B_PEER}" --model ${MODEL} --period ${PERIOD} \
             --upstream-log logs/upstream.jsonl --net-limit 1000000 --broken-on 2 \
             --offer-file lender/llm-share/offer.json </dev/null > logs/serve.log 2>&1 </dev/null & echo \$! > run/serve.pid; }" \
@@ -816,7 +815,7 @@ s2_s3_s4_call() {
     local rc=0
     CALL_OUT="$(gt 240 "$HARNESS_BIN" call \
         --data "$WORK/borrower-s4/p2p-data" \
-        --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
+        --bootstrap "${REMOTE_IP}/u$BOOT_QUIC" --observation "${REMOTE_IP}:$OBS_PORT" \
         --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 --discover-wait 60 \
         --receipt-out "$WORK/receipt.json" --ledger-out "$WORK/llm-share/ledger.json" 2>&1)" || rc=$?
     printf '%s\n' "$CALL_OUT"
@@ -844,7 +843,7 @@ s5_negative() {
     u0="$(upstream_calls)"
     REJECT_OUT="$(gt 150 "$HARNESS_BIN" call \
         --data "$WORK/borrower2/p2p-data" \
-        --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
+        --bootstrap "${REMOTE_IP}/u$BOOT_QUIC" --observation "${REMOTE_IP}:$OBS_PORT" \
         --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s5 --discover-wait 60 \
         --expect-reject NotAllowlisted 2>&1)" || rc=$?
     printf '%s\n' "$REJECT_OUT"
@@ -862,7 +861,7 @@ s6_observable() {
     bad_peer="$(gt 30 "$HARNESS_BIN" gen-peer | sed -n 's/^peerId=//p')"
     BAD_OUT="$(gt 60 "$HARNESS_BIN" call --probe \
         --data "$WORK/borrower/p2p-data" \
-        --bootstrap "$LOCAL_IP/u$BOOT_QUIC" \
+        --bootstrap "${REMOTE_IP}/u$BOOT_QUIC" \
         --lender "$bad_peer" --model "$MODEL" --discover-wait 5 2>&1)" && rc=1 || rc=$?
     printf '%s\n' "$BAD_OUT" | tail -1
     [ "$rc" -ne 0 ] || sc_fail "S6" "坏节点路径竟然成功"
@@ -872,7 +871,7 @@ s6_observable() {
     local rc2=0
     BROKEN_OUT="$(gt 150 "$HARNESS_BIN" call \
         --data "$WORK/borrower-s6b/p2p-data" \
-        --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
+        --bootstrap "${REMOTE_IP}/u$BOOT_QUIC" --observation "${REMOTE_IP}:$OBS_PORT" \
         --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s6b --expect-broken --discover-wait 60 \
         --receipt-out "$WORK/receipt-broken.json" 2>&1)" || rc2=$?
     printf '%s\n' "$BROKEN_OUT"
