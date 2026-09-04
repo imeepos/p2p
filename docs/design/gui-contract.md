@@ -208,7 +208,7 @@ interface NodeProfile {
 | chat_friend_add | peerId: string, nickname: string, addrs: string[] | ChatFriendJson | 校验（peerId base58 且 ≠ 本机、nickname trim ≤64、addr 语法逐条校验）后原子写好友簿；addr 同时登记地址簿可拨 |
 | chat_friend_remove | peerId: string | boolean | 从好友簿移除；never 在簿 → false（幂等），不删消息历史 |
 | chat_history | peer: string, beforeId?: string | null, limit?: number | ChatMessageJson[] | 按 time desc 分页，limit 默认 50 上限 100；beforeId 游标=严格更早 |
-| chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB |
+| chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput, replyTo?: string \| null | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB；replyTo 提供时须非空字符串（不校验被引用消息存在性，离线引用允许） |
 | chat_media_file | peer: string, messageId: string | { path: string; mime: string; name: string } | 返回附件落盘绝对路径（仅本端展示用）；消息非 media 或不存在 → Err |
 
 ### 12.2 事件（追加到 NodeEventJson 判别联合）
@@ -252,6 +252,7 @@ interface ChatMessageJson {
   text?: string | null;
   media?: ChatMediaJson | null;
   status: "pending" | "sent" | "delivered" | "failed";  // 本地状态字段，不跨网
+  replyTo?: string | null;   // 被引用消息的本端消息 id；null/缺省=无引用（IM-T46A 加法，不校验存在性）
 }
 
 interface ChatSendReport {
