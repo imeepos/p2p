@@ -143,11 +143,20 @@ impl Chat {
         kind: ChatKind,
         text: Option<String>,
         media: Option<ChatMediaInput>,
+        reply_to: Option<String>,
     ) -> Result<ChatSendReport, ChatError> {
         let peer_id = model::parse_peer_id(peer)?;
         if peer_id == self.core.node.local_peer_id() {
             return Err(ChatError::SelfPeer(peer.to_string()));
         }
+        // 回复引用校验：提供时必须非空字符串；不校验被引用消息存在性（离线引用允许）。
+        let reply_to = match reply_to.as_deref() {
+            None => None,
+            Some(s) if s.trim().is_empty() => {
+                return Err(ChatError::InvalidReply(s.to_string()));
+            }
+            Some(s) => Some(s.to_string()),
+        };
         let text = if kind == ChatKind::Text {
             Some(model::validate_text(text.as_deref().unwrap_or_default())?)
         } else {
@@ -162,6 +171,7 @@ impl Chat {
             text,
             media: None,
             status: ChatStatus::Pending,
+            reply_to,
         };
         match (&kind, media) {
             (ChatKind::Text, Some(_)) => {

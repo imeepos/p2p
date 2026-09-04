@@ -17,7 +17,13 @@ async fn text_delivery_ack_and_both_persist() {
 
     let report = a
         .chat
-        .send(&peer_b, ChatKind::Text, Some("你好，世界".into()), None)
+        .send(
+            &peer_b,
+            ChatKind::Text,
+            Some("你好，世界".into()),
+            None,
+            None,
+        )
         .await
         .expect("send text");
     assert!(report.delivered, "实时送达必须 true");
@@ -78,6 +84,7 @@ async fn attachment_chunk_boundary_and_oversize_reject() {
                 mime: "application/octet-stream".into(),
                 data: oversize,
             }),
+            None,
         )
         .await
         .expect_err("超限必须 Err");
@@ -107,6 +114,7 @@ async fn attachment_chunk_boundary_and_oversize_reject() {
                 mime: "application/octet-stream".into(),
                 data: payload.clone(),
             }),
+            None,
         )
         .await
         .expect("send 64MiB file");

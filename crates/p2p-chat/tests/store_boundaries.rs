@@ -187,6 +187,7 @@ async fn attachment_boundaries_and_sanitized_path_are_checked() {
                 mime: "application/octet-stream".into(),
                 data: Vec::new(),
             }),
+            None,
         )
         .await
         .expect_err("zero bytes must fail");
@@ -204,6 +205,7 @@ async fn attachment_boundaries_and_sanitized_path_are_checked() {
                 mime: "application/octet-stream".into(),
                 data: vec![7],
             }),
+            None,
         )
         .await
         .expect("small attachment stores before delivery");
