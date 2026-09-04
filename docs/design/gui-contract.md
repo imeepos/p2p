@@ -265,6 +265,7 @@ interface ChatMessageJson {
 interface ChatSendReport {
   message: ChatMessageJson;   // status=delivered=已实时送达；否则 pending（outbox 等待）
   delivered: boolean;
+  flushedOutbox?: number;     // 本轮命令顺手补投的历史积压条目数；0/缺省=无补投（CLI 演练加法）
 }
 ```
 
