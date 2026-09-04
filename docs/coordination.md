@@ -250,6 +250,7 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 - 2026-09-04 检查轮 68（RS 协调）：T23b 完工报告核出集成缺口——helper 装配两处 ShellWhitelist::empty()（main.rs:103/:173），T24 的 23 条白名单数据（builtin() 已公开导出）未接线，生产装配下 shell_exec 全拒；T27 E2E 未覆盖原因是其自建 Enforcement 绕过 main 装配。**立卡 T23b2 派回原会话**（898caa4e，分支 feat/rs-whitelist-wiring）：两处接线 builtin() + 装配级非空断言。复盘：T23b 报告曾如实自曝此遗留但被终验忽略「空闭集」三字的后果重量——验收除 exit code 外必须对单内自曝遗留逐条判定归属。
 - 2026-09-04 检查轮 69（RS 协调）：**T23b2 翻 done**（mergedMain=78e5c89，一次通过）——装配面两处 builtin() 接线 + assembly_whitelist_is_builtin_non_empty 防回归断言，全量门禁 exit 0（78e5c89 上实证）。**RS P0b 全任务闭合**：T20-T28 + T23b + T23b2 全 done，工单生命周期要素（票据/端点/工具面/执法/白名单/审计/E2E/文档）在装配面真实贯通。在途归零；真机 3 例人工里程碑按 drill 清单执行；P1 留白见 plan §6。
 - 2026-09-04 RS 边界测试轮（用户指令「补充单元测试 多考虑边界测试」）：RS 侧立四卡 T37（playbook，89f85ec3）/T38（bridge，c93d6dc1）/T39（helper，898caa4e）/T40（enforce，e3d2dfca），派回各 crate 归属会话，分支 test/rs-*-boundary；规则=只加测试不改行为、边界矩阵入任务书、暴露真实缺陷报协调裁决（≤10 行无歧义修复可同分支独立 fix 提交+消融证据）。编号备注：IM 轨同期立 T34-T36（p2p-chat/GUI/Tauri 边界，用户同指令双轨下达），RS 顺延 37-40，撞号以账本实况为准。
+- 2026-09-04 检查轮 70（RS 协调）：**T39/T40 翻 done**（230efc3 / 520b2cf，合并验收 exit 0）。T40 附真实缺陷修复 520b2cf（newline 注入按复合特征拒，1 行改动+消融符合规则）——本轮唯一缺陷发现，正是边界矩阵的价值兑现。事故复盘入册：两次验收因 gate-verify 已清而 cd 失败回退主树 detached 执行——结果有效（T37/T39/T40 的门禁绿均实证）但把主树留在 detached 态，属流程污染；修正=验证 worktree 常备不随收官清理，验收一律在验证 worktree 内跑。主树已复位 main@origin/main，reflog/fsck 双证无孤儿提交。剩余 T38（其分支出现 foreign devloop 提交占 tip、测试提交 be2304d 不在分支线的疑态，观察其自行处置，不越界代管）。
 
 
 

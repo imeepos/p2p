@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T01:49:11.348Z",
+  "updatedAt": "2026-09-04T02:15:47Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -289,11 +289,13 @@
       "goal": "repair-playbook 边界测试补充：markdown 结构边界（缺front matter字段/重复步骤号/步骤缺命令行/空红线/空步骤/CRLF/BOM/超长行）、ParseError 多点收集排序稳定性断言、roundtrip 特殊字符（引号/反引号/竖线）转义保持、shell_union 空集/无shell步骤/跨playbook去重语义固化（与T24一致性测试口径对齐）、三类草案消融式抽测（改坏一处一致性测试确实变红）；只加测试不改行为，缺陷报裁决",
       "title": "RS-边界轮-T37 playbook 边界测试",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "test/rs-playbook-boundary",
       "ownerSession": "session-89f85ec3-fc6a-44c6-93b4-49008e45c2e3",
       "scope": "crates/repair-playbook 测试文件；其余只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-playbook && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-playbook && make check'",
+      "mergedMain": "776ba97",
+      "acceptedAt": "2026-09-04T02:02:13.787Z"
     },
     {
       "id": "T38",
@@ -311,22 +313,27 @@
       "goal": "repair-helper 边界测试补充：MCP 行协议畸形矩阵（坏JSON/缺jsonrpc/id三型string-number-null/notification带id/超长行/CRLF/BOM）、版本协商 protocolVersion 缺失-null-空串、tools/call 缺name/name非字符串/未知工具/空arguments、jail 边界（根=文件非目录/尾斜杠/嵌套根/大小写不敏感文件系统/多根首根选择）、ticket exp==now 恰好过期/iat未来/base64url非法字符/payload非对象、cap 恰256KiB不截断与多字节字符边界截断、audit 特殊字符转义与并发写行完整性；只加测试不改行为，缺陷报裁决",
       "title": "RS-边界轮-T39 helper 边界测试",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "test/rs-helper-boundary",
       "ownerSession": "session-898caa4e-860c-451a-add0-21976ecd8103",
       "scope": "crates/repair-helper 测试文件；其余只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-helper && make check'",
+      "mergedMain": "230efc3",
+      "acceptedAt": "2026-09-04T02:02:13.787Z"
     },
     {
       "id": "T40",
       "goal": "repair-enforce 边界测试补充：红线路径匹配组件级边界（/home/user vs /home/user2 不误伤/相对路径/大小写变体/中段包含按数据表语义固化）、argv 边界（空argv/仅程序名/含空格参数/超长参数/非字符串元素）、复合特征检测边界（反引号/$()括号/换行注入、特征字符在参数值内部vs分隔位置）、白名单参数模式 exact 语义边界与 any 位零或多匹配固化、未知工具=danger 语义保持、diag/fix 全工具判定矩阵复核；只加测试不改行为，缺陷报裁决",
       "title": "RS-边界轮-T40 enforce 边界测试",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "test/rs-enforce-boundary",
       "ownerSession": "session-e3d2dfca-dca6-4fea-82ff-01626ea57506",
       "scope": "crates/repair-enforce 测试文件；其余只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-enforce && make check'",
+      "mergedMain": "520b2cf",
+      "acceptedAt": "2026-09-04T02:15:47.198Z",
+      "note": "一次通过：边界矩阵测试（e629aad）+ 真实缺陷修复 520b2cf（newline 注入按复合特征拒，1 行改动符合 ≤10 行消融规则）；隔离全量门禁 exit 0。"
     }
   ]
 }
