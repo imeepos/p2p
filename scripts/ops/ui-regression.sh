@@ -159,27 +159,9 @@ start_gui() {
 }
 
 # descriptor 字段断言器：stdin=gui page --json 输出，逐字段独立计分。
-write_pagecheck() {
-    cat > "$TMP/pagecheck.js" <<'EOF'
-const fs = require("fs");
-const [, , route, field] = process.argv;
-let doc;
-try { doc = JSON.parse(fs.readFileSync(0, "utf8")); } catch { process.exit(1); }
-const d = doc.descriptor ?? {};
-const checks = {
-  page: doc.page === route,
-  name: d.name === route,
-  description: typeof d.description === "string" && d.description.length > 0,
-  actions: Array.isArray(d.actions) && d.actions.length > 0,
-  schema: doc.schemaVersion === 1,
-};
-process.exit(checks[field] ? 0 : 1);
-EOF
-}
-
 check_field() {
     local route="$1" field="$2" json="$3"
-    if node "$TMP/pagecheck.js" "$route" "$field" <<<"$json" >/dev/null 2>&1; then
+    if node -e 'const[,r,f]=process.argv;let d;try{d=JSON.parse(require("fs").readFileSync(0,"utf8"))}catch{process.exit(1)}const c=d.descriptor||{};const ok={page:d.page===r,name:c.name===r,description:typeof c.description==="string"&&c.description.length>0,actions:Array.isArray(c.actions)&&c.actions.length>0,schema:d.schemaVersion===1}[f];process.exit(ok?0:1)' "$route" "$field" <<<"$json" >/dev/null 2>&1; then
         a_pass
     else
         a_fail "descriptor 断言失败: $field"
@@ -188,19 +170,23 @@ check_field() {
 
 is_registered() { case "$1" in chat|peers|settings) return 0 ;; *) return 1 ;; esac; }
 
+# navigate 后 route 归位轮询（≤5s）：控制通道 route 为异步传播，立即查询会读到
+# 旧页（GUI 启动后首页必现竞态）；上界与 page 回执 5s 超时同一量级。
+wait_route() {
+    local route="$1" i
+    for i in $(seq 1 20); do
+        "$CTL" gui status --json 2>/dev/null | grep -q "\"route\": \"$route\"" && return 0
+        sleep 0.25
+    done
+    return 1
+}
+
 assert_descriptor_full() {
     local route="$1" json f
     json="$(must_ok "$CTL" gui page --json)"
     for f in page name description actions schema; do
         check_field "$route" "$f" "$json"
     done
-}
-
-assert_descriptor_gap() {
-    local route="$1"
-    must_ok "$CTL" gui navigate "$route" >/dev/null
-    # 协议缺口负向断言：未注册页必须结构化拒绝（而非崩溃/静默/超时）。
-    expect_code PAGE_NOT_REGISTERED "$CTL" gui page --json
 }
 
 assert_action() {
@@ -240,13 +226,15 @@ assert_screenshot() {
 run_page() {
     local route="$1" verdict row
     PAGE_PASS=0; PAGE_FAIL=0; PAGE_REASON=""; PAGE_MODE="CONFIRM_NEG"
+    must_ok "$CTL" gui navigate "$route" >/dev/null
+    wait_route "$route" || a_fail "route 5s 未归位: $route"
     if is_registered "$route"; then
-        must_ok "$CTL" gui navigate "$route" >/dev/null
         assert_descriptor_full "$route"
     else
         PAGE_MODE="REGISTRY_GAP"
         GAP_PAGES="$GAP_PAGES $route"
-        assert_descriptor_gap "$route"
+        # 协议缺口负向断言：未注册页必须结构化拒绝（而非崩溃/静默/超时）。
+        expect_code PAGE_NOT_REGISTERED "$CTL" gui page --json
     fi
     assert_action "$route"
     assert_screenshot "$route"
@@ -287,7 +275,6 @@ emit_report() {
 main() {
     build_if_missing
     start_gui
-    write_pagecheck
     echo "== U1 UI 回归开始（证据目录 $SHOT_DIR，keep=$KEEP_DIR） =="
     local r
     for r in chat dashboard diagnostics discovery events peers relay settings; do
