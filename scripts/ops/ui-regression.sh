@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# U1 UI 回归批产：页面语义协议（GC3/GC4）8 路由逐页回归（navigate+page 断言、动作断言、截图证据）。
+# U1 UI 回归批产：页面语义协议 8 路由逐页回归（navigate+descriptor+动作断言+截图证据）。
 # CONFIRM_NEG=危险动作缺 confirm 被拒；EXEC_STRUCT=动作以非法参数真执行取结构化拒绝（零写入）。
-# GC3c 起 8/8 路由全量注册：原 REGISTRY_GAP 五页转为真实动作断言计分。
 # 用法：[--keep <dir>]；默认临时目录退出全清、--keep 直写指定目录；幂等零写入（从不传 confirm=true）。
 set -euo pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -33,8 +32,7 @@ GUI_LOG="$TMP/gui.log"
 REPORT="$TMP/report.txt"
 SHOT_DIR="$TMP"
 if [ -n "$KEEP_DIR" ]; then
-    # 证据直写指定目录：截图运行中即落盘、报告随 tee 直写；不靠退出时搬运
-    # （搬运式 cp 一旦静默失败，--keep 就变成 0 图且无信号）。
+    # 证据直写指定目录：截图运行中即落盘、报告随 tee 直写，不靠退出时搬运（cp 静默失败会变 0 图）。
     mkdir -p "$KEEP_DIR" || fail "KEEP_DIR_UNWRITABLE" "无法创建证据目录: $KEEP_DIR"
     SHOT_DIR="$KEEP_DIR"
     REPORT="$KEEP_DIR/report.txt"
@@ -121,15 +119,16 @@ build_if_missing() {
         echo "p2pctl 不存在，构建 apps/cli…" >&2
         (cd "$ROOT" && cargo build --manifest-path apps/cli/Cargo.toml) >&2
     fi
-    if [ ! -f "$GUI_DIR/dist/index.html" ]; then
+    # dist 缺失或 src/配置比产物新即重建（mtime 一线检测）：回归测旧前端整场假红/假绿
+    if [ ! -f "$GUI_DIR/dist/index.html" ] \
+        || [ -n "$(find "$GUI_DIR/src" "$GUI_DIR/package.json" -newer "$GUI_DIR/dist/index.html" -print -quit 2>/dev/null)" ]; then
         [ -d "$GUI_DIR/node_modules" ] || (cd "$GUI_DIR" && pnpm install --frozen-lockfile) >&2
-        echo "前端产物缺失，pnpm build…" >&2
+        echo "前端产物缺失或过期，pnpm build…" >&2
         (cd "$GUI_DIR" && pnpm build) >&2
     fi
-    # tauri v2 plain cargo build 是 dev 态二进制（加载 devUrl），无 dev 服务器时
-    # webview 空壳必 PAGE_TIMEOUT，必须 custom-protocol（cli-page-e2e.sh 实测）。
-    # cargo test 会把 GUI_BIN 重建成 dev 态且 mtime 翻新，marker 比对识别这种
-    # "新但错模式"的 staleness（2026-09-04 GC3c 回归实测）。
+    # tauri v2 plain cargo build 是 dev 态二进制（加载 devUrl 空壳），必须
+    # custom-protocol；cargo test 会重建成 dev 态且 mtime 翻新，marker 比对
+    # 识别这种"新但错模式"的 staleness（2026-09-04 GC3c 回归实测）。
     MARKER="$GUI_DIR/src-tauri/target/debug/.custom-protocol-built"
     if [ ! -x "$GUI_BIN" ] || [ "$GUI_BIN" -nt "$MARKER" ]; then
         echo "GUI 二进制缺失或非 custom-protocol 态，cargo build src-tauri…" >&2
