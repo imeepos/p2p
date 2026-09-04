@@ -97,11 +97,14 @@
       "goal": "headless 管理面（设计 §3/§6）：p2pctl 新增 acp 子命令域——acp allow <peer> --scope sandbox|workspace [--allow-mcp 名] [--ask-route remote_gui|owner_local] [--fingerprint 显式确认]、acp deny <peer>、acp list（scope/mcp/ask_route/granted_at/指纹表格输出）；读写 acp-common 策略表文件（原子写）；docs/ops/p2pctl-ai-guide.md 同步（ai-docs-sync 守卫必绿）",
       "title": "ACP5 p2pctl acp 策略域（allow/deny/list）",
       "priority": "P2",
-      "status": "todo",
+      "status": "done",
       "branch": "feat/cli-acp-policy",
       "ownerSession": "session-ab7cba32-da37-4d78-81ff-a73af6e2b79a",
       "scope": "apps/cli/src 新增 acp 模块+注册挂载+docs/ops/p2pctl-ai-guide.md 行；不碰其他 CLI 域",
-      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-acp5-target; exec /opt/homebrew/bin/gtimeout -k 30 3600 bash -c '''export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo run -q -- acp list --help >/dev/null && cd ../.. && make check''''"
+      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-acp5-target; exec /opt/homebrew/bin/gtimeout -k 30 3600 bash -c '''export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo run -q -- acp list --help >/dev/null && cd ../.. && make check''''",
+      "mergedMain": "c280ea5",
+      "acceptedAt": "2026-09-04T18:07:50.458Z",
+      "note": "协调验收：反向同步 cc98e26 后 fmt/test(81 passed)/clippy/ai-docs-sync 全绿（acc5e INNER=0）；连带 7c2eeac style 修 apps/cli 存量 fmt 漂移 29 文件（曾被 gate-tests 前置失败遮蔽）"
     },
     {
       "id": "ACP6a",
