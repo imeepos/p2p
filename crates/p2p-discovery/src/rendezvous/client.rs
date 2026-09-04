@@ -28,39 +28,7 @@ const DEFAULT_QUERY_BOOT_INTERVAL: Duration = Duration::from_secs(5);
 /// 快速档轮数：仅前 N 次重查用快速档，之后进入稳态档。
 const DEFAULT_QUERY_BOOT_ROUNDS: u32 = 2;
 
-/// 重连退避初值与上限：上限 30s 对齐服务端不可达时的探测节奏（E4 观测 ~35s 周期）。
-const BACKOFF_INITIAL: Duration = Duration::from_millis(500);
-const BACKOFF_MAX: Duration = Duration::from_secs(30);
-
-/// 重连退避：失败逐次翻倍至上限；健康会话正常收尾即复位——
-/// 退避只惩罚连续失败，长时间在线后一次断连不应等满上限（E4）。
-pub(crate) struct ReconnectBackoff {
-    initial: Duration,
-    max: Duration,
-    current: Duration,
-}
-
-impl ReconnectBackoff {
-    pub(crate) fn new() -> Self {
-        Self {
-            initial: BACKOFF_INITIAL,
-            max: BACKOFF_MAX,
-            current: BACKOFF_INITIAL,
-        }
-    }
-
-    /// 取本次等待时长并翻倍推进（封顶 max）。
-    pub(crate) fn step(&mut self) -> Duration {
-        let wait = self.current;
-        self.current = (self.current * 2).min(self.max);
-        wait
-    }
-
-    /// 健康会话收尾：退避复位到初值。
-    pub(crate) fn reset(&mut self) {
-        self.current = self.initial;
-    }
-}
+use crate::rendezvous::reconnect::ReconnectBackoff;
 
 /// rendezvous 客户端配置。
 pub struct RendezvousConfig {
@@ -183,32 +151,42 @@ impl RendezvousClient {
         Ok(())
     }
 
-    /// 注册失败不阻断发现会话（E5 回归）：查询能力独立于本端注册
-    /// （libp2p rendezvous 语义），无观测节点被拒后仍须能发现别人。
-    /// 首次被拒 WARN 留痕，同因反复失败降级 debug；恢复成功即复位。
-    async fn register_or_note(&self, conn: &mut RendezvousConn) {
+    /// 注册失败分类：协议拒绝（限速/签名等语义失败）warn-once 后连接继续；
+    /// 链路级失败（send/link）即连接已死，上抛触发退避重连。放任链路失败会在
+    /// 死连接上空转注册、查询分支被饿死，注册出现永久间隙（RS 排障
+    /// 2026-09-04：write half closed 20s 周期空转不重连）。
+    async fn register_or_fail(&self, conn: &mut RendezvousConn) -> Result<(), RendezvousError> {
         match self.register(conn).await {
-            Ok(()) => self.register_reject_warned.store(false, Ordering::Relaxed),
-            Err(e) => {
+            Ok(()) => {
+                self.register_reject_warned.store(false, Ordering::Relaxed);
+                Ok(())
+            }
+            Err(RendezvousError::Protocol(e)) => {
                 let warned = self.register_reject_warned.swap(true, Ordering::Relaxed);
                 if warned {
                     tracing::debug!(error = %e, "rendezvous register rejected; continuing query-only");
                 } else {
                     tracing::warn!(error = %e, "rendezvous register rejected; continuing query-only");
                 }
+                Ok(())
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "rendezvous register link dead; reconnecting");
+                Err(e)
             }
         }
     }
 
-    /// 一条连接上的注册/查询循环：断连即返回，由 run 重连。
-    /// 查询节奏见 [`Self::next_query_delay`]：快启动后进入稳态降频。
+    /// 一条连接上的注册/查询循环：链路级失败即返回 Err，由 run 退避重连。
+    /// 查询到期用绝对时刻（sleep_until）：select 每轮重建相对 sleep 会被更快的
+    /// 注册 tick 永久饿死（20s 注册 < 30s 查询，查询分支再也不执行）。
     async fn connect_and_loop(
         &self,
         events: &mpsc::Sender<DiscoveryEvent>,
         cache: &MemCache,
     ) -> Result<(), RendezvousError> {
         let mut conn = self.config.link.connect().await?;
-        self.register_or_note(&mut conn).await;
+        self.register_or_fail(&mut conn).await?;
         self.query_and_emit(&mut conn, events, cache).await?;
 
         let reg_tick = tokio::time::interval_at(
@@ -217,12 +195,16 @@ impl RendezvousClient {
         );
         tokio::pin!(reg_tick);
         let mut query_round: u32 = 0;
+        let mut next_query_at =
+            tokio::time::Instant::now() + self.config.next_query_delay(query_round);
         loop {
             tokio::select! {
-                _ = reg_tick.tick() => self.register_or_note(&mut conn).await,
-                _ = tokio::time::sleep(self.config.next_query_delay(query_round)) => {
+                _ = reg_tick.tick() => self.register_or_fail(&mut conn).await?,
+                _ = tokio::time::sleep_until(next_query_at) => {
                     self.query_and_emit(&mut conn, events, cache).await?;
                     query_round = query_round.saturating_add(1);
+                    next_query_at =
+                        tokio::time::Instant::now() + self.config.next_query_delay(query_round);
                 }
             }
         }
@@ -285,6 +267,8 @@ mod on_demand;
 
 #[cfg(test)]
 mod query_peer_tests;
+#[cfg(test)]
+mod reconnect_tests;
 #[cfg(test)]
 mod schedule_tests;
 #[cfg(test)]
