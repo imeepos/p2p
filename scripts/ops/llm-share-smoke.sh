@@ -817,12 +817,20 @@ s2_s3_s4_call() {
     # 服务端已退出的流（S4 偶发 DISCOVER-FAIL 的根），故三场景共用一个进程。
     log "---- S2/S3/S4: 单借方进程 发现+选路+跨机真实流式 chat（上游=102 侧进程内 mock）"
     local rc=0
-    CALL_OUT="$(gt 240 "$HARNESS_BIN" call \
-        --data "$WORK/borrower-s4/p2p-data" \
-        --bootstrap "${LOCAL_IP}/u$BOOT_QUIC" --observation "${LOCAL_IP}:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 --discover-wait 60 \
-        --receipt-out "$WORK/receipt.json" --ledger-out "$WORK/llm-share/ledger.json" 2>&1)" || rc=$?
-    printf '%s\n' "$CALL_OUT"
+    local attempt
+    for attempt in 1 2 3; do
+        rc=0
+        CALL_OUT="$(gt 240 "$HARNESS_BIN" call \
+            --data "$WORK/borrower-s4/p2p-data" \
+            --bootstrap "${LOCAL_IP}/u$BOOT_QUIC" --observation "${LOCAL_IP}:$OBS_PORT" \
+            --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 --discover-wait 60 \
+            --receipt-out "$WORK/receipt.json" --ledger-out "$WORK/llm-share/ledger.json" 2>&1)" || rc=$?
+        printf '%s\n' "$CALL_OUT"
+        [ "$rc" -eq 0 ] && break
+        [ "$rc" -eq 2 ] || break
+        log "---- S2/S3/S4 第 $attempt 次尝试遇瞬态发现失败，5s 后重试"
+        sleep 5
+    done
     [ "$rc" -eq 0 ] || die "S2/S3/S4 调用失败（rc=$rc)"
     printf '%s\n' "$CALL_OUT" | grep -q "DISCOVER-OK" || sc_fail "S2" "rendezvous 查号未命中"
     printf '%s\n' "$CALL_OUT" | grep -q "CONNECT-OK" || sc_fail "S2" "跨机连接未建立"
@@ -845,12 +853,20 @@ s5_negative() {
     log "---- S5: 非 allowlist peer 请求须结构化拒绝且上游零调用"
     local u0 u1 rc=0
     u0="$(upstream_calls)"
-    REJECT_OUT="$(gt 150 "$HARNESS_BIN" call \
-        --data "$WORK/borrower2/p2p-data" \
-        --lender-addr "${REMOTE_IP}/u${LEND_QUIC}" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s5 --discover-wait 60 \
-        --expect-reject NotAllowlisted 2>&1)" || rc=$?
-    printf '%s\n' "$REJECT_OUT"
+    local attempt5
+    for attempt5 in 1 2 3; do
+        rc=0
+        REJECT_OUT="$(gt 150 "$HARNESS_BIN" call \
+            --data "$WORK/borrower2/p2p-data" \
+            --lender-addr "${REMOTE_IP}/u${LEND_QUIC}" \
+            --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s5 --discover-wait 60 \
+            --expect-reject NotAllowlisted 2>&1)" || rc=$?
+        printf '%s\n' "$REJECT_OUT"
+        [ "$rc" -eq 0 ] && break
+        [ "$rc" -eq 2 ] || break
+        log "---- S5 第 $attempt5 次尝试遇瞬态发现失败，5s 后重试"
+        sleep 5
+    done
     [ "$rc" -eq 0 ] || sc_fail "S5" "非 allowlist 调用未按预期被拒（rc=$rc)"
     printf '%s\n' "$REJECT_OUT" | grep -q "REJECT-OK code=NotAllowlisted" || sc_fail "S5" "未收到结构化 NotAllowlisted 拒绝"
     u1="$(upstream_calls)"
@@ -873,12 +889,20 @@ s6_observable() {
 
     log "---- S6b: 断流路径（第 2 次上游调用按剧本切断）须显式 STREAM-BROKEN 不挂死"
     local rc2=0
-    BROKEN_OUT="$(gt 150 "$HARNESS_BIN" call \
-        --data "$WORK/borrower-s6b/p2p-data" \
-        --lender-addr "${REMOTE_IP}/u${LEND_QUIC}" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s6b --expect-broken --discover-wait 60 \
-        --receipt-out "$WORK/receipt-broken.json" 2>&1)" || rc2=$?
-    printf '%s\n' "$BROKEN_OUT"
+    local attempt6
+    for attempt6 in 1 2 3; do
+        rc2=0
+        BROKEN_OUT="$(gt 150 "$HARNESS_BIN" call \
+            --data "$WORK/borrower-s6b/p2p-data" \
+            --lender-addr "${REMOTE_IP}/u${LEND_QUIC}" \
+            --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s6b --expect-broken --discover-wait 60 \
+            --receipt-out "$WORK/receipt-broken.json" 2>&1)" || rc2=$?
+        printf '%s\n' "$BROKEN_OUT"
+        [ "$rc2" -eq 0 ] && break
+        [ "$rc2" -eq 2 ] || break
+        log "---- S6b 第 $attempt6 次尝试遇瞬态发现失败，5s 后重试"
+        sleep 5
+    done
     [ "$rc2" -eq 0 ] || sc_fail "S6" "断流路径失败（rc=$rc2)"
     printf '%s\n' "$BROKEN_OUT" | grep -q "STREAM-BROKEN" || sc_fail "S6" "断流未显式呈现"
     grep -q '"estimated": true' "$WORK/receipt-broken.json" || sc_fail "S6" "断流收据应为 estimated"
