@@ -156,3 +156,6 @@ _none yet — be the first._
 - 2026-09-04 IM-T41 轮：测试夹具 PeerId 别用「字母表轮转拼 44 字符」的假 base58（旧 chat-view.test 同款生成器）——随机 base58 串解码常是 33 字节，前端按后端同口径校验（bs58 解码恰 32 字节）会正确拒绝它，夹具必须用真实 32 字节的 base58 编码（node BigInt 移位编码 30 秒可产出）。
 - 2026-09-04 DSH 轮：同一仓库里概念相同、插件不同的配置键名会各自为政（llm-deepseek 用 `inputModalities`，llm-pi-ai 用 `input`），schema 对未知键静默透传——配置「写了没生效」先怀疑键名抄错了插件，对照目标插件 config.ts 的 schema 字段，别凭另一个插件的写法类推。
 - 2026-09-04 DSH 轮：验证运行中服务的配置热加载，不必碰服务进程——用服务同款解析代码在 Node 里直跑配置文件（Node 24 原生跑 .ts），打印解析产物即为最终事实；先确认进程实际读哪个文件（profile 参数只换插件组合不换 home，settings 固定在 `$DSH_HOME/settings.yaml`）再动手改。
+- 2026-09-04 IM-T42 轮：GUI 的 IPC 调用点守卫是「views/components 非测试文件里出现方法名字面量」的机械 grep——把 ipc.chatXxx 藏进 stores/ 层守卫照样红（静态守卫测试与验收命令双杀）；既定模式=对话框/组件直调 ipc.chatXxx，store 只做本地状态收尾（T41 chatFriendAdd 直调先例，T42 先写进 store 被红后对齐）。
+- 2026-09-04 IM-T42 轮：DSH 后台 job 的 job_output 是流式一次性消费，wait 读过后二次读返回空、结论就丢了——验收类长命令一律重定向到 /tmp 文件留证，判读以文件为准，别指望回读 job 输出。
+- 2026-09-04 IM-T42 轮：`cmd | tail` 后 `$?` 取的是管道尾（tail）的退出码，测试红了 exit code 也显示 0——验收成败判定要么 `cmd > log; echo $?` 紧跟命令，要么以落盘日志里的 FAIL/OK 标记为准。
