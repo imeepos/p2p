@@ -3,39 +3,61 @@ import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { GroupJson } from "@/lib/ipc-types";
+import type { GroupChatState, GroupJson } from "@/lib/ipc-types";
+import { cn } from "@/lib/utils";
 import { EmptyState } from "@/views/shared/empty-state";
+import { orderedGroups } from "./group-names";
 
 interface GroupListProps {
   groups: GroupJson[];
   loading: boolean;
   error: string | null;
+  selectedGroupId: string | null;
+  onSelect: (groupId: string) => void;
   onReload: () => void;
 }
 
 // 群状态徽标（契约 state 四态）：非 active 置灰/标红，历史保留可辨。
-const STATE_VARIANT: Record<
-  GroupJson["state"],
-  "default" | "secondary" | "destructive" | "outline"
-> = {
+const STATE_VARIANT: Record<GroupChatState, "default" | "secondary" | "destructive" | "outline"> = {
   active: "default",
   left: "secondary",
   kicked: "destructive",
   disbanded: "outline",
 };
 
-function GroupRow({ group }: { group: GroupJson }) {
+// 状态徽标：群列表行与会话头共用（G3）。
+export function GroupStateBadge({ state }: { state: GroupChatState }) {
   const { t } = useTranslation();
   return (
-    <div
+    <Badge variant={STATE_VARIANT[state]} data-testid={`group-state-${state}`}>
+      {t(`group.state.${state}`)}
+    </Badge>
+  );
+}
+
+function GroupRow({
+  group,
+  isActive,
+  onSelect,
+}: {
+  group: GroupJson;
+  isActive: boolean;
+  onSelect: (groupId: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
       data-testid="group-row"
-      className="hover:bg-sidebar-accent flex flex-col gap-1 rounded-md px-3 py-2"
+      onClick={() => onSelect(group.groupId)}
+      className={cn(
+        "hover:bg-sidebar-accent flex w-full flex-col gap-1 rounded-md px-3 py-2 text-left",
+        isActive && "bg-accent",
+      )}
     >
       <div className="flex items-center gap-2">
         <span className="truncate text-sm font-medium">{group.name}</span>
-        <Badge variant={STATE_VARIANT[group.state]}>
-          {t(`group.state.${group.state}`)}
-        </Badge>
+        {group.state !== "active" ? <GroupStateBadge state={group.state} /> : null}
       </div>
       <div className="text-muted-foreground flex items-center gap-2 text-xs">
         <span className="font-medium">
@@ -43,13 +65,19 @@ function GroupRow({ group }: { group: GroupJson }) {
         </span>
         <span>{t("group.members", { count: group.members.length })}</span>
       </div>
-    </div>
+    </button>
   );
 }
 
-// 群列表（G2 空页壳）：全量渲染含 left/kicked/disbanded（state 徽标可辨）；
-// 建群/管理面板与消息视图由 G3 接入。
-export function GroupList({ groups, loading, error, onReload }: GroupListProps) {
+// 群列表：全量渲染含非 active（置底 + 徽标可辨），行点击选会话。
+export function GroupList({
+  groups,
+  loading,
+  error,
+  selectedGroupId,
+  onSelect,
+  onReload,
+}: GroupListProps) {
   const { t } = useTranslation();
 
   if (loading) {
@@ -76,8 +104,13 @@ export function GroupList({ groups, loading, error, onReload }: GroupListProps) 
   }
   return (
     <div data-testid="group-list" className="flex flex-col gap-0.5 p-1.5">
-      {groups.map((group) => (
-        <GroupRow key={group.groupId} group={group} />
+      {orderedGroups(groups).map((group) => (
+        <GroupRow
+          key={group.groupId}
+          group={group}
+          isActive={group.groupId === selectedGroupId}
+          onSelect={onSelect}
+        />
       ))}
     </div>
   );
