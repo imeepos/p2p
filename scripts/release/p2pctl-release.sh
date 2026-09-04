@@ -10,6 +10,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CLI_DIR="$ROOT/apps/cli"
 BIN="$CLI_DIR/target/release/p2pctl"
+# 冒烟临时目录：必须全局——EXIT trap 在函数返回后才触发，local 变量在 set -u 下会 unbound
+SMOKE_TMP=""
 
 fail() { echo "p2pctl-release: FAIL $*" >&2; exit 1; }
 log() { echo "p2pctl-release: $*"; }
@@ -30,23 +32,23 @@ build() {
 }
 
 smoke() {
-  local out tmp
+  local out
   log "2/4 smoke: --version"
   out="$("$BIN" --version)" || fail "--version 退出码非 0"
   [[ "$out" == p2pctl* ]] || fail "--version 输出异常: $out"
   echo "  $out"
 
-  tmp="$(mktemp -d)" || fail "mktemp 失败"
-  trap 'rm -rf "$tmp"' EXIT
+  SMOKE_TMP="$(mktemp -d)" || fail "mktemp 失败"
+  trap 'rm -rf "$SMOKE_TMP"' EXIT
 
   log "3/4 smoke: node status --json（未运行节点）"
-  out="$("$BIN" node status --json --data-dir "$tmp/status")" \
+  out="$("$BIN" node status --json --data-dir "$SMOKE_TMP/status")" \
     || fail "node status --json 退出码非 0"
   assert_valid_json "node status --json" "$out"
   echo "  $out"
 
   log "4/4 smoke: chat friends list --json（空态好友簿）"
-  out="$("$BIN" chat friends list --json --data-dir "$tmp/empty")" \
+  out="$("$BIN" chat friends list --json --data-dir "$SMOKE_TMP/empty")" \
     || fail "chat friends list --json 退出码非 0"
   assert_valid_json "chat friends list --json" "$out"
   echo "  $out"
