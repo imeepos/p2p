@@ -182,6 +182,7 @@ async fn dispatch(ctx: &Ctx, request: &Value) -> Value {
     let op = request.get("op").and_then(Value::as_str).unwrap_or("");
     let result = match op {
         "status" => Ok(ops::status_json(&ctx.node, &ctx.config, ctx.started, ctx.started_at_ms)),
+        "metrics" => ops::metrics(&ctx.node),
         "dial" => {
             let target = request.get("target").and_then(Value::as_str).unwrap_or("");
             ops::dial(&ctx.node, target).await
