@@ -3,6 +3,7 @@
 <!-- 一条经验一行。格式：当 X 发生时，修复是 Y。skill 没提前警告我。 -->
 
 _none yet — be the first._
+- 2026-09-05：任务卡的"触及路径白名单"要与需求联动自查后再动手：给中央注册表加条目必然改它的守卫测试（page-registry.test.ts 路由数清单 8→9），白名单漏列守卫测试时唯一解是「最小修改 + 回报显式标记例外」，硬守白名单只会让门禁假红、A1 必挂。
 - 2026-09-05：run_code 用模板串写长文件时，漏闭合反引号/转义混乱会在"解析 program"阶段就炸（Expected ',' got ';' / Unterminated template），与目标文件内容无关；先写 30 行小片验证模板串本身，再写全文件。
 - 2026-09-05：工具类管道命令 `make check 2>&1 | tail` 的 exit code 是 tail 的（恒 0），make 失败被吞；一律 `set -o pipefail` 或 `rc=$?; echo RC=$rc` 显式回传（验证两次才敢报绿）。
 - 2026-09-05：pnpm test -- --run <path> 对 script 形 vitest 并不能按路径过滤（全量照跑），子集调试用 `pnpm vitest run <path>`。_
