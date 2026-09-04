@@ -293,3 +293,8 @@ failed: early eof（客户端侧超时中止）。
 
 - T36 任务书验收命令路径缺陷（2026-09-03）：`cd apps/gui/src-tauri && ... && cd ../.. && make check` 中 src-tauri 距仓库根三层，`cd ../..` 落在 apps/（无 Makefile）导致 make 必然报 No rule to make target。修正应为 `cd ../../..`。执行会话按修正版跑通全量门禁，字面命令 exit 2。
 - 主树 Makefile check 的 test 阶段跑 `cargo test --workspace`，p2p-chat 固定端口测试（31101+）与其他会话并行时存在已知 flake（协调挂账 1b07415），边界测试新增文件一律用随机端口（Node::builder 默认 0）。
+## 2026-09-04 DSH：GLM-5.3-Flash 发图报「当前模型不支持图片」——配错键名，pi-ai 认 `input` 不认 `inputModalities`
+- 症状：GUI（127.0.0.1:18181，bigmodel/GLM-5.3-Flash）发送图片即报「当前模型不支持图片」，但该模型明明支持视觉。
+- 原因：`~/.dsh/settings.yaml` 的 `llm-pi-ai.providers.<route>.models[]` 条目写了 `inputModalities: [ text, image ]`——这是 llm-deepseek 插件的目录键名；llm-pi-ai 的模型 schema（config.ts `modelFields`）只读 `input`，未知键静默透传不被读取，模型落到 `defaultInput: ['text']`，session-controller 的图片准入门（`MODEL_DOES_NOT_SUPPORT_IMAGES`）按 text-only 拒收。
+- 修法：pi-ai 各路由模型条目键名改 `input: [ text, image ]`；`llm-deepseek` 段的 `inputModalities` 是正确键名不要动。改完无需重启：settings-file 默认 chokidar 监听（watch: true），pi-ai 每请求重读 profiles，下次请求即生效。
+- 验证手法：不改服务进程，用仓库真实解析代码直跑配置文件——`node --input-type=module` 导入 `packages/llm/llm-pi-ai/src/config.ts` 的 `resolveProfiles`（Node 24 原生 type-stripping），遍历 `provider.getModels()` 打印每模型 `input`，看到 `bigmodel / GLM-5.3-Flash -> input: [text, image]` 即闭环。注意 piProvider 没有 `.models` 属性，取模型要走 `getModels()`。

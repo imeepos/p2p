@@ -154,3 +154,5 @@ _none yet — be the first._
 - 2026-09-04 IM-T44 轮：修复「占端口假红」的消融两步要同轮留证——修复前占住原固定端口复现红（panic 栈指到夹具 build 行），修复后不释放占端口进程跑全量全绿（lsof 实证占用仍在），才能证明修的正是端口依赖；只报三次连跑绿，无法排除「本来就绿」。
 - 2026-09-04 IM-T41 轮：并行轮 main 每 1-2 分钟落一个 docs 提交，rebase 后先跑 4 分钟门禁再 ff-only 必连吃三次 Diverging——先 git diff --name-only <旧基线> main 确认增量纯 docs（与我的代码零交集、且同内容树刚全绿过）则跳过重跑门禁，rebase→push→ff-only 压成一个原子序列立刻执行，一次过；ff-only 失败严禁删 worktree，回 worktree rebase 重试即可。
 - 2026-09-04 IM-T41 轮：测试夹具 PeerId 别用「字母表轮转拼 44 字符」的假 base58（旧 chat-view.test 同款生成器）——随机 base58 串解码常是 33 字节，前端按后端同口径校验（bs58 解码恰 32 字节）会正确拒绝它，夹具必须用真实 32 字节的 base58 编码（node BigInt 移位编码 30 秒可产出）。
+- 2026-09-04 DSH 轮：同一仓库里概念相同、插件不同的配置键名会各自为政（llm-deepseek 用 `inputModalities`，llm-pi-ai 用 `input`），schema 对未知键静默透传——配置「写了没生效」先怀疑键名抄错了插件，对照目标插件 config.ts 的 schema 字段，别凭另一个插件的写法类推。
+- 2026-09-04 DSH 轮：验证运行中服务的配置热加载，不必碰服务进程——用服务同款解析代码在 Node 里直跑配置文件（Node 24 原生跑 .ts），打印解析产物即为最终事实；先确认进程实际读哪个文件（profile 参数只换插件组合不换 home，settings 固定在 `$DSH_HOME/settings.yaml`）再动手改。
