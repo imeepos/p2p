@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T01:40:23.640Z",
+  "updatedAt": "2026-09-04T01:47:52.514Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -258,7 +258,7 @@
       "priority": "P0",
       "status": "doing",
       "branch": "test/im-chat-core-boundaries",
-      "ownerSession": "session-756b9949-feba-4d74-a444-2b6bfeef6d93",
+      "ownerSession": "session-b89bb31d-04b0-443e-8c7c-a21ecfa16df9",
       "scope": "仅新增 crates/p2p-chat/tests/model_boundaries.rs、crates/p2p-chat/tests/store_boundaries.rs；生产源码只读，apps/gui 与 p2p-itest 只读",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test model_boundaries --test store_boundaries && cargo test -p p2p-chat && cargo clippy -p p2p-chat -- -D warnings && make check'"
     },
@@ -269,7 +269,7 @@
       "priority": "P0",
       "status": "doing",
       "branch": "test/im-gui-boundaries",
-      "ownerSession": "session-112c27b4-b9c8-49d5-b22e-c0ae1ce4835f",
+      "ownerSession": "session-42f966a8-860b-414e-a947-1ab5cd05da6e",
       "scope": "仅新增 apps/gui/src/views/chat/chat-boundaries.test.tsx、apps/gui/src/lib/chat-boundaries.test.ts、必要测试 fixtures；apps/gui/src 生产实现与 src-tauri 只读",
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-boundaries.test.tsx src/lib/chat-boundaries.test.ts && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     },
@@ -280,7 +280,7 @@
       "priority": "P0",
       "status": "doing",
       "branch": "test/im-tauri-protocol-boundaries",
-      "ownerSession": "session-4f6ad1d0-4aa6-4bfe-a544-15d304dffdb7",
+      "ownerSession": "session-f316c0bd-58b6-4bc7-92ab-aa2c7a5f23ee",
       "scope": "仅新增 apps/gui/src-tauri/tests/chat_boundaries.rs、crates/p2p-chat/tests/wire_boundaries.rs；既有生产源码只读，GUI 生产实现只读",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test wire_boundaries && cd apps/gui/src-tauri && cargo test --test chat_boundaries && cargo clippy --all-targets -- -D warnings && cd ../../.. && make check'"
     },
