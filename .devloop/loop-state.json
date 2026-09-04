@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T06:04:42.000Z",
+  "updatedAt": "2026-09-04T06:16:45.293Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -222,7 +222,18 @@
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"会话\" apps/gui/src/i18n/locales/zh-CN.ts'",
       "mergedMain": "e7a8fd6",
       "acceptedAt": "2026-09-04T06:10:00.000Z",
-      "note": "独立验收 exit 0（账本命令全链：198 用例 + build + i18n zh=421/en=421 + worktree/主树双 make check + grep 会话）；范围 apps/gui/src 五页 views+views/shared+components/layout+截图留档，chat 领地零触碰；四提交（7c3558b feat shared 组件 / 46c7915 chore i18n / c053e36 style 五页 / e7a8fd6 docs 截图留档）rebase f3c579d 后 ff 入 main，协调者巡检授权登记；执行模型无视觉输入，自查以 headless DOM 断言完成，像素级对比留 docs/notes/ui-im-visual-v1/ 人工复核"
+      "note": "独立复核 exit 0（全量 vitest+i18n+grep；祖先链 e7a8fd6 核实）+识图复核：18 项中 5 生效（P3/P4/F5/R1/R4/R5）/4 部分生效/9 未生效，评分 6.5/10——机械验收过但视觉交付不完整，余量转 IM-V2 二轮卡（识图复核零残留为其退出标准）；修复前后截图留档 docs/notes/ui-im-visual-v1/"
+    },
+    {
+      "id": "IM-V2",
+      "goal": "五页视觉二轮打磨（V1 识图复核 9 未生效+4 部分生效清单为需求，零残留退出）：【仪表盘】D2 第二行指标卡改与第一行一致的小标签+大数字垂直栈；D3 空趋势图降高度或加暂无数据占位文案；D4 底部区块垂直节奏对齐；D1 彻底消除停止按钮红色系（中性边框）【对端】P1 空态卡留白收敛；P2 筛选 Tab 加激活态指示（填充或下划线）【发现】F1 左右卡底端对齐；F2 删除按钮触控区≥32px 且垂直居中【中继】R2 左右卡高度对齐（评估恢复分立嵌套但缩小字号）【设置】S1 头像区基线对齐+说明文字对比度 AA；S2 未选中 chip 边界强化；S4 mDNS 长描述与开关间距/换行；S6 保存与提示同行+对比度提升。全部完成后协调者识图复核逐项判定，零未生效方可翻 done",
+      "title": "IM-V2 五页视觉二轮打磨（零残留）",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "feat/im-visual-v2",
+      "ownerSession": "session-137ee467-a012-4b13-867c-acdc353c4262",
+      "scope": "apps/gui/src：views/{dashboard,monitor,discovery,relay,settings}、views/shared（EmptyState/StatusBadge 若需）、i18n；components/chat 与 views/chat 只读；不改行为逻辑",
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     }
   ]
 }
