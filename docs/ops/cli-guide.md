@@ -198,7 +198,14 @@ bash scripts/ops/cli-log-update-e2e.sh  # CL4：log/metrics/update 域（末行 
 bash scripts/ops/cli-gui-e2e.sh        # GC2：gui 域 × 真实 GUI 控制通道（末行 GC2-E2E-OK）
 bash scripts/ops/cli-gui-data-e2e.sh   # N2：GUI×CLI 数据面互操作（末行 N2-E2E-OK）
 bash scripts/ops/cli-page-e2e.sh       # GC4：gui page/action × 真实 GUI 页面协议 + 前后截图证据（末行 GC4-E2E-OK）
+bash scripts/ops/cli-live-e2e.sh       # W1：CLI 写入 → GUI 实时感知 file-watch（末行 W1-E2E-OK）
 ```
+
+`cli-live-e2e.sh`（W1 实测）：隔离 HOME 启动真实 GUI（custom-protocol 特性内嵌
+产物，免疫外部 vite dev server 占用 devUrl 端口），前端感知链路就绪门
+（frontend.log 的 data-watch-ready）后 CLI 运行中写 config / 好友簿，≤3s 内
+断言 GUI 侧经 data-changed 定向重载（frontend.log 感知证据行），并以 invoke
+白名单只读命令读回与 CLI 写入逐字段一致；两连绿为验收口径。
 
 `cli-gui-data-e2e.sh` 以临时 HOME 隔离启动真实 GUI，与 CLI 指向同一数据目录：
 CLI 冷写 config/profile/chat → invoke 白名单读回断言一致 → 运行中再写实测感知
@@ -229,7 +236,8 @@ GUI（apps/gui）与 CLI（p2pctl）共用同一数据目录：CLI `--data-dir` 
 数据目录（macOS `~/Library/Application Support/com.p2p.console`），其下
 `gui-config.json`、`node-profile.json`、`chat/`（好友簿与消息库）为两端口径
 同一份文件；控制通道状态在 `control/` 子目录。实测脚本：
-`scripts/ops/cli-gui-data-e2e.sh`（末行 N2-E2E-OK）。
+`scripts/ops/cli-gui-data-e2e.sh`（末行 N2-E2E-OK）、
+`scripts/ops/cli-live-e2e.sh`（末行 W1-E2E-OK，实时感知升级见 9.2/9.5）。
 
 ### 9.1 冷启动一致性（实测）
 
@@ -238,14 +246,22 @@ GUI 启动即按目录约定读盘：先 CLI 写 `config save` / `profile save` 
 （config_get / profile_get）读回，与 CLI 读路径 JSON 深比较逐字段一致；
 chat 好友簿以 CLI 读路径与磁盘文件比对验证（见 9.3 缺口）。
 
-### 9.2 运行中实时性（实测结论）
+### 9.2 运行中实时性（W1 实测升级 + 实测结论）
+
+W1 起 GUI 内置数据目录监听（notify + debouncer，防抖 500ms，非递归 +
+白名单归类防递归风暴），CLI 写入关键文件后向前端发
+`data-changed{domains}`，前端单监听器按域定向重载（禁全应用重载）；
+GUI 自身写盘以写序号窗口（2s）做回声抑制，不重复重载。实测
+（`cli-live-e2e.sh`，末行 W1-E2E-OK）：config 与好友簿写入 GUI 侧
+感知时延 1s（≤3s 契约）。
 
 | GUI 侧读路径 | CLI 写入后的感知 | 机理 |
 |---|---|---|
 | invoke config_get / profile_get | 即时可见，无需刷新或重启 | 每次调用直读磁盘文件 |
-| node_status 的 config 字段 | 节点运行中为启动时快照 | RunningNode 缓存启动配置，需节点重启生效（读码） |
-| GUI 前端页面（设置/发现/中继等） | 不自动刷新 | 页面挂载时经 IPC 拉取（useGuiConfig），需重进路由或触发 reload（读码） |
-| GUI chat 视图 | 未纳入断言 | invoke 白名单无 chat 只读命令（缺口，见 9.3） |
+| node_status 的 config 字段 | 节点运行中为启动时快照 | RunningNode 缓存启动配置，需节点重启生效（读码，W1 未变） |
+| GUI 前端页面（设置资料/发现/中继/聊天好友簿） | 自动定向刷新（≤3s，实测 1s） | watcher → data-changed → 前端按域重载（W1 升级；发现/中继页未保存的本地编辑态 localConfig 不被外部写入覆盖，仍以本地为准） |
+| GUI chat 视图好友簿 | 自动定向刷新（节点运行中） | chat_friends_list 依赖运行中节点，节点未启动时跳过重载（W1） |
+| 降级语义（R3） | watcher 初始化失败不阻断 GUI | 结构化错误记日志 + data-watch-status{active:false}，前端置降级态可判；外部写入需手动刷新 |
 
 ### 9.3 白名单缺口（R4 回报项，不阻断）
 
@@ -268,4 +284,24 @@ invoke 白名单刻意只收只读命令（`apps/gui/src-tauri/src/control/invok
   恰 N 条、id 唯一、CLI history 与磁盘逐条一致、messages/ 目录无孤儿文件。
   同 peer 跨进程高频并发追加存在行间交错的理论窗口（读取时跳过损坏行并
   warn），属存储层已知边界，未纳入断言。
+
+### 9.5 实时感知链路（W1，实测末行 W1-E2E-OK）
+
+链路：CLI 原子写 → notify（非递归挂载 app 数据目录与 `chat/` 目录）→
+debouncer 防抖 500ms 归并 → 白名单归类（`gui-config.json` /
+`node-profile.json` / `chat/friends.json`，原子写 tmp 同前缀归同域）→
+`data-changed{domains}` → 前端单监听器按域分发注册的定向重载器 →
+感知证据行落 `frontend.log`（`{"kind":"data-changed","domains":[…],
+"ts":…}`，E2E 与排障直接读文件）。边界与口径：
+
+- GUI 自身写盘同样触发事件，前端以 `markLocalWrite` 写序号窗口（2s，覆盖
+  写盘→防抖→回流全链路）按域回声抑制，不重复重载；窗口外事件正常生效。
+- 好友簿目录由 GUI 启动期预建，消除「建目录 + 首写同瞬间」懒挂载丢事件
+  窗口；运行中目录被删后重建由目录事件补挂载。
+- E2E 的 GUI 以 `custom-protocol` 特性构建（内嵌 frontendDist）：debug 二进制
+  默认加载 devUrl(localhost:5173)，外部 vite dev server 占用端口会让 GUI 装
+  上旧 dev bundle（W1 开发中实证的假红源）；日常 `tauri dev` 不带此特性，
+  行为不变。
+- 感知证据行的前端观测面为 frontend.log；删除文件再写入等极端变更序列由
+  防抖按路径归并，域内不放大。
 
