@@ -146,6 +146,7 @@ async fn chat_smoke_add_list_remove_and_validation_matrix() {
         ChatKind::Text,
         Some("   ".to_string()),
         None,
+        None,
     )
     .await
     .expect_err("空白文本必须 Err");
@@ -156,6 +157,7 @@ async fn chat_smoke_add_list_remove_and_validation_matrix() {
         peer.clone(),
         ChatKind::Text,
         Some("a".repeat(2001)),
+        None,
         None,
     )
     .await
@@ -172,6 +174,7 @@ async fn chat_smoke_add_list_remove_and_validation_matrix() {
             mime: "text/plain".into(),
             data_base64: base64::engine::general_purpose::STANDARD.encode(b"x"),
         }),
+        None,
     )
     .await
     .expect_err("image kind 配 text/plain 必须 Err");

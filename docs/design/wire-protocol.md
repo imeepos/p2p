@@ -230,8 +230,11 @@ Reject(7)/KeepAlive(8)/KeepAliveAck(9)。
   底座 handler 拿不到对端 PeerId，收端据此落盘 messages/<peer>.jsonl）、
   sender（发端恒为 me；收端校验非 me 即伪装断流）、kind
   （text/image/audio/video/file）、tsMs（发端本地毫秒时间戳）、text?
-  （kind=text 时，trim 后 1..=2000 字符）、media?（{name, mime, size}）；
-  path/status 为本地字段不跨网。
+  （kind=text 时，trim 后 1..=2000 字符）、media?（{name, mime, size}）、
+  replyTo?（可选 string，被引用消息的本端消息 id；收端原样落盘，不校验存在性；
+  null/缺省=无引用）；path/status 为本地字段不跨网。
+- 向后兼容：replyTo 为加法字段，旧端 serde 反序列化忽略未知字段照常收信，
+  新端读旧信封（无该字段）得无引用；往返兼容由 itest chat_e2e 回归实证。
 - 时序：ENVELOPE →（可选 MEDIA_BEGIN → MEDIA_CHUNK×n）→ 对端 ACK。
   任意帧校验失败（帧超上限/类型序非法/信封缺字段或校验不过/媒体长度不一致）→
   断流并留告警日志，发端收失败即消息落 failed 态。

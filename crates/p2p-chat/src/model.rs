@@ -76,6 +76,8 @@ pub struct ChatEnvelope {
     pub text: Option<String>,
     pub media: Option<ChatMediaMeta>,
     pub status: ChatStatus,
+    /// 被引用消息的本端消息 id；None=无引用（加法字段，旧记录缺字段读回 None）。
+    pub reply_to: Option<String>,
 }
 
 /// 好友簿条目（friends.json 数组元素）。
@@ -147,6 +149,8 @@ pub enum ChatError {
     SendFailed(String),
     #[error("未找到：{0}")]
     NotFound(String),
+    #[error("回复引用非法：{0}")]
+    InvalidReply(String),
 }
 
 /// base58 → 32 字节 PeerId；编码或长度非法即 Err（可读中文）。

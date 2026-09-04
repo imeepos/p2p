@@ -30,7 +30,7 @@ async fn offline_pending_then_flush_on_peer_connected() {
     // B 离线发送：connect 失败 → 保持 pending，不标记 failed
     let report = a
         .chat
-        .send(&peer_b, ChatKind::Text, Some("离线消息".into()), None)
+        .send(&peer_b, ChatKind::Text, Some("离线消息".into()), None, None)
         .await
         .expect("send while offline");
     assert!(!report.delivered, "离线发送不能实时送达");

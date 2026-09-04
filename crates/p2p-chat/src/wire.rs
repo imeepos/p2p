@@ -43,6 +43,7 @@ pub(crate) struct WireEnvelope {
     ts_ms: i64,
     text: Option<String>,
     media: Option<WireMedia>,
+    reply_to: Option<String>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -85,6 +86,7 @@ impl WireEnvelope {
                 mime: m.mime.clone(),
                 size: m.size,
             }),
+            reply_to: env.reply_to.clone(),
         }
     }
 
@@ -116,6 +118,7 @@ impl WireEnvelope {
                     text: Some(text),
                     media: None,
                     status: ChatStatus::Delivered,
+                    reply_to: self.reply_to,
                 })
             }
             kind => {
@@ -137,6 +140,7 @@ impl WireEnvelope {
                         path: None,
                     }),
                     status: ChatStatus::Delivered,
+                    reply_to: self.reply_to,
                 })
             }
         }

@@ -28,7 +28,13 @@ async fn restart_recovers_outbox_and_flushes() {
     // A 发送 → pending，outbox 落盘 1 条
     let report = a
         .chat
-        .send(&peer_b, ChatKind::Text, Some("重启后送达".into()), None)
+        .send(
+            &peer_b,
+            ChatKind::Text,
+            Some("重启后送达".into()),
+            None,
+            None,
+        )
         .await
         .expect("send while offline");
     assert!(!report.delivered);
