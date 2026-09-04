@@ -252,3 +252,6 @@ _none yet — be the first._
 - 2026-09-04 U1：并行会话会扫提交主树未跟踪文件——主树里的 scratch 测试副本（ui-regression-scratch.sh）被顺手指令提交入库（c92d983）；测试副本要么放 /tmp 要么用完立刻删，主树留过夜就会被别人"帮忙"入库。
 - 2026-09-04 U1：tauri custom-protocol 构建把前端 dist 嵌进二进制——pnpm build（先清空 dist）与 cargo build 并发时，嵌进去的可能是空/半成品 dist，症状=webview 加载空页、页面桥永不安装且无任何报错；修法=重跑 cargo build --features custom-protocol 重嵌。诊断入口：~/Library/Logs/com.p2p.console/{p2p-console,frontend}.log（应用日志不走 stdout，脚本里 tail gui.log 常为空）。
 - 2026-09-04 U1：回归脚本的就绪/探针类修复要与并行会话的同类分支对齐格式（同文本改动 git 自动合流）——动手前先 grep 别人未合并分支对同一文件的改动。
+- 2026-09-04 R7：rsync 目录到远端构建机必须 --exclude target——漏排一次就把本机 Mach-O 盖掉远端 ELF，且 rsync -a 保 mtime 让 cargo 误判最新不重编（真机回归两次被坑，判据=file 格式而非存在性）。
+- 2026-09-04 R7：测试辅助函数返回 Future（如 wait_until 调用方需 .await）时，漏 await 不报错只降级为「断言永远即时通过」——失败行号指到无关断言，先 grep 编译警告 unused Future 再读断言。
+- 2026-09-04 R7：Copy 类型（PeerId）逐字段改造时 clippy clone_on_copy 会连环冒出——改签名前先查类型是否 Copy，一次改净。
