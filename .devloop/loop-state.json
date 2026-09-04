@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T02:59:17.700Z",
+  "updatedAt": "2026-09-04T03:29:21.600Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -277,7 +277,7 @@
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-boundaries.test.tsx src/lib/chat-boundaries.test.ts && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
       "mergedMain": "e6b98ea",
       "acceptedAt": "2026-09-04T02:49:06.587Z",
-      "note": "独立验收 exit 0：chat-boundaries 19 测试（文本空白/Unicode/2000/2001、emoji 重复点击与光标插入、附件类型推断与未知 MIME/零字节/64MiB+1/取消、chat_message 去重与乱序 status、failed/pending 渲染、history 空页与非法游标、裸路径信息卡降级）+ pnpm build + 36 测试文件全绿 + make check 全门禁；范围合规仅两测试文件；rebase 至 6fcebcc 后复跑仍绿；协调者 ff-only 合入并全清现场"
+      "note": "独立验收 exit 0：chat-boundaries 19 测试（文本空白/Unicode/2000/2001、emoji 重复点击与光标插入、附件类型推断与未知 MIME/零字节/64MiB+1/取消、chat_message 去重与乱序 status、failed/pending 渲染、history 空页与非法游标、裸路径信息卡降级）+ pnpm build + 36 测试文件全绿 + make check 全门禁；范围合规仅两测试文件；rebase 至 6fcebcc 后复跑仍绿；协调者 ff-only 合入并全清现场 | 增强补充（2026-09-04）：重派会话 42f966a8 交付只增增强版 71dfa53（24 用例=lib 7+tsx 17，+232/-44 含夹具文件），补齐四类媒体发送/64MiB+1 前置拒绝并清空输入/空好友引导态/pending 占位取消/mock 层 chatSend 校验矩阵；协调者独立验收 exit 0（36 测试文件+make check 全门禁，chat_offline 无 flake）后 ff-only 合入，重复分支 test/im-bt35-gui（d0a1dbb）经会话裁决删除（哈希留档可恢复），现场全清"
     },
     {
       "id": "T36",
