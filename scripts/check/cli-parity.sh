@@ -73,7 +73,7 @@ while IFS= read -r tsv_line; do
     invocation="$(printf '%s\n' "$tsv_line" | cut -f3)"
     reason="$(printf '%s\n' "$tsv_line" | cut -f4-)"
     if ! gui_has "$gui"; then
-        stale_rows="$stale_rows  $gui（映射表有行，GUI 已无此命令）\n"
+        stale_rows="$stale_rows  ${gui}（映射表有行，GUI 已无此命令）\n"
         continue
     fi
     case "$kind" in
@@ -87,7 +87,7 @@ while IFS= read -r tsv_line; do
         exempt)
             trimmed="$(printf '%s' "$reason" | tr -d ' ')"
             if [ -z "$trimmed" ]; then
-                bad_exempt="$bad_exempt  $gui（豁免缺理由）\n"
+                bad_exempt="$bad_exempt  ${gui}（豁免缺理由）\n"
             else
                 exempt_count=$((exempt_count + 1))
             fi
@@ -101,7 +101,7 @@ done < "$TSV"
 tsv_gui_column="$(grep -v '^#' "$TSV" | cut -f1)"
 while IFS= read -r gui; do
     if ! printf '%s\n' "$tsv_gui_column" | grep -Fxq "$gui"; then
-        missing_mapping="$missing_mapping  $gui（GUI 有命令，映射表无行）\n"
+        missing_mapping="$missing_mapping  ${gui}（GUI 有命令，映射表无行）\n"
     fi
 done <<< "$gui_cmds"
 
@@ -125,5 +125,5 @@ if [ "$rc" -ne 0 ]; then
 fi
 leaf_count="$(grep -c . "$cli_cmds_file")"
 gui_count="$(printf '%s\n' "$gui_cmds" | wc -l | tr -d ' ')"
-echo "cli-parity: GUI 命令 $gui_count 个，映射 $mapped_count，豁免 $exempt_count；p2pctl 实测叶子命令 $leaf_count 个"
+echo "cli-parity: GUI 命令 $gui_count 个，映射 ${mapped_count}，豁免 ${exempt_count}；p2pctl 实测叶子命令 $leaf_count 个"
 echo "CLI-PARITY-OK"

@@ -246,7 +246,7 @@ pid=80955
 | --peer | string | 是 | —— |
 | --text | string | 与 --file 二选一 | —— |
 | --file | path | 与 --text 二选一 | —— |
-| --kind | text/image/audio/video/file | 否 | 按载荷推断 |
+| --kind | text/image/audio/video/file | 否 | file（mime 按扩展名推断） |
 | --mime | string | 否 | 按扩展名推断 |
 | --name | string | 否 | 取文件名 |
 | --reply-to | string | 否 | 无 |

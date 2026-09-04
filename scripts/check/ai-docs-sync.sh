@@ -66,7 +66,7 @@ while IFS= read -r leaf; do
     hf="$TMP/help_$(printf '%s' "$leaf" | tr ' ' '_')"
     blk="$(entry_block "$leaf")"
     if [ -z "$blk" ]; then
-        missing_entry="$missing_entry  p2pctl $leaf（实现有，文档无条目）\n"
+        missing_entry="$missing_entry  p2pctl ${leaf}（实现有，文档无条目）\n"
         continue
     fi
     # Options 段每行取首个 --长参数（flag 必在行首位）；--help 为通用参数不进比对
@@ -78,20 +78,20 @@ while IFS= read -r leaf; do
     while IFS= read -r o; do
         [ -n "$o" ] || continue
         if ! printf '%s\n' "$doc_opts" | grep -Fxq -e "$o"; then
-            param_detail="$param_detail  p2pctl $leaf：文档条目缺参数 $o\n"
+            param_detail="$param_detail  p2pctl ${leaf}：文档条目缺参数 $o\n"
         fi
         checked_params=$((checked_params + 1))
     done <<< "$help_opts"
     while IFS= read -r o; do
         [ -n "$o" ] || continue
         if ! printf '%s\n' "$help_opts" | grep -Fxq -e "$o"; then
-            param_detail="$param_detail  p2pctl $leaf：文档参数 $o 实现不存在\n"
+            param_detail="$param_detail  p2pctl ${leaf}：文档参数 $o 实现不存在\n"
         fi
     done <<< "$doc_opts"
     while IFS= read -r a; do
         [ -n "$a" ] || continue
         if ! printf '%s\n' "$blk" | grep -Fq -e "$a"; then
-            param_detail="$param_detail  p2pctl $leaf：文档条目缺位置参数 $a\n"
+            param_detail="$param_detail  p2pctl ${leaf}：文档条目缺位置参数 $a\n"
         fi
     done <<< "$help_args"
 done < "$LEAVES"
@@ -101,7 +101,7 @@ stale_entry=""
 while IFS= read -r p; do
     [ -n "$p" ] || continue
     if ! grep -Fxq -e "$p" "$LEAVES"; then
-        stale_entry="$stale_entry  p2pctl $p（文档有，实现无此命令）\n"
+        stale_entry="$stale_entry  p2pctl ${p}（文档有，实现无此命令）\n"
     fi
 done <<< "$doc_paths"
 
@@ -119,7 +119,7 @@ run_sample() {
     got=$?
     set -e
     if [ "$got" -ne "$want" ]; then
-        echo "ai-docs-sync: FAIL 示例 '$args' 实测退出码 $got，期望 $want（stderr: $(head -1 "$TMP/sample.err")）" >&2
+        echo "ai-docs-sync: FAIL 示例 '$args' 实测退出码 ${got}，期望 ${want}（stderr: $(head -1 "$TMP/sample.err")）" >&2
         rc=1
     fi
 }

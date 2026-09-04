@@ -49,6 +49,26 @@ pub async fn chat_friend_add(
         .map_err(|e| e.to_string())
 }
 
+/// chat_friend_update（IM-T43）：分组/昵称/备注补丁；空补丁与越界组名由 crate 校验拒绝；
+/// addrs 不可经此修改；peer 不在簿 Err。group 空串 = 移出分组（crate 内归一化 None）。
+#[tauri::command]
+pub async fn chat_friend_update(
+    state: State<'_, AppState>,
+    peer_id: String,
+    group: Option<String>,
+    nickname: Option<String>,
+    note: Option<String>,
+) -> Result<ChatFriend, String> {
+    let chat = state.chat().await?;
+    let patch = p2p_chat::FriendPatch {
+        group,
+        nickname,
+        note,
+    };
+    chat.friend_update(&peer_id, &patch)
+        .map_err(|e| e.to_string())
+}
+
 /// chat_friend_remove：幂等；never 在簿返回 false，不删消息历史。
 #[tauri::command]
 pub async fn chat_friend_remove(

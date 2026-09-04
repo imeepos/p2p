@@ -142,6 +142,7 @@ export interface ChatFriendJson {
   nickname: string; // trim 后 ≤64；空串回退 PeerId 缩略
   addrs: string[]; // ip/u端口 = QUIC，ip/t端口 = TCP（对齐 §6 语法）
   note?: string | null;
+  group?: string | null; // 分组名（IM-T43）；null/缺省 = 未分组；空串归一化 null，不落盘
 }
 
 export interface ChatMediaInput {
@@ -205,6 +206,12 @@ export interface IpcBackend {
     addrs: string[],
   ): Promise<ChatFriendJson>;
   chatFriendRemove(peerId: string): Promise<boolean>;
+  // IM-T43：好友资料补丁（group/nickname/note 至少一项；addrs 不可经此修改）；
+  // 空串 group = 移出分组；peer 不在簿或越界组名 → 可读 Err。
+  chatFriendUpdate(
+    peerId: string,
+    patch: { group?: string | null; nickname?: string | null; note?: string | null },
+  ): Promise<ChatFriendJson>;
   chatHistory(
     peer: string,
     beforeId?: string | null,
