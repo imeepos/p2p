@@ -119,7 +119,10 @@ async fn s3_prompt_streamed_through_stub_with_update_flow() {
         }
     }
     assert!(prompt_answered, "prompt must round-trip via stub echo");
-    assert!(updates > 0, "update stream must flow while prompt in flight");
+    assert!(
+        updates > 0,
+        "update stream must flow while prompt in flight"
+    );
     shutdown(&r);
 }
 
@@ -138,13 +141,14 @@ async fn s4_ask_approved_by_client_and_grant_is_one_shot() {
     let settled = read_line(&mut stream).await.expect("approval settlement");
     let res: Value = serde_json::from_str(settled.trim_end()).expect("json");
     assert_eq!(
-        res["result"]["outcome"]["optionId"],
-        "allow-once",
+        res["result"]["outcome"]["optionId"], "allow-once",
         "client approval must settle the ask: {settled}",
     );
 
     send_line(&mut stream, &permission_request(12, "execute")).await;
-    let again = read_line(&mut stream).await.expect("second ask must forward");
+    let again = read_line(&mut stream)
+        .await
+        .expect("second ask must forward");
     let root: Value = serde_json::from_str(again.trim_end()).expect("json");
     assert_eq!(
         root["id"], 12,
@@ -154,9 +158,9 @@ async fn s4_ask_approved_by_client_and_grant_is_one_shot() {
     let events = r.audit.snapshot();
     let forwards = events
         .iter()
-        .filter(|ev| {
-            matches!(ev, AuditEvent::PermissionActed { action, .. } if action == "forwarded")
-        })
+        .filter(
+            |ev| matches!(ev, AuditEvent::PermissionActed { action, .. } if action == "forwarded"),
+        )
         .count();
     assert_eq!(forwards, 2, "both asks must be forwarded: {events:?}");
     assert!(

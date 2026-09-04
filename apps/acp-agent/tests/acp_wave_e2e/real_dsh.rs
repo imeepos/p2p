@@ -10,7 +10,9 @@ use serde_json::Value;
 use acp_agent::AuditEvent;
 use p2p::BoxedStream;
 
-use crate::common::{handshake_client, open_stream, rig, send_line, shutdown, test_grant_full, Rig};
+use crate::common::{
+    handshake_client, open_stream, rig, send_line, shutdown, test_grant_full, Rig,
+};
 use crate::{line_within, skip_signal};
 
 const PROBE_SECS: u64 = 30;

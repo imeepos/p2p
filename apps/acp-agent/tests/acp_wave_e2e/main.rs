@@ -28,9 +28,13 @@ use p2p::BoxedStream;
 
 /// libtest 会捕获 print!/eprint! 宏输出，直写 stderr 才能无条件留下 SKIP 信号。
 pub(crate) fn skip_signal(reason: &str) {
-    let _ = std::io::stderr()
-        .write_all(format!("SKIP: real dsh unavailable: {reason}
-").as_bytes());
+    let _ = std::io::stderr().write_all(
+        format!(
+            "SKIP: real dsh unavailable: {reason}
+"
+        )
+        .as_bytes(),
+    );
 }
 
 /// 带时限读一行：EOF 与超时统一返回 None（真链路可用性判定依赖此语义）。

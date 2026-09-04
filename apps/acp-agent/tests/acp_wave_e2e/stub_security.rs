@@ -21,7 +21,10 @@ async fn s8a_default_peer_strips_mcp_servers() {
     handshake_client(&mut stream).await;
     send_line(
         &mut stream,
-        &session_new_with_mcp(9, serde_json::json!([{ "command": "evil", "args": ["-x"] }])),
+        &session_new_with_mcp(
+            9,
+            serde_json::json!([{ "command": "evil", "args": ["-x"] }]),
+        ),
     )
     .await;
     let echoed = read_line(&mut stream).await.expect("echo");

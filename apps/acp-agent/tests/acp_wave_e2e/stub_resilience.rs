@@ -8,7 +8,7 @@ use acp_common::{AskRoute, PeerPolicy, Scope, ServerHello};
 use serde_json::Value;
 use uuid::Uuid;
 
-use acp_agent::{AuditEvent, reattach};
+use acp_agent::{reattach, AuditEvent};
 
 use crate::common::{
     handshake_client, handshake_client_reattach, open_stream, permission_request, read_line, rig,
@@ -60,7 +60,12 @@ async fn s5_reattach_replays_cached_updates_with_order_and_count() {
     let forwarded = read_line(&mut first).await.expect("forwarded ask");
     assert!(forwarded.contains("request_permission"), "{forwarded}");
     drop(first);
-    wait_audit(&r.audit, |ev| matches!(ev, AuditEvent::ClientGone { .. }), 8).await;
+    wait_audit(
+        &r.audit,
+        |ev| matches!(ev, AuditEvent::ClientGone { .. }),
+        8,
+    )
+    .await;
     tokio::time::sleep(Duration::from_millis(400)).await; // 窗口内蓄水
 
     let mut second = open_stream(&r).await;
@@ -77,7 +82,11 @@ async fn s5_reattach_replays_cached_updates_with_order_and_count() {
 
     let announce = read_line(&mut second).await.expect("announcement");
     let ann: Value = serde_json::from_str(announce.trim_end()).expect("json");
-    assert_eq!(ann["method"], reattach::REPLAY_ANNOUNCE_METHOD, "{announce}");
+    assert_eq!(
+        ann["method"],
+        reattach::REPLAY_ANNOUNCE_METHOD,
+        "{announce}"
+    );
     let replayed = ann["params"]["replayed"].as_u64().expect("count");
     assert!(replayed >= 1, "window must have cached updates: {announce}");
 
