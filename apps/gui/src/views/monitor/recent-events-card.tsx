@@ -23,13 +23,13 @@ export function RecentEventsCard({ events, loading }: RecentEventsCardProps) {
 
   return (
     <div className="col-span-12 lg:col-span-6">
-      <Card className="flex h-full min-h-40 flex-col gap-3 py-4">
+      <Card className="flex h-full min-h-56 flex-col gap-3 py-4">
         <CardHeader className="px-4">
           <CardTitle className="text-base">
             {t("dashboard.cards.recentEvents")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col gap-1.5 px-4">
+        <CardContent className="flex flex-1 flex-col justify-center gap-1.5 px-4">
           {loading ? (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-full" />
