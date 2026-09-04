@@ -55,6 +55,26 @@ E10 闲置 LLM 额度共享（barter 记账，Phase 0）：B 以 OpenAI chat com
 req_id 幂等、断流估算计费（estimated 收据+争议窗口）、声明 TTL 失效不选路。
 双节点真链路 E2E 见 `crates/p2p-itest/tests/llm_share_wave.rs`（验收口径 A1-A7）。
 
+## ACP over P2P 组件（apps/）
+
+单节点托管 agent、全网节点可视化操控（设计 `docs/design/acp-over-p2p-design.md`）：
+桥把一条 P2P 协议流变成一根虚拟 stdio，每远程连接对应一个专属 `dsh --profile acp`
+子进程；标准 ACP wire 一个字节不改，任意标准客户端保持互操作。
+
+`apps/acp-common`：两端共享的纯库（Rust lib，零网络零进程逻辑）。握手帧编解码、
+ndjson 分块重组与 16 MiB 行护栏、桥错误码、策略表（默认拒绝 + 原子存取）、
+数据目录路径约定。三个 app 与 p2pctl 经路径依赖复用，跨包一致性由集成卡机械验证。
+
+`apps/acp-agent`：agent 侧端点（Rust 常驻 bin）。监听 `/dsh-acp/1`，策略门禁 +
+cwd 监狱 + 每连接一个 `dsh --profile acp` 子进程监督，断线续连窗口与 update
+环形缓存补放，mcpServers 剥离/白名单与 request_permission 权限瀑布两个安全改写点。
+入口 `cargo run -p acp-agent`；桥约定见 apps/acp-agent/README.md，运维见 docs/ops/acp-guide.md。
+
+`apps/acp-console`：操作者侧伴生进程（Rust bin，可作 Tauri sidecar）。本地 WS
+（127.0.0.1+token）与 P2P 流纯字节泵 + mDNS/rendezvous 节点发现 + 连接状态机，
+不解析 ACP 语义；GUI 作为标准 WS 客户端接入。入口 `cargo run -p acp-console`，
+就绪端口与 token 经 stdout JSON 行发布。
+
 ## 快速上手
 
 ```bash
