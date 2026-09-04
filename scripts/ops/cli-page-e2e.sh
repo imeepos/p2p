@@ -140,7 +140,14 @@ PAGE_JSON="$(run_guarded "$CTL" gui page --json)"
 printf '%s\n' "$PAGE_JSON" | grep -A1 '"actions": \[' | grep -q '{' || fail "page JSON actions 非空断言失败: $PAGE_JSON"
 printf '%s\n' "$PAGE_JSON" | grep -q '"schemaVersion"' || fail "page JSON 缺 schemaVersion: $PAGE_JSON"
 
-echo "== 5. chat.addFriend 幂等两连 + removeFriend(confirm) 断言回包 =="
+echo "== 5. saveAndRestart 启动节点（confirm=true 正面用例）→ 好友增删 =="
+# chat 域动作要求 GUI 内节点运行；注册表无裸 node start，真实用户流即 saveAndRestart。
+# config 先经 invoke config_get 读真实值再原样写回：等值写零数据变更（造数安全）。
+CFG=$($CTL gui invoke config_get --json | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.stringify(JSON.parse(d).result)))")
+RESTART="$(run_guarded "$CTL" gui action settings saveAndRestart config="$CFG" confirm=true --navigate --json)"
+printf '%s\n' "$RESTART" | grep -q '"running": true' || fail "saveAndRestart 回包异常: $RESTART"
+echo "saveAndRestart（confirm=true）节点已启动"
+run_guarded "$CTL" gui navigate chat >/dev/null
 ADD1="$(run_guarded "$CTL" gui action chat addFriend peerId="$PEER_ID" nickname=gc4-e2e --json)"
 printf '%s\n' "$ADD1" | grep -q '"requestId"' || fail "addFriend 回包缺 requestId 信封: $ADD1"
 printf '%s\n' "$ADD1" | grep -q '"peerId"' || fail "addFriend 回包缺 peerId: $ADD1"
