@@ -682,3 +682,7 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：接手他人 worktree，git status 只报 1 个 untracked，实际工作区相对 HEAD 有 33 文件 796 行漂移；跑 git merge（任何写索引操作）后漂移「突然」全部显形为 modified。
 原因：索引 stat 元数据（mtime/size）与工作文件巧合匹配时 git 跳过内容重哈希，陈旧缓存把脏树报成干净。
 修法：接管任何 worktree 先跑 git diff HEAD --stat（强制重哈希）核对真状态；处置未预期漂移前用 reflog + 文件 mtime + 存活进程三件套判归属，别急着删重建。
+## (2026-09-05) 长回合会话消息通道失效
+症状：对 running 会话 send/talk 显示 delivered，但消息长期不其入历史，session_link_collect 报「凭证无法识别：找不到该凭证对应的己方消息」。
+原因：会话深陷单一长命令（如全量 make check）时消息只入队不落史，talk 超时返回的 claimToken 对应的己方消息从未写入。
+对策：不依赖 collect 追僵尸会话；改用 git 产物观测（worktree/分支/提交）判断进度，等会话转 idle 后再 talk，一次性把累积问题合并成单条问询。

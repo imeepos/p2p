@@ -298,3 +298,4 @@ _none yet — be the first._
 - 2026-09-05 G4 接管：git status 陈旧 stat 缓存会漏报整个脏文件集（33 文件 796 行漂移首次 status 只见 1 个 untracked，merge 写索引后才显形）；接管 worktree 先 git diff HEAD --stat 强制重哈希再信状态。
 - 2026-09-05 G4 审计：判定大 diff 是否纯 fmt——git show <c> -- <paths> 删除/新增两侧行去空白后 sort|uniq -c 比对 token 多集，逐对可配对即零语义（rustfmt 换行/尾逗号/match 臂加括号会让 -w 的 --stat 仍有行数差，别被吓住）。
 - 2026-09-05 G4 收尾：重复派单撞车时「以 main 合入状态为准」——授权接管的瞬间执行者可能恰好收尾完（本次 rebase 时 fmt/clippy 修复笔被 git 自动丢弃 "patch contents already upstream"），rebase 的自动去重就是最干净的冲突裁决。
+- 2026-09-05 fmt 口径漂移跨会话传播：某会话合 main 未跑 cargo fmt --all --check，rustfmt 版本口径差堵死下游 G4/G5 两道 fmt 门禁；合 main 前必跑 fmt --check，撞墙方用「零语义 style 提交」在 feature 侧代修是既定解（rebase 同字节补丁自动去重，零冲突）。
