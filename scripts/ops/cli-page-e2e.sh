@@ -18,8 +18,9 @@ GUI_DIR="$ROOT/apps/gui"
 GUI_BIN="$GUI_DIR/src-tauri/target/debug/p2p-console"
 DATA_DIR="${HOME}/Library/Application Support/com.p2p.console"
 EP_FILE="$DATA_DIR/control/endpoint.json"
-# 合成 PeerId：32 零字节的 base58（44 个 1），仅占地址簿，无网络语义。
-PEER_Z="$(printf '%0.s1' $(seq 1 44))"
+# 合成 PeerId：合法 32 字节 base58（含字母——纯数字串会被 k=v 基础类型解析成 number），
+# 仅占地址簿，无网络语义。Cs8KY3...由 bytes((i*7+3)%256 for i in range(32)) 经 base58 编码而来。
+PEER_ID="Cs8KY3PiWrCMAytMsBRQo8EdGbticVtdvufLnb2UhXh"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/gc4-page-e2e.XXXXXX")"
 GUI_LOG="$TMP/gui.log"
@@ -32,8 +33,8 @@ cleanup() {
     # best-effort 造数回收：GUI 仍存活时删合成好友（幂等，失败留告警不掩盖主流程）
     if [ -n "$CHILD" ] && kill -0 "$CHILD" 2>/dev/null \
         && [ -x "$CTL" ] && "$CTL" gui status --json >/dev/null 2>&1; then
-        "$CTL" gui action chat removeFriend peer="$PEER_Z" confirm=true --navigate >/dev/null 2>&1 || \
-            echo "GC4-E2E WARN: 合成好友收尾删除失败（peer=$PEER_Z）" >&2
+        "$CTL" gui action chat removeFriend peer="$PEER_ID" confirm=true --navigate >/dev/null 2>&1 || \
+            echo "GC4-E2E WARN: 合成好友收尾删除失败（peer=$PEER_ID）" >&2
     fi
     if [ -n "$CHILD" ] && kill -0 "$CHILD" 2>/dev/null; then
         kill "$CHILD" 2>/dev/null || true
@@ -140,13 +141,13 @@ printf '%s\n' "$PAGE_JSON" | grep -A1 '"actions": \[' | grep -q '{' || fail "pag
 printf '%s\n' "$PAGE_JSON" | grep -q '"schemaVersion"' || fail "page JSON 缺 schemaVersion: $PAGE_JSON"
 
 echo "== 5. chat.addFriend 幂等两连 + removeFriend(confirm) 断言回包 =="
-ADD1="$(run_guarded "$CTL" gui action chat addFriend peerId="$PEER_Z" nickname=gc4-e2e --json)"
+ADD1="$(run_guarded "$CTL" gui action chat addFriend peerId="$PEER_ID" nickname=gc4-e2e --json)"
 printf '%s\n' "$ADD1" | grep -q '"requestId"' || fail "addFriend 回包缺 requestId 信封: $ADD1"
 printf '%s\n' "$ADD1" | grep -q '"peerId"' || fail "addFriend 回包缺 peerId: $ADD1"
-ADD2="$(run_guarded "$CTL" gui action chat addFriend peerId="$PEER_Z" nickname=gc4-e2e --json)"
+ADD2="$(run_guarded "$CTL" gui action chat addFriend peerId="$PEER_ID" nickname=gc4-e2e --json)"
 printf '%s\n' "$ADD2" | grep -q '"peerId"' || fail "addFriend 幂等二连失败: $ADD2"
 echo "addFriend 两连幂等回包 OK"
-RM="$(run_guarded "$CTL" gui action chat removeFriend peer="$PEER_Z" confirm=true --json)"
+RM="$(run_guarded "$CTL" gui action chat removeFriend peer="$PEER_ID" confirm=true --json)"
 printf '%s\n' "$RM" | grep -q '"removed"' || fail "removeFriend 回包异常: $RM"
 
 echo "== 6. 非当前页结构化报错（含 gui navigate 指引） =="
