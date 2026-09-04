@@ -488,6 +488,15 @@ const zhCN = {
       openInBrowser: "阅读完整发布说明",
       download: "前往下载",
     },
+    download: {
+      button: "下载并安装",
+      retry: "重试下载",
+      installed: "更新已下载并安装，重启后生效",
+      restart: "立即重启",
+      failed: "下载安装失败",
+      progressPercent: "已下载 {{percent}}%（{{downloaded}} / {{total}}）",
+      progressBytes: "已下载 {{downloaded}}",
+    },
     status: {
       checking: "检查中…",
       upToDate: "已是最新版本",
