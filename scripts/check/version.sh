@@ -15,7 +15,7 @@ CARGO="$ROOT/apps/gui/src-tauri/Cargo.toml"
 
 for f in "$PKG" "$CONF" "$CARGO"; do
   if [ ! -f "$f" ]; then
-    echo "version-check: FAIL 缺少文件 $f（GUI 工程未就位?）" >&2
+    echo "version-check: FAIL 缺少文件 ${f}（GUI 工程未就位?）" >&2
     exit 1
   fi
 done

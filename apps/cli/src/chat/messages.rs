@@ -90,6 +90,15 @@ pub struct MediaFileArgs {
     data_dir: String,
 }
 
+/// send 返回包装：核心报告 + 本轮补投的积压条目数（D3/D5 可观测，契约加法字段）。
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SendReport {
+    #[serde(flatten)]
+    report: p2p_chat::ChatSendReport,
+    flushed_outbox: usize,
+}
+
 /// media file 返回（path 为本机落盘绝对路径；GUI 转 asset URL 属前端语义，不进 CLI）。
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -140,19 +149,40 @@ pub async fn send(args: SendArgs) -> CliResult<()> {
             report.message = env;
         }
     }
-    let text_out = if report.delivered {
-        format!("已送达 peer={} id={}", args.peer, report.message.id)
+    // 送达后顺手排空历史积压（D5）：one-shot 进程退出前补投离线条目，防静默滞留。
+    let mut flushed_outbox = 0usize;
+    if report.delivered {
+        flushed_outbox = ctx
+            .chat
+            .drain_peer(&args.peer, Duration::from_secs(10))
+            .await
+            .unwrap_or(0);
+    }
+    let report = SendReport {
+        flushed_outbox,
+        report,
+    };
+    let tail = if flushed_outbox > 0 {
+        format!("，另补投积压 {flushed_outbox} 条")
+    } else {
+        String::new()
+    };
+    let text_out = if report.report.delivered {
+        format!(
+            "已送达 peer={} id={}{}",
+            args.peer, report.report.message.id, tail
+        )
     } else {
         format!(
             "未送达 peer={} id={} status={:?}",
-            args.peer, report.message.id, report.message.status
+            args.peer, report.report.message.id, report.report.message.status
         )
     };
     emit(args.json, &report, &text_out)?;
-    if !report.delivered {
+    if !report.report.delivered {
         return Err(CliError::Runtime(format!(
             "消息未送达对端（status={:?}），已保留本机记录",
-            report.message.status
+            report.report.message.status
         )));
     }
     Ok(())
