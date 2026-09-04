@@ -3,12 +3,34 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { UpdateCheckResult } from "@/lib/ipc-types";
 
-const { updateCheckMock } = vi.hoisted(() => ({
+const {
+  updateCheckMock,
+  checkRemoteUpdateMock,
+  downloadInstallMock,
+  relaunchMock,
+} = vi.hoisted(() => ({
   updateCheckMock: vi.fn<() => Promise<UpdateCheckResult>>(),
+  checkRemoteUpdateMock: vi.fn<
+    () => Promise<{ version: string; notes: string | null } | null>
+  >(),
+  downloadInstallMock: vi.fn<
+    (
+      onProgress: (p: {
+        downloadedBytes: number;
+        totalBytes: number | null;
+      }) => void,
+    ) => Promise<void>
+  >(),
+  relaunchMock: vi.fn(),
 }));
 
 vi.mock("@/lib/ipc", () => ({
   ipc: { updateCheck: updateCheckMock, updateOpenReleasePage: vi.fn() },
+  updateDl: {
+    checkRemoteUpdate: checkRemoteUpdateMock,
+    downloadAndInstallUpdate: downloadInstallMock,
+    relaunchApp: relaunchMock,
+  },
 }));
 
 import "@/i18n";
@@ -48,6 +70,11 @@ function resetStore(patch = {}): void {
     lastSource: null,
     skippedVersion: null,
     reminderShownFor: null,
+    downloadPhase: "idle",
+    downloadedBytes: 0,
+    totalBytes: null,
+    downloadError: null,
+    downloadVersion: null,
     ...patch,
   });
 }
@@ -56,6 +83,13 @@ beforeEach(() => {
   localStorage.clear();
   updateCheckMock.mockReset();
   updateCheckMock.mockResolvedValue(upToDateResult());
+  checkRemoteUpdateMock.mockReset();
+  checkRemoteUpdateMock.mockResolvedValue({ version: "0.2.0", notes: null });
+  downloadInstallMock.mockReset();
+  downloadInstallMock.mockImplementation(async (onProgress) => {
+    onProgress({ downloadedBytes: 4096, totalBytes: 4096 });
+  });
+  relaunchMock.mockReset();
   resetStore();
 });
 
@@ -131,5 +165,58 @@ describe("AboutUpdateCard 有更新详情", () => {
     render(<AboutUpdateCard />);
     expect(screen.getByText(/已跳过版本 0\.2\.0/)).toBeInTheDocument();
     expect(screen.getByText("发现新版本 0.2.0")).toBeInTheDocument();
+  });
+});
+
+describe("AboutUpdateCard 下载安装", () => {
+  it("下载安装成功：进度后转入已就绪，重启需用户点击且尚未自动触发", async () => {
+    resetStore({ status: "available", result: availableResult() });
+    render(<AboutUpdateCard />);
+    fireEvent.click(screen.getByRole("button", { name: "下载并安装" }));
+    expect(
+      await screen.findByText("更新已下载并安装，重启后生效"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "立即重启" }),
+    ).toBeEnabled();
+    expect(relaunchMock).not.toHaveBeenCalled();
+  });
+
+  it("点击立即重启触发 relaunch", async () => {
+    resetStore({
+      status: "available",
+      result: availableResult(),
+      downloadPhase: "installed",
+    });
+    render(<AboutUpdateCard />);
+    fireEvent.click(screen.getByRole("button", { name: "立即重启" }));
+    expect(relaunchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("下载中展示百分比进度与字节对", async () => {
+    let resolveInstall!: () => void;
+    downloadInstallMock.mockImplementation(async (onProgress) => {
+      onProgress({ downloadedBytes: 1024, totalBytes: 4096 });
+      await new Promise<void>((resolve) => {
+        resolveInstall = resolve;
+      });
+    });
+    resetStore({ status: "available", result: availableResult() });
+    render(<AboutUpdateCard />);
+    fireEvent.click(screen.getByRole("button", { name: "下载并安装" }));
+    expect(await screen.findByText(/已下载 25%/)).toBeInTheDocument();
+    resolveInstall();
+    expect(await screen.findByText("更新已下载并安装，重启后生效")).toBeInTheDocument();
+  });
+
+  it("失败可见可重试：重试走同一 updater 面", async () => {
+    downloadInstallMock.mockRejectedValueOnce(new Error("签名校验失败"));
+    resetStore({ status: "available", result: availableResult() });
+    render(<AboutUpdateCard />);
+    fireEvent.click(screen.getByRole("button", { name: "下载并安装" }));
+    expect(await screen.findByText(/下载安装失败/)).toBeInTheDocument();
+    expect(screen.getByText(/签名校验失败/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重试下载" }));
+    expect(await screen.findByText("更新已下载并安装，重启后生效")).toBeInTheDocument();
   });
 });

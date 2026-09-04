@@ -15,8 +15,8 @@ import type { Locale } from "@/i18n";
 import { formatDateTime } from "@/lib/format";
 import { useUpdateStore } from "@/stores/update-store";
 
+import { DownloadSection } from "./download-section";
 import { UpdateDetail } from "./update-detail";
-import { openReleasePage } from "./release-links";
 
 // 手动检查：失败必须可见可重试（toast + 行内失败态）；自动检查失败仅落状态。
 function useManualCheck() {
@@ -75,6 +75,7 @@ export function AboutUpdateCard() {
   const checkedAtMs = useUpdateStore((s) => s.result?.checkedAtMs ?? null);
   const skippedVersion = useUpdateStore((s) => s.skippedVersion);
   const skipCurrentVersion = useUpdateStore((s) => s.skipCurrentVersion);
+  const downloadPhase = useUpdateStore((s) => s.downloadPhase);
   const checkNow = useManualCheck();
 
   return (
@@ -124,14 +125,7 @@ export function AboutUpdateCard() {
               })}
             </span>
             <UpdateDetail result={result} />
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => void openReleasePage(result.releaseUrl)}
-              >
-                {t("update.detail.download")}
-              </Button>
+            {downloadPhase === "idle" ? (
               <Button
                 type="button"
                 size="sm"
@@ -140,7 +134,8 @@ export function AboutUpdateCard() {
               >
                 {t("update.about.skip")}
               </Button>
-            </div>
+            ) : null}
+            <DownloadSection size="sm" />
           </div>
         ) : null}
       </CardContent>
