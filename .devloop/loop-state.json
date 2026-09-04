@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T02:15:47Z",
+  "updatedAt": "2026-09-04T02:30:33Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -302,11 +302,14 @@
       "goal": "repair-bridge 边界测试补充：帧边界（空载荷/恰好1MiB上限/超限拒/半帧多次到达重组/多帧粘包单次写入）、stdin 二进制字节保真（NUL/非UTF-8）、双向同时收发小样本、未知对端查无退出码语义、stdin 立即 EOF 非静默、缺参校验；只加测试不改行为，暴露真实缺陷报协调裁决（≤10行无歧义修复可同分支独立 fix 提交+消融证据）",
       "title": "RS-边界轮-T38 bridge 边界测试",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "test/rs-bridge-boundary",
       "ownerSession": "session-c93d6dc1-c0e2-4fe8-a40d-ecadd6612190",
       "scope": "crates/repair-bridge 测试文件；其余只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-bridge && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-bridge && make check'",
+      "mergedMain": "a8a1efc",
+      "acceptedAt": "2026-09-04T02:30:33.653Z",
+      "note": "一次通过：be2304d 边界测试（帧边界/半帧粘帧/二进制保真/EOF 语义/CLI 校验）经协调者代恢复 rebase 进 main（e31bc67），连同 newline chore（a8a1efc）终验 exit 0。其会话 idle 2.5h 且分支线被外来 devloop 提交占据，按代管先例恢复，ref 全程可溯。"
     },
     {
       "id": "T39",
