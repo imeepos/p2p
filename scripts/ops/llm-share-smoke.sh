@@ -131,6 +131,7 @@ TOML
 
 use std::collections::{HashMap, HashSet};
 use std::io::{ErrorKind, Write};
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -376,8 +377,35 @@ impl ProtocolHandler for ProxyHandler {
     }
 }
 
+/// 预观测等待：反射口 UDP 探测确认可达后再建节点。
+/// 观测失败会让注册退化为 loopback 地址（跨机查号被地址卫生过滤，整轮不可发现），
+/// 该退化是静态单次探测的随机失败，故此处有界重试直到反射口确认可达。
+async fn wait_reflector(obs: &str) {
+    if obs.is_empty() {
+        return;
+    }
+    let target: SocketAddr = obs.parse().unwrap_or_else(|_| die(&format!("bad observation addr: {obs}")));
+    let sock = tokio::net::UdpSocket::bind("0.0.0.0:0").await.unwrap_or_else(|e| die(&format!("udp bind: {e}")));
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
+    let mut buf = [0u8; 96];
+    while tokio::time::Instant::now() < deadline {
+        sock.send_to(b"OBS1", target).await.ok();
+        if let Ok(Ok((n, _))) =
+            tokio::time::timeout(Duration::from_secs(2), sock.recv_from(&mut buf)).await
+        {
+            if n >= 4 && &buf[..4] == b"OBS1" {
+                println!("REFLECTOR-OK");
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    die("观测反射口 90s 内不可达（注册将退化为不可路由地址）");
+}
+
 async fn serve(args: &Args) {
     let quic = args.num("quic");
+    wait_reflector(args.get("observation")).await;
     let node = Arc::new(build_node(args, quic).await);
     let seed = PathBuf::from(args.get("data")).join("key.seed");
     let kp = load_or_generate_seed(&seed).unwrap_or_else(|e| die(&format!("seed: {e}")));
@@ -507,7 +535,7 @@ async fn call(args: &Args) {
     let node = Arc::new(build_node(args, 0).await);
     let lender = parse_peer(args.get("lender"));
     let wait: u64 = args.get("discover-wait").parse().unwrap_or(10);
-    let mut addr = match args.get("lender-addr") {
+    let addr = match args.get("lender-addr") {
         "" => discover(node.as_ref(), lender, wait).await,
         direct => direct.to_owned(),
     };
