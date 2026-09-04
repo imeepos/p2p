@@ -390,7 +390,7 @@ async fn serve(args: &Args) {
         die("offer 验签失败（TTL 已过或签名损坏）");
     }
 
-    let allow: HashSet<String> = HashSet::from([args.get("allow").to_owned()]);
+    let allow: HashSet<String> = args.get("allow").split(',').map(str::to_owned).collect();
     let mock = Arc::new(MockUpstream {
         calls: AtomicUsize::new(0),
         broken_on: args.get("broken-on").parse().ok(),
@@ -700,9 +700,13 @@ start_bootstrap() {
 mint_borrowers() {
     gt 30 "$HARNESS_BIN" identity --data "$WORK/borrower/p2p-data" > "$WORK/borrower.peer"
     gt 30 "$HARNESS_BIN" identity --data "$WORK/borrower2/p2p-data" > "$WORK/borrower2.peer"
+    gt 30 "$HARNESS_BIN" identity --data "$WORK/borrower-s4/p2p-data" > "$WORK/borrower-s4.peer"
+    gt 30 "$HARNESS_BIN" identity --data "$WORK/borrower-s6b/p2p-data" > "$WORK/borrower-s6b.peer"
     BORR_PEER="$(sed -n 's/^peerId=//p' "$WORK/borrower.peer")"
     BORR2_PEER="$(sed -n 's/^peerId=//p' "$WORK/borrower2.peer")"
-    [ -n "$BORR_PEER" ] && [ -n "$BORR2_PEER" ] || die "借方身份生成失败"
+    BORR_S4_PEER="$(sed -n 's/^peerId=//p' "$WORK/borrower-s4.peer")"
+    BORR_S6B_PEER="$(sed -n 's/^peerId=//p' "$WORK/borrower-s6b.peer")"
+    [ -n "$BORR_PEER" ] && [ -n "$BORR2_PEER" ] && [ -n "$BORR_S4_PEER" ] && [ -n "$BORR_S6B_PEER" ] || die "借方身份生成失败"
 }
 
 wait_remote_ready() {
@@ -733,7 +737,7 @@ start_lender() {
     remote_sh "cd ${REMOTE_WORK} && { RUST_LOG=warn nohup ./harness/target/debug/llm-smoke-harness serve \
             --data lender/p2p-data --quic ${LEND_QUIC} \
             --bootstrap ${LOCAL_IP}/u${BOOT_QUIC} --observation ${LOCAL_IP}:${OBS_PORT} \
-            --allow ${BORR_PEER} --model ${MODEL} --period ${PERIOD} \
+            --allow "${BORR_PEER},${BORR_S4_PEER},${BORR_S6B_PEER}" --model ${MODEL} --period ${PERIOD} \
             --upstream-log logs/upstream.jsonl --net-limit 1000000 --broken-on 2 \
             --offer-file lender/llm-share/offer.json </dev/null > logs/serve.log 2>&1 </dev/null & echo \$! > run/serve.pid; }" \
         || die "远端出借方启动失败"
@@ -777,7 +781,7 @@ s4_call() {
     log "---- S4: 跨机真实流式 chat（上游=102 侧进程内 mock），双边记账 + 收据验签"
     local rc=0
     CALL_OUT="$(gt 150 "$HARNESS_BIN" call \
-        --data "$WORK/borrower/p2p-data" \
+        --data "$WORK/borrower-s4/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
         --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 \
         --receipt-out "$WORK/receipt.json" --ledger-out "$WORK/llm-share/ledger.json" 2>&1)" || rc=$?
@@ -826,7 +830,7 @@ s6_observable() {
     log "---- S6b: 断流路径（第 2 次上游调用按剧本切断）须显式 STREAM-BROKEN 不挂死"
     local rc2=0
     BROKEN_OUT="$(gt 150 "$HARNESS_BIN" call \
-        --data "$WORK/borrower/p2p-data" \
+        --data "$WORK/borrower-s6b/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
         --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s6b --expect-broken \
         --receipt-out "$WORK/receipt-broken.json" 2>&1)" || rc2=$?
