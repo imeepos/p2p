@@ -2,6 +2,16 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-04 Tauri debug 二进制加载 devUrl，外部 vite dev server 占 5173 致 E2E 假红
+症状：E2E 隔离 HOME 起真实 GUI，控制通道/页面协议全活，但前端新代码的日志文件永远不出现（W1 感知断言三连红，GUI 日志却显示后端事件已发）。
+原因：debug 构建无 custom-protocol 特性时 Tauri 加载 build.devUrl(localhost:5173) 而非内嵌 frontendDist；机器上有常驻 vite dev server（旧代码），GUI 装上的是旧 dev bundle，行为完全正常但不含新功能。压缩内嵌产物 grep 不到明文字符串，无法用二进制 grep 判陈旧。
+修法：app 级 `custom-protocol = ["tauri/custom-protocol"]` 特性 + E2E 构建命令显式带上（强制内嵌 frontendDist，增量幂等）；判产物陈旧改用可 grep 的 dist JS 明文。日常 tauri dev 不带该特性行为不变。
+
+## 2026-09-04 notify 直连依赖与 notify-debouncer re-export 版本漂移致 Watcher trait 不匹配
+症状：src-tauri 加 `notify = "8"` + `notify-debouncer-mini = "0.5"` 后满屏 `FsEventWatcher: notify_debouncer_mini::notify::Watcher is not satisfied`。
+原因：debouncer-mini 0.5 依赖 notify 7，直连 notify 8 → 依赖图双版本，Watcher trait 来自两个不同 crate。
+修法：notify 一律经 `notify_debouncer_mini::notify::…` re-export 使用，Cargo.toml 禁止再直连 notify；加依赖后先看 Cargo.lock 是否出现同 crate 双版本。
+
 ## 2026-09-04 tokio::select! 相对 sleep 被更快 interval tick 永久饿死
 症状：rendezvous 客户端在死连接上以固定 20s 周期空转报错（write half closed）达数十分钟，永不重连；查询分支再也没执行过。
 原因：connect_and_loop 的 select! 每轮循环重建相对 sleep（30s 查询档），20s 注册 tick 先到期就把 sleep 丢掉重建——查询分支的 30s 永远到不了期，错误永不传播。
@@ -319,6 +329,16 @@ failed: early eof（客户端侧超时中止）。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
 
+## 2026-09-05 tauri 无密码 minisign 私钥必须显式置空 TAURI_SIGNING_PRIVATE_KEY_PASSWORD（W2 实证，浪费一轮构建）
+- 症状：tauri build 签名步报 "failed to decode secret key: incorrect updater private key password: Device not configured (os error 6)"，.env 注释明明写着无密码。
+- 原因：TAURI_SIGNING_PRIVATE_KEY_PASSWORD 完全不设时，tauri 视为"交互式询问密码"，无 TTY 即 os error 6；"无密码"与"不设密码变量"是两回事。
+- 修法：装载私钥后一律 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"（空串=显式声明无密码）。
+
+## 2026-09-05 tauri v2 本地构建不生成 latest.json（W2 实证）
+- 症状：createUpdaterArtifacts=true + 签名成功，bundle 里只有 .app.tar.gz 和 .app.tar.gz.sig，找不到 latest.json，按"signed 必有 manifest"断言会误杀。
+- 原因：tauri v2 bundler 只产签名产物，latest.json（version/pub_date/platforms/signature）是发布方（tauri-action/CI）职责，本地默认不出。
+- 修法：本地流水线要 manifest 就自己组装——jq -n --arg 拼 JSON，signature 字段直接复用 .sig 文件内容；unsigned 路径显式标注 SKIP 不算失败。
+
 ## 2026-09-05 run_code 程序体两类 JS 语法坑（T21 实证，各浪费一轮）
 - 症状 A：Expected ',', got ')'——tools.write({ file_path, content: 模板串 }) 模板串闭合后漏了对象字面量的右花括号直接以右括号收尾；症状 B：Expected ';','}' or <eof> / Expected ',', got 'ident'——把多行 bash 命令塞进单引号 JS 字符串（单引号串不能跨行）。
 - 修法：大内容一律模板串且写完立刻核对调用尾部是否有右花括号；多行命令用模板串而非单引号串；内容含插值序列或反引号时改走 write 工具直传 JSON 参数（不经 JS 解析）或 python3 落盘。另：read 读回 join 写回会丢文件尾换行，rustfmt --check 会红，追加换行即愈。
@@ -531,3 +551,18 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：cargo test / 普通 build 会把 target/debug 下同一二进制翻成另一构建形态（dev 态加载 devUrl 空壳），脚本用 mtime/marker 自猜"二进制是不是目标形态"，但外部构建与 cargo fingerprint 的时序组合无穷，marker 反映的是"上次成功构建"而非"当前二进制形态"，必有误判缺口。
 - 修法：废除自猜，无条件按目标形态构建（cargo build --features ...），把"要不要重编"交回 cargo fingerprint——形态不对必重编（增量实测 6.7s），形态对 Fresh 秒回。删代码比加代码可靠。
 - 通用规则：凡脚本需要保证"产物处于某构建形态"，不要用 mtime/marker 猜，无条件调用目标形态的构建命令让构建系统自己幂等裁决；单测/集成绿不豁免真机产物形态验证。
+
+## 2026-09-05 行协议子进程的代答字节必须自带换行，否则对端 lines() 永久阻塞（ACP4）
+- 症状：桥向子进程 stdin 注入桥代答响应（permission reject/allow）后，集成测试在 read_line 处无限挂死，无任何报错。
+- 原因：子进程按 BufRead::lines() 消费；桥把 JSON 序列化结果直接 write_all，行尾没有换行符——子进程永远等不到行界，echo 链路整条断。
+- 修法：注入点统一收敛到一个 write 助手，写完检查末字节非换行则补写；凡往行协议对端写字节，换行纪律必须集中在单一助手，禁止散点 write_all。
+
+## 2026-09-05 spawn 与接线之间存在输出真空期，早期行丢失即协议行静默蒸发（ACP4）
+- 症状：子进程启动即打印的行（--print-cwd）在桥建立输出面前被丢，测试偶发挂死且与时序强相关。
+- 原因：router 输出面在 spawn 之后、attach 之前尚未接线，早期行走了窗口期丢弃分支。
+- 修法：区分 ever_attached（首连前缓冲 premain，attach 时回放）与 detached（窗口期按语义缓存/丢弃）；还没接过线和断过线是两种状态，不能共用同一条丢弃路径。
+
+## 2026-09-05 tools.read 返回内容可能被截断，read+write 全量回写会吞掉文件尾部（ACP4 实录）
+- 症状：对 263/533 行的经验文件做 read 后 join 回写，提交时 stat 显示 -251 行——存量经验被静默吞掉。
+- 原因：read 的 lines 数组被输出预算截断而未核对 totalLines；拼接回写成了"截断版全文"。
+- 修法：大文件的追加一律走「tools.write 临时片段 + bash cat 临时片段 >> 目标 + wc -l 核对行数增量」，禁止 read-全量-modify-write 回写；回写前 diff 行数差必须等于新增行数。

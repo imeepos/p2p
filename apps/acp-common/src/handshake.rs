@@ -28,6 +28,10 @@ pub struct Ready {
     pub scope: Scope,
     pub agent: String,
     pub bridge: String,
+    /// 续连票据（设计 §4.2-2/§5）：桥签发、绑定 PeerId，仅签发 peer 可携回重连。
+    /// 加法字段：缺省不序列化，旧帧解析不受影响。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ticket: Option<String>,
 }
 
 /// 桥→客户端：{"ready":{...}} 或 {"denied":"<错误码>"}（untagged 二选一）。
@@ -60,6 +64,15 @@ impl Ready {
             scope,
             agent: agent.to_owned(),
             bridge: BRIDGE_VERSION.to_owned(),
+            ticket: None,
+        }
+    }
+
+    /// 携续连票据的 ready（ACP4）：票据由桥签发并绑定 PeerId。
+    pub fn with_ticket(scope: Scope, agent: &str, ticket: &str) -> Self {
+        Self {
+            ticket: Some(ticket.to_owned()),
+            ..Ready::new(scope, agent)
         }
     }
 }
@@ -68,6 +81,12 @@ impl ServerHello {
     pub fn ready(scope: Scope, agent: &str) -> Self {
         Self::Ready {
             ready: Ready::new(scope, agent),
+        }
+    }
+
+    pub fn ready_with_ticket(scope: Scope, agent: &str, ticket: &str) -> Self {
+        Self::Ready {
+            ready: Ready::with_ticket(scope, agent, ticket),
         }
     }
 

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 
@@ -87,6 +88,7 @@ export function ChatFriendAddDialog({ open, onOpenChange }: ChatFriendAddDialogP
         nickname.trim(),
         addrs.map((addr) => addr.trim()).filter((addr) => addr.length > 0),
       );
+      markLocalWrite("chat");
       await loadFriends();
       try {
         await selectPeer(friend.peerId);

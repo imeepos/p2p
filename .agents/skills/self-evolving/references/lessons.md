@@ -3,6 +3,12 @@
 <!-- 一条经验一行。格式：当 X 发生时，修复是 Y。skill 没提前警告我。 -->
 
 _none yet — be the first._
+- 2026-09-05：Tauri app.emit 在前端 listen 装好之前发出即永久丢失（事件不缓存），E2E 断言"前端已感知"前必须先等就绪门（监听装好后向前端日志写标记行，脚本轮询到标记再开写）。
+- 2026-09-05：集成不熟的依赖库先 cargo fetch + grep registry 源码确认真实签名再写码，别凭文档记忆写完再修（notify-debouncer-mini 0.5 三个假设全错：new_debouncer 只有 2 参、DebouncedEvent.path 是单数、Debouncer<T> 泛型是 Watcher 不是 handler）。
+- 2026-09-05：任务卡的"触及路径白名单"要与需求联动自查后再动手：给中央注册表加条目必然改它的守卫测试（page-registry.test.ts 路由数清单 8→9），白名单漏列守卫测试时唯一解是「最小修改 + 回报显式标记例外」，硬守白名单只会让门禁假红、A1 必挂。
+- 2026-09-05：run_code 用模板串写长文件时，漏闭合反引号/转义混乱会在"解析 program"阶段就炸（Expected ',' got ';' / Unterminated template），与目标文件内容无关；先写 30 行小片验证模板串本身，再写全文件。
+- 2026-09-05：工具类管道命令 `make check 2>&1 | tail` 的 exit code 是 tail 的（恒 0），make 失败被吞；一律 `set -o pipefail` 或 `rc=$?; echo RC=$rc` 显式回传（验证两次才敢报绿）。
+- 2026-09-05：pnpm test -- --run <path> 对 script 形 vitest 并不能按路径过滤（全量照跑），子集调试用 `pnpm vitest run <path>`。_
 - 2026-09-03：GUI types/node_event.rs 对 NodeEvent 无通配符穷举匹配，swarm 侧新增事件变体必须走 LifecycleEvent 独立通道加法（E6/E8 两次先例），加变体前先 grep 全部 recv 点匹配严格度。
 - 2026-09-03：run_code 写 Rust 代码文件时，JS 双引号串会被 Rust 内嵌双引号截断（Expected ',' got 'ident'）；全部行改用 JS 单引号串（Rust 源内几乎无单引号字符），且整文件构建+写入必须在同一次 run_code 调用内完成（跨调用无内存）。
 - 2026-09-03：会话宿主重启丢工作区后，靠协调者 wip 检查点提交 + 承接会话「审阅→补全→补 itest→过验收」流程恢复；恢复后先 git log/git status 对账，不盲信记忆中的文件状态。
@@ -261,3 +267,7 @@ _none yet — be the first._
 - 2026-09-05 ACP3：开工前必读清单要含 skill references 的「当日条目」——worktree 被并行 prune/超时杀 checkout 的坑当日已有两条同族记录，先读能省两轮重建；把与本卡操作同形的条目（worktree/长构建/转义写文件）过一遍再动手。
 - 2026-09-05 ACP3：验收门禁红灯先做「域归属三步定性」——git diff origin/main HEAD --stat 看红灯域文件是否在自己 diff 里、查红灯读的输入是源码还是工作树陈旧产物、隔离复跑最小面；三步都干净就原样上报协调者，不代修邻域（并行会话可能正在改同一处）。
 - 2026-09-05 ACP3：对下游不可见的传输语义（EOF/半关闭/窗口更新时机）要在设计评审时就写探针用例锁行为——yamux 批量窗口更新饿死写侧是集成测试随机挂死才暴露的，探针前置能把 3 小时定位压成 10 分钟；且探针纠偏过一次源码静读的误判（半关闭其实可用）。
+
+- 2026-09-05 ACP4：tokio 单任务要同时 select 多个流又要在分支里 &mut self：把 select 收敛到一个 next_event 辅助函数（只借 receiver），分支体再借 self，借用冲突自然消失；跨模块拆 impl 时子模块可访问父模块私有字段。
+- 2026-09-05 ACP4：集成测试无限挂死的标准排查——先 pkill 全家（cargo/测试二进制/桩进程），再逐测跑 + 后台任务落盘状态文件（START/END/rc+时间戳），挂点一目了然；整包 600s 超时跑只会烧时间。
+- 2026-09-05 ACP4：测试断言失败先用探针对照真实值再定性——本轮监狱目录断言拿错 peer（桥是对的）、replay 后撞上 initialize 回声行（合法透传）都是断言错；但真正的桥缺陷（代答缺换行、早期行真空期丢失）也伪装成测试挂死，两者必须靠探针证据区分。

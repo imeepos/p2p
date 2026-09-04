@@ -9,6 +9,7 @@ import { AppToaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./theme/theme-provider";
 import { installAgentBridge } from "./lib/agent-bridge";
 import { installControlBridge } from "./lib/control-bridge";
+import { installDataWatch } from "./lib/data-watch-install";
 import { installErrorReport } from "./lib/error-report";
 import { installPageBridge } from "./lib/page-bridge";
 import "./index.css";
@@ -20,6 +21,8 @@ installAgentBridge();
 installControlBridge();
 // GC3 页面语义协议：/page/* 端点经 __P2P_PAGES__ 桥驱动页面注册表
 installPageBridge();
+// W1 数据目录实时感知：CLI 写入 data-changed → 定向重载对应 store
+installDataWatch();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -37,6 +37,21 @@ pub struct Cli {
     /// 客户端断流后子进程宽限秒数
     #[arg(long)]
     pub grace_secs: Option<u64>,
+    /// sandbox 监狱根目录
+    #[arg(long)]
+    pub sandbox_root: Option<String>,
+    /// scope=workspace 锁定授权目录
+    #[arg(long)]
+    pub workspace_dir: Option<String>,
+    /// 续连窗口秒数
+    #[arg(long)]
+    pub reattach_window_secs: Option<u64>,
+    /// request_permission 应答上限秒数
+    #[arg(long)]
+    pub permission_timeout_secs: Option<u64>,
+    /// MCP 定义文件路径（JSON object：名称 -> 服务定义）
+    #[arg(long)]
+    pub mcp_definitions_path: Option<String>,
 }
 
 pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
@@ -71,6 +86,22 @@ pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
     if let Some(v) = cli.grace_secs {
         cfg.grace_secs = v;
     }
+    if let Some(v) = &cli.sandbox_root {
+        cfg.sandbox_root = Some(v.clone());
+    }
+    if let Some(v) = &cli.workspace_dir {
+        cfg.workspace_dir = Some(v.clone());
+    }
+    if let Some(v) = cli.reattach_window_secs {
+        cfg.reattach_window_secs = v;
+    }
+    if let Some(v) = cli.permission_timeout_secs {
+        cfg.permission_timeout_secs = v;
+    }
+    if let Some(v) = &cli.mcp_definitions_path {
+        cfg.mcp_definitions_path = Some(v.clone());
+    }
+    cfg.load_mcp_definitions()?;
     cfg.validate()?;
     Ok(cfg)
 }

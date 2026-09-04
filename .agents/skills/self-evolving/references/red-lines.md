@@ -2,6 +2,7 @@
 
 <!-- 格式：禁止 X，因为 Y 发生过。真的付出过代价才记。 -->
 
+- 禁止门禁跑批期间对同一 worktree 改任何文件：跑批读到中间态，整轮结果作废必须重跑（2026-09-05 ACP6a make check 进行中顺手拆超长函数，被迫重跑三轮；AGENTS 明文）。
 - 禁止在已存在 .env 的目录里 `git add .` / `git add -A`：本工作区 .env 存放密钥，
   首次提交必须先写 .gitignore（.env）并使用显式路径 add（2026-09-02 p2p 仓库初始化时规避）。
 - 禁止用手工枚举关键词（PASS/SECRET/TOKEN）的 sed 展示 .env：本机 .env 含 *_API_KEY 明文（OPENAI/AMAP/E2B），枚举漏掉 KEY 类导致密钥进对话记录（2026-09-02 实证）。规则：默认把每行 KEY=VALUE 的 VALUE 全部打码，只显式放行非敏感键（HOST/USER/REGION/DOMAIN/URL）。
@@ -44,3 +45,5 @@
 
 - 禁止对 apps/gui/src-tauri 跑 `cargo fmt` / `cargo fmt --check`（gui-updater 轮实证）：fmt/clippy 门禁（scripts/check/fmt.sh、clippy.sh）都从根 workspace 跑，根 Cargo.toml 已 exclude src-tauri，该子树从未按本地 rustfmt 基线格式化；一跑全库爆 diff，极易诱导出一个违反提交纪律的巨石「格式化提交」。src-tauri 的质量信号是 cargo check + cargo test。
 - 2026-09-04（ACP5 轮）：开工前必须先读 skill 的 references/known-issues.md，不能只读 SKILL.md——同日 U2 已登记 ext512 慢 I/O 与 worktree 元数据消失，提前知道能省半小时排障；同一坑一天内绊倒两个会话即升级为红线。
+- 禁止在行协议对端做裸 write_all（不带换行检查），因为对端 BufRead::lines() 会无限阻塞且无任何错误信号（2026-09-05 ACP4 静态放行挂死实录）。
+- 禁止在 git worktree 工作流里信任 bash 工具的 workdir 参数做跨树写操作；必须命令体内显式 cd 绝对路径，并在每次写后核对两棵树的 git status（2026-09-05 主树 stray 文件实录）。

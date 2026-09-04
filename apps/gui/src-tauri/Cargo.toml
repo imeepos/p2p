@@ -7,6 +7,13 @@ description = "p2p-console Tauri 桥接（gui-contract.md §1 命令面 / §2 �
 # 独立 cargo 项目，脱离根 workspace（gui-contract.md §4；根 Cargo.toml 已 exclude 双保险）
 [workspace]
 
+[features]
+# W1 E2E：debug 二进制默认加载 devUrl(localhost:5173)，外部 vite dev server
+# 占用该端口时 GUI 会装上旧 dev bundle（已实证：感知断言假红）。定制协议
+# 特性强制使用内嵌 frontendDist，E2E 构建以此免疫端口占用；日常 tauri dev
+# 不带此特性，行为不变。
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -51,6 +58,10 @@ png = "0.17"
 gif = "0.13"
 # 控制通道 token 生成（OS 随机源，已是 tauri 传递依赖）
 getrandom = "0.2"
+# W1 数据目录文件监听：非递归 watch + 防抖归并（禁递归风暴）。
+# notify 统一经 notify_debouncer_mini 的 re-export 使用，禁止直连依赖：
+# 两处版本漂移会让 Watcher trait 不匹配（notify 7/8 双版本编译错误）。
+notify-debouncer-mini = "0.5"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # WKWebView takeSnapshot 截图：与 wry 同版 objc2 生态（0.3.x 配 objc2 0.6），不引新增大依赖

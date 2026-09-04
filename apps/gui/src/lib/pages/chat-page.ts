@@ -1,6 +1,7 @@
 // chat 页 descriptor：动作与界面入口（ChatFriendAddDialog / ChatFriendRemoveDialog /
 // 聊天输入框）同源走 store/IPC，不经 DOM 模拟。removeFriend 是危险动作，
 // registry 层强制 args.confirm === true（ACTION_CONFIRM_REQUIRED）。
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 import type { PageDescriptor, PageEntry } from "../page-registry";
@@ -51,12 +52,14 @@ async function execute(
         typeof args.nickname === "string" ? args.nickname.trim() : "",
         Array.isArray(args.addrs) ? args.addrs.map(String) : [],
       );
+      markLocalWrite("chat");
       await useChatStore.getState().loadFriends();
       return friend;
     }
     case "removeFriend": {
       const peer = String(args.peer);
       await ipc.chatFriendRemove(peer);
+      markLocalWrite("chat");
       useChatStore.getState().forgetFriend(peer);
       return { removed: peer };
     }

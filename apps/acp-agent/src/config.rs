@@ -1,10 +1,11 @@
 //! 桥配置：全部字段有默认值；配置文件（JSON）可省略任意字段，CLI 参数逐项覆盖。
 //! 凭据不经配置传递：API key 只进子进程环境（设计 §6），本结构不含任何秘密。
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use acp_common::consts::PROTOCOL_ID;
+use acp_common::consts::{PERMISSION_TIMEOUT_SECS, PROTOCOL_ID, REATTACH_WINDOW_DEFAULT_SECS};
 use acp_common::AcpPaths;
 
 pub const DEFAULT_DATA_DIR: &str = "./acp-data";
@@ -40,6 +41,18 @@ pub struct AgentConfig {
     pub max_connections: u32,
     /// 宽限期秒数。
     pub grace_secs: u64,
+    /// sandbox 监狱根目录；None = <data_dir>/sandbox（设计 §6 工作区行）。
+    pub sandbox_root: Option<String>,
+    /// scope=workspace 的锁定授权目录；未配置则该 scope 拒绝 spawn。
+    pub workspace_dir: Option<String>,
+    /// 续连窗口秒数（设计 §5，默认取 acp-common 常量）。
+    pub reattach_window_secs: u64,
+    /// request_permission 客户端应答上限秒数，超时代答 reject-once（设计 §6）。
+    pub permission_timeout_secs: u64,
+    /// node 预定义 MCP 服务定义（名称 -> 完整定义；命令字节只在 host 手里）。
+    pub mcp_definitions: BTreeMap<String, serde_json::Value>,
+    /// MCP 定义文件路径（社区惯例为文件式 JSON 配置）；设置后以文件内容整体为准。
+    pub mcp_definitions_path: Option<String>,
 }
 
 impl Default for AgentConfig {
@@ -55,6 +68,12 @@ impl Default for AgentConfig {
             log_dir: None,
             max_connections: DEFAULT_MAX_CONNECTIONS,
             grace_secs: DEFAULT_GRACE_SECS,
+            sandbox_root: None,
+            workspace_dir: None,
+            reattach_window_secs: REATTACH_WINDOW_DEFAULT_SECS,
+            permission_timeout_secs: PERMISSION_TIMEOUT_SECS,
+            mcp_definitions: BTreeMap::new(),
+            mcp_definitions_path: None,
         }
     }
 }
@@ -80,6 +99,18 @@ pub enum ConfigError {
     },
     #[error("subprocess command must be non-empty argv")]
     EmptyCommand,
+    #[error("read mcp definitions {path}: {source}")]
+    McpFileIo {
+        path: String,
+        source: std::io::Error,
+    },
+    #[error("parse mcp definitions {path}: {source}")]
+    McpFileJson {
+        path: String,
+        source: serde_json::Error,
+    },
+    #[error("mcp definitions {path} must be a JSON object of name -> definition")]
+    McpFileShape { path: String },
 }
 
 /// 读取 JSON 配置文件；字段可全部省略（serde(default)）。
@@ -124,6 +155,49 @@ impl AgentConfig {
     pub fn grace(&self) -> Duration {
         Duration::from_secs(self.grace_secs.max(1))
     }
+
+    /// sandbox 监狱根：未配置时落在数据目录下。
+    pub fn sandbox_root(&self) -> PathBuf {
+        match &self.sandbox_root {
+            Some(p) => PathBuf::from(p),
+            None => self.paths().root.join("sandbox"),
+        }
+    }
+
+    /// 续连窗口下限 1s：0 会让断流立即降级为退出阶梯。
+    pub fn window(&self) -> Duration {
+        Duration::from_secs(self.reattach_window_secs.max(1))
+    }
+
+    /// 权限应答上限下限 1s。
+    pub fn permission_timeout(&self) -> Duration {
+        Duration::from_secs(self.permission_timeout_secs.max(1))
+    }
+
+    /// MCP 定义文件化加载：设置路径则以文件内容整体为准（确定性优先），
+    /// 缺失/损坏/形状不对显式报错，禁止静默回退内嵌定义。
+    pub fn load_mcp_definitions(&mut self) -> Result<(), ConfigError> {
+        let Some(path) = self.mcp_definitions_path.clone() else {
+            return Ok(());
+        };
+        let raw = std::fs::read_to_string(&path).map_err(|source| ConfigError::McpFileIo {
+            path: path.clone(),
+            source,
+        })?;
+        let root: serde_json::Value =
+            serde_json::from_str(&raw).map_err(|source| ConfigError::McpFileJson {
+                path: path.clone(),
+                source,
+            })?;
+        let map = root
+            .as_object()
+            .ok_or(ConfigError::McpFileShape { path: path.clone() })?;
+        self.mcp_definitions = map
+            .iter()
+            .map(|(name, definition)| (name.clone(), definition.clone()))
+            .collect();
+        Ok(())
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -149,6 +223,53 @@ mod tests {
         let cfg = load_file(path.to_str().expect("utf8")).expect("parse");
         assert_eq!(cfg.data_dir, "/tmp/x");
         assert_eq!(cfg.protocol_id, "/dsh-acp/1");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mcp_definitions_file_loads_and_wins() {
+        let dir = std::env::temp_dir().join(format!("acp-mcp-load-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("tmp dir");
+        let path = dir.join("mcp.json");
+        std::fs::write(&path, "{\"fs\":{\"command\":\"node\"}}").expect("write");
+        let mut cfg = AgentConfig {
+            mcp_definitions_path: Some(path.to_string_lossy().into_owned()),
+            mcp_definitions: BTreeMap::from([("inline".to_owned(), serde_json::json!({}))]),
+            ..AgentConfig::default()
+        };
+        cfg.load_mcp_definitions().expect("load");
+        assert!(cfg.mcp_definitions.contains_key("fs"));
+        assert!(!cfg.mcp_definitions.contains_key("inline"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mcp_definitions_corrupt_file_is_explicit_error() {
+        let dir = std::env::temp_dir().join(format!("acp-mcp-bad-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("tmp dir");
+        let path = dir.join("mcp.json");
+        std::fs::write(&path, "not json").expect("write");
+        let mut cfg = AgentConfig {
+            mcp_definitions_path: Some(path.to_string_lossy().into_owned()),
+            ..AgentConfig::default()
+        };
+        let err = cfg.load_mcp_definitions().expect_err("must fail");
+        assert!(matches!(err, ConfigError::McpFileJson { .. }));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn mcp_definitions_array_shape_is_rejected() {
+        let dir = std::env::temp_dir().join(format!("acp-mcp-shape-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("tmp dir");
+        let path = dir.join("mcp.json");
+        std::fs::write(&path, "[]").expect("write");
+        let mut cfg = AgentConfig {
+            mcp_definitions_path: Some(path.to_string_lossy().into_owned()),
+            ..AgentConfig::default()
+        };
+        let err = cfg.load_mcp_definitions().expect_err("must fail");
+        assert!(matches!(err, ConfigError::McpFileShape { .. }));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

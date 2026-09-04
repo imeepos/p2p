@@ -8,8 +8,8 @@ use tracing::warn;
 
 use crate::types::GuiConfig;
 
-/// 配置文件名。
-const FILE_NAME: &str = "gui-config.json";
+/// 配置文件名（pub(crate) 供 watcher 白名单按 store 层语义归类）。
+pub(crate) const FILE_NAME: &str = "gui-config.json";
 
 /// 出厂内置云端 bootstrap（契约 v2：rendezvous，QUIC 语法）。
 pub(crate) fn default_bootstrap() -> Vec<String> {

@@ -18,6 +18,7 @@ pub mod state;
 pub mod types;
 pub mod update;
 pub mod util;
+pub mod watcher;
 
 use tauri::Manager;
 
@@ -85,6 +86,11 @@ pub fn run() {
                     tracing::error!("控制通道启动失败（GUI 继续运行，CLI 将无法连接）: {e}");
                     eprintln!("p2p-console: 控制通道启动失败: {e}");
                 }
+            }
+            // W1 数据目录监听：CLI 写入实时感知。失败已记结构化日志并发
+            // data-watch-status{active:false}（R3 降级可判），GUI 主功能不阻断。
+            if let Err(e) = watcher::spawn(app.handle().clone(), &dir) {
+                eprintln!("p2p-console: 数据目录监听降级: {e}");
             }
             Ok(())
         })

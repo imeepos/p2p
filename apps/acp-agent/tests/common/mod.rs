@@ -30,6 +30,9 @@ pub fn test_config(tag: &str) -> AgentConfig {
         data_dir: tmp_dir(tag).to_string_lossy().into_owned(),
         command: vec![STUB.to_owned()],
         grace_secs: 1,
+        // ACP4：断流进续连窗口；测试统一缩到 1s，窗口过期即走退出阶梯
+        reattach_window_secs: 1,
+        permission_timeout_secs: 2,
         ..AgentConfig::default()
     }
 }
@@ -57,6 +60,12 @@ pub fn write_policy(cfg: &AgentConfig, grant: Option<(&PeerId, Scope)>) {
 }
 
 pub async fn build_server(cfg: &AgentConfig) -> (Node, Arc<CaptureAudit>) {
+    let (node, audit, _deps) = build_server_full(cfg).await;
+    (node, audit)
+}
+
+/// 带 SessionDeps 的变体：退出阶梯等需要触达槽位簿记的测试使用。
+pub async fn build_server_full(cfg: &AgentConfig) -> (Node, Arc<CaptureAudit>, Arc<SessionDeps>) {
     let node = Node::builder()
         .mdns(false)
         .data_dir(cfg.paths().root.join("identity"))
@@ -66,8 +75,8 @@ pub async fn build_server(cfg: &AgentConfig) -> (Node, Arc<CaptureAudit>) {
     let audit = Arc::new(CaptureAudit::new());
     let peers = PeerBook::spawn(node.events());
     let deps = SessionDeps::assemble(cfg.clone(), audit.clone(), peers).expect("deps");
-    node.handle_protocol(Arc::new(AcpHandler::new(deps).expect("handler")));
-    (node, audit)
+    node.handle_protocol(Arc::new(AcpHandler::new(deps.clone()).expect("handler")));
+    (node, audit, deps)
 }
 
 pub async fn build_client(tag: &str) -> Node {
@@ -134,4 +143,115 @@ pub async fn handshake_client(stream: &mut BoxedStream) -> ServerHello {
         .trim_end()
         .to_owned();
     acp_common::parse_server_hello(&reply).expect("parse server hello")
+}
+pub fn test_grant_full(scope: Scope, allow_mcp: Vec<String>, ask_route: AskRoute) -> PeerPolicy {
+    PeerPolicy {
+        allow_mcp,
+        ask_route,
+        ..test_grant(scope)
+    }
+}
+
+/// 策略表写入（扩展形态）：条目自带 allow_mcp / ask_route。
+pub fn write_policy_full(cfg: &AgentConfig, grant: Option<(&PeerId, PeerPolicy)>) {
+    let path = cfg.policy_path();
+    let mut table = PolicyTable::new();
+    if let Some((peer, policy)) = grant {
+        table.grant(peer.to_string(), policy);
+    }
+    std::fs::create_dir_all(path.parent().expect("policy parent")).expect("mkdir");
+    table.save(&path).expect("save policy");
+}
+
+/// 续连握手：携票据回连。
+pub async fn handshake_client_reattach(stream: &mut BoxedStream, ticket: Uuid) -> ServerHello {
+    let mut hello = ClientHello::new(Uuid::new_v4());
+    hello.reattach = Some(ticket);
+    let line = hello.to_line().expect("hello line");
+    send_line(stream, &line).await;
+    let reply = read_line(stream)
+        .await
+        .expect("server handshake reply")
+        .trim_end()
+        .to_owned();
+    acp_common::parse_server_hello(&reply).expect("parse server hello")
+}
+
+/// session/new 请求行（带 mcpServers 载荷）。
+pub fn session_new_with_mcp(id: i64, mcp: serde_json::Value) -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "session/new",
+        "params": { "cwd": "/tmp", "mcpServers": mcp },
+    })
+    .to_string()
+}
+
+/// 子进程侧权限请求行（经回声桩注入 child->wire 方向）。
+pub fn permission_request(id: i64, kind: &str) -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "method": "session/request_permission",
+        "params": {
+            "toolCall": { "kind": kind, "title": "itest" },
+            "options": [
+                { "optionId": "allow-once", "name": "Allow", "kind": "allow_once" },
+                { "optionId": "reject-once", "name": "Deny", "kind": "reject_once" },
+            ],
+            "sessionId": "s1",
+        },
+    })
+    .to_string()
+}
+
+/// 客户端对权限请求的批准应答行。
+pub fn permission_approve(id: i64, option: &str) -> String {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "id": id,
+        "result": { "outcome": { "outcome": "selected", "optionId": option } },
+    })
+    .to_string()
+}
+
+/// 测试台架：客户端节点 + 挂 handler 的服务端节点 + 审计捕获 + QUIC 地址播种。
+pub struct Rig {
+    pub server: Node,
+    pub audit: std::sync::Arc<CaptureAudit>,
+    pub server_peer: PeerId,
+    pub client: Node,
+}
+
+pub async fn rig(tag: &str, grant: PeerPolicy, tweak: impl FnOnce(&mut AgentConfig)) -> Rig {
+    let client = build_client(tag).await;
+    let mut cfg = test_config(tag);
+    tweak(&mut cfg);
+    write_policy_full(&cfg, Some((&client.local_peer_id(), grant)));
+    let (server, audit) = build_server(&cfg).await;
+    let server_peer = server.local_peer_id();
+    seed_quic(&server, server_peer, &client);
+    Rig {
+        server,
+        audit,
+        server_peer,
+        client,
+    }
+}
+
+pub fn shutdown(rig: &Rig) {
+    rig.server.shutdown();
+    rig.client.shutdown();
+}
+/// 连接服务端并打开 /dsh-acp/1 流。
+pub async fn open_stream(rig: &Rig) -> BoxedStream {
+    rig.client.connect(rig.server_peer).await.expect("connect");
+    rig.client
+        .new_stream(
+            rig.server_peer,
+            ProtocolId::new(PROTO).expect("valid protocol id"),
+        )
+        .await
+        .expect("open acp stream")
 }

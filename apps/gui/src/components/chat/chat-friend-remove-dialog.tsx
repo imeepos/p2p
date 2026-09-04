@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ChatFriendJson } from "@/lib/ipc-types";
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 
@@ -50,6 +51,7 @@ export function ChatFriendRemoveDialog({
     setSubmitting(true);
     try {
       await ipc.chatFriendRemove(friend.peerId);
+      markLocalWrite("chat");
       forgetFriend(friend.peerId);
       onOpenChange(false);
     } catch (error) {
