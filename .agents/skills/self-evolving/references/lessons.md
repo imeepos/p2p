@@ -279,3 +279,12 @@ _none yet — be the first._
 - 2026-09-05 G2：测试文件同样受 300 行纪律（存量 310/314 不构成豁免）——mock 单例测试拆文件时事件收集器必须带 reset() 并在 beforeEach 调用，否则同文件用例间事件计数互相污染（本轮 3 个假红全源于此）；拆分是纯 test refactor 单独成提交。
 - 2026-09-04 AI 试运行：文档驱动操作撞上「两套身份」类系统时，把每次失败报错当拓扑探针用——Failed(快速) vs Pending(超时) 的差异本身就指明对端身份不符还是网络不通。
 - 2026-09-04 run_code：bash 惯用法写进 JS 模板串必须转义美元花括号（PIPESTATUS 被 JS 当插值求值直接 ReferenceError），含反引号的内容更要用数组 join + heredoc 落盘。
+- 2026-09-05：给被大量既有测试裸渲染的视图加 useNavigate，会把所有无 Router 包裹的旧测试一次性打崩（G3 一加 79 失败）；App 根是 HashRouter 时改 window.location.hash 跳转零测试改动，新路由测试也用 HashRouter + window.location.hash 驱动。
+- 2026-09-05：zustand 页面接第二个 store 订阅同一 ipc 事件总线后，既有测试的 onNodeEvent 替身若写「handler = current」单槽会顶掉前者、chat_message 断言全超时；替身必须改数组 push + 循环投递（真实事件总线一对多），且数组不许 beforeEach 清空——store 订阅有模块级 latch，清空后后续测试无人收事件。
+- 2026-09-05：eslint react-refresh/only-export-components 禁止 .tsx 组件文件同导出纯函数（G3 在 group-list.tsx 导出 orderedGroups 被红）；纯函数下沉同名 .ts。react-hooks v7 的 set-state-in-effect 禁 effect 内同步 setState——面板类组件用「open 才挂载」的父级条件渲染替代打开时重置状态。
+- 2026-09-05：vitest 的 vi.fn<T>() 泛型参数个数必须与 mockImplementation 实参个数一致（tsc TS2345）；带参 mock 声明写成 vi.fn<(groupId: string, memberId: string) => Promise<R>>()。
+- 2026-09-05：断言用 getAllByTestId(/^prefix-.+$/) 正则会把容器 testid（group-member-panel/group-member-list）一并匹配导致假红；正则按值域字符集收窄（base58 无 l/i 恰好排除 panel/list）或行级 testid 用独立前缀。
+- 2026-09-05：GUI 单群操作无契约命令时（v1 无 group_disband），用已有 owner-only 原语组合出操作面（逐个 groupKick 全员=解散入口）并在确认文案明示语义降级，交接报告单列遗留——比留死按钮更利于后续契约加法时切换。
+- 2026-09-04 G1：pub(crate) 类型不能 pub use 出 crate（E0365）——契约模型要跨 crate 消费就直接声明 pub，别先 pub(crate) 再 re-export。
+- 2026-09-04 G1：300 行红线 + rustfmt max_width=100 下，链式调用/多参签名按 fmt 后行数计预算（fmt 展开动辄 +30%）；跨模块 `impl 同crate类型` 是合规分文件手段，文件头注明"行数红线再平衡"。
+- 2026-09-04 G1：并行会话高频合入 main 时 ff-only 失败是常态——rebase → 重跑 clippy+line-limit+定向测试 → 立即重试，整套动作一分钟内连惯做完，拖久了又漂。

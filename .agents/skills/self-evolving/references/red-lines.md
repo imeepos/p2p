@@ -47,3 +47,5 @@
 - 2026-09-04（ACP5 轮）：开工前必须先读 skill 的 references/known-issues.md，不能只读 SKILL.md——同日 U2 已登记 ext512 慢 I/O 与 worktree 元数据消失，提前知道能省半小时排障；同一坑一天内绊倒两个会话即升级为红线。
 - 禁止在行协议对端做裸 write_all（不带换行检查），因为对端 BufRead::lines() 会无限阻塞且无任何错误信号（2026-09-05 ACP4 静态放行挂死实录）。
 - 禁止在 git worktree 工作流里信任 bash 工具的 workdir 参数做跨树写操作；必须命令体内显式 cd 绝对路径，并在每次写后核对两棵树的 git status（2026-09-05 主树 stray 文件实录）。
+- (2026-09-04) 禁止在 fmt/check 失败未确认时采信任何 wc -l 行数——红线下读数必须
+  以"解析成功 + fmt 成功"为前提。

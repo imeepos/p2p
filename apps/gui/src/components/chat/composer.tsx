@@ -6,7 +6,7 @@ import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { fileToChatMedia, inferKind } from "@/lib/chat-media";
-import type { ChatMessageJson } from "@/lib/ipc-types";
+import type { ChatKind, ChatMediaInput, ChatMessageJson, ChatSendReport } from "@/lib/ipc-types";
 import { useChatStore } from "@/stores/chat-store";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +51,18 @@ function ReplyPreview({
   );
 }
 
+// 群聊复用注入面（G3）：不传走 1:1 chat-store（默认路径，报告失败 toast 归本组件）；
+// 传入则发送改道（群 store），报告级失败通知由传输侧自理。
+export interface ComposerTransport {
+  sendText(peer: string, text: string, replyTo?: string | null): Promise<unknown>;
+  sendMedia(
+    peer: string,
+    kind: ChatKind,
+    media: ChatMediaInput,
+    replyTo?: string | null,
+  ): Promise<unknown>;
+}
+
 // 输入条：多行文本 + 表情面板 + 附件；回车发送，shift+enter 换行；
 // 空文本/超长禁用发送并提示；附件超限走 toastError（失败留信号）。
 // 带引用时（replyTarget）文本与附件发送均透传 replyTo，成功后清预览。
@@ -59,16 +71,26 @@ export function Composer({
   replyTarget,
   onReplyCancel,
   disabled = false,
+  transport,
+  testIds,
 }: {
   peer: string;
   replyTarget: ChatMessageJson | null;
   onReplyCancel: () => void;
   /** 节点未运行等场景的外部禁用（IM-T51）：输入/发送/附件/表情全部不可用 */
   disabled?: boolean;
+  transport?: ComposerTransport;
+  /** 测试锚点（G3 群复用：group-input/group-send）；缺省保持 1:1 命名。 */
+  testIds?: { input: string; send: string };
 }) {
   const { t } = useTranslation();
-  const sendText = useChatStore((s) => s.sendText);
-  const sendMedia = useChatStore((s) => s.sendMedia);
+  const ids = testIds ?? { input: "chat-input", send: "chat-send" };
+  const sendText1v1 = useChatStore((s) => s.sendText);
+  const sendMedia1v1 = useChatStore((s) => s.sendMedia);
+  const tx: ComposerTransport = transport ?? {
+    sendText: (to, text, replyTo) => sendText1v1(to, text, replyTo),
+    sendMedia: (to, kind, media, replyTo) => sendMedia1v1(to, kind, media, replyTo),
+  };
   const [text, setText] = useState("");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [sending, setSending] = useState(false);
@@ -97,10 +119,10 @@ export function Composer({
     if (!canSend || disabled) return;
     setSending(true);
     try {
-      const report = await sendText(peer, trimmed, replyTarget?.id);
+      const report = await tx.sendText(peer, trimmed, replyTarget?.id);
       setText("");
       onReplyCancel();
-      notifyFailedSendReport(report);
+      if (!transport) notifyFailedSendReport(report as ChatSendReport);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       toastError(t("chat.sendFailed"), { description: reason });
@@ -123,9 +145,9 @@ export function Composer({
       try {
         const media = await fileToChatMedia(file);
         const kind = inferKind(file.name, file.type);
-        const report = await sendMedia(peer, kind, media, replyTarget?.id);
+        const report = await tx.sendMedia(peer, kind, media, replyTarget?.id);
         onReplyCancel();
-        notifyFailedSendReport(report);
+        if (!transport) notifyFailedSendReport(report as ChatSendReport);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         console.error("[chat] 附件发送失败", error);
@@ -180,7 +202,7 @@ export function Composer({
           onKeyDown={onKeyDown}
           placeholder={t("chat.inputPlaceholder")}
           aria-label={t("chat.inputPlaceholder")}
-          data-testid="chat-input"
+          data-testid={ids.input}
           disabled={disabled}
           className={cn("min-h-10 flex-1", tooLong && "border-destructive")}
         />
@@ -188,7 +210,7 @@ export function Composer({
           type="button"
           onClick={() => void send()}
           disabled={!canSend || disabled}
-          data-testid="chat-send"
+          data-testid={ids.send}
         >
           <Send className="size-4" />
           {t("chat.send")}
