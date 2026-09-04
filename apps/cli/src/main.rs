@@ -1,5 +1,6 @@
 //! p2pctl 入口：解析命令、分发命令域、错误转退出码（0 成功 / 1 运行失败 / 2 用法错误）。
 
+mod chat;
 mod cli;
 mod error;
 mod node;
@@ -23,5 +24,6 @@ async fn main() {
 async fn dispatch(cli: Cli) -> CliResult {
     match cli.command {
         cli::Command::Node { command } => node::run(command).await,
+        cli::Command::Chat { command } => chat::run(command).await,
     }
 }
