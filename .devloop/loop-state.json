@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T05:31:32.585Z",
+  "updatedAt": "2026-09-04T05:34:41.934Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -124,15 +124,18 @@
       "goal": "五类型消息收发渲染全矩阵测试（只加测试不改生产）：kind ∈ text/image/audio/video/file × 场景 {me 发送成功上屏、me 发送失败占位回滚、them 入站渲染} 渲染断言 {text 文本气泡换行保留、image 图片元素加载、audio 播放控件、video 播放控件、file 信息卡含文件名大小}；补缺口：入站媒体渲染（现测试偏发送侧）、会话列表摘要按类型正确（图片显示文件名而非二进制）、混合类型序列按时间排序渲染、2000 字符恰好渲染无布局爆炸、未知 kind 防御渲染不白屏；生产源码只读，缺陷报协调裁决（≤10 行无歧义修复可同分支独立 fix 提交+消融证据）",
       "title": "IM-T47 五类型消息渲染矩阵测试",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "test/im-render-matrix",
       "ownerSession": "session-98fd5af6-1de2-4ff3-8c41-8a74d72a8373",
       "scope": "仅新增 apps/gui/src/views/chat/chat-render-matrix.test.tsx 与必要 fixtures；apps/gui/src 生产实现与 crates、src-tauri 全只读",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-render-matrix.test.tsx && pnpm build && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"渲染矩阵\" apps/gui/src/views/chat/chat-render-matrix.test.tsx'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-render-matrix.test.tsx && pnpm build && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"渲染矩阵\" apps/gui/src/views/chat/chat-render-matrix.test.tsx'",
+      "mergedMain": "86d9401",
+      "acceptedAt": "2026-09-04T05:34:41.934Z",
+      "note": "独立复核 exit 0（20/20 用例+渲染矩阵 grep+祖先链核实；会话自报消融证据齐全）；观察项裁决：dropPending 不回滚 lastMessageByPeer 致媒体发送失败后列表摘要短暂残留（自愈、外观级）——受理，转入 IM-T48 终态走查一并处理"
     },
     {
       "id": "IM-T48",
-      "goal": "GUI 视觉走查与布局打磨（收尾单，全部功能落地后终态走查）：走查矩阵沿用 ui-s2/ui-s3 先例——聊天页/好友列表/添加好友对话框/回复引用块/移除确认框的间距对齐分组、暗色与亮色主题、zh/en 双语文案长度溢出（按钮换行/截断策略）、空态/加载态/错误态三态视觉一致、长昵称/长文件名/超长文本的截断与换行、状态标识色彩语义（在线/离线/失败）可辨识；产出 docs/notes/ui-im-visual-audit-matrix.md（走查项×结果×截图路径）+ CSS 级修复；发现结构性布局问题报协调裁决不擅自大改",
+      "goal": "GUI 视觉走查与布局打磨（收尾单，全部功能落地后终态走查）：走查矩阵沿用 ui-s2/ui-s3 先例——聊天页/好友列表/添加好友对话框/回复引用块/移除确认框的间距对齐分组、暗色与亮色主题、zh/en 双语文案长度溢出（按钮换行/截断策略）、空态/加载态/错误态三态视觉一致、长昵称/长文件名/超长文本的截断与换行、状态标识色彩语义（在线/离线/失败）可辨识；产出 docs/notes/ui-im-visual-audit-matrix.md（走查项×结果×截图路径）+ CSS 级修复；发现结构性布局问题报协调裁决不擅自大改；【裁决追加】IM-T47 观察项：chat-store.dropPending 失败回滚时同步修正 lastMessageByPeer（媒体发送失败后列表摘要残留占位文件名，外观级自愈缺陷），随本轮一并修复",
       "title": "IM-T48 GUI 视觉走查与布局打磨",
       "priority": "P2",
       "status": "todo",
