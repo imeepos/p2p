@@ -7,6 +7,7 @@ import { DashboardPage } from "@/routes/dashboard-page";
 import { DiagnosticsPage } from "@/routes/diagnostics-page";
 import { DiscoveryPage } from "@/routes/discovery-page";
 import { EventsPage } from "@/routes/events-page";
+import { GroupPage } from "@/routes/group-page";
 import { PeersPage } from "@/routes/peers-page";
 import { RelayPage } from "@/routes/relay-page";
 import { SettingsPage } from "@/routes/settings-page";
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="discovery" element={<DiscoveryPage />} />
           <Route path="relay" element={<RelayPage />} />
           <Route path="chat" element={<ChatPage />} />
+          <Route path="group" element={<GroupPage />} />
           <Route path="acp" element={<AcpPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="settings" element={<SettingsPage />} />
