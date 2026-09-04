@@ -5,6 +5,8 @@
 > 定位：人工里程碑，不入账本；机械验收以 T33 验收命令
 > `cargo test -p p2p-itest --test chat_e2e && make check` 全绿为准（plan §7）。
 > 本清单为双节点真机手工演练步骤；真机执行由协调者安排，本单只交付文档。
+> 2026-09-04 增补：2.10 回复消息场景（IM-T46A replyTo 契约落地；步骤 1 的 GUI
+> 交互入口待 IM-T46B 合入后执行，后端链路可先以 chat_e2e 引用场景机械验证）。
 
 ## 1. 演练前置
 
@@ -138,12 +140,30 @@ chat_status 事件转发（src-tauri events 通道）。
 失败排查：分页缺消息 → 游标语义为"严格更早 ts"，同毫秒多条消息会被游标跳过
 （极端边界）；正常间隔发送不受影响。
 
+### 2.10 回复消息（引用回复，IM-T46A/T46B）
+
+| 步骤 | 操作 | 预期 |
+|---|---|---|
+| 1 | A 对 B 的某条消息发起回复（气泡悬停/右键菜单） | 输入区出现引用预览（被引用消息摘要），可取消退出 |
+| 2 | A 输入文本发送 | A 侧新气泡带引用块，消息携带 replyTo（指向被引用消息 id） |
+| 3 | B 侧查看入站消息 | 气泡渲染引用块；点击引用块滚动定位到被引用消息并高亮 |
+
+失败排查：
+- B 侧引用块缺失 → 查 B 的 messages/<peer>.jsonl 对应行是否含 replyTo 字段；
+  旧消息/旧信封无此字段＝无引用，属兼容语义而非缺陷。
+- 点击引用块无反应 → 被引用消息不在本地历史时显示占位文案，属预期降级
+  （契约不校验被引用消息存在性，离线引用允许）。
+- 发送时 replyTo 被拒 → 提供时须非空字符串，空白引用发送即 Err。
+
 ## 3. 标注（上限与依赖）
 
 - **媒体上限**：单条消息（含附件原始字节）≤ 64 MiB（MAX_MESSAGE_SIZE）；
   超限发送前 Err（MediaTooLarge）、入站断流，禁止静默。
 - **MIME 白名单**：image→png/jpeg/gif/webp；audio→mpeg/wav/ogg/m4a/mp4；
   video→mp4/webm/mov/quicktime；其余归 file（不匹配即 Err/断流）。
+- **回复引用**：replyTo 为可选加法字段（被引用消息的本端消息 id），发送不校验
+  被引用消息存在性（离线引用允许）；收端原样落盘，旧记录缺字段＝无引用，
+  重启读回兼容（wire-protocol §8.1）。
 - **asset URL 预览依赖 assetProtocol scope**：chat_media_file 返回 asset URL，
   内联预览（image/audio/video）依赖 Tauri assetProtocol 的 chat/media scope
   （src-tauri 已配置）；改动 tauri.conf.json 后必须回归本清单 2.3-2.6。
@@ -180,5 +200,6 @@ chat_status 事件转发（src-tauri events 通道）。
 | 2.7 状态流转 sent→delivered | 通过 / 失败 |
 | 2.8 离线消息自动补发 | 通过 / 失败 |
 | 2.9 历史分页回读 | 通过 / 失败 |
+| 2.10 回复消息引用 | 通过 / 失败 |
 | 校准项命中 | §2.0 条目 + 实际行为 |
 | 遗留问题 | 进入协调裁决/下一轮 |
