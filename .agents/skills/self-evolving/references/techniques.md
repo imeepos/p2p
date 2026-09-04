@@ -161,3 +161,9 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - gui 测试消融验证三步走（不产生提交）：edit 工具改生产一处 → 跑目标测试确认对应格红 → git checkout -- 恢复后复绿且 status 干净；比口头声称「测试有效」硬得多。
 - worktree 里 pnpm 测试前先 ls apps/gui/node_modules/.bin/vitest 判依赖在不在，新 worktree 先后台 pnpm install 再读代码写测试，两不耽误。
 - 2026-09-04 T38 残留分支判定：rebase 后 ff 合入会原地留下「老哈希分支」，`git branch -d` 按哈希无祖先会拒删——用 `git cherry main HEAD` 机械判补丁等价，全部 `-` 即内容 100% 已在 main，可放心 `branch -D`（实例：test/rs-bridge-boundary 三提交全 `-`，fca6fc3 的等价体是 main 上 e31bc67）。
+
+## 2026-09-04 计划方案冻结·其余文档对齐轮（docs-only 协调任务）
+- 接手无前文简短指令（如「对齐其余文档」）：按 .devloop/loop-state.json note → coordination.md 尾部条目 → git log 近 10 提交 三步重建上下文，再对 grep 关键裁决词（如 replyTo）定位哪些文档已跟上、哪些没跟上；不要凭猜测选文件。
+- 共享账本未提交改动的归属判断：git diff 看 updatedAt 与 task 状态变化属于哪个会话的轮次（本轮 diff 是 CLI 协调的 CL3-done/CL4-doing，13:15 刚写）；归属他轮则整文件不碰、不卷进自己提交，自己的叙事缺口走 coordination.md 入册补齐，账本 note 折叠留给下一个写账本的人。
+- 契约加法落地后的文档对齐清单（四遍扫，防「字段登记了、描述面没跟」）：①契约文档引言的能力枚举 ②演练/操作清单的场景+标注+模板行 ③docs/README.md 索引 ④README 进度与 crate 地图。本轮 replyTo 前两项字段面已齐，但①②③④全漏。
+- markdown 手写表格里的路径占位符容易顺手写成 HTML 实体（&lt;peer&gt;）；提交前 git diff 扫一眼与全文风格对齐（本仓库用裸 <peer>）。
