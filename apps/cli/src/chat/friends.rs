@@ -79,7 +79,7 @@ struct FriendRemoveReport {
     removed: bool,
 }
 
-pub async fn run(command: FriendsCommand) -> CliResult {
+pub async fn run(command: FriendsCommand) -> CliResult<()> {
     match command {
         FriendsCommand::List(args) => list(args).await,
         FriendsCommand::Add(args) => add(args).await,
@@ -87,7 +87,7 @@ pub async fn run(command: FriendsCommand) -> CliResult {
     }
 }
 
-async fn list(args: ListArgs) -> CliResult {
+async fn list(args: ListArgs) -> CliResult<()> {
     let ctx = context::open(&args.data_dir).await?;
     let friends = ctx.chat.friends_list().map_err(runtime_err)?;
     let text = if friends.is_empty() {
@@ -99,7 +99,7 @@ async fn list(args: ListArgs) -> CliResult {
     emit(args.json, &friends, &text)
 }
 
-async fn add(args: AddArgs) -> CliResult {
+async fn add(args: AddArgs) -> CliResult<()> {
     let ctx = context::open(&args.data_dir).await?;
     let existed = ctx
         .chat
@@ -135,7 +135,7 @@ async fn add(args: AddArgs) -> CliResult {
     )
 }
 
-async fn remove(args: RemoveArgs) -> CliResult {
+async fn remove(args: RemoveArgs) -> CliResult<()> {
     let ctx = context::open(&args.data_dir).await?;
     let removed = ctx.chat.friend_remove(&args.peer_id).map_err(runtime_err)?;
     let text = if removed {

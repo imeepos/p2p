@@ -96,7 +96,7 @@ struct MediaFileReport {
     name: String,
 }
 
-pub async fn history(args: HistoryArgs) -> CliResult {
+pub async fn history(args: HistoryArgs) -> CliResult<()> {
     let ctx = context::open(&args.data_dir).await?;
     let msgs = ctx
         .chat
@@ -120,7 +120,7 @@ pub async fn history(args: HistoryArgs) -> CliResult {
     emit(args.json, &msgs, &text)
 }
 
-pub async fn send(args: SendArgs) -> CliResult {
+pub async fn send(args: SendArgs) -> CliResult<()> {
     let (kind, text, media) = payload(&args)?;
     let ctx = context::open(&args.data_dir).await?;
     let deadline = tokio::time::Instant::now() + Duration::from_secs(args.timeout_secs);
@@ -198,13 +198,13 @@ fn parse_peer(s: &str) -> Option<p2p::PeerId> {
     Some(p2p::PeerId::from_bytes(arr))
 }
 
-pub async fn run_media(command: MediaCommand) -> CliResult {
+pub async fn run_media(command: MediaCommand) -> CliResult<()> {
     match command {
         MediaCommand::File(args) => media_file(args).await,
     }
 }
 
-async fn media_file(args: MediaFileArgs) -> CliResult {
+async fn media_file(args: MediaFileArgs) -> CliResult<()> {
     let ctx = context::open(&args.data_dir).await?;
     let meta = ctx
         .chat

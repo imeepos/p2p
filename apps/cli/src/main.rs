@@ -2,9 +2,20 @@
 
 mod chat;
 mod cli;
+mod config;
+mod control;
+mod daemon;
 mod error;
+mod identity;
+mod lifecycle;
 mod node;
+mod ops;
 mod output;
+mod paths;
+mod peer;
+mod profile;
+mod store;
+mod types;
 
 use clap::Parser;
 
@@ -21,9 +32,13 @@ async fn main() {
     }
 }
 
-async fn dispatch(cli: Cli) -> CliResult {
+async fn dispatch(cli: Cli) -> CliResult<()> {
     match cli.command {
         cli::Command::Node { command } => node::run(command).await,
         cli::Command::Chat { command } => chat::run(command).await,
+        cli::Command::Config { command } => config::run(command).await,
+        cli::Command::Profile { command } => profile::run(command).await,
+        cli::Command::Peer { command } => peer::run(command).await,
+        cli::Command::Identity { command } => identity::run(command).await,
     }
 }

@@ -1084,9 +1084,12 @@ version = "0.1.0"
 dependencies = [
  "bs58",
  "clap",
+ "libc",
  "p2p",
  "p2p-chat",
  "p2p-cli",
+ "p2p-log",
+ "p2p-swarm",
  "serde",
  "serde_json",
  "tokio",

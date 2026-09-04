@@ -40,7 +40,7 @@ pub enum ChatCommand {
     Serve(ServeArgs),
 }
 
-pub async fn run(command: ChatCommand) -> CliResult {
+pub async fn run(command: ChatCommand) -> CliResult<()> {
     match command {
         ChatCommand::Friends { command } => friends::run(command).await,
         ChatCommand::History(args) => messages::history(args).await,

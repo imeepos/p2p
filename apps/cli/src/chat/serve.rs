@@ -41,7 +41,7 @@ struct ServeInfo {
     data_dir: String,
 }
 
-pub async fn run(args: ServeArgs) -> CliResult {
+pub async fn run(args: ServeArgs) -> CliResult<()> {
     let node = context::builder(&args.data_dir, args.quic_port.unwrap_or(0), args.mdns)
         .build()
         .await
