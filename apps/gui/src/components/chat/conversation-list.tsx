@@ -1,6 +1,7 @@
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, UserPlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n";
 import { formatTime } from "@/lib/format";
 import type { ChatFriendJson, ChatMessageJson } from "@/lib/ipc-types";
@@ -14,6 +15,7 @@ interface ConversationListProps {
   loading: boolean;
   error: string | null;
   onSelect: (peerId: string) => void;
+  onAddFriend?: () => void;
 }
 
 function summaryOf(message: ChatMessageJson | null | undefined): string | null {
@@ -31,6 +33,7 @@ export function ConversationList({
   loading,
   error,
   onSelect,
+  onAddFriend,
 }: ConversationListProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
@@ -48,6 +51,20 @@ export function ConversationList({
         icon={MessageCircle}
         title={t("chat.noFriends")}
         description={t("chat.noFriendsHint")}
+        action={
+          onAddFriend ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onAddFriend}
+              data-testid="chat-add-friend-empty"
+            >
+              <UserPlusIcon aria-hidden />
+              {t("chat.addFriend.action")}
+            </Button>
+          ) : undefined
+        }
       />
     );
   }

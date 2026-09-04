@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, UserPlusIcon } from "lucide-react";
 
 import { PageHeader } from "@/components/page/page-header";
+import { Button } from "@/components/ui/button";
+import { ChatFriendAddDialog } from "@/components/chat/chat-friend-add-dialog";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { Composer } from "@/components/chat/composer";
 import { MessageList } from "@/components/chat/message-list";
@@ -28,6 +30,7 @@ export function ChatView() {
   const loadOlder = useChatStore((s) => s.loadOlder);
   const cancelPending = useChatStore((s) => s.cancelPending);
   const subscribeEvents = useChatStore((s) => s.subscribeEvents);
+  const [addFriendOpen, setAddFriendOpen] = useState(false);
 
   useEffect(() => {
     void loadFriends();
@@ -41,7 +44,19 @@ export function ChatView() {
       <PageHeader titleKey="chat.title" descriptionKey="chat.description" />
       <div className="grid min-h-72 grid-cols-[16rem_1fr] gap-4">
         <section aria-label={t("chat.friends")} className="rounded-lg border">
-          <h2 className="px-3 py-2 font-medium">{t("chat.friends")}</h2>
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <h2 className="font-medium">{t("chat.friends")}</h2>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setAddFriendOpen(true)}
+              data-testid="chat-add-friend"
+            >
+              <UserPlusIcon aria-hidden />
+              {t("chat.addFriend.action")}
+            </Button>
+          </div>
           <ConversationList
             friends={friends}
             lastMessages={lastMessages}
@@ -49,6 +64,7 @@ export function ChatView() {
             loading={!friendsLoaded && !friendsError}
             error={friendsError}
             onSelect={(peerId) => void selectPeer(peerId)}
+            onAddFriend={() => setAddFriendOpen(true)}
           />
         </section>
 
@@ -86,6 +102,7 @@ export function ChatView() {
           )}
         </section>
       </div>
+      <ChatFriendAddDialog open={addFriendOpen} onOpenChange={setAddFriendOpen} />
     </>
   );
 }
