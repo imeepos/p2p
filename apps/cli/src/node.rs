@@ -1,104 +1,153 @@
-//! node 命令域。CL1 仅纵切 status：基于状态目录 + 守护进程标记判定，
-//! 真实探测（心跳/端口/metrics）后续波增强；判定依据随输出可观测。
+//! node 命令域命令面：start/stop/status/serve。机制在 lifecycle.rs，
+//! 本模块只做子命令分派与文本/JSON 输出（文本带 pid=/peer=/addr=/log= 键值行，
+//! 供脚本无 JSON 依赖采集；--json 为同源结构的 camelCase 序列化）。
 
 use clap::{Args, Subcommand};
-use serde::Serialize;
 
 use crate::error::CliResult;
+use crate::lifecycle::{self, Report};
 use crate::output;
 
-/// facade 与实验工具约定的默认状态目录（crates/p2p NodeBuilder::default、p2p-cli --data）。
 pub const DEFAULT_DATA_DIR: &str = "./p2p-data";
-
-/// 守护进程标记文件名（CL2 启停域落地后由 start 写入 / stop 清除）。
-const DAEMON_PID_FILE: &str = "daemon.pid";
 
 #[derive(Subcommand)]
 pub enum NodeCommand {
     /// 查询本机节点运行状态
-    Status(StatusArgs),
+    Status(DirArgs),
+    /// 启动节点守护进程（读取 gui-config.json，缺省用默认配置）
+    Start(DirArgs),
+    /// 停止节点守护进程（幂等；重复 stop 报未运行，退出码 0）
+    Stop(DirArgs),
+    /// 守护进程入口（由 start 拉起，不对外文档化）
+    #[command(hide = true)]
+    Serve(DirArgs),
 }
 
 #[derive(Args)]
-pub struct StatusArgs {
+pub struct DirArgs {
     /// 输出结构化 JSON
     #[arg(long)]
     json: bool,
-    /// 节点状态目录（与 facade 默认一致）
+    /// CLI 数据目录（等价 GUI app 数据目录，含 gui-config.json/daemon.*）
     #[arg(long, default_value = DEFAULT_DATA_DIR)]
-    data_dir: String,
+    pub data_dir: String,
 }
 
-/// 探测结论：文本/JSON 两形态共用同一事实源。
-#[derive(Serialize)]
-struct NodeStatus {
-    running: bool,
-    state: &'static str,
-    reason: String,
-    data_dir: String,
+impl DirArgs {
+    pub fn new(json: bool, data_dir: String) -> Self {
+        Self { json, data_dir }
+    }
 }
 
-struct Probe {
-    data_dir_exists: bool,
-    pid_file_exists: bool,
-}
-
-pub async fn run(cmd: NodeCommand) -> CliResult {
+pub async fn run(cmd: NodeCommand) -> CliResult<()> {
     match cmd {
-        NodeCommand::Status(args) => status(args),
+        NodeCommand::Status(a) => emit(a.json, lifecycle::status_report(&a.data_dir).await),
+        NodeCommand::Start(a) => emit(a.json, lifecycle::start_report(&a.data_dir).await?),
+        NodeCommand::Stop(a) => emit(a.json, lifecycle::stop_report(&a.data_dir).await?),
+        NodeCommand::Serve(a) => crate::daemon::run(&a.data_dir).await,
     }
 }
 
-fn status(args: StatusArgs) -> CliResult {
-    let probe = probe(&args.data_dir);
-    let why = reason(&args.data_dir, &probe);
-    let text = format!("节点未运行（{why}）");
-    let status = NodeStatus {
-        running: false,
-        state: "not_running",
-        reason: why,
-        data_dir: args.data_dir,
-    };
-    output::emit(args.json, &status, &text)
+/// 供其他命令域复用：数据目录对应节点在线则完整停机，返回是否停了节点。
+pub async fn stop_if_online(data_dir: &str) -> CliResult<bool> {
+    if lifecycle::probe_online(data_dir).await.is_none() {
+        return Ok(false);
+    }
+    run(NodeCommand::Stop(DirArgs::new(false, data_dir.to_string()))).await?;
+    Ok(true)
 }
 
-fn probe(data_dir: &str) -> Probe {
-    let root = std::path::Path::new(data_dir);
-    Probe {
-        data_dir_exists: root.is_dir(),
-        pid_file_exists: root.join(DAEMON_PID_FILE).is_file(),
-    }
+fn emit(json: bool, report: Report) -> CliResult<()> {
+    let text = render_text(&report);
+    output::emit(json, &report, &text)
 }
 
-fn reason(data_dir: &str, p: &Probe) -> String {
-    match (p.data_dir_exists, p.pid_file_exists) {
-        (_, true) => "发现守护进程标记，运行中节点探测能力后续波接入".to_string(),
-        (true, false) => format!("状态目录 {data_dir} 存在，但无运行中守护进程"),
-        (false, false) => format!("无状态目录 {data_dir}，无守护进程标记"),
+fn render_text(r: &Report) -> String {
+    if r.degraded {
+        return format!(
+            "节点疑似运行中（pid={} 存活，但控制通道不可达）：{}",
+            r.pid.unwrap_or(0),
+            r.reason
+        );
     }
+    if !r.running {
+        return match r.stopped {
+            Some(true) => format!("已停止节点（pid={}）", r.pid.unwrap_or(0)),
+            Some(false) => format!("节点未运行（{}），无需停止", empty_or(r)),
+            None => format!("节点未运行（{}）", empty_or(r)),
+        };
+    }
+    running_lines(r).join("\n")
+}
+
+fn running_lines(r: &Report) -> Vec<String> {
+    let mut lines = vec![match r.already_running {
+        Some(true) => format!("节点已在运行（pid={}）", r.pid.unwrap_or(0)),
+        Some(false) => format!("节点已启动 pid={}", r.pid.unwrap_or(0)),
+        None => format!("节点运行中 pid={}", r.pid.unwrap_or(0)),
+    }];
+    lines.push(format!("pid={}", r.pid.unwrap_or(0)));
+    if let Some(peer) = &r.peer_id {
+        lines.push(format!("peer={peer}"));
+    }
+    lines.extend(r.listen_addrs.iter().map(|a| format!("addr={a}")));
+    lines.push(format!("log={}", r.log_path));
+    if let Some(uptime) = r.uptime_secs {
+        lines.push(format!("uptime={uptime}s"));
+    }
+    lines
+}
+
+fn empty_or(r: &Report) -> &str {
+    if r.reason.is_empty() { "无 pid 文件" } else { &r.reason }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn not_running_reason_cites_missing_state() {
-        let r = reason("./p2p-data", &Probe { data_dir_exists: false, pid_file_exists: false });
-        assert!(r.contains("无状态目录"));
-        assert!(r.contains("./p2p-data"));
+    fn running_report() -> Report {
+        Report {
+            running: true,
+            already_running: None,
+            stopped: None,
+            pid: Some(42),
+            peer_id: Some("abc".into()),
+            listen_addrs: vec!["127.0.0.1/u1".into()],
+            uptime_secs: Some(9),
+            log_path: "/tmp/l".into(),
+            data_dir: "/tmp/d".into(),
+            degraded: false,
+            reason: String::new(),
+        }
     }
 
     #[test]
-    fn json_form_has_running_false() {
-        let s = NodeStatus {
-            running: false,
-            state: "not_running",
-            reason: "x".into(),
-            data_dir: "./p2p-data".into(),
-        };
-        let v = serde_json::to_value(&s).unwrap();
-        assert_eq!(v["running"], serde_json::json!(false));
-        assert_eq!(v["state"], serde_json::json!("not_running"));
+    fn status_text_has_greppable_key_value_lines() {
+        let text = render_text(&running_report());
+        for key in ["pid=42", "peer=abc", "addr=127.0.0.1/u1", "log=/tmp/l", "uptime=9s"] {
+            assert!(text.contains(key), "缺 {key}: {text}");
+        }
+    }
+
+    #[test]
+    fn start_and_status_wording_differ() {
+        let mut started = running_report();
+        started.already_running = Some(false);
+        assert!(render_text(&started).starts_with("节点已启动"));
+        started.already_running = Some(true);
+        assert!(render_text(&started).starts_with("节点已在运行"));
+        assert!(render_text(&running_report()).starts_with("节点运行中"));
+    }
+
+    #[test]
+    fn stop_text_is_idempotent_friendly() {
+        let mut stopped = running_report();
+        stopped.running = false;
+        stopped.stopped = Some(true);
+        assert!(render_text(&stopped).contains("已停止节点"));
+        stopped.stopped = Some(false);
+        stopped.reason = "无 pid 文件".into();
+        assert!(render_text(&stopped).contains("节点未运行"));
     }
 }

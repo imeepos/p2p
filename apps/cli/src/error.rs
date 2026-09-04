@@ -28,7 +28,7 @@ impl fmt::Display for CliError {
     }
 }
 
-pub type CliResult = Result<(), CliError>;
+pub type CliResult<T> = Result<T, CliError>;
 
 #[cfg(test)]
 mod tests {

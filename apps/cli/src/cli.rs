@@ -2,7 +2,11 @@
 
 use clap::Parser;
 
+use crate::config;
+use crate::identity;
 use crate::node;
+use crate::peer;
+use crate::profile;
 
 #[derive(Parser)]
 #[command(
@@ -15,12 +19,32 @@ pub struct Cli {
     pub command: Command,
 }
 
-/// 命令域登记表：config/profile/peer/identity（CL2）、chat（CL3）、logs/update（CL4）。
+/// 命令域登记表：CL2 = node/config/profile/peer/identity；chat（CL3）、logs/update（CL4）。
 #[derive(clap::Subcommand)]
 pub enum Command {
     /// 节点域：状态/启停
     Node {
         #[command(subcommand)]
         command: node::NodeCommand,
+    },
+    /// 配置域：读取/保存
+    Config {
+        #[command(subcommand)]
+        command: config::ConfigCommand,
+    },
+    /// 节点资料域：读取/保存
+    Profile {
+        #[command(subcommand)]
+        command: profile::ProfileCommand,
+    },
+    /// 对端域：拨号/连接/挂断/测距
+    Peer {
+        #[command(subcommand)]
+        command: peer::PeerCommand,
+    },
+    /// 身份域：重置
+    Identity {
+        #[command(subcommand)]
+        command: identity::IdentityCommand,
     },
 }

@@ -15,8 +15,12 @@ path = "src/main.rs"
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "process", "signal", "io-util", "time"] }
+bs58 = "0.5"
+libc = "0.2"
 
-# 底座复用入口（路径依赖，禁止复制实现）：CL1 探测不消费其运行时，
-# CL2 起节点/配置/档案/对端/身份域直接复用 p2p-cli 与底座 crate 能力。
+# 底座复用入口（路径依赖，禁止复制实现）：节点域复用 facade 与日志装配。
+p2p = { path = "../../crates/p2p" }
+p2p-swarm = { path = "../../crates/p2p-swarm" }
 p2p-cli = { path = "../../crates/p2p-cli" }
+p2p-log = { path = "../../crates/p2p-log" }
