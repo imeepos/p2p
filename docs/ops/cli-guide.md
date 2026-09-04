@@ -130,6 +130,31 @@ p2pctl update open [--url URL] [--json]
   `update_open_release_page` 的映射差异，已登记映射表）。带 `--url` 时仅做白名单校验
   （https 且 host 恰为 github.com）后原样输出；不带 `--url` 时先执行检查取最新候选。
 
+### gui —— GUI 控制通道域（GC2）
+
+操作**运行中的 GUI**（非节点）：对接 GUI 本地控制通道（127.0.0.1 HTTP JSON +
+token，契约见 `docs/design/gui-control-channel.md`）。通道发现：读 GUI 数据目录
+`control/endpoint.json`（pid 探活甄别崩溃残留）+ `control/token`；GUI 未运行、
+端点文件缺失或进程已死均结构化报错（含「请先启动 GUI」指引，退出码 1）。
+macOS 数据目录：`~/Library/Application Support/com.p2p.console/control/`，
+可用 `--gui-data-dir DIR` 覆盖（测试/E2E 用）。
+
+```bash
+p2pctl gui status [--gui-data-dir DIR] [--json]          # 版本/窗口/当前路由/pid/录制态
+p2pctl gui screenshot -o <绝对路径> [--gui-data-dir DIR] [--json]   # 主窗口 PNG 原子落盘
+p2pctl gui record start -o <绝对路径> [--interval-ms MS] [--gui-data-dir DIR] [--json]  # GIF 录屏
+p2pctl gui record stop  [--gui-data-dir DIR] [--json]    # 收尾落盘，回报 path/frames/bytes
+p2pctl gui navigate <路由> [--gui-data-dir DIR] [--json] # dashboard/peers/discovery/relay/chat/events/settings/diagnostics
+p2pctl gui invoke <命令> [--arg k=v ...] [--gui-data-dir DIR] [--json]  # 白名单只读转发
+```
+
+- `invoke` 白名单由 GUI 侧权威维护（当前：node_status / metrics_get /
+  metrics_history / config_get / profile_get），越权命令返回 `INVOKE_FORBIDDEN`
+  退出码 1；`--arg k=v` 中 v 可解析为 JSON 值则保留类型。
+- screenshot/record 依赖 macOS 屏幕录制权限：权限缺失时 GUI 返回
+  `CAPTURE_PERMISSION_DENIED`，CLI 原样透出（不静默、不重试）。
+- 该域为 CLI 单侧能力（GUI 命令面未新增 Tauri 命令），不进 §6 映射表。
+
 ## 6. GUI 命令映射表
 
 权威机器可读版本：`scripts/check/cli-parity.tsv`（守卫消费，勿手工漂移）。人读版：
@@ -158,7 +183,12 @@ p2pctl update open [--url URL] [--json]
 bash scripts/ops/cli-node-e2e.sh        # CL2：node/config/peer/identity 全链路（末行 CL2-E2E-OK）
 bash scripts/ops/cli-chat-e2e.sh        # CL3：chat 好友/历史/发送/附件双节点（末行 CL3-E2E-OK）
 bash scripts/ops/cli-log-update-e2e.sh  # CL4：log/metrics/update 域（末行 CL4-E2E-OK）
+bash scripts/ops/cli-gui-e2e.sh        # GC2：gui 域 × 真实 GUI 控制通道（末行 GC2-E2E-OK）
 ```
+
+`cli-gui-e2e.sh` 会构建并后台启动**真实 GUI**，轮询端点状态文件就绪后走全链路
+断言；已有 GUI 实例运行时先备份 `endpoint.json`、以 pid 匹配本实例、退出后还原，
+不影响既有实例；screenshot/record 权限失败时输出屏幕录制权限提示后再失败（可见）。
 
 ## 8. 对等守卫
 
