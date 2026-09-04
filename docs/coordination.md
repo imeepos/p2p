@@ -268,3 +268,5 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 
 
 
+
+- 2026-09-04 IM-T52 滚动体系轮（用户实测滚动条与布局反馈插队）：原会话（session-996b38fc）实现完成后 turn 挂起 30 分钟无进程活动，协调者按接管流程处理——只读导出未提交 patch 重建 fix/im-t52-takeover（基点反向同步含 GC3 合入），commit 8a6a6fa；rebase 后 GUI 三件套 290/290 绿（pnpm test/build/check:i18n）；无头 Chrome CDP 实测验收：8 页零页面溢出（pageScrollV/H=0）、composer 视口内（bottom 744<813 无需滚动即达）、好友列表与消息列表双内滚域 overflow-y:auto + overscroll-behavior:contain + scroll-slim 8px 主题自适应滚动条。技术要点：壳层 h-screen→h-dvh + main/grid/page 三级 min-h-0 高度链，移除 min-h-[calc(100vh-220px)] 魔数，scroll-slim 组件级样式（color-mix oklch 挂 --foreground 随主题）。流程记录：接管前双确认（进程清查+产物核对+催办无响应），stand-down 通知防双写；挂起会话归档，孤儿 worktree 已清理。

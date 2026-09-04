@@ -357,11 +357,13 @@
       "goal": "聊天页滚动体系重构（用户实测反馈）：a) 布局修复——聊天页不得产生页面级（全局）滚动条：app 壳层定高（视口高），主内容区固定剩余空间，聊天栅格填满该空间（定位疑似根因：现用 min-h-[calc(100vh-220px)] 允许内容撑高整页，消息一多整页滚动、输入框被挤出视口，需改为定高+内部滚动）；b) 滚动域分离——好友列表与消息列表各自内部滚动（overflow-y-auto + min-h-0），互不影响，输入条与会话头固定不动；c) 滚动条美化——两处滚动条统一样式（细轨道、圆角滑块、hover 态，双主题适配），可用 CSS scrollbar 样式或引入 scroll-area 组件；d) 消息列表新消息自动滚底、切会话重置、向上翻页不打断（现有行为保持）",
       "title": "IM-T52 聊天页滚动体系重构与滚动条美化",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "fix/im-chat-scroll",
       "ownerSession": "session-996b38fc-4420-440c-aaa6-f95fbbdc43df",
       "scope": "apps/gui/src：components/layout/app-layout.tsx（壳层定高）、views/chat/chat-view.tsx（栅格定高）、components/chat/message-list.tsx 与 conversation-list.tsx（滚动域）、i18n 不需新词条；crates 与 src-tauri 只读；五页 views 只读",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "mergedMain": "8a6a6fa",
+      "note": " [2026-09-04 done] 原会话挂起30分钟，协调者按接管流程只读导出patch重建分支；rebase main(GC3合入)后三件套 290/290 绿；无头Chrome实测：8页零页面溢出、composer视口内、双滚域scroll-slim+contain；ff-merge 8a6a6fa。"
     }
   ]
 }
