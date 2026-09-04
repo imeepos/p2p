@@ -88,4 +88,68 @@ describe("mock acp console", () => {
     await expect(pending).resolves.toContain("method not found");
     socket.close();
   });
+
+  it("set_config_option 更新目录并回完整配置态；未知项报错", async () => {
+    mockAcpConsole.reset();
+    const socket = await opened();
+    const results: Array<{ id: number; result?: unknown; error?: unknown }> = [];
+    socket.onmessage = (ev) => {
+      const msg = JSON.parse(String(ev.data));
+      if (typeof msg.id === "number") results.push(msg);
+    };
+    socket.send(JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "session/set_config_option",
+      params: { configId: "model", value: "mock-model-b" },
+    }));
+    await vi.waitFor(() => expect(results).toHaveLength(1));
+    const options = (results[0].result as { configOptions: Array<{ id: string; currentValue: string }> })
+      .configOptions;
+    expect(options.find((o) => o.id === "model")?.currentValue).toBe("mock-model-b");
+    socket.send(JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "session/set_config_option",
+      params: { configId: "nope", value: "x" },
+    }));
+    await vi.waitFor(() => expect(results).toHaveLength(2));
+    expect(results[1].error).toBeTruthy();
+    socket.close();
+  });
+
+  it("客户端应答帧（无 method 带 id）登记进 responses 供断言", async () => {
+    mockAcpConsole.reset();
+    const socket = await opened();
+    socket.send(JSON.stringify({ jsonrpc: "2.0", id: 42, result: { outcome: { outcome: "cancelled" } } }));
+    await vi.waitFor(() => expect(mockAcpConsole.responses).toHaveLength(1));
+    expect(mockAcpConsole.responses[0]).toMatchObject({ id: 42 });
+    socket.close();
+  });
+
+  it("pushReattach 广播桥约定补放通知（无 id）", async () => {
+    mockAcpConsole.reset();
+    const socket = await opened();
+    const seen = new Promise<{ method: string; params: unknown }>((resolve) => {
+      socket.onmessage = (ev) => {
+        const msg = JSON.parse(String(ev.data));
+        if (msg.method === "dsh/bridge/reattach") resolve({ method: msg.method, params: msg.params });
+      };
+    });
+    mockAcpConsole.pushReattach(3);
+    const frame = await seen;
+    expect(frame.params).toEqual({ replayed: 3 });
+    socket.close();
+  });
+
+  it("emitDiscovery 推快照给已接线的 sink", () => {
+    mockAcpConsole.reset();
+    const received: Array<{ peer: string }> = [];
+    mockAcpConsole.discoveryPeers = [{ peer: "peer-d1", addrs: ["/ip4/10.0.0.8/tcp/4001"] }];
+    mockAcpConsole.onDiscovery = (peers) => {
+      for (const p of peers) received.push({ peer: p.peer });
+    };
+    mockAcpConsole.emitDiscovery();
+    expect(received).toEqual([{ peer: "peer-d1" }]);
+  });
 });

@@ -279,6 +279,8 @@ _none yet — be the first._
 - 2026-09-05 G2：测试文件同样受 300 行纪律（存量 310/314 不构成豁免）——mock 单例测试拆文件时事件收集器必须带 reset() 并在 beforeEach 调用，否则同文件用例间事件计数互相污染（本轮 3 个假红全源于此）；拆分是纯 test refactor 单独成提交。
 - 2026-09-04 AI 试运行：文档驱动操作撞上「两套身份」类系统时，把每次失败报错当拓扑探针用——Failed(快速) vs Pending(超时) 的差异本身就指明对端身份不符还是网络不通。
 - 2026-09-04 run_code：bash 惯用法写进 JS 模板串必须转义美元花括号（PIPESTATUS 被 JS 当插值求值直接 ReferenceError），含反引号的内容更要用数组 join + heredoc 落盘。
+- 2026-09-04 ACP6b：run_code 给 tools.write 传整文件内容时模板字符串可能炸出莫名 lexing error（Expected ',', got ';'），与内容里反引号/插值无关——单引号行数组 + join("\n") 是稳态（191 行中文协议文件一次通过）。
+- 2026-09-04 ACP6b：异步回放面的断言 helper（取 mock 权限请求 id、等能力卡出现）必须内部 waitFor，同步取值比帧到达早半拍直接空引用；helper 返回 Promise 让调用方 await，别为了调用简洁做同步版。
 - 2026-09-05：给被大量既有测试裸渲染的视图加 useNavigate，会把所有无 Router 包裹的旧测试一次性打崩（G3 一加 79 失败）；App 根是 HashRouter 时改 window.location.hash 跳转零测试改动，新路由测试也用 HashRouter + window.location.hash 驱动。
 - 2026-09-05：zustand 页面接第二个 store 订阅同一 ipc 事件总线后，既有测试的 onNodeEvent 替身若写「handler = current」单槽会顶掉前者、chat_message 断言全超时；替身必须改数组 push + 循环投递（真实事件总线一对多），且数组不许 beforeEach 清空——store 订阅有模块级 latch，清空后后续测试无人收事件。
 - 2026-09-05：eslint react-refresh/only-export-components 禁止 .tsx 组件文件同导出纯函数（G3 在 group-list.tsx 导出 orderedGroups 被红）；纯函数下沉同名 .ts。react-hooks v7 的 set-state-in-effect 禁 effect 内同步 setState——面板类组件用「open 才挂载」的父级条件渲染替代打开时重置状态。

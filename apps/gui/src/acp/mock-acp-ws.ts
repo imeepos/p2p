@@ -1,38 +1,20 @@
 // 可脚本化的本地 WS mock：dev（VITE_MOCK_IPC=1）与测试共用同一实现，
 // 行为对齐 apps/acp-console/README.md（token 错误 4403、未知 peer 4500、
-// agent 断流 1000）。会话状态存于单例 console，跨重连存活供侧栏断言。
+// agent 断流 1000）与 apps/acp-agent/README.md 桥约定（reattach 补放通知、
+// request_permission 透传）。会话状态存于单例 console，跨重连存活供侧栏断言。
+import type { ConfigOption, SessionSummary } from "./protocol";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
-import type {
-  InitializeResult,
-  SessionSummary,
-  SessionUpdate,
-  SessionUpdateParams,
-} from "./protocol";
+import {
+  DEFAULT_MOCK_CONFIG,
+  MOCK_AGENT_INFO,
+  permissionRequestFrame,
+  stepToUpdate,
+  type MockConsoleConfig,
+  type MockPromptStep,
+} from "./mock-script";
 
-export type MockPromptStep =
-  | { kind: "thought"; text: string }
-  | { kind: "message"; text: string }
-  | { kind: "stop"; reason: string };
-
-export interface MockConsoleConfig {
-  token: string;
-  peers: string[];
-  promptScript: MockPromptStep[];
-  openDelayMs: number;
-  chunkDelayMs: number;
-}
-
-const DEFAULT_CONFIG: MockConsoleConfig = {
-  token: "mock-token",
-  peers: ["mock-peer"],
-  promptScript: [
-    { kind: "thought", text: "thinking through the request" },
-    { kind: "message", text: "Hello from the mock agent." },
-    { kind: "stop", reason: "end_turn" },
-  ],
-  openDelayMs: 10,
-  chunkDelayMs: 10,
-};
+/** 发现清单接线口：console discovery 快照 -> store（测试/后续 tauri 转发接线） */
+export type DiscoverySink = (peers: Array<{ peer: string; addrs: string[] }>) => void;
 
 interface WireMessage {
   jsonrpc?: string;
@@ -43,30 +25,33 @@ interface WireMessage {
   error?: { code: number; message: string };
 }
 
-const MOCK_AGENT_INFO: InitializeResult = {
-  protocolVersion: 1,
-  agentInfo: { name: "mock-agent", version: "0.1.0" },
-  agentCapabilities: {
-    loadSession: true,
-    promptCapabilities: { embeddedContext: false },
-  },
-};
-
 class MockAcpConsole {
-  config: MockConsoleConfig = { ...DEFAULT_CONFIG };
+  config: MockConsoleConfig = { ...DEFAULT_MOCK_CONFIG };
   sessions = new Map<string, SessionSummary>();
   live: MockSocket[] = [];
+  /** 客户端应答帧（request_permission outcome 等），按到达序累积供断言 */
+  responses: Array<{ id: number; result?: unknown; error?: unknown }> = [];
+  /** 已发出的权限请求帧 id 供测试定位 */
+  permissionRequests: Array<{ id: number; sessionId: string; toolKind: string }> = [];
+  discoveryPeers: Array<{ peer: string; addrs: string[] }> = [];
+  onDiscovery: DiscoverySink | null = null;
   private sessionSeq = 0;
+  permissionSeq = 100;
 
   configure(patch: Partial<MockConsoleConfig>): void {
     this.config = { ...this.config, ...patch };
   }
 
   reset(): void {
-    this.config = { ...DEFAULT_CONFIG };
+    this.config = { ...DEFAULT_MOCK_CONFIG };
     this.sessions.clear();
     this.live = [];
     this.sessionSeq = 0;
+    this.permissionSeq = 100;
+    this.responses = [];
+    this.permissionRequests = [];
+    this.discoveryPeers = [];
+    this.onDiscovery = null;
   }
 
   nextSessionId(): string {
@@ -80,6 +65,17 @@ class MockAcpConsole {
 
   dropAll(code = 1000, reason = "agent-stream-dropped"): void {
     for (const socket of [...this.live]) socket.serverClose(code, reason);
+  }
+
+  /** 桥约定：重连补放通知（dsh/bridge/reattach，无 id） */
+  pushReattach(replayed: number): void {
+    this.broadcast("dsh/bridge/reattach", { replayed });
+  }
+
+  /** 发现清单变更：快照推给已接线的 sink（console stdout/discovery 契约形状） */
+  emitDiscovery(): void {
+    if (!this.onDiscovery) return;
+    this.onDiscovery(this.discoveryPeers.map((p) => ({ ...p, addrs: [...p.addrs] })));
   }
 
   remove(socket: MockSocket): void {
@@ -163,8 +159,13 @@ export class MockSocket implements WsLike {
   }
 
   private handle(msg: WireMessage): void {
-    if (typeof msg.method !== "string") return;
-    // 通知面（无 id）：session/cancel 即时结算进行中的 prompt
+    if (typeof msg.method !== "string") {
+      // 客户端应答帧：登记供断言（request_permission outcome 等）
+      if (typeof msg.id === "number") {
+        this.box.responses.push({ id: msg.id, result: msg.result, error: msg.error });
+      }
+      return;
+    }
     if (msg.method === "session/cancel") {
       this.settlePrompt("cancelled");
       return;
@@ -184,11 +185,21 @@ export class MockSocket implements WsLike {
       case "session/list":
         this.reply(msg.id, { sessions: [...this.box.sessions.values()] });
         return;
-      case "session/resume":
-        this.handleResume(msg.id, params);
+      case "session/resume": {
+        const resumeId = String(params.sessionId ?? "");
+        if (!this.box.sessions.has(resumeId)) {
+          this.replyError(msg.id, -32002, "session not found");
+          return;
+        }
+        this.reply(msg.id, { sessionId: resumeId });
         return;
+      }
       case "session/close":
-        this.handleCloseSession(msg.id, params);
+        this.box.sessions.delete(String(params.sessionId ?? ""));
+        this.reply(msg.id, {});
+        return;
+      case "session/set_config_option":
+        this.handleSetConfigOption(msg.id, params);
         return;
       default:
         this.replyError(msg.id, -32601, "method not found: " + msg.method);
@@ -198,22 +209,23 @@ export class MockSocket implements WsLike {
   private handleNew(id: number): void {
     const sessionId = this.box.nextSessionId();
     this.box.sessions.set(sessionId, { sessionId, title: "session " + sessionId });
-    this.reply(id, { sessionId });
+    this.reply(id, { sessionId, configOptions: this.currentConfigOptions() });
   }
 
-  private handleResume(id: number, params: Record<string, unknown>): void {
-    const sessionId = String(params.sessionId ?? "");
-    if (!this.box.sessions.has(sessionId)) {
-      this.replyError(id, -32002, "session not found");
+  private currentConfigOptions(): ConfigOption[] {
+    return this.box.config.configOptions.map((o) => ({ ...o }));
+  }
+
+  private handleSetConfigOption(id: number, params: Record<string, unknown>): void {
+    const configId = String(params.configId ?? "");
+    const value = params.value;
+    const target = this.box.config.configOptions.find((o) => o.id === configId);
+    if (!target || typeof value !== "string") {
+      this.replyError(id, -32602, "unknown config option: " + configId);
       return;
     }
-    this.reply(id, { sessionId });
-  }
-
-  private handleCloseSession(id: number, params: Record<string, unknown>): void {
-    const sessionId = String(params.sessionId ?? "");
-    this.box.sessions.delete(sessionId);
-    this.reply(id, {});
+    target.currentValue = value;
+    this.reply(id, { configOptions: this.currentConfigOptions() });
   }
 
   private handlePrompt(id: number, params: Record<string, unknown>): void {
@@ -250,12 +262,22 @@ export class MockSocket implements WsLike {
       this.settlePrompt(step.reason);
       return;
     }
-    const update: SessionUpdate =
-      step.kind === "thought"
-        ? { sessionUpdate: "agent_thought_chunk", content: { type: "text", text: step.text } }
-        : { sessionUpdate: "agent_message_chunk", content: { type: "text", text: step.text } };
-    const params: SessionUpdateParams = { sessionId: pending.sessionId, update };
-    this.box.broadcast("session/update", params);
+    if (step.kind === "permission") {
+      this.emitPermission(pending.sessionId, step);
+      return;
+    }
+    const frame = stepToUpdate(step, pending.sessionId);
+    if (frame) this.box.broadcast(frame.method, frame.params);
+  }
+
+  private emitPermission(
+    sessionId: string,
+    step: Extract<MockPromptStep, { kind: "permission" }>,
+  ): void {
+    const id = this.box.permissionSeq;
+    this.box.permissionSeq += 1;
+    this.box.permissionRequests.push({ id, sessionId, toolKind: step.toolKind });
+    this.deliver(permissionRequestFrame(id, sessionId, step) as WireMessage);
   }
 
   private settlePrompt(reason: string): void {
