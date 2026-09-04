@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use clap::Args;
 use clap::Subcommand;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 use channel::Channel;
 
@@ -110,17 +110,23 @@ pub async fn run(cmd: GuiCommand) -> CliResult<()> {
         GuiCommand::Status { args } => status(&args).await,
         GuiCommand::Screenshot { output, args } => screenshot(&args, &output).await,
         GuiCommand::Record { command } => match command {
-            RecordCommand::Start { output, interval_ms, args } => {
-                record_start(&args, &output, interval_ms).await
-            }
+            RecordCommand::Start {
+                output,
+                interval_ms,
+                args,
+            } => record_start(&args, &output, interval_ms).await,
             RecordCommand::Stop { args } => record_stop(&args).await,
         },
         GuiCommand::Navigate { route, args } => navigate(&args, &route).await,
         GuiCommand::Invoke { command, args, out } => invoke(&out, &command, &args).await,
         GuiCommand::Page { args } => page::show(&args).await,
-        GuiCommand::Action { page, action, args, navigate, out } => {
-            page::run(&out, &page, &action, &args, navigate).await
-        }
+        GuiCommand::Action {
+            page,
+            action,
+            args,
+            navigate,
+            out,
+        } => page::run(&out, &page, &action, &args, navigate).await,
     }
 }
 
@@ -136,14 +142,25 @@ fn open(args: &OutputArgs) -> CliResult<Channel> {
 async fn status(args: &OutputArgs) -> CliResult<()> {
     let data = open(args)?.get("/health").await?;
     // health 的 title 即窗口标题，文本键以 window 呈现，其余键与 JSON 同名。
-    let pairs = [("version", "version"), ("title", "window"), ("route", "route"),
-        ("pid", "pid"), ("uptimeMs", "uptimeMs"), ("recording", "recording")];
-    let rows: Vec<String> = pairs.iter().map(|(jk, tk)| format!("{tk}={}", scalar(&data[jk]))).collect();
+    let pairs = [
+        ("version", "version"),
+        ("title", "window"),
+        ("route", "route"),
+        ("pid", "pid"),
+        ("uptimeMs", "uptimeMs"),
+        ("recording", "recording"),
+    ];
+    let rows: Vec<String> = pairs
+        .iter()
+        .map(|(jk, tk)| format!("{tk}={}", scalar(&data[jk])))
+        .collect();
     output::emit(args.json, &data, &rows.join("\n"))
 }
 
 async fn screenshot(args: &OutputArgs, output: &str) -> CliResult<()> {
-    let data = open(args)?.post("/screenshot", json!({ "path": output })).await?;
+    let data = open(args)?
+        .post("/screenshot", json!({ "path": output }))
+        .await?;
     emit_kv(args, &data, &["path", "width", "height", "bytes"])
 }
 
@@ -162,7 +179,9 @@ async fn record_stop(args: &OutputArgs) -> CliResult<()> {
 }
 
 async fn navigate(args: &OutputArgs, route: &str) -> CliResult<()> {
-    let data = open(args)?.post("/navigate", json!({ "route": route })).await?;
+    let data = open(args)?
+        .post("/navigate", json!({ "route": route }))
+        .await?;
     emit_kv(args, &data, &["route", "path"])
 }
 
@@ -180,7 +199,10 @@ async fn invoke(out: &OutputArgs, command: &str, pairs: &[String]) -> CliResult<
 
 /// 统一 key=value 文本渲染（键与 JSON 字段同名，health.title 以 window 键呈现）。
 fn emit_kv(args: &OutputArgs, data: &Value, keys: &[&str]) -> CliResult<()> {
-    let rows: Vec<String> = keys.iter().map(|k| format!("{k}={}", scalar(&data[*k]))).collect();
+    let rows: Vec<String> = keys
+        .iter()
+        .map(|k| format!("{k}={}", scalar(&data[*k])))
+        .collect();
     output::emit(args.json, data, &rows.join("\n"))
 }
 
@@ -215,7 +237,11 @@ mod tests {
 
     #[test]
     fn parse_pairs_types_and_defaults() {
-        let pairs = vec!["n=3".to_string(), "flag=true".to_string(), "s=hello".to_string()];
+        let pairs = vec![
+            "n=3".to_string(),
+            "flag=true".to_string(),
+            "s=hello".to_string(),
+        ];
         let v = parse_pairs(&pairs).unwrap();
         assert_eq!(v["n"], json!(3));
         assert_eq!(v["flag"], json!(true));
@@ -237,6 +263,9 @@ mod tests {
     }
 
     fn emit_kv_test(data: &Value, keys: &[&str]) -> String {
-        keys.iter().map(|k| format!("{k}={}", scalar(&data[*k]))).collect::<Vec<_>>().join("\n")
+        keys.iter()
+            .map(|k| format!("{k}={}", scalar(&data[*k])))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }

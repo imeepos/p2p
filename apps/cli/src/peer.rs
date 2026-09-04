@@ -8,10 +8,10 @@ use serde_json::{json, Value};
 
 use crate::control;
 use crate::error::{CliError, CliResult};
+use crate::node::DEFAULT_DATA_DIR;
 use crate::output;
 use crate::paths::Paths;
 use crate::types::{DialReport, PingOutcome};
-use crate::node::DEFAULT_DATA_DIR;
 
 /// dial/ping 可能走降级链（直连→打洞→中继），客户端等待上限放宽到 60s。
 const SLOW_OP_TIMEOUT: Duration = Duration::from_secs(60);
@@ -78,13 +78,23 @@ pub async fn run(cmd: PeerCommand) -> CliResult<()> {
 
 async fn dial(args: TargetArgs) -> CliResult<()> {
     let paths = Paths::new(&args.data_dir);
-    let data = control::call_slow(&paths, json!({ "op": "dial", "target": args.target }), SLOW_OP_TIMEOUT).await?;
+    let data = control::call_slow(
+        &paths,
+        json!({ "op": "dial", "target": args.target }),
+        SLOW_OP_TIMEOUT,
+    )
+    .await?;
     finish_dial(args.json, &args.target, data)
 }
 
 async fn connect(args: PeerArgs) -> CliResult<()> {
     let paths = Paths::new(&args.data_dir);
-    let data = control::call_slow(&paths, json!({ "op": "connect", "peerId": args.peer_id }), SLOW_OP_TIMEOUT).await?;
+    let data = control::call_slow(
+        &paths,
+        json!({ "op": "connect", "peerId": args.peer_id }),
+        SLOW_OP_TIMEOUT,
+    )
+    .await?;
     finish_dial(args.json, &args.peer_id, data)
 }
 
@@ -94,11 +104,19 @@ fn finish_dial(json: bool, target: &str, data: Value) -> CliResult<()> {
         .map_err(|e| CliError::Runtime(format!("拨号报告解析失败: {e}")))?;
     let hops = render_hops(&report.hops);
     let status_line = if report.ok {
-        format!("已连接 {target}（totalMs={}，共 {} 跳）", report.total_ms, report.hops.len())
+        format!(
+            "已连接 {target}（totalMs={}，共 {} 跳）",
+            report.total_ms,
+            report.hops.len()
+        )
     } else {
         format!("连接 {target} 失败（totalMs={}）", report.total_ms)
     };
-    let text = if hops.is_empty() { status_line } else { format!("{status_line}\n{hops}") };
+    let text = if hops.is_empty() {
+        status_line
+    } else {
+        format!("{status_line}\n{hops}")
+    };
     output::emit(json, &report, &text)?;
     if !report.ok {
         return Err(CliError::Runtime(format!("连接 {target} 失败")));
@@ -108,9 +126,19 @@ fn finish_dial(json: bool, target: &str, data: Value) -> CliResult<()> {
 
 async fn disconnect(args: PeerArgs) -> CliResult<()> {
     let paths = Paths::new(&args.data_dir);
-    let data = control::call(&paths, json!({ "op": "disconnect", "peerId": args.peer_id })).await?;
-    let disconnected = data.get("disconnected").and_then(Value::as_bool).unwrap_or(false);
-    let peer = data.get("peer").and_then(Value::as_str).unwrap_or(&args.peer_id);
+    let data = control::call(
+        &paths,
+        json!({ "op": "disconnect", "peerId": args.peer_id }),
+    )
+    .await?;
+    let disconnected = data
+        .get("disconnected")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let peer = data
+        .get("peer")
+        .and_then(Value::as_str)
+        .unwrap_or(&args.peer_id);
     let text = if disconnected {
         format!("已挂断 {peer}")
     } else {
@@ -131,7 +159,11 @@ async fn ping(args: PingArgs) -> CliResult<()> {
         .map_err(|e| CliError::Runtime(format!("测距结果解析失败: {e}")))?;
     let text = match (&outcome.ok, &outcome.rtt_ms) {
         (true, Some(rtt)) => format!("pong from {} rtt_ms={}", args.peer_id, rtt),
-        _ => format!("ping {} 失败：{}", args.peer_id, outcome.error.clone().unwrap_or_default()),
+        _ => format!(
+            "ping {} 失败：{}",
+            args.peer_id,
+            outcome.error.clone().unwrap_or_default()
+        ),
     };
     let text = match render_hops(&outcome.hops) {
         hops if !hops.is_empty() => format!("{text}\n{hops}"),

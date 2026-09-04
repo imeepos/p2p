@@ -8,8 +8,7 @@ use serde::Deserialize;
 use crate::update::version::{self, SemVer};
 
 /// GitHub Releases 公开只读端点（契约 §9：编译期常量，不做用户配置）。
-pub const RELEASES_ENDPOINT: &str =
-    "https://api.github.com/repos/imeepos/p2p/releases?per_page=10";
+pub const RELEASES_ENDPOINT: &str = "https://api.github.com/repos/imeepos/p2p/releases?per_page=10";
 
 /// GitHub release 条目中本功能关心的字段子集（多余字段忽略）。
 #[derive(Debug, Deserialize)]
@@ -40,8 +39,8 @@ pub struct LatestRelease {
 
 /// 响应文本选最新一条稳定候选；响应不是 release 数组视为非法（Err）。
 pub fn latest_stable(body: &str) -> Result<Option<LatestRelease>, String> {
-    let entries: Vec<ReleaseEntry> = serde_json::from_str(body)
-        .map_err(|e| format!("GitHub Releases 响应非法: {e}"))?;
+    let entries: Vec<ReleaseEntry> =
+        serde_json::from_str(body).map_err(|e| format!("GitHub Releases 响应非法: {e}"))?;
     let mut best: Option<(SemVer, LatestRelease)> = None;
     for entry in entries {
         if entry.draft || entry.prerelease {
@@ -76,15 +75,29 @@ mod tests {
     use super::*;
 
     fn entry(tag: &str, draft: bool, pre: bool) -> String {
-        format!(r#"{{"tag_name":"{tag}","html_url":"https://github.com/imeepos/p2p/releases/tag/{tag}","draft":{draft},"prerelease":{pre},"name":"n-{tag}","body":"notes","published_at":"2026-01-01T00:00:00Z"}}"#)
+        format!(
+            r#"{{"tag_name":"{tag}","html_url":"https://github.com/imeepos/p2p/releases/tag/{tag}","draft":{draft},"prerelease":{pre},"name":"n-{tag}","body":"notes","published_at":"2026-01-01T00:00:00Z"}}"#
+        )
     }
 
     #[test]
     fn picks_newest_stable_candidate() {
-        let body = format!("[{},{},{}]", entry("client-v0.1.1", false, false), entry("client-v0.1.10", false, false), entry("client-v0.2.0", true, false));
+        let body = format!(
+            "[{},{},{}]",
+            entry("client-v0.1.1", false, false),
+            entry("client-v0.1.10", false, false),
+            entry("client-v0.2.0", true, false)
+        );
         let best = latest_stable(&body).unwrap().unwrap();
         assert_eq!(best.tag, "client-v0.1.10");
-        assert_eq!(best.version, SemVer { major: 0, minor: 1, patch: 10 });
+        assert_eq!(
+            best.version,
+            SemVer {
+                major: 0,
+                minor: 1,
+                patch: 10
+            }
+        );
         assert_eq!(best.name.as_deref(), Some("n-client-v0.1.10"));
     }
 

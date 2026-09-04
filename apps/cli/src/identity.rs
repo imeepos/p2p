@@ -7,10 +7,10 @@ use serde::Serialize;
 use crate::error::{CliError, CliResult};
 use crate::lifecycle;
 use crate::node;
+use crate::node::DEFAULT_DATA_DIR;
 use crate::output;
 use crate::paths::Paths;
 use crate::store;
-use crate::node::DEFAULT_DATA_DIR;
 
 #[derive(Subcommand)]
 pub enum IdentityCommand {
@@ -66,7 +66,10 @@ async fn reset(args: ResetArgs) -> CliResult<()> {
         seed_removed,
         online_after,
     };
-    let text = format!("身份已重置（stoppedNode={stopped_node}）\nseed={}", report.seed_path);
+    let text = format!(
+        "身份已重置（stoppedNode={stopped_node}）\nseed={}",
+        report.seed_path
+    );
     output::emit(args.json, &report, &text)
 }
 

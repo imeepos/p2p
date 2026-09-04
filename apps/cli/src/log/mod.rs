@@ -77,14 +77,19 @@ fn tail(args: TailArgs) -> CliResult<()> {
     let lines = log
         .tail(max)
         .map_err(|e| crate::error::CliError::Runtime(format!("前端日志读取失败: {e}")))?;
-    let report = TailReport { path: path_string(&log), lines };
+    let report = TailReport {
+        path: path_string(&log),
+        lines,
+    };
     let text = report.lines.join("\n");
     output::emit(args.common.json, &report, &text)
 }
 
 fn path(args: LogArgs) -> CliResult<()> {
     let log = resolve(&args.log_dir)?;
-    let report = PathReport { path: path_string(&log) };
+    let report = PathReport {
+        path: path_string(&log),
+    };
     output::emit(args.json, &report, &report.path)
 }
 
@@ -107,8 +112,7 @@ fn clear(args: LogArgs) -> CliResult<()> {
 }
 
 fn resolve(log_dir: &Option<String>) -> CliResult<FrontendLog> {
-    FrontendLog::resolve(log_dir.as_deref())
-        .map_err(crate::error::CliError::Runtime)
+    FrontendLog::resolve(log_dir.as_deref()).map_err(crate::error::CliError::Runtime)
 }
 
 fn path_string(log: &FrontendLog) -> String {
@@ -133,8 +137,19 @@ mod tests {
         let file = dir.join(backend::FRONTEND_LOG_FILE);
         std::fs::write(&file, "a\nb\nc\n").unwrap();
 
-        tail(TailArgs { common: LogArgs { json: false, log_dir: Some(log_dir.clone()) }, lines: Some(2) }).unwrap();
-        clear(LogArgs { json: false, log_dir: Some(log_dir.clone()) }).unwrap();
+        tail(TailArgs {
+            common: LogArgs {
+                json: false,
+                log_dir: Some(log_dir.clone()),
+            },
+            lines: Some(2),
+        })
+        .unwrap();
+        clear(LogArgs {
+            json: false,
+            log_dir: Some(log_dir.clone()),
+        })
+        .unwrap();
         assert!(!file.exists(), "clear 应删除 frontend.log");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -143,7 +158,10 @@ mod tests {
     fn tail_clamps_lines_to_gui_cap() {
         let dir = temp_dir("cap");
         let log = FrontendLog::resolve(dir.to_str()).unwrap();
-        let body: String = (0..1200).map(|i| format!("{i}")).collect::<Vec<_>>().join("\n");
+        let body: String = (0..1200)
+            .map(|i| format!("{i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
         std::fs::write(log.path(), body).unwrap();
         assert_eq!(log.tail(usize::MAX).unwrap().len(), 1000);
         let _ = std::fs::remove_dir_all(&dir);
