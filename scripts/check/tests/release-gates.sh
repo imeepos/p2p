@@ -19,7 +19,7 @@ t() { # t <名称> <期望退出码> <输出须含> <命令...>（环境变量�
     pass=$((pass + 1)); echo "  ok   $name"
   else
     fail=$((fail + 1))
-    echo "  FAIL ${name}（rc=$rc 期望 ${want_rc}，输出应含 '$want_out'）" >&2
+    echo "  FAIL ${name}（rc=${rc} 期望 ${want_rc}，输出应含 '${want_out}'）" >&2
     printf '%s\n' "$out" | sed 's/^/    | /' >&2
   fi
 }

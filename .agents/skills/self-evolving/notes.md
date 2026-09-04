@@ -1,5 +1,14 @@
 # Self-Evolving Notes
 
+## 2026-09-04 gui-updater 轮：应用内下载安装更新（updater 插件全链路）
+
+- 哪个坑浪费了最多时间？
+  两个都指向同一根因：ext512 外置卷小文件 I/O 病态慢。worktree add / rm -rf node_modules / clone 全被 60s 默认超时静默杀掉，留下「命令成功但输出为空」与「目录半成品」两种假象，排查烧掉近 30 分钟才定位到卷性能；之后把主战场搬到 /tmp clone（8m48s clone 换来全程秒级操作）立刻顺了。
+- skill 有没有提前警告我？
+  部分：known-issues 已有「bash 60s 超时杀进程」现象条目（今日他轮已补），但没有根因与对策；「并行会话活跃要逐步验证 git 状态」已有，照做后避免了在残骸 worktree 上继续干活。本轮补上根因条目与 clone-to-/tmp 工作法。
+- 重来一次会怎么做？
+  在这台机器上：任何涉及大量小文件的 git/fs 操作开局就显式 timeoutMs ≥ 600000 或直接 background；功能开发默认 /tmp clone 战场而不是 worktree（自持 .git 还免疫并行会话的 git 手术）；「静默空输出」一律先跑验证命令再继续，绝不假设成功。
+
 ## 2026-09-04 RS 排障轮：session_report 缺注册 + rendezvous 掐线/客户端卡死
 
 - 哪个坑浪费了最多时间？
