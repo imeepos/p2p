@@ -808,38 +808,26 @@ remote_ledger_receipts() {
     remote_sh "grep -o 'receipts=[0-9]*' ${REMOTE_WORK}/logs/serve.log | tail -1" 2>/dev/null | tr -d "[:space:]"
 }
 
-s2_s3_probe() {
-    log "---- S2/S3: 借方经 rendezvous 发现 102 出借方并取声明选路（--probe）"
+s2_s3_s4_call() {
+    # 单借方进程一次完成：发现(S2) -> 声明验签选路(S3) -> 跨机流式调用(S4)。
+    # 底座 rendezvous 服务端对同一连接近似单次服务，第二借方进程的查询会撞
+    # 服务端已退出的流（S4 偶发 DISCOVER-FAIL 的根），故三场景共用一个进程。
+    log "---- S2/S3/S4: 单借方进程 发现+选路+跨机真实流式 chat（上游=102 侧进程内 mock）"
     local rc=0
-    PROBE_OUT="$(gt 120 "$HARNESS_BIN" call --probe \
-        --data "$WORK/borrower/p2p-data" \
-        --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --discover-wait 30 2>&1)" || rc=$?
-    printf '%s\n' "$PROBE_OUT"
-    if [ "$rc" -ne 0 ]; then
-        log "---- 诊断: 出借方 serve.log 尾部"
-        remote_sh "grep -E 'WARN|ERROR|HARNESS-FAIL|SERVE-READY' ${REMOTE_WORK}/logs/serve.log 2>/dev/null | tail -6" || true
-        die "probe 失败（rc=$rc)"
-    fi
-    printf '%s\n' "$PROBE_OUT" | grep -q "DISCOVER-OK" || sc_fail "S2" "rendezvous 查号未命中"
-    printf '%s\n' "$PROBE_OUT" | grep -q "CONNECT-OK" || sc_fail "S2" "跨机连接未建立"
-    sc_pass "S2" "互联：rendezvous 发现 + 跨机连接建立"
-    printf '%s\n' "$PROBE_OUT" | grep -q "OFFER-OK" || sc_fail "S3" "声明验签/选路失败"
-    PUBKEY="$(printf '%s\n' "$PROBE_OUT" | sed -n 's/^OFFER-OK pubkey=//p' | cut -d' ' -f1)"
-    [ -n "$PUBKEY" ] || sc_fail "S3" "未取得声明公钥"
-    sc_pass "S3" "出借方=102：声明签名发布 + 借方验签（Ed25519+TTL）+ 选路成功"
-}
-
-s4_call() {
-    log "---- S4: 跨机真实流式 chat（上游=102 侧进程内 mock），双边记账 + 收据验签"
-    local rc=0
-    CALL_OUT="$(gt 150 "$HARNESS_BIN" call \
+    CALL_OUT="$(gt 240 "$HARNESS_BIN" call \
         --data "$WORK/borrower-s4/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
         --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 --discover-wait 60 \
         --receipt-out "$WORK/receipt.json" --ledger-out "$WORK/llm-share/ledger.json" 2>&1)" || rc=$?
     printf '%s\n' "$CALL_OUT"
-    [ "$rc" -eq 0 ] || die "S4 调用失败（rc=$rc)"
+    [ "$rc" -eq 0 ] || die "S2/S3/S4 调用失败（rc=$rc)"
+    printf '%s\n' "$CALL_OUT" | grep -q "DISCOVER-OK" || sc_fail "S2" "rendezvous 查号未命中"
+    printf '%s\n' "$CALL_OUT" | grep -q "CONNECT-OK" || sc_fail "S2" "跨机连接未建立"
+    sc_pass "S2" "互联：rendezvous 发现 + 跨机连接建立"
+    printf '%s\n' "$CALL_OUT" | grep -q "OFFER-OK" || sc_fail "S3" "声明验签/选路失败"
+    PUBKEY="$(printf '%s\n' "$CALL_OUT" | sed -n 's/^OFFER-OK pubkey=//p' | cut -d' ' -f1)"
+    [ -n "$PUBKEY" ] || sc_fail "S3" "未取得声明公钥"
+    sc_pass "S3" "出借方=102：声明签名发布 + 借方验签（Ed25519+TTL）+ 选路成功"
     printf '%s\n' "$CALL_OUT" | grep -q "RECEIPT-VERIFY=PASS" || sc_fail "S4" "harness 收据验签失败"
     "$CTL" llm-share receipt verify "$WORK/receipt.json" --pubkey "$PUBKEY" | grep -q "verdict=PASS" \
         || sc_fail "S4" "产品 CLI 收据验签失败"
@@ -914,8 +902,7 @@ main() {
     start_bootstrap
     mint_borrowers
     start_lender
-    s2_s3_probe
-    s4_call
+    s2_s3_s4_call
     s5_negative
     s6_observable
     summary
