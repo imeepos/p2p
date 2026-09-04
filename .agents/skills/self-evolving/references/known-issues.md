@@ -585,6 +585,11 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 修法：系统设置 > 隐私与安全性 > 屏幕录制 给 p2p-console 授权后重跑；授权属 OS 级人工操作，AI/CLI 无法自助完成。
 
 
+## 2026-09-04 make check 真网络测试与并行 cargo 任务同机抢跑 30s 超时假红
+症状：make check 在 crates/p2p observe_addr（observed_addr_registered_and_dialable）FAILED，耗时恰 30.02s=测试超时预算；同机另有 cargo clippy 与子进程集成测试在跑。
+原因：该测试是真 QUIC+rendezvous 拨号链路，对网络栈/负载敏感；并发重任务挤占后撞超时预算，与被验改动无关（本卡只动 apps 测试与文档）。
+修法：门禁红先看失败耗时形态（贴着预算超时=抖动嫌疑），隔离复跑单测定性（0.05s 过），全绿后再单独重跑 make check；make check 运行期不要并行任何 cargo 任务。
+
 ## 2026-09-04 G1：cargo fmt 静默跳过解析失败文件，行数统计失真
 - 症状：wc -l 行数忽大忽小（同文件 299 ↔ 366），reformat 不可复现。
 - 原因：cargo fmt 遇任一文件解析失败会静默跳过全部格式化（管道 head/tail 又吞退出码），

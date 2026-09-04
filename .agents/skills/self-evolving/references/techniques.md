@@ -293,3 +293,4 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 并行会话密集推进 main 时 ff-only 前置三查：git fetch 后核对（1）本地 main == origin/main；（2）merge-base --is-ancestor main <合并点>；（3）主树 status 干净。本轮 main 在会话中段从 895c3a4 前进到 544b1ae，三查全过才 ff。
 - worktree 新 checkout 跑 make check 前先补环境：apps/gui/node_modules 不进 git，gui-check 的 eslint 直接 command not found（环境假红非代码红，归因先看报错形态）；pnpm install 后 ls node_modules/.bin/eslint 确认再重跑。cargo 侧 worktree 首跑必全量编译，先后台预热 cargo build 再跑验收脚本。
 - 脚本双 bash 兼容验证法：/bin/bash -n + /opt/homebrew/bin/bash -n 各过一遍语法，--self-test 两边各跑一遍（验收链用哪个 bash 取决于调用方 PATH，不能只验一个）；变量展开一律花括号化（延续 90e062a 对 bash 5.3 多字节相邻展开的防御）。
+- 2026-09-04 run_code 源码载体对反引号字符敏感：不仅模板字符串，普通字符串字面量里出现反引号字符同样炸解析（报 Expected , got ; / Expression expected，定位不到真实行）。要写含反引号的内容（Markdown 代码标记、带转义引号的 Rust 字符串）一律用 String.fromCharCode(96) 拼接，或改走 bash heredoc 落盘。
