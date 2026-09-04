@@ -182,6 +182,8 @@ const zhCN = {
     mdns: {
       title: "mDNS 局域网发现",
       hint: "开关回读持久化配置，切换即保存，下次启动生效",
+      runningDetail: "正在局域网内广播本节点，同一链路的邻居可自动发现并直连。",
+      stoppedDetail: "已关闭局域网广播：邻居发现依赖 rendezvous 引导地址。",
       saved: "mDNS 配置已保存",
       saveFailed: "mDNS 配置保存失败",
     },
