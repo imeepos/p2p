@@ -236,8 +236,9 @@ Reject(7)/KeepAlive(8)/KeepAliveAck(9)。
   任意帧校验失败（帧超上限/类型序非法/信封缺字段或校验不过/媒体长度不一致）→
   断流并留告警日志，发端收失败即消息落 failed 态。
 - 单条消息（含附件原始字节）≤ 64 MiB（对齐 chunked.rs MAX_MESSAGE_SIZE），
-  超限发送前拒绝、入站断流；附件 MIME 按 kind 白名单校验（image/audio/video
-  前缀匹配，其余归 file），不匹配即 Err/断流，不猜测不降级。
+  超限发送前拒绝、入站断流；附件 MIME 按 kind 精确白名单校验（image→
+  image/png|jpeg|gif|webp；audio→audio/mpeg|wav|ogg|m4a|mp4；video→
+  video/mp4|webm|mov|quicktime；其余归 file），不匹配即 Err/断流，不猜测不降级。
 - 幂等：收端按消息 id 去重，重复投递仅回 ACK 不重复落盘（重发安全）。
 
 ## 9. 常量速查表
