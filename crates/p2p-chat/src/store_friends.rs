@@ -68,7 +68,7 @@ impl FriendsBook {
         let txn = self.doc.transact();
         let mut out = Vec::new();
         for (key, value) in map.iter(&txn) {
-            match decode_friend(&key, &value) {
+            match decode_friend(key, &value) {
                 Ok(f) => out.push(f),
                 Err(e) => tracing::warn!(peer = %key, error = %e, "好友条目解码失败，跳过"),
             }
@@ -112,7 +112,11 @@ impl FriendsBook {
         let header = lines
             .next()
             .and_then(|l| serde_json::from_str::<serde_json::Value>(l).ok())
-            .and_then(|v| v.get(FORMAT_KEY).and_then(|t| t.as_str()).map(str::to_owned));
+            .and_then(|v| {
+                v.get(FORMAT_KEY)
+                    .and_then(|t| t.as_str())
+                    .map(str::to_owned)
+            });
         if header.as_deref() != Some(FORMAT_VER) {
             tracing::warn!(path = %path.display(), "friends.json 未知格式，原样备份后按空簿重建");
             backup_original(path)?;
@@ -195,7 +199,10 @@ fn append_update_line(path: &Path, bytes: &[u8]) -> io::Result<()> {
     // 消息 JSONL 不走此路径（append_line 保持原状，R6 红线）。
     let mut line = update_line(bytes);
     line.push('\n');
-    let mut f = fs::OpenOptions::new().create(true).append(true).open(path)?;
+    let mut f = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)?;
     f.write_all(line.as_bytes())?;
     f.flush()
 }

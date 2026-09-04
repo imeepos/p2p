@@ -42,6 +42,17 @@ impl GroupCore {
         }
     }
 
+    /// 传输类失败后的强拆重拨（同 1:1 deliver 纪律，跨机演练 D1 复现面）。
+    pub(crate) async fn redial(&self, to: &str) -> Result<(), ChatError> {
+        let pid = parse_peer_id(to)?;
+        self.chat.node.disconnect(&pid);
+        self.chat
+            .node
+            .connect(pid)
+            .await
+            .map_err(|e| ChatError::ConnectFailed(format!("连接 {to} 失败：{e}")))
+    }
+
     fn io_send(e: std::io::Error) -> ChatError {
         ChatError::StreamFailed(format!("流 IO 失败：{e}"))
     }

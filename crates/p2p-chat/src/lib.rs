@@ -50,7 +50,6 @@ pub struct Chat {
 }
 
 impl Chat {
-    /// 装配：建存储、注册入站 handler、启动 outbox 任务、好友地址回填地址簿。
     pub fn new(node: Arc<Node>, data_dir: PathBuf) -> Result<Self, ChatError> {
         let store = store::Store::new(data_dir.join("chat"))?;
         let (tx, _) = broadcast::channel(EVENT_CAPACITY);
@@ -213,9 +212,7 @@ impl Chat {
         // 回复引用校验：提供时必须非空字符串；不校验被引用消息存在性（离线引用允许）。
         let reply_to = match reply_to.as_deref() {
             None => None,
-            Some(s) if s.trim().is_empty() => {
-                return Err(ChatError::InvalidReply(s.to_string()));
-            }
+            Some(s) if s.trim().is_empty() => return Err(ChatError::InvalidReply(s.to_string())),
             Some(s) => Some(s.to_string()),
         };
         let text = if kind == ChatKind::Text {

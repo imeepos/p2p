@@ -1,6 +1,5 @@
-//! outbox/goutbox 双队列投递泵（design im-group-design.md §6.2）：PeerConnected 统一触发。
-//! 1:1 队列纪律零改动；群队列（goutbox）复用同一纪律：批量上限、failed 每进程一次
-//! 重投机会、二次死信出队 + 告警；帧分派走 group_core 事务（消息/roster/kick/leave）。
+//! outbox/goutbox 双队列投递泵（design §6.2）：PeerConnected 统一触发；1:1 队列
+//! 纪律零改动，群队列复用同一纪律（批量上限/一次重投/二次死信），分派走 group_core。
 
 use std::sync::Arc;
 
@@ -18,7 +17,7 @@ use crate::model::{
     ChatStatus,
 };
 
-/// 单次 flush 最多处理的条目数；超出部分等下一次连接事件继续。
+/// 单次 flush 批量上限；超出部分等下一次连接事件继续。
 const FLUSH_BATCH_CAP: usize = 32;
 
 /// 监听 PeerConnected：依次触发该 peer 的 1:1 outbox 与群 goutbox flush。
@@ -72,9 +71,21 @@ pub(crate) async fn flush_peer(core: &ChatCore, peer: &str) -> Result<(), ChatEr
     Ok(())
 }
 
-/// 投递一条 goutbox 条目并记账（design §6.2/§6.3）：ACK 出队/记 acks；unknown_group
-/// 与连接失败保持 pending；硬失败标记 failed（留痕）；返回是否本轮获得确认。
+/// 投递并记账：ACK 出队/记 acks；unknown_group 与连接失败保持 pending；硬失败标记 failed。
 pub(crate) async fn attempt(group: &GroupCore, entry: &GoutboxEntry) -> Result<bool, ChatError> {
+    // 传输类失败（复用死亡连接的 mux closed 等）强拆重拨重试一次（同 1:1 deliver 纪律）
+    match dispatch_entry(group, entry).await {
+        Ok(v) => Ok(v),
+        Err(first @ ChatError::StreamFailed(_)) => {
+            tracing::warn!(to = %entry.to, entry = %entry.id, error = %first, "群投递强拆重拨");
+            group.redial(&entry.to).await?;
+            dispatch_entry(group, entry).await
+        }
+        Err(e) => Err(e),
+    }
+}
+
+async fn dispatch_entry(group: &GroupCore, entry: &GoutboxEntry) -> Result<bool, ChatError> {
     let acked = match &entry.frame {
         GoutboxFrame::Msg { msg } => group.send_msg(&entry.to, msg).await,
         GoutboxFrame::Roster { roster } => group.send_roster(&entry.to, roster).await.map(|_| true),
