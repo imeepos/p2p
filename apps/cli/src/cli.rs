@@ -5,9 +5,12 @@ use clap::Parser;
 use crate::chat;
 use crate::config;
 use crate::identity;
+use crate::log;
+use crate::metrics;
 use crate::node;
 use crate::peer;
 use crate::profile;
+use crate::update;
 
 #[derive(Parser)]
 #[command(
@@ -20,7 +23,7 @@ pub struct Cli {
     pub command: Command,
 }
 
-/// 命令域登记表：CL2 = node/config/profile/peer/identity；logs/update（CL4）。
+/// 命令域登记表：CL2 = node/config/profile/peer/identity；CL3 = chat；CL4 = log/metrics/update。
 #[derive(clap::Subcommand)]
 pub enum Command {
     /// 节点域：状态/启停
@@ -52,5 +55,20 @@ pub enum Command {
     Identity {
         #[command(subcommand)]
         command: identity::IdentityCommand,
+    },
+    /// 日志域：GUI 前端日志 tail/path/clear（CL4）
+    Log {
+        #[command(subcommand)]
+        command: log::LogCommand,
+    },
+    /// 指标域：运行时指标快照（CL4 补齐 metrics_get 对等）
+    Metrics {
+        #[command(subcommand)]
+        command: metrics::MetricsCommand,
+    },
+    /// 更新域：release 检查与发布页 URL 输出（CL4）
+    Update {
+        #[command(subcommand)]
+        command: update::UpdateCommand,
     },
 }
