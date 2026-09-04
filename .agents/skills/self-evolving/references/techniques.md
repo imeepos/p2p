@@ -155,3 +155,4 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 测 store 的排序/合并行为禁止 setState 直塞数组（绕过 mergeMessages），要走真实动作路径：mock chatHistory 返回乱序页 → click 好友触发 selectPeer → 断言 DOM 序。直塞测的是组件不测逻辑。
 - gui 测试消融验证三步走（不产生提交）：edit 工具改生产一处 → 跑目标测试确认对应格红 → git checkout -- 恢复后复绿且 status 干净；比口头声称「测试有效」硬得多。
 - worktree 里 pnpm 测试前先 ls apps/gui/node_modules/.bin/vitest 判依赖在不在，新 worktree 先后台 pnpm install 再读代码写测试，两不耽误。
+- 2026-09-04 T38 残留分支判定：rebase 后 ff 合入会原地留下「老哈希分支」，`git branch -d` 按哈希无祖先会拒删——用 `git cherry main HEAD` 机械判补丁等价，全部 `-` 即内容 100% 已在 main，可放心 `branch -D`（实例：test/rs-bridge-boundary 三提交全 `-`，fca6fc3 的等价体是 main 上 e31bc67）。
