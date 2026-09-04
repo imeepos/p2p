@@ -184,3 +184,19 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 无视觉模型做布局断言：Chrome --headless=new --remote-debugging-port=9223 起 CDP，Node≥22 用内置 WebSocket 连 /json/list 的 page target，Runtime.evaluate 读 getComputedStyle().gridTemplateColumns 与 clientWidth，量化到像素并留 JSON 证据；Page.captureScreenshot 同会话出图。vite 6 无外置 ws 依赖，零安装。
 - 高并发合并日收尾：ff-only 前提用 `git merge-base --is-ancestor main <分支>` 判定（分支顶^ 是自己的第一个提交，判错白跑一轮）；推送+核对+合并+worktree remove+branch -d+push --delete 压成一个 set -e 脚本原子执行，守卫拦截即整组回退。
 - 收尾循环提速：main 新增量 diff --name-only 全为 docs/.devloop/.agents 时测试内容等价，验收判定可沿用直接合并；动了代码（含 src-tauri、main.tsx）必须重跑全量 make check。
+
+## 2026-09-04 IM-V2 轮（shadcn/tailwind 视觉打磨）
+
+- 任意变体包裹选择器（如 `[&_[data-slot=card]]:min-h-28`）特异性 0-2-0，
+  会静默压掉卡片自身的 `.min-h-40`（0-1-0）——包裹类只罩最小必要子树
+  （例：只罩两行指标卡的内层 div），罩全页则子元素同属性类全部失效。
+  证据手段：CDP getComputedStyle 读 computed minHeight，类在但值不对即此坑。
+- tailwind-merge 对同一 variant 链去重（`data-[state=active]:bg-*` 后者
+  覆盖前者并删除前者）；但跨 variant 链（dark: 前缀）不互删——页面级覆盖
+  ui 组件底态必须同时写 plain + dark: 两条覆盖，否则暗色回落到组件暗色底。
+- WCAG 对比度自证：CDP 里 getComputedStyle 颜色是 oklch()（tailwind v4），
+  页面内手写 rgb 正则解析全空——改在 Node 里按主题 token 权威色值算
+  （index.css 的 oklch 换算或类名的 16 进制等价），类名断言 + 权威色值计算
+  双证据比脆弱的浏览器解析稳。
+- git worktree remove 后原 cwd 里再跑 git 命令 exit 128 not a git
+  repository——是目录已删，不是仓库坏了；回主树验证。

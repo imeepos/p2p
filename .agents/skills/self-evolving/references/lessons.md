@@ -179,3 +179,8 @@ _none yet — be the first._
 - 2026-09-04 IM-T45 轮：react-refresh/only-export-components 禁止组件文件同时导出 hook——hook 放 store 模块或独立 .ts（非组件文件不触发该规则）；条件调用 hook（a ? useX() : b）同样是红线，纯展示组件让调用方注入状态值。
 - 2026-09-04 IM-T45 轮：测试辅助函数对 store 做增量归约时，reduce 基准必须是当前状态（setState((s)=>…reduceEvent(s,…))），写死空状态会把先前事件静默清空——「第二次 apply 丢第一次」类断言翻车先查基准。
 - 2026-09-04 IM-T45 轮：新需求（去重主操作）与既有测试契约（双入口同时可见可点）冲突时测试契约优先——做视觉层级分化（空态中央按钮升 default 变体）而非物理移除入口，commit 正文写明取舍依据。
+- 2026-09-04 IM-V2 轮：无视觉输入的视觉任务交付物 = 类名/DOM 断言测试 + CDP 几何实测
+（bounding box/computed style）+ 前后截图留档三件套；协调者识图复核只认这三样，
+"门禁绿"与"视觉生效"是两条独立判定轴。
+- 2026-09-04 IM-V2 轮：无视觉模型先试一次 read_image 探明能力（GLM-5.3-Flash
+  直接拒绝 image input），确认后立即转 CDP 路线，别在识图上浪费轮次。

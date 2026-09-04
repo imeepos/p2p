@@ -319,37 +319,11 @@ failed: early eof（客户端侧超时中止）。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
 
-- vi.hoisted 里 vi.fn 泛型签名必须与 mockImplementation 实参一致：声明为零参（() => Promise<T[]>）后传带参实现（(peer: string) => ...）会在 tsc -b 阶段 TS2345（Target signature provides too few arguments），测试期绿、构建期红——mock 类型照抄真实方法签名（peer, beforeId?, limit?）。
 
-## 2026-09-03 CL2 轮：cargo test 不更新 target/debug 二进制
-- 症状：源码已修、跑 apps/cli/target/debug/p2pctl 行为依旧（control.rs call_slow 漏拆 {ok,data} 包装，客户端报 missing field）。
-- 原因：cargo test 构建的是 test-harness 二进制（target/debug/deps/p2pctl-*），不产出 target/debug/p2pctl。
-- 修法：验证可执行文件行为前显式 cargo build；或调试期统一 cargo run。E2E 脚本依赖预构建二进制时同理。
-
-## 2026-09-03 CL2 轮：BSD sed/perl 正则处理含中文模式
-- 症状：perl -0pi 带中文替换串直接 exit 255；sed -E 模式含 `1.2.3.4/u3400` 类地址报 "parentheses not balanced"。
-- 原因：BSD 工具对多字节字符按字节处理破坏正则结构；正则里的裸 / 与默认分隔符冲突。
-- 修法：含非 ASCII 的文件改动用编辑工具精确替换；sed 正则含 / 时换 | 分隔符。
-
-
-## 2026-09-04 IM-T46A 轮纠正：仓库外 worktree 本会话全程可用
-- 现场纠正下条（2026-09-03 CL3 轮）：本会话 worktree 建在 /Users/imeepos/ext512/wt-im-reply-backend（仓库外、与仓库根同级），read/edit/write/glob 全程正常，未被视图边界拦截。下条经验不是普适规律，是否受限取决于会话工作区配置；保险起见仍可优先 .worktrees/，但别因「仓库外必炸」的预判改变工作规划。
-
-## 2026-09-03 CL3 轮：DSH 会话双视图——worktree 建在仓库外文件工具看不到
-- 症状：bash 里 git worktree add ../p2p-xxx 成功（git worktree list 可见），但 read/glob/grep/write/edit 全部 not found；同窗口 bash 还间歇性 spawn ENOENT。
-- 原因：DSH 文件工具视图以会话工作区根（仓库目录）为挂载边界，根外的同级目录不在视图内；bash 走独立通道与文件工具不同视图，且偶发 worker 故障。
-- 修法：worktree 一律建进仓库内 .worktrees/（.gitignore 已收录、仓库有先例），bash 与文件工具即可同视图操作；已建在外的用 git worktree move 挪进来。bash ENOENT 是瞬时的，整程序级重试即可恢复。
-
-## 2026-09-04 GC1 轮：管道后的 exit code 是 tail 的——构建假绿
-- 症状：`cargo build 2>&1 | tail -40` 后台任务报 exit 0 且仅 13 秒「完成」，实为依赖 feature 解析失败（退出码是 tail 的，真错只在输出里）。
-- 修法：判结果的命令统一 `set -o pipefail`，并在输出末尾落 `echo BUILD_EXIT=$?` 再判；验证「真编译过」看 Finished 行而非退出码。
-
-## 2026-09-04 GC1 轮：objc2 生态 0.3.x 的 feature 与签名靠记忆猜→连环编译红
-- 症状：objc2-app-kit/web-kit feature 名按旧印象写（NSBitmapImageFileType、WKWebView_takeSnapshotWithConfiguration_completionHandler）→ cargo resolve 阶段就拒；换类粒度 feature 后又炸 alloc 不可见、block 参数类型不匹配。
-- 原因：0.3.x generated crates 的 [features] 是类粒度（NSImage/NSBitmapImageRep/WKSnapshotConfiguration…），方法级门控由类 feature 组合依赖 feature（如 takeSnapshot 是 all(WKSnapshotConfiguration, block2)）；completion handler 用裸指针 `*mut NSImage`（不是 NonNull），`alloc()` 需 `use objc2::AnyThread`，handler 参数是 `&DynBlock` 非 Option。
-- 修法：写码前先读本机 `~/.cargo/registry/src/<registry>/objc2-*-0.3.2/` 的 Cargo.toml [features] 与 generated/<Class>.rs 真实签名，一次写对。
-
-## 2026-09-04 IM-T45 轮：多会话并行 cargo test 时端口型 itest 互踩假红
-- 症状：make check 挂在 p2p-itest --test peer_lifecycle（exit 101），该 crate 与本单改动（apps/gui）零交集。
-- 原因：多个并行会话同时在各自树上跑 make check，端口/时序型集成测试互踩；同树单测复跑 3/3 全绿（0.73s）即证 flake。
-- 修法：先单测复跑定性——红≠自己 diff 的锅；定性后整链重跑验收，全绿再合并。
+## 2026-09-04 devloop_accept 无视 root 参数，命令跑在工具默认 projectRoot
+症状：devloop_accept({root: "/Users/imeepos/ext512/p2p"}) 的验收命令实际在
+wt-t36-boundary 执行（vitest 栈路径实证），且 exit null 被记为 failCount 1。
+原因：命令执行用工具自身配置的默认 projectRoot，root 参数只影响账本读写。
+修法：在目标树手动跑 acceptanceCommand 拿权威 exit code，再用
+devloop_ledger(action=save) 修正任务记录（note 写明误跑根因）；
+并行会话 worktree 里跑别人 WIP 的测试有污染面，重跑前先确认。
