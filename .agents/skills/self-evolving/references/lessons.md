@@ -3,6 +3,9 @@
 <!-- 一条经验一行。格式：当 X 发生时，修复是 Y。skill 没提前警告我。 -->
 
 _none yet — be the first._
+- 2026-09-05：run_code 用模板串写长文件时，漏闭合反引号/转义混乱会在"解析 program"阶段就炸（Expected ',' got ';' / Unterminated template），与目标文件内容无关；先写 30 行小片验证模板串本身，再写全文件。
+- 2026-09-05：工具类管道命令 `make check 2>&1 | tail` 的 exit code 是 tail 的（恒 0），make 失败被吞；一律 `set -o pipefail` 或 `rc=$?; echo RC=$rc` 显式回传（验证两次才敢报绿）。
+- 2026-09-05：pnpm test -- --run <path> 对 script 形 vitest 并不能按路径过滤（全量照跑），子集调试用 `pnpm vitest run <path>`。_
 - 2026-09-03：GUI types/node_event.rs 对 NodeEvent 无通配符穷举匹配，swarm 侧新增事件变体必须走 LifecycleEvent 独立通道加法（E6/E8 两次先例），加变体前先 grep 全部 recv 点匹配严格度。
 - 2026-09-03：run_code 写 Rust 代码文件时，JS 双引号串会被 Rust 内嵌双引号截断（Expected ',' got 'ident'）；全部行改用 JS 单引号串（Rust 源内几乎无单引号字符），且整文件构建+写入必须在同一次 run_code 调用内完成（跨调用无内存）。
 - 2026-09-03：会话宿主重启丢工作区后，靠协调者 wip 检查点提交 + 承接会话「审阅→补全→补 itest→过验收」流程恢复；恢复后先 git log/git status 对账，不盲信记忆中的文件状态。

@@ -109,17 +109,46 @@ describe("好友分组渲染（IM-T43）", () => {
 });
 
 describe("移动分组（IM-T43）", () => {
-  it("行内入口开框，提交后调用 chatFriendUpdate 且列表归属更新", async () => {
-    await renderWithFriends();
-    mocks.updateFriend.mockResolvedValue(friendOf(PEER_C, "丙", "同事"));
-    fireEvent.click(screen.getByTestId(`chat-move-friend-${PEER_C}`));
+  // Radix Select 在 jsdom 下需要指针捕获/滚动桩（官方已知测试前提）
+  beforeEach(() => {
+    Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(window.HTMLElement.prototype, "hasPointerCapture", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(window.HTMLElement.prototype, "releasePointerCapture", {
+      configurable: true,
+      value: vi.fn(),
+    });
+  });
+
+  async function openMoveDialog(peerId: string) {
+    fireEvent.click(screen.getByTestId(`chat-move-friend-${peerId}`));
     await waitFor(() =>
       expect(screen.getByTestId("friend-move-dialog")).toBeTruthy(),
     );
-    fireEvent.change(screen.getByTestId("friend-move-input"), {
-      target: { value: "同事" },
+  }
+
+  // 打开下拉并点选目标项（Radix 只认 pointerType=mouse 的 pointerdown）
+  async function pickOption(name: string) {
+    fireEvent.pointerDown(screen.getByTestId("friend-move-select"), {
+      button: 0,
+      ctrlKey: false,
+      pointerType: "mouse",
     });
-    fireEvent.click(screen.getByTestId("friend-move-submit"));
+    const option = await screen.findByRole("option", { name });
+    fireEvent.pointerUp(option, { button: 0, pointerType: "mouse" });
+    fireEvent.click(option, { button: 0, pointerType: "mouse" });
+  }
+
+  it("下拉选现有组：点选即移动，后端收到组名且列表归属更新", async () => {
+    await renderWithFriends();
+    mocks.updateFriend.mockResolvedValue(friendOf(PEER_C, "丙", "同事"));
+    await openMoveDialog(PEER_C);
+    await pickOption("同事");
     await waitFor(() =>
       expect(mocks.updateFriend).toHaveBeenCalledWith(PEER_C, { group: "同事" }),
     );
@@ -131,17 +160,11 @@ describe("移动分组（IM-T43）", () => {
     expect(screen.queryByTestId("friend-group-__ungrouped__")).toBeNull();
   });
 
-  it("清空组名提交 = 移出分组，后端收到空串，条目回到未分组节", async () => {
+  it("下拉选未分组 = 移出分组，后端收到空串，条目回到未分组节", async () => {
     await renderWithFriends();
     mocks.updateFriend.mockResolvedValue(friendOf(PEER_A, "甲", null));
-    fireEvent.click(screen.getByTestId(`chat-move-friend-${PEER_A}`));
-    await waitFor(() =>
-      expect(screen.getByTestId("friend-move-dialog")).toBeTruthy(),
-    );
-    const input = screen.getByTestId("friend-move-input") as HTMLInputElement;
-    expect(input.value).toBe("同事");
-    fireEvent.change(input, { target: { value: "" } });
-    fireEvent.click(screen.getByTestId("friend-move-submit"));
+    await openMoveDialog(PEER_A);
+    await pickOption("未分组");
     await waitFor(() =>
       expect(mocks.updateFriend).toHaveBeenCalledWith(PEER_A, { group: "" }),
     );
@@ -151,14 +174,28 @@ describe("移动分组（IM-T43）", () => {
     });
   });
 
+  it("输入新分组名提交 = 创建分组并移入", async () => {
+    await renderWithFriends();
+    mocks.updateFriend.mockResolvedValue(friendOf(PEER_C, "丙", "新组"));
+    await openMoveDialog(PEER_C);
+    fireEvent.change(screen.getByTestId("friend-move-input"), {
+      target: { value: "新组" },
+    });
+    fireEvent.click(screen.getByTestId("friend-move-submit"));
+    await waitFor(() =>
+      expect(mocks.updateFriend).toHaveBeenCalledWith(PEER_C, { group: "新组" }),
+    );
+    await waitFor(() => {
+      const created = screen.getByTestId("friend-group-新组");
+      expect(within(created).getByText("丙")).toBeTruthy();
+    });
+  });
+
   it("后端校验拒绝：错误原文上浮在框内，不吞不翻译", async () => {
     await renderWithFriends();
     mocks.updateFriend.mockRejectedValue(new Error("好友不在簿：ghost"));
     const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    fireEvent.click(screen.getByTestId(`chat-move-friend-${PEER_A}`));
-    await waitFor(() =>
-      expect(screen.getByTestId("friend-move-dialog")).toBeTruthy(),
-    );
+    await openMoveDialog(PEER_A);
     fireEvent.change(screen.getByTestId("friend-move-input"), {
       target: { value: "新组" },
     });
@@ -178,10 +215,7 @@ describe("移动分组（IM-T43）", () => {
 
   it("前端预校验：超长组名拦截并提示，不触达后端", async () => {
     await renderWithFriends();
-    fireEvent.click(screen.getByTestId(`chat-move-friend-${PEER_A}`));
-    await waitFor(() =>
-      expect(screen.getByTestId("friend-move-dialog")).toBeTruthy(),
-    );
+    await openMoveDialog(PEER_A);
     fireEvent.change(screen.getByTestId("friend-move-input"), {
       target: { value: "组".repeat(33) },
     });

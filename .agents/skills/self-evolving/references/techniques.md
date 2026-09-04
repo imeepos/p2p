@@ -2,6 +2,8 @@
 
 <!-- 排查技巧、工具命令、调试手法。格式：什么场景 → 怎么用。 -->
 
+- 2026-09-05 GUI 中央登记三件套提交顺序：feature 提交（src/新目录+测试）先行、登记提交（menu.def/App.tsx/locale/守卫测试）随后，HEAD 必绿；两段用 `git add <精确路径>` 分批 stage，feature 后补的红线修正用 `git commit --fixup=<feat> && GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <main>` 折回，rebase 顺带把过时的 merge commit 线性化。
+- 2026-09-05 run_code 调无必填参数的宿主工具（session_link_list/workspace_list/job_list/get_goal 等）传 {} 或 undefined 会报 "binding arguments must be lossless JSON"；传一个无害探测键（如 {probe:1}）即可正常调用。
 - 2026-09-02 全新空目录起项目要用 worktree 流程时：`git worktree add` 需要 HEAD，
   空仓库无 commit 会直接失败。先 `git init -b main` + baseline commit（AGENTS.md/skill/.gitignore），
   再开 worktree；`.worktrees/` 要写进 .gitignore 避免嵌套目录被主树误跟踪。
@@ -277,3 +279,5 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-05 ACP3：并行会话会 prune/打断彼此的 worktree——worktree add 用 run_in_background 跑（前台 ~60s 超时会杀掉 801 文件的 checkout 留半成品，本日两次实证），建成后立即 git worktree lock --reason 自保；每次操作后 git -C <wt> rev-parse --show-toplevel 核对没回落主树（输出主树路径=管理区被清的事故信号）。
 - 2026-09-05 ACP3：run_code 的 tools.write 内容经 JSON+JS 双层转义，Rust 转义序列写 \n 实际落盘真实换行（模板串里单反斜杠就是换行），字符串字面量当场编译红——写完必须 grep 查字符串内断行；修复用 python3 精确 replace（py 里 \\n 才是字面反斜杠 n），比 edit 锚点匹配可靠。
 - 2026-09-05 ACP3：长流双向泵（WS⇄yamux）挂死自愈配方——spawn 双任务 + select 首侧结束 abort 另一侧（join 双侧都 pending 就永不结束）+ 写 16KiB 块/5s 超时重 kick + 读 30s 超时重 kick + PeerDisconnected 事件竞速兜底；yamux 批量窗口更新（<半窗不发）遇 echo 停等流量会饿死写侧（known-issues 同日条）。
+- 2026-09-05 移动分组修复：Radix Select 在 jsdom 的可测配方——`fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" })` 开下拉（react-select 源码硬性检查 `pointerType === "mouse"`，缺省空串直接不开），option 用 `findByRole("option", { name })` 拿到后 `pointerUp`+`click` 各一次；前置桩 scrollIntoView/hasPointerCapture/releasePointerCapture 三件套。先探针 `node -e` 验证 jsdom 有 PointerEvent 再写测试，省一轮盲调。
+- 2026-09-05 移动分组修复：收尾 push 判活别信 `cmd | tail; echo $?`——那是 tail 的退出码；开头 `set -o pipefail` 或 `${PIPESTATUS[0]}`（ff5831e 已沉淀过此课，本次仍复犯，验证脚本要模板化）。
