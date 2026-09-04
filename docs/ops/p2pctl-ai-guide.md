@@ -969,6 +969,107 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 ```
 --json：同字段 camelCase（verdict/reason/reqId/period/lender/borrower/model/input/output/estimated/ts）。
 退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1。
+### p2pctl group create
+用途：建群。校验成员 ⊆ 好友簿、≤32、不含本机；群名 trim 后 1..=64 字符。建群后对每个初始成员推 roster（成员离线经 goutbox 补投，命令不失败）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --name | string | 是 | —— |
+| --member | string（可重复） | 否 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：成员不在好友簿 / 群超员 / 群名非法 → 1。
+
+### p2pctl group list
+用途：列出全部群（含 left/kicked/disbanded，GUI 按 state 过滤置底）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+
+### p2pctl group invite
+用途：邀请成员（owner-only）。受邀者须 ⊆ 好友簿且不在群；群 <32；rev+1 推全体（含新成员）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --member | string（可重复） | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：非 owner / 受邀者不在好友簿或已在群 / 超员 → 1。
+
+### p2pctl group kick
+用途：移除成员（owner-only）。rev+1 推余员，并向被移者发 G_KICK(reason=kicked)。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --member | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：非 owner / 成员不在群 / 不能移除群主 → 1。
+
+### p2pctl group leave
+用途：退群。本端 state=left（历史保留），并向 owner 发 G_LEAVE（owner 离线经 goutbox 补投）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：owner 调用 → 1（群主不能退群，请改用 disband）；群已非 active → 1。
+
+### p2pctl group rename
+用途：改名（owner-only）。群名 trim 后 1..=64 字符；rev+1 推 roster。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --name | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：非 owner / 群名非法 → 1。
+
+### p2pctl group disband
+用途：解散（owner-only）。rev+1，对全体在册成员发 G_KICK(reason=disbanded)；本端 state=disbanded。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：非 owner → 1。
+
+### p2pctl group send
+用途：发群消息（--text 文本或 --file 附件，二选一）。fan-out 至全体其他成员；未全员送达按退出码 1 失败（报告仍输出，成员离线经 goutbox 补投）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --text | string | 与 --file 二选一 | —— |
+| --file | path | 与 --text 二选一 | —— |
+| --kind | text/image/audio/video/file | 否 | file（mime 按扩展名推断） |
+| --mime | string | 否 | 按扩展名推断 |
+| --name | string | 否 | 取文件名 |
+| --reply-to | string | 否 | 无 |
+| --timeout-secs | int | 否 | 30 |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：未知群/群非 active/校验非法 → 1；超时未全员送达 → 1（acked/recipients 可判部分送达）。
+
+### p2pctl group history
+用途：读群历史（time desc；limit 缺省 50 上限 100；beforeId 严格更早游标）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --before-id | string | 否 | —— |
+| --limit | int | 否 | 50 |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+
+### p2pctl group media file
+用途：查询群附件落盘绝对路径（media/<groupId>/，仅本端展示）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --message | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：消息不存在或非附件类型 → 1。
+
 <!-- AI-DOCS-SYNC:END -->
 
 ## 附录A. 两节点聊天 E2E 最小拓扑（chat serve 双身份模型）
