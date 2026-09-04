@@ -8,12 +8,15 @@ import { ErrorBoundary } from "./components/feedback/error-boundary";
 import { AppToaster } from "./components/ui/sonner";
 import { ThemeProvider } from "./theme/theme-provider";
 import { installAgentBridge } from "./lib/agent-bridge";
+import { installControlBridge } from "./lib/control-bridge";
 import { installErrorReport } from "./lib/error-report";
 import "./index.css";
 
 // 错误感知管线先于渲染安装：白屏/渲染异常也要进 frontend.log（契约 §8）。
 installErrorReport();
 installAgentBridge();
+// GC1 控制通道：hash 路由实时上报（health 的 route 字段来源）
+installControlBridge();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
