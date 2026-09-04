@@ -45,7 +45,9 @@ pub async fn run(args: ServeArgs) -> CliResult {
     let node = context::builder(&args.data_dir, args.quic_port.unwrap_or(0), args.mdns)
         .build()
         .await
-        .map_err(|e| CliError::Runtime(format!("节点装配失败（data-dir={}）: {e}", args.data_dir)))?;
+        .map_err(|e| {
+            CliError::Runtime(format!("节点装配失败（data-dir={}）: {e}", args.data_dir))
+        })?;
     let node = Arc::new(node);
     let chat = Chat::new(node.clone(), PathBuf::from(&args.data_dir)).map_err(runtime_err)?;
     let info = ServeInfo {

@@ -5,6 +5,7 @@
 //! 投递只依赖好友簿地址（Chat::new 内 rearm_friend_addrs 回填），E2E 可静态隔离。
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use p2p::{Node, NodeBuilder};
 use p2p_chat::Chat;
@@ -13,6 +14,8 @@ use crate::error::CliError;
 
 pub struct ChatContext {
     pub chat: Chat,
+    /// connect 触发 PeerConnected → outbox flush（send 未送达时的重投入口）。
+    pub(crate) node: Arc<Node>,
 }
 
 /// serve 与一次性命令共用的节点装配参数（quic 端口/mdns 开关可调）。
@@ -30,7 +33,8 @@ pub async fn open(data_dir: &str) -> Result<ChatContext, CliError> {
         .build()
         .await
         .map_err(|e| CliError::Runtime(format!("节点装配失败（data-dir={data_dir}）: {e}")))?;
-    let chat = Chat::new(std::sync::Arc::new(node), PathBuf::from(data_dir))
+    let node = Arc::new(node);
+    let chat = Chat::new(node.clone(), PathBuf::from(data_dir))
         .map_err(|e| CliError::Runtime(format!("聊天模块装配失败: {e}")))?;
-    Ok(ChatContext { chat })
+    Ok(ChatContext { chat, node })
 }

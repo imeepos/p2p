@@ -25,3 +25,5 @@ p2p-cli = { path = "../../crates/p2p-cli" }
 # p2p 仅用于 Node 装配（一次性命令与 serve 的数据面入口）。
 p2p = { path = "../../crates/p2p" }
 p2p-chat = { path = "../../crates/p2p-chat" }
+# peer id 字符串解析（outbox 重投时主动 connect 用）
+bs58 = "0.5"

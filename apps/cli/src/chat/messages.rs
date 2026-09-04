@@ -6,7 +6,7 @@
 use std::time::Duration;
 
 use clap::{Args, Subcommand};
-use p2p_chat::{ChatEnvelope, Sender};
+use p2p_chat::{ChatEnvelope, ChatStatus, Sender};
 use serde::Serialize;
 
 use crate::error::{CliError, CliResult};
@@ -100,13 +100,22 @@ pub async fn history(args: HistoryArgs) -> CliResult {
     let ctx = context::open(&args.data_dir).await?;
     let msgs = ctx
         .chat
-        .history(&args.peer, args.before_id.as_deref(), args.limit.unwrap_or(0))
+        .history(
+            &args.peer,
+            args.before_id.as_deref(),
+            args.limit.unwrap_or(0),
+        )
         .map_err(runtime_err)?;
     let text = if msgs.is_empty() {
         format!("无历史消息（peer={}）", args.peer)
     } else {
         let lines: Vec<String> = msgs.iter().map(fmt_envelope).collect();
-        format!("共 {} 条（peer={}）\n{}", msgs.len(), args.peer, lines.join("\n"))
+        format!(
+            "共 {} 条（peer={}）\n{}",
+            msgs.len(),
+            args.peer,
+            lines.join("\n")
+        )
     };
     emit(args.json, &msgs, &text)
 }
@@ -114,11 +123,20 @@ pub async fn history(args: HistoryArgs) -> CliResult {
 pub async fn send(args: SendArgs) -> CliResult {
     let (kind, text, media) = payload(&args)?;
     let ctx = context::open(&args.data_dir).await?;
-    let fut = ctx.chat.send(&args.peer, kind, text, media);
-    let report = tokio::time::timeout(Duration::from_secs(args.timeout_secs), fut)
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(args.timeout_secs);
+    let mut report = ctx
+        .chat
+        .send(&args.peer, kind, text, media)
         .await
-        .map_err(|_| CliError::Runtime(format!("发送超时（{}s）: 对端不可达", args.timeout_secs)))?
         .map_err(runtime_err)?;
+    if !report.delivered {
+        // 首投未实时送达：消息已在 outbox，等自动重投（连接重建竞态以短轮询消化）。
+        wait_outbox_flush(&ctx, &args.peer, &report.message.id, deadline).await;
+        if let Some(env) = latest_status(&ctx, &args.peer, &report.message.id).await {
+            report.delivered = env.status == ChatStatus::Delivered;
+            report.message = env;
+        }
+    }
     let text_out = if report.delivered {
         format!("已送达 peer={} id={}", args.peer, report.message.id)
     } else {
@@ -137,6 +155,49 @@ pub async fn send(args: SendArgs) -> CliResult {
     Ok(())
 }
 
+/// 未送达时的重投等待：主动 connect 触发 PeerConnected → outbox flush_peer
+/// （同一消息 id，不重复落库）；对端始终不可达则轮询至 deadline 退出，仍报未送达。
+async fn wait_outbox_flush(
+    ctx: &context::ChatContext,
+    peer: &str,
+    msg_id: &str,
+    deadline: tokio::time::Instant,
+) {
+    let peer_id = parse_peer(peer);
+    while tokio::time::Instant::now() < deadline {
+        if let Some(pid) = peer_id {
+            // 池内复用不触发 PeerConnected（outbox flush 不会发生），必须先断再连
+            ctx.node.disconnect(&pid);
+            let _ = ctx.node.connect(pid).await;
+        }
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        if let Some(env) = latest_status(ctx, peer, msg_id).await {
+            if env.status == ChatStatus::Delivered {
+                return;
+            }
+        }
+    }
+}
+
+async fn latest_status(
+    ctx: &context::ChatContext,
+    peer: &str,
+    msg_id: &str,
+) -> Option<ChatEnvelope> {
+    ctx.chat
+        .history(peer, None, 0)
+        .ok()?
+        .into_iter()
+        .find(|m| m.id == msg_id)
+}
+
+/// base58 peer id → PeerId（crate 内解析为私有，CLI 侧自解；非法返回 None）。
+fn parse_peer(s: &str) -> Option<p2p::PeerId> {
+    let bytes = bs58::decode(s).into_vec().ok()?;
+    let arr: [u8; 32] = bytes.try_into().ok()?;
+    Some(p2p::PeerId::from_bytes(arr))
+}
+
 pub async fn run_media(command: MediaCommand) -> CliResult {
     match command {
         MediaCommand::File(args) => media_file(args).await,
@@ -153,7 +214,11 @@ async fn media_file(args: MediaFileArgs) -> CliResult {
         .path
         .clone()
         .ok_or_else(|| CliError::Runtime("附件落盘路径缺失".into()))?;
-    let report = MediaFileReport { path, mime: meta.mime, name: meta.name };
+    let report = MediaFileReport {
+        path,
+        mime: meta.mime,
+        name: meta.name,
+    };
     let text = format!("附件路径 {}", report.path);
     emit(args.json, &report, &text)
 }
@@ -184,6 +249,14 @@ mod tests {
         let v = serde_json::to_value(&report).unwrap();
         assert_eq!(v["path"], serde_json::json!("/tmp/x.png"));
         assert_eq!(v["mime"], serde_json::json!("image/png"));
+    }
+
+    #[test]
+    fn parse_peer_accepts_base58_32b_and_rejects_short() {
+        let zeros = "1".repeat(32);
+        assert!(parse_peer(&zeros).is_some());
+        assert!(parse_peer("hello").is_none());
+        assert!(parse_peer("!!!").is_none());
     }
 
     #[test]

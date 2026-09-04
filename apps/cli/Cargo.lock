@@ -1082,6 +1082,7 @@ dependencies = [
 name = "p2pctl"
 version = "0.1.0"
 dependencies = [
+ "bs58",
  "clap",
  "p2p",
  "p2p-chat",

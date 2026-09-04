@@ -109,14 +109,29 @@ async fn add(args: AddArgs) -> CliResult {
         .any(|f| f.peer_id == args.peer_id);
     let friend = ctx
         .chat
-        .friend_add(&args.peer_id, &args.nickname, args.addr.clone(), args.note.clone())
+        .friend_add(
+            &args.peer_id,
+            &args.nickname,
+            args.addr.clone(),
+            args.note.clone(),
+        )
         .map_err(runtime_err)?;
-    let report = FriendAddReport { created: !existed, friend };
-    let verb = if report.created { "已添加好友" } else { "好友已在簿，本次为更新" };
+    let report = FriendAddReport {
+        created: !existed,
+        friend,
+    };
+    let verb = if report.created {
+        "已添加好友"
+    } else {
+        "好友已在簿，本次为更新"
+    };
     emit(
         args.json,
         &report,
-        &format!("{} {}（{}）", verb, report.friend.nickname, report.friend.peer_id),
+        &format!(
+            "{} {}（{}）",
+            verb, report.friend.nickname, report.friend.peer_id
+        ),
     )
 }
 
@@ -146,12 +161,20 @@ mod tests {
     use super::*;
 
     fn fixture(nickname: &str) -> ChatFriend {
-        ChatFriend { peer_id: "p".into(), nickname: nickname.into(), addrs: vec!["127.0.0.1/u1".into()], note: None }
+        ChatFriend {
+            peer_id: "p".into(),
+            nickname: nickname.into(),
+            addrs: vec!["127.0.0.1/u1".into()],
+            note: None,
+        }
     }
 
     #[test]
     fn add_report_json_shape_is_judgeable() {
-        let report = FriendAddReport { created: false, friend: fixture("b") };
+        let report = FriendAddReport {
+            created: false,
+            friend: fixture("b"),
+        };
         let v = serde_json::to_value(&report).unwrap();
         assert_eq!(v["created"], serde_json::json!(false));
         assert_eq!(v["friend"]["peerId"], serde_json::json!("p"));
