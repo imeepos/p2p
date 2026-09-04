@@ -1,4 +1,9 @@
-import type { UpdateCheckResult } from "./ipc-types";
+import type {
+  RemoteUpdate,
+  UpdateCheckResult,
+  UpdateDownloadBackend,
+  UpdateDownloadProgress,
+} from "./ipc-types";
 
 // 契约 v4 §9 的 mock 侧三态：有更新（默认）/ 无更新 / 检查失败。
 // VITE_MOCK_UPDATE=upToDate|failed 可在启动期切换；运行期直接改 mockUpdateFixture。
@@ -30,12 +35,16 @@ const envScenario = import.meta.env.VITE_MOCK_UPDATE;
 export const mockUpdateFixture: {
   scenario: MockUpdateScenario;
   lastOpenedUrl: string | null;
+  lastInstalledVersion: string | null;
+  lastRelaunched: boolean;
 } = {
   scenario:
     envScenario === "upToDate" || envScenario === "failed"
       ? envScenario
       : "available",
   lastOpenedUrl: null,
+  lastInstalledVersion: null,
+  lastRelaunched: false,
 };
 
 function upToDateResult(now: number): UpdateCheckResult {
@@ -93,3 +102,46 @@ export async function mockUpdateOpenReleasePage(url: string): Promise<void> {
   }
   mockUpdateFixture.lastOpenedUrl = url;
 }
+
+// 契约 v8 §13：下载安装 mock。48MB 假包按 24 块推进度，块间 50ms，
+// 供浏览器 dev 演示进度条与测试断言字节推进。
+const MOCK_DOWNLOAD_TOTAL_BYTES = 48 * 1024 * 1024;
+const MOCK_DOWNLOAD_CHUNKS = 24;
+const MOCK_DOWNLOAD_CHUNK_DELAY_MS = 50;
+
+async function mockCheckRemoteUpdate(): Promise<RemoteUpdate | null> {
+  await delay(CHECK_DELAY_MS);
+  if (mockUpdateFixture.scenario === "failed") {
+    throw new Error("更新检查失败：无法访问 GitHub Releases（mock）");
+  }
+  return mockUpdateFixture.scenario === "available"
+    ? { version: MOCK_LATEST_VERSION, notes: null }
+    : null;
+}
+
+async function mockDownloadAndInstallUpdate(
+  onProgress: (p: UpdateDownloadProgress) => void,
+): Promise<void> {
+  await delay(CHECK_DELAY_MS);
+  if (mockUpdateFixture.scenario !== "available") {
+    throw new Error("无可用更新可下载安装（mock）");
+  }
+  const chunk = Math.ceil(MOCK_DOWNLOAD_TOTAL_BYTES / MOCK_DOWNLOAD_CHUNKS);
+  let downloaded = 0;
+  for (let i = 0; i < MOCK_DOWNLOAD_CHUNKS; i++) {
+    await delay(MOCK_DOWNLOAD_CHUNK_DELAY_MS);
+    downloaded = Math.min(downloaded + chunk, MOCK_DOWNLOAD_TOTAL_BYTES);
+    onProgress({ downloadedBytes: downloaded, totalBytes: MOCK_DOWNLOAD_TOTAL_BYTES });
+  }
+  mockUpdateFixture.lastInstalledVersion = MOCK_LATEST_VERSION;
+}
+
+async function mockRelaunchApp(): Promise<void> {
+  mockUpdateFixture.lastRelaunched = true;
+}
+
+export const mockUpdateDownloadBackend: UpdateDownloadBackend = {
+  checkRemoteUpdate: mockCheckRemoteUpdate,
+  downloadAndInstallUpdate: mockDownloadAndInstallUpdate,
+  relaunchApp: mockRelaunchApp,
+};

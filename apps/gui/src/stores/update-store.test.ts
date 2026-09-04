@@ -2,12 +2,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { UpdateCheckResult } from "@/lib/ipc-types";
 
-const { updateCheckMock } = vi.hoisted(() => ({
+const {
+  updateCheckMock,
+  checkRemoteUpdateMock,
+  downloadInstallMock,
+  relaunchMock,
+} = vi.hoisted(() => ({
   updateCheckMock: vi.fn<() => Promise<UpdateCheckResult>>(),
+  checkRemoteUpdateMock: vi.fn<
+    () => Promise<{ version: string; notes: string | null } | null>
+  >(),
+  downloadInstallMock: vi.fn<
+    (onProgress: (p: { downloadedBytes: number; totalBytes: number | null }) => void) => Promise<void>
+  >(),
+  relaunchMock: vi.fn(),
 }));
 
 vi.mock("@/lib/ipc", () => ({
   ipc: { updateCheck: updateCheckMock, updateOpenReleasePage: vi.fn() },
+  updateDl: {
+    checkRemoteUpdate: checkRemoteUpdateMock,
+    downloadAndInstallUpdate: downloadInstallMock,
+    relaunchApp: relaunchMock,
+  },
 }));
 
 import { AUTO_CHECK_INTERVAL_MS, useUpdateStore } from "./update-store";
@@ -49,6 +66,11 @@ function resetStore(): void {
     lastSource: null,
     skippedVersion: null,
     reminderShownFor: null,
+    downloadPhase: "idle",
+    downloadedBytes: 0,
+    totalBytes: null,
+    downloadError: null,
+    downloadVersion: null,
   });
 }
 
@@ -57,6 +79,14 @@ beforeEach(() => {
   localStorage.clear();
   updateCheckMock.mockReset();
   updateCheckMock.mockResolvedValue(upToDateResult());
+  checkRemoteUpdateMock.mockReset();
+  checkRemoteUpdateMock.mockResolvedValue({ version: "0.2.0", notes: null });
+  downloadInstallMock.mockReset();
+  downloadInstallMock.mockImplementation(async (onProgress) => {
+    onProgress({ downloadedBytes: 1024, totalBytes: 4096 });
+    onProgress({ downloadedBytes: 4096, totalBytes: 4096 });
+  });
+  relaunchMock.mockReset();
   resetStore();
 });
 
@@ -107,6 +137,70 @@ describe("update-store 检查三态", () => {
     resolveCheck(upToDateResult());
     await Promise.all([first, second]);
     expect(updateCheckMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("update-store 下载安装", () => {
+  it("下载安装成功：进度推进 → installed，不自动重启", async () => {
+    updateCheckMock.mockResolvedValue(availableResult());
+    await useUpdateStore.getState().check("auto");
+    await useUpdateStore.getState().downloadAndInstall();
+    const s = useUpdateStore.getState();
+    expect(s.downloadPhase).toBe("installed");
+    expect(s.downloadedBytes).toBe(4096);
+    expect(s.totalBytes).toBe(4096);
+    expect(s.downloadVersion).toBe("0.2.0");
+    expect(downloadInstallMock).toHaveBeenCalledTimes(1);
+    expect(relaunchMock).not.toHaveBeenCalled();
+  });
+
+  it("下载安装失败 → failed + 错误可读", async () => {
+    updateCheckMock.mockResolvedValue(availableResult());
+    await useUpdateStore.getState().check("auto");
+    downloadInstallMock.mockRejectedValueOnce(new Error("签名校验失败"));
+    await useUpdateStore.getState().downloadAndInstall();
+    const s = useUpdateStore.getState();
+    expect(s.downloadPhase).toBe("failed");
+    expect(s.downloadError).toBe("签名校验失败");
+  });
+
+  it("in-flight 防抖：downloading 期间重复发起被忽略", async () => {
+    updateCheckMock.mockResolvedValue(availableResult());
+    await useUpdateStore.getState().check("auto");
+    let resolveInstall!: () => void;
+    downloadInstallMock.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveInstall = resolve;
+        }),
+    );
+    const first = useUpdateStore.getState().downloadAndInstall();
+    // flush：先让 checkRemoteUpdate 的微任务落地，进入 downloading 相位
+    await flush();
+    const second = useUpdateStore.getState().downloadAndInstall();
+    resolveInstall();
+    await Promise.all([first, second]);
+    expect(downloadInstallMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("非 available 态发起下载为 no-op", async () => {
+    await useUpdateStore.getState().downloadAndInstall();
+    expect(checkRemoteUpdateMock).not.toHaveBeenCalled();
+    expect(useUpdateStore.getState().downloadPhase).toBe("idle");
+  });
+
+  it("updater 无更新句柄 → 回到 idle 不误装", async () => {
+    updateCheckMock.mockResolvedValue(availableResult());
+    await useUpdateStore.getState().check("auto");
+    checkRemoteUpdateMock.mockResolvedValueOnce(null);
+    await useUpdateStore.getState().downloadAndInstall();
+    expect(downloadInstallMock).not.toHaveBeenCalled();
+    expect(useUpdateStore.getState().downloadPhase).toBe("idle");
+  });
+
+  it("relaunch 由用户显式触发", () => {
+    useUpdateStore.getState().relaunch();
+    expect(relaunchMock).toHaveBeenCalledTimes(1);
   });
 });
 

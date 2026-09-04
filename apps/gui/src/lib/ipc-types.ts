@@ -102,6 +102,29 @@ export interface UpdateCheckResult {
   checkedAtMs: number;
 }
 
+// 契约 v8 §13 加法（G-U3）：updater 下载安装面（官方 tauri-plugin-updater，minisign 校验）。
+export interface RemoteUpdate {
+  version: string; // 远端新版本号
+  notes: string | null; // 更新清单 notes（当前清单不含，保留扩展位）
+}
+
+export interface UpdateDownloadProgress {
+  downloadedBytes: number;
+  totalBytes: number | null; // Started 事件可能缺 contentLength，此时展示不定进度
+}
+
+// 与节点控制面（ipc）/诊断面（diag）并列的第三命令面；mock/tauri 同签名。
+export interface UpdateDownloadBackend {
+  // null = 已是最新；返回非 null 后才允许 downloadAndInstallUpdate
+  checkRemoteUpdate(): Promise<RemoteUpdate | null>;
+  // 下载并自动安装（macOS 替换 bundle / Windows NSIS 静默安装 / Linux 替换 AppImage）；
+  // onProgress 按块回调，完成（含安装）后 resolve
+  downloadAndInstallUpdate(
+    onProgress: (p: UpdateDownloadProgress) => void,
+  ): Promise<void>;
+  relaunchApp(): Promise<void>;
+}
+
 // 契约 v6 §11 加法：本机节点资料（纯展示，仅存本机，不随发现协议广播）。
 export interface NodeProfile {
   name: string; // trim 后 ≤64 字符；空串 = 未命名
@@ -119,6 +142,7 @@ export interface ChatFriendJson {
   nickname: string; // trim 后 ≤64；空串回退 PeerId 缩略
   addrs: string[]; // ip/u端口 = QUIC，ip/t端口 = TCP（对齐 §6 语法）
   note?: string | null;
+  group?: string | null; // 分组名（IM-T43）；null/缺省 = 未分组；空串归一化 null，不落盘
 }
 
 export interface ChatMediaInput {
@@ -182,6 +206,12 @@ export interface IpcBackend {
     addrs: string[],
   ): Promise<ChatFriendJson>;
   chatFriendRemove(peerId: string): Promise<boolean>;
+  // IM-T43：好友资料补丁（group/nickname/note 至少一项；addrs 不可经此修改）；
+  // 空串 group = 移出分组；peer 不在簿或越界组名 → 可读 Err。
+  chatFriendUpdate(
+    peerId: string,
+    patch: { group?: string | null; nickname?: string | null; note?: string | null },
+  ): Promise<ChatFriendJson>;
   chatHistory(
     peer: string,
     beforeId?: string | null,

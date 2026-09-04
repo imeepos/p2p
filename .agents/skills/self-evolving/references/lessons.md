@@ -220,6 +220,14 @@ _none yet — be the first._
 - 2026-09-04 IM-T50：主树 make check 是并行轮的共享资源，load 40+ 下 vitest 超时与 cargo 子进程竞态都是环境病——先隔离定性再错峰重跑，别对着环境红改代码。
 - 2026-09-04 IM-T50：被协调者通牒/接管时，第一动作是只读核查自己工作区状态并秒回事实清单（已交付提交/未提交面/后台任务），迟到的沉默会被误读成无进展。
 - 2026-09-04 IM-T50：known-issues 登记过的坑（zustand 选择器 `?? []` 快照不稳）写测试时没回忆起来又踩——写涉及 store 的代码前先 grep 一遍 references 再动手。
+
+- 2026-09-05（ACP2 轮）：run_code 的 JS 里嵌大段 Rust/TS 源码用模板字面量会被内容打断——两个假错误（"Expected ',' got ')'"、数组里裸标识符 ReferenceError）排查各耗 20 分钟，与真实 bug 无关。稳法：content 用行数组 + join 换行构造，数组内禁止留占位裸标识符，写完立即 wc -l 核行数。
+- 2026-09-05（ACP2 轮）：并行会话共用 /tmp 撞日志文件名——/tmp/acp-check.log 被并行 ACP3 会话的 cargo 输出整份覆盖，一度误判成自己的构建在编别人的 crate。对策：临时日志一律带卡号/会话号前缀（如 acp2-a2-*.log）。
+- 2026-09-05（ACP2 轮）：DSH 会话重启会 TERM 整个后台任务树，nohup+disown 也逃不掉；长门禁（make check 全量 30 分钟+）对策=按 make 目标分片前台跑（每片 timeoutMs 10 分钟级），cargo/pnpm 增量缓存让被杀重跑只补剩余，各片 EXIT 落日志文件断点续跑。
+- 2026-09-05（ACP2 轮）：make check 十个门禁目标各自幂等可独立跑（gate-tests/version-check/fmt-check/line-limit/clippy/test/gui-check/panic-hygiene/cli-parity/ai-docs-sync），分片全绿等价整跑；重活 clippy/test 靠前次被杀留下的增量缓存，二跑 0.4s/3min 收官。
+- 2026-09-05（ACP2 轮）：git commit -m 的多行 message 经 JSON.stringify 进入 bash 双引号后 \n 是字面反斜杠 n，不换行；多行提交信息一律写临时文件用 -F 传。
+- 2026-09-05（ACP2 轮）：底座契约缺口——p2p ProtocolHandler::handle(stream) 不暴露远端 PeerId，需要 per-peer 鉴权的上层 app（acp-agent）只能订阅 Node 事件维护在线集：恰一 peer 在线才归属、多 peer 歧义 fail-closed 拒绝（session.rs+peers.rs 已实现并测试），待底座流分发层把 peer 传进 handler 后解除；做 ACP4/继续连时别在这个边界上再踩一遍。
+
 - 2026-09-04 IM-T49：rustup 升级（clippy 1.98）会让已合入 main 的存量代码突然门禁红（needless_borrow/suspicious_open_options 新 lint），与在途改动无关——验收红先看报错里的 lint 名与 clippy 版本再定性，零行为机械修复按 IM-T47 先例随当前分支独立 fix 提交并在报告披露。
 - 2026-09-04 IM-T49：残留 worktree 的增强测试拖 17 天不评估，API 已漂移四处（Chat::send 加参/WireEnvelope 加字段/命令加参/端口夹具），适配成本随时间只涨不跌——盘点类清理任务要早办，评估结论本身就是适配点的清单。
 - 2026-09-04 CLI 演练：共享主树多会话并行下，测试会话进行中 main 会漂移（本会话 004b441→ffc0f0d 且中途出了热fix），报告必须锚定「实际构建所用的 commit」并对期间合入的相关修复做同异性辨析，否则缺陷归因张冠李戴。
@@ -228,3 +236,12 @@ _none yet — be the first._
 - 2026-09-04 GC3：派发大型多文件任务给 dispatch_task 前先拆掉「冷构建」因素（构建单独后台跑、代码产出单独派），600s 墙钟只够纯编辑型工作；超时后先查产物再接管，半成品质量好就接着用，别推倒重写。
 - 2026-09-04 GC3：开工前 git worktree add 要单独一步跑且给足超时，跨步骤复合命令被中断会留下「分支已建、目录半成品、worktree 未注册」的三态脏局面，恢复顺序=删目录→删分支→重来。
 - 2026-09-04 GC3b：vitest 4 的 test options（timeout 等）在第二参 it(name, {timeout}, fn)，放第三参（旧版 number 位置）过不了 tsc；修「负载型假红」时同病守卫要 grep 全库找齐一起治（IPC 守卫修完后 i18n 扫描守卫立刻顶上暴雷），否则验收口径（连续两遍全量）永远凑不齐。
+
+- 2026-09-04 U1：验收命令的调用形态就是测试用例——自测覆盖了 --keep 形态、验收跑无参形态，set -u 一行崩全盘；先读验收命令再反推脚本必须吃下的全部调用形态。
+- 2026-09-04 U1：head -c 8 经 xxd -p 产出 16 个 hex 字符，与 8 字符 magic 常量做全等恒假（60 断言里唯一全崩的一条）；模板里 grep 前缀匹配是有语义的，抄模板要抄语义而不是自创写法。
+- 2026-09-04 U1：链式命令里 cd 失败后续命令在原 cwd 继续跑出假结果（在主树里读出 branch=main 误判 worktree 异常）——链首 set -e 并显式回显 pwd 再做状态判断。
+- 2026-09-04 U1：并行会话活跃仓库里 main 高频前进、worktree 注册可能被他人动过——每个 git 操作后立即验证真实状态，合并前 fetch 反向同步，异象先查 worktree list 与 reflog 归因再动手。
+- 2026-09-04 U1：run_code 模板字符串里内嵌含美元花括号的 bash 内容必炸（TS 插值与 bash 展开双层打架，本日三次 parse error、一次 commit message 吃掉形参）——提交信息走文件加 commit -F，脚本内容避开该写法。
+
+- 2026-09-04 U2（gui-updater 轮）：60s 超时连环杀进程的根因是 ext512 外置卷小文件 I/O 病态慢——clone 30MB 仓库 8m48s、push 本地 1m25s、rm -rf 带 node_modules 的目录必然超时；已知条目只记了「被杀」现象，本轮补根因与对策：重活全部显式 timeoutMs（10 分钟级）或丢 background，主战场搬到内置卷（/tmp）clone。
+- 2026-09-04 U2（gui-updater 轮）：本日两次 worktree add 成功 checkout 后 `.git/worktrees/<name>` 元数据消失（git worktree list 不显示、worktree 内 git 命令报 not a git repository），一次还伴随 checkout 缺整个 crates/ 目录；同仓库其他会话的老 worktree 完好，疑与并行会话 git 操作/外置卷异常叠加有关。对策：worktree 创建后立即 `git worktree list` 验证；元数据消失时只清目录+prune，绝不在残骸上继续干活。

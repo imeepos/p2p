@@ -158,6 +158,7 @@ interface UpdateCheckResult {
 - 失败语义：网络失败 / 响应非法 / 版本解析失败一律返回 Err（可读中文）并留日志，禁止静默吞。
 - 无状态：后端不缓存不轮询；轮询节奏由前端驱动（启动后 + 定期 + 手动），无新增事件通道。
 - HTTP 超时 10s；端点为编译期常量，不做用户配置。
+- 本节只覆盖检查与提醒；程序内下载/安装/重启闭环见 §13（v8 加法）。
 
 ## 10. 邻居来源字段 source（v5 加法，2026-09-03 邻居表复盘）
 
@@ -198,7 +199,10 @@ interface NodeProfile {
 
 好友间 1:1 私聊：好友簿管理、文本/emoji、图片/音频/视频/文件附件、消息历史分页、
 发送状态可见、离线队列（outbox）、回复引用（replyTo 可选字段，IM-T46A 契约加法：
-旧端忽略未知字段照常收信，不校验被引用消息存在性——离线引用允许）。
+旧端忽略未知字段照常收信，不校验被引用消息存在性——离线引用允许）、好友分组
+（group 可选字段，IM-T43 契约加法：单分组语义，None/空串 = 未分组，组名 trim 后
+1..=32 字符；好友簿仅本地 friends.json，分组不进 ChatEnvelope，wire 协议不变；
+GUI 列表按组分节展示、未分组虚拟组置底，CLI friends --group 同卡对齐）。
 实时通话/群聊/已读回执不在本轮。底座只读，全部落 crates/p2p-chat + src-tauri 消费面。
 
 ### 12.1 命令表（追加，全部 camelCase；参数无效一律 Err 可读中文）
@@ -208,6 +212,7 @@ interface NodeProfile {
 | chat_friends_list | - | ChatFriendJson[] | 读好友簿（无文件返回空数组） |
 | chat_friend_add | peerId: string, nickname: string, addrs: string[] | ChatFriendJson | 校验（peerId base58 且 ≠ 本机、nickname trim ≤64、addr 语法逐条校验）后原子写好友簿；addr 同时登记地址簿可拨 |
 | chat_friend_remove | peerId: string | boolean | 从好友簿移除；never 在簿 → false（幂等），不删消息历史 |
+| chat_friend_update | peerId: string, patch: { group?: string \| null; nickname?: string \| null; note?: string \| null } | ChatFriendJson | 资料补丁（IM-T43 加法）：group/nickname/note 至少一项，addrs 不可经此修改；group 空串 = 移出分组（归一化 null，不落盘空串）；组名 trim 后 ≤32 字符；空补丁或 peer 不在簿 → Err |
 | chat_history | peer: string, beforeId?: string | null, limit?: number | ChatMessageJson[] | 按 time desc 分页，limit 默认 50 上限 100；beforeId 游标=严格更早 |
 | chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput, replyTo?: string \| null | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB；replyTo 提供时须非空字符串（不校验被引用消息存在性，离线引用允许） |
 | chat_media_file | peer: string, messageId: string | { path: string; mime: string; name: string } | 返回附件落盘绝对路径（仅本端展示用）；消息非 media 或不存在 → Err |
@@ -229,6 +234,7 @@ interface ChatFriendJson {
   nickname: string;      // trim 后 ≤64；空串回退 PeerId 缩略
   addrs: string[];       // ip/u端口 = QUIC，ip/t端口 = TCP（对齐 §6 语法）
   note?: string | null;
+  group?: string | null; // 分组名（IM-T43 加法）；null/缺省 = 未分组；单分组语义，UI 未分组虚拟组置底
 }
 
 interface ChatMediaInput {
@@ -259,6 +265,7 @@ interface ChatMessageJson {
 interface ChatSendReport {
   message: ChatMessageJson;   // status=delivered=已实时送达；否则 pending（outbox 等待）
   delivered: boolean;
+  flushedOutbox?: number;     // 本轮命令顺手补投的历史积压条目数；0/缺省=无补投（CLI 演练加法）
 }
 ```
 
@@ -269,5 +276,52 @@ interface ChatSendReport {
   名称/大小并提供下载锚点。系统级"打开默认应用"不在本轮契约内。
 - 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase，Option 序列化 null）；
   B 侧 TS 类型与上表逐字一致；mock 与真实实现同签名。
+
+## 13. 应用内下载安装更新（v8 加法，2026-09-04，G-U3）
+
+§9 的检查提醒保持不变；本节新增「程序内下载 + 进度条 + 下载成功自动安装 + 重启」闭环。
+实现采用官方 tauri-plugin-updater（minisign 签名校验）与 tauri-plugin-process（relaunch），
+不自研安装器；Rust 侧只注册插件，无新增命令。
+
+- updater 端点（编译期常量，tauri.conf.json plugins.updater）：
+  `https://github.com/imeepos/p2p/releases/latest/download/latest.json`。
+  清单由 ci(gui-client.yml) release job 发布时生成（apps/gui/scripts/release/make-latest-json.mjs）：
+  四平台签名增量包缺一或签名不成对即发布失败；macOS 双架构增量包同名，就地加架构后缀
+  改名规避 release 资产重名（签名只覆盖文件内容，与文件名无关）。
+- 签名：minisign 密钥对。公钥入库（plugins.updater.pubkey）；私钥只存在于 CI secret
+  （TAURI_SIGNING_PRIVATE_KEY，无密码）与本机 .env（TAURI_SIGNING_PRIVATE_KEY_PATH），
+  严禁入库。bundle.createUpdaterArtifacts=true 后无私钥 tauri build 直接失败，
+  机制上杜绝未签名增量包进入 release。
+- 前端命令面（ipc.ts 第三命令面 updateDl，与 ipc/diag 并列；mock 同签名，视图禁直连插件包）：
+
+```ts
+interface RemoteUpdate {
+  version: string;       // 远端新版本号
+  notes: string | null;  // 更新清单 notes（当前清单不含，保留扩展位）
+}
+interface UpdateDownloadProgress {
+  downloadedBytes: number;
+  totalBytes: number | null; // Started 事件可能缺 contentLength，此时进度不定态
+}
+interface UpdateDownloadBackend {
+  checkRemoteUpdate(): Promise<RemoteUpdate | null>; // null = 已是最新
+  // 下载并自动安装；onProgress 按块回调；完成后 resolve
+  downloadAndInstallUpdate(onProgress: (p: UpdateDownloadProgress) => void): Promise<void>;
+  relaunchApp(): Promise<void>;
+}
+```
+
+- 状态机（update-store）：idle → downloading（进度按块推进，百分比/字节双展示）→
+  installed →（用户点「立即重启」）relaunch；失败落 failed + 可读中文错误可重试。
+- 发起条件：仅 §9 status=available 时可发起；in-flight 防抖（downloading 期间重复发起
+  忽略）；downloadAndInstall 前先经 updater 端点重新取更新句柄，不跨轮询周期持旧句柄。
+- 重启时机归用户：安装完成不自动重启；Windows NSIS 静默安装器可能自行退出并重启应用，
+  属平台行为，前端不做补偿。
+- 平台覆盖：macOS（.app 替换 + relaunch）、Windows（NSIS zip，MSI 不走 updater）、
+  Linux（AppImage 替换；deb 包用户继续走 §9 浏览器手动下载）。
+- 逃生通道：§9 的 update_open_release_page（浏览器打开发布页）在所有相位保留。
+- 失败语义：下载/签名校验/安装失败一律可读中文并留 console 与日志，禁止静默吞；
+  未打包二进制（pnpm tauri dev）不启用真实安装；浏览器 dev 走 mock（VITE_MOCK_IPC=1），
+  mock 与真实实现同签名。
 
 

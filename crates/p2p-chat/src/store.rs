@@ -10,8 +10,8 @@ use std::time::Duration;
 
 use crate::model::{sanitize_name, ChatEnvelope, ChatFriend, ChatStatus};
 use crate::store_io::{
-    append_line, atomic_write, load_friends, load_jsonl, rewrite_jsonl_patch_status,
-    rewrite_jsonl_retain,
+    append_line, atomic_write, dedup_last_by_id, load_friends, load_jsonl,
+    rewrite_jsonl_patch_status, rewrite_jsonl_retain,
 };
 use crate::store_lock::FileLock;
 
@@ -59,7 +59,7 @@ impl Store {
                     Some(p) => p.to_string(),
                     None => continue,
                 };
-                let envs = load_jsonl::<ChatEnvelope>(&path);
+                let envs = dedup_last_by_id(load_jsonl::<ChatEnvelope>(&path));
                 if !envs.is_empty() {
                     outbox.insert(peer, envs);
                 }
@@ -168,7 +168,7 @@ impl Store {
         peer: &str,
         id: &str,
         status: ChatStatus,
-    ) -> Result<(), std::io::Error> {
+    ) -> Result<bool, std::io::Error> {
         {
             let mut state = self.state.lock().map_err(|_| poisoned())?;
             if let Some(entries) = state.outbox.get_mut(peer) {
@@ -185,16 +185,20 @@ impl Store {
     pub(crate) fn messages_for(&self, peer: &str) -> Result<Vec<ChatEnvelope>, std::io::Error> {
         let mut state = self.state.lock().map_err(|_| poisoned())?;
         if !state.messages.contains_key(peer) {
-            let envs = load_jsonl::<ChatEnvelope>(&self.messages_path(peer));
+            let envs = dedup_last_by_id(load_jsonl::<ChatEnvelope>(&self.messages_path(peer)));
             state.messages.insert(peer.to_string(), envs);
         }
         Ok(state.messages.get(peer).cloned().unwrap_or_default())
     }
 
+    /// 以磁盘真值判定（跨进程写入后内存视图会过期）；同时把归并后的磁盘视图刷回缓存。
     pub(crate) fn has_message(&self, peer: &str, id: &str) -> bool {
-        self.messages_for(peer)
-            .map(|msgs| msgs.iter().any(|m| m.id == id))
-            .unwrap_or(false)
+        let fresh = dedup_last_by_id(load_jsonl::<ChatEnvelope>(&self.messages_path(peer)));
+        let hit = fresh.iter().any(|m| m.id == id);
+        if let Ok(mut state) = self.state.lock() {
+            state.messages.insert(peer.to_string(), fresh);
+        }
+        hit
     }
 
     pub(crate) fn append_message(&self, env: &ChatEnvelope) -> Result<(), std::io::Error> {
@@ -209,12 +213,13 @@ impl Store {
         Ok(())
     }
 
+    /// 更新状态；返回磁盘是否有命中行（未命中=该消息不在本进程磁盘视图，由调用方决定追加）。
     pub(crate) fn update_message_status(
         &self,
         peer: &str,
         id: &str,
         status: ChatStatus,
-    ) -> Result<(), std::io::Error> {
+    ) -> Result<bool, std::io::Error> {
         {
             let mut state = self.state.lock().map_err(|_| poisoned())?;
             if let Some(msgs) = state.messages.get_mut(peer) {

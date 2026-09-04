@@ -6,6 +6,7 @@ import { MessageSquare, UserPlusIcon } from "lucide-react";
 import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { ChatFriendAddDialog } from "@/components/chat/chat-friend-add-dialog";
+import { ChatFriendMoveDialog } from "@/components/chat/chat-friend-move-dialog";
 import { ChatFriendRemoveDialog } from "@/components/chat/chat-friend-remove-dialog";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { PeerStatusDot } from "@/components/chat/peer-status";
@@ -38,6 +39,8 @@ export function ChatView() {
   const subscribeEvents = useChatStore((s) => s.subscribeEvents);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<ChatFriendJson | null>(null);
+  // 移动分组目标（IM-T43）：行内「移动到分组」入口，对话框承载输入与 IPC 调用
+  const [moveTarget, setMoveTarget] = useState<ChatFriendJson | null>(null);
   // 回复引用预览（IM-T46B）：页内状态即可（Composer/MessageList 同树）；
   // 清空走 onSelect 事件路径与发送成功回调，避免把 A 会话的引用带进 B 会话发送。
   const [replyTarget, setReplyTarget] = useState<ChatMessageJson | null>(null);
@@ -96,6 +99,9 @@ export function ChatView() {
                 void selectPeer(peerId);
               }}
               onAddFriend={() => setAddFriendOpen(true)}
+              onMoveFriend={(peerId) =>
+                setMoveTarget(friends.find((f) => f.peerId === peerId) ?? null)
+              }
               onRemoveFriend={(peerId) =>
                 setRemoveTarget(friends.find((f) => f.peerId === peerId) ?? null)
               }
@@ -159,6 +165,15 @@ export function ChatView() {
         </section>
       </div>
       <ChatFriendAddDialog open={addFriendOpen} onOpenChange={setAddFriendOpen} />
+      {moveTarget ? (
+        <ChatFriendMoveDialog
+          key={moveTarget.peerId}
+          friend={moveTarget}
+          onOpenChange={(open) => {
+            if (!open) setMoveTarget(null);
+          }}
+        />
+      ) : null}
       {removeTarget ? (
         <ChatFriendRemoveDialog
           key={removeTarget.peerId}

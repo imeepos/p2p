@@ -49,12 +49,15 @@ pub fn run() {
             update::update_open_release_page,
             chat::chat_friends_list,
             chat::chat_friend_add,
+            chat::chat_friend_update,
             chat::chat_friend_remove,
             chat::chat_history,
             chat::chat_send,
             chat::chat_media_file,
         ])
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let log_dir = app
                 .path()
