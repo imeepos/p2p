@@ -1,7 +1,13 @@
 import { create } from "zustand";
 
 import { ipc } from "@/lib/ipc";
-import { mergeMessages, placeholderMessage, removeLocal, replaceLocal } from "@/lib/chat-local";
+import {
+  mergeMessages,
+  placeholderMessage,
+  pushPending,
+  retractPending,
+  swapPending,
+} from "@/lib/chat-local";
 import type {
   ChatFriendJson,
   ChatKind,
@@ -46,6 +52,8 @@ export interface ChatStoreState {
   ) => Promise<ChatSendReport>;
   cancelPending: (peer: string, localMessageId: string) => void;
   forgetFriend: (peer: string) => void;
+  /** chatFriendUpdate 成功后的本地收尾（IM-T43）；IPC 调用在 ChatFriendMoveDialog（调用点守卫要求） */
+  updateFriendGroup: (peer: string, group: string | null) => void;
   subscribeEvents: () => Promise<void>;
 }
 
@@ -214,6 +222,13 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     }));
   },
 
+  // 移动/移出分组成功后的本地收尾：列表按新分组即时渲染（未分组存 null 不落空串）。
+  updateFriendGroup: (peer, group) => {
+    set((s) => ({
+      friends: s.friends.map((f) => (f.peerId === peer ? { ...f, group } : f)),
+    }));
+  },
+
   subscribeEvents: async () => {
     if (subscriptionStarted) return;
     subscriptionStarted = true;
@@ -250,51 +265,3 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     void unlisten;
   },
 }));
-
-function pushPending(
-  set: (fn: (s: ChatStoreState) => Partial<ChatStoreState>) => void,
-  peer: string,
-  placeholder: ChatMessageJson,
-): void {
-  set((s) => ({
-    messagesByPeer: {
-      ...s.messagesByPeer,
-      [peer]: mergeMessages(s.messagesByPeer[peer] ?? [], [placeholder]),
-    },
-    lastMessageByPeer: { ...s.lastMessageByPeer, [peer]: placeholder },
-  }));
-}
-
-function swapPending(
-  get: () => ChatStoreState,
-  set: (fn: (s: ChatStoreState) => Partial<ChatStoreState>) => void,
-  peer: string,
-  placeholderId: string,
-  real: ChatMessageJson,
-): void {
-  const next = replaceLocal(get().messagesByPeer[peer] ?? [], placeholderId, real);
-  set((s) => ({
-    messagesByPeer: { ...s.messagesByPeer, [peer]: next },
-    lastMessageByPeer: { ...s.lastMessageByPeer, [peer]: real },
-  }));
-}
-
-// 占位移除统一回滚（IM-T48 裁决项）：列表摘除占位；若摘要仍指向该占位
-// （期间无新事件写入）则回退为剩余最后一条，无剩余清空；期间新事件的
-// 摘要保持不动。媒体发送失败后列表不再残留占位文件名。
-function retractPending(
-  set: (fn: (s: ChatStoreState) => Partial<ChatStoreState>) => void,
-  peer: string,
-  placeholderId: string,
-): void {
-  set((s) => {
-    const next = removeLocal(s.messagesByPeer[peer] ?? [], placeholderId);
-    const last = s.lastMessageByPeer[peer];
-    const summary =
-      last && last.id === placeholderId ? (next[next.length - 1] ?? null) : last;
-    return {
-      messagesByPeer: { ...s.messagesByPeer, [peer]: next },
-      lastMessageByPeer: { ...s.lastMessageByPeer, [peer]: summary ?? null },
-    };
-  });
-}

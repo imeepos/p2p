@@ -95,5 +95,28 @@ if "$BIN" chat friends list --data-dir "$A_DIR" --json | grep -q "$B_PEER"; then
 fi
 "$BIN" chat friends remove --data-dir "$A_DIR" "$B_PEER" --json | grep -q '"removed":false'
 
+step "8b friend group roundtrip (IM-T43: --group / update / ungrouped)"
+"$BIN" chat friends add --data-dir "$A_DIR" "$B_PEER" --nickname B3 --group 同事 --json \
+  | grep -q '"group":"同事"'
+"$BIN" chat friends list --data-dir "$A_DIR" --group 同事 --json | grep -q "$B_PEER"
+if "$BIN" chat friends list --data-dir "$A_DIR" --group 家人 --json | grep -q "$B_PEER"; then
+  echo "group filter leaked across groups" >&2
+  exit 1
+fi
+"$BIN" chat friends update --data-dir "$A_DIR" "$B_PEER" --group "" --json | grep -q '"group":null'
+"$BIN" chat friends list --data-dir "$A_DIR" --group "" --json | grep -q "$B_PEER"
+if "$BIN" chat friends list --data-dir "$A_DIR" --group "" --json | grep -q '"group":"'; then
+  echo "ungrouped filter must not contain named-group rows" >&2
+  exit 1
+fi
+# 越界组名必须可读拒绝且不落盘
+if "$BIN" chat friends update --data-dir "$A_DIR" "$B_PEER" --group "$(printf '组%.0s' {1..33})" \
+    --json >"$TMP/badgrp.json" 2>&1; then
+  echo "oversized group name unexpectedly accepted" >&2
+  cat "$TMP/badgrp.json" >&2
+  exit 1
+fi
+grep -q "分组名超过" "$TMP/badgrp.json"
+
 for p in "${PIDS[@]}"; do kill "$p" 2>/dev/null || true; done
 echo "CL3-E2E-OK"

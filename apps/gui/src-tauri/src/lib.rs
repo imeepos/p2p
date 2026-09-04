@@ -49,6 +49,7 @@ pub fn run() {
             update::update_open_release_page,
             chat::chat_friends_list,
             chat::chat_friend_add,
+            chat::chat_friend_update,
             chat::chat_friend_remove,
             chat::chat_history,
             chat::chat_send,

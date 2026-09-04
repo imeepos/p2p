@@ -3,8 +3,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
-use p2p::{Node, NodeEvent, ProtocolId};
+use p2p::{Node, ProtocolId};
 use p2p_mux::BoxedStream;
 use p2p_protocol::read_frame;
 use tokio::fs;
@@ -18,6 +19,9 @@ use crate::store::Store;
 use crate::wire::{self, MediaBegin, MEDIA_BEGIN, MEDIA_CHUNK};
 use crate::CHAT_PROTOCOL;
 
+/// 单次投递内 ACK 等待上限：死连接上 read_ack 无界等待是演练 D1 卡死的直接面。
+const ACK_TIMEOUT: Duration = Duration::from_secs(10);
+
 pub(crate) struct ChatCore {
     pub(crate) node: Arc<Node>,
     pub(crate) store: Store,
@@ -25,6 +29,8 @@ pub(crate) struct ChatCore {
     /// 每 peer 投递串行锁：send 与 outbox flush 互斥，避免同连接并发开流
     /// （yamux 上游空闲连接二次 open_stream 唤醒丢失缺陷，facade.rs 注释登记）。
     pub(crate) send_locks: Mutex<HashMap<String, Arc<AsyncMutex<()>>>>,
+    /// 已给过重投机会的 failed 条目（peer,id）：每进程一次机会，二次即死信（outbox.rs）。
+    pub(crate) flush_tried: Mutex<HashMap<(String, String), ()>>,
 }
 
 impl ChatCore {
@@ -68,19 +74,48 @@ impl ChatCore {
     }
 
     /// 实时投递：连接（幂等）→ 开流写信封 → 附件分片 → 读 ACK。
+    /// 传输类失败（流 IO/ACK 超时/开流失败）强拆本进程到该 peer 的连接重拨再试一次：
+    /// 多进程共享身份时连接池可能复用正在死亡进程的连接（跨机演练 D1）。
+    /// 协议类失败（对端拒绝/ACK 不匹配）确定性复现，不重试。连接失败保持 pending 语义。
     pub(crate) async fn deliver(&self, env: &ChatEnvelope) -> Result<(), ChatError> {
-        let peer = parse_peer_id(&env.peer)?;
+        let pid = parse_peer_id(&env.peer)?;
+        match self.deliver_stream(pid, env).await {
+            Ok(()) => Ok(()),
+            Err(ChatError::ConnectFailed(e)) => Err(ChatError::ConnectFailed(e)),
+            Err(first @ ChatError::StreamFailed(_)) => {
+                tracing::warn!(
+                    peer = %env.peer,
+                    id = %env.id,
+                    error = %first,
+                    "投递传输失败，强拆重拨重试一次"
+                );
+                self.node.disconnect(&pid);
+                self.node.connect(pid).await.map_err(|e| {
+                    ChatError::ConnectFailed(format!("连接 {} 失败：{e}", env.peer))
+                })?;
+                self.deliver_stream(pid, env).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// 单次投递尝试（连接 → 开流 → 写 → 读 ACK）。
+    async fn deliver_stream(
+        &self,
+        pid: p2p_identity::PeerId,
+        env: &ChatEnvelope,
+    ) -> Result<(), ChatError> {
         self.node
-            .connect(peer)
+            .connect(pid)
             .await
-            .map_err(|e| ChatError::ConnectFailed(format!("连接 {peer} 失败：{e}")))?;
+            .map_err(|e| ChatError::ConnectFailed(format!("连接 {} 失败：{e}", env.peer)))?;
         let proto =
             ProtocolId::new(CHAT_PROTOCOL).map_err(|e| ChatError::Protocol(e.to_string()))?;
         let mut stream = self
             .node
-            .new_stream(peer, proto)
+            .new_stream(pid, proto)
             .await
-            .map_err(|e| ChatError::SendFailed(format!("开流失败：{e}")))?;
+            .map_err(|e| ChatError::StreamFailed(format!("开流失败：{e}")))?;
         let wire_env = wire::WireEnvelope::from_outbound(env, self.node.local_peer_id());
         let bytes = serde_json::to_vec(&wire_env).map_err(ChatError::Json)?;
         wire::write_typed(&mut stream, wire::ENVELOPE, &bytes)
@@ -112,7 +147,10 @@ impl ChatCore {
         }
         stream.flush().await.map_err(io_err_to_send)?;
         self.emit_status(&env.peer, &env.id, ChatStatus::Sent);
-        let ack = wire::read_ack(&mut stream).await.map_err(io_err_to_send)?;
+        let ack = match tokio::time::timeout(ACK_TIMEOUT, wire::read_ack(&mut stream)).await {
+            Ok(r) => r.map_err(io_err_to_send)?,
+            Err(_) => return Err(ChatError::StreamFailed("等待 ACK 超时".into())),
+        };
         if ack.id != env.id {
             return Err(ChatError::SendFailed(format!(
                 "ACK id 不匹配：{} ≠ {}",
@@ -131,10 +169,11 @@ impl ChatCore {
     /// ACK 后置 delivered：outbox 删条目，messages 更新状态。
     pub(crate) fn mark_delivered(&self, peer: &str, env: &ChatEnvelope) -> Result<(), ChatError> {
         self.store.remove_outbox(peer, &env.id)?;
-        if self.store.has_message(peer, &env.id) {
-            self.store
-                .update_message_status(peer, &env.id, ChatStatus::Delivered)?;
-        } else {
+        // 以磁盘 patch 命中与否判定，跨进程交错下不再凭内存视图重复追加（D2）。
+        let patched = self
+            .store
+            .update_message_status(peer, &env.id, ChatStatus::Delivered)?;
+        if !patched {
             let mut env = env.clone();
             env.status = ChatStatus::Delivered;
             self.store.append_message(&env)?;
@@ -164,23 +203,37 @@ impl ChatCore {
             .ok_or_else(|| ChatError::NotFound(format!("消息不存在：{id}")))
     }
 
-    /// 对端重连时重发该 peer 全部 outbox 条目；连接失败保持 pending，其余标记 failed。
-    /// 持有 peer 串行锁：与 send 并发时等待其完成，避免同连接并发开流（上游缺陷）。
-    pub(crate) async fn flush_peer(&self, peer: &str) -> Result<(), ChatError> {
-        let _guard = self.peer_guard(peer).await;
-        for env in self.store.outbox_for(peer) {
-            match self.deliver(&env).await {
-                Ok(()) => self.mark_delivered(peer, &env)?,
-                Err(ChatError::ConnectFailed(e)) => {
-                    tracing::warn!(peer = %peer, id = %env.id, error = %e, "flush 连接失败，保持 pending");
-                }
-                Err(e) => {
-                    tracing::warn!(peer = %peer, id = %env.id, error = %e, "flush 重发失败，保留条目");
-                    self.mark_failed(peer, &env)?;
-                }
+    /// failed 条目是否已在本进程内重投过：是则死信出队（消息记录保留 failed）并返回 true。
+    pub(crate) fn dead_letter_if_spent(&self, peer: &str, env: &ChatEnvelope) -> bool {
+        if env.status != ChatStatus::Failed {
+            return false;
+        }
+        let spent = self
+            .flush_tried
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains_key(&(peer.to_string(), env.id.clone()));
+        if !spent {
+            return false;
+        }
+        match self.store.remove_outbox(peer, &env.id) {
+            Ok(()) => {
+                tracing::warn!(peer = %peer, id = %env.id, "outbox 条目重投未愈，死信出队（记录保留 failed）");
+                true
+            }
+            Err(e) => {
+                tracing::warn!(peer = %peer, id = %env.id, error = %e, "死信出队失败，保留条目");
+                false
             }
         }
-        Ok(())
+    }
+
+    /// 记账：该 failed 条目本进程已重投过一次。
+    pub(crate) fn mark_attempted(&self, peer: &str, id: &str) {
+        self.flush_tried
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert((peer.to_string(), id.to_string()), ());
     }
 
     /// 入站收媒体：MEDIA_BEGIN 校验 → 逐 MEDIA_CHUNK 写入 tmp 文件 → rename 落盘。
@@ -239,26 +292,6 @@ impl ChatCore {
     }
 }
 
-/// 监听 PeerConnected：触发该 peer 的 outbox flush（离线投递语义 §6.2）。
-pub(crate) fn spawn_outbox_task(core: Arc<ChatCore>) {
-    tokio::spawn(async move {
-        let mut rx = core.node.events();
-        loop {
-            match rx.recv().await {
-                Ok(NodeEvent::PeerConnected { peer }) => {
-                    let peer_s = peer.to_string();
-                    if let Err(e) = core.flush_peer(&peer_s).await {
-                        tracing::warn!(%peer, error = %e, "outbox flush 失败");
-                    }
-                }
-                Ok(_) => {}
-                Err(broadcast::error::RecvError::Lagged(_)) => continue,
-                Err(broadcast::error::RecvError::Closed) => break,
-            }
-        }
-    });
-}
-
 fn io_err_to_send(e: std::io::Error) -> ChatError {
-    ChatError::SendFailed(format!("流 IO 失败：{e}"))
+    ChatError::StreamFailed(format!("流 IO 失败：{e}"))
 }

@@ -220,6 +220,14 @@ _none yet — be the first._
 - 2026-09-04 IM-T50：主树 make check 是并行轮的共享资源，load 40+ 下 vitest 超时与 cargo 子进程竞态都是环境病——先隔离定性再错峰重跑，别对着环境红改代码。
 - 2026-09-04 IM-T50：被协调者通牒/接管时，第一动作是只读核查自己工作区状态并秒回事实清单（已交付提交/未提交面/后台任务），迟到的沉默会被误读成无进展。
 - 2026-09-04 IM-T50：known-issues 登记过的坑（zustand 选择器 `?? []` 快照不稳）写测试时没回忆起来又踩——写涉及 store 的代码前先 grep 一遍 references 再动手。
+
+- 2026-09-05（ACP2 轮）：run_code 的 JS 里嵌大段 Rust/TS 源码用模板字面量会被内容打断——两个假错误（"Expected ',' got ')'"、数组里裸标识符 ReferenceError）排查各耗 20 分钟，与真实 bug 无关。稳法：content 用行数组 + join 换行构造，数组内禁止留占位裸标识符，写完立即 wc -l 核行数。
+- 2026-09-05（ACP2 轮）：并行会话共用 /tmp 撞日志文件名——/tmp/acp-check.log 被并行 ACP3 会话的 cargo 输出整份覆盖，一度误判成自己的构建在编别人的 crate。对策：临时日志一律带卡号/会话号前缀（如 acp2-a2-*.log）。
+- 2026-09-05（ACP2 轮）：DSH 会话重启会 TERM 整个后台任务树，nohup+disown 也逃不掉；长门禁（make check 全量 30 分钟+）对策=按 make 目标分片前台跑（每片 timeoutMs 10 分钟级），cargo/pnpm 增量缓存让被杀重跑只补剩余，各片 EXIT 落日志文件断点续跑。
+- 2026-09-05（ACP2 轮）：make check 十个门禁目标各自幂等可独立跑（gate-tests/version-check/fmt-check/line-limit/clippy/test/gui-check/panic-hygiene/cli-parity/ai-docs-sync），分片全绿等价整跑；重活 clippy/test 靠前次被杀留下的增量缓存，二跑 0.4s/3min 收官。
+- 2026-09-05（ACP2 轮）：git commit -m 的多行 message 经 JSON.stringify 进入 bash 双引号后 \n 是字面反斜杠 n，不换行；多行提交信息一律写临时文件用 -F 传。
+- 2026-09-05（ACP2 轮）：底座契约缺口——p2p ProtocolHandler::handle(stream) 不暴露远端 PeerId，需要 per-peer 鉴权的上层 app（acp-agent）只能订阅 Node 事件维护在线集：恰一 peer 在线才归属、多 peer 歧义 fail-closed 拒绝（session.rs+peers.rs 已实现并测试），待底座流分发层把 peer 传进 handler 后解除；做 ACP4/继续连时别在这个边界上再踩一遍。
+
 - 2026-09-04 IM-T49：rustup 升级（clippy 1.98）会让已合入 main 的存量代码突然门禁红（needless_borrow/suspicious_open_options 新 lint），与在途改动无关——验收红先看报错里的 lint 名与 clippy 版本再定性，零行为机械修复按 IM-T47 先例随当前分支独立 fix 提交并在报告披露。
 - 2026-09-04 IM-T49：残留 worktree 的增强测试拖 17 天不评估，API 已漂移四处（Chat::send 加参/WireEnvelope 加字段/命令加参/端口夹具），适配成本随时间只涨不跌——盘点类清理任务要早办，评估结论本身就是适配点的清单。
 - 2026-09-04 CLI 演练：共享主树多会话并行下，测试会话进行中 main 会漂移（本会话 004b441→ffc0f0d 且中途出了热fix），报告必须锚定「实际构建所用的 commit」并对期间合入的相关修复做同异性辨析，否则缺陷归因张冠李戴。
