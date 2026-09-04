@@ -171,18 +171,20 @@ pid=80955
 退出码：未运行时重复 stop 报"未运行"，仍退出 0。
 
 ### p2pctl chat friends list
-用途：列出全部好友。前置：无（空簿输出"好友簿为空"）。
+用途：列出全部好友（默认按分组展示，未分组置底）。前置：无（空簿输出"好友簿为空（或该分组无成员）"）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --json | flag | 否 | off |
+| --group | string | 否 | 无（只显示该分组；空串 = 未分组；省略 = 全部按分组展示） |
 | --data-dir | path | 否 | ./p2p-data |
 文本：
 ```
-好友簿为空
+共 1 位好友
+[测试组] - Bobby 11111111111111111111111111111111 addrs=[] note=hi group=测试组
 ```
 --json（单行紧凑）：
 ```
-[{"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","nickname":"Bob","addrs":[],"note":null}]
+[{"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","nickname":"Bob","addrs":[],"note":null,"group":"测试组"}]
 ```
 
 ### p2pctl chat friends add
@@ -193,6 +195,7 @@ pid=80955
 | --nickname | string | 否 | "" |
 | --addr | string（可重复） | 否 | 无 |
 | --note | string | 否 | 无 |
+| --group | string | 否 | 无（trim 后 ≤32 字符，空串 = 不分组） |
 | --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
 文本：
@@ -204,6 +207,26 @@ pid=80955
 {"created":true,"friend":{"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","nickname":"Bob","addrs":[],"note":null}}
 ```
 退出码：PEER_ID 非 32 字节 base58 → 1（PeerId 非法）；PEER_ID 为本机 chat 身份 → 1（不能与自己通信）。
+
+### p2pctl chat friends update
+用途：更新好友的分组/昵称/备注补丁（至少提供一项）；addrs 不可经此修改（走 add 的 addr 域）。前置：PEER_ID 在簿。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string | 是 | —— |
+| --group | string | 否 | 无（trim 后 ≤32 字符；空串 = 移出分组） |
+| --nickname | string | 否 | 无（trim 后 ≤64 字符；空串回退 PeerId 缩略） |
+| --note | string | 否 | 无（空串 = 清空） |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已更新好友 Bobby（11111111111111111111111111111111）group=测试组
+```
+--json：
+```
+{"peerId":"11111111111111111111111111111111","group":"测试组","nickname":"Bobby","note":"hi"}
+```
+退出码：至少提供一项补丁，全缺 → 1；PEER_ID 不在簿 → 1。
 
 ### p2pctl chat friends remove
 用途：移除好友，幂等。前置：无。
