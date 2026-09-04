@@ -31,5 +31,14 @@ export function describeNodeEvent(event: NodeEventJson): string {
       return "chat_message " + short(event.peer);
     case "chat_status":
       return "chat_status " + short(event.peer) + " " + event.status;
+    case "chat_group_message":
+      return "chat_group_message " + short(event.groupId) + " " + short(event.message.senderId);
+    case "chat_group_status":
+      return (
+        "chat_group_status " + short(event.groupId) + " " + event.status +
+        " acks=" + event.acks.length
+      );
+    case "chat_group_state":
+      return "chat_group_state " + short(event.group.groupId) + " rev=" + event.group.rev;
   }
 }

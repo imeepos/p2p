@@ -83,7 +83,12 @@ export type NodeEventJson =
   | { type: "node_error"; reason: string; tsMs?: number }
   // 契约 v7 §12.2 加法：入站新消息（已落盘）与本地发送状态推进。
   | { type: "chat_message"; peer: string; message: ChatMessageJson; tsMs?: number }
-  | { type: "chat_status"; peer: string; messageId: string; status: ChatMessageStatus; tsMs?: number };
+  | { type: "chat_status"; peer: string; messageId: string; status: ChatMessageStatus; tsMs?: number }
+  // IM 群聊加法（docs/design/im-group-design.md §7）：入站群消息 / 送达 acks 推进 /
+  // roster 变更回执（建群、邀请、移除、退群、解散、改名）。
+  | { type: "chat_group_message"; groupId: string; message: GroupMessageJson; tsMs?: number }
+  | { type: "chat_group_status"; groupId: string; messageId: string; acks: string[]; status: GroupDeliveryStatus; tsMs?: number }
+  | { type: "chat_group_state"; group: GroupJson; tsMs?: number };
 
 export type NodeEventType = NodeEventJson["type"];
 
@@ -183,6 +188,42 @@ export interface ChatMediaFile {
   name: string;
 }
 
+// IM 群聊（docs/design/im-group-design.md §7 逐字对齐，禁止改名）。
+export type GroupChatState = "active" | "left" | "kicked" | "disbanded";
+
+// chat_group_status.status：群消息状态机不含 sent（设计 §4：枚举保留不占用）。
+export type GroupDeliveryStatus = "pending" | "delivered" | "failed";
+
+export interface GroupJson {
+  groupId: string; // UUID（owner 生成）
+  name: string; // trim 后 1..=64 字符
+  owner: string; // PeerId；名单唯一权威
+  members: string[]; // PeerId[]，含 owner，≤32
+  rev: number; // roster 版本，仅 owner 单调递增
+  state: GroupChatState; // 退群/被踢/解散不删数据，仅置位
+  tsMs: number;
+}
+
+export interface GroupMessageJson {
+  id: string; // UUID（发端生成）
+  groupId: string;
+  senderId: string; // 作者 PeerId；本端消息判定 senderId === 本机 PeerId
+  kind: ChatKind;
+  tsMs: number;
+  text?: string | null;
+  media?: ChatMediaJson | null; // 复用 §12.3 ChatMediaJson
+  status: ChatMessageStatus; // sent 不出现（设计 §4 状态机）
+  acks: string[]; // 已确认成员 PeerId（仅本端发出的消息非空）
+  replyTo?: string | null; // 同 1:1 语义，不校验被引用消息存在性
+}
+
+export interface GroupSendReport {
+  message: GroupMessageJson;
+  acked: number; // 本轮已确认成员数
+  recipients: number; // 目标成员数（n-1）
+  delivered: boolean; // acked === recipients
+}
+
 export interface IpcBackend {
   nodeStart(cfg: GuiConfig): Promise<NodeStatus>;
   nodeStop(): Promise<NodeStatus>;
@@ -226,6 +267,26 @@ export interface IpcBackend {
     replyTo?: string | null,
   ): Promise<ChatSendReport>;
   chatMediaFile(peer: string, messageId: string): Promise<ChatMediaFile>;
+  // IM 群聊命令面（im-group-design §7；mock 与 tauri 同签名，可选参数统一传 null）。
+  groupCreate(name: string, memberIds: string[]): Promise<GroupJson>;
+  groupList(): Promise<GroupJson[]>;
+  groupInvite(groupId: string, memberIds: string[]): Promise<GroupJson>;
+  groupKick(groupId: string, memberId: string): Promise<GroupJson>;
+  groupLeave(groupId: string): Promise<GroupJson>;
+  groupRename(groupId: string, name: string): Promise<GroupJson>;
+  groupSend(
+    groupId: string,
+    kind: ChatKind,
+    text?: string,
+    media?: ChatMediaInput,
+    replyTo?: string | null,
+  ): Promise<GroupSendReport>;
+  groupHistory(
+    groupId: string,
+    beforeId?: string | null,
+    limit?: number,
+  ): Promise<GroupMessageJson[]>;
+  groupMediaFile(groupId: string, messageId: string): Promise<ChatMediaFile>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
 }
 

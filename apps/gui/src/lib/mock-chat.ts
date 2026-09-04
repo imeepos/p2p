@@ -54,6 +54,11 @@ interface MockChatState {
 
 const state: MockChatState = { friends: new Map(), history: new Map() };
 
+// 群成员资格的数据源：群聊后端经此判定成员是否在好友簿（im-group-design §1）。
+export function isMockFriend(peerId: string): boolean {
+  return state.friends.has(peerId);
+}
+
 // 场景注入运行时（IM-T50）：后端创建即登记，mock-chat-inject 经此驱动
 // 历史与事件通道；不改变 IpcBackend 契约面，不入 prod bundle。
 export interface MockChatRuntime {
@@ -77,7 +82,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function uuid(): string {
+export function uuid(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }

@@ -10,6 +10,9 @@ import type {
   ChatSendReport,
   DialReport,
   DiagBackend,
+  GroupJson,
+  GroupMessageJson,
+  GroupSendReport,
   GuiConfig,
   IpcBackend,
   MetricsJson,
@@ -80,6 +83,33 @@ const tauriBackend: IpcBackend = {
     }),
   chatMediaFile: (peer, messageId) =>
     invoke<ChatMediaFile>("chat_media_file", { peer, messageId }),
+  // IM 群聊命令面（im-group-design §7）；可选参数统一传 null（同 chat 段约定）。
+  groupCreate: (name, memberIds) =>
+    invoke<GroupJson>("group_create", { name, memberIds }),
+  groupList: () => invoke<GroupJson[]>("group_list"),
+  groupInvite: (groupId, memberIds) =>
+    invoke<GroupJson>("group_invite", { groupId, memberIds }),
+  groupKick: (groupId, memberId) =>
+    invoke<GroupJson>("group_kick", { groupId, memberId }),
+  groupLeave: (groupId) => invoke<GroupJson>("group_leave", { groupId }),
+  groupRename: (groupId, name) =>
+    invoke<GroupJson>("group_rename", { groupId, name }),
+  groupSend: (groupId, kind, text, media, replyTo) =>
+    invoke<GroupSendReport>("group_send", {
+      groupId,
+      kind,
+      text: text ?? null,
+      media: media ?? null,
+      replyTo: replyTo ?? null,
+    }),
+  groupHistory: (groupId, beforeId, limit) =>
+    invoke<GroupMessageJson[]>("group_history", {
+      groupId,
+      beforeId: beforeId ?? null,
+      limit: limit ?? null,
+    }),
+  groupMediaFile: (groupId, messageId) =>
+    invoke<ChatMediaFile>("group_media_file", { groupId, messageId }),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {

@@ -31,6 +31,9 @@ const BADGE_VARIANT: Record<NodeEventType, BadgeVariant> = {
   node_error: "destructive",
   chat_message: "default",
   chat_status: "secondary",
+  chat_group_message: "default",
+  chat_group_status: "secondary",
+  chat_group_state: "secondary",
 };
 
 export const ALL_EVENT_TYPES: readonly NodeEventType[] = Object.keys(
@@ -50,6 +53,9 @@ export const EVENT_TYPE_KEY: Record<NodeEventType, I18nKey> = {
   node_error: "events.types.node_error",
   chat_message: "events.types.chat_message",
   chat_status: "events.types.chat_status",
+  chat_group_message: "events.types.chat_group_message",
+  chat_group_status: "events.types.chat_group_status",
+  chat_group_state: "events.types.chat_group_state",
 };
 
 export function isNodeEventError(event: NodeEventJson): boolean {
@@ -137,5 +143,20 @@ export function eventSummary(
       return { key: "events.summary.chatMessage", values: { peer: short(event.peer) } };
     case "chat_status":
       return { key: "events.summary.chatStatus", values: { id: event.messageId.slice(0, 8), status: event.status } };
+    case "chat_group_message":
+      return {
+        key: "events.summary.chatGroupMessage",
+        values: { group: short(event.groupId), sender: short(event.message.senderId) },
+      };
+    case "chat_group_status":
+      return {
+        key: "events.summary.chatGroupStatus",
+        values: { group: short(event.groupId), acked: String(event.acks.length), status: event.status },
+      };
+    case "chat_group_state":
+      return {
+        key: "events.summary.chatGroupState",
+        values: { name: event.group.name },
+      };
   }
 }
