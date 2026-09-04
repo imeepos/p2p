@@ -54,6 +54,13 @@ const tauriBackend: IpcBackend = {
     invoke<ChatFriendJson>("chat_friend_add", { peerId, nickname, addrs }),
   chatFriendRemove: (peerId) =>
     invoke<boolean>("chat_friend_remove", { peerId }),
+  chatFriendUpdate: (peerId, patch) =>
+    invoke<ChatFriendJson>("chat_friend_update", {
+      peerId,
+      group: patch.group ?? null,
+      nickname: patch.nickname ?? null,
+      note: patch.note ?? null,
+    }),
   chatHistory: (peer, beforeId, limit) =>
     invoke<ChatMessageJson[]>("chat_history", {
       peer,
