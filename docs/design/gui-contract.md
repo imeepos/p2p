@@ -197,8 +197,9 @@ interface NodeProfile {
 ## 12. IM 聊天（v7 加法，2026-09-04，契约来源 docs/design/im-chat-design.md §3/§5）
 
 好友间 1:1 私聊：好友簿管理、文本/emoji、图片/音频/视频/文件附件、消息历史分页、
-发送状态可见、离线队列（outbox）。实时通话/群聊/已读回执不在本轮。底座只读，
-全部落 crates/p2p-chat + src-tauri 消费面。
+发送状态可见、离线队列（outbox）、回复引用（replyTo 可选字段，IM-T46A 契约加法：
+旧端忽略未知字段照常收信，不校验被引用消息存在性——离线引用允许）。
+实时通话/群聊/已读回执不在本轮。底座只读，全部落 crates/p2p-chat + src-tauri 消费面。
 
 ### 12.1 命令表（追加，全部 camelCase；参数无效一律 Err 可读中文）
 
