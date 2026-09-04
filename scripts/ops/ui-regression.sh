@@ -15,7 +15,7 @@ CTL="$ROOT/apps/cli/target/debug/p2pctl"
 GUI_DIR="$ROOT/apps/gui"
 GUI_BIN="$GUI_DIR/src-tauri/target/debug/p2p-console"
 EP_FILE="$HOME/Library/Application Support/com.p2p.console/control/endpoint.json"
-PNG_MAGIC="89504e47"
+PNG_MAGIC="89504e470d0a1a0a"
 PAGES_TOTAL=8
 # 合成 PeerId（合法 base58）仅占参数位；本脚本不加好友、不复位身份、不写配置。
 SYNTH_PEER="Cs8KY3PiWrCMAytMsBRQo8EdGbticVtdvufLnb2UhXh"
