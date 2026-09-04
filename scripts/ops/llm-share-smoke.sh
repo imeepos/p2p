@@ -54,7 +54,11 @@ LOCAL_PIDS=()
 
 log() { printf '%s\n' "$*"; }
 sc_pass() { PASS_LIST+=("$1"); log "${1} PASS ${2}"; }
-sc_fail() { log "${1} FAIL ${2}"; exit 1; }
+dump_diag() {
+    log "---- 诊断: 本地 bootstrap.log 尾部"
+    tail -12 "${WORK}/boot.log" 2>/dev/null || true
+}
+sc_fail() { dump_diag; log "${1} FAIL ${2}"; exit 1; }
 die() { log "llm-share-smoke: $*"; exit 2; }
 
 # 超时工具：本机用 gtimeout（brew coreutils）；远端 Debian 用同义 timeout。
