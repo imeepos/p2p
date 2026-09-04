@@ -247,6 +247,7 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 - 2026-09-04 检查轮 67（RS 协调 session-5e733ff8）：**T28 翻 done，RS P0b 代码段全链收官**（mergedMain=41b46e6=origin/main tip，终验 make check exit 0 于同一提交实证）。全程账本实绩：T20-T28 + 补充卡 T23b 共 10 单全 done，其中 7 单一次通过、2 单一次退回后达标、1 单（T23b）系任务表缺口补立；关键机制沉淀——隔离 worktree 验收免疫主树搅动、一致性测试防漂移、验收判据取终态行。遗留登记齐整：P1 项（fs_write+备份回滚、多 runner 路由、调度正式签发、托盘 UI、断线续投、审计滚动上限、严格白名单模式、fs_read 结构化二进制）见 remote-support-plan.md §6 与各单报告；真机 3 例人工里程碑按 T28 演练清单执行（docs/ops/repair-p0b-drill.md）。gate-verify 验证 worktree 已清。RS 轨待命：后续轮次（P1/真机校准）由用户指令开轮。
 - 2026-09-04 检查轮 68（RS 协调）：T23b 完工报告核出集成缺口——helper 装配两处 ShellWhitelist::empty()（main.rs:103/:173），T24 的 23 条白名单数据（builtin() 已公开导出）未接线，生产装配下 shell_exec 全拒；T27 E2E 未覆盖原因是其自建 Enforcement 绕过 main 装配。**立卡 T23b2 派回原会话**（898caa4e，分支 feat/rs-whitelist-wiring）：两处接线 builtin() + 装配级非空断言。复盘：T23b 报告曾如实自曝此遗留但被终验忽略「空闭集」三字的后果重量——验收除 exit code 外必须对单内自曝遗留逐条判定归属。
 - 2026-09-04 检查轮 69（RS 协调）：**T23b2 翻 done**（mergedMain=78e5c89，一次通过）——装配面两处 builtin() 接线 + assembly_whitelist_is_builtin_non_empty 防回归断言，全量门禁 exit 0（78e5c89 上实证）。**RS P0b 全任务闭合**：T20-T28 + T23b + T23b2 全 done，工单生命周期要素（票据/端点/工具面/执法/白名单/审计/E2E/文档）在装配面真实贯通。在途归零；真机 3 例人工里程碑按 drill 清单执行；P1 留白见 plan §6。
+- 2026-09-04 RS 边界测试轮（用户指令「补充单元测试 多考虑边界测试」）：RS 侧立四卡 T37（playbook，89f85ec3）/T38（bridge，c93d6dc1）/T39（helper，898caa4e）/T40（enforce，e3d2dfca），派回各 crate 归属会话，分支 test/rs-*-boundary；规则=只加测试不改行为、边界矩阵入任务书、暴露真实缺陷报协调裁决（≤10 行无歧义修复可同分支独立 fix 提交+消融证据）。编号备注：IM 轨同期立 T34-T36（p2p-chat/GUI/Tauri 边界，用户同指令双轨下达），RS 顺延 37-40，撞号以账本实况为准。
 
 
 
