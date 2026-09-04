@@ -140,11 +140,21 @@ build_if_missing() {
 }
 
 start_gui() {
+    # 健康外部实例直接复用：双实例并存会互写 endpoint（后初始化者胜），且外部
+    # 进程不是本脚本的 cleanup 对象——杀外部 GUI 是事故。
+    if [ -f "$EP_FILE" ]; then
+        EPID="$(grep -Eo '"pid": [0-9]+' "$EP_FILE" 2>/dev/null | grep -Eo '[0-9]+')"
+        if [ -n "$EPID" ] && ps -p "$EPID" >/dev/null 2>&1 \
+            && "$CTL" gui status --json >/dev/null 2>&1; then
+            echo "复用已运行 GUI 实例 pid=$EPID（外部进程不杀不复位）"
+            return 0
+        fi
+    fi
     [ -f "$EP_FILE" ] && EP_BACKUP="$(cat "$EP_FILE")" || true
     "$GUI_BIN" >>"$GUI_LOG" 2>&1 &
     CHILD=$!
     local i
-    for i in $(seq 1 90); do
+    for i in $(seq 1 240); do
         if [ -f "$EP_FILE" ] \
             && grep -Eq "\"pid\": $CHILD([^0-9]|$)" "$EP_FILE" \
             && "$CTL" gui status --json >/dev/null 2>&1; then
@@ -154,8 +164,9 @@ start_gui() {
         kill -0 "$CHILD" 2>/dev/null || break
         sleep 1
     done
+    ps -p "$CHILD" -o pid,stat,etime,comm 2>/dev/null >&2 || true
     tail -20 "$GUI_LOG" >&2 || true
-    fail "GUI_NOT_READY" "GUI 端点 90s 未就绪（pid=$CHILD），错误尾部见上方 gui.log"
+    fail "GUI_NOT_READY" "GUI 端点 240s 未就绪（pid=$CHILD），诊断见上方"
 }
 
 # descriptor 字段断言器：stdin=gui page --json 输出，逐字段独立计分。
