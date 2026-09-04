@@ -167,3 +167,11 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 共享账本未提交改动的归属判断：git diff 看 updatedAt 与 task 状态变化属于哪个会话的轮次（本轮 diff 是 CLI 协调的 CL3-done/CL4-doing，13:15 刚写）；归属他轮则整文件不碰、不卷进自己提交，自己的叙事缺口走 coordination.md 入册补齐，账本 note 折叠留给下一个写账本的人。
 - 契约加法落地后的文档对齐清单（四遍扫，防「字段登记了、描述面没跟」）：①契约文档引言的能力枚举 ②演练/操作清单的场景+标注+模板行 ③docs/README.md 索引 ④README 进度与 crate 地图。本轮 replyTo 前两项字段面已齐，但①②③④全漏。
 - markdown 手写表格里的路径占位符容易顺手写成 HTML 实体（&lt;peer&gt;）；提交前 git diff 扫一眼与全文风格对齐（本仓库用裸 <peer>）。
+
+## 2026-09-04 CL4·CLI 对等收官轮（bash 守卫 + rust 新命令域）
+- 用 run_code 写多行 bash/脚本文件时不要塞进 JS 模板字面量：`${...}`、`\\[` 一层层转义必错（本轮连错两次）。可靠做法：JS 字符串数组逐行 push、含 `$` 的行用拼接（'...'+ '$' + '{BASH_SOURCE[0]}'），或 bash heredoc 配 chr(92) 做替换。
+- bash 守卫解析 TSV 要用 `cut -f` 而不是 `IFS=$'\t' read`：read 把连续 TAB 折叠成一个分隔符，空字段（豁免行的 invocation 列）被吞、理由列整体错位——这种错不报错只给假结论，靠自测反夹具才暴露。
+- 给「固定追加 --help 的守卫」写 fake CLI 夹具时，case 匹配必须先剥掉 --help 再按路径分发（`$1` 是 --help 时顶层直接落进 `*)` 分支，命令面收集为空）。
+- 自写 printf 行生成 TSV 时单引号里 `\t` 不解释，要 `printf '%b\n'`；真实表格文件用写工具直写真 TAB。
+- run_code 的 tools.bash 换 workdir 前先确认目录已创建（worktree 未建好时 spawn bash 直接 ENOENT）；tools.edit 前必须用 tools.read 读过（bash cat/sed 看过不算数）。
+- 检查脚本里提取 `generate_handler![...]` 用 awk 区间 + `grep -oE '模块::名'` 取末段再滤掉 `generate_handler` 自身，比正则硬吃整块稳；正反夹具自测（tests/cli-parity.sh 挂 gate-tests）照 release-gates 先例，防门禁假绿。
