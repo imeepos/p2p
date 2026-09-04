@@ -472,7 +472,8 @@ async fn discover(node: &Node, lender: PeerId, wait_secs: u64) -> String {
             }
             _ => {
                 if tokio::time::Instant::now() >= deadline {
-                    fail_exit(2, "DISCOVER-FAIL: rendezvous 查号超时（对端未注册或已过期）");
+                    // 优雅退出：先 shutdown 让对端收到连接关闭，避免 liveness 探测打在死连接上
+                    return String::new();
                 }
                 tokio::time::sleep(Duration::from_millis(500)).await;
             }
@@ -506,10 +507,14 @@ async fn call(args: &Args) {
     let node = Arc::new(build_node(args, 0).await);
     let lender = parse_peer(args.get("lender"));
     let wait: u64 = args.get("discover-wait").parse().unwrap_or(10);
-    let addr = match args.get("lender-addr") {
+    let mut addr = match args.get("lender-addr") {
         "" => discover(node.as_ref(), lender, wait).await,
         direct => direct.to_owned(),
     };
+    if addr.is_empty() {
+        node.shutdown();
+        fail_exit(2, "DISCOVER-FAIL: rendezvous 查号超时（对端未注册或已过期）");
+    }
     node.add_peer_address(lender, &addr)
         .unwrap_or_else(|e| fail_exit(3, &format!("bad addr: {e}")));
     node.connect(lender)
