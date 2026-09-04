@@ -8,6 +8,7 @@
 pub mod chat;
 pub mod commands;
 pub mod config;
+pub mod control;
 pub mod events;
 pub mod frontend_log;
 pub mod history;
@@ -24,7 +25,7 @@ use crate::state::AppState;
 
 /// 桌面入口：初始化日志、装配状态与命令表。
 pub fn run() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             commands::node_start,
             commands::node_stop,
@@ -64,17 +65,35 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|e| format!("定位应用数据目录失败: {e}"))?;
-            app.manage(AppState::new(dir));
+            app.manage(AppState::new(dir.clone()));
             let frontend_log = frontend_log::FrontendLog::new(&log_dir)
                 .map_err(|e| format!("初始化前端日志失败: {e}"))?;
             app.manage(frontend_log);
             let checker = update::UpdateChecker::new()
                 .map_err(|e| format!("初始化更新检查器失败: {e}"))?;
             app.manage(checker);
+            // GC1 控制通道：启动失败仅显式告警，不阻塞 GUI 主功能（R3）；
+            // 句柄入 managed state，RunEvent::Exit 时收尾（停录屏/摘端点文件）。
+            match control::spawn(app.handle(), &dir) {
+                Ok(handle) => {
+                    app.manage(handle);
+                }
+                Err(e) => {
+                    tracing::error!("控制通道启动失败（GUI 继续运行，CLI 将无法连接）: {e}");
+                    eprintln!("p2p-console: 控制通道启动失败: {e}");
+                }
+            }
             Ok(())
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("p2p-console 启动失败");
+    app.run(|app, event| {
+        if let tauri::RunEvent::Exit = event {
+            if let Some(handle) = app.try_state::<control::ControlHandle<tauri::Wry>>() {
+                handle.shutdown();
+            }
+        }
+    });
 }
 
 /// p2p-log 统一设施接入（替换自带 tracing_subscriber 初始化）：
