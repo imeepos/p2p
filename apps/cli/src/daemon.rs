@@ -205,7 +205,7 @@ async fn dispatch(ctx: &Ctx, request: &Value) -> Value {
     }
 }
 
-fn str_arg<'a>(request: &'a Value, key: &str) -> String {
+fn str_arg(request: &Value, key: &str) -> String {
     request
         .get(key)
         .and_then(Value::as_str)

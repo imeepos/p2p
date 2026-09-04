@@ -186,7 +186,7 @@ mod tests {
         assert_eq!(cfg.quic_port, 3400);
         assert!(cfg.enable_mdns, "缺失字段补默认");
         assert_eq!(cfg.bootstrap, default_bootstrap());
-        let json = serde_json::to_value(&GuiConfig::default()).unwrap();
+        let json = serde_json::to_value(GuiConfig::default()).unwrap();
         assert!(json.get("quicPort").is_some());
         assert!(json.get("relayAddrs").is_some());
     }
