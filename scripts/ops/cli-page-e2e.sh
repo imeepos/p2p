@@ -9,6 +9,8 @@
 # 幂等：可重复执行；已有 GUI 实例运行时备份 endpoint.json、以 pid 匹配本实例、
 #   退出后还原；合成好友（全零 PeerId）收尾必删，异常路径 best-effort 补删。
 set -euo pipefail
+# cargo 不在默认 PATH（acceptance 链会导出；脚本自包含双保险）
+export PATH="$HOME/.cargo/bin:$PATH"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CTL="$ROOT/apps/cli/target/debug/p2pctl"
@@ -93,8 +95,10 @@ if [ ! -f "$GUI_DIR/dist/index.html" ]; then
     (cd "$GUI_DIR" && pnpm build) >&2
 fi
 if [ ! -x "$GUI_BIN" ]; then
-    echo "GUI 二进制缺失，cargo build src-tauri…" >&2
-    (cd "$GUI_DIR/src-tauri" && cargo build) >&2
+    # custom-protocol 必开：tauri v2 下 plain cargo build 是 dev 态二进制（加载 devUrl），
+    # 无 dev 服务器时 webview 空壳，页面桥不存在必 PAGE_TIMEOUT（预验证实测）。
+    echo "GUI 二进制缺失，cargo build src-tauri（custom-protocol）…" >&2
+    (cd "$GUI_DIR/src-tauri" && cargo build --features tauri/custom-protocol) >&2
 fi
 [ -x "$GUI_BIN" ] || fail "GUI 二进制未就绪: $GUI_BIN"
 
