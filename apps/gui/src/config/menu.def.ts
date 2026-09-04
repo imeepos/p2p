@@ -9,6 +9,7 @@ import {
   Radar,
   Settings,
   Stethoscope,
+  UsersRound,
   Waypoints,
   type LucideIcon,
 } from "lucide-react";
@@ -27,6 +28,7 @@ export const MENU_ENTRIES: readonly MenuEntry[] = [
   { path: "/discovery", titleKey: "discovery.title", icon: Radar },
   { path: "/relay", titleKey: "relay.title", icon: Waypoints },
   { path: "/chat", titleKey: "chat.title", icon: MessageCircle },
+  { path: "/group", titleKey: "group.title", icon: UsersRound },
   { path: "/acp", titleKey: "acp.title", icon: Bot },
   { path: "/events", titleKey: "events.title", icon: Activity },
   { path: "/settings", titleKey: "settings.title", icon: Settings },

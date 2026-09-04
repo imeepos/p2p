@@ -15,8 +15,10 @@ import { randomWalkHistory } from "./metrics-history";
 // dev 展示层与真实 app 同源：mock 默认配置镜像出厂端点（views/shared/factory-defaults）。
 import { FACTORY_LIST_DEFAULTS } from "@/views/shared/factory-defaults";
 import { mockUpdateCheck, mockUpdateOpenReleasePage } from "./mock-update";
-import { createMockChatBackend } from "./mock-chat";
+import { createMockChatBackend, isMockFriend } from "./mock-chat";
 import { forceMockMessageStatus, injectMockIncoming } from "./mock-chat-inject";
+import { createMockGroupChatBackend } from "./mock-group-chat";
+import { injectMockGroupIncoming, seedMockGroup } from "./mock-group-inject";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -204,6 +206,15 @@ const mockChat = createMockChatBackend({
   },
 });
 
+// IM 群聊命令面 mock（im-group-design §7）：复用同一节点态依赖；
+// 群成员资格经 isMockFriend 读 1:1 好友簿（成员必须是好友簿在册节点）。
+const mockGroup = createMockGroupChatBackend({
+  emit,
+  selfPeerId: () => state.peerId,
+  isConnected: (peer) => state.connectedPeers.has(peer),
+  isFriend: isMockFriend,
+});
+
 // IM-T50 dev 注入入口：mock 模式下控制台/演示脚本可经 window.__MOCK_CHAT__
 // 驱动 them 气泡注入与状态推进（全状态矩阵演示与集成测试共用一套接口）。
 (window as unknown as Record<string, unknown>).__MOCK_CHAT__ = {
@@ -211,8 +222,15 @@ const mockChat = createMockChatBackend({
   forceStatus: forceMockMessageStatus,
 };
 
+// 群聊 dev 注入入口：入站群消息与外部群播种（演示/测试共用）。
+(window as unknown as Record<string, unknown>).__MOCK_GROUP__ = {
+  inject: injectMockGroupIncoming,
+  seed: seedMockGroup,
+};
+
 export const mockBackend: IpcBackend = {
   ...mockChat,
+  ...mockGroup,
 
   async nodeStart(cfg) {
     if (state.running) throw new Error("节点已在运行");

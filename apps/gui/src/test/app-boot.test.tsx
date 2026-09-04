@@ -51,6 +51,7 @@ const routes: Array<[string, string | null]> = [
   ["#/discovery", null],
   ["#/relay", "中继地址配置"],
   ["#/chat", "暂无好友"],
+  ["#/group", "暂无群聊"],
   ["#/acp", "ACP 控制台"],
   ["#/events", null],
   ["#/settings", "局域网发现（mDNS）"],

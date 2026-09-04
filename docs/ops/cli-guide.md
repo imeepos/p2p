@@ -8,6 +8,7 @@ CLI**，由守卫 `scripts/check/cli-parity.sh` 在 `make check` 中机械化执
 仓库无预编译产物，从源码构建（产物在 `apps/cli/target/debug/p2pctl`）：
 
 ```bash
+export PATH=$HOME/.cargo/bin:$PATH   # macOS 默认 cargo 不在 PATH，缺了报 command not found
 cargo build --manifest-path apps/cli/Cargo.toml
 ```
 
@@ -67,6 +68,11 @@ p2pctl chat send --peer <PEER> --file <PATH>              # 附件消息
 p2pctl chat media file --message-id <ID> [--data-dir DIR] # 查附件落盘绝对路径
 p2pctl chat serve [--data-dir DIR]                        # 常驻聊天节点（E2E/守护支撑）
 ```
+
+注意：聊天收发用 `chat serve` 输出的 **chat 身份** peerId（与 `node start` 守护
+peerId 不同根）；同数据目录 `chat serve` 与 `chat send` 经 `identity.lock` 互斥
+不可并存。两节点最小拓扑配方与 send 失败形态（status=Failed/Pending）见
+`docs/ops/p2pctl-ai-guide.md` 附录A。
 
 ### config / profile —— 配置与资料域
 
@@ -164,7 +170,8 @@ p2pctl gui action <页面> <动作> [K=V...] [--navigate] [--gui-data-dir DIR] [
   时服务端以 `ACTION_CONFIRM_REQUIRED` 拒绝，CLI 透传错误码可读呈现；回包为
   `{requestId,result}`，文本渲染 result，`--json` 全量。
 - screenshot/record 依赖 macOS 屏幕录制权限：权限缺失时 GUI 返回
-  `CAPTURE_PERMISSION_DENIED`，CLI 原样透出（不静默、不重试）。
+  `CAPTURE_PERMISSION_DENIED`，CLI 原样透出（不静默、不重试）；GUI 重编译后 TCC
+  授权记录可能失效，需在 系统设置 > 隐私与安全性 > 屏幕录制 重新授权后重试。
 - 该域为 CLI 单侧能力（GUI 命令面未新增 Tauri 命令），不进 §6 映射表。
 
 ## 6. GUI 命令映射表
