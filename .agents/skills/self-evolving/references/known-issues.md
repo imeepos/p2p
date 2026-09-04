@@ -324,6 +324,16 @@ failed: early eof（客户端侧超时中止）。
 - 修法：trap 引用的变量在脚本顶层声明为全局（如 SMOKE_TMP=""），函数内只赋值；或设置 trap 时用双引号内插固化字面值 `trap "rm -rf '$tmp'" EXIT`。教训：带 marker 输出的脚本，验收必须看退出码而非 grep marker；自测时末尾追加 `echo EXIT=$?` 一次就抓到。
 
 
+## 2026-09-04 IM-T48 CDP evalJs 解包错层静默 undefined
+- 症状：CDP 驱动脚本"跑通"、截图正常产出，但所有 evaluate 返回 undefined，notes 全是 undefined，依赖返回值的分支判断全部失效；早期连报错都没有，走查空转三轮约 40 分钟。
+- 原因：Runtime.evaluate 响应双层嵌套 {id, result:{result:{...}}}，send 解包了 m.result 而 evalJs 按 m 的形状取 r.result.result?.value，可选链把错误吞成 undefined。
+- 修法：探针先行——脚本第一步 evaluate 'alive' 打印原始响应 JSON 核对层级，再定取值路径；业务断言对 undefined 立即 fail 而非继续。
+
+## 2026-09-04 IM-T48 vitest 绿但 tsc build 红（noUnusedLocals）
+- 症状：验收链在 pnpm build 断（TS6133 'get' is declared but its value is never read），vitest 全程绿。
+- 原因：vitest 不做类型检查；重构后函数签名留下的未用参数只有 tsc 抓。
+- 修法：每个 fix 提交前至少跑一次 pnpm build；未用参数直接从签名删除并同步全部调用点。
+
 - vi.hoisted 里 vi.fn 泛型签名必须与 mockImplementation 实参一致：声明为零参（() => Promise<T[]>）后传带参实现（(peer: string) => ...）会在 tsc -b 阶段 TS2345（Target signature provides too few arguments），测试期绿、构建期红——mock 类型照抄真实方法签名（peer, beforeId?, limit?）。
 
 ## 2026-09-03 CL2 轮：cargo test 不更新 target/debug 二进制

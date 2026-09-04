@@ -221,3 +221,15 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-04 N1：无网络对端时的命令面实测技巧：chat serve --json 现场生成合法
   peer id；friends add 用第二个 --data-dir 避开"不能与自己通信"；gui navigate 打
   当前所在路由即零打扰实测；log tail/clear 用 --log-dir 指向临时目录不碰真实日志。
+- 2026-09-04 IM-T48：CDP Runtime.evaluate 响应是双层嵌套 {id, result:{result:{type,value}}}——
+  send 解包层级与 evalJs 取值层级必须配对（res(m)+r.result.value 或 res(m.result)+r.result.value），
+  错配静默返回 undefined 不报错，脚本照常跑完但断言全失真。写驱动脚本先跑探针（evaluate 'alive'
+  校验取值层级）再上全量矩阵。
+- 2026-09-04 IM-T48：WCAG 对比度离线计算——oklch→linear sRGB 的输出已是线性值，luminance 直接加权；
+  再套一次 sRGB gamma decode 是双重解码，误差可达 2 倍（#767676/白 4.54 被算成 14.00）。透明色
+  合成须在 gamma sRGB 空间做再 decode 回线性。写完先用 白/黑=21.0、#767676/白=4.54 两个锚点自校验。
+- 2026-09-04 IM-T48：给脚本文件打多行补丁，锚文本凭记忆拼写必失配（含 \n 与引号转义的 eval 字符串
+  尤甚）——用 edit 工具 + 刚 read 过的 verbatim 文本；每批补丁后 grep -c 验证落盘，且 grep 的标记词
+  必须是补丁里真实写入的串（另造验证词会假绿）。
+- 2026-09-04 IM-T48：验收链尾接 "; echo EXIT=$?" 会让 job 退出码恒 0——分阶段 echo
+  （TEST_EXIT/BUILD_EXIT/MAKECHECK_EXIT 各自收码）+ job_output 读实值判定，链式 && 一处断全线静默停。
