@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T20:47:22.899Z",
+  "updatedAt": "2026-09-04T20:50:31.489Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -263,11 +263,12 @@
       "goal": "门禁脚本环境加固（E10 复盘缺陷#1，三次踩坑教训）：scripts/check/cli-parity.sh 与 scripts/check/ai-docs-sync.sh 两处——(a) 陈旧产物防御：门禁执行前比对 apps/cli/target/debug/p2pctl 的 mtime 与 apps/cli/src + crates/p2p-cli/src 最新源码 mtime，陈旧即自动重建（重建动作留一行可观测日志），杜绝陈旧二进制假红/假绿；(b) CARGO_TARGET_DIR 隔离：脚本内部构建显式 unset/覆盖 CARGO_TARGET_DIR 使产物路径与 CTL 判定一致，外部注入的共享 target 不再劫持；(c) 两脚本行为对其他调用方零破坏（原无 CARGO_TARGET_DIR 时输出与现状一致）。实践依据：生态通行做法为门禁自建产物或校验新鲜度，绝不裸信预构建二进制",
       "title": "门禁加固：cli-parity/ai-docs-sync 陈旧产物防御与 target 隔离",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "fix/gate-script-env-hardening",
       "ownerSession": "session-8630c20f-a9f4-4dc7-a2b7-60009f698f6f",
       "scope": "仅 scripts/check/cli-parity.sh、scripts/check/ai-docs-sync.sh（如需共享逻辑放 scripts/check/lib-*.sh 新文件）；不碰 scripts/ops、crates/**、apps/**",
-      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\"; cd /Users/imeepos/ext512/p2p && git merge --ff-only fix/gate-script-env-hardening 2>/dev/null; S1=$(find apps/cli/src crates/p2p-cli/src -name \"*.rs\" -newer apps/cli/target/debug/p2pctl 2>/dev/null | head -1); if [ -n \"$S1\" ]; then echo STALE-NOT-SELF-HEALED; exit 1; fi; CARGO_TARGET_DIR=/tmp/t22-isolation-target bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK || { echo ISOLATION-PARITY-FAIL; exit 1; }; CARGO_TARGET_DIR=/tmp/t22-isolation-target bash scripts/check/ai-docs-sync.sh | grep -q AI-DOCS-OK || { echo ISOLATION-DOCS-FAIL; exit 1; }; make check >/dev/null 2>&1 && echo T22-ACC-GREEN'"
+      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\"; cd /Users/imeepos/ext512/p2p && git merge --ff-only fix/gate-script-env-hardening 2>/dev/null; S1=$(find apps/cli/src crates/p2p-cli/src -name \"*.rs\" -newer apps/cli/target/debug/p2pctl 2>/dev/null | head -1); if [ -n \"$S1\" ]; then echo STALE-NOT-SELF-HEALED; exit 1; fi; CARGO_TARGET_DIR=/tmp/t22-isolation-target bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK || { echo ISOLATION-PARITY-FAIL; exit 1; }; CARGO_TARGET_DIR=/tmp/t22-isolation-target bash scripts/check/ai-docs-sync.sh | grep -q AI-DOCS-OK || { echo ISOLATION-DOCS-FAIL; exit 1; }; make check >/dev/null 2>&1 && echo T22-ACC-GREEN'",
+      "note": " [2026-09-05 协调复核 session-e9722e1a] 执行会话自主收官（667938d，反向同步 2837a85 后 ff 进 main，worktree/分支已清）。协调主树权威复核绿：新鲜判定通过、CARGO_TARGET_DIR 注入下 cli-parity CLI-PARITY-OK 与 ai-docs-sync AI-DOCS-OK 双绿（隔离 target 未被创建）、make check 全绿——四段场景全过，门禁假红/假绿缺陷修复确认。"
     },
     {
       "id": "T23",
