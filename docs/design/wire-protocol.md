@@ -245,6 +245,47 @@ Reject(7)/KeepAlive(8)/KeepAliveAck(9)。
   video/mp4|webm|mov|quicktime；其余归 file），不匹配即 Err/断流，不猜测不降级。
 - 幂等：收端按消息 id 去重，重复投递仅回 ACK 不重复落盘（重发安全）。
 
+### 8.2 业务协议登记：/im/group/1（IM 群聊）
+
+出处 crates/p2p-chat/src/group_wire.rs（实现与登记同提交）。好友群聊协议（design
+im-group-design.md §3），与冻结的 /im/chat/1 并存路由。一流一事务，帧封装复用 §2
+（varint 长度前缀 + payload，≤1 MiB/帧），payload 首字节为类型头。首帧类型决定事务：
+
+| 类型头 | 值 | 载荷 | 事务 |
+|---|---|---|---|
+| G_ENVELOPE | 0x01 | 群消息信封 JSON（单帧） | 消息 |
+| MEDIA_BEGIN | 0x02 | 媒体头 JSON：{len, name, mime, kind}（单帧） | 消息（可选） |
+| MEDIA_CHUNK | 0x03 | 原始附件分片（每帧 ≤ 1 MiB - 1 字节） | 消息（可选×n） |
+| ACK | 0x04 | JSON：{id, ok, reason?} | 消息回执 |
+| G_STATE | 0x11 | roster JSON（单帧） | roster |
+| G_STATE_ACK | 0x12 | JSON：{groupId, rev, ok, reason?} | roster 回执 |
+| G_KICK | 0x13 | JSON：{groupId, rev, reason: "kicked"\|"disbanded"} | 单向通知 |
+| G_LEAVE | 0x14 | JSON：{groupId, sender} | 单向通知 |
+
+- 时序：消息事务 G_ENVELOPE →（可选 MEDIA_BEGIN → MEDIA_CHUNK×n）→ ACK，与
+  /im/chat/1 同构；roster 事务 G_STATE → G_STATE_ACK；G_KICK/G_LEAVE 无回执
+  （best-effort，离线经发端 goutbox 补投，roster 为权威收敛机制）。
+- 信封 JSON 字段：id（UUID，发端生成）、groupId（UUID，owner 建群时生成）、
+  sender（作者 PeerId，base58；底座 handler 拿不到流对端 PeerId，载荷声明发端，
+  收端校验 sender ∈ 本地 roster.members，缺失即断流告警）、kind
+  （text/image/audio/video/file）、tsMs（发端本地毫秒时间戳）、text?（kind=text
+  时，trim 后 1..=2000 字符）、media?（{name, mime, size}）、replyTo?（可选，
+  被引消息 id，不校验存在性）；status/path/acks 为本地字段不跨网。
+- roster JSON 字段：groupId、name（trim 后 1..=64 字符）、owner（PeerId）、
+  members（全量名单，含 owner，去重，≤32，且必须含收端本机）、rev（从 0 单调
+  递增，仅 owner 递增）、tsMs。收端规则：首见 roster 落定 owner 并建群（state=
+  active）；已有群时 roster.owner ≠ 本地 owner → 拒收告警（owner 绑定，防换主
+  伪装）；rev ≤ 本地 rev → 幂等丢弃（ok=true）；高 rev 胜（state 回 active，
+  支持重邀回归）。owner 本机管理的群拒收外来 roster/G_KICK。
+- 幂等与未知群：消息按 (groupId, id) 去重，重复投递仅回 ACK 不重复落盘；
+  groupId 不在收端 groups.json → 回 ACK ok=false reason=unknown_group 后正常
+  关流（发端条目保持 pending 等 roster 补投），零落盘。
+- 上限：单条消息（含附件原始字节）≤ 64 MiB（对齐 MAX_MESSAGE_SIZE）；roster
+  members ≤ 32；群名 trim 后 1..=64 字符。任意帧校验失败（帧超限/类型序非法/
+  字段校验不过/媒体长度不一致）→ 断流并留告警日志。
+- 向后兼容：G_LEAVE 的 sender 为加法字段（§8.1 同源身份缺口：载荷声明发端，
+  底座为 handler 注入流对端 PeerId 后收紧，见 im-group-design.md §9）。
+
 ## 9. 常量速查表
 
 | 常量 | 值 | 出处 |
