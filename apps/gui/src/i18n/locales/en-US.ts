@@ -320,6 +320,8 @@ const enUS: typeof zhCN = {
     textTooLong: "Message cannot exceed 2000 characters",
     noFriends: "No friends yet",
     noFriendsHint: "Add a friend to start chatting",
+    peerOnline: "Online",
+    peerOffline: "Offline",
     noMessages: "No messages yet",
     loadingHistory: "Loading earlier messages…",
     emoji: "Emoji",

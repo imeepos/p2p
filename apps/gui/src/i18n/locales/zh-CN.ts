@@ -311,6 +311,8 @@ const zhCN = {
     textTooLong: "消息不能超过 2000 字符",
     noFriends: "暂无好友",
     noFriendsHint: "添加好友后即可开始私聊",
+    peerOnline: "在线",
+    peerOffline: "离线",
     noMessages: "暂无消息",
     loadingHistory: "正在加载更早消息…",
     emoji: "表情",
