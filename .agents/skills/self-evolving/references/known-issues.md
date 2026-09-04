@@ -2,6 +2,16 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-04 Tauri debug 二进制加载 devUrl，外部 vite dev server 占 5173 致 E2E 假红
+症状：E2E 隔离 HOME 起真实 GUI，控制通道/页面协议全活，但前端新代码的日志文件永远不出现（W1 感知断言三连红，GUI 日志却显示后端事件已发）。
+原因：debug 构建无 custom-protocol 特性时 Tauri 加载 build.devUrl(localhost:5173) 而非内嵌 frontendDist；机器上有常驻 vite dev server（旧代码），GUI 装上的是旧 dev bundle，行为完全正常但不含新功能。压缩内嵌产物 grep 不到明文字符串，无法用二进制 grep 判陈旧。
+修法：app 级 `custom-protocol = ["tauri/custom-protocol"]` 特性 + E2E 构建命令显式带上（强制内嵌 frontendDist，增量幂等）；判产物陈旧改用可 grep 的 dist JS 明文。日常 tauri dev 不带该特性行为不变。
+
+## 2026-09-04 notify 直连依赖与 notify-debouncer re-export 版本漂移致 Watcher trait 不匹配
+症状：src-tauri 加 `notify = "8"` + `notify-debouncer-mini = "0.5"` 后满屏 `FsEventWatcher: notify_debouncer_mini::notify::Watcher is not satisfied`。
+原因：debouncer-mini 0.5 依赖 notify 7，直连 notify 8 → 依赖图双版本，Watcher trait 来自两个不同 crate。
+修法：notify 一律经 `notify_debouncer_mini::notify::…` re-export 使用，Cargo.toml 禁止再直连 notify；加依赖后先看 Cargo.lock 是否出现同 crate 双版本。
+
 ## 2026-09-04 tokio::select! 相对 sleep 被更快 interval tick 永久饿死
 症状：rendezvous 客户端在死连接上以固定 20s 周期空转报错（write half closed）达数十分钟，永不重连；查询分支再也没执行过。
 原因：connect_and_loop 的 select! 每轮循环重建相对 sleep（30s 查询档），20s 注册 tick 先到期就把 sleep 丢掉重建——查询分支的 30s 永远到不了期，错误永不传播。
