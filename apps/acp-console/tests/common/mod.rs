@@ -1,6 +1,9 @@
 //! 回环夹具：agent 模拟节点（acp-common 握手应答 + echo 泵，可配拒绝/握手后即断）
 //! 与 console 侧组件栈（真实双 Node loopback + WS 服务，端口 0）。
 //! 只放装置与有界等待；断言留在各测试。
+//!
+//! 共享夹具按目标独立编译：单测试目标用不到的装置在此统一豁免 dead_code。
+#![allow(dead_code)]
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -23,10 +26,11 @@ pub const STEP: Duration = Duration::from_secs(10);
 /// 测试用续连窗口：短窗让 offline 迁移在测试内可见。
 pub const TEST_WINDOW: Duration = Duration::from_millis(400);
 
-/// agent 模拟端点：握手应答 + 字节 echo；可配置拒绝码与握手后即断。
+/// agent 模拟端点：握手应答 + 字节 echo；可配置拒绝码与握手后半关闭探针。
 pub struct AgentMock {
     deny: Option<String>,
     drop_after_ready: bool,
+    half_close_after_ready: bool,
     received: Mutex<Option<ClientHello>>,
 }
 
@@ -35,6 +39,7 @@ impl AgentMock {
         Self {
             deny: None,
             drop_after_ready: false,
+            half_close_after_ready: false,
             received: Mutex::new(None),
         }
     }
@@ -43,6 +48,17 @@ impl AgentMock {
         Self {
             deny: Some(code.to_string()),
             drop_after_ready: false,
+            half_close_after_ready: false,
+            received: Mutex::new(None),
+        }
+    }
+
+    /// 握手后就地流级 shutdown（探针：锁定底座半关闭 FIN→EOF 语义）。
+    pub fn half_closing() -> Self {
+        Self {
+            deny: None,
+            drop_after_ready: false,
+            half_close_after_ready: true,
             received: Mutex::new(None),
         }
     }
@@ -78,9 +94,15 @@ impl ProtocolHandler for AgentMock {
         out.push('\n');
         reader.get_mut().write_all(out.as_bytes()).await?;
         reader.get_mut().flush().await?;
+        if self.half_close_after_ready {
+            // 探针模式：就地流级 shutdown，验证 FIN→EOF 对端可见（见
+            // transport_semantics.rs 与治理文档）。
+            reader.get_mut().shutdown().await?;
+            return Ok(());
+        }
         if self.drop_after_ready {
-            // 注意：本底座经 Compat 的流级 shutdown 为 no-op（futures 默认实现），
-            // 半关闭无原语；断流场景在测试中以 agent 节点连接级 shutdown 模拟。
+            // 静默返回（流 drop 不发 FIN 也不 reset）：真实断流场景用连接级
+            // shutdown 模拟（见 transport_semantics 探针与 E-4）。
             return Ok(());
         }
         echo_loop(reader.into_inner()).await
