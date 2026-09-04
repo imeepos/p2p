@@ -285,3 +285,6 @@ _none yet — be the first._
 - 2026-09-05：vitest 的 vi.fn<T>() 泛型参数个数必须与 mockImplementation 实参个数一致（tsc TS2345）；带参 mock 声明写成 vi.fn<(groupId: string, memberId: string) => Promise<R>>()。
 - 2026-09-05：断言用 getAllByTestId(/^prefix-.+$/) 正则会把容器 testid（group-member-panel/group-member-list）一并匹配导致假红；正则按值域字符集收窄（base58 无 l/i 恰好排除 panel/list）或行级 testid 用独立前缀。
 - 2026-09-05：GUI 单群操作无契约命令时（v1 无 group_disband），用已有 owner-only 原语组合出操作面（逐个 groupKick 全员=解散入口）并在确认文案明示语义降级，交接报告单列遗留——比留死按钮更利于后续契约加法时切换。
+- 2026-09-04 G1：pub(crate) 类型不能 pub use 出 crate（E0365）——契约模型要跨 crate 消费就直接声明 pub，别先 pub(crate) 再 re-export。
+- 2026-09-04 G1：300 行红线 + rustfmt max_width=100 下，链式调用/多参签名按 fmt 后行数计预算（fmt 展开动辄 +30%）；跨模块 `impl 同crate类型` 是合规分文件手段，文件头注明"行数红线再平衡"。
+- 2026-09-04 G1：并行会话高频合入 main 时 ff-only 失败是常态——rebase → 重跑 clippy+line-limit+定向测试 → 立即重试，整套动作一分钟内连惯做完，拖久了又漂。
