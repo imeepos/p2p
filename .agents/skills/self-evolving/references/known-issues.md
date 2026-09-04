@@ -500,3 +500,24 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 症状：脚本带 --keep 自测全绿，验收（无参形态）第一行就报 $1 unbound variable 直接退出。
 - 原因：set -u 对未传位置参数取值即崩；自测形态与验收形态不一致（自测永远带参）。
 - 修法：位置参数一律空值兜底（美元花括号冒号连字符写法）后再用；脚本自测必须覆盖「无参」这个验收真实形态，参数解析分支用桩二进制定向测试（伪 CTL/GUI_BIN/dist 令构建全跳过，无 GUI 也能验证解析与结构化报错路径）。
+
+## 2026-09-05 cargo test 把 GUI 二进制重建成 dev 态，ui-regression 构建门只查存在性放行空壳（GC3c 实录）
+- 症状：先跑 cargo test 再跑 ui-regression.sh，全部构建"成功"、GUI 就绪门通过，但 8 页 page 协议调用全数 PAGE_TIMEOUT、截图同为 19.8KB 空白图。
+- 原因：cargo test 无特性构建把 target/debug/p2p-console 重写成 dev 态二进制（webview 加载 devUrl:5173，无 dev 服务器即空壳）；build_if_missing 只查二进制存在性，跳过了必需的 custom-protocol 构建。
+- 修法：marker 文件（.custom-protocol-built）比对二进制 mtime，二进制比上次 custom-protocol 构建新即强制重建（scripts/ops/ui-regression.sh 1336096）。凡"同一产物路径被多种 feature 组合轮番构建"的场景都要防这种新但错模式的 staleness。
+- 顺带：页面协议探针在空壳 webview 下"必挂"的假设不可靠，就绪门可能被非 PAGE_TIMEOUT 形态的错误提前放行；协议级验证要以第一条真实 round-trip 为准。
+
+## 2026-09-05 vitest mock zustand store 只给 getState：传递闭包图的模块加载期副作用文件级炸（GC3c 实录）
+- 症状：新增 5 页 descriptor 测试中 3 个文件报 "useNodeStore.subscribe is not a function"，且没跑任何用例（collection 阶段死）。
+- 原因：events-page → events-export → event-clock 在模块顶层 arm() 调 useNodeStore.subscribe()；测试只 mock 了 { getState }。import page-registry 会拉全部 8 页的传递闭包，漏谁谁炸。
+- 修法：mock 共享 store 前先追被测模块的完整 import 闭包图，凡模块加载期触达的 store API（subscribe 等）都要补进 mock；或按需 vi.mock 中间模块（events-export）斩断链路。
+
+## 2026-09-05 run_code 内嵌 shell 片段的美元花括号变量被 JS 模板串插值（GC3c 实录）
+- 症状：edit 的 old_string/new_string 用 JS 模板串携带 shell 代码（含 GAP_PAGES 的美元花括号引用），报 ReferenceError: GAP_PAGES is not defined，edit 压根没执行。
+- 原因：JS 模板串把 shell 变量语法当插值求值。
+- 修法：嵌 shell 片段用普通字符串拼接或先落临时文件再 cat 合并；报 ReferenceError 时先确认是"没跑"而不是"跑了失败"。
+
+## 2026-09-05 并行会话两度推进 main：收尾前必须再反向同步一轮（GC3c 实录）
+- 症状：开工时 merge 过 origin/main，收尾 ff-only 前发现 main 又从 fb0aee2 走到 2f4ae13（flake 加固合入，动了 gui 测试）。
+- 修法：push 分支后、ff-only 前固定再 fetch+merge main+重跑门禁一轮；"今天上午同步过"不算数。
+- 连带教训：接单第一步就在基线跑一遍机械验收命令——本单 main 上 cargo test 本就编译红（IM-T43 给 ChatFriend 加 group 字段没同步 tests/chat_contract.rs、chat_boundaries.rs 三处字面量），不改任何 Rust 也得先修它才能交 GC3C-OK；归属判明后在 feature 分支独立 fix 提交（对齐契约 12.3 的 "group": null 断言）。
