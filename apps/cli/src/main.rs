@@ -6,6 +6,7 @@ mod config;
 mod control;
 mod daemon;
 mod error;
+mod gui;
 mod identity;
 mod lifecycle;
 mod log;
@@ -42,6 +43,7 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Config { command } => config::run(command).await,
         cli::Command::Profile { command } => profile::run(command).await,
         cli::Command::Peer { command } => peer::run(command).await,
+        cli::Command::Gui { command } => gui::run(command).await,
         cli::Command::Identity { command } => identity::run(command).await,
         cli::Command::Log { command } => log::run(command).await,
         cli::Command::Metrics { command } => metrics::run(command).await,

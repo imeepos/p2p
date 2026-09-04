@@ -4,6 +4,7 @@ use clap::Parser;
 
 use crate::chat;
 use crate::config;
+use crate::gui;
 use crate::identity;
 use crate::log;
 use crate::metrics;
@@ -50,6 +51,11 @@ pub enum Command {
     Peer {
         #[command(subcommand)]
         command: peer::PeerCommand,
+    },
+    /// GUI 域：控制通道原语 status/screenshot/record/navigate/invoke（GC2）
+    Gui {
+        #[command(subcommand)]
+        command: gui::GuiCommand,
     },
     /// 身份域：重置
     Identity {
