@@ -280,7 +280,7 @@ mod tests {
         assert_eq!(names, vec![Some("同事"), Some("家人"), None], "未分组置底");
         assert_eq!(sections[0].1.len(), 2, "组内保序聚合");
         // 空串组名视同未分组
-        let blank = vec![fixture("x", Some(""))];
+        let blank = [fixture("x", Some(""))];
         assert_eq!(friend_group(&blank[0]), None);
     }
 }
