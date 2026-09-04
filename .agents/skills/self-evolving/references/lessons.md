@@ -245,3 +245,10 @@ _none yet — be the first._
 
 - 2026-09-04 U2（gui-updater 轮）：60s 超时连环杀进程的根因是 ext512 外置卷小文件 I/O 病态慢——clone 30MB 仓库 8m48s、push 本地 1m25s、rm -rf 带 node_modules 的目录必然超时；已知条目只记了「被杀」现象，本轮补根因与对策：重活全部显式 timeoutMs（10 分钟级）或丢 background，主战场搬到内置卷（/tmp）clone。
 - 2026-09-04 U2（gui-updater 轮）：本日两次 worktree add 成功 checkout 后 `.git/worktrees/<name>` 元数据消失（git worktree list 不显示、worktree 内 git 命令报 not a git repository），一次还伴随 checkout 缺整个 crates/ 目录；同仓库其他会话的老 worktree 完好，疑与并行会话 git 操作/外置卷异常叠加有关。对策：worktree 创建后立即 `git worktree list` 验证；元数据消失时只清目录+prune，绝不在残骸上继续干活。
+- 2026-09-04 U3（gate-braces 轮）：分析时刚写出「模板串里 ${ 会插值」的警告，下一步自己仍用模板字面量嵌修复脚本，当场 ReferenceError——识别出转义风险的那一刻就切换写法（行数组/write 工具），不要让惯用模板串活到下一行代码；另：grep 命中按行报告，一行多处 `$var` 会漏数（本次 15 行实为 16 处），替换后必须用同一正则复查清零兜底。
+
+- 2026-09-04 U1：端点就绪 ≠ webview 桥就绪——tauri 控制端点先写、React 桥后安装，重载下差几十秒；就绪探针语义必须是「桥有应答」而非「命令退出 0」：初始路由 dashboard 未注册属合法应答（exit 1 + PAGE_NOT_REGISTERED），只有 PAGE_TIMEOUT 才是桥没起来。判「命令成功」会让就绪环永不满足。
+- 2026-09-04 U1：脚本里 kill 后台子进程后，其信号终止状态可经异步 reap 泄进脚本退出码（绿灯运行被调用方 && 链误断）——disown + cleanup 内显式 wait 归零 + 成功路径显式 exit 0，三板斧跨 bash 版本确定。
+- 2026-09-04 U1：并行会话会扫提交主树未跟踪文件——主树里的 scratch 测试副本（ui-regression-scratch.sh）被顺手指令提交入库（c92d983）；测试副本要么放 /tmp 要么用完立刻删，主树留过夜就会被别人"帮忙"入库。
+- 2026-09-04 U1：tauri custom-protocol 构建把前端 dist 嵌进二进制——pnpm build（先清空 dist）与 cargo build 并发时，嵌进去的可能是空/半成品 dist，症状=webview 加载空页、页面桥永不安装且无任何报错；修法=重跑 cargo build --features custom-protocol 重嵌。诊断入口：~/Library/Logs/com.p2p.console/{p2p-console,frontend}.log（应用日志不走 stdout，脚本里 tail gui.log 常为空）。
+- 2026-09-04 U1：回归脚本的就绪/探针类修复要与并行会话的同类分支对齐格式（同文本改动 git 自动合流）——动手前先 grep 别人未合并分支对同一文件的改动。
