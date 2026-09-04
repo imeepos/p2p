@@ -92,6 +92,7 @@ mod tests {
             kind: None,
             mime: None,
             name: None,
+            reply_to: None,
             timeout_secs: 30,
             json: false,
             data_dir: "./p2p-data".into(),

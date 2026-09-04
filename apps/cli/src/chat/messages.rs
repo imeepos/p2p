@@ -54,6 +54,9 @@ pub struct SendArgs {
     /// 附件显示名（默认取文件名）
     #[arg(long)]
     pub(crate) name: Option<String>,
+    /// 回复引用的消息 id（可选，对齐 GUI chat_send 的 replyTo）
+    #[arg(long)]
+    pub(crate) reply_to: Option<String>,
     /// 发送整体超时秒数（超时按未送达失败）
     #[arg(long, default_value_t = 30)]
     pub(crate) timeout_secs: u64,
@@ -126,7 +129,7 @@ pub async fn send(args: SendArgs) -> CliResult<()> {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(args.timeout_secs);
     let mut report = ctx
         .chat
-        .send(&args.peer, kind, text, media)
+        .send(&args.peer, kind, text, media, args.reply_to.clone())
         .await
         .map_err(runtime_err)?;
     if !report.delivered {
@@ -270,6 +273,7 @@ mod tests {
             text: Some("hi".into()),
             media: None,
             status: p2p_chat::ChatStatus::Delivered,
+            reply_to: None,
         };
         let line = fmt_envelope(&env);
         assert!(line.contains("对方"));
