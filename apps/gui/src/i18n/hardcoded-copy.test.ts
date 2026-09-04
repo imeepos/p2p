@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 // 范围：components/views/routes/hooks/config/theme（契约层 lib 与
 // locale 资源本身除外）；console 日志是可观测信号而非 UI 文案，豁免。
 const SRC_ROOT = join(process.cwd(), "src");
-const SCOPE_DIRS = ["components", "views", "routes", "hooks", "config", "theme"];
+const SCOPE_DIRS = ["components", "views", "routes", "hooks", "config", "theme", "acp"];
 const CJK = /[一-龥]/;
 
 function walk(dir: string): string[] {

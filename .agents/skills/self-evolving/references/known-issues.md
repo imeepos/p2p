@@ -319,6 +319,16 @@ failed: early eof（客户端侧超时中止）。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
 
+## 2026-09-05 tauri 无密码 minisign 私钥必须显式置空 TAURI_SIGNING_PRIVATE_KEY_PASSWORD（W2 实证，浪费一轮构建）
+- 症状：tauri build 签名步报 "failed to decode secret key: incorrect updater private key password: Device not configured (os error 6)"，.env 注释明明写着无密码。
+- 原因：TAURI_SIGNING_PRIVATE_KEY_PASSWORD 完全不设时，tauri 视为"交互式询问密码"，无 TTY 即 os error 6；"无密码"与"不设密码变量"是两回事。
+- 修法：装载私钥后一律 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}"（空串=显式声明无密码）。
+
+## 2026-09-05 tauri v2 本地构建不生成 latest.json（W2 实证）
+- 症状：createUpdaterArtifacts=true + 签名成功，bundle 里只有 .app.tar.gz 和 .app.tar.gz.sig，找不到 latest.json，按"signed 必有 manifest"断言会误杀。
+- 原因：tauri v2 bundler 只产签名产物，latest.json（version/pub_date/platforms/signature）是发布方（tauri-action/CI）职责，本地默认不出。
+- 修法：本地流水线要 manifest 就自己组装——jq -n --arg 拼 JSON，signature 字段直接复用 .sig 文件内容；unsigned 路径显式标注 SKIP 不算失败。
+
 ## 2026-09-05 run_code 程序体两类 JS 语法坑（T21 实证，各浪费一轮）
 - 症状 A：Expected ',', got ')'——tools.write({ file_path, content: 模板串 }) 模板串闭合后漏了对象字面量的右花括号直接以右括号收尾；症状 B：Expected ';','}' or <eof> / Expected ',', got 'ident'——把多行 bash 命令塞进单引号 JS 字符串（单引号串不能跨行）。
 - 修法：大内容一律模板串且写完立刻核对调用尾部是否有右花括号；多行命令用模板串而非单引号串；内容含插值序列或反引号时改走 write 工具直传 JSON 参数（不经 JS 解析）或 python3 落盘。另：read 读回 join 写回会丢文件尾换行，rustfmt --check 会红，追加换行即愈。
