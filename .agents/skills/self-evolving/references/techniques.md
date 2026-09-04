@@ -259,3 +259,4 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - bash 工具 PATH 固定不含 /opt/homebrew/bin——'brew list' 判存会误报 command not found 导致「已装判成未装」（当日 coreutils 实际已装仍触发重复安装）；调 homebrew 工具（gtimeout/graphviz）一律全路径或先补 PATH。
 - 高负载机器上 run_code 组合调用频繁 30s 超时且无部分输出——拆最小单工具步骤逐个跑；长安装类命令一律 run_in_background 靠完成通知收割，不信前台超时前的残局。
 - 仓库 .gitignore 忽略 .vscode——编辑器级配置走用户级 settings.json（~/Library/Application Support/Code/User/settings.json），不入库不进 worktree 流程。
+- 2026-09-04 跨机 CLI 聊天演练配方：chat serve 的 listen_addrs 报 127.0.0.1 但实绑 0.0.0.0（swarm/mod.rs:139 bind、swarm/config.rs to_transport 仅展示替换）→ 双端各用固定 --quic-port + 隔离 --data-dir，好友 --addr 填「对端 LAN IP + 报告端口」即直连，无需 mDNS/rendezvous。102 端 rsync Cargo.toml+Cargo.lock+crates+apps/cli 后 cargo build 干净全量 2m09s（12 核 debug）；注意别把本机 target/ 一起 rsync（Mach-O 到 Linux 报 Exec format error）。

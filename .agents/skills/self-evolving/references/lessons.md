@@ -222,3 +222,6 @@ _none yet — be the first._
 - 2026-09-04 IM-T50：known-issues 登记过的坑（zustand 选择器 `?? []` 快照不稳）写测试时没回忆起来又踩——写涉及 store 的代码前先 grep 一遍 references 再动手。
 - 2026-09-04 IM-T49：rustup 升级（clippy 1.98）会让已合入 main 的存量代码突然门禁红（needless_borrow/suspicious_open_options 新 lint），与在途改动无关——验收红先看报错里的 lint 名与 clippy 版本再定性，零行为机械修复按 IM-T47 先例随当前分支独立 fix 提交并在报告披露。
 - 2026-09-04 IM-T49：残留 worktree 的增强测试拖 17 天不评估，API 已漂移四处（Chat::send 加参/WireEnvelope 加字段/命令加参/端口夹具），适配成本随时间只涨不跌——盘点类清理任务要早办，评估结论本身就是适配点的清单。
+- 2026-09-04 CLI 演练：共享主树多会话并行下，测试会话进行中 main 会漂移（本会话 004b441→ffc0f0d 且中途出了热fix），报告必须锚定「实际构建所用的 commit」并对期间合入的相关修复做同异性辨析，否则缺陷归因张冠李戴。
+- 2026-09-04 CLI 演练：ssh 远端嵌 python 单行做 JSON 解析，双层引号每嵌一层丢一档转义（\"message\" 到远端成 [message]）——远程侧解析用 tail/grep 最简形态，或把解析脚本放本地管道远端只出原始行。
+- 2026-09-04 CLI 演练：IM-T49 已登记的「| tail 吞退出码」在 bash 侧再踩（cargo build | tail 后 $? 取到 tail 的 0 假绿）——构建/发布类命令后判产物存在性与 file 格式才是权威验收。
