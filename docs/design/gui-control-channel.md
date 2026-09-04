@@ -72,7 +72,7 @@ macOS 数据目录：~/Library/Application Support/com.p2p.console/control/。
 | macOS 屏幕录制权限缺失 | CGPreflightScreenCaptureAccess 预检，返回 CAPTURE_PERMISSION_DENIED + 授权路径人话提示；不截图不落盘，杜绝黑图 |
 | 通道端口被占用 | 默认端口 warn 后回退临时端口；显式指定端口则报错；GUI 主功能不受影响（启动失败仅 error 日志 + stderr 告警） |
 | 输出目录不可写 / 空字节 | SAVE_FAILED / RECORD_EMPTY，临时文件清理，不产出空文件 |
-| 快照回调超时 | 5s（采样回调 4s）超时放弃，CAPTURE_FAILED |
+| 快照回调超时 | 闭包仅发起快照不等待；服务线程 5s 外层超时放弃（回调未达同径），CAPTURE_FAILED |
 | token 文件损坏 | warn 后重新生成 |
 | GUI 退出时录屏未停 | RunEvent::Exit 收尾停录屏；未产出文件留 error 日志 |
 

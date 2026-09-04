@@ -125,13 +125,15 @@ impl<R: Runtime> FrameSource for RealFrameSource<R> {
         let (tx, rx) = std::sync::mpsc::channel();
         window
             .with_webview(move |platform| {
-                let _ = tx.send(unsafe { snapshot_png(&platform) });
+                // 闭包内只发起快照立即返回：完成回调（主队列）把结果送回 channel，
+                // 等待只发生在服务线程的外层 recv，主线程不被内层阻塞饿死回调。
+                unsafe { macos::request_snapshot(&platform, tx) };
             })
             .map_err(|e| CaptureError::new("CAPTURE_UNAVAILABLE", format!("webview 句柄派发失败: {e}")))?;
         match rx.recv_timeout(Duration::from_secs(5)) {
             Ok(Ok(png)) => decode_png(&png),
             Ok(Err(e)) => Err(e),
-            Err(_) => Err(CaptureError::new("CAPTURE_FAILED", "快照 5s 内未完成，放弃本次截图")),
+            Err(_) => Err(CaptureError::new("CAPTURE_FAILED", "快照 5s 内未完成（回调未达），放弃本次截图")),
         }
     }
 
@@ -185,7 +187,6 @@ impl FrameSource for SyntheticFrameSource {
 #[cfg(target_os = "macos")]
 mod macos {
     use std::sync::mpsc::Sender;
-    use std::time::Duration;
 
     use block2::RcBlock;
     use objc2::{runtime::AnyObject, AnyThread};
@@ -213,18 +214,17 @@ mod macos {
         Ok(())
     }
 
-    /// 主线程执行 takeSnapshot，完成后经 channel 送回 PNG 字节。
-    pub unsafe fn snapshot_png(platform: &PlatformWebview) -> Result<Vec<u8>, CaptureError> {
+    /// 发起 takeSnapshot：完成回调（WebKit 会 copy，主队列异步执行）持有 channel
+    /// 发送端回传结果；闭包与调用线程都不等待，等待统一在服务线程外层 5s。
+    pub unsafe fn request_snapshot(
+        platform: &PlatformWebview,
+        tx: Sender<Result<Vec<u8>, CaptureError>>,
+    ) {
         let webview: &WKWebView = &*platform.inner().cast();
-        let (tx, rx) = std::sync::mpsc::channel::<Result<Vec<u8>, CaptureError>>();
         let block = RcBlock::new(move |image: *mut NSImage, error: *mut NSError| {
             send_snapshot(&tx, image, error);
         });
-        webview.takeSnapshotWithConfiguration_completionHandler(None, &*block);
-        match rx.recv_timeout(Duration::from_secs(4)) {
-            Ok(result) => result,
-            Err(_) => Err(CaptureError::new("CAPTURE_FAILED", "快照完成回调 4s 未到")),
-        }
+        webview.takeSnapshotWithConfiguration_completionHandler(None, &block);
     }
 
     fn send_snapshot(
@@ -260,4 +260,4 @@ mod macos {
 }
 
 #[cfg(target_os = "macos")]
-use macos::{preflight_screen_permission, snapshot_png};
+use macos::preflight_screen_permission;
