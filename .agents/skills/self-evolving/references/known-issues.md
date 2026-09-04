@@ -2,6 +2,11 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-04 AGENTS.md 收尾四步写死 git push gitea，本仓库远端实际只有 origin
+症状：按 AGENTS.md「远端名是 gitea 不是 origin」执行收尾第①步，`git push gitea` 报 'gitea' does not appear to be a git repository。
+原因：规则文本来自其他仓库配置或历史，与本仓（ext512/p2p，`git remote -v` 只有 origin=github.com:imeepos/p2p）不符；任务书写「远端 origin」反而与实际一致。
+修法：收尾前先 `git remote -v` 实证远端名、`git rev-parse main origin/main` 核对基线，实证结果优先于记忆中的规则文本；AGENTS.md 的 gitea 名在别的仓可能对，别跨仓照抄。
+
 ## 2026-09-04 Tauri debug 二进制加载 devUrl，外部 vite dev server 占 5173 致 E2E 假红
 症状：E2E 隔离 HOME 起真实 GUI，控制通道/页面协议全活，但前端新代码的日志文件永远不出现（W1 感知断言三连红，GUI 日志却显示后端事件已发）。
 原因：debug 构建无 custom-protocol 特性时 Tauri 加载 build.devUrl(localhost:5173) 而非内嵌 frontendDist；机器上有常驻 vite dev server（旧代码），GUI 装上的是旧 dev bundle，行为完全正常但不含新功能。压缩内嵌产物 grep 不到明文字符串，无法用二进制 grep 判陈旧。

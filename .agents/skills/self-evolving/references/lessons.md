@@ -3,6 +3,7 @@
 <!-- 一条经验一行。格式：当 X 发生时，修复是 Y。skill 没提前警告我。 -->
 
 _none yet — be the first._
+- 2026-09-04：当要在带机械校验区间的文档（如 p2pctl-ai-guide 的 AI-DOCS-SYNC 区间）回填内容时，修复是区间内只加纯文字、新章节放区间标记外——区间正则把散文里的 `--词`/`<大写>`/`[大写]`（连 `[CAPTURE_PERMISSION_DENIED]` 这种错误码）都抽成参数与 `--help` 双向比对，多一个 token 整个门禁红。
 - 2026-09-05：Tauri app.emit 在前端 listen 装好之前发出即永久丢失（事件不缓存），E2E 断言"前端已感知"前必须先等就绪门（监听装好后向前端日志写标记行，脚本轮询到标记再开写）。
 - 2026-09-05：集成不熟的依赖库先 cargo fetch + grep registry 源码确认真实签名再写码，别凭文档记忆写完再修（notify-debouncer-mini 0.5 三个假设全错：new_debouncer 只有 2 参、DebouncedEvent.path 是单数、Debouncer<T> 泛型是 Watcher 不是 handler）。
 - 2026-09-05：任务卡的"触及路径白名单"要与需求联动自查后再动手：给中央注册表加条目必然改它的守卫测试（page-registry.test.ts 路由数清单 8→9），白名单漏列守卫测试时唯一解是「最小修改 + 回报显式标记例外」，硬守白名单只会让门禁假红、A1 必挂。
