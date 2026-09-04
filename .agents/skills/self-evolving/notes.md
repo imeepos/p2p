@@ -1,5 +1,14 @@
 # Self-Evolving Notes
 
+## 2026-09-04 RS 排障轮：session_report 缺注册 + rendezvous 掐线/客户端卡死
+
+- 哪个坑浪费了最多时间？
+  两个：① harness bash workdir 参数失效，测试跑在主树得出「102 passed 全绿」假象，直到 clippy 输出出现主树路径才警觉，重跑才见真测试；② 跨进程 rendezvous 排障在黑盒里绕了很久（bootstrap/loopback/LAN IP 换了三轮），后来才意识到该一步到位写跨节点 itest 拿确定性复现——双侧日志时间线（probe missed 3 次后 closing → link ended）其实早给出方向。
+- skill 有没有提前警告我？
+  部分：lessons 里已有「陈旧二进制假绿」「run_code 字符串转义」同类目，但没覆盖 workdir 失效与 heredoc 美元花括号插值两个新变体（本轮已喂回 known-issues/techniques）；「先写复现测试再修」是本仓既有纪律，照做后一次定位成功。
+- 重来一次会怎么做？
+  跨进程类缺陷直接按「双侧 debug 日志 + 最小复现 itest」开局，不做三轮环境变量实验；每个测试结论落地前先核对 pwd 与分支归属；多进程 lab 的冒烟脚本首轮就控制 EOF 时序（pump 排空即退是设计行为）。
+
 ## 2026-09-03 发布门禁事故复盘（feat/release-gates）
 
 - 哪个坑浪费了最多时间？
