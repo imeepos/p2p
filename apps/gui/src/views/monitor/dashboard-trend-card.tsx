@@ -35,9 +35,14 @@ interface DashboardTrendCardProps {
   running: boolean;
 }
 
-// 10 分钟趋势卡：活跃连接 / 中继会话双 sparkline；未运行显示引导空态。
+// 10 分钟趋势卡：活跃连接 / 中继会话双 sparkline；无采样信号（空历史或
+// 全零，IM-V2 R3 D3：mock 停止态会持续喂零值点，纯空判断永远走不到空态）
+// 一律显示紧凑占位，消除零平线空图误导。
 export function DashboardTrendCard({ history, running }: DashboardTrendCardProps) {
   const { t } = useTranslation();
+  const hasSignal = history.some(
+    (point) => point.activeConnections !== 0 || point.relaySessionsActive !== 0,
+  );
 
   return (
     <div className="col-span-12">
@@ -49,7 +54,7 @@ export function DashboardTrendCard({ history, running }: DashboardTrendCardProps
           </p>
         </CardHeader>
         <CardContent className="px-4">
-          {history.length === 0 ? (
+          {!hasSignal ? (
             <div
               className="text-muted-foreground flex flex-col items-center gap-1 rounded-md border border-dashed py-5"
               role="status"
