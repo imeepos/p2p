@@ -63,8 +63,9 @@ beforeEach(() => {
 });
 
 describe("PAGE_REGISTRY 注册表校验", () => {
-  it("登记全部 8 个路由页面", () => {
+  it("登记全部 9 个路由页面", () => {
     expect(Object.keys(PAGE_REGISTRY).sort()).toEqual([
+      "acp",
       "chat",
       "dashboard",
       "diagnostics",

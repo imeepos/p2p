@@ -1,0 +1,54 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`acp 页 descriptor > descriptor 快照与动作清单（R2 全量，无 confirm 危险标记） 1`] = `
+{
+  "actions": [
+    {
+      "args": [],
+      "description": "按当前草稿端点连接 acp-console WS（与连接按钮同源）",
+      "name": "connect",
+    },
+    {
+      "args": [],
+      "description": "断开当前连接并回到 idle",
+      "name": "disconnect",
+    },
+    {
+      "args": [],
+      "description": "创建新会话并置为活跃",
+      "name": "newSession",
+    },
+    {
+      "args": [],
+      "description": "刷新会话清单（只读，不产生新会话）",
+      "name": "refreshSessions",
+    },
+    {
+      "args": [
+        {
+          "description": "提示词文本",
+          "name": "text",
+          "required": true,
+          "type": "string",
+        },
+      ],
+      "description": "向活跃会话发送提示词并等待回合同步",
+      "name": "sendPrompt",
+    },
+    {
+      "args": [
+        {
+          "description": "目标会话 id",
+          "name": "sessionId",
+          "required": true,
+          "type": "string",
+        },
+      ],
+      "description": "关闭指定会话并清理其 transcript",
+      "name": "closeSession",
+    },
+  ],
+  "description": "ACP 控制台页：agent 连接生命周期与会话驱动",
+  "name": "acp",
+}
+`;
