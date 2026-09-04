@@ -339,3 +339,12 @@ failed: early eof（客户端侧超时中止）。
 - 症状：bash 里 git worktree add ../p2p-xxx 成功（git worktree list 可见），但 read/glob/grep/write/edit 全部 not found；同窗口 bash 还间歇性 spawn ENOENT。
 - 原因：DSH 文件工具视图以会话工作区根（仓库目录）为挂载边界，根外的同级目录不在视图内；bash 走独立通道与文件工具不同视图，且偶发 worker 故障。
 - 修法：worktree 一律建进仓库内 .worktrees/（.gitignore 已收录、仓库有先例），bash 与文件工具即可同视图操作；已建在外的用 git worktree move 挪进来。bash ENOENT 是瞬时的，整程序级重试即可恢复。
+
+## 2026-09-04 GC1 轮：管道后的 exit code 是 tail 的——构建假绿
+- 症状：`cargo build 2>&1 | tail -40` 后台任务报 exit 0 且仅 13 秒「完成」，实为依赖 feature 解析失败（退出码是 tail 的，真错只在输出里）。
+- 修法：判结果的命令统一 `set -o pipefail`，并在输出末尾落 `echo BUILD_EXIT=$?` 再判；验证「真编译过」看 Finished 行而非退出码。
+
+## 2026-09-04 GC1 轮：objc2 生态 0.3.x 的 feature 与签名靠记忆猜→连环编译红
+- 症状：objc2-app-kit/web-kit feature 名按旧印象写（NSBitmapImageFileType、WKWebView_takeSnapshotWithConfiguration_completionHandler）→ cargo resolve 阶段就拒；换类粒度 feature 后又炸 alloc 不可见、block 参数类型不匹配。
+- 原因：0.3.x generated crates 的 [features] 是类粒度（NSImage/NSBitmapImageRep/WKSnapshotConfiguration…），方法级门控由类 feature 组合依赖 feature（如 takeSnapshot 是 all(WKSnapshotConfiguration, block2)）；completion handler 用裸指针 `*mut NSImage`（不是 NonNull），`alloc()` 需 `use objc2::AnyThread`，handler 参数是 `&DynBlock` 非 Option。
+- 修法：写码前先读本机 `~/.cargo/registry/src/<registry>/objc2-*-0.3.2/` 的 Cargo.toml [features] 与 generated/<Class>.rs 真实签名，一次写对。

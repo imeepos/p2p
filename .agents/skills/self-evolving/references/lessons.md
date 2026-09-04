@@ -173,3 +173,6 @@ _none yet — be the first._
 - 2026-09-04 IM-V1 轮：并行会话高峰期主树 make check 会瞬态红（target 目录锁/缓存竞争，本轮首次 exit 2 零源码错误）——主树验收失败先原样重跑一次再定性，增量编译自愈即假红；连续两红才立案。
 - 2026-09-04 IM-V1 轮：识图任务派给无视觉输入的模型（如 GLM-5.3-Flash）时 read_image 直接拒载——自查手段降级为 headless Chrome --dump-dom 断言关键类名/DOM 标记 + 截图入库存档留人工复核，不要在 inability 上反复重试。
 - 2026-09-04 IM-V1 轮：范围受限单（如「只改 views/shared」）需要共享布局效果时，用页面级 Tailwind 任意变体（[&_[data-slot=card]]:h-full）替代改共享组件——不越 scope 拿到同等效果，shared 只留真正跨页复用的规范组件。
+- 2026-09-04 GC1 轮：gif 0.13 `Frame::from_rgba_speed` 无 Result 直返 Frame（没有 map_err 可挂）；`gif::Encoder` 借用输出缓冲直到 drop——函数返回缓冲前要显式 `drop(encoder)`，否则 E0505。
+- 2026-09-04 GC1 轮：并行会话同仓库时 `push origin main` 报 up-to-date 不是事故——其他会话可能刚推进了 main；用 `git rev-parse main origin/main` 确认自己的合并 hash 已在远端历史（是祖先）即可，别重推别慌。
+- 2026-09-04 GC1 轮：headless cargo test 构造不了真实 WKWebView（macOS 事件循环必须在主线程）——GUI 渲染管线用「帧源 trait + 合成帧源」注入集成测试：HTTP/鉴权/编码/校验/落盘全链路真跑，只有 OS 抓帧一层留给运行态验证。

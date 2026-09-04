@@ -178,3 +178,6 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 自写 printf 行生成 TSV 时单引号里 `\t` 不解释，要 `printf '%b\n'`；真实表格文件用写工具直写真 TAB。
 - run_code 的 tools.bash 换 workdir 前先确认目录已创建（worktree 未建好时 spawn bash 直接 ENOENT）；tools.edit 前必须用 tools.read 读过（bash cat/sed 看过不算数）。
 - 检查脚本里提取 `generate_handler![...]` 用 awk 区间 + `grep -oE '模块::名'` 取末段再滤掉 `generate_handler` 自身，比正则硬吃整块稳；正反夹具自测（tests/cli-parity.sh 挂 gate-tests）照 release-gates 先例，防门禁假绿。
+- objc2 系 crate 动手前读本机 registry 源码：`~/.cargo/registry/src/<registry>/objc2-*-0.3.2/Cargo.toml` 看 [features] 粒度，`generated/<Class>.rs` grep 方法真名/参数/cfg 门控；比盲写等编译报错省两轮以上。
+- 复杂 bash 探测脚本先 write 成 /tmp/*.sh 再 `bash /tmp/x.sh`；内嵌 run_code 的 TS 模板字符串时 `$`、反引号、`\\` 三层转义极易 Unterminated template（GC1 轮连踩两次）。
+- 集成测试用裸 TcpStream（Connection: close + 手解状态行/\r\n\r\n 分帧）做零依赖 HTTP 客户端测真实服务，比给 reqwest 加 blocking feature 轻。
