@@ -1,0 +1,50 @@
+#!/bin/sh
+# post-checkout: 为当前工作树自动接入 .env（已存在则绝不覆盖）。
+# 来源优先级：主工作树 .env（真实值） -> 仓库内 .env.example（兜底模板）。
+# 启用方式（一次性引导）：git config core.hooksPath githooks
+# 机制说明见 docs/ops/env-worktree-bootstrap.md。
+
+set -u
+
+old_commit=${1:-}
+flag=${3:-}
+ZERO=0000000000000000000000000000000000000000
+
+# 仅分支级检出触发：新建工作树/clone（old=全零）或普通分支切换（flag=1）。
+# 单文件路径检出（flag=0）不动作，避免无谓开销。
+if [ "$old_commit" != "$ZERO" ] && [ "$flag" != "1" ]; then
+  exit 0
+fi
+
+top=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+dest="$top/.env"
+
+# 已有 .env：任何情况下不覆盖、不修改。
+if [ -f "$dest" ]; then
+  exit 0
+fi
+
+# 主工作树 = git worktree list 首行（bare 例外场景下回退 .env.example）。
+main_wt=$(git worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p' | head -n 1)
+src=""
+tag=""
+if [ -n "$main_wt" ] && [ -f "$main_wt/.env" ] && [ "$main_wt" != "$top" ]; then
+  src="$main_wt/.env"
+  tag="主工作树 .env"
+elif [ -f "$top/.env.example" ]; then
+  src="$top/.env.example"
+  tag=".env.example 兜底模板"
+fi
+
+if [ -z "$src" ]; then
+  echo "[env-hook] 警告: 主工作树与 .env.example 均无可用来源, $top 缺少 .env" >&2
+  exit 0
+fi
+
+if ! cp "$src" "$dest"; then
+  echo "[env-hook] 错误: .env 复制失败 (src=$src dst=$dest)" >&2
+  exit 0
+fi
+chmod 600 "$dest" 2>/dev/null || echo "[env-hook] 警告: .env 权限调整失败 ($dest)" >&2
+echo "[env-hook] 已为 $top 生成 .env (来源: $tag)"
+exit 0
