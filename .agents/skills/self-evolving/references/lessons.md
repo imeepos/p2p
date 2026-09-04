@@ -194,3 +194,6 @@ _none yet — be the first._
 - 2026-09-04 GC2 轮：开工缺陷修复前先 `git worktree list` + `git branch -a` 查并行会话是否已占同主题分支（本次撞见 fix/gc-capture-callback 空分支同修一个缺陷）；撞上先只读对方 diff 判进度，未提交则按协调者对本会话的明确授权继续，并在回报中标记撞车让协调者收编。
 - 2026-09-04 GC2b 轮：接修复单先 `git fetch origin` 并 `git log origin/main --oneline -- <涉事路径>` 查是否已有平行修复，再动手写码——本轮双派单，独立完成同根因修复后才在合并冲突中发现 c76c41a/8c16ef7 已落地，两份实现只能弃一份；先查可省整轮实现+冲突消化。
 - 2026-09-04 GC2b 轮：tauri `with_webview` 闭包在主线程执行——闭包内绝不能阻塞等「要投递回主线程的回调」（快照完成回调/file 协议回包同理），必自锁死；模式是闭包只发起 + channel 送回调用线程等待。
+- 2026-09-04：AGENTS.md 写"远端名是 gitea 不是 origin"，但本仓库实测 git remote 只有 origin——仓库级惯例文件会过时或张冠李戴，涉及远端操作前先 git remote 实测再动手。
+- 2026-09-04：git worktree add 不能检出已被其他 worktree 占用的分支（fatal: already used by worktree）；验证钩子/临时检出用 --detach，不占分支名。
+- 2026-09-04：post-checkout 触发面：HEAD 级检出（分支切换/新 worktree/clone）都触发（flag=1 或 old=全零），git checkout -- <path> 路径级不触发（flag=0）——钩子内按 flag 过滤可避免路径检出误动作。

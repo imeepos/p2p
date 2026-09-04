@@ -202,3 +202,5 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   repository——是目录已删，不是仓库坏了；回主树验证。
 - 验证二进制产物新旧：`grep -a` 直接按字节搜 UTF-8 中文标记（strings 丢非 ASCII 全是 0）；配合 ls -l mtime——注意 ls 出的是机器本地时区，DSH 会话上下文的时区标签可能与机器不一致，别被「00:16」骗成十五小时前。
 - run_code 写/改含引号与中文的文件：单引号行数组 join + base64 + python3 精确替换（替换前后 assert count==1），绕开 JS 转义地雷（双引号串内嵌转义引号会随机解析炸，模板字符串同险）；edit 工具的 old_string/new_string 走 Buffer roundtrip 同效。
+- 2026-09-04 密钥泄漏机械自查：python3 提取 .env 全部 value（只进内存不打印）→ 对提交树逐值 git grep -I -F -l -- <value> <ref> → 只输出 key 名与命中文件；命中先分类：IP/用户名/域名等公开登记属存量可豁免，key 名含 KEY/SECRET/TOKEN/PASSWORD 的必须零命中。比肉眼确认可靠。
+- 2026-09-04 run_code 里跑内嵌 python/多行脚本：优先 bash quoted heredoc <<'EOF'（单引号防 JS 与 shell 双层插值），比在 TS 模板串里堆转义可靠；本日含 <( )、${v} 的复杂串直接报 Expected ','，拆简单步骤或改 heredoc 后一次过。

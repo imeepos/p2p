@@ -135,3 +135,12 @@
 - 哪个坑浪费最多时间：没先 grep references 就开查。上轮已写明数据根是 `~/.dsh/dsh012-clean/`、管理视图返回全量，我只加载 SKILL.md 就动手，拿 `~/.dsh/storages/workspace.json`（另一实例）对账，中间结论「47 个归档全部未生效」是错的，白走 4 步探查（grep 源码、找存储后端、ps 查进程）才由 13≠17 的 workspaceIds 数对不上纠正。
 - skill 有没有预警：有，techniques.md「2026-09-04 DSH 会话记录清理」整节就是答案；暴露的加载面问题——SKILL.md 只载流程，references 要自己读。已把「开工先 grep references 关键词」喂回 techniques。
 - 重来一次怎么做：同类运维任务先三查——references 关键词、`ps aux | grep bin.js` 定实例、落盘 JSON 定数据根；工具调用「成功」自报一律不算数，验收只认持久化状态比对。
+
+## 2026-09-04 env worktree 自动接入（方案3 post-checkout 钩子）
+
+- 哪个坑浪费了最多时间？
+  相对 core.hooksPath 在 worktree add 时相对发起 cwd 解析、钩子静默跳过：第一次验证无任何输出也无 .env，靠对照实验（从有 githooks/ 的目录发起就触发）才定位。真正的坑是"git 对不存在的钩子文件静默跳过"。
+- skill 有没有提前警告我？
+  没有。skill 有 worktree 协作教训但没有 core.hooksPath 路径解析语义（已喂回 known-issues）。
+- 重来一次会怎么做？
+  写钩子方案第一步先放 echo 哨兵钩子，实测"是否触发、从哪个 cwd 解析"，把路径语义定清再写业务逻辑，省一轮对照实验。

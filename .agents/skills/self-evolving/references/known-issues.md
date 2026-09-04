@@ -367,3 +367,7 @@ devloop_ledger(action=save) 修正任务记录（note 写明误跑根因）；
 - 修法：闭包内只发起快照立即返回，完成回调（WebKit copy block，主队列异步执行）持有 channel 发送端回传结果；等待统一收敛到服务线程既有 5s 外层 recv。修后真机 60KB PNG / 51KB GIF 正常产出。
 
 
+## 2026-09-04 相对 core.hooksPath 在 worktree add 时被静默跳过
+症状：git config core.hooksPath githooks（相对路径）后，从主树发起 git worktree add，post-checkout 钩子完全不执行（无输出无报错），新 worktree 缺 .env；换到有 githooks/ 检出的目录发起就正常。
+原因：worktree add 触发钩子时，相对 hooksPath 相对"发起命令时的 cwd"解析，不是相对新 worktree 也不是相对 GIT_DIR；目标目录没有钩子文件 git 就静默跳过，无任何警告。
+修法：引导一律写绝对路径 git config core.hooksPath "$(pwd)/githooks"（在仓库根执行）；诊断钩子未触发先用 echo 哨兵钩子验证是否真的被执行、从哪个 cwd 解析。
