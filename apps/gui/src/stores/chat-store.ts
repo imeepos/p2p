@@ -161,7 +161,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
       swapPending(get, set, peer, placeholder.id, report.message);
       return report.message;
     } catch (error) {
-      dropPending(set, peer, placeholder.id);
+      retractPending(set, peer, placeholder.id);
       console.error("[chat] 文本发送失败", error);
       throw error;
     }
@@ -177,20 +177,15 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
       swapPending(get, set, peer, placeholder.id, report.message);
       return report.message;
     } catch (error) {
-      dropPending(set, peer, placeholder.id);
+      retractPending(set, peer, placeholder.id);
       console.error("[chat] 媒体发送失败", error);
       throw error;
     }
   },
 
-  // 取消未发送附件：占位移除；已替换（发送完成）则幂等无操作。
+  // 取消未发送附件：占位移除并回滚摘要；已替换（发送完成）则幂等无操作。
   cancelPending: (peer, localMessageId) => {
-    set((s) => ({
-      messagesByPeer: {
-        ...s.messagesByPeer,
-        [peer]: removeLocal(s.messagesByPeer[peer] ?? [], localMessageId),
-      },
-    }));
+    retractPending(set, peer, localMessageId);
   },
 
   // chatFriendRemove 成功后的本地收尾：列表即时更新；被移除者是当前会话则清空选中
@@ -268,15 +263,22 @@ function swapPending(
   }));
 }
 
-function dropPending(
+// 占位移除统一回滚（IM-T48 裁决项）：列表摘除占位；若摘要仍指向该占位
+// （期间无新事件写入）则回退为剩余最后一条，无剩余清空；期间新事件的
+// 摘要保持不动。媒体发送失败后列表不再残留占位文件名。
+function retractPending(
   set: (fn: (s: ChatStoreState) => Partial<ChatStoreState>) => void,
   peer: string,
   placeholderId: string,
 ): void {
-  set((s) => ({
-    messagesByPeer: {
-      ...s.messagesByPeer,
-      [peer]: removeLocal(s.messagesByPeer[peer] ?? [], placeholderId),
-    },
-  }));
+  set((s) => {
+    const next = removeLocal(s.messagesByPeer[peer] ?? [], placeholderId);
+    const last = s.lastMessageByPeer[peer];
+    const summary =
+      last && last.id === placeholderId ? (next[next.length - 1] ?? null) : last;
+    return {
+      messagesByPeer: { ...s.messagesByPeer, [peer]: next },
+      lastMessageByPeer: { ...s.lastMessageByPeer, [peer]: summary ?? null },
+    };
+  });
 }
