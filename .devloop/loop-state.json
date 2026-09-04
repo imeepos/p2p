@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T03:29:21.600Z",
+  "updatedAt": "2026-09-04T03:38:13.687Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23/T25 全 done（T25 b7b831f，31 tests 一次通过，shell_union 即白名单数据源）；T24（3adc549c，一致性测试机械防漂移）与 T26（801a58c9）并行 doing，T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。 | IM 阶段（2026-09-04，IM 协调 session-b7d42619 接任项目负责人）：设计定稿 im-chat-design.md + 契约 v7（gui-contract §12）落 main（254b3cf），主树基线 make check exit 0 后开闸。批次一 T29 ∥ T30 并行；T31 待 T30、T32 待 T29、T33 待 T29+T32。与 E10/RS 双轨互斥（零文件交集），coordinatorSession 保持 E10 协调不动。T1-T16 已 done 历史折叠为本 note（协调表全量在案，未删任何验收记录）。 | IM 边界测试增强轮（2026-09-04，负责人 session-4297b5f0）：T34 Rust 核心边界 ∥ T35 GUI 边界 ∥ T36 Tauri/协议异常边界，均为只新增测试、互斥目录，先并行后逐单门禁。",
+  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23/T25 全 done（T25 b7b831f，31 tests 一次通过，shell_union 即白名单数据源）；T24（3adc549c，一致性测试机械防漂移）与 T26（801a58c9）并行 doing，T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。 | IM 阶段（2026-09-04，IM 协调 session-b7d42619 接任项目负责人）：设计定稿 im-chat-design.md + 契约 v7（gui-contract §12）落 main（254b3cf），主树基线 make check exit 0 后开闸。批次一 T29 ∥ T30 并行；T31 待 T30、T32 待 T29、T33 待 T29+T32。与 E10/RS 双轨互斥（零文件交集），coordinatorSession 保持 E10 协调不动。T1-T16 已 done 历史折叠为本 note（协调表全量在案，未删任何验收记录）。 | IM 边界测试增强轮（2026-09-04，负责人 session-4297b5f0）：T34 Rust 核心边界 ∥ T35 GUI 边界 ∥ T36 Tauri/协议异常边界，均为只新增测试、互斥目录，先并行后逐单门禁。 | IM 好友流修复轮（2026-09-04，项目负责人本会话）：用户实测 GUI 卡死第一步——零好友无添加入口（后端/IPC/mock 三层就绪，唯 GUI 零调用点）；反思入册 docs/notes/2026-09-04-im-friend-flow-test-gap-reflection.md。立卡：T41 添加好友+从零旅程测试（P0，立即派）∥ T44 p2p-chat 夹具固定端口 flake 认领修复（P1，与 T41 零文件交集可并行）；T42 移除好友（P1，依赖 T41 合入——同文件互斥防撞）；T43 好友分组（P2，需契约加法修订，T41/T42 合入后协调裁决）。机械守卫入验收：IPC chat 方法在 views/components 必须有非测试调用点。",
   "tasks": [
     {
       "id": "T17",
@@ -346,6 +346,50 @@
       "mergedMain": "520b2cf",
       "acceptedAt": "2026-09-04T02:15:47.198Z",
       "note": "一次通过：边界矩阵测试（e629aad）+ 真实缺陷修复 520b2cf（newline 注入按复合特征拒，1 行改动符合 ≤10 行消融规则）；隔离全量门禁 exit 0。"
+    },
+    {
+      "id": "IM-T41",
+      "goal": "聊天页添加好友能力（堵死第一步断链）：好友列表区常驻添加入口（空态与常态均可见可达，空态引导一键直达表单）；表单字段 PeerId 必填/昵称选填/地址多条选填，前端预校验与后端一致（base58/昵称长度/地址语法），后端错误可读展示；成功即刷列表并可直接进入新会话，重复添加可读报错不产生重复条目；失败不白屏不丢已填内容；mock（VITE_MOCK_IPC=1）与真实 Tauri 行为一致；zh/en i18n 全覆盖无硬编码文案；测试：从零开始旅程测试（零好友→空态→打开表单→提交→好友出现→选中→发文本上屏）+ 入口存在性（空态/常态）+ 校验与错误路径（非法 PeerId/重复添加/后端拒绝）+ IPC 调用点静态守卫（IpcBackend 全部 chat 方法在 views/components 至少一个非测试调用点，豁免清单制）",
+      "title": "IM-T41 添加好友入口与从零旅程测试",
+      "priority": "P0",
+      "status": "todo",
+      "branch": "fix/im-friend-add",
+      "ownerSession": "待派",
+      "scope": "apps/gui/src：views/chat/chat-view.tsx 与 components/chat/（新增添加好友对话框组件）、stores/chat-store.ts（如需 friendAdded 刷新）、i18n/types.ts+locales（chat 词条追加）、新增 views/chat/chat-friend-add.test.tsx 与调用点守卫测试；src-tauri 与 crates 只读；menu.def.ts 不动（入口在聊天页内）",
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-friend-add.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -rln \"chatFriendAdd\" apps/gui/src/views apps/gui/src/components | grep -v test | grep -q . && grep -q \"从零开始\" apps/gui/src/views/chat/chat-friend-add.test.tsx'"
+    },
+    {
+      "id": "IM-T42",
+      "goal": "聊天页移除好友能力：每好友条目提供移除入口（悬停或右键菜单），移除前二次确认（文案如实说明：移除好友不删除本地消息历史）；确认后列表即时更新，被移除者为当前会话则右侧回未选中空态；失败可读反馈不白屏列表不变；mock 与真实一致；zh/en i18n 全覆盖；测试：移除旅程（添加→移除→回零好友空态→同 PeerId 回加成功）+ 确认框拦截（未确认不触发/确认恰好一次）+ 选中会话被移除的 UI 状态 + 失败路径",
+      "title": "IM-T42 移除好友入口与移除旅程测试",
+      "priority": "P1",
+      "status": "todo",
+      "branch": "fix/im-friend-remove",
+      "ownerSession": "待派（依赖 IM-T41 合入，同文件互斥）",
+      "scope": "apps/gui/src：views/chat、components/chat（移除入口与确认框）、i18n 词条追加、新增 views/chat/chat-friend-remove.test.tsx；src-tauri 与 crates 只读",
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-friend-remove.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -rln \"chatFriendRemove\" apps/gui/src/views apps/gui/src/components | grep -v test | grep -q .'"
+    },
+    {
+      "id": "IM-T43",
+      "goal": "好友分组：好友列表分组展示/新建分组/移动好友至分组；依赖契约加法修订（ChatFriendJson 增分组字段 + 好友簿 schema 兼容迁移 + friend_add/编辑命令扩展），属冻结契约变更须协调会话裁决后派单；T41/T42 合入后启动设计裁决",
+      "title": "IM-T43 好友分组（契约扩展前置）",
+      "priority": "P2",
+      "status": "todo",
+      "branch": "待裁决后定",
+      "ownerSession": "待派（依赖契约裁决 + T41/T42 合入）",
+      "scope": "待裁决（预计 crates/p2p-chat + apps/gui/src + 契约文档三方联动）",
+      "acceptanceCommand": "bash -c 'echo pending-contract-ruling && exit 1'"
+    },
+    {
+      "id": "IM-T44",
+      "goal": "p2p-chat 测试夹具固定端口 flake 修复（RS 跨轨情报认领，轮 71 挂账）：tests/common/mod.rs 固定端口被占即 AddrInUse 假红（offline_pending_then_flush_on_peer_connected），改端口 0 OS 分配或锁文件预留，消融验证：占住原端口跑全绿；连跑三次稳定绿",
+      "title": "IM-T44 p2p-chat 测试夹具端口 flake 修复",
+      "priority": "P1",
+      "status": "todo",
+      "branch": "test/chat-fixture-port0",
+      "ownerSession": "待派",
+      "scope": "仅 crates/p2p-chat/tests/**（夹具端口分配）；生产源码只读；与 T41 零文件交集",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && for i in 1 2 3; do cargo test -p p2p-chat || exit 1; done && make check'"
     }
   ]
 }
