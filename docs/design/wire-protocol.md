@@ -53,8 +53,8 @@
 
 ### 3.2 内置协议 ID 全表
 
-五个内置控制协议 ID 在 crates/p2p-relay/src/lib.rs:9-13 统一登记（`proto_ids` 模块，
-全底座唯一定义点，禁止重复定义）；职责划分源自 design §5.4：
+内置控制协议 ID 在 crates/p2p-relay/src/lib.rs 的 `proto_ids` 模块统一登记
+（全底座唯一定义点，禁止重复定义）；职责划分源自 design §5.4：
 
 | 协议 ID | 职责 | 当前实现状态 |
 |---|---|---|
@@ -64,6 +64,7 @@
 | `/p2p-base/relay/1` | 中继电路申请、打洞信令 | 已实现（crates/p2p-relay/src/control.rs） |
 | `/p2p-base/circuit/1` | 中继电路数据桥接（密文透传） | 已实现（crates/p2p-relay/src/circuit.rs、state.rs） |
 | `/repair/mcp/1` | repair-helper 与 repair-bridge 的 MCP stdio 字节隧道 | repair-bridge 哑泵（T20） |
+| `/dsh-acp/1` | ACP 桥握手 + ndjson 字节透传（acp-agent/acp-console） | 常量已登记；桥随 ACP 波落地（acp-over-p2p-design.md） |
 
 业务协议 ID（如 `/myapp/chat/1`）与内置 ID 使用完全相同的注册与路由机制，无特权差别。
 

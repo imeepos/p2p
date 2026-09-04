@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -13,8 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { useUpdateStore } from "@/stores/update-store";
 
+import { DownloadSection } from "./download-section";
 import { UpdateDetail } from "./update-detail";
-import { openReleasePage } from "./release-links";
 
 const REMINDER_TOAST_DURATION_MS = 8000;
 
@@ -58,7 +57,6 @@ export function UpdateNotice() {
   const [detailOpen, setDetailOpen] = useUpdateReminderToast();
   const { t } = useTranslation();
   const result = useUpdateStore((s) => s.result);
-  const releaseUrl = result?.releaseUrl ?? null;
 
   return (
     <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
@@ -75,19 +73,7 @@ export function UpdateNotice() {
         </DialogHeader>
         {result ? <UpdateDetail result={result} showVersion /> : null}
         <DialogFooter>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void openReleasePage(releaseUrl)}
-          >
-            {t("update.detail.openInBrowser")}
-          </Button>
-          <Button
-            type="button"
-            onClick={() => void openReleasePage(releaseUrl)}
-          >
-            {t("update.detail.download")}
-          </Button>
+          <DownloadSection />
         </DialogFooter>
       </DialogContent>
     </Dialog>

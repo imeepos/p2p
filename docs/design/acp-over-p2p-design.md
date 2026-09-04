@@ -1,6 +1,6 @@
 # ACP over P2P：单节点托管 agent，全网节点可视化操控 —— 设计方案 v0
 
-> 状态: 草案 v0（待审核） | 日期: 2026-09-04
+> 状态: v1（已拍板，Q1-Q5 采默认建议，拍板记录见 §12） | 日期: 2026-09-04
 > 依赖: [p2p-base-design.md](p2p-base-design.md)（底座分层）、[wire-protocol.md](wire-protocol.md)（协议 ID 与帧）、
 > [gui-plan.md](gui-plan.md)（控制台宿主）
 > 定位: 底座之上的应用层方案。不改通信内核，只新增应用协议与 apps/ 组件。
@@ -221,7 +221,7 @@ spawn 延迟——池化但不共享状态，隔离不破。
 | 大图片消息 | prompt 内嵌 base64 可达数 MB | 分块重组 + 16 MiB 单行护栏已覆盖；持续超限属滥用，拒绝并留审计 |
 | 首连引导 | 陌生节点如何建立信任 | TOFU + 指纹确认 + 二维码交换 PeerId；局域网 mDNS 可见但仍需 owner 授予 scope |
 
-## 12. 待裁决问题（评审人定夺）
+## 12. 待裁决问题（2026-09-04 ACP 波负责人已拍板：五项均采默认建议）
 
 | # | 问题 | 默认建议 |
 |---|---|---|
@@ -230,3 +230,6 @@ spawn 延迟——池化但不共享状态，隔离不破。
 | Q3 | permission "ask" 的默认路由 | 远程操作者 GUI（交互场景自然）；owner 本机路由作为 per-peer 策略可选项 |
 | Q4 | 协议 ID 命名 | `/dsh-acp/1`（备选：`/p2p-acp/console/1` 更中立） |
 | Q5 | 未授权 peer 的拒绝可观察性 | 握手拒绝写审计日志即可，不向对方泄露策略细节 |
+
+> 拍板记录（2026-09-04）：Q1=90s 可配；Q2=默认 sandbox；Q3=ask 默认路由远程 GUI；
+> Q4=`/dsh-acp/1`（已登记 crates/p2p-relay/src/lib.rs `proto_ids`，wire-protocol.md §3.2 同步）；Q5=仅审计日志。

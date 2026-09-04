@@ -158,6 +158,7 @@ interface UpdateCheckResult {
 - 失败语义：网络失败 / 响应非法 / 版本解析失败一律返回 Err（可读中文）并留日志，禁止静默吞。
 - 无状态：后端不缓存不轮询；轮询节奏由前端驱动（启动后 + 定期 + 手动），无新增事件通道。
 - HTTP 超时 10s；端点为编译期常量，不做用户配置。
+- 本节只覆盖检查与提醒；程序内下载/安装/重启闭环见 §13（v8 加法）。
 
 ## 10. 邻居来源字段 source（v5 加法，2026-09-03 邻居表复盘）
 
@@ -270,5 +271,52 @@ interface ChatSendReport {
   名称/大小并提供下载锚点。系统级"打开默认应用"不在本轮契约内。
 - 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase，Option 序列化 null）；
   B 侧 TS 类型与上表逐字一致；mock 与真实实现同签名。
+
+## 13. 应用内下载安装更新（v8 加法，2026-09-04，G-U3）
+
+§9 的检查提醒保持不变；本节新增「程序内下载 + 进度条 + 下载成功自动安装 + 重启」闭环。
+实现采用官方 tauri-plugin-updater（minisign 签名校验）与 tauri-plugin-process（relaunch），
+不自研安装器；Rust 侧只注册插件，无新增命令。
+
+- updater 端点（编译期常量，tauri.conf.json plugins.updater）：
+  `https://github.com/imeepos/p2p/releases/latest/download/latest.json`。
+  清单由 ci(gui-client.yml) release job 发布时生成（apps/gui/scripts/release/make-latest-json.mjs）：
+  四平台签名增量包缺一或签名不成对即发布失败；macOS 双架构增量包同名，就地加架构后缀
+  改名规避 release 资产重名（签名只覆盖文件内容，与文件名无关）。
+- 签名：minisign 密钥对。公钥入库（plugins.updater.pubkey）；私钥只存在于 CI secret
+  （TAURI_SIGNING_PRIVATE_KEY，无密码）与本机 .env（TAURI_SIGNING_PRIVATE_KEY_PATH），
+  严禁入库。bundle.createUpdaterArtifacts=true 后无私钥 tauri build 直接失败，
+  机制上杜绝未签名增量包进入 release。
+- 前端命令面（ipc.ts 第三命令面 updateDl，与 ipc/diag 并列；mock 同签名，视图禁直连插件包）：
+
+```ts
+interface RemoteUpdate {
+  version: string;       // 远端新版本号
+  notes: string | null;  // 更新清单 notes（当前清单不含，保留扩展位）
+}
+interface UpdateDownloadProgress {
+  downloadedBytes: number;
+  totalBytes: number | null; // Started 事件可能缺 contentLength，此时进度不定态
+}
+interface UpdateDownloadBackend {
+  checkRemoteUpdate(): Promise<RemoteUpdate | null>; // null = 已是最新
+  // 下载并自动安装；onProgress 按块回调；完成后 resolve
+  downloadAndInstallUpdate(onProgress: (p: UpdateDownloadProgress) => void): Promise<void>;
+  relaunchApp(): Promise<void>;
+}
+```
+
+- 状态机（update-store）：idle → downloading（进度按块推进，百分比/字节双展示）→
+  installed →（用户点「立即重启」）relaunch；失败落 failed + 可读中文错误可重试。
+- 发起条件：仅 §9 status=available 时可发起；in-flight 防抖（downloading 期间重复发起
+  忽略）；downloadAndInstall 前先经 updater 端点重新取更新句柄，不跨轮询周期持旧句柄。
+- 重启时机归用户：安装完成不自动重启；Windows NSIS 静默安装器可能自行退出并重启应用，
+  属平台行为，前端不做补偿。
+- 平台覆盖：macOS（.app 替换 + relaunch）、Windows（NSIS zip，MSI 不走 updater）、
+  Linux（AppImage 替换；deb 包用户继续走 §9 浏览器手动下载）。
+- 逃生通道：§9 的 update_open_release_page（浏览器打开发布页）在所有相位保留。
+- 失败语义：下载/签名校验/安装失败一律可读中文并留 console 与日志，禁止静默吞；
+  未打包二进制（pnpm tauri dev）不启用真实安装；浏览器 dev 走 mock（VITE_MOCK_IPC=1），
+  mock 与真实实现同签名。
 
 

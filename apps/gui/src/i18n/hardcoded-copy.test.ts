@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -10,10 +10,10 @@ const SCOPE_DIRS = ["components", "views", "routes", "hooks", "config", "theme"]
 const CJK = /[一-龥]/;
 
 function walk(dir: string): string[] {
-  if (!statSync(dir).isDirectory()) return [];
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    return statSync(path).isDirectory() ? walk(path) : [path];
+  // withFileTypes 免去逐项 statSync：全量套件并行下 fs 系统调用排队是超时主源
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    return entry.isDirectory() ? walk(path) : [path];
   });
 }
 
@@ -24,7 +24,13 @@ function stripComments(source: string): string {
 }
 
 describe("i18n hardcoded copy scan", () => {
-  it("views/shell carry no hardcoded CJK copy outside console logs", () => {
+  it(
+    "views/shell carry no hardcoded CJK copy outside console logs",
+    // vitest 4：options 位于第二参；全目录 fs 扫描用例在全量套件并行下 IO
+    // 排队会超 5s 默认值（GC3b 负载型假红，与 chat IPC 守卫同病）——
+    // 上调只是给预算，扫描范围与 CJK 判定零弱化
+    { timeout: 30_000 },
+    () => {
     const offenders: string[] = [];
     for (const dir of SCOPE_DIRS) {
       for (const file of walk(join(SRC_ROOT, dir))) {
@@ -42,5 +48,6 @@ describe("i18n hardcoded copy scan", () => {
       }
     }
     expect(offenders).toEqual([]);
-  });
+    },
+  );
 });

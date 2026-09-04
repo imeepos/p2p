@@ -31,6 +31,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "category": "DeveloperTool",
     "shortDescription": "p2p 节点可视化控制台",
     "longDescription": "本机 p2p 节点的启停与配置、邻居节点发现与连接、降级链（直连/打洞/中继）路径可视化与事件流观测。纯可视化界面，不新增协议语义。",
@@ -42,5 +43,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/imeepos/p2p/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE3MTA1RUY1MTI2RUZGMDMKUldRRC8yNFM5VjRRcHk2WjBEL1FCYWZXWGx4UDhFdGt5VktwTlRvNXFBbDVvSHJZbmUxcFRXMXMK"
+    }
   }
 }

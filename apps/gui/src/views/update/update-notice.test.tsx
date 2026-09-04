@@ -1,17 +1,36 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { UpdateCheckResult } from "@/lib/ipc-types";
 
-const { toastMessageMock, openPageMock } = vi.hoisted(() => ({
+const {
+  toastMessageMock,
+  openPageMock,
+  downloadInstallMock,
+  relaunchMock,
+} = vi.hoisted(() => ({
   toastMessageMock: vi.fn(),
   openPageMock: vi.fn<() => Promise<void>>(),
+  downloadInstallMock: vi.fn<
+    (
+      onProgress: (p: {
+        downloadedBytes: number;
+        totalBytes: number | null;
+      }) => void,
+    ) => Promise<void>
+  >(),
+  relaunchMock: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({ toast: { message: toastMessageMock } }));
 vi.mock("@/lib/ipc", () => ({
   ipc: { updateCheck: vi.fn(), updateOpenReleasePage: openPageMock },
+  updateDl: {
+    checkRemoteUpdate: vi.fn().mockResolvedValue({ version: "0.2.0", notes: null }),
+    downloadAndInstallUpdate: downloadInstallMock,
+    relaunchApp: relaunchMock,
+  },
 }));
 
 import "@/i18n";
@@ -44,6 +63,11 @@ beforeEach(() => {
   localStorage.clear();
   toastMessageMock.mockClear();
   openPageMock.mockClear();
+  downloadInstallMock.mockReset();
+  downloadInstallMock.mockImplementation(async (onProgress) => {
+    onProgress({ downloadedBytes: 4096, totalBytes: 4096 });
+  });
+  relaunchMock.mockReset();
   setAvailable();
 });
 
@@ -107,7 +131,7 @@ describe("UpdateNotice 提醒 toast", () => {
 });
 
 describe("UpdateNotice 详情对话框", () => {
-  it("查看详情打开对话框：版本号/发布名/说明/时间齐全，前往下载走白名单命令", async () => {
+  it("查看详情打开对话框：详情齐全，下载并安装走 updater 面，浏览器为逃生通道", async () => {
     render(<UpdateNotice />);
     const action = toastMessageMock.mock.calls[0][1].action;
     act(() => {
@@ -119,8 +143,16 @@ describe("UpdateNotice 详情对话框", () => {
     expect(screen.getAllByText("p2p-console client-v0.2.0").length).toBeGreaterThan(0);
     expect(screen.getByText("发布说明")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "前往下载" }));
-    expect(openPageMock).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "下载并安装" }));
+    await waitFor(() => expect(downloadInstallMock).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText("更新已下载并安装，重启后生效"),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "立即重启" }));
+    expect(relaunchMock).toHaveBeenCalledTimes(1);
+
+    // 逃生通道始终保留：浏览器打开发布页走白名单命令
+    fireEvent.click(screen.getByRole("button", { name: "阅读完整发布说明" }));
     expect(openPageMock).toHaveBeenCalledWith(FIXTURE.releaseUrl);
   });
 });

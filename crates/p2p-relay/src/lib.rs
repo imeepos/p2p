@@ -11,6 +11,7 @@ pub mod proto_ids {
     pub const RENDEZVOUS: &str = "/p2p-base/rendezvous/1";
     pub const RELAY: &str = "/p2p-base/relay/1";
     pub const CIRCUIT: &str = "/p2p-base/circuit/1";
+    pub const ACP: &str = "/dsh-acp/1";
 }
 
 /// 中继服务端：接受 reserve/connect，桥接两条连接的密文字节流。
