@@ -165,3 +165,6 @@ _none yet — be the first._
 
 - 2026-09-04 T35 检查轮：目录/分支名与任务同名不代表工作发生在那里——协调者笔记「现场全清」仍漏壳（p2p-t35-gui 的 test/t35-gui-chat-boundaries 从创建起零提交）。归属判定三步：`git reflog show <分支>`（只有 Created from 一条即空壳）+ `git rev-list --count main..<分支>`（0=无独有提交可安全清理）+ 任务真身以主树账本 mergedMain 哈希为准（T35 实际走 test/im-bt35-new，e6b98ea 合入）。
 - 2026-09-04 T36 检查轮：卡 done 合入 ≠ worktree 收口——同一 worktree 可能在验收之后继续长出未记账的增强提交（11fe0a6 晚于验收合入 1h13m，账本零认领）。处置旧 worktree 前四查：账本认领（grep 提交哈希/分支名）+ `rev-list --count main..<分支>` 独有提交 + `git ls-remote` 远端备份 + main 是否动过同文件（判合并风险）。零独有提交的壳才可删；有实质未合并工作的只报告不擅动，收口归属其执行会话/协调者。
+
+- 2026-09-03 CL3 轮：并行波会改公共签名（本轮 Chat::send 被 T36 增第 5 参 reply_to）——合并 main 后必须全量 cargo build + cargo test 再提交；E2E 脚本里「二进制存在就跳过构建」的惰性构建会用陈旧二进制假绿，验收前强制重建一次。
+- 2026-09-03 CL3 轮：底座 chat 链路（含 itest）按 TCP 地址验证——CLI E2E 建好友取 listenAddrs 里 /t 地址，取 /u（QUIC）会间歇性第二发消息 failed（连接重建竞态）。

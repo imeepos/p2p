@@ -316,3 +316,8 @@ failed: early eof（客户端侧超时中止）。
 - 原因：BSD 工具对多字节字符按字节处理破坏正则结构；正则里的裸 / 与默认分隔符冲突。
 - 修法：含非 ASCII 的文件改动用编辑工具精确替换；sed 正则含 / 时换 | 分隔符。
 
+
+## 2026-09-03 CL3 轮：DSH 会话双视图——worktree 建在仓库外文件工具看不到
+- 症状：bash 里 git worktree add ../p2p-xxx 成功（git worktree list 可见），但 read/glob/grep/write/edit 全部 not found；同窗口 bash 还间歇性 spawn ENOENT。
+- 原因：DSH 文件工具视图以会话工作区根（仓库目录）为挂载边界，根外的同级目录不在视图内；bash 走独立通道与文件工具不同视图，且偶发 worker 故障。
+- 修法：worktree 一律建进仓库内 .worktrees/（.gitignore 已收录、仓库有先例），bash 与文件工具即可同视图操作；已建在外的用 git worktree move 挪进来。bash ENOENT 是瞬时的，整程序级重试即可恢复。
