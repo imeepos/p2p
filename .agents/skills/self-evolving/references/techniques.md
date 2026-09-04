@@ -260,3 +260,6 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 高负载机器上 run_code 组合调用频繁 30s 超时且无部分输出——拆最小单工具步骤逐个跑；长安装类命令一律 run_in_background 靠完成通知收割，不信前台超时前的残局。
 - 仓库 .gitignore 忽略 .vscode——编辑器级配置走用户级 settings.json（~/Library/Application Support/Code/User/settings.json），不入库不进 worktree 流程。
 - 2026-09-04 跨机 CLI 聊天演练配方：chat serve 的 listen_addrs 报 127.0.0.1 但实绑 0.0.0.0（swarm/mod.rs:139 bind、swarm/config.rs to_transport 仅展示替换）→ 双端各用固定 --quic-port + 隔离 --data-dir，好友 --addr 填「对端 LAN IP + 报告端口」即直连，无需 mDNS/rendezvous。102 端 rsync Cargo.toml+Cargo.lock+crates+apps/cli 后 cargo build 干净全量 2m09s（12 核 debug）；注意别把本机 target/ 一起 rsync（Mach-O 到 Linux 报 Exec format error）。
+- 2026-09-04 GC3：DSH bash 沙箱 fs 开销下冷 cargo 全量构建会「假死」——10 个 rustc 全部 0% CPU 各只吃 1-2s CPU，30+ 分钟编不完依赖（icu 系）；解法=CARGO_TARGET_DIR 指向主树已预热的目标目录（apps/gui/src-tauri/target 自带 20k 产物，同依赖集增量只编业务 crate，3m03s 收官）。前提：确认无并发 cargo 会话共用该目录。
+- 2026-09-04 GC3：全新 worktree 无 node_modules，pnpm install 报 ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY——加 CI=true 环境变量即过（pnpm store 硬链接，328 包 27s）。
+- 2026-09-04 GC3：vitest 全量跑冷缓存（新 worktree 首跑）会假红——transform/setup 累计 500s+，多个 5s testTimeout 用例排队超时；隔离重跑单文件全部绿即定性为负载抖动；最终验收在主树温缓存跑（48 文件 286 测试全绿）。

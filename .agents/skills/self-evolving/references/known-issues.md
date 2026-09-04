@@ -440,3 +440,13 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 症状：ssh 远程「pkill 掉旧进程再跑新命令」的复合命令，exit 255 且零输出，或输出在 kill 后戛然而止；误判为网络/服务问题排查了一圈。
 原因：pkill -f 的模式串以各种形态出现在自身命令行里——①模式原文直接在命令里；②模式的前缀出现在同一命令行其他参数（如 rm -rf 的路径、业务命令的 --data-dir）恰好能被正则命中；kill $(pgrep -f ...) 同理。远程 shell 的 cmdline 含整条命令文本，匹配即自杀。
 修法：①模式中间字符用字符类打断字面匹配（chat serv[e]）；②同一命令行内不得出现任何能被该正则命中的纯文本（含 rm 路径、业务参数）；③最稳形态：先单独 pgrep 存 PID 变量核对，再单独 kill；进程管理命令与业务命令拆成两次 ssh。
+
+## 2026-09-04 GC3：dispatch_task 600s 墙钟超时后的接管甄别
+- 症状：dispatch_task 大型多文件任务 600s 墙钟上限被砍，报错只有 timeout 无产物清单；如果直接重派或自己重写，会和子代理的半成品双写。
+- 原因：DSH dispatch 有硬墙钟上限；任务内含冷 cargo 全量构建时必然超（见 techniques 同日条：沙箱 fs 开销下 rustc 0% CPU 伪挂起）。
+- 修法（AGENTS.md 已固化「接管前先查产物再动手」）：git status + git log + 新增文件逐个 read 甄别子代理产物质量；合格则保留续作（本例前端 6 文件全部保留），缺什么补什么；确认超时前子代理未碰的区域（本例 Rust 侧零产物）才自己动手。
+
+## 2026-09-04 GC3：git worktree add 中断留半成品目录 + 悬空分支
+- 症状：worktree add 输出停在 "Updating files: 68%" 后命令返回；git worktree list 看不到该 worktree，但分支已建成、目录里只有部分文件（.git 文件缺失）。
+- 原因：bash 工具层中断打断了 checkout 中段；分支 ref 已写、worktree 注册未完成。
+- 修法：rm -rf 残留目录 → git branch -D 悬空分支 → 重新 worktree add（给足 timeoutMs）；重建后 ls 抽查关键子目录（如 apps/gui/src/views 与 src/stores 同时存在才算完整）。
