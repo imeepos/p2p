@@ -137,6 +137,7 @@ printf '%s\n' "$PAGE_JSON" | grep -q '"schemaVersion"' || fail "page JSON 缺 sc
 
 echo "== 5. chat.addFriend 幂等两连 + removeFriend(confirm) 断言回包 =="
 ADD1="$(run_guarded "$CTL" gui action chat addFriend peerId="$PEER_Z" nickname=gc4-e2e --json)"
+printf '%s\n' "$ADD1" | grep -q '"requestId"' || fail "addFriend 回包缺 requestId 信封: $ADD1"
 printf '%s\n' "$ADD1" | grep -q '"peerId"' || fail "addFriend 回包缺 peerId: $ADD1"
 ADD2="$(run_guarded "$CTL" gui action chat addFriend peerId="$PEER_Z" nickname=gc4-e2e --json)"
 printf '%s\n' "$ADD2" | grep -q '"peerId"' || fail "addFriend 幂等二连失败: $ADD2"

@@ -525,8 +525,10 @@ path=#/chat
 |---|---|---|---|
 | --json | flag | 否 | off |
 | --gui-data-dir | path | 否 | GUI 应用数据目录 |
-文本（每动作一行，args 标注「类型,必填性」，危险动作带 [confirm] 标记）：
+文本（头两行为协议定位，每动作一行，args 标注「类型,必填性」，危险动作带 [confirm] 标记）：
 ```
+page=chat
+schemaVersion=1
 name=chat
 description=IM 聊天页：好友会话文本发送与好友管理
 actions=3
@@ -535,8 +537,8 @@ actions=3
 - removeFriend: 移除好友（不删本地消息历史），与移除确认框同源 [confirm]
   args: peer(string,必填) confirm(boolean,必填)
 ```
---json：服务端全量 descriptor（含 args schema、state 快照与 schemaVersion）。
-退出码：当前页未注册 → 1（PAGE_NOT_REGISTERED，错误信息含可用页清单）。
+--json：服务端全量 {schemaVersion,page,descriptor}（descriptor 含 args schema 与 state 快照）。
+退出码：当前页未注册 → 1（PAGE_NOT_REGISTERED，错误信息含可用页清单）；前端未回执 → 1（PAGE_TIMEOUT）。
 
 ### p2pctl gui action
 用途：执行页面动作（与页面按钮同源）。前置：GUI 进程运行；非当前页须先 gui navigate <页面> 或携带 --navigate。
@@ -548,7 +550,7 @@ actions=3
 | --navigate | flag | 否 | off |
 | --json | flag | 否 | off |
 | --gui-data-dir | path | 否 | GUI 应用数据目录 |
-文本（动作返回值的人读 JSON，chat addFriend 例）：
+文本（回包 result 的人读 JSON，CLI 自动生成 requestId，chat addFriend 例）：
 ```
 {
   "peerId": "11111111111111111111111111111111111111111111",
@@ -557,8 +559,8 @@ actions=3
   "note": null
 }
 ```
---json：同源结构化（data 即动作返回值原样）。
-退出码：非当前页 → 1（结构化错误含「gui navigate <页面>」指引）；危险动作缺 confirm=true → 1（ACTION_CONFIRM_REQUIRED 透传）；动作不存在 → 1（ACTION_NOT_FOUND，含可用动作清单）。
+--json：同源结构化 {requestId,result}（result 即动作返回值原样）。
+退出码：非当前页 → 1（结构化错误含「gui navigate <页面>」指引）；危险动作缺 confirm=true → 1（ACTION_CONFIRM_REQUIRED 透传）；动作不存在 → 1（ACTION_NOT_FOUND，含可用动作清单）；页面名非法 → 1（PAGE_NOT_FOUND，含可用页清单）；前端未回执 → 1（PAGE_TIMEOUT）。
 
 ### p2pctl identity reset
 用途：重置身份：停节点 + 删除 key.seed，不可逆。前置：无；红线见 §4。

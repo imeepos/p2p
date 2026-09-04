@@ -153,15 +153,16 @@ p2pctl gui action <页面> <动作> [K=V...] [--navigate] [--gui-data-dir DIR] [
 - `invoke` 白名单由 GUI 侧权威维护（当前：node_status / metrics_get /
   metrics_history / config_get / profile_get），越权命令返回 `INVOKE_FORBIDDEN`
   退出码 1；`--arg k=v` 中 v 可解析为 JSON 值则保留类型。
-- `page`/`action` 消费页面语义协议（GET page/current / POST page/action，GC3）：
+- `page`/`action` 消费页面语义协议（GET page/current / POST page/action，GC3 §9）：
   页面注册表由 GUI 前端维护（示范页 chat/peers/settings，其余页随 GC3b 扩量），
-  动作与页面按钮同源（store/IPC），非 DOM 模拟。`page` 文本输出 name/description/
-  actions 表格（每动作含 args schema 标注与 [confirm] 标记），`--json` 为服务端全量
-  descriptor（含 args schema 与 state）。
-- `action` 的 K=V 参数布尔/数字按 JSON 类型解析（与 `--arg` 同规则）；非当前页默认
-  结构化报错并附「gui navigate <页面>」指引，`--navigate` 先切页再执行；危险动作
-  （descriptor 标 confirm）缺 `confirm=true` 时服务端以 `ACTION_CONFIRM_REQUIRED`
-  拒绝，CLI 透传错误码可读呈现。
+  动作与页面按钮同源（store/IPC），非 DOM 模拟。`page` 文本输出 page/schemaVersion/
+  name/description/actions 表格（每动作含 args schema 标注与 [confirm] 标记），
+  `--json` 为服务端全量 {schemaVersion,page,descriptor}。
+- `action` 的 K=V 参数布尔/数字按 JSON 类型解析（与 `--arg` 同规则）；requestId 由
+  CLI 自动生成（`cli-<pid>-<seq>`）；非当前页默认结构化报错并附「gui navigate <页面>」
+  指引，`--navigate` 先切页再执行；危险动作（descriptor 标 confirm）缺 `confirm=true`
+  时服务端以 `ACTION_CONFIRM_REQUIRED` 拒绝，CLI 透传错误码可读呈现；回包为
+  `{requestId,result}`，文本渲染 result，`--json` 全量。
 - screenshot/record 依赖 macOS 屏幕录制权限：权限缺失时 GUI 返回
   `CAPTURE_PERMISSION_DENIED`，CLI 原样透出（不静默、不重试）。
 - 该域为 CLI 单侧能力（GUI 命令面未新增 Tauri 命令），不进 §6 映射表。
