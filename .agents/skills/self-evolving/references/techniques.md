@@ -149,3 +149,9 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - archiveSession 幂等（已归档 id 直接 return 不写），只追加 `global.archivedSessionIds`、不动 `sessionIds` 槽位（packages/workspace/workspace/src/index.ts:244，unarchive 可恢复位置）；所以 workspace_list 计数不变是设计而非失败。
 - stale-running：running=true 但 updatedAt 静默 2h+ 是僵尸标记，不可信；用户明确「所有会话」时按 updatedAt 清理（归档只隐藏分组面，不停进程）。上轮「排除 running」适用于保守场景，两条按用户指令二选一。
 - 机械验收唯一路径：读活跃实例 `<home>/storages/workspace.json` 全量比对 archivedSessionIds；session_link_list 常态返回全量（含已归档）且无 archived 字段，不能当验收面。
+
+## 2026-09-04 IM-T47 渲染矩阵轮（gui 纯测试任务）
+- RTL getByText 对含真实换行的文本不可靠：matcher 被归一化成空格（「您好\n请查收」→「您好 请查收」）后仍报 Unable to find，而 DOM 里 <p> 文本确实存在——「换行保留」类断言直接 querySelector 定位元素 + textContent 精确相等，机械且稳定。
+- 测 store 的排序/合并行为禁止 setState 直塞数组（绕过 mergeMessages），要走真实动作路径：mock chatHistory 返回乱序页 → click 好友触发 selectPeer → 断言 DOM 序。直塞测的是组件不测逻辑。
+- gui 测试消融验证三步走（不产生提交）：edit 工具改生产一处 → 跑目标测试确认对应格红 → git checkout -- 恢复后复绿且 status 干净；比口头声称「测试有效」硬得多。
+- worktree 里 pnpm 测试前先 ls apps/gui/node_modules/.bin/vitest 判依赖在不在，新 worktree 先后台 pnpm install 再读代码写测试，两不耽误。
