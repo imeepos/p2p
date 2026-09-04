@@ -126,14 +126,12 @@ build_if_missing() {
         echo "前端产物缺失或过期，pnpm build…" >&2
         (cd "$GUI_DIR" && pnpm build) >&2
     fi
-    # tauri v2 plain cargo build 是 dev 态二进制（加载 devUrl 空壳），必须
-    # custom-protocol；cargo test 会重建成 dev 态且 mtime 翻新，marker 比对识别之。
-    MARKER="$GUI_DIR/src-tauri/target/debug/.custom-protocol-built"
-    if [ ! -x "$GUI_BIN" ] || [ "$GUI_BIN" -nt "$MARKER" ]; then
-        echo "GUI 二进制缺失或非 custom-protocol 态，cargo build src-tauri…" >&2
-        (cd "$GUI_DIR/src-tauri" && cargo build --features tauri/custom-protocol) >&2 \
-            && touch "$MARKER"
-    fi
+    # bin 有两态：默认 dev 态（webview 加载 devUrl，无 dev 服务器即空壳，页面桥
+    # 全 PAGE_TIMEOUT）与 custom-protocol 态（回归唯一有效形态）。cargo test/
+    # 普通 build 会翻回 dev 态；脚本自猜 staleness（mtime/marker）有误判缺口
+    # （2026-09-05 真机两连红实证），改为无条件按 custom-protocol 构建，形态
+    # 裁决交 cargo fingerprint：不对必重编（增量秒级），对则 Fresh 秒回。
+    (cd "$GUI_DIR/src-tauri" && cargo build --features tauri/custom-protocol) >&2
     [ -x "$CTL" ] || fail "BUILD_MISSING" "p2pctl 构建后仍不可执行: $CTL"
     [ -x "$GUI_BIN" ] || fail "BUILD_MISSING" "GUI 二进制构建后仍不可执行: $GUI_BIN"
 }

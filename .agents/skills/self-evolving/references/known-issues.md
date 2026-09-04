@@ -319,6 +319,10 @@ failed: early eof（客户端侧超时中止）。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
 
+## 2026-09-05 run_code 程序体两类 JS 语法坑（T21 实证，各浪费一轮）
+- 症状 A：Expected ',', got ')'——tools.write({ file_path, content: 模板串 }) 模板串闭合后漏了对象字面量的右花括号直接以右括号收尾；症状 B：Expected ';','}' or <eof> / Expected ',', got 'ident'——把多行 bash 命令塞进单引号 JS 字符串（单引号串不能跨行）。
+- 修法：大内容一律模板串且写完立刻核对调用尾部是否有右花括号；多行命令用模板串而非单引号串；内容含插值序列或反引号时改走 write 工具直传 JSON 参数（不经 JS 解析）或 python3 落盘。另：read 读回 join 写回会丢文件尾换行，rustfmt --check 会红，追加换行即愈。
+
 ## 2026-09-05 写完量行数必在 cargo fmt 之后（T20 line-limit 红线）
 - 症状：新测试文件写完 wc -l 282 行（<300），commit 后 make check 的 line-limit 报 308 行超限——fmt 前量的不算数。
 - 原因：rustfmt 对 >60 字符的方法链（chain_width）与 >100 字符行强制折行，builder 链一行爆成八行，行数轻松涨 10%。
@@ -521,3 +525,9 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 症状：开工时 merge 过 origin/main，收尾 ff-only 前发现 main 又从 fb0aee2 走到 2f4ae13（flake 加固合入，动了 gui 测试）。
 - 修法：push 分支后、ff-only 前固定再 fetch+merge main+重跑门禁一轮；"今天上午同步过"不算数。
 - 连带教训：接单第一步就在基线跑一遍机械验收命令——本单 main 上 cargo test 本就编译红（IM-T43 给 ChatFriend 加 group 字段没同步 tests/chat_contract.rs、chat_boundaries.rs 三处字面量），不改任何 Rust 也得先修它才能交 GC3C-OK；归属判明后在 feature 分支独立 fix 提交（对齐契约 12.3 的 "group": null 断言）。
+
+## 2026-09-05 与 cargo fingerprint 抢跑必输：构建形态裁决要交回 cargo 本身（ui-reg 二连红复盘）
+- 症状：ui-regression 在协调者主树全页 PAGE_TIMEOUT；我方 worktree 同脚本两遍 82/82 全绿——同代码不同树不同结果，且首版修复（marker mtime 比对）在复现中仍现 GUI_NOT_READY。
+- 原因：cargo test / 普通 build 会把 target/debug 下同一二进制翻成另一构建形态（dev 态加载 devUrl 空壳），脚本用 mtime/marker 自猜"二进制是不是目标形态"，但外部构建与 cargo fingerprint 的时序组合无穷，marker 反映的是"上次成功构建"而非"当前二进制形态"，必有误判缺口。
+- 修法：废除自猜，无条件按目标形态构建（cargo build --features ...），把"要不要重编"交回 cargo fingerprint——形态不对必重编（增量实测 6.7s），形态对 Fresh 秒回。删代码比加代码可靠。
+- 通用规则：凡脚本需要保证"产物处于某构建形态"，不要用 mtime/marker 猜，无条件调用目标形态的构建命令让构建系统自己幂等裁决；单测/集成绿不豁免真机产物形态验证。

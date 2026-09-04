@@ -10,7 +10,7 @@ use std::time::Duration;
 use clap::Parser;
 use serde::Serialize;
 
-use acp_console::config::parse_manual_peers;
+use acp_console::config::{parse_manual_peers, ConsoleConfig};
 use acp_console::discovery::{self, DiscoveryHub};
 use acp_console::out;
 use acp_console::state::StatusHub;
@@ -71,28 +71,39 @@ fn main() -> Result<(), String> {
 
 async fn run(args: Args) -> Result<(), String> {
     let manual_peers = parse_manual_peers(&args.peers)?;
-    std::fs::create_dir_all(&args.data_dir)
-        .map_err(|e| format!("data dir {}: {e}", args.data_dir.display()))?;
+    // CLI 入参统一收敛进 ConsoleConfig（库面装配契约），main 只做翻译不做业务。
+    let cfg = ConsoleConfig {
+        data_dir: args.data_dir.clone(),
+        bootstrap: args.bootstrap.clone(),
+        mdns: !args.no_mdns,
+        manual_peers: manual_peers.clone(),
+        agent_token: args.agent_token.clone(),
+        ws_port: args.ws_port,
+        status_port: args.status_port,
+        reattach_window: Duration::from_secs(args.window_secs),
+    };
+    std::fs::create_dir_all(&cfg.data_dir)
+        .map_err(|e| format!("data dir {}: {e}", cfg.data_dir.display()))?;
     let node = Arc::new(
         p2p::Node::builder()
-            .mdns(!args.no_mdns)
-            .bootstrap(args.bootstrap.clone())
-            .data_dir(args.data_dir.join("p2p-identity"))
+            .mdns(cfg.mdns)
+            .bootstrap(cfg.bootstrap.clone())
+            .data_dir(cfg.data_dir.join("p2p-identity"))
             .build()
             .await
             .map_err(|e| format!("p2p node build: {e}"))?,
     );
     let hub = Arc::new(StatusHub::new());
     let disc = Arc::new(DiscoveryHub::default());
-    let tickets = Arc::new(TicketStore::new(&args.data_dir));
-    let window = Duration::from_secs(args.window_secs);
+    let tickets = Arc::new(TicketStore::new(&cfg.data_dir));
+    let window = cfg.reattach_window;
 
     spawn_manual_registration(&node, &disc, &manual_peers);
     tokio::spawn(discovery::forward_events(node.clone(), disc.clone()));
 
     let local_token = token::new_token();
     let status = StatusServer::start(
-        args.status_port,
+        cfg.status_port,
         local_token.clone(),
         StatusDeps {
             hub: hub.clone(),
@@ -102,7 +113,7 @@ async fn run(args: Args) -> Result<(), String> {
     .await
     .map_err(|e| format!("status server: {e}"))?;
     let ws = WsServer::start(
-        args.ws_port,
+        cfg.ws_port,
         local_token.clone(),
         WsDeps {
             node: node.clone(),
