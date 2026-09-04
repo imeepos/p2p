@@ -57,8 +57,6 @@ export function ConversationList({
           onAddFriend ? (
             <Button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={onAddFriend}
               data-testid="chat-add-friend-empty"
             >

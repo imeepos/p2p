@@ -45,7 +45,7 @@ export function ChatView() {
   return (
     <>
       <PageHeader titleKey="chat.title" descriptionKey="chat.description" />
-      <div className="grid min-h-72 grid-cols-[16rem_1fr] gap-4">
+      <div className="col-span-12 grid min-h-72 grid-cols-[16rem_1fr] gap-4">
         <section aria-label={t("chat.friends")} className="rounded-lg border">
           <div className="flex items-center justify-between gap-2 px-3 py-2">
             <h2 className="font-medium">{t("chat.friends")}</h2>
