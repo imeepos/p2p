@@ -30,7 +30,7 @@ cleanup() {
     # best-effort 造数回收：GUI 仍存活时删合成好友（幂等，失败留告警不掩盖主流程）
     if [ -n "$CHILD" ] && kill -0 "$CHILD" 2>/dev/null \
         && [ -x "$CTL" ] && "$CTL" gui status --json >/dev/null 2>&1; then
-        "$CTL" gui action chat removeFriend peer="$PEER_Z" confirm=true >/dev/null 2>&1 || \
+        "$CTL" gui action chat removeFriend peer="$PEER_Z" confirm=true --navigate >/dev/null 2>&1 || \
             echo "GC4-E2E WARN: 合成好友收尾删除失败（peer=$PEER_Z）" >&2
     fi
     if [ -n "$CHILD" ] && kill -0 "$CHILD" 2>/dev/null; then
