@@ -512,6 +512,15 @@ const enUS: typeof zhCN = {
       openInBrowser: "Read full release notes",
       download: "Go to download",
     },
+    download: {
+      button: "Download and install",
+      retry: "Retry download",
+      installed: "Update downloaded and installed; restart to apply",
+      restart: "Restart now",
+      failed: "Download and install failed",
+      progressPercent: "Downloaded {{percent}}% ({{downloaded}} / {{total}})",
+      progressBytes: "Downloaded {{downloaded}}",
+    },
     status: {
       checking: "Checking…",
       upToDate: "You are up to date",

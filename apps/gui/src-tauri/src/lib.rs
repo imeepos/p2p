@@ -56,6 +56,8 @@ pub fn run() {
             chat::chat_media_file,
         ])
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let log_dir = app
                 .path()

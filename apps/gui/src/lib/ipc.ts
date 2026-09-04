@@ -1,5 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { relaunch } from "@tauri-apps/plugin-process";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 
 import type {
   ChatFriendJson,
@@ -18,6 +20,7 @@ import type {
   NodeStatus,
   PingOutcome,
   UpdateCheckResult,
+  UpdateDownloadBackend,
 } from "./ipc-types";
 
 const NODE_EVENT_CHANNEL = "node-event";
@@ -98,3 +101,35 @@ const tauriDiagBackend: DiagBackend = {
 };
 
 export const diag: DiagBackend = tauriDiagBackend;
+
+// 契约 v8 §13 加法（G-U3）：下载安装面。check 拿到的 Update 句柄由本模块持有，
+// downloadAndInstall 复用该句柄，避免下载前二次联网；浏览器/dev 无插件环境走 mock。
+let pendingUpdate: Update | null = null;
+
+const tauriUpdateDownloadBackend: UpdateDownloadBackend = {
+  async checkRemoteUpdate() {
+    pendingUpdate = await check();
+    if (!pendingUpdate) return null;
+    return { version: pendingUpdate.version, notes: pendingUpdate.body ?? null };
+  },
+  async downloadAndInstallUpdate(onProgress) {
+    if (!pendingUpdate) throw new Error("尚未检查到可用更新，无法下载安装");
+    let totalBytes: number | null = null;
+    let downloadedBytes = 0;
+    await pendingUpdate.downloadAndInstall((event) => {
+      if (event.event === "Started") {
+        totalBytes = event.data.contentLength ?? null;
+        downloadedBytes = 0;
+      } else if (event.event === "Progress") {
+        downloadedBytes += event.data.chunkLength;
+      }
+      onProgress({ downloadedBytes, totalBytes });
+    });
+    pendingUpdate = null;
+  },
+  relaunchApp: () => relaunch(),
+};
+
+export const updateDl: UpdateDownloadBackend = mockIpc
+  ? (await import("./mock-update")).mockUpdateDownloadBackend
+  : tauriUpdateDownloadBackend;

@@ -462,3 +462,14 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：守卫的 stripComments 只删行首注释与块注释，行尾 // 注释保留后过 CJK 正则。
 - 修法：components/views 下所有中文注释一律独立成行（守卫能删到）；不要改守卫来适配自己的写法。
 - 快速定位法：把守卫的 stripComments+CJK 逻辑写成 /tmp 临时 .cjs 用 node 跑，一次列出全部 offender（awk 转义写这个太容易翻车）。
+
+## 2026-09-04 U1：worktree remove / 大目录删除被 bash 默认超时反复击杀
+- 症状：git worktree remove（含数 GB target 产物）静默无输出返回，目录与注册都还在；链上后续 branch -d 全没执行。
+- 原因：bash 工具默认 ~60s 超时杀掉删除进程；worktree add 的 checkout 同理（本日累计被杀 3 次）。
+- 修法：凡是 checkout/大目录删除/构建一律 run_in_background + job_output 轮询；remove 报 "contains modified or untracked files" 时，未跟踪物是 gitignore 产物就用 --force（先 status 确认没有已跟踪文件改动）。
+- 副作用警告：--force 删除进行中并发跑 git status 会看到大量假 " D"（tracked 文件被删一半），先判断是不是自己的删除在跑，别当事故救火。
+
+## 2026-09-04 U1：set -u 下无参调用 case "$1" unbound variable
+- 症状：脚本带 --keep 自测全绿，验收（无参形态）第一行就报 $1 unbound variable 直接退出。
+- 原因：set -u 对未传位置参数取值即崩；自测形态与验收形态不一致（自测永远带参）。
+- 修法：位置参数一律空值兜底（美元花括号冒号连字符写法）后再用；脚本自测必须覆盖「无参」这个验收真实形态，参数解析分支用桩二进制定向测试（伪 CTL/GUI_BIN/dist 令构建全跳过，无 GUI 也能验证解析与结构化报错路径）。
