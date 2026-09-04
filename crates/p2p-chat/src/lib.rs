@@ -20,8 +20,8 @@ use tokio::sync::broadcast;
 
 pub use friend::{validate_group, ChatFriend, FriendPatch, MAX_GROUP_CHARS};
 pub use model::{
-    sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatEvent,
-    ChatKind, ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
+    sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatEvent, ChatKind,
+    ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
 };
 
 use core::ChatCore;
@@ -106,7 +106,11 @@ impl Chat {
 
     /// 更新好友资料补丁（IM-T43）：group/nickname/note 至少一项；addrs 不可经此修改；
     /// peer 不在簿 Err。group 提供空串 = 移出分组（归一化 None，落盘无空串组名）。
-    pub fn friend_update(&self, peer_id: &str, patch: &FriendPatch) -> Result<ChatFriend, ChatError> {
+    pub fn friend_update(
+        &self,
+        peer_id: &str,
+        patch: &FriendPatch,
+    ) -> Result<ChatFriend, ChatError> {
         let _ = model::parse_peer_id(peer_id)?;
         if patch.is_empty() {
             return Err(ChatError::InvalidUpdate(

@@ -66,20 +66,42 @@ mod tests {
 
     #[test]
     fn group_validation_matrix() {
-        assert_eq!(validate_group(Some("  同事 ")).unwrap().as_deref(), Some("同事"));
-        assert_eq!(validate_group(Some("")).unwrap(), None, "空串归一化为未分组");
-        assert_eq!(validate_group(Some("   ")).unwrap(), None, "纯空白归一化为未分组");
+        assert_eq!(
+            validate_group(Some("  同事 ")).unwrap().as_deref(),
+            Some("同事")
+        );
+        assert_eq!(
+            validate_group(Some("")).unwrap(),
+            None,
+            "空串归一化为未分组"
+        );
+        assert_eq!(
+            validate_group(Some("   ")).unwrap(),
+            None,
+            "纯空白归一化为未分组"
+        );
         assert_eq!(validate_group(None).unwrap(), None);
         assert!(validate_group(Some(&"a".repeat(33))).is_err());
         assert!(validate_group(Some(&"汉".repeat(32))).is_ok());
-        assert!(validate_group(Some(&"汉".repeat(33))).is_err(), "按字符数计");
+        assert!(
+            validate_group(Some(&"汉".repeat(33))).is_err(),
+            "按字符数计"
+        );
     }
 
     #[test]
     fn patch_empty_detection() {
         assert!(FriendPatch::default().is_empty());
-        assert!(!FriendPatch { group: Some(String::new()), ..Default::default() }.is_empty());
-        assert!(!FriendPatch { note: Some("x".into()), ..Default::default() }.is_empty());
+        assert!(!FriendPatch {
+            group: Some(String::new()),
+            ..Default::default()
+        }
+        .is_empty());
+        assert!(!FriendPatch {
+            note: Some("x".into()),
+            ..Default::default()
+        }
+        .is_empty());
     }
 
     #[test]

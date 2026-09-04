@@ -67,7 +67,10 @@ async fn legacy_friends_json_reads_back_ungrouped_and_updates() {
     assert_eq!(list[0].group.as_deref(), Some("家人"));
     assert_eq!(list[0].nickname, "b");
     let on_disk = std::fs::read_to_string(&path).unwrap();
-    assert!(on_disk.contains("\"group\": \"家人\""), "camelCase 落盘: {on_disk}");
+    assert!(
+        on_disk.contains("\"group\": \"家人\""),
+        "camelCase 落盘: {on_disk}"
+    );
     cleanup(&a);
 }
 
@@ -91,7 +94,10 @@ async fn friend_update_roundtrip_and_remove_group() {
         )
         .expect("update");
     assert_eq!(moved.group.as_deref(), Some("同事"), "组名 trim");
-    assert_eq!(a.chat.friends_list().unwrap()[0].group.as_deref(), Some("同事"));
+    assert_eq!(
+        a.chat.friends_list().unwrap()[0].group.as_deref(),
+        Some("同事")
+    );
 
     let removed = a
         .chat
@@ -147,7 +153,10 @@ async fn friend_update_rejects_empty_patch_and_bad_group_and_missing_peer() {
             },
         )
         .expect_err("33 字符组名必须拒绝");
-    assert!(too_long.to_string().contains("分组名超过"), "实际: {too_long}");
+    assert!(
+        too_long.to_string().contains("分组名超过"),
+        "实际: {too_long}"
+    );
     assert_eq!(
         a.chat.friends_list().unwrap()[0].group,
         None,
