@@ -30,6 +30,10 @@ interface MessageBubbleProps {
   onQuoteOpen?: (message: ChatMessageJson) => void;
   /** 失败重发（IM-T51）：仅 me+failed+text 提供入口；媒体走重新选择提示。 */
   onRetry?: (message: ChatMessageJson) => void;
+  /** 群聊扩展（G3）：them 气泡上方的发送者展示名；1:1 不传不渲染。 */
+  senderLabel?: string;
+  /** 群聊扩展（G3）：me 气泡状态行覆盖（已送达 k/n）；不传走原状态文案。 */
+  statusOverride?: string;
 }
 
 // 回复入口：悬停/键盘聚焦可见，位于气泡外侧；不干扰气泡本体点击。
@@ -74,6 +78,8 @@ export function MessageBubble({
   onReply,
   onQuoteOpen,
   onRetry,
+  senderLabel,
+  statusOverride,
 }: MessageBubbleProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
@@ -112,6 +118,11 @@ export function MessageBubble({
             onOpen={() => onQuoteOpen?.(message)}
           />
         ) : null}
+        {!isMe && senderLabel ? (
+          <div className="text-xs font-medium opacity-80" data-testid="group-sender-label">
+            {senderLabel}
+          </div>
+        ) : null}
         {message.kind === "text" && message.text ? (
           <p className="whitespace-pre-wrap break-words">{message.text}</p>
         ) : null}
@@ -126,7 +137,7 @@ export function MessageBubble({
                   "font-medium text-red-300 dark:text-red-700",
               )}
             >
-              {t(STATUS_KEYS[message.status])}
+              {statusOverride ?? t(STATUS_KEYS[message.status])}
             </span>
           ) : null}
           {pendingPlaceholder && onCancelPending ? (

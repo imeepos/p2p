@@ -1,11 +1,13 @@
-//! p2p-chat：IM 聊天核心 crate（design §1-§6；契约 gui-contract.md §12）。
-//!
-//! 好友簿 / 消息历史 / outbox 离线队列 / 线协议 /im/chat/1 收发；底座 p2p-* 只读。
-//! 发送：校验 → 落 outbox → 连接 → 开流帧序 → ACK → delivered；
-//! 入站：handler 读信封 → 收媒体 → 回 ACK → 落盘 → chat_message 事件。
+//! p2p-chat：IM 聊天核心（design §1-§6 + im-group-design）：1:1 与群聊收发，底座只读。
+//! 发送：校验 → 落 outbox → 连接 → 帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
 
 mod core;
 mod friend;
+mod group;
+mod group_core;
+mod group_model;
+mod group_store;
+mod group_wire;
 mod identity_lock;
 mod model;
 mod outbox;
@@ -27,6 +29,9 @@ use p2p::Node;
 use tokio::sync::broadcast;
 
 pub use friend::{validate_group, ChatFriend, FriendPatch, MAX_GROUP_CHARS};
+pub use group::{
+    Group, GroupEvent, GroupInfo, GroupMessage, GroupSendReport, GroupState, GROUP_PROTOCOL,
+};
 pub use model::{
     sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatEvent, ChatKind,
     ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
@@ -37,12 +42,11 @@ use core::ChatCore;
 /// 线协议 ID（wire-protocol.md §8 登记）。
 pub const CHAT_PROTOCOL: &str = "/im/chat/1";
 
-/// 事件通道容量。
-const EVENT_CAPACITY: usize = 128;
+const EVENT_CAPACITY: usize = 128; // 1:1 与群各自独立事件通道
 
-/// 聊天门面：好友簿 / 发送 / 历史 / 媒体路径，内部持有核心与 outbox 任务。
 pub struct Chat {
     core: Arc<ChatCore>,
+    pub group: Group, // 群门面：group_* 命令经此调用（与 1:1 API 命名空间分离）
 }
 
 impl Chat {
@@ -62,8 +66,9 @@ impl Chat {
             p2p::ProtocolId::new(CHAT_PROTOCOL).map_err(|e| ChatError::Protocol(e.to_string()))?;
         core.node
             .handle_protocol(Arc::new(wire::ChatHandler::new(core.clone(), proto)));
-        outbox::spawn_outbox_task(core.clone());
-        Ok(Self { core })
+        let group = group::Group::mount(core.clone(), &data_dir)?;
+        outbox::spawn_outbox_task(core.clone(), group.core.clone());
+        Ok(Self { core, group })
     }
 
     /// chat_message / chat_status 事件订阅。
@@ -71,13 +76,16 @@ impl Chat {
         self.core.events.subscribe()
     }
 
+    pub fn group_events(&self) -> broadcast::Receiver<GroupEvent> {
+        self.group.events()
+    }
+
     /// 好友簿列表（无文件返回空数组）。
     pub fn friends_list(&self) -> Result<Vec<ChatFriend>, ChatError> {
         Ok(self.core.store.friends_list()?)
     }
 
-    /// 加好友：校验 peerId（base58 且 ≠ 本机）/昵称（trim ≤64）/地址语法，
-    /// 通过后原子写好友簿并同步登记地址簿（可拨）。
+    /// 加好友：校验后原子写好友簿并登记地址簿（校验细则见 model / friend 模块）。
     pub fn friend_add(
         &self,
         peer_id: &str,
@@ -113,8 +121,6 @@ impl Chat {
         Ok(self.core.store.remove_friend(peer_id)?)
     }
 
-    /// 更新好友资料补丁（IM-T43）：group/nickname/note 至少一项；addrs 不可经此修改；
-    /// peer 不在簿 Err。group 提供空串 = 移出分组（归一化 None，落盘无空串组名）。
     pub fn friend_update(
         &self,
         peer_id: &str,
@@ -191,8 +197,7 @@ impl Chat {
             .ok_or_else(|| ChatError::NotFound("消息非附件类型".into()))
     }
 
-    /// 发送：校验 → 信封 → 落 outbox/messages(pending) → 实时投递；
-    /// 对端未连接保持 pending，等待 PeerConnected 事件 flush。
+    /// 发送：校验 → 落 outbox/messages(pending) → 实时投递；未连接保持 pending 待 flush。
     pub async fn send(
         &self,
         peer: &str,
@@ -254,8 +259,7 @@ impl Chat {
         self.core.store.append_outbox(&env)?;
         self.core.store.append_message(&env)?;
         self.core.emit_status(peer, &env.id, ChatStatus::Pending);
-        // 持有 peer 投递锁：connect 触发的 PeerConnected 会让 outbox 任务并发 flush
-        // 同一条消息，串行化避免同连接并发开流（yamux 上游缺陷，见 core.rs 注释）。
+        // 持 peer 投递锁：串行化 send 与 outbox flush，避免同连接并发开流（yamux 上游缺陷）。
         let _guard = self.core.peer_guard(peer).await;
         let delivered = match self.core.deliver(&env).await {
             Ok(()) => {
@@ -280,8 +284,7 @@ impl Chat {
         })
     }
 
-    /// 排空该 peer 的 outbox（CLI one-shot 收尾用，D5）：主动连接后 flush，budget 内尽力而为。
-    /// 返回本轮成功补投的条目数（按队列长度差计）。
+    /// 排空该 peer 的 outbox（CLI one-shot，D5）：返回补投条目数。
     pub async fn drain_peer(&self, peer: &str, budget: Duration) -> Result<usize, ChatError> {
         let pid = model::parse_peer_id(peer)?;
         let before = self.core.store.outbox_for(peer).len();

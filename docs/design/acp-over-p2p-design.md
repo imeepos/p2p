@@ -233,3 +233,19 @@ spawn 延迟——池化但不共享状态，隔离不破。
 
 > 拍板记录（2026-09-04）：Q1=90s 可配；Q2=默认 sandbox；Q3=ask 默认路由远程 GUI；
 > Q4=`/dsh-acp/1`（已登记 crates/p2p-relay/src/lib.rs `proto_ids`，wire-protocol.md §3.2 同步）；Q5=仅审计日志。
+
+## 13. 实现状态补记（2026-09-04，ACP 波收官）
+
+§3 组件表无状态列，按收官口径在此补记各行的落地状态与对应合并提交：
+
+| §3 行 | 状态 | 合并提交 | 备注 |
+|---|---|---|---|
+| apps/acp-common | 已落地 | 6039bb9 | 握手帧编解码、ndjson 分块重组、错误码、策略表（§4 帧流动的共享面） |
+| apps/acp-agent | 已落地 | fa71e8d | handler + 策略门禁 + 子进程监督；§5 续连窗口/补放与 §6 两个安全改写点（cwd/mcpServers）+ 权限瀑布全量并入 |
+| apps/acp-console | 已落地 | f56f224 | 本地 WS 哑泵 + 节点发现 + 连接状态机（§6 本地面；§8 渲染面归 GUI 行） |
+| p2p-cli 扩展 | 已落地 | c591063 | p2pctl acp allow/deny/list（§6 授权行管理面，TOFU 指纹显式登记） |
+| apps/gui | 未落地 | - | ACP6a/6b GUI 波在途；§8 全表为 GUI 波契约 |
+
+验收面：apps/acp-agent/tests 回环套件（ACP2/4/7），其中 acp_wave_e2e 把 §7 故障矩阵
+逐行落成断言（stub/真 dsh 双模式）；apps/acp-console/tests 回环传输套件（ACP3）。
+运维口径见 docs/ops/acp-guide.md。
