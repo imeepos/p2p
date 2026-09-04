@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { ChatFriendAddDialog } from "@/components/chat/chat-friend-add-dialog";
 import { ChatFriendRemoveDialog } from "@/components/chat/chat-friend-remove-dialog";
 import { ConversationList } from "@/components/chat/conversation-list";
+import { PeerStatusDot } from "@/components/chat/peer-status";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { Composer } from "@/components/chat/composer";
 import { MessageList } from "@/components/chat/message-list";
 import { useChatStore } from "@/stores/chat-store";
+import { usePeerOnline } from "@/stores/node-store";
 import { EmptyState } from "@/views/shared/empty-state";
 
 export function ChatView() {
@@ -41,6 +43,7 @@ export function ChatView() {
   }, [loadFriends, subscribeEvents]);
 
   const selectedFriend = friends.find((f) => f.peerId === selectedPeer);
+  const selectedOnline = usePeerOnline(selectedPeer ?? "");
 
   return (
     <>
@@ -81,8 +84,13 @@ export function ChatView() {
           {selectedPeer ? (
             <>
               <div className="border-b px-4 py-2">
-                <div className="text-sm font-medium">
-                  {selectedFriend?.nickname || selectedPeer.slice(0, 8)}
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <span>{selectedFriend?.nickname || selectedPeer.slice(0, 8)}</span>
+                  <PeerStatusDot
+                    online={selectedOnline}
+                    testId="chat-header-status"
+                    withLabel
+                  />
                 </div>
                 <div className="text-xs text-muted-foreground">
                   {selectedPeer}

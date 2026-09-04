@@ -121,6 +121,11 @@ export const selectPeerList = (s: NodeStoreState): PeerEntry[] => {
 export const selectPeerCount = (s: NodeStoreState): number =>
   selectPeerList(s).length;
 
+// 在线口径：底层连接建立即在线（展示语义），connected 由 peer_connected/disconnected 事件翻转。
+export function usePeerOnline(peerId: string): boolean {
+  return useNodeStore((s) => s.peers[peerId]?.connected ?? false);
+}
+
 export function selectListenPorts(status: NodeStatus | null): number[] {
   if (!status) return [];
   const ports: number[] = [];
