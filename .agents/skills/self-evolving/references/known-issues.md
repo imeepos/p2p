@@ -525,3 +525,9 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 症状：开工时 merge 过 origin/main，收尾 ff-only 前发现 main 又从 fb0aee2 走到 2f4ae13（flake 加固合入，动了 gui 测试）。
 - 修法：push 分支后、ff-only 前固定再 fetch+merge main+重跑门禁一轮；"今天上午同步过"不算数。
 - 连带教训：接单第一步就在基线跑一遍机械验收命令——本单 main 上 cargo test 本就编译红（IM-T43 给 ChatFriend 加 group 字段没同步 tests/chat_contract.rs、chat_boundaries.rs 三处字面量），不改任何 Rust 也得先修它才能交 GC3C-OK；归属判明后在 feature 分支独立 fix 提交（对齐契约 12.3 的 "group": null 断言）。
+
+## 2026-09-05 与 cargo fingerprint 抢跑必输：构建形态裁决要交回 cargo 本身（ui-reg 二连红复盘）
+- 症状：ui-regression 在协调者主树全页 PAGE_TIMEOUT；我方 worktree 同脚本两遍 82/82 全绿——同代码不同树不同结果，且首版修复（marker mtime 比对）在复现中仍现 GUI_NOT_READY。
+- 原因：cargo test / 普通 build 会把 target/debug 下同一二进制翻成另一构建形态（dev 态加载 devUrl 空壳），脚本用 mtime/marker 自猜"二进制是不是目标形态"，但外部构建与 cargo fingerprint 的时序组合无穷，marker 反映的是"上次成功构建"而非"当前二进制形态"，必有误判缺口。
+- 修法：废除自猜，无条件按目标形态构建（cargo build --features ...），把"要不要重编"交回 cargo fingerprint——形态不对必重编（增量实测 6.7s），形态对 Fresh 秒回。删代码比加代码可靠。
+- 通用规则：凡脚本需要保证"产物处于某构建形态"，不要用 mtime/marker 猜，无条件调用目标形态的构建命令让构建系统自己幂等裁决；单测/集成绿不豁免真机产物形态验证。
