@@ -79,16 +79,7 @@ pub struct ChatEnvelope {
     pub reply_to: Option<String>,
 }
 
-/// 好友簿条目（friends.json 数组元素）。
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatFriend {
-    #[serde(rename = "peerId")]
-    pub peer_id: String,
-    pub nickname: String,
-    pub addrs: Vec<String>,
-    pub note: Option<String>,
-}
+pub use crate::friend::ChatFriend;
 
 /// 发送附件入参（GUI 侧解码 base64 后传入）。
 #[derive(Clone, Debug)]
@@ -152,6 +143,10 @@ pub enum ChatError {
     NotFound(String),
     #[error("回复引用非法：{0}")]
     InvalidReply(String),
+    #[error("分组名非法：{0}")]
+    InvalidGroup(String),
+    #[error("更新参数非法：{0}")]
+    InvalidUpdate(String),
 }
 
 /// base58 → 32 字节 PeerId；编码或长度非法即 Err（可读中文）。

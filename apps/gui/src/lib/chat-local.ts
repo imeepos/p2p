@@ -67,3 +67,61 @@ export function removeLocal(
 ): ChatMessageJson[] {
   return list.filter((m) => m.id !== localMessageId);
 }
+
+// ---- 占位生命周期（自 chat-store.ts 迁入，行数红线）----
+
+// store 侧最小可变面：占位操作只触及这两个缓存。
+interface PendingMutable {
+  messagesByPeer: Record<string, ChatMessageJson[]>;
+  lastMessageByPeer: Record<string, ChatMessageJson | null>;
+}
+
+type SetFn<S> = (fn: (s: S) => Partial<S>) => void;
+
+export function pushPending<S extends PendingMutable>(
+  set: SetFn<S>,
+  peer: string,
+  placeholder: ChatMessageJson,
+): void {
+  set((s) => ({
+    messagesByPeer: {
+      ...s.messagesByPeer,
+      [peer]: mergeMessages(s.messagesByPeer[peer] ?? [], [placeholder]),
+    },
+    lastMessageByPeer: { ...s.lastMessageByPeer, [peer]: placeholder },
+  }) as Partial<S>);
+}
+
+export function swapPending<S extends PendingMutable>(
+  get: () => S,
+  set: SetFn<S>,
+  peer: string,
+  placeholderId: string,
+  real: ChatMessageJson,
+): void {
+  const next = replaceLocal(get().messagesByPeer[peer] ?? [], placeholderId, real);
+  set((s) => ({
+    messagesByPeer: { ...s.messagesByPeer, [peer]: next },
+    lastMessageByPeer: { ...s.lastMessageByPeer, [peer]: real },
+  }) as Partial<S>);
+}
+
+// 占位移除统一回滚（IM-T48 裁决项）：列表摘除占位；若摘要仍指向该占位
+// （期间无新事件写入）则回退为剩余最后一条，无剩余清空；期间新事件的
+// 摘要保持不动。媒体发送失败后列表不再残留占位文件名。
+export function retractPending<S extends PendingMutable>(
+  set: SetFn<S>,
+  peer: string,
+  placeholderId: string,
+): void {
+  set((s) => {
+    const next = removeLocal(s.messagesByPeer[peer] ?? [], placeholderId);
+    const last = s.lastMessageByPeer[peer];
+    const summary =
+      last && last.id === placeholderId ? (next[next.length - 1] ?? null) : last;
+    return {
+      messagesByPeer: { ...s.messagesByPeer, [peer]: next },
+      lastMessageByPeer: { ...s.lastMessageByPeer, [peer]: summary ?? null },
+    } as Partial<S>;
+  });
+}

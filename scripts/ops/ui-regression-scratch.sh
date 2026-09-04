@@ -145,8 +145,7 @@ start_gui() {
     if [ -f "$EP_FILE" ]; then
         EPID="$(grep -Eo '"pid": [0-9]+' "$EP_FILE" 2>/dev/null | grep -Eo '[0-9]+')"
         if [ -n "$EPID" ] && ps -p "$EPID" >/dev/null 2>&1 \
-            && "$CTL" gui status --json >/dev/null 2>&1 \
-            && "$CTL" gui page >/dev/null 2>&1; then
+            && "$CTL" gui status --json >/dev/null 2>&1; then
             echo "复用已运行 GUI 实例 pid=$EPID（外部进程不杀不复位）"
             return 0
         fi
