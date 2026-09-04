@@ -26,3 +26,12 @@
 - **信息缺失**：identity.lock 未记载——chat serve 与 chat send 同 data-dir 互斥（§1.3 守护信号只列 daemon.*）；建议补锁清单+互斥矩阵；另缺「查本机 chat 身份」的离线只读命令。
 - **信息不准**：§1.4/gui screenshot 前置缺「macOS 屏幕录制授权」（实测 CAPTURE_PERMISSION_DENIED 直接判死 screenshot 与 ui-regression.sh）；gui page 条目称 dashboard 未注册会 PAGE_NOT_REGISTERED，实测 dashboard 正常返回 descriptor。
 
+
+## 底座 rendezvous 近似单次服务 + facade 注册观测退化（2026-09-05 T23 两机冒烟发现）
+
+- **现象 1**：rendezvous 服务端对同一连接近似只服务一次——第二个借方进程查号挂 10s 握手超时，bootstrap 侧每 10s 一条 server link ended 日志。
+- **现象 2**：facade 装配期观测单次随机失败导致注册退化为 loopback 地址。
+- **现役吸收**：T23 冒烟在 harness 层以「S2/S3/S4 单进程合并 + 发现窗口 60s + rc=2 有界重试 + 预观测等待」规避；产品 E2E（T20）同机回环不受影响。
+- **期望**：底座层修复单复核（rendezvous 连接复用/多查号；facade 注册重试与地址优选），涉及 crates/p2p-discovery 与 p2p-swarm，属底座卡非应用层。
+
+---
