@@ -3,6 +3,7 @@
 <!-- 排查技巧、工具命令、调试手法。格式：什么场景 → 怎么用。 -->
 
 - 2026-09-05 GUI 中央登记三件套提交顺序：feature 提交（src/新目录+测试）先行、登记提交（menu.def/App.tsx/locale/守卫测试）随后，HEAD 必绿；两段用 `git add <精确路径>` 分批 stage，feature 后补的红线修正用 `git commit --fixup=<feat> && GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <main>` 折回，rebase 顺带把过时的 merge commit 线性化。
+- 2026-09-05 run_code 调无必填参数的宿主工具（session_link_list/workspace_list/job_list/get_goal 等）传 {} 或 undefined 会报 "binding arguments must be lossless JSON"；传一个无害探测键（如 {probe:1}）即可正常调用。
 - 2026-09-02 全新空目录起项目要用 worktree 流程时：`git worktree add` 需要 HEAD，
   空仓库无 commit 会直接失败。先 `git init -b main` + baseline commit（AGENTS.md/skill/.gitignore），
   再开 worktree；`.worktrees/` 要写进 .gitignore 避免嵌套目录被主树误跟踪。
