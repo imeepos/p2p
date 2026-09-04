@@ -30,9 +30,9 @@ async fn run(cli: Cli) -> Result<(), String> {
         .await
         .map_err(|err| format!("node build: {err}"))?;
     let peers = PeerBook::spawn(node.events());
-    let deps = SessionDeps::assemble(config, Arc::new(TracingAudit), peers)
+    let deps = SessionDeps::assemble(config.clone(), Arc::new(TracingAudit), peers)
         .map_err(|err| format!("policy load: {err}"))?;
-    let handler = AcpHandler::new(deps).map_err(|err| format!("protocol id: {err}"))?;
+    let handler = AcpHandler::new(deps.clone()).map_err(|err| format!("protocol id: {err}"))?;
     node.handle_protocol(Arc::new(handler));
     eprintln!(
         "acp-agent: running peer={} data-dir={}",
@@ -41,6 +41,10 @@ async fn run(cli: Cli) -> Result<(), String> {
     );
     wait_shutdown().await;
     node.shutdown();
+    // 桥自身退出（设计 §7）：全部子进程走退出阶梯，kill_on_drop 仅兜底
+    deps.slots
+        .shutdown_all(config.grace() + std::time::Duration::from_secs(2))
+        .await;
     eprintln!("acp-agent: stopped");
     Ok(())
 }

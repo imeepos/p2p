@@ -10,8 +10,8 @@ use acp_agent::AuditEvent;
 use acp_common::{Scope, ServerHello};
 use common::STUB;
 use common::{
-    build_client, build_server, connect_and_stream, handshake_client, read_line, seed_quic,
-    send_line, test_config, write_policy,
+    build_client, build_server, build_server_full, connect_and_stream, handshake_client, read_line,
+    seed_quic, send_line, test_config, write_policy,
 };
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -229,4 +229,30 @@ async fn wait_log_contains(dir: &std::path::Path, needle: &str) {
         );
         tokio::time::sleep(Duration::from_millis(20)).await;
     }
+}
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn bridge_shutdown_walks_exit_ladder_for_all_children() {
+    let client = build_client("shutdown").await;
+    let cfg = test_config("shutdown");
+    write_policy(&cfg, Some((&client.local_peer_id(), Scope::Sandbox)));
+    let (server, audit, deps) = build_server_full(&cfg).await;
+    let server_peer = server.local_peer_id();
+    seed_quic(&server, server_peer, &client);
+
+    let mut stream = connect_and_stream(&client, server_peer).await;
+    handshake_client(&mut stream).await;
+
+    // 桥退出：广播 Shutdown，子进程按退出阶梯收尾而非 SIGKILL 兜底
+    let shut = deps.slots.shutdown_all(Duration::from_secs(4)).await;
+    assert_eq!(shut, 1, "one live slot must be shut down");
+    wait_audit(&audit, |ev| matches!(ev, AuditEvent::SubprocessExit { .. })).await;
+    assert_eq!(
+        deps.slots.shutdown_all(Duration::from_secs(1)).await,
+        0,
+        "shutdown must be idempotent",
+    );
+
+    drop(stream);
+    server.shutdown();
+    client.shutdown();
 }

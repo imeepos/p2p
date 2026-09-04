@@ -1,28 +1,24 @@
-//! 单条入站流的生命周期（设计 §4.1/§7，ACP2 骨架范围）：
-//! 握手 -> PeerId 归属 -> 策略表（默认拒绝）-> 资源门禁 -> spawn 子进程 ->
-//! ready 回执 -> ndjson<->varint 有界对拷；断流走退出阶梯（stdin EOF -> 宽限 -> SIGKILL）。
-//! 桥不解析 ACP 语义（握手行除外）；cwd 监狱/MCP 剥离/权限瀑布/续连缓存属 ACP4。
+//! 单条入站流的生命周期（设计 §4.1/§5/§6/§7）：
+//! 握手 -> PeerId 归属（fail-closed 绕行，见 ISSUE.md）-> 策略授权 -> 资源门禁
+//! -> 分流：无票据 = fresh spawn（cwd 监狱 + 票据签发），携票据 = 续连接管。
+//! 安全改写点分模块：jail（cwd）/ mcp（剥离替换）/ permission + router（瀑布）/
+//! reattach（缓存）。桥自身只做编排，不解析 ACP 语义（两个安全改写点除外）。
 
-use std::io::{self};
-use std::path::PathBuf;
+use std::io;
 use std::sync::{Arc, RwLock as StdRwLock};
 use std::time::Duration;
 
 use acp_common::error::ErrorCode;
 use acp_common::{parse_client_hello, ClientHello, PeerPolicy, PolicyTable, Scope, ServerHello};
 use p2p::BoxedStream;
-use tokio::io::BufReader;
-use tokio::process::Child;
-use uuid::Uuid;
 
 use crate::audit::{AuditEvent, AuditSink};
+use crate::child::SlotBook;
 use crate::config::AgentConfig;
+use crate::conn;
 use crate::gate::{ConnGate, ConnGuard, GateLimits};
 use crate::peers::PeerBook;
-use crate::pump::{
-    pump_child_to_wire, pump_wire_to_child, read_wire_line, wire_error, write_wire_line,
-};
-use crate::subprocess;
+use crate::pump::{read_wire_line, wire_error, write_wire_line};
 
 /// 握手读超时：无超时则慢速流可在占坑后永久挂起。
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -34,6 +30,7 @@ pub struct SessionDeps {
     pub policy: Arc<StdRwLock<PolicyTable>>,
     pub gate: Arc<ConnGate>,
     pub peers: Arc<PeerBook>,
+    pub slots: Arc<SlotBook>,
     pub audit: Arc<dyn AuditSink>,
 }
 
@@ -48,6 +45,7 @@ impl SessionDeps {
         Ok(Arc::new(Self {
             policy: Arc::new(StdRwLock::new(table)),
             gate: Arc::new(ConnGate::new()),
+            slots: Arc::new(SlotBook::new()),
             config,
             audit,
             peers,
@@ -95,7 +93,10 @@ async fn run_session(deps: Arc<SessionDeps>, mut stream: BoxedStream) -> io::Res
             return deny(&mut stream, deps.audit.as_ref(), &peer_id, code).await;
         }
     };
-    drive_session(deps, &mut stream, peer_id, hello, grant, guard).await
+    match hello.reattach {
+        Some(ticket) => conn::reattach(deps, stream, peer_id, hello, grant, guard, ticket).await,
+        None => conn::fresh(deps, stream, peer_id, hello, grant, guard).await,
+    }
 }
 
 async fn handshake(stream: &mut BoxedStream) -> Result<ClientHello, ErrorCode> {
@@ -129,7 +130,7 @@ fn admit(deps: &SessionDeps, peer: &str) -> Result<ConnGuard, (ErrorCode, &'stat
 }
 
 /// 拒绝路径（设计 §12-Q5）：denied 帧只带码，审计只记 PeerId+码+时间。
-async fn deny(
+pub(crate) async fn deny(
     stream: &mut BoxedStream,
     audit: &dyn AuditSink,
     peer: &str,
@@ -148,126 +149,17 @@ async fn deny(
     Err(io::Error::other(format!("connection denied: {code}")))
 }
 
-async fn drive_session(
-    deps: Arc<SessionDeps>,
+/// ready 回执：fresh 签发续连票据，reattach 回带原票据（客户端确认仍有效）。
+pub(crate) async fn reply_ready(
     stream: &mut BoxedStream,
-    peer_id: String,
-    hello: ClientHello,
-    grant: PeerPolicy,
-    _guard: ConnGuard,
+    scope: Scope,
+    agent: &str,
+    ticket: Option<&str>,
 ) -> io::Result<()> {
-    let log_path = stderr_log_path(&deps, &peer_id, hello.conn);
-    let sub = match subprocess::spawn(&deps.config.command, log_path) {
-        Ok(sub) => sub,
-        Err(err) => {
-            deps.audit.record(AuditEvent::SpawnFailed {
-                peer: peer_id.clone(),
-                conn: hello.conn.to_string(),
-                detail: err.to_string(),
-            });
-            return deny(
-                stream,
-                deps.audit.as_ref(),
-                &peer_id,
-                ErrorCode::SubprocessFailed,
-            )
-            .await;
-        }
+    let hello = match ticket {
+        Some(ticket) => ServerHello::ready_with_ticket(scope, agent, ticket),
+        None => ServerHello::ready(scope, agent),
     };
-    reply_ready(stream, grant.scope, &deps.config.agent_name).await?;
-    deps.audit.record(AuditEvent::ConnEstablished {
-        peer: peer_id.clone(),
-        conn: hello.conn.to_string(),
-    });
-    let parts: SubprocessParts = sub.into();
-    let SubprocessParts {
-        child,
-        mut stdin,
-        stdout,
-    } = parts;
-    let mut child_out = BufReader::new(stdout);
-    let (mut rx, mut tx) = tokio::io::split(stream);
-    let side = tokio::select! {
-        res = pump_child_to_wire(&mut child_out, &mut tx) => PumpSide::Child(res),
-        res = pump_wire_to_child(&mut rx, &mut stdin) => PumpSide::Client(res),
-    };
-    // 泵结束即双方未来被丢弃：stdin 落体 = 子进程收到 EOF（干净退出机会）
-    finish_subprocess(&deps, &peer_id, &hello, child, side).await
-}
-
-struct SubprocessParts {
-    child: Child,
-    stdin: tokio::process::ChildStdin,
-    stdout: tokio::process::ChildStdout,
-}
-
-impl From<subprocess::Subprocess> for SubprocessParts {
-    fn from(sub: subprocess::Subprocess) -> Self {
-        Self {
-            child: sub.child,
-            stdin: sub.stdin,
-            stdout: sub.stdout,
-        }
-    }
-}
-
-enum PumpSide {
-    Child(io::Result<()>),
-    Client(io::Result<()>),
-}
-
-/// 退出阶梯收尾：stdin 已 EOF，宽限内退出则记录状态，超时 SIGKILL；
-/// 泵的 Err（护栏击穿/传输异常）最终上抛留可观测信号，不静默。
-async fn finish_subprocess(
-    deps: &SessionDeps,
-    peer_id: &str,
-    hello: &ClientHello,
-    child: Child,
-    side: PumpSide,
-) -> io::Result<()> {
-    let mut breach: Option<String> = None;
-    match &side {
-        PumpSide::Child(Ok(())) => {}
-        PumpSide::Child(Err(err)) => breach = Some(format!("child-to-wire pump failed: {err}")),
-        PumpSide::Client(Ok(())) => deps.audit.record(AuditEvent::ClientGone {
-            peer: peer_id.to_owned(),
-            conn: hello.conn.to_string(),
-        }),
-        PumpSide::Client(Err(err)) => breach = Some(format!("wire-to-child pump failed: {err}")),
-    }
-    let detail = reap(child, deps.config.grace()).await;
-    deps.audit.record(AuditEvent::SubprocessExit {
-        peer: peer_id.to_owned(),
-        conn: hello.conn.to_string(),
-        detail: detail.clone(),
-    });
-    match breach {
-        Some(why) => Err(io::Error::other(why)),
-        None => Ok(()),
-    }
-}
-
-/// 宽限等待子进程退出；超时 SIGKILL（退出阶梯末级）。
-async fn reap(mut child: Child, grace: Duration) -> String {
-    match tokio::time::timeout(grace, child.wait()).await {
-        Ok(Ok(status)) => format!("exit {status}"),
-        Ok(Err(err)) => format!("wait failed: {err}"),
-        Err(_) => {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-            "killed after grace".to_owned()
-        }
-    }
-}
-
-async fn reply_ready(stream: &mut BoxedStream, scope: Scope, agent: &str) -> io::Result<()> {
-    let hello = ServerHello::ready(scope, agent);
     let line = hello.to_line().map_err(wire_error)?;
     write_wire_line(stream, line.as_bytes()).await
-}
-
-fn stderr_log_path(deps: &SessionDeps, peer: &str, conn: Uuid) -> PathBuf {
-    deps.config
-        .log_dir()
-        .join(format!("{peer}-{}.log", conn.simple()))
 }

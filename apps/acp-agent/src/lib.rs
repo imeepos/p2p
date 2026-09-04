@@ -2,13 +2,20 @@
 //! main.rs 只是装配入口；单机回环集成测试与本生态复用都走本库。
 
 pub mod audit;
+pub(crate) mod child;
 pub mod cli;
 pub mod config;
+pub(crate) mod conn;
 pub mod gate;
 pub mod handler;
+pub mod jail;
+pub mod mcp;
 pub mod peers;
+pub mod permission;
 pub mod policy;
 pub mod pump;
+pub mod reattach;
+pub(crate) mod router;
 pub mod session;
 pub mod subprocess;
 

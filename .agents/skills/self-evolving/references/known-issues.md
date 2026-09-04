@@ -541,3 +541,18 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：cargo test / 普通 build 会把 target/debug 下同一二进制翻成另一构建形态（dev 态加载 devUrl 空壳），脚本用 mtime/marker 自猜"二进制是不是目标形态"，但外部构建与 cargo fingerprint 的时序组合无穷，marker 反映的是"上次成功构建"而非"当前二进制形态"，必有误判缺口。
 - 修法：废除自猜，无条件按目标形态构建（cargo build --features ...），把"要不要重编"交回 cargo fingerprint——形态不对必重编（增量实测 6.7s），形态对 Fresh 秒回。删代码比加代码可靠。
 - 通用规则：凡脚本需要保证"产物处于某构建形态"，不要用 mtime/marker 猜，无条件调用目标形态的构建命令让构建系统自己幂等裁决；单测/集成绿不豁免真机产物形态验证。
+
+## 2026-09-05 行协议子进程的代答字节必须自带换行，否则对端 lines() 永久阻塞（ACP4）
+- 症状：桥向子进程 stdin 注入桥代答响应（permission reject/allow）后，集成测试在 read_line 处无限挂死，无任何报错。
+- 原因：子进程按 BufRead::lines() 消费；桥把 JSON 序列化结果直接 write_all，行尾没有换行符——子进程永远等不到行界，echo 链路整条断。
+- 修法：注入点统一收敛到一个 write 助手，写完检查末字节非换行则补写；凡往行协议对端写字节，换行纪律必须集中在单一助手，禁止散点 write_all。
+
+## 2026-09-05 spawn 与接线之间存在输出真空期，早期行丢失即协议行静默蒸发（ACP4）
+- 症状：子进程启动即打印的行（--print-cwd）在桥建立输出面前被丢，测试偶发挂死且与时序强相关。
+- 原因：router 输出面在 spawn 之后、attach 之前尚未接线，早期行走了窗口期丢弃分支。
+- 修法：区分 ever_attached（首连前缓冲 premain，attach 时回放）与 detached（窗口期按语义缓存/丢弃）；还没接过线和断过线是两种状态，不能共用同一条丢弃路径。
+
+## 2026-09-05 tools.read 返回内容可能被截断，read+write 全量回写会吞掉文件尾部（ACP4 实录）
+- 症状：对 263/533 行的经验文件做 read 后 join 回写，提交时 stat 显示 -251 行——存量经验被静默吞掉。
+- 原因：read 的 lines 数组被输出预算截断而未核对 totalLines；拼接回写成了"截断版全文"。
+- 修法：大文件的追加一律走「tools.write 临时片段 + bash cat 临时片段 >> 目标 + wc -l 核对行数增量」，禁止 read-全量-modify-write 回写；回写前 diff 行数差必须等于新增行数。
