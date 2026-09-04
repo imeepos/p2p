@@ -163,3 +163,4 @@ _none yet — be the first._
 - 2026-09-03 CL2 轮：文件行数预算前置设计——机制（lifecycle.rs）与命令面（node.rs）一开始就分文件，比写完 350 行再拆便宜；事实源结构（Report）放机制侧，命令面只留子命令分派与文本渲染。
 - 2026-09-03 CL2 轮：CLI 等价 GUI 的长驻能力用「pidfile + UDS JSON 行协议 + log 落盘」三件套即可，不必上 RPC 框架；控制请求统一 {op,...} 信封、响应统一 {ok,data|error}，新操作只加 op 分派一支。
 
+- 2026-09-04 T35 检查轮：目录/分支名与任务同名不代表工作发生在那里——协调者笔记「现场全清」仍漏壳（p2p-t35-gui 的 test/t35-gui-chat-boundaries 从创建起零提交）。归属判定三步：`git reflog show <分支>`（只有 Created from 一条即空壳）+ `git rev-list --count main..<分支>`（0=无独有提交可安全清理）+ 任务真身以主树账本 mergedMain 哈希为准（T35 实际走 test/im-bt35-new，e6b98ea 合入）。
