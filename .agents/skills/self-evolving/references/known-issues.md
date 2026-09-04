@@ -305,3 +305,14 @@ failed: early eof（客户端侧超时中止）。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
 
 - vi.hoisted 里 vi.fn 泛型签名必须与 mockImplementation 实参一致：声明为零参（() => Promise<T[]>）后传带参实现（(peer: string) => ...）会在 tsc -b 阶段 TS2345（Target signature provides too few arguments），测试期绿、构建期红——mock 类型照抄真实方法签名（peer, beforeId?, limit?）。
+
+## 2026-09-03 CL2 轮：cargo test 不更新 target/debug 二进制
+- 症状：源码已修、跑 apps/cli/target/debug/p2pctl 行为依旧（control.rs call_slow 漏拆 {ok,data} 包装，客户端报 missing field）。
+- 原因：cargo test 构建的是 test-harness 二进制（target/debug/deps/p2pctl-*），不产出 target/debug/p2pctl。
+- 修法：验证可执行文件行为前显式 cargo build；或调试期统一 cargo run。E2E 脚本依赖预构建二进制时同理。
+
+## 2026-09-03 CL2 轮：BSD sed/perl 正则处理含中文模式
+- 症状：perl -0pi 带中文替换串直接 exit 255；sed -E 模式含 `1.2.3.4/u3400` 类地址报 "parentheses not balanced"。
+- 原因：BSD 工具对多字节字符按字节处理破坏正则结构；正则里的裸 / 与默认分隔符冲突。
+- 修法：含非 ASCII 的文件改动用编辑工具精确替换；sed 正则含 / 时换 | 分隔符。
+

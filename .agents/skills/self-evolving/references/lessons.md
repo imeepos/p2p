@@ -159,3 +159,7 @@ _none yet — be the first._
 - 2026-09-04 IM-T42 轮：GUI 的 IPC 调用点守卫是「views/components 非测试文件里出现方法名字面量」的机械 grep——把 ipc.chatXxx 藏进 stores/ 层守卫照样红（静态守卫测试与验收命令双杀）；既定模式=对话框/组件直调 ipc.chatXxx，store 只做本地状态收尾（T41 chatFriendAdd 直调先例，T42 先写进 store 被红后对齐）。
 - 2026-09-04 IM-T42 轮：DSH 后台 job 的 job_output 是流式一次性消费，wait 读过后二次读返回空、结论就丢了——验收类长命令一律重定向到 /tmp 文件留证，判读以文件为准，别指望回读 job 输出。
 - 2026-09-04 IM-T42 轮：`cmd | tail` 后 `$?` 取的是管道尾（tail）的退出码，测试红了 exit code 也显示 0——验收成败判定要么 `cmd > log; echo $?` 紧跟命令，要么以落盘日志里的 FAIL/OK 标记为准。
+- 2026-09-03 CL2 轮：客户端包装函数成对出现（call/call_slow…）时行为极易漂移——call_slow 复制连接代码却漏掉响应拆包，出现「守护进程响应正常、客户端解析失败」假象；公共路径单点化（raw_call + unwrap_response），包装只差超时参数。
+- 2026-09-03 CL2 轮：文件行数预算前置设计——机制（lifecycle.rs）与命令面（node.rs）一开始就分文件，比写完 350 行再拆便宜；事实源结构（Report）放机制侧，命令面只留子命令分派与文本渲染。
+- 2026-09-03 CL2 轮：CLI 等价 GUI 的长驻能力用「pidfile + UDS JSON 行协议 + log 落盘」三件套即可，不必上 RPC 框架；控制请求统一 {op,...} 信封、响应统一 {ok,data|error}，新操作只加 op 分派一支。
+
