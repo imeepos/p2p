@@ -271,3 +271,8 @@ _none yet — be the first._
 - 2026-09-05 ACP4：tokio 单任务要同时 select 多个流又要在分支里 &mut self：把 select 收敛到一个 next_event 辅助函数（只借 receiver），分支体再借 self，借用冲突自然消失；跨模块拆 impl 时子模块可访问父模块私有字段。
 - 2026-09-05 ACP4：集成测试无限挂死的标准排查——先 pkill 全家（cargo/测试二进制/桩进程），再逐测跑 + 后台任务落盘状态文件（START/END/rc+时间戳），挂点一目了然；整包 600s 超时跑只会烧时间。
 - 2026-09-05 ACP4：测试断言失败先用探针对照真实值再定性——本轮监狱目录断言拿错 peer（桥是对的）、replay 后撞上 initialize 回声行（合法透传）都是断言错；但真正的桥缺陷（代答缺换行、早期行真空期丢失）也伪装成测试挂死，两者必须靠探针证据区分。
+- 2026-09-05 G2：agent bash 通道里多行 shell（heredoc/跨行引号串）高频翻车（本轮两次 syntax error）——git 提交信息的稳法是 tools.write 临时片段 + git commit -F 片段 + rm；「多行命令用 join(' && ') 拼接」会把 heredoc 体逐行粘上 && 直接报废，长命令一律拆步或落文件。
+- 2026-09-05 G2：长任务期间主树会漂移（本轮开工 fetch 时 main=895c3a4，收尾已到 c1ade46，58 文件含 GUI 与 scripts/check 本身）——开工 fetch 不够，收尾四步前必须重查 main；ff-only 失败走「worktree rebase main → force-with-lease 推分支 → make check 全量重跑（门禁脚本变了旧绿不算数）」，无文件重叠的 rebase 十秒内完成，别怕。
+- 2026-09-05 G2：给 NodeEventJson 判别联合加事件类型的全部下游落点清单——event-meta.ts 的 BADGE_VARIANT 与 EVENT_TYPE_KEY 两张 Record<NodeEventType,…> 表 + eventSummary switch + lib/event-text.ts 的 describeNodeEvent switch + 双 locale 的 events.types/events.summary 子树；漏一处 tsc/gui 门禁就红，按清单逐点补齐再跑门禁。
+- 2026-09-05 G2：react-hooks/set-state-in-effect 门禁下视图初始取数的仓库既定写法是「const load = useCallback(() => { ipc.x().then(setState).catch(收尾) }, [])」+ effect 直接 load()；async 函数体内 setState 再在 effect 里 void 调用会被新规则拦（diagnostics-view.tsx 注释即此 idiom 的权威示例）。
+- 2026-09-05 G2：测试文件同样受 300 行纪律（存量 310/314 不构成豁免）——mock 单例测试拆文件时事件收集器必须带 reset() 并在 beforeEach 调用，否则同文件用例间事件计数互相污染（本轮 3 个假红全源于此）；拆分是纯 test refactor 单独成提交。
