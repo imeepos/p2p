@@ -176,3 +176,6 @@ _none yet — be the first._
 - 2026-09-04 GC1 轮：gif 0.13 `Frame::from_rgba_speed` 无 Result 直返 Frame（没有 map_err 可挂）；`gif::Encoder` 借用输出缓冲直到 drop——函数返回缓冲前要显式 `drop(encoder)`，否则 E0505。
 - 2026-09-04 GC1 轮：并行会话同仓库时 `push origin main` 报 up-to-date 不是事故——其他会话可能刚推进了 main；用 `git rev-parse main origin/main` 确认自己的合并 hash 已在远端历史（是祖先）即可，别重推别慌。
 - 2026-09-04 GC1 轮：headless cargo test 构造不了真实 WKWebView（macOS 事件循环必须在主线程）——GUI 渲染管线用「帧源 trait + 合成帧源」注入集成测试：HTTP/鉴权/编码/校验/落盘全链路真跑，只有 OS 抓帧一层留给运行态验证。
+- 2026-09-04 IM-T45 轮：react-refresh/only-export-components 禁止组件文件同时导出 hook——hook 放 store 模块或独立 .ts（非组件文件不触发该规则）；条件调用 hook（a ? useX() : b）同样是红线，纯展示组件让调用方注入状态值。
+- 2026-09-04 IM-T45 轮：测试辅助函数对 store 做增量归约时，reduce 基准必须是当前状态（setState((s)=>…reduceEvent(s,…))），写死空状态会把先前事件静默清空——「第二次 apply 丢第一次」类断言翻车先查基准。
+- 2026-09-04 IM-T45 轮：新需求（去重主操作）与既有测试契约（双入口同时可见可点）冲突时测试契约优先——做视觉层级分化（空态中央按钮升 default 变体）而非物理移除入口，commit 正文写明取舍依据。

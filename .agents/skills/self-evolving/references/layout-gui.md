@@ -49,3 +49,7 @@
 - UI 文案零硬编码（i18n/hardcoded-copy.test.ts 机械扫描），全部 t("键位")；键位 zh-CN/en-US 同步注册且注册类改动独立小提交。
 - 动态文案用插值（双花括号占位）；校验错误码统一 ErrorText 渲染 common.validation 前缀键。
 - 锚点：i18n/index.ts、views/shared/error-text.tsx。
+
+## 修订 2026-09-04：页内顶层块必须自声明 col-span-12（IM-T45 实战）
+- app-layout 用 `grid grid-cols-12` 包 `<Outlet/>`，PageHeader 与各 Card 都带 col-span-12；页内新建的顶层块漏写即被自动放置进单个 1/12 轨道（1440 视口实测容器仅 81px=(1200-48-11×16)/12），内部 grid-cols-[16rem_1fr] 写得再对也救不回来——右栏塌窄条、空态文案两字一行。
+- 判据（CDP 实测）：塌缩时容器 clientWidth≈81 且 computed gridTemplateColumns 仍解析出 256px+96px；修复后应为 1152=256+16gap+880。规则在生成 CSS 里 ≠ 容器宽度正常，两层都要量。

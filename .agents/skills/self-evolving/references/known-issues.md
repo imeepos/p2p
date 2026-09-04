@@ -348,3 +348,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：objc2-app-kit/web-kit feature 名按旧印象写（NSBitmapImageFileType、WKWebView_takeSnapshotWithConfiguration_completionHandler）→ cargo resolve 阶段就拒；换类粒度 feature 后又炸 alloc 不可见、block 参数类型不匹配。
 - 原因：0.3.x generated crates 的 [features] 是类粒度（NSImage/NSBitmapImageRep/WKSnapshotConfiguration…），方法级门控由类 feature 组合依赖 feature（如 takeSnapshot 是 all(WKSnapshotConfiguration, block2)）；completion handler 用裸指针 `*mut NSImage`（不是 NonNull），`alloc()` 需 `use objc2::AnyThread`，handler 参数是 `&DynBlock` 非 Option。
 - 修法：写码前先读本机 `~/.cargo/registry/src/<registry>/objc2-*-0.3.2/` 的 Cargo.toml [features] 与 generated/<Class>.rs 真实签名，一次写对。
+
+## 2026-09-04 IM-T45 轮：多会话并行 cargo test 时端口型 itest 互踩假红
+- 症状：make check 挂在 p2p-itest --test peer_lifecycle（exit 101），该 crate 与本单改动（apps/gui）零交集。
+- 原因：多个并行会话同时在各自树上跑 make check，端口/时序型集成测试互踩；同树单测复跑 3/3 全绿（0.73s）即证 flake。
+- 修法：先单测复跑定性——红≠自己 diff 的锅；定性后整链重跑验收，全绿再合并。

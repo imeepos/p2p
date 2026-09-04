@@ -181,3 +181,6 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - objc2 系 crate 动手前读本机 registry 源码：`~/.cargo/registry/src/<registry>/objc2-*-0.3.2/Cargo.toml` 看 [features] 粒度，`generated/<Class>.rs` grep 方法真名/参数/cfg 门控；比盲写等编译报错省两轮以上。
 - 复杂 bash 探测脚本先 write 成 /tmp/*.sh 再 `bash /tmp/x.sh`；内嵌 run_code 的 TS 模板字符串时 `$`、反引号、`\\` 三层转义极易 Unterminated template（GC1 轮连踩两次）。
 - 集成测试用裸 TcpStream（Connection: close + 手解状态行/\r\n\r\n 分帧）做零依赖 HTTP 客户端测真实服务，比给 reqwest 加 blocking feature 轻。
+- 无视觉模型做布局断言：Chrome --headless=new --remote-debugging-port=9223 起 CDP，Node≥22 用内置 WebSocket 连 /json/list 的 page target，Runtime.evaluate 读 getComputedStyle().gridTemplateColumns 与 clientWidth，量化到像素并留 JSON 证据；Page.captureScreenshot 同会话出图。vite 6 无外置 ws 依赖，零安装。
+- 高并发合并日收尾：ff-only 前提用 `git merge-base --is-ancestor main <分支>` 判定（分支顶^ 是自己的第一个提交，判错白跑一轮）；推送+核对+合并+worktree remove+branch -d+push --delete 压成一个 set -e 脚本原子执行，守卫拦截即整组回退。
+- 收尾循环提速：main 新增量 diff --name-only 全为 docs/.devloop/.agents 时测试内容等价，验收判定可沿用直接合并；动了代码（含 src-tauri、main.tsx）必须重跑全量 make check。
