@@ -152,3 +152,5 @@ _none yet — be the first._
 - 2026-09-03 T36 边轮：并行边界轮多会话同仓作业，worktree 会被协调会话清理、main 随时前进；开工前 git worktree list + 分支重置到最新 main，交付后立即 commit+push 不留未提交状态。
 - 2026-09-04 IM-T44 轮：itest 夹具监听端口写死（哪怕只是测试用）就是潜伏 flake——其他进程占住端口即 AddrInUse 假红、空闲时全绿，归因极难；夹具一律 quic_port(0)/tcp_port(0) 内核分配，重启场景（同 data_dir 同身份）端口必变后用 friend_add upsert 把新 listen_addrs 刷新进对端地址簿（与真实应用重连发现同语义），facade 默认配置本就是端口 0，别画蛇添足传固定值。
 - 2026-09-04 IM-T44 轮：修复「占端口假红」的消融两步要同轮留证——修复前占住原固定端口复现红（panic 栈指到夹具 build 行），修复后不释放占端口进程跑全量全绿（lsof 实证占用仍在），才能证明修的正是端口依赖；只报三次连跑绿，无法排除「本来就绿」。
+- 2026-09-04 IM-T41 轮：并行轮 main 每 1-2 分钟落一个 docs 提交，rebase 后先跑 4 分钟门禁再 ff-only 必连吃三次 Diverging——先 git diff --name-only <旧基线> main 确认增量纯 docs（与我的代码零交集、且同内容树刚全绿过）则跳过重跑门禁，rebase→push→ff-only 压成一个原子序列立刻执行，一次过；ff-only 失败严禁删 worktree，回 worktree rebase 重试即可。
+- 2026-09-04 IM-T41 轮：测试夹具 PeerId 别用「字母表轮转拼 44 字符」的假 base58（旧 chat-view.test 同款生成器）——随机 base58 串解码常是 33 字节，前端按后端同口径校验（bs58 解码恰 32 字节）会正确拒绝它，夹具必须用真实 32 字节的 base58 编码（node BigInt 移位编码 30 秒可产出）。
