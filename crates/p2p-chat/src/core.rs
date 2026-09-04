@@ -149,12 +149,7 @@ impl ChatCore {
         self.emit_status(&env.peer, &env.id, ChatStatus::Sent);
         let ack = match tokio::time::timeout(ACK_TIMEOUT, wire::read_ack(&mut stream)).await {
             Ok(r) => r.map_err(io_err_to_send)?,
-            Err(_) => {
-                return Err(ChatError::StreamFailed(format!(
-                    "等待 ACK 超时（{}s）",
-                    ACK_TIMEOUT.as_secs()
-                )))
-            }
+            Err(_) => return Err(ChatError::StreamFailed("等待 ACK 超时".into())),
         };
         if ack.id != env.id {
             return Err(ChatError::SendFailed(format!(

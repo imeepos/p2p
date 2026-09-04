@@ -1,7 +1,6 @@
 //! 消息模型与校验（design §5；契约 gui-contract.md §12.3）。
 //!
-//! 序列化形状逐字对齐契约：字段 camelCase，Option 序列化 null。
-//! 校验失败一律可读中文 Err，禁止静默降级。
+//! 序列化形状逐字对齐契约（camelCase，Option 序列化 null）；校验失败一律可读中文 Err 禁止静默降级。
 
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};

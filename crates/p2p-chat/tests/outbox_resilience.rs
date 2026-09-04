@@ -186,7 +186,8 @@ async fn drain_peer_delivers_offline_queue_after_peer_returns() {
             .history(&a_peer, None, 10)
             .map(|m| m.len() == 1)
             .unwrap_or(false)
-    });
+    })
+    .await;
     let row = a.chat.history(&b_peer, None, 10).expect("a history")[0].clone();
     assert_eq!(
         row.status,
