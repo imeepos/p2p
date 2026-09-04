@@ -143,6 +143,8 @@ pub enum ChatError {
     NotFound(String),
     #[error("回复引用非法：{0}")]
     InvalidReply(String),
+    #[error("身份被占用：{0}")]
+    IdentityBusy(String),
     #[error("分组名非法：{0}")]
     InvalidGroup(String),
     #[error("更新参数非法：{0}")]

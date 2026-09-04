@@ -32,6 +32,10 @@ p2p-chat = { path = "../../crates/p2p-chat" }
 # acp 域（ACP5）：复用 acp-common 策略表 serde+原子文件存取与路径派生。
 acp-common = { path = "../acp-common" }
 
+# llm-share 域（T21）：逻辑面在 p2p-cli::llm_share；本层加载节点身份种子（0600 标准）
+# 供声明签发与净差本机视角使用。
+p2p-identity = { path = "../../crates/p2p-identity" }
+
 # 更新域（CL4）：GitHub Releases 检查（TLS 走 rustls，同 GUI 选型不引 openssl）
 # 与发布页白名单校验。
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }

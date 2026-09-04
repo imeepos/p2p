@@ -134,12 +134,24 @@ pub async fn rpc(s: &mut Session, id: u64, method: &str, params: &str) -> Value 
     );
     s.stdin.write_all(line.as_bytes()).await.unwrap();
     s.stdin.flush().await.unwrap();
+    // 全量门禁并行负载下 pump 可能送出空行抖动：跳过空行重读，直到超时或 EOF。
+    let deadline = tokio::time::Instant::now() + STEP;
     let mut buf = String::new();
-    tokio::time::timeout(STEP, s.stdout.read_line(&mut buf))
-        .await
-        .expect("rpc response timeout")
-        .unwrap();
-    serde_json::from_str(&buf).unwrap()
+    loop {
+        buf.clear();
+        let budget = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let n = tokio::time::timeout(budget, s.stdout.read_line(&mut buf))
+            .await
+            .expect("rpc response timeout")
+            .expect("bridge stdout closed mid-rpc");
+        if n == 0 {
+            panic!("rpc response EOF");
+        }
+        if !buf.trim().is_empty() {
+            break;
+        }
+    }
+    serde_json::from_str(&buf).unwrap_or_else(|e| panic!("rpc response not JSON: {e}; raw={buf}"))
 }
 
 /// tools/call 便捷封装。

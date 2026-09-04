@@ -4,6 +4,11 @@
 import { chatPage } from "./pages/chat-page";
 import { peersPage } from "./pages/peers-page";
 import { settingsPage } from "./pages/settings-page";
+import { dashboardPage } from "./pages/dashboard-page";
+import { diagnosticsPage } from "./pages/diagnostics-page";
+import { discoveryPage } from "./pages/discovery-page";
+import { eventsPage } from "./pages/events-page";
+import { relayPage } from "./pages/relay-page";
 
 export const PAGE_SCHEMA_VERSION = 1;
 
@@ -47,11 +52,16 @@ export type PageActionResult =
   | { ok: true; data: unknown }
   | { ok: false; error: PageProtocolError };
 
-/** 已注册页面（R5 示范：chat/peers/settings 全量；其余页面待 GC3b） */
+/** 已注册页面（GC3c 起 8 路由全量：dashboard/peers/discovery/relay/chat/events/settings/diagnostics） */
 export const PAGE_REGISTRY: Readonly<Record<string, PageEntry>> = {
-  chat: chatPage,
+  dashboard: dashboardPage,
   peers: peersPage,
+  discovery: discoveryPage,
+  relay: relayPage,
+  chat: chatPage,
+  events: eventsPage,
   settings: settingsPage,
+  diagnostics: diagnosticsPage,
 };
 
 /** 当前页 descriptor（含可选 state 快照）；未注册页返回结构化错误 */

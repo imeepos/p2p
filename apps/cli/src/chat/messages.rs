@@ -133,6 +133,9 @@ pub async fn history(args: HistoryArgs) -> CliResult<()> {
 }
 
 pub async fn send(args: SendArgs) -> CliResult<()> {
+    // 身份进程互斥（D6 裁决）：同数据目录不支持多程序并行，被占即快速失败。
+    let _identity =
+        p2p_chat::try_lock_identity(std::path::Path::new(&args.data_dir)).map_err(runtime_err)?;
     let (kind, text, media) = payload(&args)?;
     let ctx = context::open(&args.data_dir).await?;
     let deadline = tokio::time::Instant::now() + Duration::from_secs(args.timeout_secs);

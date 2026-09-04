@@ -1,0 +1,28 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`events 页 descriptor > descriptor 快照与动作清单 1`] = `
+{
+  "actions": [
+    {
+      "args": [
+        {
+          "description": "危险动作，必须显式传 true",
+          "name": "confirm",
+          "required": true,
+          "type": "boolean",
+        },
+      ],
+      "confirm": true,
+      "description": "清空事件缓冲（与清空按钮确认框同源）",
+      "name": "clear",
+    },
+    {
+      "args": [],
+      "description": "导出事件缓冲为 JSON 下载（与导出按钮同源 exportEventsJson）",
+      "name": "export",
+    },
+  ],
+  "description": "事件页：节点事件缓冲的清空与导出",
+  "name": "events",
+}
+`;

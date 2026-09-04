@@ -28,10 +28,10 @@ gui_cmds="$(awk '/generate_handler!\[/{flag=1} flag{print} flag && /\]/{exit}' "
 
 gui_has() { printf '%s\n' "$gui_cmds" | grep -Fxq "$1"; }
 
-# --- 2. p2pctl 就位（缺则构建，构建失败即红） ---
+# --- 2. p2pctl 就位（缺失或源码比二进制新即构建：合并后陈旧二进制会让实测假红） ---
 export PATH="$HOME/.cargo/bin:$PATH"
-if [ ! -x "$CTL" ]; then
-    echo "cli-parity: p2pctl 不存在，先构建 apps/cli…" >&2
+if [ ! -x "$CTL" ] || [ -n "$(find "$ROOT/apps/cli/src" -name '*.rs' -newer "$CTL" -print -quit 2>/dev/null)" ]; then
+    echo "cli-parity: 构建 apps/cli（缺失或源码更新后重建，防陈旧二进制假红）…" >&2
     (cd "$ROOT" && cargo build --manifest-path apps/cli/Cargo.toml -q) \
         || fail "p2pctl 构建失败"
 fi

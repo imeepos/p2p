@@ -4,7 +4,7 @@
 //! 传输面默认不接 bootstrap、mdns 默认关（--mdns 开启），E2E 隔离必需。
 //! stdout 只输出一行就绪信息（--json 为单行紧凑 JSON），运行期事件镜像到 stderr。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use clap::Args;
@@ -42,6 +42,8 @@ struct ServeInfo {
 }
 
 pub async fn run(args: ServeArgs) -> CliResult<()> {
+    // 身份进程互斥（D6 裁决）：同数据目录不支持多程序并行，被占即快速失败。
+    let _identity = p2p_chat::try_lock_identity(Path::new(&args.data_dir)).map_err(runtime_err)?;
     let node = context::builder(&args.data_dir, args.quic_port.unwrap_or(0), args.mdns)
         .build()
         .await
