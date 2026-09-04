@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T18:52:40.243Z",
+  "updatedAt": "2026-09-04T18:53:13.550Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -201,9 +201,9 @@
       "goal": "llm-share CLI 管理面（设计 §6 第四行，Phase 0 运营侧闭环）：p2pctl 新增 llm-share 子命令域——allow/deny（出借方 PeerId allowlist 增删查）、offer publish/show（能力声明组装+签名发布+TTL 参数化，读本地配置）、ledger list/balance（双边流水与净差视图，按 lender+period 切分）、receipt verify（收据离线 Ed25519 验签）；出借方 key 不落明文，引用 p2p-identity 种子标准（落盘必须 0600）；docs/ops/p2pctl-ai-guide.md 同步（ai-docs-sync 守卫必绿）；测试覆盖各子命令参数校验与配置读写 roundtrip",
       "title": "E10 llm-share CLI 管理面（p2pctl 子命令域）",
       "priority": "P1",
-      "status": "todo",
+      "status": "doing",
       "branch": "feat/cli-llm-share",
-      "ownerSession": "待派（T20 合入后开专属新会话）",
+      "ownerSession": "session-c6abafd7-0e8c-41ca-9920-829aa893ae64",
       "scope": "apps/cli 与 crates/p2p-cli 内新增 llm-share 域 + docs/ops/p2pctl-ai-guide.md 行；不碰其他波次文件域与 crates/p2p-* 内核",
       "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-t21-target; exec /opt/homebrew/bin/gtimeout -k 30 3600 bash -c ''''export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo run -q -- llm-share --help >/dev/null && cd ../.. && cargo test -p p2p-cli && bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK && make check'''''"
     }
