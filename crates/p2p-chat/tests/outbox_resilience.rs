@@ -154,7 +154,13 @@ async fn drain_peer_delivers_offline_queue_after_peer_returns() {
     b.node.shutdown();
     let report = a
         .chat
-        .send(&b_peer, ChatKind::Text, Some("offline queue me".into()), None, None)
+        .send(
+            &b_peer,
+            ChatKind::Text,
+            Some("offline queue me".into()),
+            None,
+            None,
+        )
         .await
         .expect("send accepted");
     assert!(!report.delivered, "offline send must stay pending");
@@ -181,12 +187,12 @@ async fn drain_peer_delivers_offline_queue_after_peer_returns() {
             .map(|m| m.len() == 1)
             .unwrap_or(false)
     });
-    let row = a
-        .chat
-        .history(&b_peer, None, 10)
-        .expect("a history")[0]
-        .clone();
-    assert_eq!(row.status, ChatStatus::Delivered, "record flips to delivered");
+    let row = a.chat.history(&b_peer, None, 10).expect("a history")[0].clone();
+    assert_eq!(
+        row.status,
+        ChatStatus::Delivered,
+        "record flips to delivered"
+    );
     cleanup(&a);
     cleanup(&b2);
 }

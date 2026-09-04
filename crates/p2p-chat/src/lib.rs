@@ -13,8 +13,8 @@ mod store_lock;
 mod wire;
 
 use std::path::PathBuf;
-use std::time::Duration;
 use std::sync::Arc;
+use std::time::Duration;
 
 use p2p::Node;
 use tokio::sync::broadcast;
