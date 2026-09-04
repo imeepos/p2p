@@ -12,8 +12,10 @@ import { PeerStatusDot } from "@/components/chat/peer-status";
 import type { ChatFriendJson, ChatMessageJson } from "@/lib/ipc-types";
 import { Composer } from "@/components/chat/composer";
 import { MessageList } from "@/components/chat/message-list";
+import { NodeStoppedCard } from "@/components/chat/node-stopped-card";
+import { useRetrySend } from "@/components/chat/use-retry-send";
 import { useChatStore } from "@/stores/chat-store";
-import { usePeerOnline } from "@/stores/node-store";
+import { useNodeStore, usePeerOnline } from "@/stores/node-store";
 import { EmptyState } from "@/views/shared/empty-state";
 
 export function ChatView() {
@@ -47,6 +49,11 @@ export function ChatView() {
 
   const selectedFriend = friends.find((f) => f.peerId === selectedPeer);
   const selectedOnline = usePeerOnline(selectedPeer ?? "");
+  // 节点未运行判定（IM-T51）：仅 status 已加载且 running=false 才引导；
+  // status 未加载（null）时保持正常输入，避免启动瞬间误伤。
+  const nodeStatus = useNodeStore((s) => s.status);
+  const nodeStopped = nodeStatus !== null && !nodeStatus.running;
+  const retrySend = useRetrySend(selectedPeer);
 
   return (
     <>
@@ -116,11 +123,14 @@ export function ChatView() {
                 onLoadOlder={() => void loadOlder(selectedPeer)}
                 onCancelPending={(id) => cancelPending(selectedPeer, id)}
                 onReply={setReplyTarget}
+                onRetry={(message) => void retrySend(message)}
               />
+              {nodeStopped ? <NodeStoppedCard /> : null}
               <Composer
                 peer={selectedPeer}
                 replyTarget={replyTarget}
                 onReplyCancel={() => setReplyTarget(null)}
+                disabled={nodeStopped}
               />
             </>
           ) : (

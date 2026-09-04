@@ -130,7 +130,7 @@ describe("ChatView 发送与状态", () => {
     });
     render(<ChatView />);
     expect(screen.getByText("排队中")).toBeTruthy();
-    expect(screen.getByText("发送中")).toBeTruthy();
+    expect(screen.getByText("等待对方上线")).toBeTruthy();
     expect(screen.getByText("失败了")).toBeTruthy();
     expect(screen.getByText("失败")).toBeTruthy();
     expect(screen.getAllByText("送达了").length).toBeGreaterThan(0);
@@ -148,7 +148,7 @@ describe("ChatView 发送与状态", () => {
       hasMore: { [PEER_A]: false },
     });
     render(<ChatView />);
-    expect(screen.getByText("发送中")).toBeTruthy();
+    expect(screen.getByText("等待对方上线")).toBeTruthy();
 
     emitStatus("s1", "sent");
     await waitFor(() => expect(screen.getByText("已发送")).toBeTruthy());

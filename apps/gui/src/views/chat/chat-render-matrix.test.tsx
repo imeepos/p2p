@@ -92,7 +92,7 @@ describe("渲染矩阵·me 发送成功", () => {
     fireEvent.change(screen.getByTestId("chat-input"), { target: { value: text } });
     fireEvent.click(screen.getByTestId("chat-send"));
     expect(mocks.send).toHaveBeenCalledWith(PEER, "text", text);
-    expect(within(bubbleArea()).getByTestId("message-status").textContent).toBe("发送中");
+    expect(within(bubbleArea()).getByTestId("message-status").textContent).toBe("等待对方上线");
     await act(async () => gate.resolve(sendReport(textMessage("sx1", PEER, text, { status: "delivered" }))));
     const p = bubbleArea().querySelector("p.whitespace-pre-wrap");
     expect(p?.textContent).toBe(text); // textContent 原始换行保留，未截断未重排
@@ -111,7 +111,7 @@ describe("渲染矩阵·me 发送成功", () => {
     });
     // 占位上屏：类型内容（文件名）与发送中角标、取消按钮共存
     expect(await within(bubbleArea()).findByText(row.fileName)).toBeTruthy();
-    expect(within(bubbleArea()).getByTestId("message-status").textContent).toBe("发送中");
+    expect(within(bubbleArea()).getByTestId("message-status").textContent).toBe("等待对方上线");
     expect(screen.getByRole("button", { name: "取消发送" })).toBeTruthy();
     const real = mediaMessage(`ok-${row.kind}`, PEER, row.kind, chatMedia(row.fileName, row.mime, 1, row.path), { status: "delivered", tsMs: 9000 });
     await act(async () => gate.resolve(sendReport(real)));
@@ -285,7 +285,7 @@ describe("渲染矩阵·补缺口", () => {
     expect(within(area).getByText("pending.png")).toBeTruthy();
     expect(within(area).getByText("failed.zip")).toBeTruthy();
     expect(area.querySelectorAll('[data-testid="message-status"]').length).toBe(2);
-    expect(within(area).getByText("发送中")).toBeTruthy();
+    expect(within(area).getByText("等待对方上线")).toBeTruthy();
     expect(within(area).getByText("失败")).toBeTruthy();
     expect(screen.getByRole("button", { name: "取消发送" })).toBeTruthy();
   });

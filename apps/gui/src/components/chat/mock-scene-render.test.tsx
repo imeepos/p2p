@@ -96,7 +96,7 @@ describe("mock 场景注入渲染（IM-T50）", () => {
     expect(sent.message.status).toBe("pending");
     seedStore([sent.message]);
     render(<Harness />);
-    expect(screen.getByTestId("message-status")).toHaveTextContent("发送中");
+    expect(screen.getByTestId("message-status")).toHaveTextContent("等待对方上线");
 
     const failed = forceMockMessageStatus(PEER, sent.message.id, "failed");
     expect(failed.status).toBe("failed");

@@ -7,6 +7,7 @@ import type {
   ChatKind,
   ChatMediaInput,
   ChatMessageJson,
+  ChatSendReport,
 } from "@/lib/ipc-types";
 
 const HISTORY_SIZE = 50;
@@ -32,13 +33,17 @@ export interface ChatStoreState {
   loadFriends: () => Promise<void>;
   selectPeer: (peer: string) => Promise<void>;
   loadOlder: (peer: string) => Promise<void>;
-  sendText: (peer: string, text: string, replyTo?: string | null) => Promise<ChatMessageJson>;
+  sendText: (
+    peer: string,
+    text: string,
+    replyTo?: string | null,
+  ) => Promise<ChatSendReport>;
   sendMedia: (
     peer: string,
     kind: ChatKind,
     media: ChatMediaInput,
     replyTo?: string | null,
-  ) => Promise<ChatMessageJson>;
+  ) => Promise<ChatSendReport>;
   cancelPending: (peer: string, localMessageId: string) => void;
   forgetFriend: (peer: string) => void;
   subscribeEvents: () => Promise<void>;
@@ -157,6 +162,8 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
   // 乐观发送：先落占位（pending），chatSend 返回后按占位 id 替换；失败移除占位并抛错。
   // replyTo 仅在有引用时出现在 IPC 调用上（无引用保持原有调用形状）。
+  // 返回完整 ChatSendReport（IM-T51）：delivered=false 且 status=failed 的
+  // mark_failed 路径不抛错，调用方靠 report 上浮失败信号。
   sendText: async (peer, text, replyTo) => {
     const trimmed = text.trim();
     if (!trimmed) throw new Error("chat text 为空");
@@ -168,7 +175,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         ? await ipc.chatSend(peer, "text", trimmed, undefined, replyTo)
         : await ipc.chatSend(peer, "text", trimmed);
       swapPending(get, set, peer, placeholder.id, report.message);
-      return report.message;
+      return report;
     } catch (error) {
       retractPending(set, peer, placeholder.id);
       console.error("[chat] 文本发送失败", error);
@@ -184,7 +191,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         ? await ipc.chatSend(peer, kind, undefined, media, replyTo)
         : await ipc.chatSend(peer, kind, undefined, media);
       swapPending(get, set, peer, placeholder.id, report.message);
-      return report.message;
+      return report;
     } catch (error) {
       retractPending(set, peer, placeholder.id);
       console.error("[chat] 媒体发送失败", error);

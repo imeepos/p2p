@@ -185,7 +185,7 @@ describe("GUI chat event and history boundaries", () => {
     emit({ type: "chat_message", peer: PEER, message: textMessage("m2", PEER, "重复入站", { sender: "them" }) });
     emit({ type: "chat_message", peer: PEER, message: textMessage("m2", PEER, "重复入站", { sender: "them" }) });
     await waitFor(() => expect(screen.getAllByText("重复入站")).toHaveLength(2));
-    expect(screen.getByText("发送中")).toBeTruthy();
+    expect(screen.getByText("等待对方上线")).toBeTruthy();
   });
 
   it("renders failed and pending status without an exception", async () => {

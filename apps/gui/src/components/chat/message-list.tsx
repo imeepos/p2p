@@ -81,6 +81,8 @@ interface MessageListProps {
   onLoadOlder: () => void;
   onCancelPending: (messageId: string) => void;
   onReply?: (message: ChatMessageJson) => void;
+  /** 失败文本重发入口（IM-T51）：透传给 me+failed+text 气泡。 */
+  onRetry?: (message: ChatMessageJson) => void;
 }
 
 // 消息流容器：向上滚动接近顶部时触发加载更早页（beforeId 游标由 store 管理）；
@@ -95,6 +97,7 @@ export function MessageList({
   onLoadOlder,
   onCancelPending,
   onReply,
+  onRetry,
 }: MessageListProps) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -200,6 +203,7 @@ export function MessageList({
               highlighted={highlightId === message.id}
               onReply={onReply}
               onQuoteOpen={openQuote}
+              onRetry={onRetry}
             />
           );
         })}
