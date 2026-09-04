@@ -25,6 +25,7 @@ fn poisoned() -> std::io::Error {
 pub(crate) struct Store {
     pub(crate) friends_path: PathBuf,
     pub(crate) invites_path: PathBuf,
+    pub(crate) advertised_path: PathBuf,
     outbox_dir: PathBuf,
     messages_dir: PathBuf,
     media_dir: PathBuf,
@@ -43,6 +44,7 @@ impl Store {
     pub(crate) fn new(chat_dir: PathBuf) -> std::io::Result<Self> {
         let friends_path = chat_dir.join("friends.json");
         let invites_path = chat_dir.join("invites.json");
+        let advertised_path = chat_dir.join(crate::advertised::ADVERTISED_FILE);
         let outbox_dir = chat_dir.join("outbox");
         let messages_dir = chat_dir.join("messages");
         let media_dir = chat_dir.join("media");
@@ -71,6 +73,7 @@ impl Store {
         Ok(Self {
             friends_path,
             invites_path,
+            advertised_path,
             outbox_dir,
             messages_dir,
             media_dir,

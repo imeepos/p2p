@@ -2,6 +2,7 @@
 //! 发送：校验 → 落 outbox → 连接 → 帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
 //! 加好友唯一用户路径 = 邀请 → 对方同意 → 双向互为好友（friend_add_direct 仅供测试引导）。
 
+mod advertised;
 mod core;
 mod drain;
 mod events;
@@ -88,6 +89,15 @@ impl Chat {
         outbox::spawn_outbox_task(core.clone(), group.core.clone());
         invite_api::spawn_invite_heal(core.clone());
         Ok(Self { core, group })
+    }
+
+    /// 发布本机对外声明地址（常驻进程启动时调用，供一次性命令的
+    /// 邀请帧复用，保证对端拿到的回拨地址是长期有效的服务地址）。
+    pub fn publish_advertised(&self) -> Result<(), ChatError> {
+        self.core
+            .store
+            .advertised_save(&self.core.node.listen_addrs())
+            .map_err(ChatError::Io)
     }
 
     /// chat_message / chat_status / chat_invite 事件订阅。

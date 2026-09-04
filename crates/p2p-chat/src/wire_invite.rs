@@ -135,6 +135,13 @@ async fn on_invite(core: &Arc<ChatCore>, frame: &InviteFrame, peer: PeerId) -> R
     let peer_s = peer.to_string();
     let friends = core.store.friends_list()?;
     if friends.iter().any(|f| f.peer_id == peer_s) {
+        // 重启自愈关键环：对端重发 INVITE 帧携带其最新 listen_addrs，先登记
+        // 再回投 ACCEPT，否则回投仍拨旧地址、双向建簿永远无法收敛。
+        for addr in &frame.addrs {
+            if let Err(e) = core.node.add_peer_address(peer, addr) {
+                tracing::warn!(peer = %peer_s, addr = %addr, error = %e, "自愈地址登记失败");
+            }
+        }
         spawn_reply(core, peer_s, ACCEPT, "", Vec::new());
         return Ok(());
     }

@@ -121,7 +121,7 @@ impl crate::Chat {
     /// 单帧尽力投递；失败保持挂起（可观测 warn），由重连重投收敛。
     /// 帧携带本机 listen_addrs：对端同意后可凭此回拨（可拨性自举）。
     async fn deliver_invite(&self, invite: &FriendInvite) -> bool {
-        let addrs = self.core.node.listen_addrs();
+        let addrs = frame_addrs(&self.core);
         let local = self.core.node.local_peer_id();
         let frame = InviteFrame::new(&local, &invite.nickname, addrs);
         match deliver_frame(&self.core, &invite.peer_id, INVITE, &frame, false).await {
@@ -143,6 +143,65 @@ impl crate::Chat {
     }
 }
 
+/// 启动自愈：本机地址随重启变化，挂起邀请的对端仍持旧地址——主动重投
+/// （无视 delivered 标记）让对端经 INVITE 帧学习新地址并收敛双向建簿。
+pub(crate) fn spawn_invite_heal(core: Arc<ChatCore>) {
+    tokio::spawn(async move {
+        // 等监听与 outbox 任务就绪再重投，避免启动竞态。
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        let peers: Vec<String> = match core.store.invites_list() {
+            Ok(list) => list
+                .into_iter()
+                .filter(|i| i.direction == InviteDirection::Out)
+                .map(|i| i.peer_id)
+                .collect::<Vec<_>>(),
+            Err(e) => {
+                tracing::warn!(error = %e, "启动自愈读取邀请簿失败");
+                return;
+            }
+        };
+        for peer in peers {
+            // 拨号就绪时序不稳（底座启动竞态），退避重试三次尽力收敛。
+            for attempt in 0..3u32 {
+                if attempt > 0 {
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                }
+                match deliver_frame(&core, &peer, INVITE, &invite_frame(&core, &peer), false).await
+                {
+                    Ok(()) => break,
+                    Err(e) => {
+                        tracing::warn!(peer = %peer, attempt, error = %e, "启动自愈重投失败");
+                    }
+                }
+            }
+        }
+    });
+}
+
+/// INVITE 帧地址来源：声明地址（serve 发布）优先，缺省回退当前监听地址。
+pub(crate) fn frame_addrs(core: &ChatCore) -> Vec<String> {
+    let advertised = core.store.advertised_load();
+    if advertised.is_empty() {
+        core.node.listen_addrs()
+    } else {
+        advertised
+    }
+}
+
+/// 构造携带本机最新地址的 INVITE 帧。
+fn invite_frame(core: &ChatCore, peer: &str) -> InviteFrame {
+    let local = core.node.local_peer_id();
+    let nickname = core
+        .store
+        .invites_list()
+        .unwrap_or_default()
+        .into_iter()
+        .find(|i| i.peer_id == peer && i.direction == InviteDirection::Out)
+        .map(|i| i.nickname)
+        .unwrap_or_default();
+    InviteFrame::new(&local, &nickname, core.node.listen_addrs())
+}
+
 /// PeerConnected 时重投该 peer 的挂起邀请（outbox 任务联动）。
 pub(crate) async fn flush_invites_peer(core: &ChatCore, peer: &str) {
     let pending: Vec<FriendInvite> = core
@@ -154,7 +213,7 @@ pub(crate) async fn flush_invites_peer(core: &ChatCore, peer: &str) {
         .collect();
     for invite in pending {
         let local = core.node.local_peer_id();
-        let frame = InviteFrame::new(&local, &invite.nickname, core.node.listen_addrs());
+        let frame = InviteFrame::new(&local, &invite.nickname, frame_addrs(core));
         if let Err(e) = deliver_frame(core, peer, INVITE, &frame, true).await {
             tracing::warn!(peer = %peer, error = %e, "挂起邀请重投失败，保持挂起");
         }

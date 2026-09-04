@@ -52,6 +52,7 @@ pub async fn run(args: ServeArgs) -> CliResult<()> {
         })?;
     let node = Arc::new(node);
     let chat = Chat::new(node.clone(), PathBuf::from(&args.data_dir)).map_err(runtime_err)?;
+    chat.publish_advertised().map_err(runtime_err)?;
     let info = ServeInfo {
         peer_id: node.local_peer_id().to_string(),
         listen_addrs: node.listen_addrs(),
