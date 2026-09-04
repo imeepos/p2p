@@ -143,3 +143,9 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 
 - worktree 复用主树构建缓存：`ln -s 主树/target wt/target`（根 workspace 与 src-tauri 各一个）+ `ln -s apps/gui/node_modules`，cargo/pnpm 秒级增量；注意 target 软链在 git status 显示为未跟踪 `?? target`（.gitignore 的 `target/` 不匹配符号链接），提交时用显式路径即可。
 - 驱动私有协议 handler 的集成测试套路：受测端 Chat::new 注册 handler，攻击端裸 Node 手写帧（p2p_protocol::write_frame，payload 首字节=类型头）；绕过 write_frame 的 1MiB 校验测帧超限需手写 varint 长度前缀；让受端回坏 ACK 用 Node::handle_protocol 换装自定义 ProtocolHandler（同 ID 覆盖注册）。
+
+## 2026-09-04 会话清理第二轮（p2p 100 槽位归档 47，含 stale-running）
+- 动手前先 grep 本文件与 known-issues 的任务关键词：上轮（73→10）已钉死数据根 `~/.dsh/dsh012-clean/` 与「验收看过滤面」，本轮只加载 SKILL.md 没读 references，独立重推数据根还拿错 `~/.dsh/storages/workspace.json`（另一实例，17 工作区/917 归档）得出「归档未生效」的错误中间结论——SKILL.md 加载不携带 references，开工先按关键词扫一遍 references。
+- archiveSession 幂等（已归档 id 直接 return 不写），只追加 `global.archivedSessionIds`、不动 `sessionIds` 槽位（packages/workspace/workspace/src/index.ts:244，unarchive 可恢复位置）；所以 workspace_list 计数不变是设计而非失败。
+- stale-running：running=true 但 updatedAt 静默 2h+ 是僵尸标记，不可信；用户明确「所有会话」时按 updatedAt 清理（归档只隐藏分组面，不停进程）。上轮「排除 running」适用于保守场景，两条按用户指令二选一。
+- 机械验收唯一路径：读活跃实例 `<home>/storages/workspace.json` 全量比对 archivedSessionIds；session_link_list 常态返回全量（含已归档）且无 archived 字段，不能当验收面。
