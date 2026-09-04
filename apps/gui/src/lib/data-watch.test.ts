@@ -106,17 +106,28 @@ describe("data-watch（W1 前端单监听器）", () => {
     expect(chatReload).toHaveBeenCalledTimes(1);
   });
 
+  it("监听装好即落 data-watch-ready 标记（E2E 就绪门）", async () => {
+    await startDataWatch();
+    await Promise.resolve();
+    await Promise.resolve();
+    const readyCall = invokeMock.mock.calls.find(
+      ([cmd, args]) =>
+        cmd === "frontend_log_append" && String(JSON.stringify(args)).includes("data-watch-ready"),
+    );
+    expect(readyCall).toBeDefined();
+  });
+
   it("生效分发落 frontend.log 感知证据（E2E 断言面）", async () => {
     await startDataWatch();
     registerReloader("config", () => undefined);
     emit("data-changed", { domains: ["config"] });
     await Promise.resolve();
     await Promise.resolve();
-    expect(invokeMock).toHaveBeenCalledWith("frontend_log_append", {
-      lines: [expect.stringContaining('"kind":"data-changed"')],
-    });
-    const arg = invokeMock.mock.calls[0][1] as { lines: string[] };
-    expect(arg.lines[0]).toContain("\"domains\":[\"config\"]");
+    const perception = invokeMock.mock.calls
+      .map((call) => call[1] as { lines: string[] })
+      .find((arg) => arg.lines[0].includes('"kind":"data-changed"'));
+    expect(perception).toBeDefined();
+    expect(perception!.lines[0]).toContain('"domains":["config"]');
   });
 
   it("data-watch-status active:false 置降级态（R3 可判）", async () => {

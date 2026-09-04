@@ -134,10 +134,31 @@ async function logPerception(domains: DataDomain[]): Promise<void> {
   }
 }
 
+// 感知链路就绪标记（E2E 轮询门）：监听装好才会写，先于任何 data-changed 证据行。
+async function logReady(): Promise<void> {
+  try {
+    const line = JSON.stringify({ kind: "data-watch-ready", ts: nowFn() });
+    await invoke("frontend_log_append", { lines: [line] });
+  } catch (error) {
+    console.warn("[data-watch] 就绪标记落盘失败", error);
+  }
+}
+
+// 通路探针：先于 listen 落盘，区分「webview/invoke 未通」与「listen 未通」。
+async function logBoot(): Promise<void> {
+  try {
+    const line = JSON.stringify({ kind: "data-watch-boot", ts: nowFn() });
+    await invoke("frontend_log_append", { lines: [line] });
+  } catch (error) {
+    console.error("[data-watch] boot 标记落盘失败", error);
+  }
+}
+
 /** 单监听器安装（幂等单例）：data-changed 分发 + data-watch-status 降级可判。 */
 export async function startDataWatch(): Promise<void> {
   if (started) return;
   started = true;
+  void logBoot();
   try {
     const unChanged = await listen<DataChangedPayload>("data-changed", (event) => {
       dispatchDataChanged(Array.isArray(event.payload.domains) ? event.payload.domains : []);
@@ -150,6 +171,7 @@ export async function startDataWatch(): Promise<void> {
     });
     void unChanged;
     void unStatus;
+    void logReady();
   } catch (error) {
     // 失败留信号：降级态（诊断面可判）+ console；不重试避免重复订阅。
     const reason = error instanceof Error ? error.message : String(error);
