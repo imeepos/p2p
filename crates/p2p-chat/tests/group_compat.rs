@@ -75,10 +75,16 @@ async fn legacy_friends_json_reads_back_ungrouped_and_updates() {
     let backup = std::fs::read_dir(path.parent().unwrap())
         .unwrap()
         .filter_map(Result::ok)
-        .find(|e| e.file_name().to_string_lossy().starts_with("friends.json.bak-yrs-"))
+        .find(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("friends.json.bak-yrs-")
+        })
         .expect("旧 friends.json 已备份");
     assert!(
-        std::fs::read_to_string(backup.path()).unwrap().contains("peerId"),
+        std::fs::read_to_string(backup.path())
+            .unwrap()
+            .contains("peerId"),
         "备份保留旧 JSON: {}",
         std::fs::read_to_string(backup.path()).unwrap()
     );

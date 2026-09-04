@@ -42,7 +42,8 @@ fn concurrent_adds_from_stale_bases_both_preserved_without_lock() {
     let a = FriendsBook::load(&path).expect("load a");
     let b = FriendsBook::load(&path).expect("load b（与 a 同基线，模拟并发）");
     a.upsert(&path, friend("aaa", "a")).expect("a add");
-    b.upsert(&path, friend("bbb", "b")).expect("b add（基于旧基线）");
+    b.upsert(&path, friend("bbb", "b"))
+        .expect("b add（基于旧基线）");
     let merged = FriendsBook::load(&path).expect("load c").list();
     assert_eq!(
         peer_ids(&merged),
@@ -78,7 +79,10 @@ fn remove_tombstone_survives_reload_and_readd_works() {
     assert!(a.remove(&path, "aaa").expect("remove"));
     let gone = FriendsBook::load(&path).expect("reload").list();
     assert!(gone.is_empty(), "tombstone 跨重载生效: {gone:?}");
-    assert!(!a.remove(&path, "aaa").expect("remove again"), "不在簿 false");
+    assert!(
+        !a.remove(&path, "aaa").expect("remove again"),
+        "不在簿 false"
+    );
     let b = FriendsBook::load(&path).expect("reload b");
     b.upsert(&path, friend("aaa", "a2")).expect("re-add");
     let back = FriendsBook::load(&path).expect("reload c").list();
@@ -90,7 +94,8 @@ fn remove_tombstone_survives_reload_and_readd_works() {
 #[test]
 fn legacy_json_array_migrates_and_backs_up() {
     let path = book_path("legacy");
-    let legacy = r#"[{"peerId":"pp1","nickname":"旧名","addrs":["/ip4/1.2.3.4/tcp/1"],"note":null}]"#;
+    let legacy =
+        r#"[{"peerId":"pp1","nickname":"旧名","addrs":["/ip4/1.2.3.4/tcp/1"],"note":null}]"#;
     std::fs::write(&path, legacy).expect("seed legacy");
     let book = FriendsBook::load(&path).expect("load migrates");
     let list = book.list();
@@ -100,7 +105,11 @@ fn legacy_json_array_migrates_and_backs_up() {
     let backup = std::fs::read_dir(path.parent().unwrap())
         .expect("dir")
         .filter_map(Result::ok)
-        .find(|e| e.file_name().to_string_lossy().starts_with("friends.json.bak-yrs-"))
+        .find(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("friends.json.bak-yrs-")
+        })
         .expect("备份存在");
     assert_eq!(
         std::fs::read_to_string(backup.path()).expect("backup"),
