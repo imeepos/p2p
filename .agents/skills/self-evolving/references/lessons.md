@@ -179,6 +179,11 @@ _none yet — be the first._
 - 2026-09-04 IM-T45 轮：react-refresh/only-export-components 禁止组件文件同时导出 hook——hook 放 store 模块或独立 .ts（非组件文件不触发该规则）；条件调用 hook（a ? useX() : b）同样是红线，纯展示组件让调用方注入状态值。
 - 2026-09-04 IM-T45 轮：测试辅助函数对 store 做增量归约时，reduce 基准必须是当前状态（setState((s)=>…reduceEvent(s,…))），写死空状态会把先前事件静默清空——「第二次 apply 丢第一次」类断言翻车先查基准。
 - 2026-09-04 IM-T45 轮：新需求（去重主操作）与既有测试契约（双入口同时可见可点）冲突时测试契约优先——做视觉层级分化（空态中央按钮升 default 变体）而非物理移除入口，commit 正文写明取舍依据。
+- 2026-09-04 IM-T46B 轮：react-refresh/only-export-components 对常量与纯函数同样生效（T45 只记了 hook 情形）——组件文件混导出 summary 工具即双 error，拆独立 .ts 模块（reply-summary.ts 先例）。
+- 2026-09-04 IM-T46B 轮：apps/gui 的 hardcoded-copy 守卫只剥整行注释，行尾 `// 中文` 必被 CJK 扫描拦下——注释一律写在代码上方独立行，新增文件首跑一次该测试再进 build。
+- 2026-09-04 IM-T46B 轮：eslint react-hooks/set-state-in-effect 禁止 effect 内同步 setState——「props/选择变化要清子组件状态」走事件路径（onSelect 回调里重置）而非 useEffect；跨会话不匹配的旧高亮 id 留着无害，不为清而清。
+- 2026-09-04 IM-T46B 轮：i18n 严格键类型（CustomTypeOptions）下 t() 的 key map 必须 as const、返回 (typeof MAP)[ChatKind]，宽化成 string 直接 tsc build 红；vitest 不做类型检查所以测试全绿也拦不住，build 是唯一闸口。
+
 - 2026-09-04 IM-V2 轮：无视觉输入的视觉任务交付物 = 类名/DOM 断言测试 + CDP 几何实测
 （bounding box/computed style）+ 前后截图留档三件套；协调者识图复核只认这三样，
 "门禁绿"与"视觉生效"是两条独立判定轴。
