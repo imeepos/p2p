@@ -220,26 +220,84 @@ pid=80955
 ```
 
 ### p2pctl chat friends add
-用途：添加好友（幂等 upsert，已在簿则为更新并 created=false）。前置：无；PEER_ID 不得是本机 chat 身份。
+用途：发送好友邀请（邀请制：对方同意前不建好友；delivered 判送达/挂起；重复邀请幂等刷新）。前置：无；PEER_ID 不得是本机 chat 身份、不得已是好友。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | <PEER_ID> | 位置参数 string | 是 | —— |
 | --nickname | string | 否 | "" |
 | --addr | string（可重复） | 否 | 无 |
 | --note | string | 否 | 无 |
-| --group | string | 否 | 无（trim 后 ≤32 字符，空串 = 不分组） |
 | --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
 文本：
 ```
-已添加好友 Alice（54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4）
+已发送好友邀请 Alice（54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4）：已送达，等待对方同意
 ```
 --json：
 ```
-{"created":true,"friend":{"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","nickname":"Bob","addrs":[],"note":null}}
+{"invite":{"peerId":"54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4","nickname":"Alice","addrs":[],"note":null,"direction":"out","tsMs":1788563000000,"delivered":true},"delivered":true}
 ```
-退出码：PEER_ID 非 32 字节 base58 → 1（PeerId 非法）；PEER_ID 为本机 chat 身份 → 1（不能与自己通信）。
+退出码：PEER_ID 非 32 字节 base58 → 1（PeerId 非法）；PEER_ID 为本机 chat 身份 → 1（不能与自己通信）；已是好友 → 1（已是好友）。
 
+### p2pctl chat friends invites list
+用途：列出邀请（direction out=本机待对方同意 / in=对方待本机处理；delivered 标记送达状态）。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+共 1 条邀请
+- Alice 54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4（待本机处理，已送达）
+```
+--json：
+```
+[{"peerId":"54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4","nickname":"Alice","addrs":["127.0.0.1/u41001"],"note":null,"direction":"in","tsMs":1788563000000,"delivered":true}]
+```
+退出码：无邀请时输出空数组/提示，退出码 0。
+
+### p2pctl chat friends invites accept
+用途：同意来邀——本机立即建立好友（双向关系本侧），并回投 ACCEPT 让对方建簿。前置：存在该 PEER_ID 的待处理来邀（in）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string | 是 | —— |
+| --nickname | string | 否 | ""（空 = 沿用邀请内对端自称） |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已同意好友邀请：Alice（54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4）
+```
+退出码：无待处理来邀 → 1（无待处理邀请）。
+
+### p2pctl chat friends invites reject
+用途：拒绝来邀并通知对方（通知尽力而为，对端离线时由重连收敛）。前置：存在待处理来邀。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已拒绝好友邀请: 54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4
+```
+退出码：无待处理来邀 → 1。
+
+### p2pctl chat friends invites cancel
+用途：撤回本机待同意邀请（out）；不在簿幂等返回 ok=false。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已撤回好友邀请: 54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4
+```
+--json：
+```
+{"ok":true}
+```
+退出码：无待同意邀请 → 0（幂等，ok=false）。
 ### p2pctl chat friends update
 用途：更新好友的分组/昵称/备注补丁（至少提供一项）；addrs 不可经此修改（走 add 的 addr 域）。前置：PEER_ID 在簿。
 | 参数 | 类型 | 必填 | 默认 |

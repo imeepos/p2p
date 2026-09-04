@@ -60,7 +60,8 @@ p2pctl node stop    [--data-dir DIR] [--json]   # 停止（幂等，重复 stop 
 
 ```bash
 p2pctl chat friends list                                  # 好友簿列表
-p2pctl chat friends add <PEER_ID> [--nickname N] [--note X]        # upsert 幂等
+p2pctl chat friends add <PEER_ID> [--nickname N] [--addr A] [--note X]  # 发好友邀请（对方同意后互为好友）
+p2pctl chat friends invites list|accept|reject|cancel           # 邀请生命周期
 p2pctl chat friends remove <PEER>                         # 幂等
 p2pctl chat history --peer <PEER> [--limit N] [--data-dir DIR] [--json]  # 消息历史（time desc）
 p2pctl chat send --peer <PEER> --text "..."               # 文本消息
