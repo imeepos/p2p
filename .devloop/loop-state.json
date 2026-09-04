@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T08:18:32.000Z",
+  "updatedAt": "2026-09-04T08:45:52.340Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -144,11 +144,14 @@
       "goal": "GUI 视觉走查与布局打磨（收尾单，全部功能落地后终态走查）：走查矩阵沿用 ui-s2/ui-s3 先例——聊天页/好友列表/添加好友对话框/回复引用块/移除确认框的间距对齐分组、暗色与亮色主题、zh/en 双语文案长度溢出（按钮换行/截断策略）、空态/加载态/错误态三态视觉一致、长昵称/长文件名/超长文本的截断与换行、状态标识色彩语义（在线/离线/失败）可辨识；产出 docs/notes/ui-im-visual-audit-matrix.md（走查项×结果×截图路径）+ CSS 级修复；发现结构性布局问题报协调裁决不擅自大改；【裁决追加】IM-T47 观察项：chat-store.dropPending 失败回滚时同步修正 lastMessageByPeer（媒体发送失败后列表摘要残留占位文件名，外观级自愈缺陷），随本轮一并修复",
       "title": "IM-T48 GUI 视觉走查与布局打磨",
       "priority": "P2",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/im-visual-audit",
       "ownerSession": "session-5cc1a8aa-3fa5-4da0-94ea-fc9f62d30a02",
       "scope": "apps/gui/src 样式与组件微调（CSS/className 级）+ docs/notes/ui-im-visual-audit-matrix.md；不改行为逻辑，行为问题报裁决",
-      "acceptanceCommand": "bash -c 'test -f docs/notes/ui-im-visual-audit-matrix.md && cd apps/gui && pnpm build && pnpm test --run && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'test -f docs/notes/ui-im-visual-audit-matrix.md && cd apps/gui && pnpm build && pnpm test --run && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "mergedMain": "610167b",
+      "acceptedAt": "2026-09-04T08:45:20.419Z",
+      "note": "独立验收：祖先链+矩阵文档在库+GUI 全量 245/245 绿（主树 node_modules 曾被 worktree pnpm install 污染成悬空链接，修复后复验）+i18n 434=434；交付走查矩阵+13 截图+6 fix；裁决：S1 骨架屏=登记不修（低）/S2 历史失败无信号=立卡修复（行为级红线）/S3 mock 气泡基建=与 S2 合并 T50"
     },
     {
       "id": "CL1",
@@ -309,6 +312,17 @@
       "ownerSession": "session-3368fd64-ba5a-4304-94df-751811b901ae",
       "scope": "scripts/release/p2pctl-release.sh（新建）+ 必要的 .gitignore 一行；不碰 Makefile 与 src",
       "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p && export PATH=\"$HOME/.cargo/bin:$PATH\" && test -f scripts/release/p2pctl-release.sh && bash scripts/release/p2pctl-release.sh > /tmp/r2.log 2>&1 && grep -q R2-RELEASE-OK /tmp/r2.log && echo R2-OK || { echo R2-FAIL; tail -20 /tmp/r2.log 2>/dev/null; exit 1; }'"
+    },
+    {
+      "id": "IM-T50",
+      "goal": "聊天域收尾双缺陷（T48 走查裁决）：1)【行为级】历史加载失败无界面信号——selectPeer/loadOlder 的 catch 只 console.error，违反「失败路径必须留可观测信号」红线，需在消息区渲染可读错误态+重试入口；2)【测试基建】mock 无法产生 delivered/failed/them 气泡——扩展 mock-chat 支持脚本化场景注入（消息状态强制/对方消息注入接口），补强测试基建；配套测试：历史失败错误态+重试、mock 注入的场景气泡渲染",
+      "title": "IM-T50 历史失败信号+mock 气泡基建",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "fix/im-history-signal",
+      "ownerSession": "session-45375c3a-5368-4bb5-8d10-1fb557f4f835",
+      "scope": "apps/gui/src：components/chat/message-list.tsx（错误态渲染）、stores/chat-store.ts（错误状态字段）、lib/mock-chat.ts（场景注入）、i18n、新增必要测试；crates 与 src-tauri 只读",
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     }
   ]
 }

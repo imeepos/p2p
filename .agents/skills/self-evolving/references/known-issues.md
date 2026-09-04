@@ -319,6 +319,7 @@ failed: early eof（客户端侧超时中止）。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
 ## 2026-09-04 bash EXIT trap 引用函数 local 变量，set -u 下 unbound 污染退出码（R2 发布脚本轮）
+- 【主树 node_modules 被 worktree install 污染】多轨并行期某会话在 worktree 内 pnpm install 后，主树 apps/gui/node_modules 的包符号链接被重写为指向该 worktree 私有 store；worktree 收尾删除后链接悬空，主树跑 vitest 报 MODULE_NOT_FOUND vitest/vitest.mjs（2026-09-04 实证，T48 收官时暴露）。症状识别：pnpm test 挂在 loader 而非断言、Node 尾栈+空 grep 结果。修复：rm -rf apps/gui/node_modules + 根目录 pnpm install 重建（--force 无效，pnpm 信任 .modules.yaml 状态）。预防：worktree install 后 readlink 主树包链接抽查；主树验收遇 MODULE_NOT_FOUND 先查悬空链接再怀疑代码。
 - 症状：脚本全部步骤日志正常、末行 marker（R2-RELEASE-OK）也打印了，退出码却是 1，且报错出现在所有输出之后：`line N: tmp: unbound variable`。表面看「构建+冒烟全过」，机械验收（看退出码）却判 FAIL。
 - 原因：`trap 'rm -rf "$tmp"' EXIT` 在脚本退出时才触发，此时定义 tmp 的函数早已 return，`local tmp` 出了作用域；set -u 下 trap 内引用即 unbound，trap 失败把退出码从 0 改写成 1。trap 体是退出时才求值的字符串，不是设置时的快照。
 - 修法：trap 引用的变量在脚本顶层声明为全局（如 SMOKE_TMP=""），函数内只赋值；或设置 trap 时用双引号内插固化字面值 `trap "rm -rf '$tmp'" EXIT`。教训：带 marker 输出的脚本，验收必须看退出码而非 grep marker；自测时末尾追加 `echo EXIT=$?` 一次就抓到。
