@@ -25,7 +25,7 @@ for arg in "$@"; do
     --create) CREATE=1 ;;
     --*) usage; fail "未知参数 $arg" ;;
     *)
-      if [ -n "$VERSION" ]; then usage; fail "版本号参数只允许一个（已收到 $VERSION）"; fi
+      if [ -n "$VERSION" ]; then usage; fail "版本号参数只允许一个（已收到 ${VERSION}）"; fi
       VERSION="$arg"
       ;;
   esac
@@ -38,7 +38,7 @@ printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-
 
 # 2. 三处版本一致且等于目标版本（复用 version.sh，保留其全部失败输出）
 CHECK_ROOT="$ROOT" bash "$SCRIPT_DIR/version.sh" "$VERSION" \
-  || fail "版本门禁未过（三处需一致且等于 $VERSION）"
+  || fail "版本门禁未过（三处需一致且等于 ${VERSION}）"
 
 # 3. 工作树干净：脏树打 tag = 发布内容不可复现
 [ -n "$(git -C "$ROOT" status --porcelain)" ] && fail "工作树不干净（git status --porcelain 非空），先提交或清理"
@@ -65,6 +65,6 @@ echo "git -C '$ROOT' tag -a $TAG -m 'p2p-console $VERSION'"
 echo "git -C '$ROOT' push origin $TAG"
 
 if [ "$CREATE" -eq 1 ]; then
-  git -C "$ROOT" tag -a "$TAG" -m "p2p-console $VERSION" || fail "tag 创建失败（$TAG）"
-  echo "release-check: 已创建本地 tag $TAG（未 push；push 由人工执行）"
+  git -C "$ROOT" tag -a "$TAG" -m "p2p-console $VERSION" || fail "tag 创建失败（${TAG}）"
+  echo "release-check: 已创建本地 tag ${TAG}（未 push；push 由人工执行）"
 fi
