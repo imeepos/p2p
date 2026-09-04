@@ -253,3 +253,9 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - `git commit --amend` 永远只打 HEAD：多提交序列里修非 HEAD 的提交，amend 必错位（当日把 wire 测试修复并进了命令层提交）。重排未推送历史的可靠姿势 = `git reset --soft <基点>` 后按文件分组重新 commit；要合并进指定提交用 `git commit --fixup=<hash>` + `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <基点>`，且 fixup 前确认目标哈希未被 amend 改写（目标一变 autosquash 静默 no-op）。
 - `cargo xxx | tail` 的退出码是 tail 的，cargo 失败也「completed」——门禁判决一律把整链输出重定向进日志文件并追加 `echo EXIT=$?`，以日志里的标记行定成败，不信管道外层。
 - 通知会打断 job_output 等待（报 abort）但进程往往还活着：先 ps 查 PID 与日志尾再决定 kill，别盲目重启造成双跑。被并行会话毒化的主树验收，干净判决用 CARGO_TARGET_DIR 指独立目录整链重跑（本次隔离跑 11 分钟 exit 0）。
+
+## 2026-09-04 DSH 工具链高负载排障（锁竞争方案落地轮）
+- read 工具对超长行截断 2000 字符——禁止用 read 输出拼回 JSON 再 parse（当日 JSON.parse 报控制字符炸）；结构化文件变换一律 python3 直接处理原文件（json.load/dump 往返 + 写后回读断言任务数）。
+- bash 工具 PATH 固定不含 /opt/homebrew/bin——'brew list' 判存会误报 command not found 导致「已装判成未装」（当日 coreutils 实际已装仍触发重复安装）；调 homebrew 工具（gtimeout/graphviz）一律全路径或先补 PATH。
+- 高负载机器上 run_code 组合调用频繁 30s 超时且无部分输出——拆最小单工具步骤逐个跑；长安装类命令一律 run_in_background 靠完成通知收割，不信前台超时前的残局。
+- 仓库 .gitignore 忽略 .vscode——编辑器级配置走用户级 settings.json（~/Library/Application Support/Code/User/settings.json），不入库不进 worktree 流程。
