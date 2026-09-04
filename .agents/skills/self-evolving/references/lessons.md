@@ -164,3 +164,4 @@ _none yet — be the first._
 - 2026-09-03 CL2 轮：CLI 等价 GUI 的长驻能力用「pidfile + UDS JSON 行协议 + log 落盘」三件套即可，不必上 RPC 框架；控制请求统一 {op,...} 信封、响应统一 {ok,data|error}，新操作只加 op 分派一支。
 
 - 2026-09-04 T35 检查轮：目录/分支名与任务同名不代表工作发生在那里——协调者笔记「现场全清」仍漏壳（p2p-t35-gui 的 test/t35-gui-chat-boundaries 从创建起零提交）。归属判定三步：`git reflog show <分支>`（只有 Created from 一条即空壳）+ `git rev-list --count main..<分支>`（0=无独有提交可安全清理）+ 任务真身以主树账本 mergedMain 哈希为准（T35 实际走 test/im-bt35-new，e6b98ea 合入）。
+- 2026-09-04 T36 检查轮：卡 done 合入 ≠ worktree 收口——同一 worktree 可能在验收之后继续长出未记账的增强提交（11fe0a6 晚于验收合入 1h13m，账本零认领）。处置旧 worktree 前四查：账本认领（grep 提交哈希/分支名）+ `rev-list --count main..<分支>` 独有提交 + `git ls-remote` 远端备份 + main 是否动过同文件（判合并风险）。零独有提交的壳才可删；有实质未合并工作的只报告不擅动，收口归属其执行会话/协调者。
