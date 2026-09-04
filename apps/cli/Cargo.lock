@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "acp-common"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
 name = "aead"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1378,6 +1388,7 @@ dependencies = [
 name = "p2pctl"
 version = "0.1.0"
 dependencies = [
+ "acp-common",
  "bs58",
  "clap",
  "libc",
@@ -2569,6 +2580,7 @@ checksum = "b5772d71c9be8a8a6ac2117d949c5b224c1b72241bb611d9a3012edcf8af7812"
 dependencies = [
  "getrandom 0.4.3",
  "js-sys",
+ "serde_core",
  "wasm-bindgen",
 ]
 
