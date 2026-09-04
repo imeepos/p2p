@@ -6,14 +6,16 @@
 pub mod capture;
 pub mod handlers;
 pub mod invoke_allow;
+pub mod page;
 pub mod paths;
 pub mod record;
 pub mod server;
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
@@ -33,6 +35,9 @@ pub const ROUTES: [&str; 8] = [
     "diagnostics",
 ];
 
+/// GC3 页面协议回执事件：前端 page-bridge → server（requestId 关联）。
+pub const PAGE_REPLY_EVENT: &str = "control-page-reply";
+
 /// 通道运行期共享态：server 线程 / 路由上报监听 / 退出收尾共同持有。
 pub struct ControlCtx<R: Runtime> {
     pub app: AppHandle<R>,
@@ -44,6 +49,8 @@ pub struct ControlCtx<R: Runtime> {
     pub addr: Mutex<Option<SocketAddr>>,
     pub route: Mutex<String>,
     pub record: Mutex<Option<record::RecordSession>>,
+    /// 页面协议在途回执登记：requestId → 回执通道（page 模块专用）。
+    pub page_replies: Mutex<HashMap<String, mpsc::Sender<Value>>>,
 }
 
 impl<R: Runtime> ControlCtx<R> {
@@ -139,8 +146,10 @@ fn start<R: Runtime>(
         addr: Mutex::new(None),
         route: Mutex::new("dashboard".to_string()),
         record: Mutex::new(None),
+        page_replies: Mutex::new(HashMap::new()),
     });
     install_route_listener(&ctx);
+    page::install_reply_listener(&ctx);
     let (server, addr) = server::listen()?;
     if let Ok(mut g) = ctx.addr.lock() {
         *g = Some(addr);

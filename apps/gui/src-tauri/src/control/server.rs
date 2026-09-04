@@ -122,9 +122,17 @@ fn dispatch<R: Runtime>(ctx: &Arc<ControlCtx<R>>, request: &mut tiny_http::Reque
         ("POST", "/record/stop") => handlers::record_stop(ctx),
         ("POST", "/navigate") => handlers::navigate(ctx, &payload),
         ("POST", "/invoke") => handlers::invoke(ctx, &payload),
-        (_, "/health" | "/screenshot" | "/record/start" | "/record/stop" | "/navigate" | "/invoke") => {
-            Err(ApiErr::new(405, "METHOD_NOT_ALLOWED", "HTTP 方法不允许"))
+        ("GET", "/page/current") => {
+            let request_id = query_param(request.url(), "requestId")
+                .unwrap_or_else(super::page::new_request_id);
+            super::page::page_current(ctx, &request_id)
         }
+        ("POST", "/page/action") => super::page::page_action(ctx, &payload),
+        (
+            _,
+            "/health" | "/screenshot" | "/record/start" | "/record/stop" | "/navigate" | "/invoke"
+            | "/page/current" | "/page/action",
+        ) => Err(ApiErr::new(405, "METHOD_NOT_ALLOWED", "HTTP 方法不允许")),
         _ => Err(ApiErr::new(404, "NOT_FOUND", format!("未知端点: {path}"))),
     };
     match result {
@@ -141,6 +149,15 @@ fn rejected(status: u16, code: &str, message: impl Into<String>) -> (u16, Value)
         status,
         json!({ "ok": false, "error": { "code": code, "message": message.into() } }),
     )
+}
+
+/// 取 URL query 参数（page/current 的可选 requestId 关联用，省略则服务端生成）。
+fn query_param(url: &str, name: &str) -> Option<String> {
+    let query = url.split_once('?')?.1;
+    query.split('&').find_map(|pair| {
+        let (key, value) = pair.split_once('=')?;
+        (key == name).then(|| value.to_string())
+    })
 }
 
 /// Bearer token 恒时校验；无头/错头一律 401（不区分缺 token 与错 token）。

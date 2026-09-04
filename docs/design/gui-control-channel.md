@@ -46,6 +46,8 @@ macOS 数据目录：~/Library/Application Support/com.p2p.console/control/。
 | /record/stop | POST | - | {path,frames,bytes,truncated} | RECORD_NOT_ACTIVE(409) / RECORD_EMPTY(500) |
 | /navigate | POST | {"route": 路由名} | {route,path} | INVALID_ROUTE(400) / INVALID_REQUEST(400) |
 | /invoke | POST | {"command","args"?} | {result} | INVOKE_FORBIDDEN(403) / INVOKE_FAILED(500) |
+| /page/current | GET | requestId?（query，省略则服务端生成） | {schemaVersion,page,descriptor} | 见 §9 |
+| /page/action | POST | {page,action,args?,requestId} | {requestId,result} | 见 §9 |
 
 通用错误：UNAUTHORIZED(401) / INVALID_REQUEST(400) / NOT_FOUND(404) / METHOD_NOT_ALLOWED(405)。
 请求体上限 1 MiB。
@@ -96,3 +98,64 @@ macOS 数据目录：~/Library/Application Support/com.p2p.console/control/。
 
 p2pctl 预期流程：读 control/endpoint.json 探活（pid 校验）-> 读 control/token ->
 Bearer 调用上述端点。本通道串行处理请求，CLI 侧无需并发。
+
+## 9. 页面语义协议（GC3）
+
+> 状态：已实现（feat/page-registry）。前端注册表先落 chat/peers/settings 三页示范（R5 裁定）；
+> dashboard/diagnostics/discovery/events/relay 路由名合法但未登记，协议端结构化拒绝，待 GC3b 补全。
+
+### 9.1 descriptor schema（schemaVersion = 1）
+
+```json
+{
+  "name": "chat",
+  "description": "IM 聊天页：……",
+  "actions": [
+    {
+      "name": "sendText",
+      "description": "向好友发送文本……",
+      "args": [
+        { "name": "peer", "type": "string", "required": true, "description": "好友 PeerId" }
+      ],
+      "confirm": true
+    }
+  ],
+  "state": { "selectedPeer": "...", "friends": [ ... ] }
+}
+```
+
+- arg type ∈ string | number | boolean | array | object。
+- `confirm: true` 为危险动作标记（identity reset / 移除好友类）：调用方必须传
+  `args.confirm === true`，否则 ACTION_CONFIRM_REQUIRED(400) 拒绝。
+- actions 与页面按钮同源（store / IPC 直调），不做 DOM 模拟点击。
+- `state` 可选：describe 时实时采样的页面状态快照（如 peers 表格同口径行）。
+
+### 9.2 端点
+
+| 端点 | 请求 | 成功 data | 错误码 |
+|---|---|---|---|
+| GET /page/current | requestId?（query） | {schemaVersion, page, descriptor} | PAGE_NOT_REGISTERED(404) / PAGE_TIMEOUT(500) |
+| POST /page/action | {page, action, args?, requestId} | {requestId, result} | PAGE_NOT_FOUND(404，页名不在路由白名单) / PAGE_NOT_REGISTERED(404，路由合法但前端未登记) / ACTION_NOT_FOUND(404) / ACTION_CONFIRM_REQUIRED(400) / ARG_MISSING(400) / ARG_TYPE_MISMATCH(400) / ACTION_FAILED(500) / PAGE_TIMEOUT(500) / INVALID_REQUEST(400) |
+
+- page/action 的 page/action/requestId 三个字符串字段必填；args 缺省按 {} 处理。
+- GET /page/current 恒以当前路由（health.route 同源）为准，不接受指定页。
+
+### 9.3 事件与超时语义
+
+- server → 前端：webview eval `window.__P2P_PAGES__ && window.__P2P_PAGES__.request('<json>')`，
+  载荷形如 {requestId, kind: "describe"|"execute", page, action?, args?}；
+  JSON 双次序列化成 JS 字符串字面量，天然防注入。
+- 前端 → server：Tauri 事件 `control-page-reply`，载荷 {requestId, ok, data? | error?}；
+  server 按 requestId 关联在途请求，未注册 action / 页面未登记等拒绝由前端结构化回执。
+- 超时：server 等待回执上限 5s；超时返回 PAGE_TIMEOUT(500)，报错含关联 id，不静默。
+  超时后迟到的回执按无主回执丢弃并留 warn 日志。
+- 测试可见性：mock runtime 下无 webview，集成测试以同事件名/同载荷形状注入回执
+  （tests/control_page.rs），HTTP 链路真实。
+
+### 9.4 测试映射（GC3）
+
+- 前端 vitest：注册表结构校验 / 危险动作清单 / chat+peers descriptor 快照 /
+  describePage 状态快照 / executePageAction 拒绝路径与真实执行器（page-registry.test.ts，
+  page-bridge.test.ts 覆盖事件回执形状）。
+- cargo tests/control_page.rs：describe 回包 / action 执行回包 / PAGE_TIMEOUT /
+  页名+缺字段服务端拒绝 / 前端拒绝码 HTTP 映射 / 未登记页 404。
