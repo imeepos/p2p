@@ -6,7 +6,9 @@ import { MessageSquare, UserPlusIcon } from "lucide-react";
 import { PageHeader } from "@/components/page/page-header";
 import { Button } from "@/components/ui/button";
 import { ChatFriendAddDialog } from "@/components/chat/chat-friend-add-dialog";
+import { ChatFriendRemoveDialog } from "@/components/chat/chat-friend-remove-dialog";
 import { ConversationList } from "@/components/chat/conversation-list";
+import type { ChatFriendJson } from "@/lib/ipc-types";
 import { Composer } from "@/components/chat/composer";
 import { MessageList } from "@/components/chat/message-list";
 import { useChatStore } from "@/stores/chat-store";
@@ -31,6 +33,7 @@ export function ChatView() {
   const cancelPending = useChatStore((s) => s.cancelPending);
   const subscribeEvents = useChatStore((s) => s.subscribeEvents);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<ChatFriendJson | null>(null);
 
   useEffect(() => {
     void loadFriends();
@@ -65,6 +68,9 @@ export function ChatView() {
             error={friendsError}
             onSelect={(peerId) => void selectPeer(peerId)}
             onAddFriend={() => setAddFriendOpen(true)}
+            onRemoveFriend={(peerId) =>
+              setRemoveTarget(friends.find((f) => f.peerId === peerId) ?? null)
+            }
           />
         </section>
 
@@ -103,6 +109,15 @@ export function ChatView() {
         </section>
       </div>
       <ChatFriendAddDialog open={addFriendOpen} onOpenChange={setAddFriendOpen} />
+      {removeTarget ? (
+        <ChatFriendRemoveDialog
+          key={removeTarget.peerId}
+          friend={removeTarget}
+          onOpenChange={(open) => {
+            if (!open) setRemoveTarget(null);
+          }}
+        />
+      ) : null}
     </>
   );
 }

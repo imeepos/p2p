@@ -1,4 +1,4 @@
-import { MessageCircle, UserPlusIcon } from "lucide-react";
+import { MessageCircle, Trash2Icon, UserPlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ interface ConversationListProps {
   error: string | null;
   onSelect: (peerId: string) => void;
   onAddFriend?: () => void;
+  onRemoveFriend?: (peerId: string) => void;
 }
 
 function summaryOf(message: ChatMessageJson | null | undefined): string | null {
@@ -34,6 +35,7 @@ export function ConversationList({
   error,
   onSelect,
   onAddFriend,
+  onRemoveFriend,
 }: ConversationListProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
@@ -82,7 +84,7 @@ export function ConversationList({
         const summary = summaryOf(last);
         const isActive = selectedPeer === friend.peerId;
         return (
-          <li key={friend.peerId}>
+          <li key={friend.peerId} className="group relative">
             <button
               type="button"
               onClick={() => onSelect(friend.peerId)}
@@ -108,6 +110,20 @@ export function ConversationList({
                 {summary ?? ""}
               </div>
             </button>
+            {onRemoveFriend ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute top-1/2 right-2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                aria-label={t("chat.removeFriend.action")}
+                title={t("chat.removeFriend.action")}
+                data-testid={`chat-remove-friend-${friend.peerId}`}
+                onClick={() => onRemoveFriend(friend.peerId)}
+              >
+                <Trash2Icon aria-hidden />
+              </Button>
+            ) : null}
           </li>
         );
       })}

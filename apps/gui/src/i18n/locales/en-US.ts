@@ -349,6 +349,16 @@ const enUS: typeof zhCN = {
       submitting: "Adding…",
       failed: "Add failed: ",
     },
+    removeFriend: {
+      action: "Remove friend",
+      title: "Remove friend",
+      description: "{{name}} will be removed from your friend list.",
+      historyNote:
+        "Removing a friend does not delete local message history; you can add them back later.",
+      confirm: "Remove",
+      confirming: "Removing…",
+      failed: "Remove failed: ",
+    },
   },
   settings: {
     title: "Settings",

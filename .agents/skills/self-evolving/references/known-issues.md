@@ -298,3 +298,10 @@ failed: early eof（客户端侧超时中止）。
 - 原因：`~/.dsh/settings.yaml` 的 `llm-pi-ai.providers.<route>.models[]` 条目写了 `inputModalities: [ text, image ]`——这是 llm-deepseek 插件的目录键名；llm-pi-ai 的模型 schema（config.ts `modelFields`）只读 `input`，未知键静默透传不被读取，模型落到 `defaultInput: ['text']`，session-controller 的图片准入门（`MODEL_DOES_NOT_SUPPORT_IMAGES`）按 text-only 拒收。
 - 修法：pi-ai 各路由模型条目键名改 `input: [ text, image ]`；`llm-deepseek` 段的 `inputModalities` 是正确键名不要动。改完无需重启：settings-file 默认 chokidar 监听（watch: true），pi-ai 每请求重读 profiles，下次请求即生效。
 - 验证手法：不改服务进程，用仓库真实解析代码直跑配置文件——`node --input-type=module` 导入 `packages/llm/llm-pi-ai/src/config.ts` 的 `resolveProfiles`（Node 24 原生 type-stripping），遍历 `provider.getModels()` 打印每模型 `input`，看到 `bigmodel / GLM-5.3-Flash -> input: [text, image]` 即闭环。注意 piProvider 没有 `.models` 属性，取模型要走 `getModels()`。
+
+## 2026-09-04 gui 测试辅助文件含 JSX 存 .ts 必炸
+- 症状：vitest 报 Transform failed Unexpected ">"，指向 fixtures 文件本身（如 chat-render-matrix-fixtures.ts:99），容易误判成测试文件语法错。
+- 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
+- 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
+
+- vi.hoisted 里 vi.fn 泛型签名必须与 mockImplementation 实参一致：声明为零参（() => Promise<T[]>）后传带参实现（(peer: string) => ...）会在 tsc -b 阶段 TS2345（Target signature provides too few arguments），测试期绿、构建期红——mock 类型照抄真实方法签名（peer, beforeId?, limit?）。
