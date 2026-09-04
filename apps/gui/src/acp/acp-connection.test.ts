@@ -38,11 +38,13 @@ function harness(policy?: ReconnectPolicy) {
   };
   const phases: string[] = [];
   const notifications: Array<{ method: string; params: unknown }> = [];
+  const requests: Array<{ method: string; params: unknown; id: number }> = [];
   const closes: Array<{ kind: string; code: number }> = [];
   const reconnects: number[] = [];
   const events: AcpConnectionEvents = {
     onPhase: (p) => phases.push(p),
     onNotification: (method, params) => notifications.push({ method, params }),
+    onRequest: (method, params, id) => requests.push({ method, params, id }),
     onCloseInfo: (info) => closes.push({ kind: info.kind, code: info.code }),
     onReconnect: (attempt) => reconnects.push(attempt),
   };
@@ -52,7 +54,7 @@ function harness(policy?: ReconnectPolicy) {
     events,
     policy,
   );
-  return { conn, sockets, phases, notifications, closes, reconnects };
+  return { conn, sockets, phases, notifications, requests, closes, reconnects };
 }
 
 const FAST_POLICY: ReconnectPolicy = { maxAttempts: 2, baseDelayMs: 5, maxDelayMs: 10 };
@@ -136,5 +138,49 @@ describe("AcpConnection", () => {
     h.conn.close();
     expect(last(h.phases)).toBe("idle");
     expect(h.reconnects).toHaveLength(0);
+  });
+
+  it("agent 请求（method+id）分发到 onRequest，respond 回带 id 结果帧", () => {
+    const h = harness();
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    h.sockets[0].serverMessage({
+      jsonrpc: "2.0",
+      id: 7,
+      method: "session/request_permission",
+      params: { options: [] },
+    });
+    expect(h.requests).toEqual([
+      { method: "session/request_permission", params: { options: [] }, id: 7 },
+    ]);
+    h.conn.respond(7, { outcome: { outcome: "cancelled" } });
+    const frame = JSON.parse(last(h.sockets[0].sent));
+    expect(frame).toEqual({
+      jsonrpc: "2.0",
+      id: 7,
+      result: { outcome: { outcome: "cancelled" } },
+    });
+  });
+
+  it("reattach 票据进 WS 查询串（桥约定续连入口）", () => {
+    const sockets: FakeSocket[] = [];
+    const events: AcpConnectionEvents = {
+      onPhase: () => {},
+      onNotification: () => {},
+      onRequest: () => {},
+      onCloseInfo: () => {},
+      onReconnect: () => {},
+    };
+    const conn = new AcpConnection(
+      { wsUrl: "ws://127.0.0.1:1", token: "tok", peer: "peer-x", reattach: "tk-1" },
+      (url) => {
+        const socket = new FakeSocket(url);
+        sockets.push(socket);
+        return socket;
+      },
+      events,
+    );
+    conn.connect();
+    expect(sockets[0].url).toContain("reattach=tk-1");
   });
 });

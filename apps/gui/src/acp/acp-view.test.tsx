@@ -1,13 +1,15 @@
 // ACP 控制台组件测试：整链走 mock WS（VITE_MOCK_IPC=1 与 dev 同实现），
 // 覆盖连接握手能力位、流式气泡、思考折叠、会话侧栏生命周期与断线重连提示。
+// 交互面（工具/权限/配置/用量/续连/目录）在 acp-view-interactions.test.tsx。
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.stubEnv("VITE_MOCK_IPC", "1");
 
+const { AcpView } = await import("./acp-view");
 const { mockAcpConsole } = await import("./mock-acp-ws");
 const { useAcpStore } = await import("./acp-store");
-const { AcpView } = await import("./acp-view");
+const { resetFixtures, sendPrompt } = await import("./acp-view-test-utils");
 await import("@/i18n");
 
 const DRAFT = { wsUrl: "ws://127.0.0.1:8787", token: "mock-token", peer: "mock-peer" };
@@ -17,10 +19,7 @@ function draftEndpoint(peer = DRAFT.peer) {
 }
 
 beforeEach(() => {
-  localStorage.clear();
-  mockAcpConsole.reset();
-  useAcpStore.getState().resetConsoleState();
-  useAcpStore.setState({ draft: { ...DRAFT } });
+  resetFixtures();
 });
 
 async function renderConnected() {
@@ -81,7 +80,7 @@ describe("AcpView transcript", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByText("thinking through the request")).toBeTruthy();
     await waitFor(() => {
-      expect(screen.getByTestId("acp-transcript").textContent).toContain("end_turn");
+      expect(screen.getByTestId("acp-transcript").textContent).toContain("正常结束");
     });
   });
 
@@ -94,9 +93,7 @@ describe("AcpView transcript", () => {
       ],
     });
     await renderConnected();
-    await newSession();
-    fireEvent.change(screen.getByTestId("acp-composer-input"), { target: { value: "hi" } });
-    fireEvent.click(screen.getByTestId("acp-composer-send"));
+    await sendPrompt();
     expect(await screen.findByText("部分A部分B")).toBeTruthy();
   });
 });

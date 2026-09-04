@@ -1,7 +1,8 @@
-// transcript 轮次模型：session/update 块流到聊天气泡/思考面板的纯归并逻辑。
+// transcript 轮次模型：session/update 块流到聊天气泡/思考面板/工具时间线的纯归并逻辑。
 // assistant 气泡只在流式期间聚合块；prompt 结算后新块开新气泡（对齐 ACP
-// 每 prompt 一轮的语义）。未知 update 种类计数留痕，不静默丢弃。
-import type { SessionUpdate } from "./protocol";
+// 每 prompt 一轮的语义）。工具轮按 toolCallId 原地迁移状态（ACP tool_call/update）。
+// 未知 update 种类计数留痕，不静默丢弃。
+import type { SessionUpdate, ToolCallPayload, ToolCallStatus } from "./protocol";
 
 export type Turn =
   | { kind: "user"; id: number; text: string }
@@ -12,7 +13,17 @@ export type Turn =
       streaming: boolean;
       stopReason: string | null;
     }
-  | { kind: "thought"; id: number; text: string; open: boolean };
+  | { kind: "thought"; id: number; text: string; open: boolean }
+  | {
+      kind: "tool";
+      id: number;
+      toolCallId: string;
+      title: string;
+      toolKind: string | null;
+      status: ToolCallStatus;
+      inputText: string;
+      outputText: string;
+    };
 
 export interface TranscriptState {
   turns: Turn[];
@@ -47,16 +58,77 @@ export function applyUserPrompt(state: TranscriptState, text: string): Transcrip
 
 export function applyUpdate(state: TranscriptState, update: SessionUpdate): TranscriptState {
   const kind = update.sessionUpdate;
-  const text = chunkText(update);
-  if (kind === "agent_message_chunk") return appendChunk(state, "message", text);
-  if (kind === "agent_thought_chunk") return appendChunk(state, "thought", text);
+  if (kind === "agent_message_chunk") return appendChunk(state, "message", chunkText(update));
+  if (kind === "agent_thought_chunk") return appendChunk(state, "thought", chunkText(update));
+  if (kind === "tool_call" || kind === "tool_call_update") {
+    return upsertToolCall(state, update as unknown as ToolCallPayload);
+  }
   const next = clone(state);
   next.ignoredUpdates += 1;
   return next;
 }
 
+/** 工具轮原地上迁：同 toolCallId 合并字段，未提供的字段保持原值 */
+function upsertToolCall(state: TranscriptState, tool: ToolCallPayload): TranscriptState {
+  const next = clone(state);
+  const existing = next.turns.find(
+    (t): t is Extract<Turn, { kind: "tool" }> =>
+    t.kind === "tool" && t.toolCallId === tool.toolCallId,
+  );
+  if (!existing) {
+    next.turns.push({
+      kind: "tool",
+      id: next.nextId,
+      toolCallId: tool.toolCallId,
+      title: tool.title ?? tool.toolCallId,
+      toolKind: tool.kind ?? null,
+      status: tool.status ?? "pending",
+      inputText: ioText(tool.rawInput),
+      outputText: outputText(tool),
+    });
+    next.nextId += 1;
+    return next;
+  }
+  if (tool.title !== undefined) existing.title = tool.title;
+  if (tool.kind !== undefined) existing.toolKind = tool.kind;
+  if (tool.status !== undefined) existing.status = tool.status;
+  if (tool.rawInput !== undefined) existing.inputText = ioText(tool.rawInput);
+  const out = outputText(tool);
+  if (out !== "") existing.outputText = out;
+  return next;
+}
+
+/** rawInput/rawOutput 是任意 JSON：字符串原样，其余序列化，序列化失败留 observable 信号 */
+function ioText(raw: unknown): string {
+  if (raw === undefined || raw === null) return "";
+  if (typeof raw === "string") return raw;
+  try {
+    return JSON.stringify(raw);
+  } catch {
+    console.warn("[acp] tool_call rawInput/rawOutput 序列化失败，降级 String()");
+    return String(raw);
+  }
+}
+
+/** 结果文本：优先 content 文本块（{type:"content",content:{type:"text",...}}），缺省 rawOutput */
+function outputText(tool: ToolCallPayload): string {
+  const fromContent = contentText(tool.content);
+  if (fromContent !== "") return fromContent;
+  return ioText(tool.rawOutput);
+}
+
+function contentText(content: unknown): string {
+  if (!Array.isArray(content)) return "";
+  const parts: string[] = [];
+  for (const item of content) {
+    const inner = (item as { content?: { text?: unknown } }).content;
+    if (inner && typeof inner.text === "string") parts.push(inner.text);
+  }
+  return parts.join("\n");
+}
+
 function chunkText(update: SessionUpdate): string {
-  const content = update.content as { text?: unknown } | undefined;
+  const content = (update as { content?: { text?: unknown } }).content;
   if (content && typeof content.text === "string") return content.text;
   return "";
 }
