@@ -739,7 +739,7 @@ s1_supply() {
 
 start_bootstrap() {
     log "---- S2 进度: 102 侧拉起 bootstrap（rendezvous 注册/查号 + 观测反射口；与出借方同机，发现链路不跨机）"
-    remote_sh "cd ${REMOTE_WORK} && rm -rf boot && mkdir -p boot logs run && RUST_LOG=warn nohup ./harness/target/debug/llm-smoke-harness bootstrap --data boot --quic ${BOOT_QUIC} </dev/null > logs/boot.log 2>&1 & echo \$! > run/boot.pid" \
+    remote_sh "cd ${REMOTE_WORK} && rm -rf boot && mkdir -p boot logs run && { RUST_LOG=warn nohup ./harness/target/debug/llm-smoke-harness bootstrap --data boot --quic ${BOOT_QUIC} </dev/null > logs/boot.log 2>&1 </dev/null & echo \$! > run/boot.pid; }" \
         || die "远端 bootstrap 启动失败"
     local i
     for i in $(seq 1 40); do
