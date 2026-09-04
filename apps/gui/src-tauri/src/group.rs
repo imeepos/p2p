@@ -4,7 +4,6 @@
 //! camelCase 与 §7 逐字一致）；校验全部在 crate 内完成，命令层只做 base64 解码
 //! 与尺寸预检；Err 一律可读中文（节点未启动由 state.chat() 兜底）。
 
-use base64::Engine;
 use p2p_chat::{GroupInfo, GroupMessage, GroupSendReport};
 use tauri::State;
 
