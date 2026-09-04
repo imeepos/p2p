@@ -1,8 +1,6 @@
 //! p2p-chat：IM 聊天核心 crate（design §1-§6；契约 gui-contract.md §12）。
-//!
 //! 好友簿 / 消息历史 / outbox 离线队列 / 线协议 /im/chat/1 收发；底座 p2p-* 只读。
-//! 发送：校验 → 落 outbox → 连接 → 开流帧序 → ACK → delivered；
-//! 入站：handler 读信封 → 收媒体 → 回 ACK → 落盘 → chat_message 事件。
+//! 发送：校验 → 落 outbox → 连接 → 开流帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
 
 mod core;
 mod friend;
@@ -73,8 +71,7 @@ impl Chat {
         Ok(self.core.store.friends_list()?)
     }
 
-    /// 加好友：校验 peerId（base58 且 ≠ 本机）/昵称（trim ≤64）/地址语法，
-    /// 通过后原子写好友簿并同步登记地址簿（可拨）。
+    /// 加好友：校验后原子写好友簿并登记地址簿（校验细则见 model / friend 模块）。
     pub fn friend_add(
         &self,
         peer_id: &str,
@@ -110,8 +107,6 @@ impl Chat {
         Ok(self.core.store.remove_friend(peer_id)?)
     }
 
-    /// 更新好友资料补丁（IM-T43）：group/nickname/note 至少一项；addrs 不可经此修改；
-    /// peer 不在簿 Err。group 提供空串 = 移出分组（归一化 None，落盘无空串组名）。
     pub fn friend_update(
         &self,
         peer_id: &str,
@@ -188,8 +183,7 @@ impl Chat {
             .ok_or_else(|| ChatError::NotFound("消息非附件类型".into()))
     }
 
-    /// 发送：校验 → 信封 → 落 outbox/messages(pending) → 实时投递；
-    /// 对端未连接保持 pending，等待 PeerConnected 事件 flush。
+    /// 发送：校验 → 落 outbox/messages(pending) → 实时投递；未连接保持 pending 待 flush。
     pub async fn send(
         &self,
         peer: &str,
@@ -251,8 +245,7 @@ impl Chat {
         self.core.store.append_outbox(&env)?;
         self.core.store.append_message(&env)?;
         self.core.emit_status(peer, &env.id, ChatStatus::Pending);
-        // 持有 peer 投递锁：connect 触发的 PeerConnected 会让 outbox 任务并发 flush
-        // 同一条消息，串行化避免同连接并发开流（yamux 上游缺陷，见 core.rs 注释）。
+        // 持 peer 投递锁：串行化 send 与 outbox flush，避免同连接并发开流（yamux 上游缺陷）。
         let _guard = self.core.peer_guard(peer).await;
         let delivered = match self.core.deliver(&env).await {
             Ok(()) => {
@@ -277,8 +270,7 @@ impl Chat {
         })
     }
 
-    /// 排空该 peer 的 outbox（CLI one-shot 收尾用，D5）：主动连接后 flush，budget 内尽力而为。
-    /// 返回本轮成功补投的条目数（按队列长度差计）。
+    /// 排空该 peer 的 outbox（CLI one-shot 收尾，D5）：连接后 flush，返回补投条目数。
     pub async fn drain_peer(&self, peer: &str, budget: Duration) -> Result<usize, ChatError> {
         let pid = model::parse_peer_id(peer)?;
         let before = self.core.store.outbox_for(peer).len();

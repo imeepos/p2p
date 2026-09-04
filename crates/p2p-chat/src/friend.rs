@@ -25,7 +25,8 @@ pub struct ChatFriend {
     pub group: Option<String>,
 }
 
-/// friend_update 补丁（IM-T43）：三项皆 None 拒绝；addrs 不在补丁面（只能经 friend_add 刷新）。
+/// friend_update 补丁（IM-T43）：group/nickname/note 至少一项，三项皆 None 拒绝；
+/// peer 不在簿 Err；addrs 不可经此修改（只能经 friend_add 刷新）；group 空串 = 移出分组。
 #[derive(Clone, Debug, Default)]
 pub struct FriendPatch {
     /// Some(v) = 修改分组；空串归一化为 None（移出分组）。
