@@ -1,6 +1,7 @@
 # 闲置 LLM 额度共享网络方案(barter-first)
 
-> 状态:草案 v0(待审核) | 日期:2026-09-04
+> 状态:Phase 0 实现落地(原草案 v0) | 日期:2026-09-05 | 实现:llm-share-ledger/offer/proxy 三 crate +
+> p2p-itest/llm_share_wave 双节点 E2E(§10 A1-A7),E2E 提交 9326176
 > 依赖:[p2p-base-design.md](p2p-base-design.md)(底座分层)、[wire-protocol.md](wire-protocol.md)(协议 ID 与帧)、
 > [../research/p2p-legal-risk-cn.md](../research/p2p-legal-risk-cn.md)(合规红线,本文 §8 全文对齐其结论)
 > 定位:底座之上的应用层方案。不改通信内核,只新增应用协议与 crate。

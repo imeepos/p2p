@@ -25,6 +25,7 @@ update_open_release_page	mapped	update open	CLI 语义差异：不开浏览器�
 chat_friends_list	mapped	chat friends list	
 chat_friend_add	mapped	chat friends add	
 chat_friend_remove	mapped	chat friends remove	
+chat_friend_update	mapped	chat friends update	
 chat_history	mapped	chat history	
 chat_send	mapped	chat send	
 chat_media_file	mapped	chat media file	

@@ -7,6 +7,7 @@ pub mod bootstrap;
 pub mod cli;
 pub mod discover;
 pub mod echo;
+pub mod llm_share;
 pub mod logging;
 pub mod metrics_cmd;
 pub mod metrics_log;

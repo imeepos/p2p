@@ -102,3 +102,33 @@
   /tmp/p2p-outbox-quarantine 已删；~/p2p-drill-src 构建树保留（102 无 cargo 缓存重建需 2m09s，
   留作后续演练）。本机 /tmp/p2p-drill-a、夹具与证据日志保留至本记录合入后可清理。
 - 102 构建耗时参考：干净全量 2m09s（12 核，debug profile）。
+
+## 7. 修复轮回归补记（2026-09-05，fix/im-cli-outbox-resilience @ f278e2d）
+
+D1-D5 修复（dc03f31/734740a/fa3a003）后以同拓扑重放（节点 8bA6…qY3er ⇄ 9Xht…cvkRm，
+端口 35201/35202）：
+
+| 项 | 结果 | 证据 |
+|---|---|---|
+| R1 B→A 背靠背 ×3（D1 原必现失败面） | 通过 | 全部 delivered；首条 flushedOutbox=3 顺手补投 3 条历史 pending |
+| R2 A→B 单发+连发 | **失败（D6 新登记）** | 见下 |
+| D2 同 id 双行 | 通过 | B 侧 messages 7 rows / 7 unique / 0 dup |
+| flushedOutbox 字段 | 通过 | send JSON 实测出现（契约加法生效） |
+| A→全新 serve D | 通过 | delivered——证明 A 目录无毒、Mac→102 路径健康 |
+| 全新身份 C→B | 通过 | 证明 B serve 对新 peer 正常 |
+
+### D6（新登记，顶层待裁决）：同 PeerId 多进程 churn 后「特定身份对」投递持续失败
+
+现象：`(A 身份, B serve)` 组合一旦进入坏态，A→B 全部 failed（connect 后传输层失败，
+重拨一次仍败）；同机全新身份→B 即通；A→第三方 serve 即通；**重启 B serve 不愈**、
+A 数据目录换新即愈。首日演练的镜像现象（B→A 全灭而 A→B 正常）同属此面。
+
+指向：swarm 连接门禁/连接池按 PeerId 维度跟踪的对端状态，在「同身份多进程 + 高频
+一次性连接 churn」下对后续连接做出拒绝/失活判定，且该状态跨 serve 重启仍可被快速
+再触发（具体判定路径需 swarm 层取证：ConnectionGate 与连接池键控，E6/S2 面）。
+
+影响面：CLI one-shot 与常驻 serve 同 data-dir 混用（指南鼓励的 CLI+GUI 共目录形态）
+必然踩中；纯 GUI 双实例不触发（每身份单进程）。
+
+处置建议：立 swarm 层修复单（连接门禁对同 peer 新连接应替换陈旧跟踪而非拒绝，
+或按 conn 世代失效）；修复前 CLI 侧规避=坏对两端均换新 data-dir 身份。

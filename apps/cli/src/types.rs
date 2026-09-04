@@ -5,12 +5,18 @@ use serde::{Deserialize, Serialize};
 
 /// 出厂内置云端 bootstrap（rendezvous，QUIC 语法）。
 pub fn default_bootstrap() -> Vec<String> {
-    vec!["43.240.223.138/u3400".into(), "121.196.193.177/u3400".into()]
+    vec![
+        "43.240.223.138/u3400".into(),
+        "121.196.193.177/u3400".into(),
+    ]
 }
 
 /// 出厂内置云端中继（relay）。
 pub fn default_relay_addrs() -> Vec<String> {
-    vec!["43.240.223.138/u3403".into(), "121.196.193.177/u3403".into()]
+    vec![
+        "43.240.223.138/u3403".into(),
+        "121.196.193.177/u3403".into(),
+    ]
 }
 
 /// 出厂内置观测反射口（socket 语法）。

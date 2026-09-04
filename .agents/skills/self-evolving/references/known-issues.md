@@ -318,6 +318,37 @@ failed: early eof（客户端侧超时中止）。
 - 症状：vitest 报 Transform failed Unexpected ">"，指向 fixtures 文件本身（如 chat-render-matrix-fixtures.ts:99），容易误判成测试文件语法错。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
+
+## 2026-09-05 run_code 程序体两类 JS 语法坑（T21 实证，各浪费一轮）
+- 症状 A：Expected ',', got ')'——tools.write({ file_path, content: 模板串 }) 模板串闭合后漏了对象字面量的右花括号直接以右括号收尾；症状 B：Expected ';','}' or <eof> / Expected ',', got 'ident'——把多行 bash 命令塞进单引号 JS 字符串（单引号串不能跨行）。
+- 修法：大内容一律模板串且写完立刻核对调用尾部是否有右花括号；多行命令用模板串而非单引号串；内容含插值序列或反引号时改走 write 工具直传 JSON 参数（不经 JS 解析）或 python3 落盘。另：read 读回 join 写回会丢文件尾换行，rustfmt --check 会红，追加换行即愈。
+
+## 2026-09-05 写完量行数必在 cargo fmt 之后（T20 line-limit 红线）
+- 症状：新测试文件写完 wc -l 282 行（<300），commit 后 make check 的 line-limit 报 308 行超限——fmt 前量的不算数。
+- 原因：rustfmt 对 >60 字符的方法链（chain_width）与 >100 字符行强制折行，builder 链一行爆成八行，行数轻松涨 10%。
+- 修法：写完立即 cargo fmt 再 wc -l 才是落地行数；写时避免长链（链上调用 ≤3 个再换行绑定中间变量）；收拢手段=提辅助函数统一重复链 + HashMap::from 替代链式 collect + 文档注释合并。
+
+## 2026-09-05 验收 shell 的 CARGO_TARGET_DIR 劫持独立项目构建，cli-parity 假性 FAIL（T20）
+- 症状：make check 末段报 `cli-parity: FAIL 执行 ' --help' 失败`（命令路径为空）——p2pctl 二进制不在预期位置。
+- 原因：cli-parity.sh 期望 apps/cli/target/debug/p2pctl，其内部 `cargo build --manifest-path apps/cli/Cargo.toml` 继承了验收外层的 CARGO_TARGET_DIR=/tmp/...，产物被引走；apps/cli 自带 [workspace]（独立项目），主树常绿是靠存量旧二进制（8944508 已记「陈旧二进制假绿」同源）。
+- 修法：worktree 验收前预建——`cd apps/cli && unset CARGO_TARGET_DIR && cargo build`，再跑验收；验收命令是机械黑盒，环境垫料属于让门禁按设计前提运行，不改门禁脚本本身。
+
+## 2026-09-05 后台验收 job 输出 memory-dropped，裁决行去 spill 文件捞（T20）
+- 症状：job_output 的 text 尾部只有测试噪声流，"some output was dropped from memory"，看不到退出码与门禁结论。
+- 修法：直接 grep 提示给出的 stdout spill 日志：`grep -nE 'test result:|PASS|FAIL|CLI-PARITY-OK|make:' <log>`——make check 十项门禁的末项（ai-docs-sync）打出 OK 且无 `make: *** Error` 即全绿；vitest 的预期错误栈（bridge-closed 等）出现在 stderr 尾部不代表红。
+
+## 2026-09-04 会话级平台缺陷：run_code 内嵌 bash 工具调用被参数校验拒（ACP 波）
+- 症状：run_code 调用体里只要内嵌 bash 工具调用，外层 description 参数就被判缺失（invalid arguments），连续数小时稳定复现，跨 harness 重启依旧；同轮内 write/read/edit/session_link/schedule/dispatch 全部正常，纯探针正常。
+- 绕行：shell 步骤改走 dispatch_task 子代理，注意 600 秒墙钟上限——长任务用 nohup 脱离加日志落盘，子代理只负责启动不等待；只读快查控制在一分钟内；文件修改直接用 write/edit 工具。
+- 附加教训一：dispatch_task 任务书必须显式要求『验收自检块』格式，否则 report 一律标 rejected，工作其实可能已完成，要以落盘产物为准。
+- 附加教训二：多步骤任务塞进单个 dispatch 必撞墙钟，拆成微任务加落盘日志跨任务接力。
+
+## 2026-09-04 make/子代理环境下门禁脚本 FAIL 分支 dollar-var 紧贴全角字符，unbound variable 吞掉真实失败（门禁加固轮 74bb793）
+- 症状：make gate-tests 报 release-gates.sh line22 unbound variable（变量名乱码）；直跑同一脚本 16/16 全绿——直跑时所有用例 PASS，FAIL 分支根本没执行；爆炸只在有用例真失败时显形，并把真实断言失败输出一起吞掉。
+- 原因：FAIL echo 里 dollar-var 紧跟全角括号（EF BC 88），locale 变体下 bash 把高位字节并入变量名，set -u 直接崩。
+- 修法：门禁脚本所有 dollar-var 紧邻非 ASCII 字符处一律花括号化；复查手法 grep -nP 对两文件扫描（panic-hygiene.sh 同病同治）。修复提交必须 git show 核对内容与消息一致——8fc3f4a 教训：消息写了修复但 diff 为空，问题存活多轮。
+- 教训：门禁失败先分清『断言失败』还是『门禁自身爆炸』，混在一起会双重误诊。
+
 ## 2026-09-04 bash EXIT trap 引用函数 local 变量，set -u 下 unbound 污染退出码（R2 发布脚本轮）
 - 【主树 node_modules 被 worktree install 污染】多轨并行期某会话在 worktree 内 pnpm install 后，主树 apps/gui/node_modules 的包符号链接被重写为指向该 worktree 私有 store；worktree 收尾删除后链接悬空，主树跑 vitest 报 MODULE_NOT_FOUND vitest/vitest.mjs（2026-09-04 实证，T48 收官时暴露）。症状识别：pnpm test 挂在 loader 而非断言、Node 尾栈+空 grep 结果。修复：rm -rf apps/gui/node_modules + 根目录 pnpm install 重建（--force 无效，pnpm 信任 .modules.yaml 状态）。预防：worktree install 后 readlink 主树包链接抽查；主树验收遇 MODULE_NOT_FOUND 先查悬空链接再怀疑代码。
 - 症状：脚本全部步骤日志正常、末行 marker（R2-RELEASE-OK）也打印了，退出码却是 1，且报错出现在所有输出之后：`line N: tmp: unbound variable`。表面看「构建+冒烟全过」，机械验收（看退出码）却判 FAIL。
@@ -451,6 +482,17 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：bash 工具层中断打断了 checkout 中段；分支 ref 已写、worktree 注册未完成。
 - 修法：rm -rf 残留目录 → git branch -D 悬空分支 → 重新 worktree add（给足 timeoutMs）；重建后 ls 抽查关键子目录（如 apps/gui/src/views 与 src/stores 同时存在才算完整）。
 
+## 2026-09-04 IM-T43：vitest「Failed to start worker / Timeout waiting for worker to respond」是纯负载假红，有对照判别法
+- 症状：单文件 vitest run 60s 后 worker 启动超时（forks/threads 两池皆可复现），Tests no tests；当时 load 26-49（并行会话 rustc + vscode rg 索引）。
+- 坑：第一反应是怀疑自己新写的测试文件 import 链有问题，差点开始改代码。
+- 判别法：拿一个既有测试文件原样跑一遍——同样超时即为环境问题，自己的代码无罪；既有可能间歇通过（本次首跑就真跑起来暴露过真实断言错误），失败后隔几分钟重试即可。
+- 修法：等负载回落重试；不要为此改 vitest 配置或测试代码。
+
+## 2026-09-04 IM-T43：行尾中文注释触发 hardcoded-copy 守卫（stripComments 盲区）
+- 症状：i18n/hardcoded-copy.test.ts 报 components 文件违规，行内容形如 `name: string | null; // null = 未分组虚拟组`。
+- 原因：守卫的 stripComments 只删行首注释与块注释，行尾 // 注释保留后过 CJK 正则。
+- 修法：components/views 下所有中文注释一律独立成行（守卫能删到）；不要改守卫来适配自己的写法。
+- 快速定位法：把守卫的 stripComments+CJK 逻辑写成 /tmp 临时 .cjs 用 node 跑，一次列出全部 offender（awk 转义写这个太容易翻车）。
 
 ## 2026-09-04 U1：worktree remove / 大目录删除被 bash 默认超时反复击杀
 - 症状：git worktree remove（含数 GB target 产物）静默无输出返回，目录与注册都还在；链上后续 branch -d 全没执行。
@@ -462,3 +504,30 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 症状：脚本带 --keep 自测全绿，验收（无参形态）第一行就报 $1 unbound variable 直接退出。
 - 原因：set -u 对未传位置参数取值即崩；自测形态与验收形态不一致（自测永远带参）。
 - 修法：位置参数一律空值兜底（美元花括号冒号连字符写法）后再用；脚本自测必须覆盖「无参」这个验收真实形态，参数解析分支用桩二进制定向测试（伪 CTL/GUI_BIN/dist 令构建全跳过，无 GUI 也能验证解析与结构化报错路径）。
+
+## 2026-09-05 cargo test 把 GUI 二进制重建成 dev 态，ui-regression 构建门只查存在性放行空壳（GC3c 实录）
+- 症状：先跑 cargo test 再跑 ui-regression.sh，全部构建"成功"、GUI 就绪门通过，但 8 页 page 协议调用全数 PAGE_TIMEOUT、截图同为 19.8KB 空白图。
+- 原因：cargo test 无特性构建把 target/debug/p2p-console 重写成 dev 态二进制（webview 加载 devUrl:5173，无 dev 服务器即空壳）；build_if_missing 只查二进制存在性，跳过了必需的 custom-protocol 构建。
+- 修法：marker 文件（.custom-protocol-built）比对二进制 mtime，二进制比上次 custom-protocol 构建新即强制重建（scripts/ops/ui-regression.sh 1336096）。凡"同一产物路径被多种 feature 组合轮番构建"的场景都要防这种新但错模式的 staleness。
+- 顺带：页面协议探针在空壳 webview 下"必挂"的假设不可靠，就绪门可能被非 PAGE_TIMEOUT 形态的错误提前放行；协议级验证要以第一条真实 round-trip 为准。
+
+## 2026-09-05 vitest mock zustand store 只给 getState：传递闭包图的模块加载期副作用文件级炸（GC3c 实录）
+- 症状：新增 5 页 descriptor 测试中 3 个文件报 "useNodeStore.subscribe is not a function"，且没跑任何用例（collection 阶段死）。
+- 原因：events-page → events-export → event-clock 在模块顶层 arm() 调 useNodeStore.subscribe()；测试只 mock 了 { getState }。import page-registry 会拉全部 8 页的传递闭包，漏谁谁炸。
+- 修法：mock 共享 store 前先追被测模块的完整 import 闭包图，凡模块加载期触达的 store API（subscribe 等）都要补进 mock；或按需 vi.mock 中间模块（events-export）斩断链路。
+
+## 2026-09-05 run_code 内嵌 shell 片段的美元花括号变量被 JS 模板串插值（GC3c 实录）
+- 症状：edit 的 old_string/new_string 用 JS 模板串携带 shell 代码（含 GAP_PAGES 的美元花括号引用），报 ReferenceError: GAP_PAGES is not defined，edit 压根没执行。
+- 原因：JS 模板串把 shell 变量语法当插值求值。
+- 修法：嵌 shell 片段用普通字符串拼接或先落临时文件再 cat 合并；报 ReferenceError 时先确认是"没跑"而不是"跑了失败"。
+
+## 2026-09-05 并行会话两度推进 main：收尾前必须再反向同步一轮（GC3c 实录）
+- 症状：开工时 merge 过 origin/main，收尾 ff-only 前发现 main 又从 fb0aee2 走到 2f4ae13（flake 加固合入，动了 gui 测试）。
+- 修法：push 分支后、ff-only 前固定再 fetch+merge main+重跑门禁一轮；"今天上午同步过"不算数。
+- 连带教训：接单第一步就在基线跑一遍机械验收命令——本单 main 上 cargo test 本就编译红（IM-T43 给 ChatFriend 加 group 字段没同步 tests/chat_contract.rs、chat_boundaries.rs 三处字面量），不改任何 Rust 也得先修它才能交 GC3C-OK；归属判明后在 feature 分支独立 fix 提交（对齐契约 12.3 的 "group": null 断言）。
+
+## 2026-09-05 与 cargo fingerprint 抢跑必输：构建形态裁决要交回 cargo 本身（ui-reg 二连红复盘）
+- 症状：ui-regression 在协调者主树全页 PAGE_TIMEOUT；我方 worktree 同脚本两遍 82/82 全绿——同代码不同树不同结果，且首版修复（marker mtime 比对）在复现中仍现 GUI_NOT_READY。
+- 原因：cargo test / 普通 build 会把 target/debug 下同一二进制翻成另一构建形态（dev 态加载 devUrl 空壳），脚本用 mtime/marker 自猜"二进制是不是目标形态"，但外部构建与 cargo fingerprint 的时序组合无穷，marker 反映的是"上次成功构建"而非"当前二进制形态"，必有误判缺口。
+- 修法：废除自猜，无条件按目标形态构建（cargo build --features ...），把"要不要重编"交回 cargo fingerprint——形态不对必重编（增量实测 6.7s），形态对 Fresh 秒回。删代码比加代码可靠。
+- 通用规则：凡脚本需要保证"产物处于某构建形态"，不要用 mtime/marker 猜，无条件调用目标形态的构建命令让构建系统自己幂等裁决；单测/集成绿不豁免真机产物形态验证。

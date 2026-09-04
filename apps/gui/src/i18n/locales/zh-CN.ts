@@ -350,6 +350,18 @@ const zhCN = {
       delivered: "已送达",
       failed: "失败",
     },
+    group: {
+      moveAction: "移动到分组",
+      moveTitle: "移动到分组",
+      ungrouped: "未分组",
+      nameLabel: "分组名",
+      namePlaceholder: "输入或选择分组名",
+      nameTooLong: "分组名 trim 后不能超过 32 字符",
+      clearHint: "清空分组名并提交即移出分组",
+      submit: "移动",
+      confirming: "移动中…",
+      failed: "分组更新失败：",
+    },
     addFriend: {
       action: "添加好友",
       title: "添加好友",

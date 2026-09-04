@@ -5,11 +5,11 @@ use clap::{Args, Subcommand};
 use serde_json::Value;
 
 use crate::error::{CliError, CliResult};
+use crate::node::DEFAULT_DATA_DIR;
 use crate::output;
 use crate::paths::Paths;
 use crate::store;
 use crate::types::GuiConfig;
-use crate::node::DEFAULT_DATA_DIR;
 
 #[derive(Subcommand)]
 pub enum ConfigCommand {
@@ -61,7 +61,9 @@ fn save(args: SaveArgs) -> CliResult<()> {
         Some(text) => text.to_string(),
     };
     if text.trim().is_empty() {
-        return Err(CliError::Runtime("配置内容为空：传入 GuiConfig JSON 或经 stdin 管道".into()));
+        return Err(CliError::Runtime(
+            "配置内容为空：传入 GuiConfig JSON 或经 stdin 管道".into(),
+        ));
     }
     let cfg: GuiConfig = serde_json::from_str(text.trim())
         .map_err(|e| CliError::Runtime(format!("配置 JSON 解析失败: {e}")))?;
@@ -112,7 +114,13 @@ mod tests {
     fn text_render_lists_every_field() {
         let cfg = GuiConfig::default();
         let text = render(&cfg);
-        for key in ["quicPort=", "tcpPort=", "enableMdns=true", "bootstrap=", "relayAddrs="] {
+        for key in [
+            "quicPort=",
+            "tcpPort=",
+            "enableMdns=true",
+            "bootstrap=",
+            "relayAddrs=",
+        ] {
             assert!(text.contains(key), "缺 {key}: {text}");
         }
     }

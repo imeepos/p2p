@@ -28,10 +28,10 @@ gui_cmds="$(awk '/generate_handler!\[/{flag=1} flag{print} flag && /\]/{exit}' "
 
 gui_has() { printf '%s\n' "$gui_cmds" | grep -Fxq "$1"; }
 
-# --- 2. p2pctl 就位（缺则构建，构建失败即红） ---
+# --- 2. p2pctl 就位（缺失或源码比二进制新即构建：合并后陈旧二进制会让实测假红） ---
 export PATH="$HOME/.cargo/bin:$PATH"
-if [ ! -x "$CTL" ]; then
-    echo "cli-parity: p2pctl 不存在，先构建 apps/cli…" >&2
+if [ ! -x "$CTL" ] || [ -n "$(find "$ROOT/apps/cli/src" -name '*.rs' -newer "$CTL" -print -quit 2>/dev/null)" ]; then
+    echo "cli-parity: 构建 apps/cli（缺失或源码更新后重建，防陈旧二进制假红）…" >&2
     (cd "$ROOT" && cargo build --manifest-path apps/cli/Cargo.toml -q) \
         || fail "p2pctl 构建失败"
 fi
@@ -73,7 +73,7 @@ while IFS= read -r tsv_line; do
     invocation="$(printf '%s\n' "$tsv_line" | cut -f3)"
     reason="$(printf '%s\n' "$tsv_line" | cut -f4-)"
     if ! gui_has "$gui"; then
-        stale_rows="$stale_rows  $gui（映射表有行，GUI 已无此命令）\n"
+        stale_rows="$stale_rows  ${gui}（映射表有行，GUI 已无此命令）\n"
         continue
     fi
     case "$kind" in
@@ -87,7 +87,7 @@ while IFS= read -r tsv_line; do
         exempt)
             trimmed="$(printf '%s' "$reason" | tr -d ' ')"
             if [ -z "$trimmed" ]; then
-                bad_exempt="$bad_exempt  $gui（豁免缺理由）\n"
+                bad_exempt="$bad_exempt  ${gui}（豁免缺理由）\n"
             else
                 exempt_count=$((exempt_count + 1))
             fi
@@ -101,7 +101,7 @@ done < "$TSV"
 tsv_gui_column="$(grep -v '^#' "$TSV" | cut -f1)"
 while IFS= read -r gui; do
     if ! printf '%s\n' "$tsv_gui_column" | grep -Fxq "$gui"; then
-        missing_mapping="$missing_mapping  $gui（GUI 有命令，映射表无行）\n"
+        missing_mapping="$missing_mapping  ${gui}（GUI 有命令，映射表无行）\n"
     fi
 done <<< "$gui_cmds"
 
@@ -125,5 +125,5 @@ if [ "$rc" -ne 0 ]; then
 fi
 leaf_count="$(grep -c . "$cli_cmds_file")"
 gui_count="$(printf '%s\n' "$gui_cmds" | wc -l | tr -d ' ')"
-echo "cli-parity: GUI 命令 $gui_count 个，映射 $mapped_count，豁免 $exempt_count；p2pctl 实测叶子命令 $leaf_count 个"
+echo "cli-parity: GUI 命令 $gui_count 个，映射 ${mapped_count}，豁免 ${exempt_count}；p2pctl 实测叶子命令 $leaf_count 个"
 echo "CLI-PARITY-OK"

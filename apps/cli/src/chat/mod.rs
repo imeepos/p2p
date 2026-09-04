@@ -4,6 +4,7 @@
 //! GUI 同一目录约定：聊天库固定在 <data-dir>/chat，指向同一目录即同一份好友与历史。
 
 pub mod context;
+mod friend_update;
 mod friends;
 mod messages;
 mod payload;
@@ -22,7 +23,7 @@ use serve::ServeArgs;
 /// chat 域注册：friends/history/send/media（契约 §12）+ serve（E2E/守护支撑）。
 #[derive(clap::Subcommand)]
 pub enum ChatCommand {
-    /// 好友簿：list / add / remove
+    /// 好友簿：list / add / update / remove
     Friends {
         #[command(subcommand)]
         command: FriendsCommand,

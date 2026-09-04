@@ -1,7 +1,6 @@
 //! 消息模型与校验（design §5；契约 gui-contract.md §12.3）。
 //!
-//! 序列化形状逐字对齐契约：字段 camelCase，Option 序列化 null。
-//! 校验失败一律可读中文 Err，禁止静默降级。
+//! 序列化形状逐字对齐契约（camelCase，Option 序列化 null）；校验失败一律可读中文 Err 禁止静默降级。
 
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -80,16 +79,7 @@ pub struct ChatEnvelope {
     pub reply_to: Option<String>,
 }
 
-/// 好友簿条目（friends.json 数组元素）。
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatFriend {
-    #[serde(rename = "peerId")]
-    pub peer_id: String,
-    pub nickname: String,
-    pub addrs: Vec<String>,
-    pub note: Option<String>,
-}
+pub use crate::friend::ChatFriend;
 
 /// 发送附件入参（GUI 侧解码 base64 后传入）。
 #[derive(Clone, Debug)]
@@ -147,10 +137,16 @@ pub enum ChatError {
     ConnectFailed(String),
     #[error("发送失败：{0}")]
     SendFailed(String),
+    #[error("流失败：{0}")]
+    StreamFailed(String),
     #[error("未找到：{0}")]
     NotFound(String),
     #[error("回复引用非法：{0}")]
     InvalidReply(String),
+    #[error("分组名非法：{0}")]
+    InvalidGroup(String),
+    #[error("更新参数非法：{0}")]
+    InvalidUpdate(String),
 }
 
 /// base58 → 32 字节 PeerId；编码或长度非法即 Err（可读中文）。

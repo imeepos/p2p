@@ -61,13 +61,9 @@ pub async fn run(cmd: UpdateCommand) -> CliResult<()> {
 
 async fn check(args: CheckArgs) -> CliResult<()> {
     let source = github_source().map_err(CliError::Runtime)?;
-    let report = run_check(
-        source.as_ref(),
-        env!("CARGO_PKG_VERSION"),
-        now_ms(),
-    )
-    .await
-    .map_err(CliError::Runtime)?;
+    let report = run_check(source.as_ref(), env!("CARGO_PKG_VERSION"), now_ms())
+        .await
+        .map_err(CliError::Runtime)?;
     let text = render_check(&report);
     output::emit(args.json, &report, &text)
 }
@@ -83,9 +79,9 @@ async fn open(args: OpenArgs) -> CliResult<()> {
             let report = run_check(source.as_ref(), env!("CARGO_PKG_VERSION"), now_ms())
                 .await
                 .map_err(CliError::Runtime)?;
-            report
-                .release_url
-                .ok_or_else(|| CliError::Runtime("无稳定 release 候选，没有可输出的发布页".into()))?
+            report.release_url.ok_or_else(|| {
+                CliError::Runtime("无稳定 release 候选，没有可输出的发布页".into())
+            })?
         }
     };
     let report = OpenReport { url: url.clone() };

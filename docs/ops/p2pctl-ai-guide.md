@@ -37,7 +37,8 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 | 前置 | 适用命令 | 不满足时的表现 |
 |---|---|---|
-| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity reset、log tail/path/clear、metrics get、update check/open、node status | —— |
+| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
+| 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance | 退出 1：节点身份加载失败；offer publish 不代生成身份 |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1，消息保留本机 status=Pending；peer 域退出 1 |
 | 节点守护进程运行 | peer connect/disconnect/ping/dial、metrics get 实时值 | 退出 1：连接节点守护进程失败；metrics get 例外：返回全零不报错 |
 | GUI 进程运行 | gui 全域（status/screenshot/record/navigate/invoke/page/action） | 退出 1（控制通道不可达） |
@@ -65,6 +66,14 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 查前端日志 | `log tail --json` / `log path --json` |
 | 清前端日志 | `log clear`（写，须人确认） |
 | 查新版本 | `update check --json` |
+| 给 peer 授予 agent 访问 | `acp allow <PEER_ID> --scope sandbox --json`（写，须人确认） |
+| 撤销 peer 授权 | `acp deny <PEER_ID>`（写，须人确认；不存在条目报错退出 1） |
+| 查看授权策略表 | `acp list --json` |
+| 把借方加入出借 allowlist（可带模型白名单） | `llm-share allow <PEER_ID> --model <M> --json`（写，须人确认；缺 --model 不限模型） |
+| 把借方移出 allowlist / 查 allowlist | `llm-share deny <PEER_ID>`（写，须人确认）/ `llm-share allowlist --json` |
+| 签名发布能力声明 / 查看生效声明与剩余 TTL | `llm-share offer publish --model <M> --spare <M>=<N> --period-ends <DATE> --json`（写，须人确认）/ `llm-share offer show --json` |
+| 查本机流水 / 净差视图 | `llm-share ledger list --json` / `llm-share ledger balance --json`（按 lender+period 切分） |
+| 离线验签收据 | `llm-share receipt verify <PATH> --pubkey <BASE58>`（FAIL 退出 1，stdout 有 verdict 与原因） |
 | 重置身份（红线） | `identity reset`——不可逆，见 §3 |
 
 ## 3. 开场提示词模板（整段贴给 LLM 即可）
@@ -74,7 +83,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 【工具认知】
 - 可执行文件：apps/cli/target/debug/p2pctl（先 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在）。
-- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update 十域，共 33 个叶子命令。
+- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 45 个叶子命令。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
 - 退出码：0 成功；1 运行失败（stderr 前缀 "p2pctl: 运行失败: "）；2 用法错误。失败时先读 stderr 再决定下一步，不要盲目重试。
@@ -83,7 +92,8 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 1. 只读命令优先：node status / chat friends list / chat history / config get / metrics get /
    log tail / gui status / update check 等查询类命令可自由执行。
 2. 写操作必须先征得人确认再执行：chat send / chat friends add|remove / config save /
-   profile save / node start|stop / peer dial|connect|disconnect / log clear / gui navigate。
+   profile save / node start|stop / peer dial|connect|disconnect / log clear / acp allow|deny / gui navigate /
+   llm-share allow|deny|offer publish。
 3. 不可逆红线：identity reset 会删除节点身份（key.seed），除非人明确说"重置身份"，
    永远不得执行；执行时必须带 --confirm 且仅限人指定的数据目录。
 4. 不得绕过安全机制：gui navigate/gui invoke 仅接受服务端白名单（8 个路由、5 个只读命令），
@@ -107,6 +117,13 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 - **token/白名单不可绕过**：gui 域命令经控制通道由 GUI 服务端白名单校验（路由 8 个、
   invoke 只读命令 5 个），被拒绝即为终态，AI 不得重试变形绕过；身份凭据（key.seed）
   只能由实现读取，AI 不得打印、复制或迁移其内容。
+- **ACP 授权面**：acp allow/deny 直写节点策略表（<data-dir>/acp-policy.json），
+  执行前必须向人复述目标 PeerId 与 scope 并获确认；deny 对不存在条目报错退出 1，
+  属预期行为（默认拒绝语义，非故障）。
+- **LLM 共享面**：llm-share allow/deny 直写出借方 allowlist（<data-dir>/llm-share/allowlist.json，
+  默认拒绝语义），offer publish 以本机身份种子签名并落盘声明信封；执行前必须向人复述
+  目标 PeerId / 模型白名单 / 闲量与账期参数并获确认。签名密钥只在 p2p-identity 种子文件
+  （0600）中，AI 不得读取、打印或迁移其内容。
 
 ## 5. 与 GUI 的关系
 
@@ -115,7 +132,7 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 同一份数据。GUI 数据目录（macOS）`~/Library/Application Support/com.p2p.console`，前端
 日志 `~/Library/Logs/com.p2p.console/frontend.log`，均可用 `--gui-data-dir`/`--log-dir` 覆盖。
 
-## 6. 命令面全目录（33 命令）
+## 6. 命令面全目录（45 命令）
 
 条目格式：用途/前置 → 参数表（名称/类型/必填/默认）→ 文本输出例 → --json 输出例。
 类型取值：flag（无值开关）/string/int/path/kv/枚举值说明。尖括号示例为实测采样占位。
@@ -171,18 +188,20 @@ pid=80955
 退出码：未运行时重复 stop 报"未运行"，仍退出 0。
 
 ### p2pctl chat friends list
-用途：列出全部好友。前置：无（空簿输出"好友簿为空"）。
+用途：列出全部好友（默认按分组展示，未分组置底）。前置：无（空簿输出"好友簿为空（或该分组无成员）"）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --json | flag | 否 | off |
+| --group | string | 否 | 无（只显示该分组；空串 = 未分组；省略 = 全部按分组展示） |
 | --data-dir | path | 否 | ./p2p-data |
 文本：
 ```
-好友簿为空
+共 1 位好友
+[测试组] - Bobby 11111111111111111111111111111111 addrs=[] note=hi group=测试组
 ```
 --json（单行紧凑）：
 ```
-[{"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","nickname":"Bob","addrs":[],"note":null}]
+[{"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","nickname":"Bob","addrs":[],"note":null,"group":"测试组"}]
 ```
 
 ### p2pctl chat friends add
@@ -193,6 +212,7 @@ pid=80955
 | --nickname | string | 否 | "" |
 | --addr | string（可重复） | 否 | 无 |
 | --note | string | 否 | 无 |
+| --group | string | 否 | 无（trim 后 ≤32 字符，空串 = 不分组） |
 | --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
 文本：
@@ -204,6 +224,26 @@ pid=80955
 {"created":true,"friend":{"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","nickname":"Bob","addrs":[],"note":null}}
 ```
 退出码：PEER_ID 非 32 字节 base58 → 1（PeerId 非法）；PEER_ID 为本机 chat 身份 → 1（不能与自己通信）。
+
+### p2pctl chat friends update
+用途：更新好友的分组/昵称/备注补丁（至少提供一项）；addrs 不可经此修改（走 add 的 addr 域）。前置：PEER_ID 在簿。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string | 是 | —— |
+| --group | string | 否 | 无（trim 后 ≤32 字符；空串 = 移出分组） |
+| --nickname | string | 否 | 无（trim 后 ≤64 字符；空串回退 PeerId 缩略） |
+| --note | string | 否 | 无（空串 = 清空） |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已更新好友 Bobby（11111111111111111111111111111111）group=测试组
+```
+--json：
+```
+{"peerId":"11111111111111111111111111111111","group":"测试组","nickname":"Bobby","note":"hi"}
+```
+退出码：至少提供一项补丁，全缺 → 1；PEER_ID 不在簿 → 1。
 
 ### p2pctl chat friends remove
 用途：移除好友，幂等。前置：无。
@@ -246,7 +286,7 @@ pid=80955
 | --peer | string | 是 | —— |
 | --text | string | 与 --file 二选一 | —— |
 | --file | path | 与 --text 二选一 | —— |
-| --kind | text/image/audio/video/file | 否 | 按载荷推断 |
+| --kind | text/image/audio/video/file | 否 | file（mime 按扩展名推断） |
 | --mime | string | 否 | 按扩展名推断 |
 | --name | string | 否 | 取文件名 |
 | --reply-to | string | 否 | 无 |
@@ -663,4 +703,245 @@ https://github.com/imeepos/p2p/releases/tag/client-v0.1.2
 ```
 退出码：--url 非 https/github.com 白名单 → 1。
 
+### p2pctl acp allow
+用途：授予 peer 访问本机 agent 的授权（upsert：条目已存在则为更新并刷新 grantedAt）。前置：无（纯本地策略表，离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（base58，32 字节） | 是 | —— |
+| --scope | sandbox 或 workspace | 否 | sandbox |
+| --allow-mcp | string（可重复；mcpServers 白名单按名引用） | 否 | 无 |
+| --ask-route | remote_gui 或 owner_local | 否 | remote_gui |
+| --note | string | 否 | 无 |
+| --fingerprint | string（TOFU 指纹显式登记进策略表） | 否 | 空 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已授权 peer=HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj（新建条目）
+scope=sandbox
+allow_mcp=fs,web
+ask_route=remote_gui
+granted_at=2026-09-04T06:00:00Z
+```
+--json：
+```
+{"created":true,"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","scope":"sandbox","allowMcp":["fs","web"],"askRoute":"remote_gui","grantedAt":"2026-09-04T06:00:00Z"}
+```
+退出码：PeerId 非法（非 base58 或解码后非 32 字节）→ 1；策略表损坏 → 1（可读报错，禁止静默回退空表）。
+
+### p2pctl acp deny
+用途：撤销 peer 授权（删除策略表条目，回到默认拒绝语义）。前置：无（离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（base58，32 字节） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已撤销授权 peer=HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj（回到默认拒绝）
+```
+--json：
+```
+{"removed":true,"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj"}
+```
+退出码：条目不存在 → 1（明确报错不静默）；PeerId 非法 → 1；策略表损坏 → 1。
+
+### p2pctl acp list
+用途：表格列出全部授权条目（peer/scope/allowMcp/askRoute/grantedAt/指纹/note）。前置：无（离线可跑；策略文件缺失视为空表）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本（有条目）：
+```
+共 1 条授权
+PEER                                          SCOPE    ALLOW_MCP  ASK_ROUTE   GRANTED_AT            FINGERPRINT  NOTE
+HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj  sandbox  fs,web     remote_gui  2026-09-04T14:49:29Z  ff00         nb
+```
+文本（空表）：
+```
+策略表为空（默认拒绝：未列入条目的 peer 一律无授权）
+```
+--json（空表）：
+```
+{"peers":[]}
+```
+退出码：策略表损坏 → 1（可读报错）。
+
+### p2pctl llm-share allow
+用途：把借方加入出借方 allowlist（upsert：条目已存在则为更新并刷新 grantedAt）。前置：无（离线可跑，纯本地 allowlist）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（base58，32 字节） | 是 | —— |
+| --model | string（可重复；模型白名单） | 否 | 无（= 不限模型） |
+| --note | string | 否 | 空 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已加入 allowlist peer=52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd（新建条目）
+models=gpt-4o,deepseek-v3
+note=首批白名单
+granted_at=2026-09-04T19:15:09Z
+```
+--json：
+```
+{"created":true,"peerId":"52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd","models":["gpt-4o","deepseek-v3"],"note":"首批白名单","grantedAt":"2026-09-04T19:15:09Z"}
+```
+语义：默认拒绝——allowlist 无条目的借方一律不可用（G4 准入）。文件 <data-dir>/llm-share/allowlist.json，原子落盘。
+退出码：PeerId 非法（非 base58 或解码后非 32 字节）→ 1；模型名为空 → 1；文件损坏 → 1（可读报错，禁止静默回退空表）。
+
+### p2pctl llm-share allowlist
+用途：列出出借方 allowlist 全部条目（BTreeMap 序，输出稳定）。前置：无（离线可跑；文件缺失视为空表）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本（有条目）：
+```
+共 1 条 allowlist 条目
+52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd  models=gpt-4o  note=  granted_at=2026-09-04T19:15:09Z
+```
+文本（空表）：
+```
+allowlist 为空（默认拒绝：未列入条目的借方一律不可用）
+```
+--json（空表）：
+```
+{"peers":[]}
+```
+退出码：文件损坏 → 1（可读报错）。
+
+### p2pctl llm-share deny
+用途：把借方移出 allowlist（删除条目，回到默认拒绝）。前置：无（离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（base58，32 字节） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已移出 allowlist peer=52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd（回到默认拒绝）
+```
+--json：
+```
+{"removed":true,"peerId":"52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd"}
+```
+退出码：条目不存在 → 1（明确报错不静默，属默认拒绝语义非故障）；PeerId 非法 → 1；文件损坏 → 1。
+
+### p2pctl llm-share offer publish
+用途：组装能力声明（§5.2 全字段：模型清单/闲量/账期末/TTL/速率限额/retention）并以本机身份 Ed25519 签名发布。前置：本机身份已初始化（节点身份数据目录 key.seed，缺失退出 1 不代生成）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --model | string（可重复，至少一个） | 是 | 无 |
+| --spare | kv（model=N，token 数，可重复且须覆盖全部 --model 且 N>0） | 是 | 无 |
+| --period-ends | string（YYYY-MM-DD 账期截止日） | 是 | —— |
+| --max-per-req | kv（model=N，单请求 max_tokens 上限，可重复） | 否 | 无（= 未显式设限） |
+| --rpm | int（每分钟请求上限） | 否 | 10 |
+| --concurrency | int（并发上限） | 否 | 2 |
+| --ttl | int（声明有效期秒数，自签发起算） | 否 | 3600 |
+| --retention | string（数据留存自述，§7.3 如实告知） | 否 | none |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+--json：
+```
+{"peer":"7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk","models":["gpt-4o","deepseek-v3"],"spare":{"deepseek-v3":999999999,"gpt-4o":1500000},"periodEnds":"2026-09-30","maxPerReq":{"gpt-4o":128000},"rateLimit":{"rpm":10,"concurrency":2},"ttl":3600,"retention":"none","issuedAt":1788549309,"expiresAt":1788552909,"file":"/tmp/demo/p2p-data/llm-share/offer.json"}
+```
+文本：同字段 key=value 行（spare/max_per_req 为 model=N 逗号串，rate_limit=rpm=N,concurrency=N）。
+落盘：签名信封（含 pubkey/sig，公开数据）写 <data-dir>/llm-share/offer.json，tmp+rename 原子写。
+退出码：身份缺失 → 1；--model 为空/--spare 未覆盖某模型或为 0/引用未声明模型/重复声明 → 1；日期格式非法 → 1；rpm/concurrency/ttl 非正 → 1。
+
+### p2pctl llm-share offer show
+用途：查看当前生效声明与剩余 TTL（status=live/expired/not_yet_valid/peer_mismatch/bad_signature）。前置：无（离线可跑）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+peer=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk
+models=gpt-4o,deepseek-v3
+spare=deepseek-v3=999999999,gpt-4o=1500000
+period_ends=2026-09-30
+max_per_req=gpt-4o=128000
+rate_limit=rpm=10,concurrency=2
+ttl=3600s
+retention=none
+issued_at=1788549309
+expires_at=1788552909
+status=live
+remaining_secs=3600
+file=/tmp/demo/p2p-data/llm-share/offer.json
+```
+--json：同字段 camelCase（声明本体 + remaining_secs/status/file）。
+退出码：从未发布 → 1（提示先 publish）；信封文件损坏 → 1；TTL 过期不是错误：status=expired、remaining_secs≤0 照常输出。
+
+### p2pctl llm-share ledger list
+用途：查询本机双边流水明细（§5.1 收据，append-only 存储序）。前置：无（离线可跑；流水文件缺失视为空账）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --lender | string（PeerId 过滤） | 否 | 不过滤 |
+| --borrower | string（PeerId 过滤） | 否 | 不过滤 |
+| --period | string（账期过滤，如 2026-09） | 否 | 不过滤 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+共 2 条流水
+req_id=0198c0de-0000-7000-8000-000000000001  period=2026-09  lender=52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd  borrower=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk  model=gpt-4o  tokens=6912 (in=1234 out=5678)  estimated=false  ts=1788480000
+req_id=0198c0de-0000-7000-8000-000000000002  period=2026-09  lender=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk  borrower=52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd  model=deepseek-v3  tokens=40 (in=20 out=20)  estimated=false  ts=1788480000
+```
+--json：
+```
+{"count":2,"entries":[{"reqId":"0198c0de-0000-7000-8000-000000000001","period":"2026-09","lender":"52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd","borrower":"7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk","model":"gpt-4o","input":1234,"output":5678,"tokens":6912,"estimated":false,"ts":1788480000}]}
+```
+退出码：流水文件损坏 → 1（可读报错）。
+
+### p2pctl llm-share ledger balance
+用途：本机净差视图（§3.2）：本机参与的条目按 (lender, period) 聚合，本机为 lender 记正（lent_out）、为 borrower 记负（borrowed），net = lent_out − borrowed，对齐账本 net 口径。前置：本机身份已初始化（净差视角取本机 PeerId）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --period | string（只统计该账期） | 否 | 全部账期分行 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+peer=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk 净差视图（lender 正 / borrower 负）
+lender=52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd  period=2026-09  lent_out=0  borrowed=6912  net=-6912  entries=1
+lender=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk  period=2026-09  lent_out=40  borrowed=0  net=40  entries=1
+```
+--json：
+```
+{"peer":"7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk","rows":[{"lender":"52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd","period":"2026-09","lentOut":0,"borrowed":6912,"net":-6912,"entries":1}]}
+```
+退出码：身份缺失 → 1；流水文件损坏 → 1；本机未参与任何流水 → 正常输出空 rows。
+
+### p2pctl llm-share receipt verify
+用途：指定收据文件离线 Ed25519 验签（§5.1，MVP A3）：先校验公钥与 lender PeerId 绑定（PeerId = sha256(pubkey)），再验规范化 payload 签名；任何字段篡改必 FAIL。出借方公钥取自其 offer 信封 pubkey 字段（base58）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PATH> | 位置参数 path（收据文件，§5.1 wire JSON） | 是 | —— |
+| --pubkey | string（出借方公钥 base58，32 字节） | 是 | —— |
+| --json | flag | 否 | off |
+文本（PASS）：
+```
+verdict=PASS
+reason=验签通过
+req_id=0198c0de-0000-7000-8000-000000000001
+period=2026-09
+lender=52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd
+borrower=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk
+model=gpt-4o
+usage=input=1234,output=5678
+estimated=false
+ts=1788480000
+```
+文本（FAIL，stdout 照常输出完整报告，进程退出 1）：
+```
+verdict=FAIL
+reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-000000000001
+（req_id/period/lender/borrower/model/usage/estimated/ts 各行同 PASS 形态）
+```
+--json：同字段 camelCase（verdict/reason/reqId/period/lender/borrower/model/input/output/estimated/ts）。
+退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1。
 <!-- AI-DOCS-SYNC:END -->

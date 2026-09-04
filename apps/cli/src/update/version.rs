@@ -27,11 +27,13 @@ pub fn parse_tag(tag: &str) -> Result<SemVer, String> {
         if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
             return Err(format!("版本段必须是非空纯数字: {tag}"));
         }
-        segs[slot] = part
-            .parse()
-            .map_err(|_| format!("版本段数值溢出: {tag}"))?;
+        segs[slot] = part.parse().map_err(|_| format!("版本段数值溢出: {tag}"))?;
     }
-    Ok(SemVer { major: segs[0], minor: segs[1], patch: segs[2] })
+    Ok(SemVer {
+        major: segs[0],
+        minor: segs[1],
+        patch: segs[2],
+    })
 }
 
 /// 逐段数值比较（0.10.0 > 0.9.0）。
@@ -49,7 +51,15 @@ mod tests {
     #[test]
     fn parses_tag_prefixes_and_plain() {
         for tag in ["client-v0.1.2", "v0.1.2", "0.1.2"] {
-            assert_eq!(parse_tag(tag).unwrap(), SemVer { major: 0, minor: 1, patch: 2 }, "{tag}");
+            assert_eq!(
+                parse_tag(tag).unwrap(),
+                SemVer {
+                    major: 0,
+                    minor: 1,
+                    patch: 2
+                },
+                "{tag}"
+            );
         }
     }
 

@@ -1,0 +1,21 @@
+[package]
+name = "llm-share-proxy"
+version.workspace = true
+edition.workspace = true
+description = "闲置 LLM 额度共享代理：/llm-share/proxy/1 三闸准入、SSE 逐帧转发、预授权结算与签名收据（E10-T19）"
+
+[dependencies]
+async-trait.workspace = true
+bs58.workspace = true
+futures.workspace = true
+llm-share-ledger = { path = "../llm-share-ledger" }
+p2p-identity = { path = "../p2p-identity" }
+p2p-mux = { path = "../p2p-mux" }
+p2p-protocol = { path = "../p2p-protocol" }
+# TLS 仅 rustls 系（红线）：禁 native-tls/openssl，测试走进程内 mock 不出网
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true

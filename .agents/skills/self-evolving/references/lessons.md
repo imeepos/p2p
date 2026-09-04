@@ -220,6 +220,14 @@ _none yet — be the first._
 - 2026-09-04 IM-T50：主树 make check 是并行轮的共享资源，load 40+ 下 vitest 超时与 cargo 子进程竞态都是环境病——先隔离定性再错峰重跑，别对着环境红改代码。
 - 2026-09-04 IM-T50：被协调者通牒/接管时，第一动作是只读核查自己工作区状态并秒回事实清单（已交付提交/未提交面/后台任务），迟到的沉默会被误读成无进展。
 - 2026-09-04 IM-T50：known-issues 登记过的坑（zustand 选择器 `?? []` 快照不稳）写测试时没回忆起来又踩——写涉及 store 的代码前先 grep 一遍 references 再动手。
+
+- 2026-09-05（ACP2 轮）：run_code 的 JS 里嵌大段 Rust/TS 源码用模板字面量会被内容打断——两个假错误（"Expected ',' got ')'"、数组里裸标识符 ReferenceError）排查各耗 20 分钟，与真实 bug 无关。稳法：content 用行数组 + join 换行构造，数组内禁止留占位裸标识符，写完立即 wc -l 核行数。
+- 2026-09-05（ACP2 轮）：并行会话共用 /tmp 撞日志文件名——/tmp/acp-check.log 被并行 ACP3 会话的 cargo 输出整份覆盖，一度误判成自己的构建在编别人的 crate。对策：临时日志一律带卡号/会话号前缀（如 acp2-a2-*.log）。
+- 2026-09-05（ACP2 轮）：DSH 会话重启会 TERM 整个后台任务树，nohup+disown 也逃不掉；长门禁（make check 全量 30 分钟+）对策=按 make 目标分片前台跑（每片 timeoutMs 10 分钟级），cargo/pnpm 增量缓存让被杀重跑只补剩余，各片 EXIT 落日志文件断点续跑。
+- 2026-09-05（ACP2 轮）：make check 十个门禁目标各自幂等可独立跑（gate-tests/version-check/fmt-check/line-limit/clippy/test/gui-check/panic-hygiene/cli-parity/ai-docs-sync），分片全绿等价整跑；重活 clippy/test 靠前次被杀留下的增量缓存，二跑 0.4s/3min 收官。
+- 2026-09-05（ACP2 轮）：git commit -m 的多行 message 经 JSON.stringify 进入 bash 双引号后 \n 是字面反斜杠 n，不换行；多行提交信息一律写临时文件用 -F 传。
+- 2026-09-05（ACP2 轮）：底座契约缺口——p2p ProtocolHandler::handle(stream) 不暴露远端 PeerId，需要 per-peer 鉴权的上层 app（acp-agent）只能订阅 Node 事件维护在线集：恰一 peer 在线才归属、多 peer 歧义 fail-closed 拒绝（session.rs+peers.rs 已实现并测试），待底座流分发层把 peer 传进 handler 后解除；做 ACP4/继续连时别在这个边界上再踩一遍。
+
 - 2026-09-04 IM-T49：rustup 升级（clippy 1.98）会让已合入 main 的存量代码突然门禁红（needless_borrow/suspicious_open_options 新 lint），与在途改动无关——验收红先看报错里的 lint 名与 clippy 版本再定性，零行为机械修复按 IM-T47 先例随当前分支独立 fix 提交并在报告披露。
 - 2026-09-04 IM-T49：残留 worktree 的增强测试拖 17 天不评估，API 已漂移四处（Chat::send 加参/WireEnvelope 加字段/命令加参/端口夹具），适配成本随时间只涨不跌——盘点类清理任务要早办，评估结论本身就是适配点的清单。
 - 2026-09-04 CLI 演练：共享主树多会话并行下，测试会话进行中 main 会漂移（本会话 004b441→ffc0f0d 且中途出了热fix），报告必须锚定「实际构建所用的 commit」并对期间合入的相关修复做同异性辨析，否则缺陷归因张冠李戴。
@@ -237,3 +245,19 @@ _none yet — be the first._
 
 - 2026-09-04 U2（gui-updater 轮）：60s 超时连环杀进程的根因是 ext512 外置卷小文件 I/O 病态慢——clone 30MB 仓库 8m48s、push 本地 1m25s、rm -rf 带 node_modules 的目录必然超时；已知条目只记了「被杀」现象，本轮补根因与对策：重活全部显式 timeoutMs（10 分钟级）或丢 background，主战场搬到内置卷（/tmp）clone。
 - 2026-09-04 U2（gui-updater 轮）：本日两次 worktree add 成功 checkout 后 `.git/worktrees/<name>` 元数据消失（git worktree list 不显示、worktree 内 git 命令报 not a git repository），一次还伴随 checkout 缺整个 crates/ 目录；同仓库其他会话的老 worktree 完好，疑与并行会话 git 操作/外置卷异常叠加有关。对策：worktree 创建后立即 `git worktree list` 验证；元数据消失时只清目录+prune，绝不在残骸上继续干活。
+- 2026-09-04 U3（gate-braces 轮）：分析时刚写出「模板串里 ${ 会插值」的警告，下一步自己仍用模板字面量嵌修复脚本，当场 ReferenceError——识别出转义风险的那一刻就切换写法（行数组/write 工具），不要让惯用模板串活到下一行代码；另：grep 命中按行报告，一行多处 `$var` 会漏数（本次 15 行实为 16 处），替换后必须用同一正则复查清零兜底。
+
+- 2026-09-04 U1：端点就绪 ≠ webview 桥就绪——tauri 控制端点先写、React 桥后安装，重载下差几十秒；就绪探针语义必须是「桥有应答」而非「命令退出 0」：初始路由 dashboard 未注册属合法应答（exit 1 + PAGE_NOT_REGISTERED），只有 PAGE_TIMEOUT 才是桥没起来。判「命令成功」会让就绪环永不满足。
+- 2026-09-04 U1：脚本里 kill 后台子进程后，其信号终止状态可经异步 reap 泄进脚本退出码（绿灯运行被调用方 && 链误断）——disown + cleanup 内显式 wait 归零 + 成功路径显式 exit 0，三板斧跨 bash 版本确定。
+- 2026-09-04 U1：并行会话会扫提交主树未跟踪文件——主树里的 scratch 测试副本（ui-regression-scratch.sh）被顺手指令提交入库（c92d983）；测试副本要么放 /tmp 要么用完立刻删，主树留过夜就会被别人"帮忙"入库。
+- 2026-09-04 U1：tauri custom-protocol 构建把前端 dist 嵌进二进制——pnpm build（先清空 dist）与 cargo build 并发时，嵌进去的可能是空/半成品 dist，症状=webview 加载空页、页面桥永不安装且无任何报错；修法=重跑 cargo build --features custom-protocol 重嵌。诊断入口：~/Library/Logs/com.p2p.console/{p2p-console,frontend}.log（应用日志不走 stdout，脚本里 tail gui.log 常为空）。
+- 2026-09-04 U1：回归脚本的就绪/探针类修复要与并行会话的同类分支对齐格式（同文本改动 git 自动合流）——动手前先 grep 别人未合并分支对同一文件的改动。
+- 2026-09-04 R7：rsync 目录到远端构建机必须 --exclude target——漏排一次就把本机 Mach-O 盖掉远端 ELF，且 rsync -a 保 mtime 让 cargo 误判最新不重编（真机回归两次被坑，判据=file 格式而非存在性）。
+- 2026-09-04 R7：测试辅助函数返回 Future（如 wait_until 调用方需 .await）时，漏 await 不报错只降级为「断言永远即时通过」——失败行号指到无关断言，先 grep 编译警告 unused Future 再读断言。
+- 2026-09-04 R7：Copy 类型（PeerId）逐字段改造时 clippy clone_on_copy 会连环冒出——改签名前先查类型是否 Copy，一次改净。
+- 2026-09-05 T19：homebrew bash 5.3.9 起 `$var（`（变量名紧邻多字节字符）展开会把首字节并入变量名（f\357），set -u 直接 unbound variable；/bin/bash 3.2 无此行为——验收命令 PATH 前置 /opt/homebrew/bin 时 make 配方里的 `bash` 解析到 5.3.9，同脚本两个 bash 版本行为分歧先查 `which bash`。门禁/脚本里 `$var` 紧邻非 ASCII 一律写 `${var}`（version.sh 缺文件路径、FAIL 分支文案全是雷区）。
+- 2026-09-05 T19：cli-parity 门禁 `if [ ! -x p2pctl ]` 惰性构建 + 验收命令全局 CARGO_TARGET_DIR → 产物落 /tmp 而脚本找 apps/cli/target（空则当场崩）；且存在旧二进制时无条件信任——陈旧二进制把另一波漏更文档的登记债整个掩盖（TSV 新行 + 旧二进制 = 假绿，删二进制才显形）。接手共享门禁前先查 `ls -la apps/cli/target/debug/p2pctl` 的时间戳对不对得上当前源。
+- 2026-09-05 ACP5：验收 && 链中「cmd | tail N」的退出码取 tail 恒 0，遮蔽上游失败（本轮 clippy 假绿：INNER=0 但 CLIPPY_EXIT=101）；写验收链改用 PIPESTATUS 或拆步判定，复核旧日志 grep build failed/error 残留。
+- 2026-09-05 ACP3：开工前必读清单要含 skill references 的「当日条目」——worktree 被并行 prune/超时杀 checkout 的坑当日已有两条同族记录，先读能省两轮重建；把与本卡操作同形的条目（worktree/长构建/转义写文件）过一遍再动手。
+- 2026-09-05 ACP3：验收门禁红灯先做「域归属三步定性」——git diff origin/main HEAD --stat 看红灯域文件是否在自己 diff 里、查红灯读的输入是源码还是工作树陈旧产物、隔离复跑最小面；三步都干净就原样上报协调者，不代修邻域（并行会话可能正在改同一处）。
+- 2026-09-05 ACP3：对下游不可见的传输语义（EOF/半关闭/窗口更新时机）要在设计评审时就写探针用例锁行为——yamux 批量窗口更新饿死写侧是集成测试随机挂死才暴露的，探针前置能把 3 小时定位压成 10 分钟；且探针纠偏过一次源码静读的误判（半关闭其实可用）。

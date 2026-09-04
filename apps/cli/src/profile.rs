@@ -4,11 +4,11 @@
 use clap::{Args, Subcommand};
 
 use crate::error::{CliError, CliResult};
+use crate::node::DEFAULT_DATA_DIR;
 use crate::output;
 use crate::paths::Paths;
 use crate::store;
 use crate::types::NodeProfile;
-use crate::node::DEFAULT_DATA_DIR;
 
 pub const NAME_MAX_CHARS: usize = 64;
 pub const DESCRIPTION_MAX_CHARS: usize = 280;
@@ -70,7 +70,9 @@ fn save(args: SaveArgs) -> CliResult<()> {
         Some(text) => text.to_string(),
     };
     if text.trim().is_empty() {
-        return Err(CliError::Runtime("资料内容为空：传入 NodeProfile JSON 或经 stdin 管道".into()));
+        return Err(CliError::Runtime(
+            "资料内容为空：传入 NodeProfile JSON 或经 stdin 管道".into(),
+        ));
     }
     let profile: NodeProfile = serde_json::from_str(text.trim())
         .map_err(|e| CliError::Runtime(format!("资料 JSON 解析失败: {e}")))?;
@@ -110,7 +112,10 @@ fn validate_avatar(url: &str) -> Result<(), String> {
         .iter()
         .find_map(|prefix| url.strip_prefix(prefix))
         .ok_or_else(|| "头像格式不支持，仅允许 PNG/JPEG/WebP 的 base64 data URL".to_string())?;
-    if !payload.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '=')) {
+    if !payload
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '/' | '='))
+    {
         return Err("头像数据不是合法的 base64 载荷".into());
     }
     Ok(())
@@ -121,7 +126,10 @@ fn render(profile: &NodeProfile) -> String {
         Some(url) => format!("avatar=已设置（{} 字符）", url.len()),
         None => "avatar=未设置".into(),
     };
-    format!("name={}\ndescription={}\n{avatar}", profile.name, profile.description)
+    format!(
+        "name={}\ndescription={}\n{avatar}",
+        profile.name, profile.description
+    )
 }
 
 #[cfg(test)]
@@ -133,16 +141,20 @@ mod tests {
         let profile = NodeProfile {
             name: "n".repeat(NAME_MAX_CHARS),
             description: "d".repeat(DESCRIPTION_MAX_CHARS),
-            avatar: Some(format!("data:image/webp;base64,{}", "a".repeat(
-                AVATAR_MAX_LEN - "data:image/webp;base64,".len(),
-            ))),
+            avatar: Some(format!(
+                "data:image/webp;base64,{}",
+                "a".repeat(AVATAR_MAX_LEN - "data:image/webp;base64,".len(),)
+            )),
         };
         assert_eq!(validate(&profile), Ok(()));
     }
 
     #[test]
     fn rejects_oversize_and_bad_avatar() {
-        let mut profile = NodeProfile { name: "名".repeat(NAME_MAX_CHARS + 1), ..Default::default() };
+        let mut profile = NodeProfile {
+            name: "名".repeat(NAME_MAX_CHARS + 1),
+            ..Default::default()
+        };
         assert!(validate(&profile).is_err());
         profile.name = "ok".into();
         profile.description = "述".repeat(DESCRIPTION_MAX_CHARS + 1);

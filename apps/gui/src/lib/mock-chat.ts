@@ -11,6 +11,7 @@ import {
   isValidPeerId,
   isValidTransportAddr,
   mediaPath,
+  validateGroupName,
   validateReplyTo,
   validateSend,
 } from "./mock-chat-rules";
@@ -40,6 +41,7 @@ export type MockChatBackend = Pick<
   | "chatFriendsList"
   | "chatFriendAdd"
   | "chatFriendRemove"
+  | "chatFriendUpdate"
   | "chatHistory"
   | "chatSend"
   | "chatMediaFile"
@@ -171,6 +173,37 @@ export function createMockChatBackend(deps: MockChatDeps): MockChatBackend {
     // 幂等：不在簿返回 false；不删消息历史（契约 §12.1）。
     async chatFriendRemove(peerId) {
       return state.friends.delete(peerId);
+    },
+
+    // 资料补丁（IM-T43）：group/nickname/note 至少一项；空串 group = 移出分组；
+    // 与 p2p-chat friend_update 同口径：peer 不在簿/越界组名/空补丁均拒绝。
+    async chatFriendUpdate(peerId, patch) {
+      const friend = state.friends.get(peerId);
+      if (!friend) {
+        throw new Error(`好友不在簿：${peerId}`);
+      }
+      if (patch.group == null && patch.nickname == null && patch.note == null) {
+        throw new Error("更新内容为空：group/nickname/note 至少提供一项");
+      }
+      if (patch.nickname != null) {
+        const name = patch.nickname.trim();
+        if (name.length > MAX_NICKNAME_CHARS) {
+          throw new Error(`nickname 超过 ${MAX_NICKNAME_CHARS} 字符上限`);
+        }
+        friend.nickname = name;
+      }
+      if (patch.group != null) {
+        const invalid = validateGroupName(patch.group);
+        if (invalid) throw new Error(invalid);
+        const trimmed = patch.group.trim();
+        // 未分组不落盘空串（契约裁决：None/空串统一为未分组）
+        friend.group = trimmed.length > 0 ? trimmed : null;
+      }
+      if (patch.note != null) {
+        const note = patch.note.trim();
+        friend.note = note.length > 0 ? note : null;
+      }
+      return { ...friend, addrs: [...friend.addrs] };
     },
 
     // 时间 desc 分页：无 beforeId 取最新一页；beforeId 游标=严格更早（设计 §6.4）。

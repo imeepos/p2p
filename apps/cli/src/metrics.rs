@@ -47,7 +47,11 @@ async fn snapshot(data_dir: &str) -> CliResult<MetricsJson> {
     if lifecycle::probe_online(data_dir).await.is_none() {
         return Ok(MetricsJson::default());
     }
-    let data = control::call(&Paths::new(data_dir), serde_json::json!({ "op": "metrics" })).await?;
+    let data = control::call(
+        &Paths::new(data_dir),
+        serde_json::json!({ "op": "metrics" }),
+    )
+    .await?;
     serde_json::from_value(data)
         .map_err(|e| crate::error::CliError::Runtime(format!("守护进程指标响应解析失败: {e}")))
 }
