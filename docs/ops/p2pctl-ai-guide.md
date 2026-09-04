@@ -40,7 +40,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity reset、log tail/path/clear、metrics get、update check/open、node status | —— |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1，消息保留本机 status=Pending；peer 域退出 1 |
 | 节点守护进程运行 | peer connect/disconnect/ping/dial、metrics get 实时值 | 退出 1：连接节点守护进程失败；metrics get 例外：返回全零不报错 |
-| GUI 进程运行 | gui 全域（status/screenshot/record/navigate/invoke） | 退出 1（控制通道不可达） |
+| GUI 进程运行 | gui 全域（status/screenshot/record/navigate/invoke/page/action） | 退出 1（控制通道不可达） |
 | GUI 日志目录存在（默认自动） | log tail/clear | 退出 1，文件不存在类错误 |
 
 ## 2. AI 意图 → 命令映射表
@@ -60,6 +60,8 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 截 GUI 图 | `gui screenshot --output /abs/path.png --json` |
 | 切 GUI 页面 | `gui navigate <ROUTE> --json`（dashboard/peers/discovery/relay/chat/events/settings/diagnostics） |
 | GUI 白名单只读转发 | `gui invoke metrics_get --json` |
+| 看当前页能做什么 | `gui page --json`（actions 与参数 schema，写动作带 [confirm] 标记） |
+| 执行页面动作 | `gui action <页面> <动作> K=V... --json`（非当前页加 `--navigate`；写类动作须人确认） |
 | 查前端日志 | `log tail --json` / `log path --json` |
 | 清前端日志 | `log clear`（写，须人确认） |
 | 查新版本 | `update check --json` |
@@ -72,7 +74,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 【工具认知】
 - 可执行文件：apps/cli/target/debug/p2pctl（先 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在）。
-- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update 十域，共 31 个叶子命令。
+- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update 十域，共 33 个叶子命令。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
 - 退出码：0 成功；1 运行失败（stderr 前缀 "p2pctl: 运行失败: "）；2 用法错误。失败时先读 stderr 再决定下一步，不要盲目重试。
@@ -99,7 +101,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 - **只读优先**：AI 的默认动作集合是 §1.4"无前置"表中的读命令与 §2 查询类意图。
 - **写须确认**：所有改变状态的动作（发消息、改配置/资料、增删好友、启停节点、清理日志、
-  切 GUI 页面）执行前必须向人复述将执行的确切命令并获得同意。
+  切 GUI 页面、gui action 写类页面动作如 addFriend/saveConfig）执行前必须向人复述将执行的确切命令并获得同意。
 - **identity reset 红线**：删除 key.seed 不可恢复；缺 `--confirm` 时实现层即拒绝
   （退出 1），这是最后防线而非授权，AI 不得在任何未经人明确同意的情况下携带 `--confirm`。
 - **token/白名单不可绕过**：gui 域命令经控制通道由 GUI 服务端白名单校验（路由 8 个、
@@ -113,7 +115,7 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 同一份数据。GUI 数据目录（macOS）`~/Library/Application Support/com.p2p.console`，前端
 日志 `~/Library/Logs/com.p2p.console/frontend.log`，均可用 `--gui-data-dir`/`--log-dir` 覆盖。
 
-## 6. 命令面全目录（31 命令）
+## 6. 命令面全目录（33 命令）
 
 条目格式：用途/前置 → 参数表（名称/类型/必填/默认）→ 文本输出例 → --json 输出例。
 类型取值：flag（无值开关）/string/int/path/kv/枚举值说明。尖括号示例为实测采样占位。
@@ -516,6 +518,49 @@ path=#/chat
 {"result":{"activeConnections":1,"addrDialFailures":0,"dialDirectFail":0,"dialDirectOk":1,"dialPunchFail":0,"dialPunchOk":0,"dialRelayFail":0,"dialRelayOk":0,"gateDenialsTotal":0,"relayReconnects":0,"relaySessionsActive":2}}
 ```
 退出码：白名单外命令 → 1（不得绕过）。
+
+### p2pctl gui page
+用途：查询当前页语义 descriptor：name/description 与 actions 表格（动作与页面按钮同源走 store/IPC，非 DOM 模拟）。前置：GUI 进程运行；当前页未在注册表（如 dashboard）时服务端 PAGE_NOT_REGISTERED 拒绝。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --gui-data-dir | path | 否 | GUI 应用数据目录 |
+文本（头两行为协议定位，每动作一行，args 标注「类型,必填性」，危险动作带 [confirm] 标记）：
+```
+page=chat
+schemaVersion=1
+name=chat
+description=IM 聊天页：好友会话文本发送与好友管理
+actions=3
+- sendText: 向好友发送文本（乐观更新，与聊天输入框同源）
+  args: peer(string,必填) text(string,必填)
+- removeFriend: 移除好友（不删本地消息历史），与移除确认框同源 [confirm]
+  args: peer(string,必填) confirm(boolean,必填)
+```
+--json：服务端全量 {schemaVersion,page,descriptor}（descriptor 含 args schema 与 state 快照）。
+退出码：当前页未注册 → 1（PAGE_NOT_REGISTERED，错误信息含可用页清单）；前端未回执 → 1（PAGE_TIMEOUT）。
+
+### p2pctl gui action
+用途：执行页面动作（与页面按钮同源）。前置：GUI 进程运行；非当前页须先 gui navigate <页面> 或携带 --navigate。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PAGE> | 位置参数 string（已注册页名） | 是 | —— |
+| <ACTION> | 位置参数 string（注册表动作名，见 gui page 输出） | 是 | —— |
+| [ARGS] | 位置参数 kv（k=v 可重复；布尔/数字按 JSON 类型解析，与 invoke 域同规则） | 否 | 无 |
+| --navigate | flag | 否 | off |
+| --json | flag | 否 | off |
+| --gui-data-dir | path | 否 | GUI 应用数据目录 |
+文本（回包 result 的人读 JSON，CLI 自动生成 requestId，chat addFriend 例）：
+```
+{
+  "peerId": "11111111111111111111111111111111111111111111",
+  "nickname": "gc4-e2e",
+  "addrs": [],
+  "note": null
+}
+```
+--json：同源结构化 {requestId,result}（result 即动作返回值原样）。
+退出码：非当前页 → 1（结构化错误含「gui navigate <页面>」指引）；危险动作缺 confirm=true → 1（ACTION_CONFIRM_REQUIRED 透传）；动作不存在 → 1（ACTION_NOT_FOUND，含可用动作清单）；页面名非法 → 1（PAGE_NOT_FOUND，含可用页清单）；前端未回执 → 1（PAGE_TIMEOUT）。
 
 ### p2pctl identity reset
 用途：重置身份：停节点 + 删除 key.seed，不可逆。前置：无；红线见 §4。

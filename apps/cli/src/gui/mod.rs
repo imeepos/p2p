@@ -2,6 +2,7 @@
 //! 通道发现与鉴权见 channel.rs；CLI 单侧能力，不进 cli-parity 映射表（GUI 命令面未变）。
 
 mod channel;
+mod page;
 
 use std::path::PathBuf;
 
@@ -51,6 +52,26 @@ pub enum GuiCommand {
         #[command(flatten)]
         out: OutputArgs,
     },
+    /// 查询当前页语义 descriptor（name/description/actions；--json 含 args schema 与 state）
+    Page {
+        #[command(flatten)]
+        args: OutputArgs,
+    },
+    /// 执行页面动作（k=v 参数；非当前页默认报错，--navigate 先切页）
+    Action {
+        /// 页面名（与路由同名：chat/peers/settings 等已注册页）
+        page: String,
+        /// 动作名（页面注册表登记，见 gui page 输出）
+        action: String,
+        /// k=v 参数（布尔/数字按 JSON 类型解析）
+        #[arg(value_name = "ARGS")]
+        args: Vec<String>,
+        /// 执行前先切到目标页
+        #[arg(long)]
+        navigate: bool,
+        #[command(flatten)]
+        out: OutputArgs,
+    },
 }
 
 #[derive(Subcommand)]
@@ -96,6 +117,10 @@ pub async fn run(cmd: GuiCommand) -> CliResult<()> {
         },
         GuiCommand::Navigate { route, args } => navigate(&args, &route).await,
         GuiCommand::Invoke { command, args, out } => invoke(&out, &command, &args).await,
+        GuiCommand::Page { args } => page::show(&args).await,
+        GuiCommand::Action { page, action, args, navigate, out } => {
+            page::run(&out, &page, &action, &args, navigate).await
+        }
     }
 }
 
