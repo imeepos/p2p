@@ -2,9 +2,10 @@
 # N2-R2 E2E：两个 p2pctl 进程流并发写同一数据目录的存储一致性。
 # 场景与断言：
 #   0) 预热单次 friend add：生成 key.seed 与 chat/ 目录（规避并发首生成竞态）；
-#   1) 双流并发 chat friends add 各 N 笔（共享 friends.json）：文件合法 JSON、
-#      条数恰为 2N+1（跨进程文件锁串行合并，零静默丢失，R1 加固）、
-#      成员无孤儿（peer 全落在预期集内）、无重复、CLI 读回 == 磁盘文件、无 panic；
+#   1) 双流并发 chat friends add 各 N 笔（共享 friends.json yrs 更新日志，Y1 起）：
+#      CLI 冷读合并视图条数恰为 2N+1（CRDT 合并、无需文件锁，零静默丢失）、
+#      成员无孤儿（peer 全落在预期集内）、无重复、磁盘日志头行合法且更新行
+#      恰 2N+1（一次变更一行，行级完整）、两次独立冷读一致、无 panic；
 #   2) 双流并发 chat send 各 N 笔（各发各的不可达 peer，消息以 pending 落盘）：
 #      每 peer 恰 N 条、id 唯一、内容与发送序一致、CLI history == 磁盘、
 #      messages/ 目录无孤儿文件、未送达结构化信号（未送达）、无 panic。
@@ -71,35 +72,47 @@ stream_send() {
   done
 }
 
-# friends.json 终态：合法 JSON、恰 2N+1 全量在簿（R1 文件锁零丢失）、无重复、无孤儿成员。
+# CLI 冷读磁盘 yrs 日志合并视图（每次调用均为新进程直读磁盘）。
+collect_friends_view() {
+  "$CTL" chat friends list --json --data-dir "$DD" > "$DD/.view.json" \
+    || fail "friends list 读回失败"
+}
+
+# 终态：合并视图恰 2N+1 全量在簿（CRDT 合并零丢失）、无重复、无孤儿；
+# 磁盘日志头行合法、更新行恰 2N+1（一次变更一行，行级完整）。
 assert_friends_file() {
-  python3 - "$DD/chat/friends.json" "$((2 * N + 1))" \
+  python3 - "$DD/.view.json" "$DD/chat/friends.json" "$((2 * N + 1))" \
     "$W_ID" "${A_IDS[@]}" "${B_IDS[@]}" <<'PY'
-import json, sys
-path, want = sys.argv[1], int(sys.argv[2])
-expected = set(sys.argv[3:])
-with open(path) as f:
-    book = json.load(f)
-assert isinstance(book, list), "friends.json 不是 JSON 数组"
+import base64, json, sys
+view_path, log_path, want = sys.argv[1], sys.argv[2], int(sys.argv[3])
+expected = set(sys.argv[4:])
+book = json.load(open(view_path))
 ids = [f["peerId"] for f in book]
 assert len(ids) == len(set(ids)), f"好友 peer 重复: {ids}"
 assert len(ids) == want, f"好友条数 {len(ids)} ≠ 全量 {want}：并发写发生静默丢失"
 orphans = [i for i in ids if i not in expected]
 assert not orphans, f"孤儿好友记录: {orphans}"
-print(f"friends.json 合法：{len(ids)} 条（全量 {want}），无孤儿无重复")
+lines = open(log_path).read().splitlines()
+header = json.loads(lines[0])
+assert header.get("p2p-friends") == "yrs-v1", f"日志头行异常: {lines[0]}"
+updates = [json.loads(l) for l in lines[1:] if l.strip()]
+for u in updates:
+    base64.b64decode(u["u"], validate=True)
+assert len(updates) == want, f"更新行数 {len(updates)} ≠ 变更数 {want}：追加丢失或损坏"
+print(f"好友簿 yrs 日志合并视图全量 {want} 笔在簿，更新行 {len(updates)} 行级完整，无孤儿无重复")
 PY
 }
 
-# CLI 读回 == 磁盘文件（同一份好友簿两种读路径一致）。
-assert_friends_view_matches_disk() {
-  "$CTL" chat friends list --json --data-dir "$DD" > "$DD/.view.json" \
-    || fail "friends list 读回失败"
-  python3 - "$DD/.view.json" "$DD/chat/friends.json" <<'PY'
+# 两次独立冷读一致：yrs 日志解码确定性，磁盘权威态稳定可读。
+assert_friends_view_stable() {
+  "$CTL" chat friends list --json --data-dir "$DD" > "$DD/.view2.json" \
+    || fail "friends list 二次读回失败"
+  python3 - "$DD/.view.json" "$DD/.view2.json" <<'PY'
 import json, sys
-view = json.load(open(sys.argv[1]))
-disk = json.load(open(sys.argv[2]))
-assert view == disk, "CLI 好友簿读回与磁盘文件不一致"
-print(f"CLI 好友簿读回 == 磁盘（{len(view)} 条）")
+a = json.load(open(sys.argv[1]))
+b = json.load(open(sys.argv[2]))
+assert a == b, "两次独立冷读不一致（解码非确定）"
+print(f"CLI 两次独立冷读一致（{len(a)} 条）")
 PY
 }
 
@@ -162,15 +175,16 @@ A_IDS=() B_IDS=()
 for i in 1 2 3 4 5; do A_IDS+=("$(peer_id "$i")"); B_IDS+=("$(peer_id "$((i + 9))")"); done
 SA_ID=$(peer_id 30); SB_ID=$(peer_id 31)
 
-echo "== 1. 双流并发 friends add 各 $N 笔（共享 friends.json） =="
+echo "== 1. 双流并发 friends add 各 $N 笔（共享 friends.json yrs 日志） =="
 A_LOG="$DD/a.log"; B_LOG="$DD/b.log"
 stream_add A "$DD" "$A_LOG" "${A_IDS[@]}" & PA=$!
 stream_add B "$DD" "$B_LOG" "${B_IDS[@]}" & PB=$!
 wait "$PA" || fail "A 流 friends add 中止"
 wait "$PB" || fail "B 流 friends add 中止"
 assert_no_panic "$A_LOG" A; assert_no_panic "$B_LOG" B
+collect_friends_view
 assert_friends_file
-assert_friends_view_matches_disk
+assert_friends_view_stable
 
 echo "== 2. 双流并发 chat send 各 $N 笔（各自不可达 peer，pending 落盘） =="
 SA_LOG="$DD/sa.log"; SB_LOG="$DD/sb.log"
@@ -185,6 +199,6 @@ assert_peer_messages "$DD/chat/messages/$SB_ID.jsonl" B
 assert_history_view_matches_disk "$SA_ID" "$DD/chat/messages/$SA_ID.jsonl"
 assert_history_view_matches_disk "$SB_ID" "$DD/chat/messages/$SB_ID.jsonl"
 
-rm -f "$DD/.view.json" "$DD/.hist.json"
-echo "并发语义实测：好友簿跨进程文件锁串行合并（R1 零静默丢失）；消息 JSONL 追加行级完整"
+rm -f "$DD/.view.json" "$DD/.view2.json" "$DD/.hist.json"
+echo "并发语义实测：好友簿 yrs CRDT 合并（无锁零静默丢失）；消息 JSONL 追加行级完整"
 echo "N2-R2-OK"

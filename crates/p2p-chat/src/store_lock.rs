@@ -1,7 +1,7 @@
-//! 好友簿跨进程写锁（R1 防静默丢写）：持有期覆盖「锁内重读磁盘 → 合并 → 原子写」。
-//! Unix 用 flock（LOCK_EX|LOCK_NB 自旋 + 截止时间；进程崩溃内核自动释放，无陈锁）；
-//! 其他平台退化为 O_EXCL 独占创建自旋（崩溃残留陈锁时后续写显式超时报错，不静默）。
-//! 超时错误携带锁路径与等待时长，失败路径一律可观测。
+//! 跨进程写锁（Y1 起仅剩身份文件使用；好友簿已改 yrs 合并语义、不再加锁，
+//! 见 store_friends.rs）。Unix 用 flock（LOCK_EX|LOCK_NB 自旋 + 截止时间；
+//! 进程崩溃内核自动释放，无陈锁）；其他平台退化为 O_EXCL 独占创建自旋
+//! （崩溃残留陈锁时后续写显式超时报错，不静默）。失败路径一律可观测。
 
 use std::fs;
 use std::io;
@@ -116,8 +116,6 @@ fn lock_timeout_error(path: &Path, timeout: Duration) -> io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::ChatFriend;
-    use crate::store::Store;
 
     fn temp_path(tag: &str) -> PathBuf {
         std::env::temp_dir().join(format!("p2p-chat-lock-{tag}-{}", std::process::id()))
@@ -143,32 +141,5 @@ mod tests {
         drop(FileLock::acquire(path.clone(), Duration::from_millis(50)).expect("首次获锁"));
         FileLock::acquire(path.clone(), Duration::from_millis(50)).expect("释放后应可重新获锁");
         let _ = fs::remove_file(&path);
-    }
-
-    fn friend(peer: &str) -> ChatFriend {
-        ChatFriend {
-            peer_id: peer.to_string(),
-            nickname: "race".into(),
-            addrs: Vec::new(),
-            note: None,
-            group: None,
-        }
-    }
-
-    /// 回归：两个 Store（跨进程等价场景）先后加好友，磁盘必须双全而非 last-write-wins。
-    #[test]
-    fn concurrent_store_upserts_merge_without_loss() {
-        let dir = std::env::temp_dir().join(format!("p2p-chat-race-{}", std::process::id()));
-        let a = Store::new(dir.clone()).expect("store a");
-        let b = Store::new(dir.clone()).expect("store b（启动时磁盘尚未有好友）");
-        a.upsert_friend(friend("4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi"))
-            .expect("a 加好友");
-        b.upsert_friend(friend("8qbHbw2BbbTHBW1sbeqakYXVKRQM8Ne7pLK7m6CVfeR"))
-            .expect("b 加好友");
-        let book = crate::store_io::load_friends(&dir.join("friends.json"));
-        assert_eq!(book.len(), 2, "并发写必须全量保留，实得: {book:?}");
-        drop(a);
-        drop(b);
-        let _ = fs::remove_dir_all(dir);
     }
 }
