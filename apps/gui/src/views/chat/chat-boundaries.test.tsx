@@ -5,6 +5,15 @@ import type { ChatFriendJson, ChatMessageJson, ChatSendReport, NodeEventHandler 
 import { MediaContent } from "@/components/chat/media-content";
 import { Composer } from "@/components/chat/composer";
 import { useChatStore } from "@/stores/chat-store";
+import {
+  chatMedia,
+  friendJson,
+  mediaMessage,
+  oversizedFile,
+  peerId,
+  sendReport,
+  textMessage,
+} from "@/test/chat-boundaries-fixtures";
 import "@/i18n";
 
 const { mocks } = vi.hoisted(() => ({
@@ -28,18 +37,31 @@ vi.mock("@/lib/ipc", () => ({
   },
 }));
 
-const PEER = "3xY9" + "1ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".repeat(2).slice(0, 40);
-const friend = (nickname = "好友"): ChatFriendJson => ({ peerId: PEER, nickname, addrs: [], note: null });
-const message = (id: string, text: string, status: ChatMessageJson["status"] = "delivered"): ChatMessageJson => ({
-  id, peer: PEER, sender: "me", kind: "text", tsMs: Number(id.replace(/\D/g, "")) || 1, text, media: null, status,
-});
+const PEER = peerId("boundary-a");
 
 function resetStore(): void {
   useChatStore.setState({ friends: [], friendsLoaded: false, friendsError: null, selectedPeer: null, messagesByPeer: {}, lastMessageByPeer: {}, historyLoading: {}, historyLoaded: {}, hasMore: {} });
 }
-function emit(event: Parameters<NodeEventHandler>[0]): void { act(() => mocks.handler.current?.(event)); }
+
+// 直塞 store 选中会话：绕开 loadFriends/selectPeer，聚焦渲染边界。
+function selectConversation(messages: ChatMessageJson[]): void {
+  useChatStore.setState({
+    friends: [friendJson(PEER)],
+    friendsLoaded: true,
+    selectedPeer: PEER,
+    messagesByPeer: { [PEER]: messages },
+    lastMessageByPeer: { [PEER]: messages[messages.length - 1] ?? null },
+    historyLoading: {},
+    hasMore: { [PEER]: false },
+  });
+}
+
+function emit(event: Parameters<NodeEventHandler>[0]): void {
+  act(() => mocks.handler.current?.(event));
+}
+
 async function mountComposer(): Promise<void> {
-  useChatStore.setState({ friends: [friend()], friendsLoaded: true, selectedPeer: PEER, messagesByPeer: {}, lastMessageByPeer: {}, historyLoading: {}, hasMore: { [PEER]: false } });
+  selectConversation([]);
   render(<Composer peer={PEER} />);
   await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
 }
@@ -47,8 +69,9 @@ async function mountComposer(): Promise<void> {
 beforeEach(() => {
   vi.clearAllMocks();
   resetStore();
-  mocks.friends.mockResolvedValue([friend()]);
+  mocks.friends.mockResolvedValue([friendJson(PEER)]);
   mocks.history.mockResolvedValue([]);
+  mocks.send.mockResolvedValue(sendReport(textMessage("r1", PEER, "回执")));
 });
 
 describe("GUI chat composer boundaries", () => {
@@ -84,33 +107,39 @@ describe("GUI chat composer boundaries", () => {
     expect(screen.getByRole("menu")).toBeTruthy();
   });
 
-  it("renders attachment kinds and rejects oversized selection without white-screen", async () => {
+  it("sends image/audio/video/file kinds incl. zero-byte and unknown MIME", async () => {
     await mountComposer();
     const input = screen.getByTestId("chat-file-input") as HTMLInputElement;
-    const files = [
-      new File(["x"], "photo.png", { type: "image/png" }),
-      new File(["x"], "sound.mp3", { type: "audio/mpeg" }),
-      new File(["x"], "clip.mp4", { type: "video/mp4" }),
-      new File(["x"], "archive.unknown", { type: "application/octet-stream" }),
+    const cases: Array<[File, string]> = [
+      [new File(["x"], "photo.png", { type: "image/png" }), "image"],
+      [new File(["x"], "sound.mp3", { type: "audio/mpeg" }), "audio"],
+      [new File(["x"], "clip.mp4", { type: "video/mp4" }), "video"],
+      [new File(["x"], "archive.unknown", { type: "application/octet-stream" }), "file"],
+      [new File([], "empty.bin", { type: "application/octet-stream" }), "file"],
     ];
-    for (const file of files) {
+    for (const [file, kind] of cases) {
       fireEvent.change(input, { target: { files: [file] } });
-      await waitFor(() => expect(mocks.send).toHaveBeenCalled());
+      await waitFor(() =>
+        expect(mocks.send).toHaveBeenCalledWith(PEER, kind, undefined, expect.objectContaining({ name: file.name })));
       mocks.send.mockClear();
     }
-    const huge = Object.create(File.prototype) as File;
-    Object.defineProperties(huge, { name: { value: "huge.bin" }, type: { value: "" }, size: { value: 64 * 1024 * 1024 + 1 } });
-    fireEvent.change(input, { target: { files: [huge] } });
-    await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
-    expect(screen.getByTestId("chat-file-input")).toBeTruthy();
   });
 
-  it("cancels an attachment selection and clears the file input", async () => {
+  it("rejects 64MiB+1 attachment before send and clears the file input", async () => {
     await mountComposer();
     const input = screen.getByTestId("chat-file-input") as HTMLInputElement;
-    const file = new File(["data"], "note.bin", { type: "application/octet-stream" });
-    fireEvent.change(input, { target: { files: [file] } });
-    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith(PEER, "file", undefined, expect.objectContaining({ name: "note.bin" })));
+    fireEvent.change(input, { target: { files: [oversizedFile()] } });
+    await waitFor(() => expect(input.value).toBe(""));
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(screen.getByTestId("chat-input")).toBeTruthy();
+  });
+
+  it("clears the file input after a successful attachment selection", async () => {
+    await mountComposer();
+    const input = screen.getByTestId("chat-file-input") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["data"], "note.bin")] } });
+    await waitFor(() =>
+      expect(mocks.send).toHaveBeenCalledWith(PEER, "file", undefined, expect.objectContaining({ name: "note.bin" })));
     expect(input.value).toBe("");
   });
 
@@ -125,36 +154,64 @@ describe("GUI chat composer boundaries", () => {
 });
 
 describe("GUI chat event and history boundaries", () => {
+  it("shows empty-state guidance and no composer when friend list is empty", async () => {
+    mocks.friends.mockResolvedValue([]);
+    const { ChatView } = await import("./chat-view");
+    render(<ChatView />);
+    await waitFor(() => expect(screen.getByText("暂无好友")).toBeTruthy());
+    expect(screen.getByText("暂无会话，选择好友开始聊天")).toBeTruthy();
+    expect(screen.queryByTestId("chat-input")).toBeNull();
+  });
+
+  it("cancels a pending media placeholder; delivered media stays", async () => {
+    const pending = mediaMessage("local-1", PEER, "image", chatMedia("photo.png", "image/png", 3));
+    const sent = mediaMessage("real-1", PEER, "video", chatMedia("clip.mp4", "video/mp4", 4), { status: "delivered", tsMs: 3 });
+    selectConversation([pending, sent]);
+    const { ChatView } = await import("./chat-view");
+    render(<ChatView />);
+    fireEvent.click(screen.getByRole("button", { name: "取消发送" }));
+    expect(screen.queryByText("photo.png")).toBeNull();
+    expect(screen.queryByRole("button", { name: "取消发送" })).toBeNull();
+    expect(screen.getAllByText("clip.mp4").length).toBeGreaterThan(0);
+    expect(screen.getByText("已送达")).toBeTruthy();
+  });
+
   it("deduplicates chat_message and applies out-of-order status visibly", async () => {
-    useChatStore.setState({ friends: [friend()], friendsLoaded: true, selectedPeer: PEER, messagesByPeer: { [PEER]: [message("m1", "在途", "pending")] }, lastMessageByPeer: { [PEER]: message("m1", "在途", "pending") }, historyLoading: {}, hasMore: { [PEER]: false } });
+    selectConversation([textMessage("m1", PEER, "在途", { status: "pending" })]);
     const { ChatView } = await import("./chat-view");
     render(<ChatView />);
     emit({ type: "chat_status", peer: PEER, messageId: "m1", status: "delivered" });
     emit({ type: "chat_status", peer: PEER, messageId: "m1", status: "pending" });
-    emit({ type: "chat_message", peer: PEER, message: { ...message("m2", "重复入站"), sender: "them" } });
-    emit({ type: "chat_message", peer: PEER, message: { ...message("m2", "重复入站"), sender: "them" } });
+    emit({ type: "chat_message", peer: PEER, message: textMessage("m2", PEER, "重复入站", { sender: "them" }) });
+    emit({ type: "chat_message", peer: PEER, message: textMessage("m2", PEER, "重复入站", { sender: "them" }) });
     await waitFor(() => expect(screen.getAllByText("重复入站")).toHaveLength(2));
     expect(screen.getByText("发送中")).toBeTruthy();
   });
 
   it("renders failed and pending status without an exception", async () => {
+    selectConversation([
+      textMessage("p1", PEER, "排队", { status: "pending" }),
+      textMessage("f1", PEER, "失败", { status: "failed" }),
+    ]);
+    // 清掉列表摘要，聚焦气泡正文 + 状态角标两处“失败”
+    useChatStore.setState({ lastMessageByPeer: {} });
     const { ChatView } = await import("./chat-view");
-    useChatStore.setState({ friends: [friend()], friendsLoaded: true, selectedPeer: PEER, messagesByPeer: { [PEER]: [message("p1", "排队", "pending"), message("f1", "失败", "failed")] }, lastMessageByPeer: {}, historyLoading: {}, hasMore: { [PEER]: false } });
     render(<ChatView />);
     expect(screen.getByText("排队")).toBeTruthy();
     expect(screen.getAllByText("失败")).toHaveLength(2);
     expect(screen.getAllByTestId("message-status").length).toBe(2);
   });
 
-  it("keeps the conversation shell when history is empty or rejects", async () => {
-    mocks.friends.mockResolvedValue([friend()]);
+  it("keeps the conversation shell when history rejects or returns an empty page", async () => {
     mocks.history.mockRejectedValueOnce(new Error("非法游标"));
     const { ChatView } = await import("./chat-view");
     render(<ChatView />);
     await waitFor(() => expect(screen.getByText("好友")).toBeTruthy());
     fireEvent.click(screen.getAllByText("好友")[1]!);
-    await waitFor(() => expect(screen.getByRole("textbox")).toBeTruthy());
+    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 50));
+    expect(screen.getByRole("textbox")).toBeTruthy();
     expect(screen.getByRole("region", { name: "会话" })).toBeTruthy();
+    expect(screen.queryAllByTestId("message-status")).toHaveLength(0);
   });
 });
 

@@ -12,14 +12,19 @@ import {
   kindForMime,
   resolveMime,
 } from "./chat-media";
+import { createMockChatBackend, type MockChatDeps } from "./mock-chat";
+import {
+  peerId,
+  textMessage,
+} from "@/test/chat-boundaries-fixtures";
 
 describe("chat boundary helpers", () => {
   it("preserves unicode and exact text byte estimates while deduplicating乱序消息", () => {
     expect("😀汉字".length).toBe(4);
     expect(base64ByteSize("AAAA")).toBe(3);
-    const old = { id: "old", peer: "p", sender: "them" as const, kind: "text" as const, tsMs: 1, text: "旧", media: null, status: "delivered" as const };
-    const newer = { ...old, id: "new", tsMs: 3, text: "新" };
-    const replacement = { ...old, id: "old", tsMs: 2, text: "更新", status: "failed" as const };
+    const old = textMessage("old", "p", "旧", { tsMs: 1 });
+    const newer = textMessage("new", "p", "新", { tsMs: 3 });
+    const replacement = textMessage("old", "p", "更新", { tsMs: 2, status: "failed" });
     expect(mergeMessages([newer, old], [replacement, newer])).toEqual([replacement, newer]);
     expect(removeLocal([old, newer], "missing")).toHaveLength(2);
   });
@@ -54,30 +59,64 @@ describe("chat boundary helpers", () => {
 });
 
 describe("mock chat contract boundaries", () => {
-  const validPeer = "3xY9" + "1ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".repeat(2).slice(0, 40);
-  const secondPeer = "5aA7" + "1ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".repeat(2).slice(0, 40);
-  const deps = {
-    emit: () => {}, selfPeerId: () => "4zZ8" + "1ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".repeat(2).slice(0, 40),
-    isRunning: () => false, isConnected: () => false, addKnownPeer: () => {},
+  const deps: MockChatDeps = {
+    emit: () => {},
+    selfPeerId: () => peerId("self"),
+    isRunning: () => false,
+    isConnected: () => false,
+    addKnownPeer: () => {},
   };
 
   it("rejects invalid peer/address, accepts empty nickname and exact 64, rejects 65 and duplicate", async () => {
-    const backend = (await import("./mock-chat")).createMockChatBackend(deps);
+    const backend = createMockChatBackend(deps);
+    const validPeer = peerId("contract-a");
+    const secondPeer = peerId("contract-b");
+    const thirdPeer = peerId("contract-c");
     await expect(backend.chatFriendAdd("bad", "", [])).rejects.toThrow(/peerId/);
     await expect(backend.chatFriendAdd(validPeer, "n", ["127.0.0.1:1"])).rejects.toThrow(/地址/);
     await expect(backend.chatFriendAdd(validPeer, "x".repeat(65), [])).rejects.toThrow(/nickname/);
-    await expect(backend.chatFriendAdd(validPeer, " ", ["127.0.0.1/u1"])).resolves.toMatchObject({ nickname: "" });
+    await expect(backend.chatFriendAdd(validPeer, "", [])).resolves.toMatchObject({ nickname: "" });
     await expect(backend.chatFriendAdd(validPeer, "again", [])).rejects.toThrow(/已是好友/);
     await expect(backend.chatFriendAdd(secondPeer, "x".repeat(64), [])).resolves.toMatchObject({ nickname: "x".repeat(64) });
+    await expect(backend.chatFriendAdd(thirdPeer, "  ", [])).resolves.toMatchObject({ nickname: "" });
   });
 
   it("rejects invalid history limits and cursors while preserving empty pages", async () => {
-    const backend = (await import("./mock-chat")).createMockChatBackend({ ...deps, isRunning: () => false });
-    const peer = validPeer + "A";
+    const backend = createMockChatBackend(deps);
+    const peer = peerId("history-a");
     await expect(backend.chatHistory(peer, null, 1)).resolves.toEqual([]);
     await expect(backend.chatHistory(peer, null, 0)).rejects.toThrow(/limit/);
     await expect(backend.chatHistory(peer, null, -1)).rejects.toThrow(/limit/);
     await expect(backend.chatHistory(peer, "missing", 100)).rejects.toThrow(/beforeId/);
     await expect(backend.chatHistory(peer, null, 101)).resolves.toEqual([]);
+  });
+
+  it("chatSend: no friend rejected; blank/2001 rejected; unicode 2000 accepted", async () => {
+    const backend = createMockChatBackend(deps);
+    await expect(backend.chatSend(peerId("stranger"), "text", "你好")).rejects.toThrow(/还不是好友/);
+    const peer = peerId("send-text");
+    await backend.chatFriendAdd(peer, "", []);
+    await expect(backend.chatSend(peer, "text", "   ")).rejects.toThrow(/不能为空/);
+    await expect(backend.chatSend(peer, "text", "x".repeat(2001))).rejects.toThrow(/超过 2000/);
+    // 😀 为代理对（2 个 UTF-16 单元）：repeat(1000) 恰好 2000 单元，压线通过
+    const unicode = "😀".repeat(1000);
+    const report = await backend.chatSend(peer, "text", unicode);
+    expect(report.delivered).toBe(false);
+    expect(report.message.status).toBe("pending");
+    expect(report.message.text).toBe(unicode);
+  });
+
+  it("chatSend media: mime/kind mismatch rejected, oversized payload rejected", async () => {
+    const backend = createMockChatBackend(deps);
+    const peer = peerId("send-media");
+    await backend.chatFriendAdd(peer, "", []);
+    await expect(
+      backend.chatSend(peer, "image", undefined, { name: "a.bin", mime: "application/octet-stream", dataBase64: "AAAA" }),
+    ).rejects.toThrow(/不匹配/);
+    // base64 解码字节数 = floor(len/4)*3：先对字节数向上取整再乘 4，确保解码后 > 64MiB
+    const hugeB64 = "A".repeat(Math.ceil((MAX_MEDIA_BYTES + 1) / 3) * 4);
+    await expect(
+      backend.chatSend(peer, "file", undefined, { name: "huge.bin", mime: "application/octet-stream", dataBase64: hugeB64 }),
+    ).rejects.toThrow(/超过单条消息上限/);
   });
 });
