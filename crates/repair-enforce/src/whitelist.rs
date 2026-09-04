@@ -159,7 +159,7 @@ impl ShellDenyReason {
 /// argv 是否含管道/重定向/命令替换特征（不做完备 shell 解析，命中即闭集外）。
 /// 覆盖：管道 |、重定向 > < >> 2>、命令替换 $( 与反引号、语句分隔 ; 与链式 &。
 fn has_compound_feature(token: &str) -> bool {
-    const FEATURES: &[&str] = &["|", ">", "<", "$(", "`", ";", "&&", "||"];
+    const FEATURES: &[&str] = &["|", ">", "<", "$(", "`", ";", "&&", "||", "\n"];
     FEATURES.iter().any(|f| token.contains(f))
 }
 /// 剥离目录与已知可执行扩展名，得到比较用裸名。
