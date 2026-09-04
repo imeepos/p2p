@@ -38,3 +38,4 @@ chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 tauri-plugin-opener = "2"
 # 发布页白名单校验（url 已是 tauri 传递依赖，零新增编译成本）
 url = "2"
+
