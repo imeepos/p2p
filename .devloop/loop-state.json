@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T07:33:37.546Z",
+  "updatedAt": "2026-09-04T08:17:23.148Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -276,6 +276,17 @@
       "ownerSession": "session-a5e61f58-e152-44f1-8b67-784eec28ece1",
       "scope": "scripts/ops/cli-gui-data-e2e.sh（新建）+ docs/ops/cli-guide.md 增章；禁碰 apps/gui、apps/cli 源码行为；合并序 N1→N2",
       "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo build --manifest-path apps/cli/Cargo.toml > /tmp/n2.log 2>&1 && test -f scripts/ops/cli-gui-data-e2e.sh && bash scripts/ops/cli-gui-data-e2e.sh > /tmp/n2e1.log 2>&1 && grep -q N2-E2E-OK /tmp/n2e1.log && bash scripts/ops/cli-gui-data-e2e.sh > /tmp/n2e2.log 2>&1 && grep -q N2-E2E-OK /tmp/n2e2.log && echo N2-OK || { echo N2-FAIL; tail -20 /tmp/n2.log /tmp/n2e1.log /tmp/n2e2.log 2>/dev/null; exit 1; }'"
+    },
+    {
+      "id": "IM-T49",
+      "goal": "T36 未合并增强测试评估与处置（残留盘点发现）：wt-t36-boundary worktree 的 feat/t36-chat-boundary-tests 分支（11fe0a6）含从未落地的强化版测试——wire_boundaries.rs 275 行（duplex 回环夹具驱动真实入站 handler、攻击端裸 Node 手写原始帧、断流+零落盘双信号断言，main 上为 105 行简化版）+ chat_boundaries.rs 300 行（mock runtime+回环离线节点，main 上为 56 行简化版且已被 T46A 增补 reply_to）。任务：a) 逐用例评估增量价值（相对 main 现有覆盖）；b) 有价值则适配当前基线落地（reply_to 字段/T44 端口 0 夹具/现行 i18n 与 GUI 结构，冲突消解保持两版并集覆盖）；c) 无价值或适配成本远超收益则产出书面废弃论证（逐用例对照 main 已有覆盖）。两个 worktree/分支的处置随结论执行",
+      "title": "IM-T49 T36 未合并增强测试评估与处置",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "test/t36-enhancement-adopt",
+      "ownerSession": "session-ab887651-da1d-40d8-b474-511bb9548cd5",
+      "scope": "crates/p2p-chat/tests/**、apps/gui/src-tauri/tests/**（评估与适配）；worktree wt-t36-boundary 只读参考，结论执行时方可清理；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat && cd apps/gui/src-tauri && cargo test && cargo clippy --all-targets -- -D warnings && cd ../../.. && make check'"
     }
   ]
 }
