@@ -157,7 +157,7 @@ export function ProfileCard() {
                     </Button>
                   ) : null}
                 </div>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-foreground/70 text-xs">
                   {t("settings.profile.avatarHint")}
                 </p>
               </div>

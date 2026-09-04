@@ -2,10 +2,10 @@ import { useTranslation } from "react-i18next";
 
 import { CopyButton } from "@/components/monitor/copy-button";
 import { StatCard } from "@/components/page/stat-card";
-import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n";
 import { formatUptime } from "@/lib/format";
 import type { NodeStatus } from "@/lib/ipc-types";
+import { StatusBadge } from "@/views/shared/status-badge";
 import { useTicker } from "./use-ticker";
 
 const SHORT_PEER_ID_LEN = 12;
@@ -52,9 +52,9 @@ export function DashboardStatusCards({ status }: { status: NodeStatus | null }) 
         label={t("dashboard.cards.status")}
         loading={loading}
         value={
-          <Badge variant={running ? "default" : "outline"}>
+          <StatusBadge tone={running ? "success" : "neutral"} dot>
             {running ? t("common.state.running") : t("common.state.stopped")}
-          </Badge>
+          </StatusBadge>
         }
       />
       <StatCard

@@ -105,14 +105,16 @@ export function NetworkCard() {
           effective={effectivePort(listenAddrs, true)}
         />
         <div className="flex items-center justify-between gap-4">
-          <div className="flex flex-col">
+          <div className="flex min-w-0 flex-col">
             <Label htmlFor="settings-mdns">{t("settings.network.mdns")}</Label>
-            <p className="text-muted-foreground text-xs">
+            {/* 长描述限宽（IM-V1 S4）：防止与右侧开关贴挤换行错位 */}
+            <p className="text-muted-foreground max-w-md text-xs">
               {t("settings.network.mdnsHint")}
             </p>
           </div>
           <Switch
             id="settings-mdns"
+            className="shrink-0"
             checked={enableMdns}
             onCheckedChange={(next) =>
               setValue("enableMdns", next, { shouldDirty: true })

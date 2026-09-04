@@ -24,12 +24,14 @@ function OptionButton({
   onClick: () => void;
   children: string;
 }) {
+  // 未选中态保留可见描边（IM-V1 S2）：与选中实心 primary 拉开形态差。
   return (
     <Button
       type="button"
       size="sm"
       variant={active ? "default" : "outline"}
       aria-pressed={active}
+      className={active ? undefined : "border-border bg-background"}
       onClick={onClick}
     >
       {children}

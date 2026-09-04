@@ -44,7 +44,7 @@ export function DashboardQuickActions() {
       </AsyncButton>
       <Button
         size="sm"
-        variant="destructive"
+        variant="outline"
         disabled={!ready || !running}
         onClick={() => setStopOpen(true)}
       >

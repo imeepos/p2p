@@ -11,6 +11,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -91,10 +92,11 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
               挂在外面拿到 null 的 control，解构即整页崩溃 */}
           <FactoryDefaultsNotice name="relayAddrs" />
         </FormProvider>
+      </CardContent>
+      <CardFooter className="justify-end border-t">
         <AsyncButton
           type="button"
           size="sm"
-          className="w-fit"
           disabled={!form.formState.isDirty}
           action={submit}
           onError={(error) => {
@@ -108,7 +110,7 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
         >
           {t("relay.config.save")}
         </AsyncButton>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 }

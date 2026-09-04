@@ -15,8 +15,10 @@ export function DashboardView() {
   const events = useNodeStore((s) => s.events);
   const subscriptionLive = useNodeStore((s) => s.subscriptionLive);
 
+  // [&_[data-slot=card]]:h-full：同一 grid 行内卡片等高（状态卡 x4 与
+  // 指标卡 x4 统一最小高度；底部双卡失衡同解），不触碰共享 StatCard。
   return (
-    <>
+    <div className="col-span-12 grid grid-cols-12 gap-4 [&_[data-slot=card]]:h-full">
       <PageHeader
         titleKey="dashboard.title"
         descriptionKey="dashboard.description"
@@ -30,6 +32,6 @@ export function DashboardView() {
       />
       <DegradeChainCard metrics={metrics} loading={metrics === null} />
       <RecentEventsCard events={events} loading={!subscriptionLive} />
-    </>
+    </div>
   );
 }

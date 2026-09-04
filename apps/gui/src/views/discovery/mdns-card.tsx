@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
 import { errorText } from "@/views/shared/form-flow";
+import { StatusBadge } from "@/views/shared/status-badge";
 
 interface MdnsCardProps {
   config: GuiConfig | null;
@@ -40,27 +41,43 @@ export function MdnsCard({ config, onSaved }: MdnsCardProps) {
   };
 
   return (
-    <Card className="col-span-12 lg:col-span-4">
+    <Card className="col-span-12 h-full lg:col-span-4">
       <CardHeader>
         <CardTitle>{t("discovery.mdns.title")}</CardTitle>
         <CardDescription>{t("discovery.mdns.hint")}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3">
         {config === null ? (
           <Skeleton className="h-6 w-32" />
         ) : (
-          <div className="flex items-center justify-between gap-4">
-            <Label htmlFor="discovery-mdns-switch">
+          <>
+            <div className="flex items-center justify-between gap-4">
+              <Label
+                htmlFor="discovery-mdns-switch"
+                className="flex items-center"
+              >
+                <StatusBadge
+                  tone={config.enableMdns ? "success" : "neutral"}
+                  dot
+                >
+                  {config.enableMdns
+                    ? t("common.state.running")
+                    : t("common.state.stopped")}
+                </StatusBadge>
+              </Label>
+              <Switch
+                id="discovery-mdns-switch"
+                checked={config.enableMdns}
+                onCheckedChange={(next) => void toggle(next)}
+              />
+            </div>
+            {/* 状态详情占位：与右侧地址簿卡高度平衡，避免矮卡空洞 */}
+            <p className="text-muted-foreground text-xs">
               {config.enableMdns
-                ? t("common.state.running")
-                : t("common.state.stopped")}
-            </Label>
-            <Switch
-              id="discovery-mdns-switch"
-              checked={config.enableMdns}
-              onCheckedChange={(next) => void toggle(next)}
-            />
-          </div>
+                ? t("discovery.mdns.runningDetail")
+                : t("discovery.mdns.stoppedDetail")}
+            </p>
+          </>
         )}
       </CardContent>
     </Card>
