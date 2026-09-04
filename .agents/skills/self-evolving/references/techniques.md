@@ -299,3 +299,10 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-05 查 crates.io 依赖真实版本列表（rsproxy sparse index）：3 字符 crate 路径是 `/index/3/<首字符>/<名字>`（如 curl -s https://rsproxy.cn/index/3/y/yrs | jq），2 字符是 /2/<名>，≥4 字符才是 /前2/次2/<名>——路径写错只会得到 NoSuchKey。yrs 用它确认 0.27.4 最新（"0.6" 是 2021 年化石）。
 - 2026-09-05 yrs 追加日志「应用成功却不可见」诊断：examples/ 下写临时探针（examples 可直接用 crate 的依赖 yrs），逐行 decode→apply 后打 map.iter 键集合，再打 update.insertions(true) 的 client/clock 区间——两行同 client 同 clock 即 clientID 撞车实锤。
 - 2026-09-05 并发追加压测抓现场：临时拷贝 E2E 脚本并把 trap cleanup 置空（sed 替换 cleanup 函数体）跑 N 轮，失败轮的临时数据目录原样保留供逐行 forensic；正常跑完的目录逐个 CLI 读回计数定位失败轮。
+
+- 2026-09-05 T23 两机冒烟测 rendezvous 发现：对端注册不可见时先看三方证据——borrower DISCOVER-DEBUG（query err vs empty）、bootstrap 侧 server link ended 频率、lender 自查询是否为空；query error + handshake timeout = 客户端连接被服务端单次服务耗尽，empty = 注册退化 loopback 被地址卫生过滤。两类修法不同：前者合并场景减少进程拨号，后者等/重试观测。
+- 2026-09-05 底座 rendezvous 服务端对同一连接近似「注册即耗尽」：第二进程的查询会挂 10s 握手超时（bootstrap 侧每 10s 一条 server link ended）。场景编排把多个断言合并进同一个借方进程最稳，跨进程的新身份首查询也可用，但绝不要在同 conn 上做第二次查询。
+- 2026-09-05 p2pctl llm-share offer publish 报「节点身份加载失败」是种子未存在：先让节点域生成身份（任何 load_or_generate_seed 的载体，如 harness identity 模式）再 publish；publish 失败 stderr 有清晰中文原因，别被空 stdout 骗。
+- 2026-09-05 mock 上游喂 SSE 必须是「data: {json}\n\n」事件原文（空行分帧），裸 JSON 块提取不出 usage → 收据 estimated=true（extract_usage 只认 data: 行前缀）；断流剧本要在 usage 帧前断，否则按实际 usage 结算不出 estimated 收据。
+- 2026-09-05 git bundle 给无 github 出网的机器供代码：bundle create f HEAD（打包机器当前 HEAD）→ 对端 git clone f dst；增量更新 git fetch f HEAD + reset --hard FETCH_HEAD。5.9MiB 包秒传，crates.io 可达即可构建。
+- 2026-09-05 facade 观测（OBS1 反射口）单次探测 2s 超时且装配期只试一次：跨机 UDP 随机丢包会让注册退化 loopback 地址（查询端 is_routable 过滤后为空）。载体进程在装配前对反射口做有界重试预检（OBS1 魔法 UDP 探测）可消掉这类整轮毒化。

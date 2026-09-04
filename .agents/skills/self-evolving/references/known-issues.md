@@ -620,3 +620,60 @@ client/clock 区间，两行同 client 即实锤。
 write 的末尾定位原子，两次调用之间另一进程可插入整行。
 修法：行+换行拼进同一缓冲一次 write_all（小行在本地文件系统上等效原子提交）；
 消息 JSONL 的 append_line 原实现同样隐患，但跨进程同文件并发写已被 D6 身份锁排除，未动。
+
+## 2026-09-05 TS 模板字符串里写 bash 脚本（run_code 生成文件）必炸：${var} 被当插值
+症状：run_code 里用模板字符串装 bash 内容，报 Expected ',' got '#' / Unterminated template / ReferenceError: xxx is not defined——TS 把 bash 的 ${VAR} 当插值求值。
+原因：模板字面量对 ${ 插值、对反引号终止，与 bash/Markdown 内容天然冲突；部分转义部分不转义必漏。
+修法：String.raw 模板 + 占位符替换（如 ¤{ 事前写入、replaceAll("¤{", () => "${")），且替换必须用函数形式（字符串替换里 $$ 会被吞成 $）；更省事的是把要嵌入的大段内容（如 Rust 源）放独立文件用 cat 拼接。
+
+## 2026-09-05 bash 远端后台拉起：cmd1 && cmd2 & echo pid > pidfile 的三重竞态
+症状：ssh 一行命令「cd dir && mkdir logs run && nohup ... & echo $! > run/pid」报 run/pid No such file；或进程起了但 pid 文件缺失成孤儿。
+原因：& 把整个 && 链后台化，echo 在前台立即执行，此时 cd/mkdir 还没跑。
+修法：显式分组 cd ... && { nohup ... & echo $! > run/pid; }；目录创建提前到独立命令；幂等启动前按 pidfile+端口精确清理孤儿（校验 /proc/pid/comm 再 kill，绝不 pkill 模式匹配）。
+
+## 2026-09-05 sed 替换串里的 & 是「整个匹配」占符，c 命令拼多行才是稳的
+症状：sed -i 's/old/new>&2/' 结果把 & 展开成 old 全文，行内容被复制一遍。
+修法：含 & 或多行的替换改用行号拼接组装（sed -n 1,Np 旧头 + cat 新块 + sed -n N+1,$p 旧尾 > tmp && mv），或 perl -pe 但注意 $var 会被 perl 插值。行号拼接前先 grep -n 定位，拼完必跑 bash -n。
+
+## 2026-09-05 Rust println 到重定向文件「日志为空但进程活着」假象
+症状：nohup bin > log 2>&1 后 log 空，进程却正常运行（端口已绑定）。
+原因：排查时混淆了「同路径两代进程」——上一代孤儿占着端口/日志，新一代启动即 AddrInUse 退出，其 die 输出进了被 rm 后未链接的旧 inode。
+修法： forensic 前先 ls /proc/<pid>/cwd 定位进程锚定目录、ss -lnup 比对端口持有人 pid，再决定读哪个文件；诊断信息走 stderr（无缓冲）不走 stdout。
+
+## 2026-09-05 TS 模板字符串里写 bash 脚本（run_code 生成文件）必炸：${var} 被当插值
+症状：run_code 里用模板字符串装 bash 内容，报 Expected ',' got '#' / Unterminated template / ReferenceError: xxx is not defined——TS 把 bash 的 ${VAR} 当插值求值。
+原因：模板字面量对 ${ 插值、对反引号终止，与 bash/Markdown 内容天然冲突；部分转义部分不转义必漏。
+修法：String.raw 模板 + 占位符替换（如 ¤{ 事前写入、replaceAll("¤{", () => "${")），且替换必须用函数形式（字符串替换里 $$ 会被吞成 $）；更省事的是把要嵌入的大段内容（如 Rust 源）放独立文件用 cat 拼接。
+
+## 2026-09-05 bash 远端后台拉起：cmd1 && cmd2 & echo pid > pidfile 的三重竞态
+症状：ssh 一行命令「cd dir && mkdir logs run && nohup ... & echo $! > run/pid」报 run/pid No such file；或进程起了但 pid 文件缺失成孤儿。
+原因：& 把整个 && 链后台化，echo 在前台立即执行，此时 cd/mkdir 还没跑。
+修法：显式分组 cd ... && { nohup ... & echo $! > run/pid; }；目录创建提前到独立命令；幂等启动前按 pidfile+端口精确清理孤儿（校验 /proc/pid/comm 再 kill，绝不 pkill 模式匹配）。
+
+## 2026-09-05 sed 替换串里的 & 是「整个匹配」占符，c 命令拼多行才是稳的
+症状：sed -i 's/old/new>&2/' 结果把 & 展开成 old 全文，行内容被复制一遍。
+修法：含 & 或多行的替换改用行号拼接组装（sed -n 1,Np 旧头 + cat 新块 + sed -n N+1,$p 旧尾 > tmp && mv），或 perl -pe 但注意 $var 会被 perl 插值。行号拼接前先 grep -n 定位，拼完必跑 bash -n。
+
+## 2026-09-05 Rust println 到重定向文件「日志为空但进程活着」假象
+症状：nohup bin > log 2>&1 后 log 空，进程却正常运行（端口已绑定）。
+原因：排查时混淆了「同路径两代进程」——上一代孤儿占着端口/日志，新一代启动即 AddrInUse 退出，其 die 输出进了被 rm 后未链接的旧 inode。
+修法：forensic 前先 ls /proc/<pid>/cwd 定位进程锚定目录、ss -lnup 比对端口持有人 pid，再决定读哪个文件；诊断信息走 stderr（无缓冲）不走 stdout。
+
+## 2026-09-05 TS 模板字符串里写 bash 脚本（run_code 生成文件）必炸：${var} 被当插值
+症状：run_code 里用模板字符串装 bash 内容，报 Expected ',' got '#' / Unterminated template / ReferenceError: xxx is not defined——TS 把 bash 的 ${VAR} 当插值求值。
+原因：模板字面量对 ${ 插值、对反引号终止，与 bash/Markdown 内容天然冲突；部分转义部分不转义必漏。
+修法：String.raw 模板 + 占位符替换（如 ¤{ 事前写入、replaceAll("¤{", () => "${")），且替换必须用函数形式（字符串替换里 $$ 会被吞成 $）；更省事的是把要嵌入的大段内容（如 Rust 源）放独立文件用 cat 拼接。
+
+## 2026-09-05 bash 远端后台拉起：cmd1 && cmd2 & echo pid > pidfile 的三重竞态
+症状：ssh 一行命令「cd dir && mkdir logs run && nohup ... & echo $! > run/pid」报 run/pid No such file；或进程起了但 pid 文件缺失成孤儿。
+原因：& 把整个 && 链后台化，echo 在前台立即执行，此时 cd/mkdir 还没跑。
+修法：显式分组 cd ... && { nohup ... & echo $! > run/pid; }；目录创建提前到独立命令；幂等启动前按 pidfile+端口精确清理孤儿（校验 /proc/pid/comm 再 kill，绝不 pkill 模式匹配）。
+
+## 2026-09-05 sed 替换串里的 & 是「整个匹配」占符，c 命令拼多行才是稳的
+症状：sed -i 's/old/new>&2/' 结果把 & 展开成 old 全文，行内容被复制一遍。
+修法：含 & 或多行的替换改用行号拼接组装（sed -n 1,Np 旧头 + cat 新块 + sed -n N+1,$p 旧尾 > tmp && mv），或 perl -pe 但注意 $var 会被 perl 插值。行号拼接前先 grep -n 定位，拼完必跑 bash -n。
+
+## 2026-09-05 Rust println 到重定向文件「日志为空但进程活着」假象
+症状：nohup bin > log 2>&1 后 log 空，进程却正常运行（端口已绑定）。
+原因：排查时混淆了「同路径两代进程」——上一代孤儿占着端口/日志，新一代启动即 AddrInUse 退出，其 die 输出进了被 rm 后未链接的旧 inode。
+修法：forensic 前先 ls /proc/<pid>/cwd 定位进程锚定目录、ss -lnup 比对端口持有人 pid，再决定读哪个文件；诊断信息走 stderr（无缓冲）不走 stdout。
