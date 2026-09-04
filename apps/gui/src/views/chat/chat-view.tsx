@@ -81,6 +81,11 @@ export function ChatView() {
             onRemoveFriend={(peerId) =>
               setRemoveTarget(friends.find((f) => f.peerId === peerId) ?? null)
             }
+            onRetry={async () => {
+              await loadFriends();
+              const err = useChatStore.getState().friendsError;
+              if (err) throw new Error(err);
+            }}
           />
         </section>
 

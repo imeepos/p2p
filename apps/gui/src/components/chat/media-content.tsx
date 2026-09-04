@@ -22,13 +22,13 @@ export function MediaContent({ media }: MediaContentProps) {
   const src = inlineSrc(media.path);
 
   if (src && media.mime.startsWith("image/")) {
-    return <img src={src} alt={media.name} className="max-h-64 rounded-md" />;
+    return <img src={src} alt={media.name} className="max-h-64 max-w-full rounded-md" />;
   }
   if (src && media.mime.startsWith("audio/")) {
-    return <audio controls src={src} className="max-w-64" />;
+    return <audio controls src={src} className="max-w-full" />;
   }
   if (src && media.mime.startsWith("video/")) {
-    return <video controls src={src} className="max-h-64 rounded-md" />;
+    return <video controls src={src} className="max-h-64 max-w-full rounded-md" />;
   }
 
   return (

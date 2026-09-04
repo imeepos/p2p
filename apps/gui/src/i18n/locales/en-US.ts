@@ -323,6 +323,7 @@ const enUS: typeof zhCN = {
     peerOnline: "Online",
     peerOffline: "Offline",
     noMessages: "No messages yet",
+    friendsLoading: "Loading friends…",
     loadingHistory: "Loading earlier messages…",
     emoji: "Emoji",
     attach: "Attach",

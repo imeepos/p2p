@@ -1,6 +1,7 @@
 import { MessageCircle, Trash2Icon, UserPlusIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { AsyncButton } from "@/components/feedback/async-button";
 import { PeerStatusDot } from "@/components/chat/peer-status";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n";
@@ -19,6 +20,8 @@ interface ConversationListProps {
   onSelect: (peerId: string) => void;
   onAddFriend?: () => void;
   onRemoveFriend?: (peerId: string) => void;
+  /** 加载失败重试（store 侧 loadFriends；失败时抛错以驱动按钮失败态） */
+  onRetry?: () => Promise<void>;
 }
 
 function summaryOf(message: ChatMessageJson | null | undefined): string | null {
@@ -110,14 +113,32 @@ export function ConversationList({
   onSelect,
   onAddFriend,
   onRemoveFriend,
+  onRetry,
 }: ConversationListProps) {
   const { t } = useTranslation();
 
   if (loading) {
-    return <p className="p-4 text-sm text-muted-foreground">{t("common.state.unknown")}</p>;
+    return <p className="p-4 text-sm text-muted-foreground">{t("chat.friendsLoading")}</p>;
   }
   if (error) {
-    return <p className="p-4 text-sm text-destructive">{error}</p>;
+    return (
+      <div className="flex flex-col items-start gap-2 p-4">
+        <p className="text-destructive text-sm">{error}</p>
+        {onRetry ? (
+          <AsyncButton
+            type="button"
+            size="sm"
+            variant="outline"
+            action={onRetry}
+            onError={(retryError) => {
+              console.error("[chat] 好友列表重试失败", retryError);
+            }}
+          >
+            {t("common.actions.refresh")}
+          </AsyncButton>
+        ) : null}
+      </div>
+    );
   }
   if (friends.length === 0) {
     return (

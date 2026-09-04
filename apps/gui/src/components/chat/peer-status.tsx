@@ -21,7 +21,7 @@ export function PeerStatusDot({ online, testId, withLabel = false }: PeerStatusD
         aria-label={label}
         className={cn(
           "size-2 shrink-0 rounded-full",
-          online ? "bg-success" : "bg-muted-foreground/40",
+          online ? "bg-success" : "bg-muted-foreground",
         )}
       />
       {withLabel ? (

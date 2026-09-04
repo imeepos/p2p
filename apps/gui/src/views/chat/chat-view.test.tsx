@@ -188,3 +188,32 @@ describe("ChatView 历史与事件", () => {
     });
   });
 });
+
+describe("ChatView 三态一致性", () => {
+  it("加载中显示好友加载中文案而非未知", async () => {
+    mocks.friends.mockImplementation(() => new Promise(() => {}));
+    render(<ChatView />);
+    expect(screen.getByText("正在加载好友…")).toBeTruthy();
+  });
+
+  it("加载失败显示错误原文与刷新入口，重试成功恢复列表", async () => {
+    mocks.friends.mockRejectedValueOnce(new Error("friends boom"));
+    render(<ChatView />);
+    await waitFor(() => expect(screen.getByText("friends boom")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "刷新" })).toBeTruthy();
+    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.friends.mockResolvedValue([friend("friend-a", "小圆")]);
+    fireEvent.click(screen.getByRole("button", { name: "刷新" }));
+    await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
+    logSpy.mockRestore();
+  });
+
+  it("选中好友且无消息时显示暂无消息空态而非空白面板", async () => {
+    mocks.friends.mockResolvedValue([friend("friend-a", "小圆")]);
+    mocks.history.mockResolvedValue([]);
+    render(<ChatView />);
+    await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
+    fireEvent.click(screen.getByText("小圆"));
+    await waitFor(() => expect(screen.getByText("暂无消息")).toBeTruthy());
+  });
+});

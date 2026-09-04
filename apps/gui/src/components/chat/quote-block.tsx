@@ -41,7 +41,8 @@ export function QuoteBlock({ kind, summary, missing, tone, onOpen }: QuoteBlockP
       onClick={onOpen}
       title={t("chat.reply.jump")}
       className={cn(
-        "mb-1 block w-full rounded border-l-2 px-2 py-1 text-left text-xs hover:opacity-90",
+        "mb-1 block w-full rounded border-l-2 px-2 py-1 text-left text-xs text-start hover:opacity-90",
+        "line-clamp-2 [overflow-wrap:anywhere]",
         tone === "me"
           ? "border-primary-foreground/40 bg-primary-foreground/10"
           : "border-foreground/20 bg-background/60",

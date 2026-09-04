@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import type { ChatMessageJson } from "@/lib/ipc-types";
+import { EmptyState } from "@/views/shared/empty-state";
 
 import { MessageBubble } from "./message-bubble";
 
@@ -97,6 +99,11 @@ export function MessageList({
         <p className="py-2 text-center text-xs text-muted-foreground">
           {t("chat.loadingHistory")}
         </p>
+      ) : null}
+      {!loadingOlder && messages.length === 0 ? (
+        <div className="flex h-full items-center justify-center">
+          <EmptyState icon={MessageSquare} title={t("chat.noMessages")} />
+        </div>
       ) : null}
       <div className="flex flex-col gap-2">
         {messages.map((message) => {

@@ -118,7 +118,10 @@ export function MessageBubble({
           {isMe ? (
             <span
               data-testid="message-status"
-              className={cn(message.status === "failed" && "font-medium text-destructive")}
+              className={cn(
+                message.status === "failed" &&
+                  "font-medium text-red-300 dark:text-red-700",
+              )}
             >
               {t(STATUS_KEYS[message.status])}
             </span>

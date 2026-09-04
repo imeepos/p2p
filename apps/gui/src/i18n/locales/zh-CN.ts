@@ -314,6 +314,7 @@ const zhCN = {
     peerOnline: "在线",
     peerOffline: "离线",
     noMessages: "暂无消息",
+    friendsLoading: "正在加载好友…",
     loadingHistory: "正在加载更早消息…",
     emoji: "表情",
     attach: "附件",
