@@ -237,3 +237,6 @@ _none yet — be the first._
 
 - 2026-09-04 U2（gui-updater 轮）：60s 超时连环杀进程的根因是 ext512 外置卷小文件 I/O 病态慢——clone 30MB 仓库 8m48s、push 本地 1m25s、rm -rf 带 node_modules 的目录必然超时；已知条目只记了「被杀」现象，本轮补根因与对策：重活全部显式 timeoutMs（10 分钟级）或丢 background，主战场搬到内置卷（/tmp）clone。
 - 2026-09-04 U2（gui-updater 轮）：本日两次 worktree add 成功 checkout 后 `.git/worktrees/<name>` 元数据消失（git worktree list 不显示、worktree 内 git 命令报 not a git repository），一次还伴随 checkout 缺整个 crates/ 目录；同仓库其他会话的老 worktree 完好，疑与并行会话 git 操作/外置卷异常叠加有关。对策：worktree 创建后立即 `git worktree list` 验证；元数据消失时只清目录+prune，绝不在残骸上继续干活。
+- 2026-09-04 U2（gui-updater 轮）ACP5 复证实锤：本会话 worktree add 同样在 checkout 中途被 600s 默认超时杀掉、目录残留半成品、admin 元数据消失（与 U2 描述完全一致）。对策有效版：worktree add / cargo 全量构建一律 run_in_background 加 job_output(wait) 等完成通知，前台命令必须显式大 timeoutMs。
+- 2026-09-04（ACP5 轮）：run_code 的 bash 默认 cwd 是主树——命令链里写相对 cd apps/cli 会静默落到主树而不是 worktree，本轮三次把 fmt 检查/格式化跑错树（rustfmt 报错其实是文件不存在）。对策：凡涉 worktree，bash 调用必传 workdir 绝对路径，链内不写相对 cd。
+- 2026-09-04（ACP5 轮）：cargo 输出接管道后 $? 是 tail 的退出码，cargo 失败看着像成功。对策：一律 echo EXIT 取 PIPESTATUS 首段真实退出码。

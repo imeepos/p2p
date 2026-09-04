@@ -43,3 +43,4 @@
 - 禁止后台跑 cargo 验收/构建链不带 timeout 裸奔（2026-09-04 实证：t49 链 cargo test 挂死持 target 锁 15 小时，全家 clippy/check 排队 25 分钟起；cargo 锁等待无超时参数，挂死即无限堵）。稳法：整链 timeout/gtimeout 包裹 + CARGO_TARGET_DIR 指独立目录 + 定期 ps 清点孤儿 cargo。
 
 - 禁止对 apps/gui/src-tauri 跑 `cargo fmt` / `cargo fmt --check`（gui-updater 轮实证）：fmt/clippy 门禁（scripts/check/fmt.sh、clippy.sh）都从根 workspace 跑，根 Cargo.toml 已 exclude src-tauri，该子树从未按本地 rustfmt 基线格式化；一跑全库爆 diff，极易诱导出一个违反提交纪律的巨石「格式化提交」。src-tauri 的质量信号是 cargo check + cargo test。
+- 2026-09-04（ACP5 轮）：开工前必须先读 skill 的 references/known-issues.md，不能只读 SKILL.md——同日 U2 已登记 ext512 慢 I/O 与 worktree 元数据消失，提前知道能省半小时排障；同一坑一天内绊倒两个会话即升级为红线。
