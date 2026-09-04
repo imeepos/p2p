@@ -234,3 +234,6 @@ _none yet — be the first._
 - 2026-09-04 U1：链式命令里 cd 失败后续命令在原 cwd 继续跑出假结果（在主树里读出 branch=main 误判 worktree 异常）——链首 set -e 并显式回显 pwd 再做状态判断。
 - 2026-09-04 U1：并行会话活跃仓库里 main 高频前进、worktree 注册可能被他人动过——每个 git 操作后立即验证真实状态，合并前 fetch 反向同步，异象先查 worktree list 与 reflog 归因再动手。
 - 2026-09-04 U1：run_code 模板字符串里内嵌含美元花括号的 bash 内容必炸（TS 插值与 bash 展开双层打架，本日三次 parse error、一次 commit message 吃掉形参）——提交信息走文件加 commit -F，脚本内容避开该写法。
+
+- 2026-09-04 U2（gui-updater 轮）：60s 超时连环杀进程的根因是 ext512 外置卷小文件 I/O 病态慢——clone 30MB 仓库 8m48s、push 本地 1m25s、rm -rf 带 node_modules 的目录必然超时；已知条目只记了「被杀」现象，本轮补根因与对策：重活全部显式 timeoutMs（10 分钟级）或丢 background，主战场搬到内置卷（/tmp）clone。
+- 2026-09-04 U2（gui-updater 轮）：本日两次 worktree add 成功 checkout 后 `.git/worktrees/<name>` 元数据消失（git worktree list 不显示、worktree 内 git 命令报 not a git repository），一次还伴随 checkout 缺整个 crates/ 目录；同仓库其他会话的老 worktree 完好，疑与并行会话 git 操作/外置卷异常叠加有关。对策：worktree 创建后立即 `git worktree list` 验证；元数据消失时只清目录+prune，绝不在残骸上继续干活。
