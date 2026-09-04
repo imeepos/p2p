@@ -3,7 +3,7 @@
 # 场景与断言：
 #   0) 预热单次 friend add：生成 key.seed 与 chat/ 目录（规避并发首生成竞态）；
 #   1) 双流并发 chat friends add 各 N 笔（共享 friends.json）：文件合法 JSON、
-#      条数 ∈ [N+1, 2N+1]（跨进程 last-write-wins，末写者视图必含整流+预热友）、
+#      条数恰为 2N+1（跨进程文件锁串行合并，零静默丢失，R1 加固）、
 #      成员无孤儿（peer 全落在预期集内）、无重复、CLI 读回 == 磁盘文件、无 panic；
 #   2) 双流并发 chat send 各 N 笔（各发各的不可达 peer，消息以 pending 落盘）：
 #      每 peer 恰 N 条、id 唯一、内容与发送序一致、CLI history == 磁盘、
@@ -71,22 +71,22 @@ stream_send() {
   done
 }
 
-# friends.json 终态：合法 JSON、条数上下界、无重复、无孤儿成员。
+# friends.json 终态：合法 JSON、恰 2N+1 全量在簿（R1 文件锁零丢失）、无重复、无孤儿成员。
 assert_friends_file() {
-  python3 - "$DD/chat/friends.json" "$((N + 1))" "$((2 * N + 1))" \
+  python3 - "$DD/chat/friends.json" "$((2 * N + 1))" \
     "$W_ID" "${A_IDS[@]}" "${B_IDS[@]}" <<'PY'
 import json, sys
-path, lo, hi = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
-expected = set(sys.argv[4:])
+path, want = sys.argv[1], int(sys.argv[2])
+expected = set(sys.argv[3:])
 with open(path) as f:
     book = json.load(f)
 assert isinstance(book, list), "friends.json 不是 JSON 数组"
 ids = [f["peerId"] for f in book]
 assert len(ids) == len(set(ids)), f"好友 peer 重复: {ids}"
-assert lo <= len(ids) <= hi, f"好友条数 {len(ids)} 超出并发语义界 [{lo}, {hi}]"
+assert len(ids) == want, f"好友条数 {len(ids)} ≠ 全量 {want}：并发写发生静默丢失"
 orphans = [i for i in ids if i not in expected]
 assert not orphans, f"孤儿好友记录: {orphans}"
-print(f"friends.json 合法：{len(ids)} 条（界 [{lo},{hi}]），无孤儿无重复")
+print(f"friends.json 合法：{len(ids)} 条（全量 {want}），无孤儿无重复")
 PY
 }
 
@@ -186,5 +186,5 @@ assert_history_view_matches_disk "$SA_ID" "$DD/chat/messages/$SA_ID.jsonl"
 assert_history_view_matches_disk "$SB_ID" "$DD/chat/messages/$SB_ID.jsonl"
 
 rm -f "$DD/.view.json" "$DD/.hist.json"
-echo "并发语义实测：好友簿跨进程 last-write-wins（无文件锁）；消息 JSONL 追加行级完整"
+echo "并发语义实测：好友簿跨进程文件锁串行合并（R1 零静默丢失）；消息 JSONL 追加行级完整"
 echo "N2-R2-OK"

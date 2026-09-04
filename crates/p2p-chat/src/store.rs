@@ -6,22 +6,28 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use crate::model::{sanitize_name, ChatEnvelope, ChatFriend, ChatStatus};
 use crate::store_io::{
     append_line, atomic_write, load_friends, load_jsonl, rewrite_jsonl_patch_status,
     rewrite_jsonl_retain,
 };
+use crate::store_lock::FileLock;
 
 fn poisoned() -> std::io::Error {
     std::io::Error::other("store 内部锁中毒")
 }
+
+/// 好友簿写锁等待上限：超时显式报错，拒绝静默覆盖。
+const FRIENDS_LOCK_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub(crate) struct Store {
     friends_path: PathBuf,
     outbox_dir: PathBuf,
     messages_dir: PathBuf,
     media_dir: PathBuf,
+    lock_timeout: Duration,
     state: Mutex<State>,
 }
 
@@ -64,6 +70,7 @@ impl Store {
             outbox_dir,
             messages_dir,
             media_dir,
+            lock_timeout: FRIENDS_LOCK_TIMEOUT,
             state: Mutex::new(State {
                 friends,
                 outbox,
@@ -77,36 +84,48 @@ impl Store {
         Ok(state.friends.clone())
     }
 
+    /// 加好友：跨进程锁内「重读磁盘 → 合并 → 原子写」，合并结果回灌内存态，
+    /// 并发写者只增不丢（修复原 last-write-wins 静默丢写）。
     pub(crate) fn upsert_friend(&self, friend: ChatFriend) -> Result<(), std::io::Error> {
         let list = {
-            let mut state = self.state.lock().map_err(|_| poisoned())?;
-            if let Some(existing) = state
-                .friends
-                .iter_mut()
-                .find(|f| f.peer_id == friend.peer_id)
-            {
-                *existing = friend;
-            } else {
-                state.friends.push(friend);
+            let _lock = FileLock::acquire(self.friends_lock_path(), self.lock_timeout)?;
+            let mut list = load_friends(&self.friends_path);
+            match list.iter_mut().find(|f| f.peer_id == friend.peer_id) {
+                Some(existing) => *existing = friend,
+                None => list.push(friend),
             }
-            state.friends.clone()
-        };
-        let bytes = serde_json::to_vec_pretty(&list).map_err(std::io::Error::other)?;
-        atomic_write(&self.friends_path, &bytes)
-    }
-
-    pub(crate) fn remove_friend(&self, peer_id: &str) -> Result<bool, std::io::Error> {
-        let (removed, list) = {
-            let mut state = self.state.lock().map_err(|_| poisoned())?;
-            let before = state.friends.len();
-            state.friends.retain(|f| f.peer_id != peer_id);
-            (state.friends.len() != before, state.friends.clone())
-        };
-        if removed {
             let bytes = serde_json::to_vec_pretty(&list).map_err(std::io::Error::other)?;
             atomic_write(&self.friends_path, &bytes)?;
-        }
+            list
+        };
+        self.sync_friends_memory(list)
+    }
+
+    /// 移除好友：锁内以磁盘权威态为准；无变化不落盘，结果无论真假都回灌内存态。
+    pub(crate) fn remove_friend(&self, peer_id: &str) -> Result<bool, std::io::Error> {
+        let (removed, list) = {
+            let _lock = FileLock::acquire(self.friends_lock_path(), self.lock_timeout)?;
+            let list = load_friends(&self.friends_path);
+            let next: Vec<ChatFriend> = list
+                .iter()
+                .filter(|f| f.peer_id != peer_id)
+                .cloned()
+                .collect();
+            let removed = next.len() != list.len();
+            if removed {
+                let bytes = serde_json::to_vec_pretty(&next).map_err(std::io::Error::other)?;
+                atomic_write(&self.friends_path, &bytes)?;
+            }
+            (removed, next)
+        };
+        self.sync_friends_memory(list)?;
         Ok(removed)
+    }
+
+    fn sync_friends_memory(&self, list: Vec<ChatFriend>) -> Result<(), std::io::Error> {
+        let mut state = self.state.lock().map_err(|_| poisoned())?;
+        state.friends = list;
+        Ok(())
     }
 
     pub(crate) fn outbox_for(&self, peer: &str) -> Vec<ChatEnvelope> {
@@ -229,6 +248,10 @@ impl Store {
         fs::write(&tmp, bytes)?;
         fs::rename(&tmp, &final_path)?;
         Ok(final_path)
+    }
+
+    fn friends_lock_path(&self) -> PathBuf {
+        PathBuf::from(format!("{}.lock", self.friends_path.display()))
     }
 
     fn outbox_path(&self, peer: &str) -> PathBuf {

@@ -8,6 +8,7 @@ mod core;
 mod model;
 mod store;
 mod store_io;
+mod store_lock;
 mod wire;
 
 use std::path::PathBuf;
