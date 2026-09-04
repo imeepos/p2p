@@ -257,4 +257,4 @@ _none yet — be the first._
 - 2026-09-04 R7：Copy 类型（PeerId）逐字段改造时 clippy clone_on_copy 会连环冒出——改签名前先查类型是否 Copy，一次改净。
 - 2026-09-05 T19：homebrew bash 5.3.9 起 `$var（`（变量名紧邻多字节字符）展开会把首字节并入变量名（f\357），set -u 直接 unbound variable；/bin/bash 3.2 无此行为——验收命令 PATH 前置 /opt/homebrew/bin 时 make 配方里的 `bash` 解析到 5.3.9，同脚本两个 bash 版本行为分歧先查 `which bash`。门禁/脚本里 `$var` 紧邻非 ASCII 一律写 `${var}`（version.sh 缺文件路径、FAIL 分支文案全是雷区）。
 - 2026-09-05 T19：cli-parity 门禁 `if [ ! -x p2pctl ]` 惰性构建 + 验收命令全局 CARGO_TARGET_DIR → 产物落 /tmp 而脚本找 apps/cli/target（空则当场崩）；且存在旧二进制时无条件信任——陈旧二进制把另一波漏更文档的登记债整个掩盖（TSV 新行 + 旧二进制 = 假绿，删二进制才显形）。接手共享门禁前先查 `ls -la apps/cli/target/debug/p2pctl` 的时间戳对不对得上当前源。
-验收链里  进 && 链：tail 恒 0 会遮蔽上游真实退出码（2026-09-04 ACP5 clippy 假绿实例，INNER=0 但 CLIPPY_EXIT=101）；写验收链用 PIPESTATUS 或拆步判定，复核旧脚本日志时 grep build failed/error 残留。
+- 2026-09-05 ACP5：验收 && 链中「cmd | tail N」的退出码取 tail 恒 0，遮蔽上游失败（本轮 clippy 假绿：INNER=0 但 CLIPPY_EXIT=101）；写验收链改用 PIPESTATUS 或拆步判定，复核旧日志 grep build failed/error 残留。
