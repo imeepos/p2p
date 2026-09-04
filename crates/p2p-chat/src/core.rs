@@ -12,8 +12,9 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{broadcast, Mutex as AsyncMutex};
 
+use crate::events::ChatEvent;
 use crate::model::{
-    parse_peer_id, sanitize_name, ChatEnvelope, ChatError, ChatEvent, ChatMediaMeta, ChatStatus,
+    parse_peer_id, sanitize_name, ChatEnvelope, ChatError, ChatMediaMeta, ChatStatus,
 };
 use crate::store::Store;
 use crate::wire::{self, MediaBegin, MEDIA_BEGIN, MEDIA_CHUNK};
@@ -21,6 +22,11 @@ use crate::CHAT_PROTOCOL;
 
 /// 单次投递内 ACK 等待上限：死连接上 read_ack 无界等待是演练 D1 卡死的直接面。
 const ACK_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// ACK 超时配置的唯一出口（邀请协议同口径复用）。
+pub(crate) fn ack_timeout() -> Duration {
+    ACK_TIMEOUT
+}
 
 pub(crate) struct ChatCore {
     pub(crate) node: Arc<Node>,

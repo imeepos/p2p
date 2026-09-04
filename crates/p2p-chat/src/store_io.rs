@@ -10,6 +10,16 @@ use serde::de::DeserializeOwned;
 
 use crate::model::{ChatEnvelope, ChatStatus};
 
+/// friends.json 数组读取：损坏或缺失回退空簿并留 warn（不静默）。
+pub(crate) fn load_friends(path: &Path) -> Vec<ChatFriend> {
+    load_json_file(path, "friends.json")
+}
+
+/// invites.json 数组读取：损坏或缺失回退空簿并留 warn（不静默）。
+pub(crate) fn load_invites(path: &Path) -> Vec<FriendInvite> {
+    load_json_file(path, "invites.json")
+}
+
 /// 读 JSONL：损坏行跳过并 warn（缺失文件 = 空）。
 pub(crate) fn load_jsonl<T: DeserializeOwned>(path: &Path) -> Vec<T> {
     let content = match fs::read_to_string(path) {

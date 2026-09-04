@@ -2,10 +2,12 @@
 //!
 //! 从 model.rs 拆出（该文件行数红线）；序列化形状逐字对齐契约：字段 camelCase，
 //! Option 序列化 null。组名校验与 GUI/mock 三方同口径：trim 后 1..=32 字符。
+//! friend_update 门面同文件（lib.rs 行数红线拆出）。
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::ChatError;
+use crate::model::{self, ChatError};
+use crate::Chat;
 
 /// 组名上限（trim 后字符数）。
 pub const MAX_GROUP_CHARS: usize = 32;
@@ -43,6 +45,8 @@ impl FriendPatch {
         self.group.is_none() && self.nickname.is_none() && self.note.is_none()
     }
 }
+
+
 
 /// 组名校验：trim 后 1..=32 字符；空串/None 归一化为 Ok(None)（未分组）。
 pub fn validate_group(raw: Option<&str>) -> Result<Option<String>, ChatError> {

@@ -54,8 +54,8 @@ fn tcp_addrs(node: &Node) -> Vec<String> {
 async fn friend_both(r: &Rig) {
     let a_peer = r.a_node.local_peer_id().to_string();
     let b_peer = r.b_node.local_peer_id().to_string();
-    r.a_chat.friend_add(&b_peer, "b", tcp_addrs(&r.b_node), None).unwrap();
-    r.b_chat.friend_add(&a_peer, "a", tcp_addrs(&r.a_node), None).unwrap();
+    r.a_chat.friend_add_direct(&b_peer, "b", tcp_addrs(&r.b_node), None).unwrap();
+    r.b_chat.friend_add_direct(&a_peer, "a", tcp_addrs(&r.a_node), None).unwrap();
 }
 
 #[rustfmt::skip]
@@ -134,7 +134,7 @@ async fn friend_add_visible_in_list() {
     let b_peer = r.b_node.local_peer_id().to_string();
     let friend = r
         .a_chat
-        .friend_add(&b_peer, "bob", tcp_addrs(&r.b_node), Some("itest".into()))
+        .friend_add_direct(&b_peer, "bob", tcp_addrs(&r.b_node), Some("itest".into()))
         .unwrap();
     assert_eq!(friend.peer_id, b_peer);
     let list = r.a_chat.friends_list().unwrap();

@@ -63,10 +63,10 @@ pub fn parse_peer(s: &str) -> p2p_identity::PeerId {
 /// 互相加好友并登记地址（可拨）。
 pub async fn add_each_other(a: &TestNode, b: &TestNode) {
     a.chat
-        .friend_add(&peer_str(&b.node), "b", b.node.listen_addrs(), None)
+        .friend_add_direct(&peer_str(&b.node), "b", b.node.listen_addrs(), None)
         .expect("a add b");
     b.chat
-        .friend_add(&peer_str(&a.node), "a", a.node.listen_addrs(), None)
+        .friend_add_direct(&peer_str(&a.node), "a", a.node.listen_addrs(), None)
         .expect("b add a");
 }
 

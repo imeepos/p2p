@@ -8,10 +8,14 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
-use crate::model::{sanitize_name, ChatEnvelope, ChatFriend, ChatStatus};
+use std::time::Duration;
+
+use crate::invite::FriendInvite;
+use crate::model::{sanitize_name, ChatEnvelope, ChatStatus};
 use crate::store_friends::FriendsBook;
 use crate::store_io::{
-    append_line, dedup_last_by_id, load_jsonl, rewrite_jsonl_patch_status, rewrite_jsonl_retain,
+    append_line, dedup_last_by_id, load_invites, load_jsonl, rewrite_jsonl_patch_status,
+    rewrite_jsonl_retain,
 };
 
 fn poisoned() -> std::io::Error {
@@ -19,15 +23,18 @@ fn poisoned() -> std::io::Error {
 }
 
 pub(crate) struct Store {
-    friends_path: PathBuf,
+    pub(crate) friends_path: PathBuf,
+    pub(crate) invites_path: PathBuf,
     outbox_dir: PathBuf,
     messages_dir: PathBuf,
     media_dir: PathBuf,
+    pub(crate) lock_timeout: Duration,
     state: Mutex<State>,
 }
 
 #[derive(Default)]
-struct State {
+pub(crate) struct State {
+    pub(crate) invites: Vec<FriendInvite>,
     outbox: HashMap<String, Vec<ChatEnvelope>>,
     messages: HashMap<String, Vec<ChatEnvelope>>,
 }
@@ -35,6 +42,7 @@ struct State {
 impl Store {
     pub(crate) fn new(chat_dir: PathBuf) -> std::io::Result<Self> {
         let friends_path = chat_dir.join("friends.json");
+        let invites_path = chat_dir.join("invites.json");
         let outbox_dir = chat_dir.join("outbox");
         let messages_dir = chat_dir.join("messages");
         let media_dir = chat_dir.join("media");
@@ -42,6 +50,7 @@ impl Store {
         fs::create_dir_all(&messages_dir)?;
         fs::create_dir_all(&media_dir)?;
         FriendsBook::load(&friends_path)?;
+        let invites = load_invites(&invites_path);
         let mut outbox = HashMap::new();
         if let Ok(entries) = fs::read_dir(&outbox_dir) {
             for entry in entries.flatten() {
@@ -61,10 +70,13 @@ impl Store {
         }
         Ok(Self {
             friends_path,
+            invites_path,
             outbox_dir,
             messages_dir,
             media_dir,
+            lock_timeout: FRIENDS_LOCK_TIMEOUT,
             state: Mutex::new(State {
+                invites,
                 outbox,
                 messages: HashMap::new(),
             }),
@@ -213,6 +225,7 @@ impl Store {
         Ok(final_path)
     }
 
+<<<<<<< HEAD
     fn outbox_path(&self, peer: &str) -> PathBuf {
         self.outbox_dir.join(format!("{peer}.jsonl"))
     }

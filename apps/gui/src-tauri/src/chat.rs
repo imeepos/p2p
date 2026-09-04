@@ -45,7 +45,7 @@ pub async fn chat_friend_add(
     addrs: Vec<String>,
 ) -> Result<ChatFriend, String> {
     let chat = state.chat().await?;
-    chat.friend_add(&peer_id, &nickname, addrs, None)
+    chat.friend_add_direct(&peer_id, &nickname, addrs, None)
         .map_err(|e| e.to_string())
 }
 

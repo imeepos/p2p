@@ -96,21 +96,6 @@ pub struct ChatSendReport {
     pub delivered: bool,
 }
 
-/// chat_message / chat_status 事件（契约 §12.2 判别联合形状）。
-#[derive(Clone, Debug, Serialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
-pub enum ChatEvent {
-    #[serde(rename = "chat_message")]
-    ChatMessage { peer: String, message: ChatEnvelope },
-    #[serde(rename = "chat_status")]
-    ChatStatus {
-        peer: String,
-        #[serde(rename = "messageId")]
-        message_id: String,
-        status: ChatStatus,
-    },
-}
-
 #[derive(Debug, thiserror::Error)]
 pub enum ChatError {
     #[error("IO 错误：{0}")]
@@ -149,6 +134,8 @@ pub enum ChatError {
     InvalidGroup(String),
     #[error("更新参数非法：{0}")]
     InvalidUpdate(String),
+    #[error("已是好友：{0}")]
+    AlreadyFriends(String),
 }
 
 /// base58 → 32 字节 PeerId；编码或长度非法即 Err（可读中文）。

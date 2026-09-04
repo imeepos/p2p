@@ -1,8 +1,10 @@
 //! p2p-chat：IM 聊天核心（design §1-§6 + im-group-design）：1:1 与群聊收发，底座只读。
 //! 发送：校验 → 落 outbox → 连接 → 帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
+//! 加好友唯一用户路径 = 邀请 → 对方同意 → 双向互为好友（friend_add_direct 仅供测试引导）。
 
 mod core;
 mod drain;
+mod events;
 mod friend;
 mod group;
 mod group_core;
@@ -10,6 +12,8 @@ mod group_model;
 mod group_store;
 mod group_wire;
 mod identity_lock;
+mod invite;
+mod invite_api;
 mod model;
 mod outbox;
 mod store;
@@ -17,8 +21,10 @@ mod store_friends;
 #[cfg(test)]
 mod store_friends_tests;
 mod store_io;
+mod store_invite;
 mod store_lock;
 mod wire;
+mod wire_invite;
 
 pub use identity_lock::try_lock_identity;
 
@@ -28,24 +34,30 @@ use std::sync::Arc;
 use p2p::Node;
 use tokio::sync::broadcast;
 
+pub use events::ChatEvent;
 pub use friend::{validate_group, ChatFriend, FriendPatch, MAX_GROUP_CHARS};
 pub use group::{
     Group, GroupEvent, GroupInfo, GroupMessage, GroupSendReport, GroupState, GROUP_PROTOCOL,
 };
+pub use invite::{FriendInvite, InviteDirection, InviteState, MAX_INVITES};
+pub use invite_api::InviteReport;
 pub use model::{
-    sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatEvent, ChatKind,
+    sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatKind,
     ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
 };
 
 use core::ChatCore;
 
-/// 线协议 ID（wire-protocol.md §8 登记）。
+/// 聊天线协议 ID（wire-protocol.md §8.1 登记）。
 pub const CHAT_PROTOCOL: &str = "/im/chat/1";
+/// 邀请线协议 ID（wire-protocol.md §8.2 登记）。
+pub const INVITE_PROTOCOL: &str = "/im/invite/1";
 
 const EVENT_CAPACITY: usize = 128; // 1:1 与群各自独立事件通道
 
+/// 聊天门面：好友簿 / 邀请 / 群聊 / 发送 / 历史 / 媒体路径，内部持有核心与 outbox 任务。
 pub struct Chat {
-    core: Arc<ChatCore>,
+    pub(crate) core: Arc<ChatCore>,
     pub group: Group, // 群门面：group_* 命令经此调用（与 1:1 API 命名空间分离）
 }
 
@@ -61,16 +73,24 @@ impl Chat {
             flush_tried: std::sync::Mutex::new(std::collections::HashMap::new()),
         });
         core.rearm_friend_addrs()?;
-        let proto =
-            p2p::ProtocolId::new(CHAT_PROTOCOL).map_err(|e| ChatError::Protocol(e.to_string()))?;
+        invite_api::rearm_invite_addrs(&core)?;
+        let chat_proto = p2p::ProtocolId::new(CHAT_PROTOCOL)
+            .map_err(|e| ChatError::Protocol(e.to_string()))?;
         core.node
-            .handle_protocol(Arc::new(wire::ChatHandler::new(core.clone(), proto)));
+            .handle_protocol(Arc::new(wire::ChatHandler::new(core.clone(), chat_proto)));
+        let invite_proto = p2p::ProtocolId::new(INVITE_PROTOCOL)
+            .map_err(|e| ChatError::Protocol(e.to_string()))?;
+        core.node.handle_protocol(Arc::new(wire_invite::InviteHandler::new(
+            core.clone(),
+            invite_proto,
+        )));
         let group = group::Group::mount(core.clone(), &data_dir)?;
         outbox::spawn_outbox_task(core.clone(), group.core.clone());
+        invite_api::spawn_invite_heal(core.clone());
         Ok(Self { core, group })
     }
 
-    /// chat_message / chat_status 事件订阅。
+    /// chat_message / chat_status / chat_invite 事件订阅。
     pub fn events(&self) -> broadcast::Receiver<ChatEvent> {
         self.core.events.subscribe()
     }
@@ -84,8 +104,9 @@ impl Chat {
         Ok(self.core.store.friends_list()?)
     }
 
-    /// 加好友：校验后原子写好友簿并登记地址簿（校验细则见 model / friend 模块）。
-    pub fn friend_add(
+    /// 直加好友（不经邀请）：仅供测试引导与数据迁移，用户侧添加走 friend_invite。
+    #[doc(hidden)]
+    pub fn friend_add_direct(
         &self,
         peer_id: &str,
         nickname: &str,
@@ -114,7 +135,7 @@ impl Chat {
         Ok(friend)
     }
 
-    /// 移除好友（幂等，never 在簿返回 false；不删消息历史）。
+    /// 移除好友（幂等，不在簿返回 false；不删消息历史）。
     pub fn friend_remove(&self, peer_id: &str) -> Result<bool, ChatError> {
         let _ = model::parse_peer_id(peer_id)?;
         Ok(self.core.store.remove_friend(peer_id)?)
@@ -161,28 +182,6 @@ impl Chat {
         Ok(updated)
     }
 
-    /// 历史分页：time desc；beforeId = 严格更早游标；limit 默认 50 上限 100。
-    pub fn history(
-        &self,
-        peer: &str,
-        before_id: Option<&str>,
-        limit: usize,
-    ) -> Result<Vec<ChatEnvelope>, ChatError> {
-        let _ = model::parse_peer_id(peer)?;
-        let mut msgs = self.core.store.messages_for(peer)?;
-        if let Some(before) = before_id {
-            let before_ts = msgs
-                .iter()
-                .find(|m| m.id == before)
-                .ok_or_else(|| ChatError::NotFound(format!("游标消息不存在：{before}")))?
-                .ts_ms;
-            msgs.retain(|m| m.ts_ms < before_ts);
-        }
-        msgs.sort_by_key(|a| std::cmp::Reverse(a.ts_ms));
-        let cap = if limit == 0 { 50 } else { limit.min(100) };
-        msgs.truncate(cap);
-        Ok(msgs)
-    }
 
     /// 附件落盘绝对路径（仅本端展示用）；非媒体消息或不存在 → Err。
     pub fn media_file(&self, peer: &str, message_id: &str) -> Result<ChatMediaMeta, ChatError> {
@@ -279,5 +278,23 @@ impl Chat {
             message: env,
             delivered,
         })
+    }
+
+    /// 排空该 peer 的 outbox（CLI one-shot 收尾用，D5）：主动连接后 flush，budget 内尽力而为。
+    /// 返回本轮成功补投的条目数（按队列长度差计）。
+    pub async fn drain_peer(&self, peer: &str, budget: std::time::Duration) -> Result<usize, ChatError> {
+        let pid = model::parse_peer_id(peer)?;
+        let before = self.core.store.outbox_for(peer).len();
+        if before == 0 {
+            return Ok(0);
+        }
+        self.core
+            .node
+            .connect(pid)
+            .await
+            .map_err(|e| ChatError::ConnectFailed(format!("连接 {peer} 失败：{e}")))?;
+        let _ = tokio::time::timeout(budget, outbox::flush_peer(&self.core, peer)).await;
+        let after = self.core.store.outbox_for(peer).len();
+        Ok(before.saturating_sub(after))
     }
 }

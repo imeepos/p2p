@@ -97,7 +97,7 @@ async fn friend_update_roundtrip_and_remove_group() {
     let a = spawn("grp-roundtrip").await;
     let peer_b = p2p_identity::Keypair::generate().peer_id().to_string();
     a.chat
-        .friend_add(&peer_b, "b", vec![], None)
+        .friend_add_direct(&peer_b, "b", vec![], None)
         .expect("friend_add");
 
     let moved = a
@@ -158,7 +158,7 @@ async fn friend_update_rejects_empty_patch_and_bad_group_and_missing_peer() {
     assert!(empty.to_string().contains("至少提供"), "实际: {empty}");
 
     a.chat
-        .friend_add(&peer_b, "b", vec![], None)
+        .friend_add_direct(&peer_b, "b", vec![], None)
         .expect("friend_add");
     let too_long = a
         .chat

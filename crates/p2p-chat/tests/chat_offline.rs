@@ -43,7 +43,7 @@ async fn offline_pending_then_flush_on_peer_connected() {
     assert_eq!(peer_str(&b2.node), peer_b, "重启身份不变");
     let mut ev_b2 = b2.chat.events();
     a.chat
-        .friend_add(&peer_b, "b", b2.node.listen_addrs(), None)
+        .friend_add_direct(&peer_b, "b", b2.node.listen_addrs(), None)
         .expect("a 刷新 b 重启后地址");
 
     // B 主动拨 A（模拟应用重连）：A 侧触发 PeerConnected(B) → flush
@@ -97,29 +97,29 @@ async fn friends_add_remove_list_and_invalid_reject() {
     // 非法 peerId 拒绝（非 base58）
     let err = a
         .chat
-        .friend_add("not-a-peer!!", "x", vec![], None)
+        .friend_add_direct("not-a-peer!!", "x", vec![], None)
         .unwrap_err();
     assert!(err.to_string().contains("base58"), "err: {err}");
     // 自加拒绝
-    let err = a.chat.friend_add(&own, "self", vec![], None).unwrap_err();
+    let err = a.chat.friend_add_direct(&own, "self", vec![], None).unwrap_err();
     assert!(err.to_string().contains("自己"), "err: {err}");
     // 超长昵称拒绝
     let err = a
         .chat
-        .friend_add(&peer_b, &"n".repeat(65), vec![], None)
+        .friend_add_direct(&peer_b, &"n".repeat(65), vec![], None)
         .unwrap_err();
     assert!(err.to_string().contains("昵称"), "err: {err}");
     // 非法地址拒绝
     let err = a
         .chat
-        .friend_add(&peer_b, "b", vec!["bad-addr".into()], None)
+        .friend_add_direct(&peer_b, "b", vec!["bad-addr".into()], None)
         .unwrap_err();
     assert!(err.to_string().contains("地址"), "err: {err}");
 
     // add
     let f = a
         .chat
-        .friend_add(&peer_b, "小 b", b.node.listen_addrs(), Some("同事".into()))
+        .friend_add_direct(&peer_b, "小 b", b.node.listen_addrs(), Some("同事".into()))
         .expect("add friend");
     assert_eq!(f.nickname, "小 b");
     assert_eq!(f.peer_id, peer_b);
@@ -127,7 +127,7 @@ async fn friends_add_remove_list_and_invalid_reject() {
 
     // 重复 add = upsert（同 peerId 覆盖）
     a.chat
-        .friend_add(&peer_b, "小 b2", vec![], None)
+        .friend_add_direct(&peer_b, "小 b2", vec![], None)
         .expect("upsert");
     let list = a.chat.friends_list().expect("list");
     assert_eq!(list.len(), 1);
