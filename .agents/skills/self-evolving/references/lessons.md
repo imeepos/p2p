@@ -290,3 +290,7 @@ _none yet — be the first._
 - 2026-09-04 G1：pub(crate) 类型不能 pub use 出 crate（E0365）——契约模型要跨 crate 消费就直接声明 pub，别先 pub(crate) 再 re-export。
 - 2026-09-04 G1：300 行红线 + rustfmt max_width=100 下，链式调用/多参签名按 fmt 后行数计预算（fmt 展开动辄 +30%）；跨模块 `impl 同crate类型` 是合规分文件手段，文件头注明"行数红线再平衡"。
 - 2026-09-04 G1：并行会话高频合入 main 时 ff-only 失败是常态——rebase → 重跑 clippy+line-limit+定向测试 → 立即重试，整套动作一分钟内连惯做完，拖久了又漂。
+- 2026-09-05：当 crates.io 依赖凭记忆写小版本号时，修复是先查 sparse index 真实版本列表——`yrs = "0.6"` 解析到 2021 年远古 API（PrelimMap/Transaction 单数形态），现代 yrs 是 0.27+（TransactionMut/ReadTxn trait 形态），API 完全对不上。
+- 2026-09-05：当 E2E 断言「脚本末行 == OK 标记」时，修复是 grep 标记而不是 tail -1——trap 清理函数在 OK 行之后还会输出 Terminated 等系统噪声，tail 会误报。
+- 2026-09-05：当分支合并期间 main 被并行会话连续推进导致 ff-only 反复失败时，修复是「fetch → merge main → 跑门禁 → push → 立刻重试 ff」紧凑循环，把竞态窗口压到秒级；ff 失败不删 worktree，commit 始终安全在分支 ref 上。
+- 2026-09-05：当接手任务发现验收脚本在 main 上本来就红（别的波次合并了新裁决没跑该脚本）时，修复是先在 main 复现确认存量、再按「断言语义不弱化」适配新语义并把适配写进提交正文，避免误判为自己改坏。
