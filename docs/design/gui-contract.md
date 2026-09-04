@@ -216,12 +216,18 @@ GUI 列表按组分节展示、未分组虚拟组置底，CLI friends --group �
 | chat_history | peer: string, beforeId?: string | null, limit?: number | ChatMessageJson[] | 按 time desc 分页，limit 默认 50 上限 100；beforeId 游标=严格更早 |
 | chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput, replyTo?: string \| null | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB；replyTo 提供时须非空字符串（不校验被引用消息存在性，离线引用允许） |
 | chat_media_file | peer: string, messageId: string | { path: string; mime: string; name: string } | 返回附件落盘绝对路径（仅本端展示用）；消息非 media 或不存在 → Err |
+| chat_friend_invite
+| chat_invites_list | - | FriendInviteJson[] | 邀请列表（out 待对方同意 / in 待本机处理） |
+| chat_invite_accept | peerId: string, nickname: string | ChatFriendJson | 同意来邀：本侧立即建好友并回投 ACCEPT；nickname 空串 = 沿用邀请内对端自称；无来邀 → Err |
+| chat_invite_reject | peerId: string | void | 拒绝来邀并通知对方（尽力而为）；无来邀 → Err |
+| chat_invite_cancel | peerId: string | boolean | 撤回本机待同意邀请；无邀请幂等 false | | peerId: string, nickname: string, addrs: string[] | InviteReportJson | 发邀请：校验同 add；登记 out 邀请并尽力投递（delivered=送达/挂起）；重复邀请幂等刷新；已是好友 → Err |
 
 ### 12.2 事件（追加到 NodeEventJson 判别联合）
 
 ```ts
 | { type: "chat_message"; peer: string; message: ChatMessageJson }   // 入站新消息（已落盘）
 | { type: "chat_status"; peer: string; messageId: string; status: "pending"|"sent"|"delivered"|"failed" }
+| { type: "chat_invite"; peer: string; state: "incoming"|"accepted"|"rejected" }
 ```
 
 ### 12.3 数据类型
@@ -276,6 +282,37 @@ interface ChatSendReport {
   名称/大小并提供下载锚点。系统级"打开默认应用"不在本轮契约内。
 - 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase，Option 序列化 null）；
   B 侧 TS 类型与上表逐字一致；mock 与真实实现同签名。
+
+
+### 12.4 好友邀请（v9 加法，2026-09-05，邀请制加好友）
+
+加好友唯一用户路径 = 发邀请 → 对方同意 → 双向互为好友。直加接口移除（crate
+保留 friend_add_direct 仅供测试引导，不进命令面）。wire 协议 /im/invite/1
+登记见 wire-protocol.md §8.2；邀请簿本地 invites.json。
+
+### 12.4.1 命令表（追加）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| chat_friend_invite | peerId: string, nickname: string, addrs: string[] | InviteReportJson | 发邀请：校验同 add；登记 out 邀请并尽力投递（delivered=送达/挂起）；重复邀请幂等刷新；已是好友 → Err |
+| chat_invites_list | - | FriendInviteJson[] | 邀请列表（out 待对方同意 / in 待本机处理） |
+| chat_invite_accept | peerId: string, nickname: string | ChatFriendJson | 同意来邀：本侧立即建好友并回投 ACCEPT；nickname 空串 = 沿用邀请内对端自称；无来邀 → Err |
+| chat_invite_reject | peerId: string | void | 拒绝来邀并通知对方（尽力而为）；无来邀 → Err |
+| chat_invite_cancel | peerId: string | boolean | 撤回本机待同意邀请；无邀请幂等 false |
+
+### 12.5 数据类型（12.4 追加）
+
+```ts
+type InviteDirectionJson = "out" | "in";
+type InviteStateJson = "incoming" | "accepted" | "rejected";
+
+interface FriendInviteJson {
+  peerId: string; nickname: string; addrs: string[]; note?: string | null;
+  direction: InviteDirectionJson; tsMs: number; delivered: boolean;
+}
+
+interface InviteReportJson { invite: FriendInviteJson; delivered: boolean }
+```
 
 ## 13. 应用内下载安装更新（v8 加法，2026-09-04，G-U3）
 

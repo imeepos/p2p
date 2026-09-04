@@ -1,4 +1,4 @@
-//! 线协议 /im/invite/1（邀请制加好友，wire-protocol.md §8.2 登记）。
+//! 线协议 /im/invite/1（邀请制加好友，wire-protocol.md §8.3 登记）。
 //! 帧载荷首字节 = 类型头：INVITE 0x01 / ACCEPT 0x02 / REJECT 0x03 / ACK 0x04，
 //! 其余为 JSON；每流一请求一 ACK（与 /im/chat/1 同纪律，peer 字段 = 发端自身 PeerId）。
 //!

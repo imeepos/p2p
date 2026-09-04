@@ -286,6 +286,30 @@ im-group-design.md §3），与冻结的 /im/chat/1 并存路由。一流一事�
 - 向后兼容：G_LEAVE 的 sender 为加法字段（§8.1 同源身份缺口：载荷声明发端，
   底座为 handler 注入流对端 PeerId 后收紧，见 im-group-design.md §9）。
 
+### 8.3 业务协议登记：/im/invite/1（邀请制加好友）
+
+出处 crates/p2p-chat/src/wire_invite.rs。好友邀请生命周期协议（IM 邀请流）：
+一条出站流 = 一次邀请动作（send-once）：连接 → 开流 → 写动作帧 → 读 ACK → 关流。
+帧封装复用 §2；payload 首字节为类型头，其余为 JSON：
+
+| 类型头 | 值 | 载荷 |
+|---|---|---|
+| INVITE | 0x01 | 邀请帧 JSON：{id, peer, nickname, addrs}（peer = 发端自身 PeerId；addrs = 发端 listen_addrs，供对端同意后回拨） |
+| ACCEPT | 0x02 | 同意帧 JSON：同结构（addrs 空） |
+| REJECT | 0x03 | 拒绝帧 JSON：同结构 |
+| ACK | 0x04 | 复用 §8.1 AckFrame：{id, ok, reason?} |
+
+- 语义：INVITE 由发起方发出（重连重投由 outbox 联动，delivered 标记防重复投递）；
+  收端已识好友或存在互邀（out 方向待同意条目）时视为同意——本机先建好友并回投
+  ACCEPT（自愈收敛）；否则登记来邀（in）并发 chat_invite(incoming) 事件。
+- ACCEPT：收端凭本机 out 邀请数据建好友（双向完成）并发 chat_invite(accepted)；
+  无 out 邀请但已识好友 = 幂等；两者皆无时采信对端同意建好友并留告警。
+- REJECT：收端移除本机 out 邀请并发 chat_invite(rejected)；无邀请幂等成功。
+- 邀请簿本地 invites.json（与 friends.json 同锁纪律）；out 邀请 delivered=true
+  后不再因重连重投（防同意/拒绝与重投的竞态）；重复邀请 upsert 刷新并复位 delivered。
+- 自愈：对端重启换址后，本机重发 INVITE（帧携带最新 listen_addrs）→ 对端
+  已识好友分支先登记新地址再回投 ACCEPT，双向建簿最终一致。
+
 ## 9. 常量速查表
 
 | 常量 | 值 | 出处 |
