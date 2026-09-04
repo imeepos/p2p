@@ -41,7 +41,10 @@ async fn build_node(cfg: &GuiConfig) -> Result<Node, String> {
         &cfg.observation_addrs,
         default_observation_addrs,
     ));
-    builder.build().await.map_err(|e| format!("节点启动失败: {e}"))
+    builder
+        .build()
+        .await
+        .map_err(|e| format!("节点启动失败: {e}"))
 }
 
 /// 守护进程上下文：控制请求共享的不可变状态。
@@ -123,10 +126,10 @@ async fn serve(paths: Paths, ctx: Arc<Ctx>) -> CliResult<()> {
         ctx.node.local_peer_id(),
         ctx.log_path.display()
     );
-    let mut sigterm =
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).expect("装 SIGTERM");
-    let mut sigint =
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).expect("装 SIGINT");
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .expect("装 SIGTERM");
+    let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+        .expect("装 SIGINT");
     let result = loop {
         tokio::select! {
             _ = sigterm.recv() => break Ok(()),
@@ -181,7 +184,12 @@ async fn handle_conn(stream: tokio::net::UnixStream, ctx: Arc<Ctx>) {
 async fn dispatch(ctx: &Ctx, request: &Value) -> Value {
     let op = request.get("op").and_then(Value::as_str).unwrap_or("");
     let result = match op {
-        "status" => Ok(ops::status_json(&ctx.node, &ctx.config, ctx.started, ctx.started_at_ms)),
+        "status" => Ok(ops::status_json(
+            &ctx.node,
+            &ctx.config,
+            ctx.started,
+            ctx.started_at_ms,
+        )),
         "metrics" => ops::metrics(&ctx.node),
         "dial" => {
             let target = request.get("target").and_then(Value::as_str).unwrap_or("");
@@ -194,7 +202,10 @@ async fn dispatch(ctx: &Ctx, request: &Value) -> Value {
         "disconnect" => ops::disconnect(&ctx.node, &str_arg(request, "peerId")),
         "ping" => {
             let peer = str_arg(request, "peerId");
-            let timeout = request.get("timeoutMs").and_then(Value::as_u64).unwrap_or(5000);
+            let timeout = request
+                .get("timeoutMs")
+                .and_then(Value::as_u64)
+                .unwrap_or(5000);
             ops::ping(&ctx.node, &peer, timeout).await
         }
         other => Err(format!("未知操作 {other:?}")),

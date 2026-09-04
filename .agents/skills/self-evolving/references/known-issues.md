@@ -318,6 +318,33 @@ failed: early eof（客户端侧超时中止）。
 - 症状：vitest 报 Transform failed Unexpected ">"，指向 fixtures 文件本身（如 chat-render-matrix-fixtures.ts:99），容易误判成测试文件语法错。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
+
+## 2026-09-05 写完量行数必在 cargo fmt 之后（T20 line-limit 红线）
+- 症状：新测试文件写完 wc -l 282 行（<300），commit 后 make check 的 line-limit 报 308 行超限——fmt 前量的不算数。
+- 原因：rustfmt 对 >60 字符的方法链（chain_width）与 >100 字符行强制折行，builder 链一行爆成八行，行数轻松涨 10%。
+- 修法：写完立即 cargo fmt 再 wc -l 才是落地行数；写时避免长链（链上调用 ≤3 个再换行绑定中间变量）；收拢手段=提辅助函数统一重复链 + HashMap::from 替代链式 collect + 文档注释合并。
+
+## 2026-09-05 验收 shell 的 CARGO_TARGET_DIR 劫持独立项目构建，cli-parity 假性 FAIL（T20）
+- 症状：make check 末段报 `cli-parity: FAIL 执行 ' --help' 失败`（命令路径为空）——p2pctl 二进制不在预期位置。
+- 原因：cli-parity.sh 期望 apps/cli/target/debug/p2pctl，其内部 `cargo build --manifest-path apps/cli/Cargo.toml` 继承了验收外层的 CARGO_TARGET_DIR=/tmp/...，产物被引走；apps/cli 自带 [workspace]（独立项目），主树常绿是靠存量旧二进制（8944508 已记「陈旧二进制假绿」同源）。
+- 修法：worktree 验收前预建——`cd apps/cli && unset CARGO_TARGET_DIR && cargo build`，再跑验收；验收命令是机械黑盒，环境垫料属于让门禁按设计前提运行，不改门禁脚本本身。
+
+## 2026-09-05 后台验收 job 输出 memory-dropped，裁决行去 spill 文件捞（T20）
+- 症状：job_output 的 text 尾部只有测试噪声流，"some output was dropped from memory"，看不到退出码与门禁结论。
+- 修法：直接 grep 提示给出的 stdout spill 日志：`grep -nE 'test result:|PASS|FAIL|CLI-PARITY-OK|make:' <log>`——make check 十项门禁的末项（ai-docs-sync）打出 OK 且无 `make: *** Error` 即全绿；vitest 的预期错误栈（bridge-closed 等）出现在 stderr 尾部不代表红。
+
+## 2026-09-04 会话级平台缺陷：run_code 内嵌 bash 工具调用被参数校验拒（ACP 波）
+- 症状：run_code 调用体里只要内嵌 bash 工具调用，外层 description 参数就被判缺失（invalid arguments），连续数小时稳定复现，跨 harness 重启依旧；同轮内 write/read/edit/session_link/schedule/dispatch 全部正常，纯探针正常。
+- 绕行：shell 步骤改走 dispatch_task 子代理，注意 600 秒墙钟上限——长任务用 nohup 脱离加日志落盘，子代理只负责启动不等待；只读快查控制在一分钟内；文件修改直接用 write/edit 工具。
+- 附加教训一：dispatch_task 任务书必须显式要求『验收自检块』格式，否则 report 一律标 rejected，工作其实可能已完成，要以落盘产物为准。
+- 附加教训二：多步骤任务塞进单个 dispatch 必撞墙钟，拆成微任务加落盘日志跨任务接力。
+
+## 2026-09-04 make/子代理环境下门禁脚本 FAIL 分支 dollar-var 紧贴全角字符，unbound variable 吞掉真实失败（门禁加固轮 74bb793）
+- 症状：make gate-tests 报 release-gates.sh line22 unbound variable（变量名乱码）；直跑同一脚本 16/16 全绿——直跑时所有用例 PASS，FAIL 分支根本没执行；爆炸只在有用例真失败时显形，并把真实断言失败输出一起吞掉。
+- 原因：FAIL echo 里 dollar-var 紧跟全角括号（EF BC 88），locale 变体下 bash 把高位字节并入变量名，set -u 直接崩。
+- 修法：门禁脚本所有 dollar-var 紧邻非 ASCII 字符处一律花括号化；复查手法 grep -nP 对两文件扫描（panic-hygiene.sh 同病同治）。修复提交必须 git show 核对内容与消息一致——8fc3f4a 教训：消息写了修复但 diff 为空，问题存活多轮。
+- 教训：门禁失败先分清『断言失败』还是『门禁自身爆炸』，混在一起会双重误诊。
+
 ## 2026-09-04 bash EXIT trap 引用函数 local 变量，set -u 下 unbound 污染退出码（R2 发布脚本轮）
 - 【主树 node_modules 被 worktree install 污染】多轨并行期某会话在 worktree 内 pnpm install 后，主树 apps/gui/node_modules 的包符号链接被重写为指向该 worktree 私有 store；worktree 收尾删除后链接悬空，主树跑 vitest 报 MODULE_NOT_FOUND vitest/vitest.mjs（2026-09-04 实证，T48 收官时暴露）。症状识别：pnpm test 挂在 loader 而非断言、Node 尾栈+空 grep 结果。修复：rm -rf apps/gui/node_modules + 根目录 pnpm install 重建（--force 无效，pnpm 信任 .modules.yaml 状态）。预防：worktree install 后 readlink 主树包链接抽查；主树验收遇 MODULE_NOT_FOUND 先查悬空链接再怀疑代码。
 - 症状：脚本全部步骤日志正常、末行 marker（R2-RELEASE-OK）也打印了，退出码却是 1，且报错出现在所有输出之后：`line N: tmp: unbound variable`。表面看「构建+冒烟全过」，机械验收（看退出码）却判 FAIL。
@@ -474,14 +501,23 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：set -u 对未传位置参数取值即崩；自测形态与验收形态不一致（自测永远带参）。
 - 修法：位置参数一律空值兜底（美元花括号冒号连字符写法）后再用；脚本自测必须覆盖「无参」这个验收真实形态，参数解析分支用桩二进制定向测试（伪 CTL/GUI_BIN/dist 令构建全跳过，无 GUI 也能验证解析与结构化报错路径）。
 
-## 2026-09-05 ACP3：tungstenite 0.30 半关闭 no-op + yamux 0.13 批量窗口更新——双向字节泵大消息随机挂死
-- 症状：WS⇄P2P 泵小消息 roundtrip 过后，单条 ~200KB WS 消息回传 4/5 停滞 10s+；对端连接级断开时泵也可能永不结束。
-- 原因两层：① tokio_util Compat 把 tokio shutdown 映射到 futures AsyncWrite::poll_shutdown，yamux 0.13.10 Stream 未覆写它（默认 no-op），半关闭 FIN 发不出；② yamux 流控窗口更新批量策略（flow_control next_window_update：<max_window/2 不发），echo 式停等流量下余量 credit 长期低于阈值，且 poll_read 里 send_window_update 遇命令通道满返回 Pending 即跳过、只在下次 poll_read 重试——读者一空闲更新即永久滞留，写侧等 credit 挂死。
-- 修法（apps/acp-console/pump.rs）：双向 spawn+select 首侧结束即 abort 另一侧（join 因对侧永久 pending 悬挂）；写分 16KiB 块+每块 flush+5s 超时重 kick、读 30s 超时重 kick（停滞落 WARN 不静默）；连接级死亡用 PeerDisconnected 事件与泵 select 竞速兜底（句柄 drop 不是关闭语义，EOF 不可依赖）。
-- 教训：底座传输的 EOF/半关闭语义必须写探针实测，不能按 TCP 直觉假设；长流泵挂死要「事件竞速+超时重 kick」双兜底。
+## 2026-09-05 cargo test 把 GUI 二进制重建成 dev 态，ui-regression 构建门只查存在性放行空壳（GC3c 实录）
+- 症状：先跑 cargo test 再跑 ui-regression.sh，全部构建"成功"、GUI 就绪门通过，但 8 页 page 协议调用全数 PAGE_TIMEOUT、截图同为 19.8KB 空白图。
+- 原因：cargo test 无特性构建把 target/debug/p2p-console 重写成 dev 态二进制（webview 加载 devUrl:5173，无 dev 服务器即空壳）；build_if_missing 只查二进制存在性，跳过了必需的 custom-protocol 构建。
+- 修法：marker 文件（.custom-protocol-built）比对二进制 mtime，二进制比上次 custom-protocol 构建新即强制重建（scripts/ops/ui-regression.sh 1336096）。凡"同一产物路径被多种 feature 组合轮番构建"的场景都要防这种新但错模式的 staleness。
+- 顺带：页面协议探针在空壳 webview 下"必挂"的假设不可靠，就绪门可能被非 PAGE_TIMEOUT 形态的错误提前放行；协议级验证要以第一条真实 round-trip 为准。
 
-## 2026-09-05 ACP3：反向同步合并后 make check 假红——cli-parity/ai-docs-sync 实测的是合并前旧 p2pctl 二进制
-- 症状：merge origin/main 后 make check 报 cli-parity「p2pctl 实测无此命令」（TSV 有映射、源码也有 update 子命令）；rm apps/cli/target/debug/p2pctl 重建后 cli-parity 过，ai-docs-sync 又红（文档缺 friends update/--group 条目，origin/main 自带欠账，归 IM-T43 文档会话）。
-- 原因：cli-parity 只在 p2pctl 二进制缺失时才重建，合并前一轮 make check 留下的旧二进制被继续实测；ai-docs-sync 红与分支无关（git diff origin/main HEAD 只含 apps/acp-console）。
-- 修法：反向同步合并后先删 apps/cli/target/debug/p2pctl 再跑 make check；判红归属先看 `git diff origin/main HEAD --stat` 是否含红灯域文件，域外红灯原样上报协调者，不动别人文件域。
-- 关联：本文件 449 行「worktree add 中断留半成品」同日再踩（并行会话 prune 掉本会话刚建 worktree 的管理区，checkout 81% 被杀）——开工前先读 known-issues 当日条目，worktree add 一律 run_in_background + 完成后 rev-parse --show-toplevel 核对 + worktree lock 自保。
+## 2026-09-05 vitest mock zustand store 只给 getState：传递闭包图的模块加载期副作用文件级炸（GC3c 实录）
+- 症状：新增 5 页 descriptor 测试中 3 个文件报 "useNodeStore.subscribe is not a function"，且没跑任何用例（collection 阶段死）。
+- 原因：events-page → events-export → event-clock 在模块顶层 arm() 调 useNodeStore.subscribe()；测试只 mock 了 { getState }。import page-registry 会拉全部 8 页的传递闭包，漏谁谁炸。
+- 修法：mock 共享 store 前先追被测模块的完整 import 闭包图，凡模块加载期触达的 store API（subscribe 等）都要补进 mock；或按需 vi.mock 中间模块（events-export）斩断链路。
+
+## 2026-09-05 run_code 内嵌 shell 片段的美元花括号变量被 JS 模板串插值（GC3c 实录）
+- 症状：edit 的 old_string/new_string 用 JS 模板串携带 shell 代码（含 GAP_PAGES 的美元花括号引用），报 ReferenceError: GAP_PAGES is not defined，edit 压根没执行。
+- 原因：JS 模板串把 shell 变量语法当插值求值。
+- 修法：嵌 shell 片段用普通字符串拼接或先落临时文件再 cat 合并；报 ReferenceError 时先确认是"没跑"而不是"跑了失败"。
+
+## 2026-09-05 并行会话两度推进 main：收尾前必须再反向同步一轮（GC3c 实录）
+- 症状：开工时 merge 过 origin/main，收尾 ff-only 前发现 main 又从 fb0aee2 走到 2f4ae13（flake 加固合入，动了 gui 测试）。
+- 修法：push 分支后、ff-only 前固定再 fetch+merge main+重跑门禁一轮；"今天上午同步过"不算数。
+- 连带教训：接单第一步就在基线跑一遍机械验收命令——本单 main 上 cargo test 本就编译红（IM-T43 给 ChatFriend 加 group 字段没同步 tests/chat_contract.rs、chat_boundaries.rs 三处字面量），不改任何 Rust 也得先修它才能交 GC3C-OK；归属判明后在 feature 分支独立 fix 提交（对齐契约 12.3 的 "group": null 断言）。

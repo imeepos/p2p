@@ -54,11 +54,16 @@ fn home() -> Result<PathBuf, CliError> {
 pub fn connect(control_dir: &Path) -> Result<Channel, CliError> {
     let endpoint_file = control_dir.join("endpoint.json");
     let raw = std::fs::read_to_string(&endpoint_file).map_err(|_| {
-        CliError::Runtime(format!("未发现 GUI 控制通道端点（{} 不存在）：GUI 未运行——请先启动 GUI（p2p-console）后重试",
-            endpoint_file.display()))
+        CliError::Runtime(format!(
+            "未发现 GUI 控制通道端点（{} 不存在）：GUI 未运行——请先启动 GUI（p2p-console）后重试",
+            endpoint_file.display()
+        ))
     })?;
     let endpoint: Value = serde_json::from_str(raw.trim()).map_err(|e| {
-        CliError::Runtime(format!("端点状态文件 {} 非法 JSON: {e}", endpoint_file.display()))
+        CliError::Runtime(format!(
+            "端点状态文件 {} 非法 JSON: {e}",
+            endpoint_file.display()
+        ))
     })?;
     let http = endpoint["http"]
         .as_str()
@@ -74,13 +79,20 @@ pub fn connect(control_dir: &Path) -> Result<Channel, CliError> {
             token_path.display()))
     })?.trim().to_string();
     if token.is_empty() {
-        return Err(CliError::Runtime(format!("控制通道 token 文件为空（{}）——请先启动 GUI（p2p-console）重新生成", token_path.display())));
+        return Err(CliError::Runtime(format!(
+            "控制通道 token 文件为空（{}）——请先启动 GUI（p2p-console）重新生成",
+            token_path.display()
+        )));
     }
     let client = reqwest::Client::builder()
         .timeout(HTTP_TIMEOUT)
         .build()
         .map_err(|e| CliError::Runtime(format!("HTTP 客户端初始化失败: {e}")))?;
-    Ok(Channel { client, base_url: format!("http://{http}"), token })
+    Ok(Channel {
+        client,
+        base_url: format!("http://{http}"),
+        token,
+    })
 }
 
 /// pid 探活：kill 0；ESRCH=已退出，EPERM=存活但属主不同（仍视为存活）。
@@ -127,14 +139,18 @@ async fn unwrap_payload(resp: reqwest::Response, path: &str) -> Result<Value, Cl
     let status = resp.status().as_u16();
     let body = resp.text().await.unwrap_or_default();
     let payload: Value = serde_json::from_str(&body).map_err(|e| {
-        CliError::Runtime(format!("控制通道响应非法（HTTP {status} {path}）: {e}: {body}"))
+        CliError::Runtime(format!(
+            "控制通道响应非法（HTTP {status} {path}）: {e}: {body}"
+        ))
     })?;
     if payload["ok"] == Value::Bool(true) {
         return Ok(payload["data"].clone());
     }
     let code = payload["error"]["code"].as_str().unwrap_or("UNKNOWN");
     let message = payload["error"]["message"].as_str().unwrap_or("无错误描述");
-    Err(CliError::Runtime(format!("[{code}] {message}（HTTP {status}）")))
+    Err(CliError::Runtime(format!(
+        "[{code}] {message}（HTTP {status}）"
+    )))
 }
 
 #[cfg(test)]
@@ -147,7 +163,10 @@ mod tests {
         let mut f = std::fs::File::create(dir.join("endpoint.json")).unwrap();
         write!(f, "{{\"http\":\"127.0.0.1:1\",\"pid\":{pid},\"version\":\"0.0.0\",\"startedAtMs\":1,\"tokenFile\":\"control/token\"}}").unwrap();
         if with_token {
-            std::fs::File::create(dir.join("token")).unwrap().write_all(b"t").unwrap();
+            std::fs::File::create(dir.join("token"))
+                .unwrap()
+                .write_all(b"t")
+                .unwrap();
         }
     }
 
@@ -178,7 +197,10 @@ mod tests {
         let dir = scratch("dead");
         write_endpoint(&dir, u32::MAX as u64 - 1, true);
         let msg = connect_err(&dir).to_string();
-        assert!(msg.contains("已退出") && msg.contains("请先启动 GUI"), "{msg}");
+        assert!(
+            msg.contains("已退出") && msg.contains("请先启动 GUI"),
+            "{msg}"
+        );
     }
 
     #[test]

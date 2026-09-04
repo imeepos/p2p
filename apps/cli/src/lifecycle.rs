@@ -47,14 +47,21 @@ pub enum Probe {
 /// 判定顺序：pid 存活 → 控制通道取状态；pid 存活但通道不可达为降级态。
 pub async fn probe(paths: &Paths) -> Probe {
     let Some(pid) = read_pid(paths) else {
-        return Probe::Offline { why: format!("无 pid 文件 {}", paths.pid().display()) };
+        return Probe::Offline {
+            why: format!("无 pid 文件 {}", paths.pid().display()),
+        };
     };
     if !pid_alive(pid as i32) {
-        return Probe::Offline { why: format!("pid 文件残留但进程 {pid} 已不存在") };
+        return Probe::Offline {
+            why: format!("pid 文件残留但进程 {pid} 已不存在"),
+        };
     }
     match control::call(paths, json!({ "op": "status" })).await {
         Ok(status) => Probe::Online { pid, status },
-        Err(e) => Probe::Degraded { pid, why: e.to_string() },
+        Err(e) => Probe::Degraded {
+            pid,
+            why: e.to_string(),
+        },
     }
 }
 
@@ -72,7 +79,8 @@ pub async fn status_report(data_dir: &str) -> Report {
     match probe(&paths).await {
         Probe::Online { pid, status } => online_report(&paths, pid, status),
         Probe::Degraded { pid, why } => not_running_report(
-            data_dir, &paths,
+            data_dir,
+            &paths,
             Report {
                 running: true,
                 pid: Some(pid),
@@ -84,7 +92,11 @@ pub async fn status_report(data_dir: &str) -> Report {
         Probe::Offline { why } => not_running_report(
             data_dir,
             &paths,
-            Report { running: false, reason: why, ..placeholder() },
+            Report {
+                running: false,
+                reason: why,
+                ..placeholder()
+            },
         ),
     }
 }
@@ -165,7 +177,9 @@ fn spawn_daemon(paths: &Paths) -> CliResult<std::process::Child> {
         .append(true)
         .open(paths.log())
         .map_err(|e| CliError::Runtime(format!("打开守护进程日志失败: {e}")))?;
-    let stderr = log.try_clone().map_err(|e| CliError::Runtime(format!("复用日志句柄失败: {e}")))?;
+    let stderr = log
+        .try_clone()
+        .map_err(|e| CliError::Runtime(format!("复用日志句柄失败: {e}")))?;
     std::process::Command::new(exe)
         .args(["node", "serve", "--data-dir"])
         .arg(&paths.root)
@@ -180,7 +194,10 @@ fn spawn_daemon(paths: &Paths) -> CliResult<std::process::Child> {
 async fn wait_ready(paths: &Paths, mut child: std::process::Child) -> CliResult<Report> {
     let deadline = tokio::time::Instant::now() + START_TIMEOUT;
     loop {
-        if let Some(exit) = child.try_wait().map_err(|e| CliError::Runtime(format!("守护进程状态读取失败: {e}")))? {
+        if let Some(exit) = child
+            .try_wait()
+            .map_err(|e| CliError::Runtime(format!("守护进程状态读取失败: {e}")))?
+        {
             return Err(CliError::Runtime(format!(
                 "节点启动失败（守护进程退出 {exit}），日志 {}",
                 paths.log().display()
@@ -210,7 +227,10 @@ fn terminate(pid: u32, budget: Duration) -> bool {
     }
     let sent = unsafe { libc::kill(pid, libc::SIGTERM) };
     if sent != 0 {
-        eprintln!("p2pctl: SIGTERM 发送失败（pid={pid}）：{}", std::io::Error::last_os_error());
+        eprintln!(
+            "p2pctl: SIGTERM 发送失败（pid={pid}）：{}",
+            std::io::Error::last_os_error()
+        );
     }
     let deadline = tokio::time::Instant::now() + budget;
     while tokio::time::Instant::now() < deadline {
@@ -234,11 +254,19 @@ fn online_report(paths: &Paths, pid: u32, status: Value) -> Report {
     Report {
         running: true,
         pid: Some(pid),
-        peer_id: status.get("peerId").and_then(Value::as_str).map(String::from),
+        peer_id: status
+            .get("peerId")
+            .and_then(Value::as_str)
+            .map(String::from),
         listen_addrs: status
             .get("listenAddrs")
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect()
+            })
             .unwrap_or_default(),
         uptime_secs: status.get("uptimeSecs").and_then(Value::as_u64),
         log_path: paths.log().to_string_lossy().into_owned(),

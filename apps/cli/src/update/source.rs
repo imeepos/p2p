@@ -84,7 +84,9 @@ mod tests {
 
     #[tokio::test]
     async fn fixed_source_feeds_body_without_network() {
-        let src = FixedSource(r#"[{"tag_name":"v0.2.0","html_url":"https://github.com/imeepos/p2p/releases/tag/v0.2.0"}]"#);
+        let src = FixedSource(
+            r#"[{"tag_name":"v0.2.0","html_url":"https://github.com/imeepos/p2p/releases/tag/v0.2.0"}]"#,
+        );
         assert!(src.fetch_releases_json().await.unwrap().contains("v0.2.0"));
     }
 }

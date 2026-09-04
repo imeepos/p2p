@@ -83,10 +83,7 @@ mod tests {
     use super::*;
 
     fn temp_paths(tag: &str) -> Paths {
-        let dir = std::env::temp_dir().join(format!(
-            "p2pctl-store-{tag}-{}",
-            std::process::id()
-        ));
+        let dir = std::env::temp_dir().join(format!("p2pctl-store-{tag}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         Paths::new(dir.to_str().unwrap())
     }
@@ -123,7 +120,13 @@ mod tests {
         paths.ensure_dir().unwrap();
         fs::write(paths.config(), "{ not json").unwrap();
         let cfg = load_config(&paths);
-        assert_eq!(cfg, GuiConfig { data_dir: cfg.data_dir.clone(), ..GuiConfig::default() });
+        assert_eq!(
+            cfg,
+            GuiConfig {
+                data_dir: cfg.data_dir.clone(),
+                ..GuiConfig::default()
+            }
+        );
         let _ = fs::remove_dir_all(&paths.root);
     }
 

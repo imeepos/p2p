@@ -252,6 +252,9 @@ _none yet — be the first._
 - 2026-09-04 U1：并行会话会扫提交主树未跟踪文件——主树里的 scratch 测试副本（ui-regression-scratch.sh）被顺手指令提交入库（c92d983）；测试副本要么放 /tmp 要么用完立刻删，主树留过夜就会被别人"帮忙"入库。
 - 2026-09-04 U1：tauri custom-protocol 构建把前端 dist 嵌进二进制——pnpm build（先清空 dist）与 cargo build 并发时，嵌进去的可能是空/半成品 dist，症状=webview 加载空页、页面桥永不安装且无任何报错；修法=重跑 cargo build --features custom-protocol 重嵌。诊断入口：~/Library/Logs/com.p2p.console/{p2p-console,frontend}.log（应用日志不走 stdout，脚本里 tail gui.log 常为空）。
 - 2026-09-04 U1：回归脚本的就绪/探针类修复要与并行会话的同类分支对齐格式（同文本改动 git 自动合流）——动手前先 grep 别人未合并分支对同一文件的改动。
-- 2026-09-05 ACP3：开工前的必读清单要包含 skill references 的「当日条目」——本卡 worktree 被并行会话 prune/超时杀 checkout 的坑，known-issues 449 行与 techniques 468 行当日已各有一条同族记录，先读能省两轮重建；读材料时把「与本卡操作同形的条目」（worktree/长构建/转义写文件）过一遍再动手。
-- 2026-09-05 ACP3：验收门禁红灯先做「域归属三步定性」——git diff origin/main HEAD --stat 看红灯域文件是否在自己 diff 里、查红灯读的输入是源码还是工作树陈旧产物、隔离复跑最小面；三步都干净就原样上报协调者，别替邻域修门禁（并行会话可能正在改同一处）。
-- 2026-09-05 ACP3：对下游不可见的传输语义（EOF/半关闭/窗口更新时机）要在设计评审时就写探针用例锁行为——本卡 yamux 半关闭 no-op 与批量窗口更新饿死写侧，都是集成测试随机挂死才暴露，探针前置能把 3 小时定位压成 10 分钟。
+- 2026-09-04 R7：rsync 目录到远端构建机必须 --exclude target——漏排一次就把本机 Mach-O 盖掉远端 ELF，且 rsync -a 保 mtime 让 cargo 误判最新不重编（真机回归两次被坑，判据=file 格式而非存在性）。
+- 2026-09-04 R7：测试辅助函数返回 Future（如 wait_until 调用方需 .await）时，漏 await 不报错只降级为「断言永远即时通过」——失败行号指到无关断言，先 grep 编译警告 unused Future 再读断言。
+- 2026-09-04 R7：Copy 类型（PeerId）逐字段改造时 clippy clone_on_copy 会连环冒出——改签名前先查类型是否 Copy，一次改净。
+- 2026-09-05 T19：homebrew bash 5.3.9 起 `$var（`（变量名紧邻多字节字符）展开会把首字节并入变量名（f\357），set -u 直接 unbound variable；/bin/bash 3.2 无此行为——验收命令 PATH 前置 /opt/homebrew/bin 时 make 配方里的 `bash` 解析到 5.3.9，同脚本两个 bash 版本行为分歧先查 `which bash`。门禁/脚本里 `$var` 紧邻非 ASCII 一律写 `${var}`（version.sh 缺文件路径、FAIL 分支文案全是雷区）。
+- 2026-09-05 T19：cli-parity 门禁 `if [ ! -x p2pctl ]` 惰性构建 + 验收命令全局 CARGO_TARGET_DIR → 产物落 /tmp 而脚本找 apps/cli/target（空则当场崩）；且存在旧二进制时无条件信任——陈旧二进制把另一波漏更文档的登记债整个掩盖（TSV 新行 + 旧二进制 = 假绿，删二进制才显形）。接手共享门禁前先查 `ls -la apps/cli/target/debug/p2pctl` 的时间戳对不对得上当前源。
+- 2026-09-05 ACP5：验收 && 链中「cmd | tail N」的退出码取 tail 恒 0，遮蔽上游失败（本轮 clippy 假绿：INNER=0 但 CLIPPY_EXIT=101）；写验收链改用 PIPESTATUS 或拆步判定，复核旧日志 grep build failed/error 残留。

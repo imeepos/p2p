@@ -99,7 +99,11 @@ fn running_lines(r: &Report) -> Vec<String> {
 }
 
 fn empty_or(r: &Report) -> &str {
-    if r.reason.is_empty() { "无 pid 文件" } else { &r.reason }
+    if r.reason.is_empty() {
+        "无 pid 文件"
+    } else {
+        &r.reason
+    }
 }
 
 #[cfg(test)]
@@ -125,7 +129,13 @@ mod tests {
     #[test]
     fn status_text_has_greppable_key_value_lines() {
         let text = render_text(&running_report());
-        for key in ["pid=42", "peer=abc", "addr=127.0.0.1/u1", "log=/tmp/l", "uptime=9s"] {
+        for key in [
+            "pid=42",
+            "peer=abc",
+            "addr=127.0.0.1/u1",
+            "log=/tmp/l",
+            "uptime=9s",
+        ] {
             assert!(text.contains(key), "缺 {key}: {text}");
         }
     }

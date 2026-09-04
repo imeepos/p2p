@@ -1,0 +1,28 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`dashboard 页 descriptor > descriptor 快照与动作清单 1`] = `
+{
+  "actions": [
+    {
+      "args": [],
+      "description": "启动节点（使用已加载的当前配置，与快速操作启动按钮同源）",
+      "name": "start",
+    },
+    {
+      "args": [
+        {
+          "description": "危险动作，必须显式传 true",
+          "name": "confirm",
+          "required": true,
+          "type": "boolean",
+        },
+      ],
+      "confirm": true,
+      "description": "停止节点（断开全部连接，与快速操作停止确认框同源）",
+      "name": "stop",
+    },
+  ],
+  "description": "仪表盘页：节点快速启停与运行状态概览",
+  "name": "dashboard",
+}
+`;

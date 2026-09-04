@@ -32,6 +32,7 @@ fn chat_friend_json_field_names_match_contract() {
         nickname: "小友".into(),
         addrs: vec!["127.0.0.1/u3400".into(), "127.0.0.1/t3401".into()],
         note: None,
+        group: None,
     };
     let encoded = serde_json::to_value(&friend).expect("序列化好友");
     assert_eq!(
@@ -41,6 +42,7 @@ fn chat_friend_json_field_names_match_contract() {
             "nickname": "小友",
             "addrs": ["127.0.0.1/u3400", "127.0.0.1/t3401"],
             "note": null,
+            "group": null,
         }),
         "ChatFriendJson 字段名/空 Option 须逐字对齐 §12.3"
     );
@@ -55,6 +57,7 @@ fn chat_friend_json_note_roundtrips_both_states() {
         nickname: "带备注".into(),
         addrs: Vec::new(),
         note: Some("同事".into()),
+        group: None,
     };
     let value = serde_json::to_value(&with_note).expect("序列化");
     assert_eq!(value["note"], "同事");

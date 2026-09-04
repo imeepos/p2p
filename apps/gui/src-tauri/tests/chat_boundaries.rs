@@ -8,7 +8,7 @@ fn envelope() -> ChatEnvelope { ChatEnvelope { id: "m".into(), peer: "peer".into
 
 #[test]
 fn contract_roundtrips_all_chat_shapes_and_camel_case() {
-    let friend = ChatFriend { peer_id: "p".into(), nickname: "n".into(), addrs: vec!["127.0.0.1/u1".into()], note: None };
+    let friend = ChatFriend { peer_id: "p".into(), nickname: "n".into(), addrs: vec!["127.0.0.1/u1".into()], note: None, group: None };
     let report = ChatSendReport { message: envelope(), delivered: false };
     for value in [serde_json::to_value(&friend).expect("friend json"), serde_json::to_value(&report).expect("report json")] {
         assert!(value.get("peerId").is_some() || value.get("message").is_some(), "契约字段必须存在: {value}");

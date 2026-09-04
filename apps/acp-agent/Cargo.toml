@@ -1,0 +1,32 @@
+[package]
+name = "acp-agent"
+version = "0.1.0"
+edition = "2021"
+description = "ACP over P2P agent 侧端点：/dsh-acp/1 handler、策略门禁、子进程监督（docs/design/acp-over-p2p-design.md §3）"
+
+# 独立 cargo 项目，脱离根 workspace（沿用 apps/cli 先例；根 Cargo.toml 不动）
+[workspace]
+
+[[bin]]
+name = "acp-agent"
+path = "src/main.rs"
+
+# 测试专用回声子进程（桩），测试经 CARGO_BIN_EXE_acp-echo-stub 定位
+[[bin]]
+name = "acp-echo-stub"
+path = "src/bin/acp-echo-stub.rs"
+
+[dependencies]
+acp-common = { path = "../acp-common" }
+p2p = { path = "../../crates/p2p" }
+p2p-log = { path = "../../crates/p2p-log" }
+p2p-protocol = { path = "../../crates/p2p-protocol" }
+async-trait = "0.1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "process", "signal", "io-util", "time", "sync"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+uuid = { version = "1", features = ["v4"] }

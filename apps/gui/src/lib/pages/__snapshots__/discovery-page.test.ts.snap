@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`discovery 页 descriptor > descriptor 快照与动作清单 1`] = `
+{
+  "actions": [
+    {
+      "args": [
+        {
+          "description": "true 开启 / false 关闭",
+          "name": "enable",
+          "required": true,
+          "type": "boolean",
+        },
+      ],
+      "description": "切换 mDNS 并持久化配置（与 mDNS 开关同源，节点运行中需重启生效）",
+      "name": "setMdns",
+    },
+    {
+      "args": [
+        {
+          "description": "传输地址，如 192.168.1.10/u3400",
+          "name": "addr",
+          "required": true,
+          "type": "string",
+        },
+      ],
+      "description": "添加 rendezvous 地址（与添加地址对话框同源，格式 ip/u端口 或 ip/t端口）",
+      "name": "addBootstrap",
+    },
+    {
+      "args": [
+        {
+          "description": "要删除的既有地址",
+          "name": "addr",
+          "required": true,
+          "type": "string",
+        },
+        {
+          "description": "危险动作，必须显式传 true",
+          "name": "confirm",
+          "required": true,
+          "type": "boolean",
+        },
+      ],
+      "confirm": true,
+      "description": "删除 rendezvous 地址（与删除确认框同源）",
+      "name": "removeBootstrap",
+    },
+  ],
+  "description": "发现页：mDNS 开关、rendezvous 地址簿与发现结果表",
+  "name": "discovery",
+}
+`;

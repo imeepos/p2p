@@ -1,0 +1,22 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`relay 页 descriptor > descriptor 快照与动作清单 1`] = `
+{
+  "actions": [
+    {
+      "args": [
+        {
+          "description": "传输地址字符串数组，去重校验",
+          "name": "relayAddrs",
+          "required": true,
+          "type": "array",
+        },
+      ],
+      "description": "保存中继地址列表（与中继配置卡保存按钮同源，格式 ip/u端口 或 ip/t端口）",
+      "name": "saveRelayAddrs",
+    },
+  ],
+  "description": "中继页：relay 地址配置与会话水位观测",
+  "name": "relay",
+}
+`;
