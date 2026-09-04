@@ -2,7 +2,8 @@
 // GUI 直面本地 WS：acp-console 是哑泵，这里的方法面即 ACP 方法面（约 10 个）。
 // 本文件属协议层（非 UI），禁止引入 React/i18n 依赖。
 
-/** acp-console WS 关闭码（apps/acp-console/README.md）：握手拒绝 / 拨号失败 */
+/** acp-console WS 关闭码（apps/acp-console/README.md）：agent 桥拒绝握手 / 拨号失败。
+ *  console 自身鉴权失败走 HTTP 401 升级拒绝，客户端视角是无 reason 的 1006（真机对拍 R3a） */
 export const CLOSE_DENIED = 4403;
 export const CLOSE_DIAL_FAILED = 4500;
 
@@ -12,7 +13,7 @@ export type AcpPhase = "idle" | "connecting" | "online" | "reconnecting" | "offl
 export interface AcpEndpoint {
   /** 本地 WS 地址，形如 ws://127.0.0.1:<port> */
   wsUrl: string;
-  /** console 鉴权 token（必填，错 token 在升级层 401/4403 拒绝） */
+  /** console 鉴权 token（必填，错 token 在 HTTP 升级层 401 拒绝，WS 侧呈 1006） */
   token: string;
   /** 目标 agent 节点 PeerId（base58） */
   peer: string;

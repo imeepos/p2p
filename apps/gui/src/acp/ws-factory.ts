@@ -22,8 +22,11 @@ export function setWsFactory(factory: WebSocketFactory | null): void {
 }
 
 function realFactory(url: string): WsLike {
-  // 浏览器 WebSocket 与 WsLike 结构兼容，事件对象形状更宽，此处收窄视角
-  return new WebSocket(url) as unknown as WsLike;
+  // console 泵只发 Binary 帧（真机对拍 R3i）：arraybuffer 便于同步解码；
+  // blob 形态由 ndjson.decodeFrame 兜底（测试与异构环境）
+  const ws = new WebSocket(url) as unknown as WsLike & { binaryType?: string };
+  ws.binaryType = "arraybuffer";
+  return ws;
 }
 
 const useMock = import.meta.env.VITE_MOCK_IPC === "1";

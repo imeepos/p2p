@@ -213,9 +213,9 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   closeSession: async (sessionId) => {
     if (!conn) return;
     try {
-      await conn.sessionClose(sessionId);
+      await conn.sessionDelete(sessionId);
     } catch (error) {
-      console.warn("[acp] session/close 失败", error);
+      console.warn("[acp] session/delete 失败", error);
       set({ lastError: "sessionCloseFailed" });
     }
     set((s) => ({

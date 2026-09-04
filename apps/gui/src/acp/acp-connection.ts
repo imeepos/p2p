@@ -1,6 +1,7 @@
 // ACP 客户端薄层：JSON-RPC over 本地 WS 的最小封装。
-// console 是纯字节泵，本层即 GUI 的 ACP 协议智能所在；断线自动重连并在
-// 事件面给出可观测提示（阶段迁移 + 关闭码分类），不做静默重试。
+// console 是纯字节泵，本层即 GUI 的 ACP 协议智能所在；下行按 ndjson 行界
+// 重组（一帧可多行、一行可跨帧，真机对拍 R3i），上行行尾补换行；断线自动
+// 重连并在事件面给出可观测提示（阶段迁移 + 关闭码分类），不做静默重试。
 import {
   buildWsUrl,
   classifyClose,
@@ -15,6 +16,7 @@ import {
   type SessionNewResult,
   type SessionSummary,
 } from "./protocol";
+import { decodeFrame, NdjsonAssembler } from "./ndjson";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -43,7 +45,7 @@ export interface AcpConnectionEvents {
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
-  timer: number;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 interface JsonRpcWire {
@@ -59,9 +61,11 @@ export class AcpConnection {
   private ws: WsLike | null = null;
   private nextId = 1;
   private pending = new Map<number, PendingRequest>();
-  private reconnectTimer: number | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private attempts = 0;
   private userClosed = false;
+  private assembler = new NdjsonAssembler();
+  private frameChain: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly endpoint: AcpEndpoint,
@@ -80,7 +84,7 @@ export class AcpConnection {
       this.attempts = 0;
       this.events.onPhase("online");
     };
-    ws.onmessage = (ev) => this.dispatch(String(ev.data));
+    ws.onmessage = (ev) => this.enqueueFrame(ev.data);
     ws.onerror = (ev) => {
       console.warn("[acp] WS 错误信号", ev.message);
     };
@@ -90,7 +94,8 @@ export class AcpConnection {
   private handleClose(code: number, reason: string): void {
     this.ws = null;
     for (const [, p] of this.pending) {
-      window.clearTimeout(p.timer);
+      // 环境无关定时器 API：重连定时器可能在宿主 window 卸载后触发（测试稳定性）
+      clearTimeout(p.timer);
       p.reject(new Error("acp-connection-closed"));
     }
     this.pending.clear();
@@ -113,7 +118,19 @@ export class AcpConnection {
       this.policy.baseDelayMs * 2 ** (this.attempts - 1),
       this.policy.maxDelayMs,
     );
-    this.reconnectTimer = window.setTimeout(() => this.connect(), delay);
+    this.reconnectTimer = setTimeout(() => this.connect(), delay);
+  }
+
+  /** 帧解码按到达序串行（Blob 路径异步）；行界重组后逐行分发 */
+  private enqueueFrame(data: unknown): void {
+    this.frameChain = this.frameChain
+      .then(async () => this.assembler.push(await decodeFrame(data)))
+      .then((lines) => {
+        for (const line of lines) {
+          if (line.trim().length > 0) this.dispatch(line);
+        }
+      })
+      .catch((error) => console.warn("[acp] 帧解码失败，已丢弃", error));
   }
 
   private dispatch(raw: string): void {
@@ -138,7 +155,7 @@ export class AcpConnection {
     const entry = this.pending.get(msg.id);
     if (!entry) return;
     this.pending.delete(msg.id);
-    window.clearTimeout(entry.timer);
+    clearTimeout(entry.timer);
     if (msg.error) {
       entry.reject(new Error(JSON.stringify(msg.error)));
     } else {
@@ -152,13 +169,14 @@ export class AcpConnection {
     const id = this.nextId;
     this.nextId += 1;
     return new Promise((resolve, reject) => {
-      const timer = window.setTimeout(() => {
+      const timer = setTimeout(() => {
         this.pending.delete(id);
         console.warn("[acp] 请求超时", method);
         reject(new Error("acp-request-timeout"));
       }, REQUEST_TIMEOUT_MS);
       this.pending.set(id, { resolve, reject, timer });
-      ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: params ?? {} }));
+      // ACP ndjson 行界：console 是字节泵，行尾不带 \n 会被 agent 侧行重组器挂起
+      ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: params ?? {} }) + "\n");
     });
   }
 
@@ -177,7 +195,7 @@ export class AcpConnection {
   sessionCancel(sessionId: string): void {
     const ws = this.ws;
     if (!ws) return;
-    ws.send(JSON.stringify({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId } }));
+    ws.send(JSON.stringify({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId } }) + "\n");
   }
 
   async sessionList(): Promise<SessionListResult> {
@@ -188,8 +206,9 @@ export class AcpConnection {
     return (await this.request("session/resume", { sessionId })) as SessionSummary;
   }
 
-  async sessionClose(sessionId: string): Promise<void> {
-    await this.request("session/close", { sessionId });
+  /** ACP v1 契约方法为 session/delete（session/close 系 mock 期假设，真机对拍后改正） */
+  async sessionDelete(sessionId: string): Promise<void> {
+    await this.request("session/delete", { sessionId });
   }
 
   /** 用户主动断开：不触发重连 */
@@ -205,7 +224,7 @@ export class AcpConnection {
 
   private clearReconnectTimer(): void {
     if (this.reconnectTimer !== null) {
-      window.clearTimeout(this.reconnectTimer);
+      clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
   }

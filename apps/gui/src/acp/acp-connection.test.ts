@@ -22,7 +22,7 @@ class FakeSocket implements WsLike {
     this.onopen?.();
   }
   serverMessage(msg: unknown): void {
-    this.onmessage?.({ data: JSON.stringify(msg) });
+    this.onmessage?.({ data: JSON.stringify(msg) + "\n" });
   }
   serverClose(code: number, reason: string): void {
     this.onclose?.({ code, reason });
@@ -75,7 +75,7 @@ describe("AcpConnection", () => {
     await expect(pending).resolves.toEqual({ sessions: [] });
   });
 
-  it("notification 分发到事件面", () => {
+  it("notification 分发到事件面", async () => {
     const h = harness();
     h.conn.connect();
     h.sockets[0].serverOpen();
@@ -84,6 +84,7 @@ describe("AcpConnection", () => {
       method: "session/update",
       params: { sessionId: "s-1", update: { sessionUpdate: "agent_message_chunk" } },
     });
+    await new Promise((r) => setTimeout(r, 0));
     expect(h.notifications).toHaveLength(1);
     expect(h.notifications[0].method).toBe("session/update");
   });
@@ -136,5 +137,72 @@ describe("AcpConnection", () => {
     h.conn.close();
     expect(last(h.phases)).toBe("idle");
     expect(h.reconnects).toHaveLength(0);
+  });
+
+  it("上行请求帧尾带换行（agent 侧行界依赖，真机对拍 R3i）", async () => {
+    const h = harness();
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    const pending = h.conn.request("initialize", {});
+    expect(last(h.sockets[0].sent)).toMatch(/\n$/);
+    h.sockets[0].serverMessage({ jsonrpc: "2.0", id: 1, result: {} });
+    await pending;
+  });
+
+  it("下行二进制帧一帧多行：全部按行派发（合帧实测 R3i）", async () => {
+    const h = harness();
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    const line = JSON.stringify({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: { sessionId: "s-1", update: { sessionUpdate: "agent_message_chunk" } },
+    });
+    h.sockets[0].onmessage?.({ data: new TextEncoder().encode(line + "\n" + line + "\n") });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.notifications).toHaveLength(2);
+  });
+
+  it("残行跨帧：半行不派发，补齐行界后派发（大行拆帧实测 R3i）", async () => {
+    const h = harness();
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    const full = JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: {} });
+    h.sockets[0].onmessage?.({ data: full.slice(0, Math.floor(full.length / 2)) });
+    expect(h.notifications).toHaveLength(0);
+    h.sockets[0].onmessage?.({ data: full.slice(Math.floor(full.length / 2)) + "\n" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(h.notifications).toHaveLength(1);
+  });
+
+  it("Blob 帧解码后派发（binaryType=blob 浏览器默认形态）", async () => {
+    const h = harness();
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    const line = JSON.stringify({ jsonrpc: "2.0", method: "session/update", params: {} });
+    h.sockets[0].onmessage?.({ data: new Blob([line + "\n"]) });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(h.notifications).toHaveLength(1);
+  });
+
+  it("1006 空 reason（401 升级拒绝实测形态）归类 abnormal 并触发重连", () => {
+    const h = harness(FAST_POLICY);
+    h.conn.connect();
+    h.sockets[0].serverClose(1006, "");
+    expect(last(h.closes)).toEqual({ kind: "abnormal", code: 1006 });
+    expect(last(h.phases)).toBe("reconnecting");
+    expect(h.reconnects).toEqual([1]);
+  });
+
+  it("session/delete 方法面（ACP v1 契约，替换 mock 期 session/close）", async () => {
+    const h = harness();
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    const pending = h.conn.sessionDelete("s-9");
+    const frame = JSON.parse(last(h.sockets[0].sent));
+    expect(frame.method).toBe("session/delete");
+    expect(frame.params).toEqual({ sessionId: "s-9" });
+    h.sockets[0].serverMessage({ jsonrpc: "2.0", id: 1, result: {} });
+    await pending;
   });
 });

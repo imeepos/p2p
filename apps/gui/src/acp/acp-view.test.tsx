@@ -48,7 +48,7 @@ describe("AcpView connection", () => {
     expect(screen.getByTestId("acp-phase-badge").textContent).toContain("在线");
   });
 
-  it("token 错误：4403 denied 可观察，phase 转离线", async () => {
+  it("token 错误：401 升级拒绝呈 1006 abnormal（真机 R3a），重连耗尽转离线", async () => {
     useAcpStore.setState({ draft: draftEndpoint() });
     useAcpStore.getState().setDraft({ token: "wrong-token" });
     render(<AcpView />);
@@ -56,9 +56,14 @@ describe("AcpView connection", () => {
     await waitFor(() => {
       expect(screen.getByTestId("acp-close-info")).toBeTruthy();
     });
-    expect(screen.getByTestId("acp-close-info").textContent).toContain("4403");
-    expect(screen.getByTestId("acp-phase-badge").textContent).toContain("离线");
-  });
+    expect(screen.getByTestId("acp-close-info").textContent).toContain("1006");
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("acp-phase-badge").textContent).toContain("离线");
+      },
+      { timeout: 15_000 },
+    );
+  }, 25_000);
 
   it("端点可保存并回填（手动添加）", async () => {
     render(<AcpView />);
@@ -115,7 +120,8 @@ describe("AcpView sessions", () => {
     await renderConnected();
     await newSession();
     act(() => {
-      mockAcpConsole.dropAll(1000, "agent-stream-dropped");
+      // 真机对拍 R3h：对端死亡不发 Close 帧，客户端视角 1006 空 reason
+      mockAcpConsole.dropAll();
     });
     await waitFor(
       () => {

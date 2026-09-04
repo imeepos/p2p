@@ -1,22 +1,19 @@
-// 可脚本化的本地 WS mock：dev（VITE_MOCK_IPC=1）与测试共用同一实现，
-// 行为对齐 apps/acp-console/README.md（token 错误 4403、未知 peer 4500、
-// agent 断流 1000）。会话状态存于单例 console，跨重连存活供侧栏断言。
+// 可脚本化的本地 WS mock：dev（VITE_MOCK_IPC=1）与测试共用同一实现。
+// 行为按 2026-09-05 真机对拍实测对齐 acp-console（docs/notes/
+// 2026-09-05-acp-real-calibration.md）：错 token = HTTP 401 升级拒绝（客户端
+// 视角 error + 1006 空 reason）、未知 peer = 先 open 后 Close(4500)、agent 桥
+// 拒绝握手 = Close(4403, "denied:<code>")、对端死亡 = 无 Close 帧 1006；
+// 下行帧为二进制（Uint8Array），可多行合帧。会话状态存单例，跨重连存活。
+import { MockPromptPlayer, type MockPromptStep } from "./mock-acp-prompt";
+import type { InitializeResult, SessionSummary } from "./protocol";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
-import type {
-  InitializeResult,
-  SessionSummary,
-  SessionUpdate,
-  SessionUpdateParams,
-} from "./protocol";
-
-export type MockPromptStep =
-  | { kind: "thought"; text: string }
-  | { kind: "message"; text: string }
-  | { kind: "stop"; reason: string };
 
 export interface MockConsoleConfig {
   token: string;
+  /** 可拨通且 agent 侧放行的 peer */
   peers: string[];
+  /** 可拨通但 agent 桥拒绝握手（4403 denied）的 peer */
+  deniedPeers: string[];
   promptScript: MockPromptStep[];
   openDelayMs: number;
   chunkDelayMs: number;
@@ -25,6 +22,7 @@ export interface MockConsoleConfig {
 const DEFAULT_CONFIG: MockConsoleConfig = {
   token: "mock-token",
   peers: ["mock-peer"],
+  deniedPeers: [],
   promptScript: [
     { kind: "thought", text: "thinking through the request" },
     { kind: "message", text: "Hello from the mock agent." },
@@ -63,7 +61,7 @@ class MockAcpConsole {
   }
 
   reset(): void {
-    this.config = { ...DEFAULT_CONFIG };
+    this.config = { ...DEFAULT_CONFIG, deniedPeers: [] };
     this.sessions.clear();
     this.live = [];
     this.sessionSeq = 0;
@@ -78,7 +76,9 @@ class MockAcpConsole {
     for (const socket of this.live) socket.serverPush(method, params);
   }
 
-  dropAll(code = 1000, reason = "agent-stream-dropped"): void {
+  /** 对端断流：真机实测 agent 死亡后 console 不发 Close 帧，客户端见 1006 空 reason
+   *  （优雅 EOF 路径才有 1000 "peer closed"，用 serverClose(1000, "peer closed") 显式模拟） */
+  dropAll(code = 1006, reason = ""): void {
     for (const socket of [...this.live]) socket.serverClose(code, reason);
   }
 
@@ -95,8 +95,11 @@ export class MockSocket implements WsLike {
   onerror: ((ev: { message?: string }) => void) | null = null;
   onmessage: ((ev: { data: unknown }) => void) | null = null;
   private closed = false;
-  private promptTimer: number | null = null;
-  private pendingPrompt: { id: number; sessionId: string } | null = null;
+  private player = new MockPromptPlayer(
+    (method, params) => this.box.broadcast(method, params),
+    (id, result) => this.reply(id, result),
+    () => this.box.config.chunkDelayMs,
+  );
 
   constructor(private readonly url: string, private readonly box: MockAcpConsole) {
     window.setTimeout(() => this.open(), box.config.openDelayMs);
@@ -104,18 +107,28 @@ export class MockSocket implements WsLike {
 
   private open(): void {
     const params = new URL(this.url).searchParams;
+    // 真机对拍 R3a：console 在 HTTP 升级层 401 拒绝，客户端只见 error + 1006 空 reason
     if (params.get("token") !== this.box.config.token) {
-      this.fireClose(4403, "denied:bad-token");
-      return;
-    }
-    const peer = params.get("peer");
-    if (!peer || !this.box.config.peers.includes(peer)) {
-      this.fireClose(4500, "dial-failed");
+      this.fireAuthRejected();
       return;
     }
     if (this.closed) return;
+    // 真机对拍 R3b：WS 先 accept（onopen 先行），拨号/握手结果以 Close 帧异步到达
     this.box.live.push(this);
     this.onopen?.();
+    const peer = params.get("peer");
+    if (peer && this.box.config.deniedPeers.includes(peer)) {
+      this.fireClose(4403, "denied:peer-not-allowed");
+      return;
+    }
+    if (!peer || !this.box.config.peers.includes(peer)) {
+      this.fireClose(4500, "dial-failed");
+    }
+  }
+
+  private fireAuthRejected(): void {
+    this.onerror?.({ message: "unexpected server response (401)" });
+    this.fireClose(1006, "");
   }
 
   send(data: string): void {
@@ -124,7 +137,12 @@ export class MockSocket implements WsLike {
       return;
     }
     for (const line of data.split("\n")) {
-      if (line.trim().length > 0) this.handle(JSON.parse(line) as WireMessage);
+      if (line.trim().length === 0) continue;
+      try {
+        this.handle(JSON.parse(line) as WireMessage);
+      } catch (error) {
+        console.warn("[mock-acp] 非 JSON 行，已丢弃", error);
+      }
     }
   }
 
@@ -135,13 +153,22 @@ export class MockSocket implements WsLike {
   /** console/agent 侧主动关断（区别于客户端 close 的对称入口） */
   serverClose(code: number, reason: string): void {
     if (this.closed) return;
-    this.cancelPromptPlayback();
+    this.player.stop();
     this.fireClose(code, reason);
   }
 
   serverPush(method: string, params: unknown): void {
     if (this.closed) return;
     this.deliver({ jsonrpc: "2.0", method, params: params as Record<string, unknown> });
+  }
+
+  /** 模拟 console 64KiB 块合帧：多条通知并入一个二进制帧（真机对拍 R3i 实测） */
+  serverPushCoalesced(notifications: Array<{ method: string; params: unknown }>): void {
+    if (this.closed) return;
+    const text = notifications
+      .map((n) => JSON.stringify({ jsonrpc: "2.0", method: n.method, params: n.params }))
+      .join("\n");
+    this.onmessage?.({ data: new TextEncoder().encode(text + "\n") });
   }
 
   private fireClose(code: number, reason: string): void {
@@ -151,7 +178,9 @@ export class MockSocket implements WsLike {
   }
 
   private deliver(msg: WireMessage): void {
-    this.onmessage?.({ data: JSON.stringify(msg) });
+    // console 泵只发 Binary 帧（真机对拍 R3i），mock 同形输出 Uint8Array；
+    // ndjson 行界必须带行尾换行，否则 GUI 侧行重组器会当残行挂起
+    this.onmessage?.({ data: new TextEncoder().encode(JSON.stringify(msg) + "\n") });
   }
 
   private reply(id: number, result: unknown): void {
@@ -166,7 +195,7 @@ export class MockSocket implements WsLike {
     if (typeof msg.method !== "string") return;
     // 通知面（无 id）：session/cancel 即时结算进行中的 prompt
     if (msg.method === "session/cancel") {
-      this.settlePrompt("cancelled");
+      this.player.cancel("cancelled");
       return;
     }
     if (typeof msg.id !== "number") return;
@@ -187,7 +216,7 @@ export class MockSocket implements WsLike {
       case "session/resume":
         this.handleResume(msg.id, params);
         return;
-      case "session/close":
+      case "session/delete":
         this.handleCloseSession(msg.id, params);
         return;
       default:
@@ -222,54 +251,11 @@ export class MockSocket implements WsLike {
       this.replyError(id, -32002, "session not found");
       return;
     }
-    if (this.pendingPrompt) {
+    if (this.player.busy) {
       this.replyError(id, -32001, "prompt already running");
       return;
     }
-    this.pendingPrompt = { id, sessionId };
-    this.playScript(this.box.config.promptScript, 0);
-  }
-
-  private playScript(steps: MockPromptStep[], index: number): void {
-    if (this.closed) return;
-    if (!this.pendingPrompt || index >= steps.length) {
-      this.settlePrompt("end_turn");
-      return;
-    }
-    const step = steps[index];
-    this.promptTimer = window.setTimeout(() => {
-      this.applyStep(step);
-      this.playScript(steps, index + 1);
-    }, this.box.config.chunkDelayMs);
-  }
-
-  private applyStep(step: MockPromptStep): void {
-    const pending = this.pendingPrompt;
-    if (!pending) return;
-    if (step.kind === "stop") {
-      this.settlePrompt(step.reason);
-      return;
-    }
-    const update: SessionUpdate =
-      step.kind === "thought"
-        ? { sessionUpdate: "agent_thought_chunk", content: { type: "text", text: step.text } }
-        : { sessionUpdate: "agent_message_chunk", content: { type: "text", text: step.text } };
-    const params: SessionUpdateParams = { sessionId: pending.sessionId, update };
-    this.box.broadcast("session/update", params);
-  }
-
-  private settlePrompt(reason: string): void {
-    const pending = this.pendingPrompt;
-    this.cancelPromptPlayback();
-    if (pending) this.reply(pending.id, { stopReason: reason });
-  }
-
-  private cancelPromptPlayback(): void {
-    if (this.promptTimer !== null) {
-      window.clearTimeout(this.promptTimer);
-      this.promptTimer = null;
-    }
-    this.pendingPrompt = null;
+    this.player.start(id, sessionId, this.box.config.promptScript);
   }
 }
 
