@@ -342,6 +342,15 @@ const zhCN = {
       submitting: "添加中…",
       failed: "添加失败：",
     },
+    removeFriend: {
+      action: "移除好友",
+      title: "移除好友",
+      description: "将从好友列表移除 {{name}}。",
+      historyNote: "移除好友不会删除本地消息历史；之后仍可重新添加。",
+      confirm: "确认移除",
+      confirming: "移除中…",
+      failed: "移除失败：",
+    },
   },
   settings: {
     title: "设置",
