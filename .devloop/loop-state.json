@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T02:30:33Z",
+  "updatedAt": "2026-09-04T02:50:49.299Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -267,22 +267,28 @@
       "goal": "补齐 GUI 聊天边界测试：空好友/超长昵称、空白与 2000/2001 字符文本、emoji 插入位置与重复点击、附件类型推断/未知 MIME/零字节/64MiB+1、事件乱序与重复、failed/pending 状态渲染、分页空结果与非法游标、媒体裸路径降级展示；只新增测试与必要测试夹具，不改生产实现",
       "title": "IM-BT35 GUI 聊天边界测试",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "test/im-bt35-new",
       "ownerSession": "session-42f966a8-860b-414e-a947-1ab5cd05da6e",
       "scope": "仅新增 apps/gui/src/views/chat/chat-boundaries.test.tsx、apps/gui/src/lib/chat-boundaries.test.ts、必要测试 fixtures；apps/gui/src 生产实现与 src-tauri 只读",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-boundaries.test.tsx src/lib/chat-boundaries.test.ts && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-boundaries.test.tsx src/lib/chat-boundaries.test.ts && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "mergedMain": "e6b98ea",
+      "acceptedAt": "2026-09-04T02:49:06.587Z",
+      "note": "独立验收 exit 0：chat-boundaries 19 测试（文本空白/Unicode/2000/2001、emoji 重复点击与光标插入、附件类型推断与未知 MIME/零字节/64MiB+1/取消、chat_message 去重与乱序 status、failed/pending 渲染、history 空页与非法游标、裸路径信息卡降级）+ pnpm build + 36 测试文件全绿 + make check 全门禁；范围合规仅两测试文件；rebase 至 6fcebcc 后复跑仍绿；协调者 ff-only 合入并全清现场"
     },
     {
       "id": "T36",
       "goal": "补齐 Tauri/协议异常边界测试：命令参数缺失与 null、camelCase 字段/Option null、非法 PeerId/自发自收/地址/文本/媒体错误映射、asset URL 路径编码与平台前缀、未知/乱序/超限 chat 帧、重复消息幂等与 ACK 失败可观测；只新增测试，不改生产实现",
       "title": "IM-BT36 Tauri 与协议边界测试",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "test/t36-chat-boundaries",
       "ownerSession": "session-f316c0bd-58b6-4bc7-92ab-aa2c7a5f23ee",
       "scope": "仅新增 apps/gui/src-tauri/tests/chat_boundaries.rs、crates/p2p-chat/tests/wire_boundaries.rs；既有生产源码只读，GUI 生产实现只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test wire_boundaries && cd apps/gui/src-tauri && cargo test --test chat_boundaries && cargo clippy --all-targets -- -D warnings && cd ../../.. && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test wire_boundaries && cd apps/gui/src-tauri && cargo test --test chat_boundaries && cargo clippy --all-targets -- -D warnings && cd ../../.. && make check'",
+      "mergedMain": "6fcebcc",
+      "acceptedAt": "2026-09-04T02:43:21.142Z",
+      "note": "独立验收 exit 0：wire_boundaries 5 测试（帧roundtrip/长度不一致断流/单帧超限拒绝/未知类型可见/信封字段与ACK）+ chat_boundaries 4 测试（契约roundtrip与camelCase/缺失与null与未知字段/校验矩阵可读错误/asset URL编码与平台前缀）+ clippy --all-targets -D warnings + make check 全绿；范围合规仅两测试文件；rebase 至 1b07415 后复跑仍绿；协调者 ff-only 合入并全清现场"
     },
     {
       "id": "T37",
