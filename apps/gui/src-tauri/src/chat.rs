@@ -36,17 +36,60 @@ pub async fn chat_friends_list(state: State<'_, AppState>) -> Result<Vec<ChatFri
     chat.friends_list().map_err(|e| e.to_string())
 }
 
-/// chat_friend_add：校验（peerId base58 且 ≠ 本机、nickname trim ≤64、addr 语法逐条）后写好友簿。
+/// chat_friend_invite（邀请制加好友）：发邀请并登记挂起（out），同意前不建好友。
 #[tauri::command]
-pub async fn chat_friend_add(
+pub async fn chat_friend_invite(
     state: State<'_, AppState>,
     peer_id: String,
     nickname: String,
     addrs: Vec<String>,
+) -> Result<p2p_chat::InviteReport, String> {
+    let chat = state.chat().await?;
+    chat.friend_invite(&peer_id, &nickname, addrs, None)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// chat_invites_list：邀请列表（out 待对方同意 / in 待本机处理）。
+#[tauri::command]
+pub async fn chat_invites_list(
+    state: State<'_, AppState>,
+) -> Result<Vec<p2p_chat::FriendInvite>, String> {
+    let chat = state.chat().await?;
+    chat.invites_list().map_err(|e| e.to_string())
+}
+
+/// chat_invite_accept：同意来邀——本机立即互为好友并回投 ACCEPT。
+#[tauri::command]
+pub async fn chat_invite_accept(
+    state: State<'_, AppState>,
+    peer_id: String,
+    nickname: String,
 ) -> Result<ChatFriend, String> {
     let chat = state.chat().await?;
-    chat.friend_add_direct(&peer_id, &nickname, addrs, None)
+    chat.invite_accept(&peer_id, &nickname)
+        .await
         .map_err(|e| e.to_string())
+}
+
+/// chat_invite_reject：拒绝来邀（通知对方尽力而为）。
+#[tauri::command]
+pub async fn chat_invite_reject(
+    state: State<'_, AppState>,
+    peer_id: String,
+) -> Result<(), String> {
+    let chat = state.chat().await?;
+    chat.invite_reject(&peer_id).await.map_err(|e| e.to_string())
+}
+
+/// chat_invite_cancel：撤回本机待同意邀请。
+#[tauri::command]
+pub async fn chat_invite_cancel(
+    state: State<'_, AppState>,
+    peer_id: String,
+) -> Result<bool, String> {
+    let chat = state.chat().await?;
+    chat.invite_cancel(&peer_id).await.map_err(|e| e.to_string())
 }
 
 /// chat_friend_update（IM-T43）：分组/昵称/备注补丁；空补丁与越界组名由 crate 校验拒绝；

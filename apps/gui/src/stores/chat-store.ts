@@ -10,6 +10,7 @@ import {
 } from "@/lib/chat-local";
 import type {
   ChatFriendJson,
+  FriendInviteJson,
   ChatKind,
   ChatMediaInput,
   ChatMessageJson,
@@ -24,6 +25,7 @@ function errorOf(error: unknown): string {
 }
 
 export interface ChatStoreState {
+  invites: FriendInviteJson[];
   friends: ChatFriendJson[];
   friendsLoaded: boolean;
   friendsError: string | null;
@@ -36,6 +38,10 @@ export interface ChatStoreState {
   // 历史加载失败信号（IM-T50）：selectPeer/loadOlder 的 catch 落这里，成功清除
   historyError: Record<string, string | null>;
   olderError: Record<string, string | null>;
+  loadInvites: () => Promise<void>;
+  acceptInvite: (peer: string, nickname: string) => Promise<void>;
+  rejectInvite: (peer: string) => Promise<void>;
+  cancelInvite: (peer: string) => Promise<void>;
   loadFriends: () => Promise<void>;
   selectPeer: (peer: string) => Promise<void>;
   loadOlder: (peer: string) => Promise<void>;
@@ -58,6 +64,7 @@ export interface ChatStoreState {
 }
 
 export const useChatStore = create<ChatStoreState>()((set, get) => ({
+  invites: [],
   friends: [],
   friendsLoaded: false,
   friendsError: null,
@@ -70,6 +77,29 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   historyError: {},
   olderError: {},
 
+  loadInvites: async () => {
+    try {
+      const invites = await ipc.chatInvitesList();
+      set({ invites });
+    } catch (error) {
+      console.warn("[chat] 拉取邀请列表失败", error);
+    }
+  },
+
+  acceptInvite: async (peer, nickname) => {
+    await ipc.chatInviteAccept(peer, nickname);
+    await Promise.all([get().loadFriends(), get().loadInvites()]);
+  },
+
+  rejectInvite: async (peer) => {
+    await ipc.chatInviteReject(peer);
+    await get().loadInvites();
+  },
+
+  cancelInvite: async (peer) => {
+    await ipc.chatInviteCancel(peer);
+    await get().loadInvites();
+  },
   loadFriends: async () => {
     try {
       const friends = await ipc.chatFriendsList();
@@ -249,6 +279,10 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
             },
           };
         });
+      } else if (event.type === "chat_invite") {
+        // 邀请生命周期：刷新邀请簿与好友簿（accepted 双向建簿）
+        void get().loadInvites();
+        void get().loadFriends();
       } else if (event.type === "chat_status") {
         set((s) => {
           const list = s.messagesByPeer[event.peer] ?? [];

@@ -8,6 +8,7 @@ import type {
   NodeProfile,
   NodeStatus,
   UnlistenFn,
+  ChatFriendJson,
 } from "./ipc-types";
 import { parseDialTarget } from "./dial-target";
 import { validateNodeProfile } from "./profile-rules";
@@ -228,7 +229,13 @@ const mockGroup = createMockGroupChatBackend({
   seed: seedMockGroup,
 };
 
-export const mockBackend: IpcBackend = {
+export const mockBackend: IpcBackend & {
+  chatFriendAdd(
+    peerId: string,
+    nickname: string,
+    addrs: string[],
+  ): Promise<ChatFriendJson>;
+} = {
   ...mockChat,
   ...mockGroup,
 

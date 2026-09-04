@@ -7,7 +7,7 @@ const diagMocks = vi.hoisted(() => ({
 }));
 
 const mocks = vi.hoisted(() => ({
-  chatFriendAdd: vi.fn(),
+  chatFriendInvite: vi.fn(),
   chatFriendRemove: vi.fn(),
   identityReset: vi.fn(),
   configSave: vi.fn(),
@@ -19,6 +19,7 @@ const chatState = vi.hoisted(() => ({
   sendText: vi.fn(),
   forgetFriend: vi.fn(),
   loadFriends: vi.fn(),
+  loadInvites: vi.fn(),
 }));
 
 const nodeState = vi.hoisted(() => ({
@@ -209,13 +210,15 @@ describe("executePageAction 真实执行器", () => {
     expect(chatState.sendText).toHaveBeenCalledWith("p1", "hi");
   });
 
-  it("chat.addFriend 走 IPC + loadFriends（与添加好友表单同源）", async () => {
-    mocks.chatFriendAdd.mockResolvedValue({ peerId: "p9", nickname: "N" });
+  it("chat.addFriend 走 IPC + loadFriends/loadInvites（与邀请表单同源）", async () => {
+    mocks.chatFriendInvite.mockResolvedValue({ invite: { peerId: "p9" }, delivered: true });
     chatState.loadFriends.mockResolvedValue(undefined);
+    chatState.loadInvites.mockResolvedValue(undefined);
     const result = await executePageAction("chat", "addFriend", { peerId: " p9 ", addrs: ["1.2.3.4/u4001"] });
     expect(result.ok).toBe(true);
-    expect(mocks.chatFriendAdd).toHaveBeenCalledWith("p9", "", ["1.2.3.4/u4001"]);
+    expect(mocks.chatFriendInvite).toHaveBeenCalledWith("p9", "", ["1.2.3.4/u4001"]);
     expect(chatState.loadFriends).toHaveBeenCalled();
+    expect(chatState.loadInvites).toHaveBeenCalled();
   });
 
   it("settings.saveConfig 走 configSave（与保存栏保存同源）", async () => {

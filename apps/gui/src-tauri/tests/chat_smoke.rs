@@ -10,8 +10,8 @@ use std::path::PathBuf;
 use base64::Engine;
 use p2p_chat::ChatKind;
 use p2p_console::chat::{
-    chat_friend_add, chat_friend_remove, chat_friends_list, chat_history, chat_send,
-    ChatMediaInputJson,
+    chat_friend_invite, chat_friend_remove, chat_friends_list, chat_history, chat_invites_list,
+    chat_send, ChatMediaInputJson,
 };
 use p2p_console::commands;
 use p2p_console::state::AppState;
@@ -83,28 +83,34 @@ async fn chat_smoke_add_list_remove_and_validation_matrix() {
             .expect("节点启动");
     assert!(status.running);
 
-    // 2. 冒烟：加好友（合法 peerId+addr）→ 列表可见
+    // 2. 冒烟：发邀请（离线对端 delivered=false 挂起；同意前好友簿不变）
     let peer = valid_peer_id();
-    let friend = chat_friend_add(
+    let report = chat_friend_invite(
         state.clone(),
         peer.clone(),
         " 冒烟好友 ".to_string(),
         vec!["127.0.0.1/u3400".to_string()],
     )
     .await
-    .expect("合法参数加好友必须成功");
-    assert_eq!(friend.peer_id, peer);
-    assert_eq!(friend.nickname, "冒烟好友", "nickname 应 trim");
-    assert_eq!(friend.note, None);
+    .expect("合法参数发邀请必须成功");
+    assert!(!report.delivered, "离线节点对端不可达，必须挂起");
+    assert_eq!(report.invite.nickname, "冒烟好友", "nickname 应 trim");
+    assert_eq!(report.invite.direction, p2p_chat::InviteDirection::Out);
+
+    let invites = chat_invites_list(state.clone()).await.expect("邀请列表");
+    assert!(
+        invites.iter().any(|i| i.peer_id == peer),
+        "邀请簿应含挂起邀请: {invites:?}"
+    );
 
     let list = chat_friends_list(state.clone()).await.expect("好友列表");
     assert!(
-        list.iter().any(|f| f.peer_id == peer),
-        "好友簿应含刚加入的节点: {list:?}"
+        !list.iter().any(|f| f.peer_id == peer),
+        "同意前好友簿必须为空（邀请制）: {list:?}"
     );
 
     // 3. 校验矩阵：非法 peerId / 昵称超长 / addr 语法错 → 可读中文 Err
-    let bad = chat_friend_add(
+    let bad = chat_friend_invite(
         state.clone(),
         illegal_peer_id(),
         "昵称".to_string(),
@@ -114,7 +120,7 @@ async fn chat_smoke_add_list_remove_and_validation_matrix() {
     .expect_err("非法 peerId 必须 Err");
     assert!(bad.contains("base58"), "实际: {bad}");
 
-    let short = chat_friend_add(
+    let short = chat_friend_invite(
         state.clone(),
         wrong_length_peer_id(),
         "昵称".to_string(),
@@ -124,12 +130,12 @@ async fn chat_smoke_add_list_remove_and_validation_matrix() {
     .expect_err("长度非 32 字节的 peerId 必须 Err");
     assert!(short.contains("长度"), "实际: {short}");
 
-    let long_nick = chat_friend_add(state.clone(), valid_peer_id(), "x".repeat(65), Vec::new())
+    let long_nick = chat_friend_invite(state.clone(), valid_peer_id(), "x".repeat(65), Vec::new())
         .await
         .expect_err("昵称超 64 字符必须 Err");
     assert!(long_nick.contains("昵称"), "实际: {long_nick}");
 
-    let bad_addr = chat_friend_add(
+    let bad_addr = chat_friend_invite(
         state.clone(),
         valid_peer_id(),
         "昵称".to_string(),
@@ -180,12 +186,12 @@ async fn chat_smoke_add_list_remove_and_validation_matrix() {
     .expect_err("image kind 配 text/plain 必须 Err");
     assert!(mime_mismatch.contains("MIME"), "实际: {mime_mismatch}");
 
-    // 5. chat_friend_remove 幂等 + 历史空数组
+    // 5. chat_friend_remove 幂等 + 历史空数组（邀请制下从未建好友，均返回 false）
     assert!(
-        chat_friend_remove(state.clone(), peer.clone())
+        !chat_friend_remove(state.clone(), peer.clone())
             .await
-            .expect("移除好友"),
-        "在簿好友移除返回 true"
+            .expect("移除不在簿好友"),
+        "邀请制下从未建好友，移除返回 false"
     );
     assert!(
         !chat_friend_remove(state.clone(), peer.clone())

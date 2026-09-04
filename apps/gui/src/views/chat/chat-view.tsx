@@ -9,6 +9,7 @@ import { ChatFriendAddDialog } from "@/components/chat/chat-friend-add-dialog";
 import { ChatFriendMoveDialog } from "@/components/chat/chat-friend-move-dialog";
 import { ChatFriendRemoveDialog } from "@/components/chat/chat-friend-remove-dialog";
 import { ConversationList } from "@/components/chat/conversation-list";
+import { ChatInvitePanel } from "@/components/chat/chat-invite-panel";
 import { PeerStatusDot } from "@/components/chat/peer-status";
 import type { ChatFriendJson, ChatMessageJson } from "@/lib/ipc-types";
 import { Composer } from "@/components/chat/composer";
@@ -34,6 +35,7 @@ export function ChatView() {
   const historyLoading = selectedPeer ? historyLoadingAll[selectedPeer] ?? false : false;
   const hasMore = selectedPeer ? hasMoreAll[selectedPeer] ?? false : false;
   const loadFriends = useChatStore((s) => s.loadFriends);
+  const loadInvites = useChatStore((s) => s.loadInvites);
   const selectPeer = useChatStore((s) => s.selectPeer);
   const loadOlder = useChatStore((s) => s.loadOlder);
   const cancelPending = useChatStore((s) => s.cancelPending);
@@ -53,10 +55,11 @@ export function ChatView() {
 
   useEffect(() => {
     void loadFriends();
+    void loadInvites();
     void subscribeEvents();
     void loadGroups();
     void subscribeGroupEvents();
-  }, [loadFriends, subscribeEvents, loadGroups, subscribeGroupEvents]);
+  }, [loadFriends, loadInvites, subscribeEvents, loadGroups, subscribeGroupEvents]);
 
   const selectedFriend = friends.find((f) => f.peerId === selectedPeer);
   const selectedOnline = usePeerOnline(selectedPeer ?? "");
@@ -95,6 +98,7 @@ export function ChatView() {
             data-testid="friends-scroll"
             className="scroll-slim flex min-h-0 flex-1 flex-col overflow-y-auto"
           >
+            <ChatInvitePanel />
             <ConversationList
               friends={friends}
               lastMessages={lastMessages}

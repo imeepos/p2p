@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use base64::Engine;
 use p2p_chat::{ChatKind, ChatStatus};
 use p2p_console::chat::{
-    chat_friend_add, chat_history, chat_send, ChatMediaFileJson, ChatMediaInputJson,
+    chat_friend_invite, chat_history, chat_invite_accept, chat_invites_list, chat_send,
+    ChatMediaFileJson, ChatMediaInputJson,
 };
 use p2p_console::commands;
 use p2p_console::state::AppState;
@@ -167,8 +168,8 @@ fn chat_media_file_json_keys_match_contract() {
 }
 
 /// 双回环真节点经命令层成功投递（命令层 happy path 此前无覆盖）：
-/// friend_add 带 addr → chat_send 2000 字符边界文本 → delivered=true，
-/// replyTo 透传与对端命令层历史读回。
+/// B 发邀请 → A 同意（双向互为好友）→ chat_send 2000 字符边界文本 →
+/// delivered=true，replyTo 透传与对端命令层历史读回。
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn command_layer_loopback_delivery_with_reply_to() {
     let dir = cmd_dir("loop");
@@ -198,14 +199,27 @@ async fn command_layer_loopback_delivery_with_reply_to() {
     .expect("启动 B");
     let peer_b = status_b.peer_id.expect("B peer_id 必有");
 
-    chat_friend_add(
+    chat_friend_invite(
+    // 邀请流：B 发邀请（A 在线，实时送达）→ A 同意（双向互为好友）
+    let invite = chat_friend_invite(
+
         state_b.clone(),
         peer_a.clone(),
         "A".into(),
         status_a.listen_addrs,
     )
     .await
-    .expect("B 登记 A");
+    .expect("B 发邀请");
+    assert!(invite.delivered, "A 在线必须实时送达");
+    let accepted = chat_invite_accept(state_a.clone(), peer_b.clone(), "B".into())
+        .await
+        .expect("A 同意来邀");
+    assert_eq!(accepted.peer_id, peer_b);
+    let a_invites = chat_invites_list(state_a.clone()).await.expect("A 邀请列表");
+    assert!(
+        a_invites.iter().all(|i| i.peer_id != peer_b),
+        "同意后来邀必须清除"
+    );
     let report = chat_send(
         state_b.clone(),
         peer_a,

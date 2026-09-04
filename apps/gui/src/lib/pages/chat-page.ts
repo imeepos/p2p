@@ -47,14 +47,17 @@ async function execute(
     case "sendText":
       return useChatStore.getState().sendText(String(args.peer), String(args.text));
     case "addFriend": {
-      const friend = await ipc.chatFriendAdd(
+      const report = await ipc.chatFriendInvite(
         String(args.peerId).trim(),
         typeof args.nickname === "string" ? args.nickname.trim() : "",
         Array.isArray(args.addrs) ? args.addrs.map(String) : [],
       );
       markLocalWrite("chat");
-      await useChatStore.getState().loadFriends();
-      return friend;
+      await Promise.all([
+        useChatStore.getState().loadFriends(),
+        useChatStore.getState().loadInvites(),
+      ]);
+      return report;
     }
     case "removeFriend": {
       const peer = String(args.peer);

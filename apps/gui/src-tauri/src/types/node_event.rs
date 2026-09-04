@@ -138,6 +138,14 @@ pub enum NodeEventJson {
         #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
         ts_ms: Option<u64>,
     },
+    /// 邀请生命周期事件（契约 v9 §12.2）：incoming/accepted/rejected。
+    #[serde(rename = "chat_invite")]
+    ChatInvite {
+        peer: String,
+        state: p2p_chat::InviteState,
+        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
+        ts_ms: Option<u64>,
+    },
 }
 
 impl NodeEventJson {
@@ -159,7 +167,8 @@ impl NodeEventJson {
             | Self::ChatStatus { ts_ms, .. }
             | Self::ChatGroupMessage { ts_ms, .. }
             | Self::ChatGroupStatus { ts_ms, .. }
-            | Self::ChatGroupState { ts_ms, .. } => *ts_ms = ts,
+            | Self::ChatGroupState { ts_ms, .. }
+            | Self::ChatInvite { ts_ms, .. } => *ts_ms = ts,
         }
         self
     }
@@ -235,6 +244,11 @@ impl From<p2p_chat::ChatEvent> for NodeEventJson {
                 peer,
                 message_id,
                 status,
+                ts_ms: None,
+            },
+            p2p_chat::ChatEvent::ChatInvite { peer, state } => Self::ChatInvite {
+                peer,
+                state,
                 ts_ms: None,
             },
         }

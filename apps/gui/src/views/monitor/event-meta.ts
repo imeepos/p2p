@@ -31,6 +31,7 @@ const BADGE_VARIANT: Record<NodeEventType, BadgeVariant> = {
   node_error: "destructive",
   chat_message: "default",
   chat_status: "secondary",
+  chat_invite: "secondary",
   chat_group_message: "default",
   chat_group_status: "secondary",
   chat_group_state: "secondary",
@@ -53,6 +54,7 @@ export const EVENT_TYPE_KEY: Record<NodeEventType, I18nKey> = {
   node_error: "events.types.node_error",
   chat_message: "events.types.chat_message",
   chat_status: "events.types.chat_status",
+  chat_invite: "events.types.chat_invite",
   chat_group_message: "events.types.chat_group_message",
   chat_group_status: "events.types.chat_group_status",
   chat_group_state: "events.types.chat_group_state",
@@ -152,6 +154,11 @@ export function eventSummary(
       return {
         key: "events.summary.chatGroupStatus",
         values: { group: short(event.groupId), acked: String(event.acks.length), status: event.status },
+      };
+    case "chat_invite":
+      return {
+        key: "events.summary.chatInvite",
+        values: { peer: short(event.peer), state: event.state },
       };
     case "chat_group_state":
       return {

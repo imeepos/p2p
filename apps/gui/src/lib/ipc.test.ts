@@ -59,8 +59,8 @@ describe("ipc chat 命令映射（契约 v7 §12，真实桥接）", () => {
     await ipc.chatFriendsList();
     expect(invokeMock).toHaveBeenCalledWith("chat_friends_list");
 
-    await ipc.chatFriendAdd("p1", "nick", [ADDR]);
-    expect(invokeMock).toHaveBeenCalledWith("chat_friend_add", {
+    await ipc.chatFriendInvite("p1", "nick", [ADDR]);
+    expect(invokeMock).toHaveBeenCalledWith("chat_friend_invite", {
       peerId: "p1",
       nickname: "nick",
       addrs: [ADDR],

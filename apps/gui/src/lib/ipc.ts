@@ -6,6 +6,8 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import type {
   ChatFriendJson,
   ChatMediaFile,
+  FriendInviteJson,
+  InviteReportJson,
   ChatMessageJson,
   ChatSendReport,
   DialReport,
@@ -56,8 +58,15 @@ const tauriBackend: IpcBackend = {
     invoke<void>("update_open_release_page", { url }),
   // 契约 v7 §12.1：chat 命令面；可选参数统一传 null（serde Option 反序列化 None）。
   chatFriendsList: () => invoke<ChatFriendJson[]>("chat_friends_list"),
-  chatFriendAdd: (peerId, nickname, addrs) =>
-    invoke<ChatFriendJson>("chat_friend_add", { peerId, nickname, addrs }),
+  chatFriendInvite: (peerId, nickname, addrs) =>
+    invoke<InviteReportJson>("chat_friend_invite", { peerId, nickname, addrs }),
+  chatInvitesList: () => invoke<FriendInviteJson[]>("chat_invites_list"),
+  chatInviteAccept: (peerId, nickname) =>
+    invoke<ChatFriendJson>("chat_invite_accept", { peerId, nickname }),
+  chatInviteReject: (peerId) =>
+    invoke<void>("chat_invite_reject", { peerId }),
+  chatInviteCancel: (peerId) =>
+    invoke<boolean>("chat_invite_cancel", { peerId }),
   chatFriendRemove: (peerId) =>
     invoke<boolean>("chat_friend_remove", { peerId }),
   chatFriendUpdate: (peerId, patch) =>

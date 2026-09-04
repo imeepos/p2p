@@ -8,6 +8,8 @@ export function describeNodeEvent(event: NodeEventJson): string {
       return "peer_discovered " + short(event.peer) + " " + (event.addrs[0] ?? "");
     case "peer_connected":
       return "peer_connected " + short(event.peer);
+    case "chat_invite":
+      return "chat_invite " + short(event.peer) + " " + event.state;
     case "peer_disconnected":
       return "peer_disconnected " + short(event.peer);
     case "listen_failed":
