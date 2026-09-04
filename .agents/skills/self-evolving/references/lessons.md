@@ -137,3 +137,8 @@ _none yet — be the first._
 - 2026-09-04 GUI 节点资料轮：cargo test 全红时先做所有权取证（git diff 上游点..HEAD --stat <失败目录>）再动手——本轮 make check 连挂两次（fmt-check/test/doctest）全是并行会话刚落的 crates 改动与编译管线瞬态，与自己的 GUI 改动零交集，机械代修（fmt）+ 复跑定性（瞬态）即可，不抢别人 scope。
 - 2026-09-04 RS P0b 轮：跨任务接缝需要装配级测试兜底——E2E 夹具自建 Enforcement 绕过了 main.rs 生产装配，ShellWhitelist::empty() 集成缺口三层验收（单测/E2E/门禁）全部绿灯通过，直到人工盘点才暴露；装配路径必须有自己的非空/连通断言。
 - 2026-09-04 RS P0b 轮：完工报告里的「自曝遗留」必须在验收时逐条判定归属并回写账本——「白名单数据仍为空闭集」一行小字即生产全拒缺口；验收判据=exit code + 需求逐条对表 + 自曝遗留逐条处置，三者缺一。
+- 2026-09-04 T36 轮：协调方指定专属 worktree 路径时先确认路径存在/获准再动手——任务书未写路径不等于可自选，本次自选 /Users/imeepos/ext512/p2p-t36 被强制迁移到 .worktrees/t36-chat-boundaries，来回多花一轮；同分支不能同时 check out 在两个 worktree，迁移前先 remove 旧 worktree 再 add 新路径。
+- 2026-09-04 T36 轮：cargo 冷编译任务塞给 subagent/dispatch_task 会撞 600s 墙钟上限（两次 10 分钟白烧）——重构建/长测试一律自己用 bash run_in_background 起 job，job_output(wait) 收集，别委派给会话型工具。
+- 2026-09-04 T36 轮：后台 bash job 的权威退出码在 job_list 的 detail 字段（"exit code: 0"），输出重定向/日志缺 stdout 时以 detail 为准，不要靠翻日志猜。
+- 2026-09-04 T36 轮：bash 工具偶发 spawn ENOENT（code worker 瞬断）——隔 1-2 分钟自动恢复，用 job_list 等轻调用探活，勿连续重击。
+- 2026-09-04 T36 轮：重派任务书修正验收 cd 深度时先复算再执行——apps/gui/src-tauri 的 ../../.. 恰为各 worktree 根，p2p-t36 与 .worktrees/t36 两处语义一致，无需改命令只需换 workdir。
