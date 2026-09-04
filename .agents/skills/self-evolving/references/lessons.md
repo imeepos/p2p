@@ -197,3 +197,8 @@ _none yet — be the first._
 - 2026-09-04：AGENTS.md 写"远端名是 gitea 不是 origin"，但本仓库实测 git remote 只有 origin——仓库级惯例文件会过时或张冠李戴，涉及远端操作前先 git remote 实测再动手。
 - 2026-09-04：git worktree add 不能检出已被其他 worktree 占用的分支（fatal: already used by worktree）；验证钩子/临时检出用 --detach，不占分支名。
 - 2026-09-04：post-checkout 触发面：HEAD 级检出（分支切换/新 worktree/clone）都触发（flag=1 或 old=全零），git checkout -- <path> 路径级不触发（flag=0）——钩子内按 flag 过滤可避免路径检出误动作。
+- 2026-09-04 N2：git stash pop 或外部脚本改写文件后，edit 工具必报 file changed
+  since it was read——先重读再改，别凭记忆构造 old_string。
+- 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
+  从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
+  用自己的合并点并注明 main 已前进到含它的后继提交。

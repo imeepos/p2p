@@ -371,3 +371,10 @@ devloop_ledger(action=save) 修正任务记录（note 写明误跑根因）；
 症状：git config core.hooksPath githooks（相对路径）后，从主树发起 git worktree add，post-checkout 钩子完全不执行（无输出无报错），新 worktree 缺 .env；换到有 githooks/ 检出的目录发起就正常。
 原因：worktree add 触发钩子时，相对 hooksPath 相对"发起命令时的 cwd"解析，不是相对新 worktree 也不是相对 GIT_DIR；目标目录没有钩子文件 git 就静默跳过，无任何警告。
 修法：引导一律写绝对路径 git config core.hooksPath "$(pwd)/githooks"（在仓库根执行）；诊断钩子未触发先用 echo 哨兵钩子验证是否真的被执行、从哪个 cwd 解析。
+
+## 2026-09-04 N2：quoted heredoc 里手工转义反引号 → 字面反斜杠落盘
+症状：cat >> file 加 quoted heredoc 追加的 markdown 里出现反斜杠加反引号的转义残骸，文档渲染破相。
+原因：quoted heredoc 本就不做任何展开，内容里的反引号原样安全；在 JS 侧先
+replace 转义再过 heredoc，等于双层转义，反斜杠被当正文写进文件。
+修法：quoted heredoc 内容零转义直写；已污染用 python3 replace(chr(92)+chr(96),
+chr(96)) 修复并断言计数，别用 sed 硬拼正则。
