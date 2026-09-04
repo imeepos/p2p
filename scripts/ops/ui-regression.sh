@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-# U1 UI 回归批产：基于页面语义协议（GC3/GC4）对 8 路由逐页回归。
-# 每页三步：1) gui navigate → gui page --json 断言 2) 动作级断言 3) gui screenshot PNG 证据。
-# 动作断言模式：CONFIRM_NEG=危险动作缺 confirm 断言 ACTION_CONFIRM_REQUIRED 拒绝；
-#   EXEC_STRUCT=只读动作真执行、以必拒绝参数取结构化 ACTION_FAILED（零网络零数据）；
-#   REGISTRY_GAP=未注册页（当前注册表仅 chat/peers/settings）断言其结构化
-#   PAGE_NOT_REGISTERED 拒绝——协议缺口按 R4 只报不改，负向断言计分。
-# 用法：ui-regression.sh [--keep <dir>]。默认证据入临时目录退出全清（造数不过夜）；
-#   --keep <dir> 保留全部截图与 report.txt。幂等：零数据写入（从不传 confirm=true）。
+# U1 UI 回归批产：页面语义协议（GC3/GC4）8 路由逐页回归（navigate+page 断言、动作断言、截图证据）。
+# CONFIRM_NEG=危险动作缺 confirm 被拒；EXEC_STRUCT=只读动作真执行取结构化拒绝；
+# REGISTRY_GAP=未注册页（R4 只报不改，现仅 chat/peers/settings）断言 PAGE_NOT_REGISTERED，负向计分。
+# 用法：[--keep <dir>]；默认临时目录退出全清、--keep 直写指定目录；幂等零写入（从不传 confirm=true）。
 set -euo pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
 
@@ -66,6 +62,8 @@ cleanup() {
         done
         kill -9 "$CHILD" 2>/dev/null || true
     fi
+    # 显式回收并丢弃终止状态：不给异步 reap 把信号状态泄进脚本退出码的机会。
+    wait "$CHILD" 2>/dev/null || true
     # 端点文件只动本实例：有备份还原备份；否则 pid 匹配才删（不碰外部 GUI 的端点）。
     if [ -n "$EP_BACKUP" ]; then
         mkdir -p "$(dirname "$EP_FILE")"
@@ -146,7 +144,7 @@ start_gui() {
         EPID="$(grep -Eo '"pid": [0-9]+' "$EP_FILE" 2>/dev/null | grep -Eo '[0-9]+')"
         if [ -n "$EPID" ] && ps -p "$EPID" >/dev/null 2>&1 \
             && "$CTL" gui status --json >/dev/null 2>&1 \
-            && "$CTL" gui page >/dev/null 2>&1; then
+            && ! "$CTL" gui page 2>&1 | grep -q "PAGE_TIMEOUT"; then
             echo "复用已运行 GUI 实例 pid=$EPID（外部进程不杀不复位）"
             return 0
         fi
@@ -154,16 +152,18 @@ start_gui() {
     [ -f "$EP_FILE" ] && EP_BACKUP="$(cat "$EP_FILE")" || true
     "$GUI_BIN" >>"$GUI_LOG" 2>&1 &
     CHILD=$!
-    local i
-    for i in $(seq 1 240); do
+    disown "$CHILD" 2>/dev/null || true
+    # 就绪门含 page 协议探针：端点就绪 ≠ webview 桥就绪（重载下桥安装晚于端点，
+    # 直接开跑会全数 PAGE_TIMEOUT 假红）；探针单次 ≤5s（服务端回执超时）。
+    for i in $(seq 1 60); do
         if [ -f "$EP_FILE" ] \
             && grep -Eq "\"pid\": $CHILD([^0-9]|$)" "$EP_FILE" \
-            && "$CTL" gui status --json >/dev/null 2>&1; then
+            && "$CTL" gui status --json >/dev/null 2>&1 \
+            && ! "$CTL" gui page 2>&1 | grep -q "PAGE_TIMEOUT"; then
             echo "GUI 就绪 pid=$CHILD"
             return 0
         fi
-        kill -0 "$CHILD" 2>/dev/null || break
-        sleep 1
+        kill -0 "$CHILD" 2>/dev/null || break; sleep 1
     done
     ps -p "$CHILD" -o pid,stat,etime,comm 2>/dev/null >&2 || true
     tail -20 "$GUI_LOG" >&2 || true
@@ -271,9 +271,7 @@ emit_report() {
         echo "== U1 UI 回归报告（8 路由：navigate/page 断言 + 动作断言 + screenshot） =="
         echo "route        verdict pass/total mode         note"
         printf '%s' "$PAGE_TABLE"
-        echo "-- 模式: CONFIRM_NEG=危险动作缺confirm被拒 EXEC_STRUCT=只读动作真执行取结构化拒绝 REGISTRY_GAP=未注册页结构化拒绝 --"
-        echo "-- 协议缺口（R4 只报不改，待协调者另立卡）: 注册表仅登记 chat/peers/settings --"
-        echo "GAP_PAGES:$GAP_PAGES"
+        echo "GAP_PAGES:${GAP_PAGES}（R4 只报不改待另立卡: 注册表仅登记 chat/peers/settings）"
         echo "SUMMARY: pages=$PAGES_TOTAL passed=$PASSED_PAGES failed=$FAILED_PAGES assertions=$ASSERT_PASS/$((ASSERT_PASS + ASSERT_FAIL))"
         echo "EVIDENCE: keep=$KEEP_DIR dir=$SHOT_DIR pngs=$(ls "$SHOT_DIR" | grep -c '\.png$' || true)"
         if [ "$FAILED_PAGES" -eq 0 ]; then
@@ -293,7 +291,10 @@ main() {
         run_page "$r"
     done
     emit_report
-    [ "$FAILED_PAGES" -eq 0 ] || exit 1
+    if [ "$FAILED_PAGES" -eq 0 ]; then
+        exit 0
+    fi
+    exit 1
 }
 
 main "$@"
