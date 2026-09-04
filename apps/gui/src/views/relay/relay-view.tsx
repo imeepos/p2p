@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 
 import { PageHeader } from "@/components/page/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
 import { ChainNoteCard } from "./chain-note-card";
@@ -23,6 +24,7 @@ export function RelayView() {
       if (!effective) return;
       try {
         const saved = await ipc.configSave({ ...effective, relayAddrs });
+        markLocalWrite("config");
         setLocalConfig(saved);
       } catch (error) {
         console.error("[relay] relayAddrs 保存失败", error);

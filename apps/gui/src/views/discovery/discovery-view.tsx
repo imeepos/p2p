@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { PageHeader } from "@/components/page/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
 import { errorText } from "@/views/shared/form-flow";
@@ -25,6 +26,7 @@ export function DiscoveryView() {
       if (!effective) return false;
       try {
         const saved = await ipc.configSave({ ...effective, bootstrap });
+        markLocalWrite("config");
         setLocalConfig(saved);
         toastSuccess(t("discovery.rendezvous.saved"));
         return true;

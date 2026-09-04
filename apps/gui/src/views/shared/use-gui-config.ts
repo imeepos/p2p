@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { registerReloader, startDataWatch } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
 
@@ -28,7 +29,14 @@ export function useGuiConfig() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reload]);
+
+  // W1：CLI 改写 gui-config.json → data-changed[config] → 挂载中的视图定向重载。
+  // startDataWatch 幂等单例；注销避免卸载视图被无主重载。
+  useEffect(() => {
+    void startDataWatch();
+    return registerReloader("config", () => void reload());
+  }, [reload]);
 
   return { config, failed, reload };
 }

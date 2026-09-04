@@ -11,6 +11,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import type { GuiConfig } from "@/lib/ipc-types";
 import { errorText } from "@/views/shared/form-flow";
@@ -29,6 +30,7 @@ export function MdnsCard({ config, onSaved }: MdnsCardProps) {
     if (!config) return;
     try {
       const saved = await ipc.configSave({ ...config, enableMdns: next });
+      markLocalWrite("config");
       onSaved(saved);
       toastSuccess(t("discovery.mdns.saved"));
     } catch (error) {

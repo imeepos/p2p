@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import type { NodeProfile } from "@/lib/ipc-types";
 
@@ -37,6 +38,8 @@ export const useProfileStore = create<ProfileStoreState>()((set) => ({
 
   save: async (next) => {
     const profile = await ipc.profileSave(next);
+    // W1 回声抑制：自身写盘触发的 data-changed[profile] 不再重复重载
+    markLocalWrite("profile");
     set({ profile, loaded: true });
     return profile;
   },

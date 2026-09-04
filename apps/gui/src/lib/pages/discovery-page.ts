@@ -1,6 +1,7 @@
 // discovery 页 descriptor：mDNS 开关 / rendezvous 地址簿与页面同源
 // （configGet -> 校验 -> configSave，校验复用 address-rules）；removeBootstrap
 // 与删除确认框同源，为危险动作，registry 强制 args.confirm===true。
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";
 import { isValidTransportAddr } from "@/views/shared/address-rules";
@@ -42,23 +43,30 @@ async function execute(
 ): Promise<unknown> {
   const config = await ipc.configGet();
   switch (action) {
-    case "setMdns":
-      return ipc.configSave({ ...config, enableMdns: args.enable === true });
+    case "setMdns": {
+      const saved = await ipc.configSave({ ...config, enableMdns: args.enable === true });
+      markLocalWrite("config");
+      return saved;
+    }
     case "addBootstrap": {
       const addr = String(args.addr).trim();
       if (!isValidTransportAddr(addr)) throw new Error(`addrFormat: ${addr}`);
       if (config.bootstrap.includes(addr)) throw new Error(`addrDuplicate: ${addr}`);
-      return ipc.configSave({ ...config, bootstrap: [...config.bootstrap, addr] });
+      const added = await ipc.configSave({ ...config, bootstrap: [...config.bootstrap, addr] });
+      markLocalWrite("config");
+      return added;
     }
     case "removeBootstrap": {
       const addr = String(args.addr);
       if (!config.bootstrap.includes(addr)) {
         throw new Error(`bootstrap addr not found: ${addr}`);
       }
-      return ipc.configSave({
+      const removed = await ipc.configSave({
         ...config,
         bootstrap: config.bootstrap.filter((item) => item !== addr),
       });
+      markLocalWrite("config");
+      return removed;
     }
     default:
       throw new Error(`discovery 页未知动作: ${action}`);

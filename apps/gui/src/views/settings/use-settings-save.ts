@@ -5,6 +5,7 @@ import type { UseFormReturn } from "react-hook-form";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
+import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { useNodeStore } from "@/stores/node-store";
 import {
@@ -41,6 +42,7 @@ export function useSettingsSave(form: UseFormReturn<SettingsFormValues>) {
   const saveAndReload = useCallback(
     async (values: SettingsFormValues) => {
       await ipc.configSave(toGuiConfig(values));
+      markLocalWrite("config");
       form.reset(toFormValues(await ipc.configGet()));
       toastSuccess(t("settings.saveBar.saved"));
     },
@@ -70,6 +72,7 @@ export function useSettingsSave(form: UseFormReturn<SettingsFormValues>) {
     if (!(await form.trigger())) throw new Error(FORM_VALIDATION_MARK);
     const values = toGuiConfig(form.getValues());
     await ipc.configSave(values);
+    markLocalWrite("config");
     await stopNode();
     await startNode(values);
     form.reset(toFormValues(await ipc.configGet()));
