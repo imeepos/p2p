@@ -5,10 +5,10 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
-use super::OutputArgs;
 use super::channel::Channel;
+use super::OutputArgs;
 use super::{open, parse_pairs};
 use crate::error::{CliError, CliResult};
 use crate::output;
@@ -87,7 +87,10 @@ fn render_page(data: &Value) -> String {
     let actions = descriptor["actions"].as_array();
     let mut lines = vec![
         format!("page={}", data["page"].as_str().unwrap_or(name)),
-        format!("schemaVersion={}", data["schemaVersion"].as_u64().unwrap_or(0)),
+        format!(
+            "schemaVersion={}",
+            data["schemaVersion"].as_u64().unwrap_or(0)
+        ),
         format!("name={name}"),
         format!("description={description}"),
         format!("actions={}", actions.map_or(0, |a| a.len())),
@@ -106,7 +109,10 @@ fn render_action(action: &Value) -> String {
     } else {
         ""
     };
-    format!("- {name}: {description}{confirm}\n  args: {}", render_args(action))
+    format!(
+        "- {name}: {description}{confirm}\n  args: {}",
+        render_args(action)
+    )
 }
 
 fn render_args(action: &Value) -> String {
@@ -164,8 +170,14 @@ mod tests {
         assert!(text.contains("name=chat"), "{text}");
         assert!(text.contains("description=IM 聊天页"), "{text}");
         assert!(text.contains("actions=3"), "{text}");
-        assert!(text.contains("- sendText: 发送文本\n  args: peer(string,必填) text(string,必填)"), "{text}");
-        assert!(text.contains("- removeFriend: 移除好友 [confirm]"), "{text}");
+        assert!(
+            text.contains("- sendText: 发送文本\n  args: peer(string,必填) text(string,必填)"),
+            "{text}"
+        );
+        assert!(
+            text.contains("- removeFriend: 移除好友 [confirm]"),
+            "{text}"
+        );
         assert!(text.contains("- refresh: 刷新\n  args: （无）"), "{text}");
         // state 不入文本，留 --json 全量
         assert!(!text.contains("friends"), "{text}");
@@ -174,7 +186,10 @@ mod tests {
     #[test]
     fn render_page_tolerates_missing_fields() {
         let text = render_page(&json!({}));
-        assert_eq!(text, "page=?\nschemaVersion=0\nname=?\ndescription=\nactions=0");
+        assert_eq!(
+            text,
+            "page=?\nschemaVersion=0\nname=?\ndescription=\nactions=0"
+        );
     }
 
     #[test]

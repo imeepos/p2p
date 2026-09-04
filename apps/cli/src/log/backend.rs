@@ -23,7 +23,9 @@ impl FrontendLog {
             Some(dir) => PathBuf::from(dir),
             None => default_gui_log_dir()?,
         };
-        Ok(Self { path: dir.join(FRONTEND_LOG_FILE) })
+        Ok(Self {
+            path: dir.join(FRONTEND_LOG_FILE),
+        })
     }
 
     pub fn path(&self) -> &Path {
@@ -117,7 +119,11 @@ mod tests {
         let log = FrontendLog::resolve(dir.to_str()).unwrap();
         std::fs::write(log.path(), "1\n2\n3\n").unwrap();
         assert_eq!(log.tail(2).unwrap(), vec!["2", "3"]);
-        assert_eq!(log.tail(MAX_TAIL_LINES + 5).unwrap().len(), 3, "上限钳制到 1000");
+        assert_eq!(
+            log.tail(MAX_TAIL_LINES + 5).unwrap().len(),
+            3,
+            "上限钳制到 1000"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

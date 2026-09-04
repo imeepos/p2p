@@ -47,7 +47,12 @@ fn validate_addr(addr: &str) -> Result<(), String> {
 }
 
 /// 状态快照（含生效配置的 JSON 形态）。
-pub fn status_json(node: &Node, config: &crate::types::GuiConfig, started_at: Instant, started_at_ms: u64) -> Value {
+pub fn status_json(
+    node: &Node,
+    config: &crate::types::GuiConfig,
+    started_at: Instant,
+    started_at_ms: u64,
+) -> Value {
     let status = NodeStatus {
         running: true,
         peer_id: Some(node.local_peer_id().to_string()),
@@ -116,7 +121,12 @@ pub async fn ping(node: &Node, peer_id: &str, timeout_ms: u64) -> Result<Value, 
         .map_err(|e| format!("内置 echo 协议 id 非法: {e}"))?;
     let started = Instant::now();
     let mut hops = Vec::new();
-    let request = node.request(peer, id, p2p_cli::echo::PING_PAYLOAD.to_vec(), Duration::from_millis(timeout_ms));
+    let request = node.request(
+        peer,
+        id,
+        p2p_cli::echo::PING_PAYLOAD.to_vec(),
+        Duration::from_millis(timeout_ms),
+    );
     tokio::pin!(request);
     let reply = loop {
         tokio::select! {
@@ -171,13 +181,21 @@ fn drain_hops(rx: &mut tokio::sync::broadcast::Receiver<NodeEvent>) -> Vec<DialH
     let mut hops = Vec::new();
     loop {
         match rx.try_recv() {
-            Ok(NodeEvent::DialHop { hop, ok, detail, .. }) => {
-                hops.push(DialHopJson { hop: HopKind::from(hop), ok, detail });
+            Ok(NodeEvent::DialHop {
+                hop, ok, detail, ..
+            }) => {
+                hops.push(DialHopJson {
+                    hop: HopKind::from(hop),
+                    ok,
+                    detail,
+                });
             }
             Ok(_) => {}
             Err(tokio::sync::broadcast::error::TryRecvError::Lagged(_)) => {}
-            Err(tokio::sync::broadcast::error::TryRecvError::Empty
-            | tokio::sync::broadcast::error::TryRecvError::Closed) => break,
+            Err(
+                tokio::sync::broadcast::error::TryRecvError::Empty
+                | tokio::sync::broadcast::error::TryRecvError::Closed,
+            ) => break,
         }
     }
     hops

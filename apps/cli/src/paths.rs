@@ -22,7 +22,9 @@ pub struct Paths {
 
 impl Paths {
     pub fn new(data_dir: &str) -> Self {
-        Self { root: PathBuf::from(data_dir) }
+        Self {
+            root: PathBuf::from(data_dir),
+        }
     }
 
     pub fn config(&self) -> PathBuf {
@@ -90,13 +92,7 @@ mod tests {
     #[test]
     fn node_data_dir_prefers_config_value() {
         let p = Paths::new("/tmp/x");
-        assert_eq!(
-            p.node_data_dir(Some("/abs/dir")),
-            PathBuf::from("/abs/dir")
-        );
-        assert_eq!(
-            p.node_data_dir(None),
-            PathBuf::from("/tmp/x/p2p-data")
-        );
+        assert_eq!(p.node_data_dir(Some("/abs/dir")), PathBuf::from("/abs/dir"));
+        assert_eq!(p.node_data_dir(None), PathBuf::from("/tmp/x/p2p-data"));
     }
 }

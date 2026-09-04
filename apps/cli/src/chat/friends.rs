@@ -120,15 +120,7 @@ fn group_sections(friends: &[ChatFriend]) -> Vec<(Option<&str>, Vec<&ChatFriend>
     });
     order
         .into_iter()
-        .map(|g| {
-            (
-                g,
-                friends
-                    .iter()
-                    .filter(|f| friend_group(f) == g)
-                    .collect(),
-            )
-        })
+        .map(|g| (g, friends.iter().filter(|f| friend_group(f) == g).collect()))
         .collect()
 }
 

@@ -16,7 +16,11 @@ pub async fn call(paths: &Paths, request: Value) -> Result<Value, CliError> {
 }
 
 /// 慢操作（dial/ping 走真实网络降级链）用放宽超时，语义同 [call]。
-pub async fn call_slow(paths: &Paths, request: Value, timeout: Duration) -> Result<Value, CliError> {
+pub async fn call_slow(
+    paths: &Paths,
+    request: Value,
+    timeout: Duration,
+) -> Result<Value, CliError> {
     unwrap_response(raw_call(paths, request, Some(timeout)).await?)
 }
 
@@ -39,7 +43,11 @@ fn unwrap_response(response: Value) -> Result<Value, CliError> {
 }
 
 /// 连接 + 单请求往返；timeout=None 表示不限时（由调用方约束）。
-async fn raw_call(paths: &Paths, request: Value, timeout: Option<Duration>) -> Result<Value, CliError> {
+async fn raw_call(
+    paths: &Paths,
+    request: Value,
+    timeout: Option<Duration>,
+) -> Result<Value, CliError> {
     let fut = async {
         let stream = UnixStream::connect(paths.sock())
             .await
