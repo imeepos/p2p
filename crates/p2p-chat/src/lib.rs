@@ -2,6 +2,7 @@
 //! 发送：校验 → 落 outbox → 连接 → 帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
 
 mod core;
+mod drain;
 mod friend;
 mod group;
 mod group_core;
@@ -23,7 +24,6 @@ pub use identity_lock::try_lock_identity;
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
 use p2p::Node;
 use tokio::sync::broadcast;
@@ -279,22 +279,5 @@ impl Chat {
             message: env,
             delivered,
         })
-    }
-
-    /// 排空该 peer 的 outbox（CLI one-shot，D5）：返回补投条目数。
-    pub async fn drain_peer(&self, peer: &str, budget: Duration) -> Result<usize, ChatError> {
-        let pid = model::parse_peer_id(peer)?;
-        let before = self.core.store.outbox_for(peer).len();
-        if before == 0 {
-            return Ok(0);
-        }
-        self.core
-            .node
-            .connect(pid)
-            .await
-            .map_err(|e| ChatError::ConnectFailed(format!("连接 {peer} 失败：{e}")))?;
-        let _ = tokio::time::timeout(budget, outbox::flush_peer(&self.core, peer)).await;
-        let after = self.core.store.outbox_for(peer).len();
-        Ok(before.saturating_sub(after))
     }
 }
