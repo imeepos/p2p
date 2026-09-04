@@ -126,11 +126,15 @@ build_if_missing() {
         echo "前端产物缺失，pnpm build…" >&2
         (cd "$GUI_DIR" && pnpm build) >&2
     fi
-    if [ ! -x "$GUI_BIN" ]; then
-        # tauri v2 plain cargo build 是 dev 态二进制（加载 devUrl），无 dev 服务器时
-        # webview 空壳必 PAGE_TIMEOUT，必须 custom-protocol（cli-page-e2e.sh 实测）。
-        echo "GUI 二进制缺失，cargo build src-tauri（custom-protocol）…" >&2
-        (cd "$GUI_DIR/src-tauri" && cargo build --features tauri/custom-protocol) >&2
+    # tauri v2 plain cargo build 是 dev 态二进制（加载 devUrl），无 dev 服务器时
+    # webview 空壳必 PAGE_TIMEOUT，必须 custom-protocol（cli-page-e2e.sh 实测）。
+    # cargo test 会把 GUI_BIN 重建成 dev 态且 mtime 翻新，marker 比对识别这种
+    # "新但错模式"的 staleness（2026-09-04 GC3c 回归实测）。
+    MARKER="$GUI_DIR/src-tauri/target/debug/.custom-protocol-built"
+    if [ ! -x "$GUI_BIN" ] || [ "$GUI_BIN" -nt "$MARKER" ]; then
+        echo "GUI 二进制缺失或非 custom-protocol 态，cargo build src-tauri…" >&2
+        (cd "$GUI_DIR/src-tauri" && cargo build --features tauri/custom-protocol) >&2 \
+            && touch "$MARKER"
     fi
     [ -x "$CTL" ] || fail "BUILD_MISSING" "p2pctl 构建后仍不可执行: $CTL"
     [ -x "$GUI_BIN" ] || fail "BUILD_MISSING" "GUI 二进制构建后仍不可执行: $GUI_BIN"
@@ -202,13 +206,10 @@ assert_action() {
     local route="$1"
     case "$route" in
         chat)
-            expect_code ACTION_CONFIRM_REQUIRED \
-                "$CTL" gui action chat removeFriend peer="$SYNTH_PEER" --navigate ;;
-        peers)
-            # peers 无 confirm 动作：只读 ping 以 timeoutMs=0 真执行到 store/IPC 校验层。
+            expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action chat removeFriend peer="$SYNTH_PEER" --navigate ;;
+        peers) # 无 confirm 动作：只读 ping 以 timeoutMs=0 真执行到 store/IPC 校验层
             PAGE_MODE="EXEC_STRUCT"
-            expect_code ACTION_FAILED \
-                "$CTL" gui action peers ping peerId="$SYNTH_PEER" timeoutMs=0 --navigate ;;
+            expect_code ACTION_FAILED "$CTL" gui action peers ping peerId="$SYNTH_PEER" timeoutMs=0 --navigate ;;
         settings)
             expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action settings resetIdentity --navigate ;;
         dashboard)
@@ -222,8 +223,7 @@ assert_action() {
         relay) # EXEC_STRUCT：非法地址在校验层结构化拒绝，零写入真执行
             PAGE_MODE="EXEC_STRUCT"
             expect_code ACTION_FAILED "$CTL" gui action relay saveRelayAddrs 'relayAddrs=["invalid-addr"]' --navigate ;;
-        *)
-            a_fail "route 缺动作断言: $route" ;;
+        *) a_fail "route 缺动作断言: $route" ;;
     esac
 }
 
