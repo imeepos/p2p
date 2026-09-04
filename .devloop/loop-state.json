@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T06:37:00.326Z",
+  "updatedAt": "2026-09-04T06:58:40.249Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -232,11 +232,13 @@
       "goal": "五页视觉二轮打磨（V1 识图复核 9 未生效+4 部分生效清单为需求，零残留退出）：【仪表盘】D2 第二行指标卡改与第一行一致的小标签+大数字垂直栈；D3 空趋势图降高度或加暂无数据占位文案；D4 底部区块垂直节奏对齐；D1 彻底消除停止按钮红色系（中性边框）【对端】P1 空态卡留白收敛；P2 筛选 Tab 加激活态指示（填充或下划线）【发现】F1 左右卡底端对齐；F2 删除按钮触控区≥32px 且垂直居中【中继】R2 左右卡高度对齐（评估恢复分立嵌套但缩小字号）【设置】S1 头像区基线对齐+说明文字对比度 AA；S2 未选中 chip 边界强化；S4 mDNS 长描述与开关间距/换行；S6 保存与提示同行+对比度提升。全部完成后协调者识图复核逐项判定，零未生效方可翻 done",
       "title": "IM-V2 五页视觉二轮打磨（零残留）",
       "priority": "P1",
-      "status": "doing",
+      "status": "review",
       "branch": "feat/im-visual-v2",
       "ownerSession": "session-137ee467-a012-4b13-867c-acdc353c4262",
       "scope": "apps/gui/src：views/{dashboard,monitor,discovery,relay,settings}、views/shared（EmptyState/StatusBadge 若需）、i18n；components/chat 与 views/chat 只读；不改行为逻辑",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'",
+      "mergedMain": "0a95970",
+      "note": "机械验收 exit 0（主树 0a95970 全链：vitest 221 用例 + build + i18n zh=423/en=423 + make check 含 cli-parity/panic-hygiene/行数红线）；13 项 DOM 级证据 = im-visual-v2.test.tsx 13/13 + CDP 实测（D1 停止按钮无 destructive / D2 八卡 minHeight 112 / D4 三卡 160 等高 / F1 底边 334 对齐 / F2 36x36 居中 / P2 激活底 oklch 0.205 实心 / R2 左右 339 等高 / S1 对比度 7.56:1 AA）。三提交 502bdbc(style,14 文件)/d1f93bc(test,13 用例)/0a95970(docs,前后截图) rebase 5a90d5f 后 ff 入 main 并推 origin，分支/worktree 已清理。范围偏差仅 components/layout/topbar.tsx（D1 唯一红色停止按钮所在，零残留必要改动，提交正文已声明）。此前 devloop_accept fail 系其 projectRoot 误指 wt-t36-boundary（exit null 非代码红），主树复跑 exit 0 修正。前后截图 docs/notes/ui-im-visual-v2/，识图复核待协调者逐项判定。"
     }
   ]
 }
