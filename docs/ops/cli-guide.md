@@ -146,11 +146,22 @@ p2pctl gui record start -o <绝对路径> [--interval-ms MS] [--gui-data-dir DIR
 p2pctl gui record stop  [--gui-data-dir DIR] [--json]    # 收尾落盘，回报 path/frames/bytes
 p2pctl gui navigate <路由> [--gui-data-dir DIR] [--json] # dashboard/peers/discovery/relay/chat/events/settings/diagnostics
 p2pctl gui invoke <命令> [--arg k=v ...] [--gui-data-dir DIR] [--json]  # 白名单只读转发
+p2pctl gui page [--gui-data-dir DIR] [--json]             # 当前页语义 descriptor（--json 含 args schema 与 state）
+p2pctl gui action <页面> <动作> [K=V...] [--navigate] [--gui-data-dir DIR] [--json]  # 执行页面动作
 ```
 
 - `invoke` 白名单由 GUI 侧权威维护（当前：node_status / metrics_get /
   metrics_history / config_get / profile_get），越权命令返回 `INVOKE_FORBIDDEN`
   退出码 1；`--arg k=v` 中 v 可解析为 JSON 值则保留类型。
+- `page`/`action` 消费页面语义协议（GET page/current / POST page/action，GC3）：
+  页面注册表由 GUI 前端维护（示范页 chat/peers/settings，其余页随 GC3b 扩量），
+  动作与页面按钮同源（store/IPC），非 DOM 模拟。`page` 文本输出 name/description/
+  actions 表格（每动作含 args schema 标注与 [confirm] 标记），`--json` 为服务端全量
+  descriptor（含 args schema 与 state）。
+- `action` 的 K=V 参数布尔/数字按 JSON 类型解析（与 `--arg` 同规则）；非当前页默认
+  结构化报错并附「gui navigate <页面>」指引，`--navigate` 先切页再执行；危险动作
+  （descriptor 标 confirm）缺 `confirm=true` 时服务端以 `ACTION_CONFIRM_REQUIRED`
+  拒绝，CLI 透传错误码可读呈现。
 - screenshot/record 依赖 macOS 屏幕录制权限：权限缺失时 GUI 返回
   `CAPTURE_PERMISSION_DENIED`，CLI 原样透出（不静默、不重试）。
 - 该域为 CLI 单侧能力（GUI 命令面未新增 Tauri 命令），不进 §6 映射表。
@@ -185,6 +196,7 @@ bash scripts/ops/cli-chat-e2e.sh        # CL3：chat 好友/历史/发送/附件
 bash scripts/ops/cli-log-update-e2e.sh  # CL4：log/metrics/update 域（末行 CL4-E2E-OK）
 bash scripts/ops/cli-gui-e2e.sh        # GC2：gui 域 × 真实 GUI 控制通道（末行 GC2-E2E-OK）
 bash scripts/ops/cli-gui-data-e2e.sh   # N2：GUI×CLI 数据面互操作（末行 N2-E2E-OK）
+bash scripts/ops/cli-page-e2e.sh       # GC4：gui page/action × 真实 GUI 页面协议 + 前后截图证据（末行 GC4-E2E-OK）
 ```
 
 `cli-gui-data-e2e.sh` 以临时 HOME 隔离启动真实 GUI，与 CLI 指向同一数据目录：
