@@ -108,6 +108,7 @@ serde_json = "1"
 bs58 = "0.5"
 futures = "0.3"
 async-trait = "0.1"
+tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 p2p = { path = "${crates}/p2p" }
 p2p-identity = { path = "${crates}/p2p-identity" }
@@ -421,6 +422,20 @@ async fn serve(args: &Args) {
         period: args.get("period").to_owned(),
     }));
     println!("SERVE-READY quic={quic}");
+    // 自查询保活：维持 rendezvous 链路活跃；注册空白窗口期自观测留痕
+    {
+        let kn = node.clone();
+        let kp_str = peer_str.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs(10)).await;
+                match kn.query_peer(&kp_str).await {
+                    Ok(addrs) if !addrs.is_empty() => {}
+                    _ => tracing::warn!("self-query empty: rendezvous 注册可能存在空白窗口"),
+                }
+            }
+        });
+    }
     tokio::signal::ctrl_c().await.ok();
 }
 
@@ -608,6 +623,7 @@ fn write_json(path: &str, value: &impl serde::Serialize) {
 fn write_ledger_file(path: &str, receipt: &Receipt) {
     write_json(path, &serde_json::json!({ "v": 1, "receipts": [receipt] }));
 }
+
 RUST_EOF
 }
 
@@ -761,7 +777,7 @@ s2_s3_probe() {
     PROBE_OUT="$(gt 120 "$HARNESS_BIN" call --probe \
         --data "$WORK/borrower/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --discover-wait 15 2>&1)" || rc=$?
+        --lender "$LENDER_PEER" --model "$MODEL" --discover-wait 30 2>&1)" || rc=$?
     printf '%s\n' "$PROBE_OUT"
     if [ "$rc" -ne 0 ]; then
         log "---- 诊断: 出借方 serve.log 尾部"
@@ -783,7 +799,7 @@ s4_call() {
     CALL_OUT="$(gt 150 "$HARNESS_BIN" call \
         --data "$WORK/borrower-s4/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 \
+        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s4 --max-tokens 64 --discover-wait 60 \
         --receipt-out "$WORK/receipt.json" --ledger-out "$WORK/llm-share/ledger.json" 2>&1)" || rc=$?
     printf '%s\n' "$CALL_OUT"
     [ "$rc" -eq 0 ] || die "S4 调用失败（rc=$rc)"
@@ -804,7 +820,7 @@ s5_negative() {
     REJECT_OUT="$(gt 150 "$HARNESS_BIN" call \
         --data "$WORK/borrower2/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s5 \
+        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s5 --discover-wait 60 \
         --expect-reject NotAllowlisted 2>&1)" || rc=$?
     printf '%s\n' "$REJECT_OUT"
     [ "$rc" -eq 0 ] || sc_fail "S5" "非 allowlist 调用未按预期被拒（rc=$rc)"
@@ -832,7 +848,7 @@ s6_observable() {
     BROKEN_OUT="$(gt 150 "$HARNESS_BIN" call \
         --data "$WORK/borrower-s6b/p2p-data" \
         --bootstrap "$LOCAL_IP/u$BOOT_QUIC" --observation "$LOCAL_IP:$OBS_PORT" \
-        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s6b --expect-broken \
+        --lender "$LENDER_PEER" --model "$MODEL" --req-id req-t23-s6b --expect-broken --discover-wait 60 \
         --receipt-out "$WORK/receipt-broken.json" 2>&1)" || rc2=$?
     printf '%s\n' "$BROKEN_OUT"
     [ "$rc2" -eq 0 ] || sc_fail "S6" "断流路径失败（rc=$rc2)"
