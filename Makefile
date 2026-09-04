@@ -37,6 +37,12 @@ gui-check:
 gui-tauri-check:
 	bash scripts/check/gui-tauri.sh
 
+# UI 回归（opt-in，不进 check）：macOS GUI 会话专用，分钟级：起 GUI 实例逐页
+# navigate/descriptor/动作断言/截图；GUI 改动合并前后手动跑（分层门禁实践：
+# 快门禁进 CI，重 E2E 独立靶）
+ui-regression:
+	bash scripts/ops/ui-regression.sh
+
 # 版本一致性：apps/gui 三处版本（package.json / tauri.conf.json / Cargo.toml）必须同值
 version-check:
 	bash scripts/check/version.sh
