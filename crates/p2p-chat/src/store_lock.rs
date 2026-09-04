@@ -151,6 +151,7 @@ mod tests {
             nickname: "race".into(),
             addrs: Vec::new(),
             note: None,
+            group: None,
         }
     }
 
