@@ -35,6 +35,14 @@ esac
 TMP="$(mktemp -d "/tmp/ui-regression.XXXXXX")"
 GUI_LOG="$TMP/gui.log"
 REPORT="$TMP/report.txt"
+SHOT_DIR="$TMP"
+if [ -n "$KEEP_DIR" ]; then
+    # 证据直写指定目录：截图运行中即落盘、报告随 tee 直写；不靠退出时搬运
+    # （搬运式 cp 一旦静默失败，--keep 就变成 0 图且无信号）。
+    mkdir -p "$KEEP_DIR" || fail "KEEP_DIR_UNWRITABLE" "无法创建证据目录: $KEEP_DIR"
+    SHOT_DIR="$KEEP_DIR"
+    REPORT="$KEEP_DIR/report.txt"
+fi
 CHILD=""
 EP_BACKUP=""
 ASSERT_PASS=0
@@ -65,11 +73,6 @@ cleanup() {
     elif [ -n "$CHILD" ] && [ -f "$EP_FILE" ] \
         && grep -Eq "\"pid\": $CHILD([^0-9]|$)" "$EP_FILE" 2>/dev/null; then
         rm -f "$EP_FILE"
-    fi
-    if [ -n "$KEEP_DIR" ]; then
-        mkdir -p "$KEEP_DIR"
-        cp -f "$TMP"/*.png "$KEEP_DIR"/ 2>/dev/null || true
-        cp -f "$REPORT" "$KEEP_DIR/report.txt" 2>/dev/null || true
     fi
     rm -rf "$TMP"
 }
@@ -219,7 +222,7 @@ assert_action() {
 }
 
 assert_screenshot() {
-    local route="$1" shot="$TMP/$route.png"
+    local route="$1" shot="$SHOT_DIR/$route.png"
     must_ok "$CTL" gui screenshot -o "$shot" >/dev/null
     if [ -s "$shot" ]; then
         a_pass
@@ -272,6 +275,7 @@ emit_report() {
         echo "-- 协议缺口（R4 只报不改，待协调者另立卡）: 注册表仅登记 chat/peers/settings --"
         echo "GAP_PAGES:$GAP_PAGES"
         echo "SUMMARY: pages=$PAGES_TOTAL passed=$PASSED_PAGES failed=$FAILED_PAGES assertions=$ASSERT_PASS/$((ASSERT_PASS + ASSERT_FAIL))"
+        echo "EVIDENCE: keep=$KEEP_DIR dir=$SHOT_DIR pngs=$(ls "$SHOT_DIR" | grep -c '\.png$' || true)"
         if [ "$FAILED_PAGES" -eq 0 ]; then
             echo "UI-REG-OK"
         else
@@ -284,7 +288,7 @@ main() {
     build_if_missing
     start_gui
     write_pagecheck
-    echo "== U1 UI 回归开始（证据目录 $TMP，keep=$KEEP_DIR） =="
+    echo "== U1 UI 回归开始（证据目录 $SHOT_DIR，keep=$KEEP_DIR） =="
     local r
     for r in chat dashboard diagnostics discovery events peers relay settings; do
         run_page "$r"
