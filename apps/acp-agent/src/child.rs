@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::io;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::Duration;
 
 use tokio::process::ChildStdout;
 use tokio::sync::mpsc;
@@ -49,13 +50,58 @@ pub(crate) struct SlotHandle {
 /// 票据 -> 槽位簿记。跨 serve() 调用存活，挂在 SessionDeps 上。
 pub struct SlotBook {
     slots: Mutex<HashMap<Uuid, SlotHandle>>,
+    tasks: Mutex<Vec<tokio::task::JoinHandle<()>>>,
 }
 
 impl SlotBook {
     pub fn new() -> Self {
         Self {
             slots: Mutex::new(HashMap::new()),
+            tasks: Mutex::new(Vec::new()),
         }
+    }
+
+    pub(crate) fn track(&self, task: tokio::task::JoinHandle<()>) {
+        self.tasks
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .push(task);
+    }
+
+    /// 桥自身退出（设计 §7）：向全部活槽位广播 Shutdown，限时等待各 router
+    /// 走完退出阶梯（stdin EOF -> 宽限 -> SIGKILL）。返回处理的槽位数。
+    pub async fn shutdown_all(&self, wait: Duration) -> usize {
+        let handles: Vec<SlotHandle> = self
+            .slots
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .drain()
+            .map(|(_, handle)| handle)
+            .collect();
+        let count = handles.len();
+        for handle in &handles {
+            if let Err(err) = handle.ctl.try_send(Ctl::Shutdown) {
+                tracing::warn!(peer = %handle.peer, error = %err, "shutdown broadcast failed");
+            }
+        }
+        let tasks: Vec<tokio::task::JoinHandle<()>> = std::mem::take(
+            &mut self
+                .tasks
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner()),
+        );
+        let reap_all = async {
+            for task in tasks {
+                let _ = task.await;
+            }
+        };
+        if tokio::time::timeout(wait, reap_all).await.is_err() {
+            tracing::error!(
+                slots = count,
+                "shutdown wait timed out; kill_on_drop is last resort"
+            );
+        }
+        count
     }
 
     pub(crate) fn insert(&self, handle: SlotHandle) {
@@ -149,10 +195,11 @@ pub(crate) fn spawn_slot(
         grant,
         audit,
         config: config.clone(),
-        book,
+        book: book.clone(),
         ticket,
     };
-    tokio::spawn(router::run(params, sub.child, sub.stdin, lines_rx, ctl_rx));
+    let task = tokio::spawn(router::run(params, sub.child, sub.stdin, lines_rx, ctl_rx));
+    book.track(task);
     Ok(handle)
 }
 

@@ -60,6 +60,12 @@ pub fn write_policy(cfg: &AgentConfig, grant: Option<(&PeerId, Scope)>) {
 }
 
 pub async fn build_server(cfg: &AgentConfig) -> (Node, Arc<CaptureAudit>) {
+    let (node, audit, _deps) = build_server_full(cfg).await;
+    (node, audit)
+}
+
+/// 带 SessionDeps 的变体：退出阶梯等需要触达槽位簿记的测试使用。
+pub async fn build_server_full(cfg: &AgentConfig) -> (Node, Arc<CaptureAudit>, Arc<SessionDeps>) {
     let node = Node::builder()
         .mdns(false)
         .data_dir(cfg.paths().root.join("identity"))
@@ -69,8 +75,8 @@ pub async fn build_server(cfg: &AgentConfig) -> (Node, Arc<CaptureAudit>) {
     let audit = Arc::new(CaptureAudit::new());
     let peers = PeerBook::spawn(node.events());
     let deps = SessionDeps::assemble(cfg.clone(), audit.clone(), peers).expect("deps");
-    node.handle_protocol(Arc::new(AcpHandler::new(deps).expect("handler")));
-    (node, audit)
+    node.handle_protocol(Arc::new(AcpHandler::new(deps.clone()).expect("handler")));
+    (node, audit, deps)
 }
 
 pub async fn build_client(tag: &str) -> Node {
