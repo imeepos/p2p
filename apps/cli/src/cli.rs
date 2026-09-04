@@ -2,6 +2,7 @@
 
 use clap::Parser;
 
+use crate::acp;
 use crate::chat;
 use crate::config;
 use crate::gui;
@@ -76,5 +77,10 @@ pub enum Command {
     Update {
         #[command(subcommand)]
         command: update::UpdateCommand,
+    },
+    /// ACP 域：节点主人策略管理 allow/deny/list（ACP5，设计 §3/§6）
+    Acp {
+        #[command(subcommand)]
+        command: acp::AcpCommand,
     },
 }

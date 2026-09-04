@@ -37,7 +37,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 | 前置 | 适用命令 | 不满足时的表现 |
 |---|---|---|
-| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity reset、log tail/path/clear、metrics get、update check/open、node status | —— |
+| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list | —— |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1，消息保留本机 status=Pending；peer 域退出 1 |
 | 节点守护进程运行 | peer connect/disconnect/ping/dial、metrics get 实时值 | 退出 1：连接节点守护进程失败；metrics get 例外：返回全零不报错 |
 | GUI 进程运行 | gui 全域（status/screenshot/record/navigate/invoke/page/action） | 退出 1（控制通道不可达） |
@@ -65,6 +65,9 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 查前端日志 | `log tail --json` / `log path --json` |
 | 清前端日志 | `log clear`（写，须人确认） |
 | 查新版本 | `update check --json` |
+| 给 peer 授予 agent 访问 | `acp allow <PEER_ID> --scope sandbox --json`（写，须人确认） |
+| 撤销 peer 授权 | `acp deny <PEER_ID>`（写，须人确认；不存在条目报错退出 1） |
+| 查看授权策略表 | `acp list --json` |
 | 重置身份（红线） | `identity reset`——不可逆，见 §3 |
 
 ## 3. 开场提示词模板（整段贴给 LLM 即可）
@@ -74,7 +77,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 【工具认知】
 - 可执行文件：apps/cli/target/debug/p2pctl（先 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在）。
-- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update 十域，共 33 个叶子命令。
+- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp 十一域，共 36 个叶子命令。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
 - 退出码：0 成功；1 运行失败（stderr 前缀 "p2pctl: 运行失败: "）；2 用法错误。失败时先读 stderr 再决定下一步，不要盲目重试。
@@ -83,7 +86,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 1. 只读命令优先：node status / chat friends list / chat history / config get / metrics get /
    log tail / gui status / update check 等查询类命令可自由执行。
 2. 写操作必须先征得人确认再执行：chat send / chat friends add|remove / config save /
-   profile save / node start|stop / peer dial|connect|disconnect / log clear / gui navigate。
+   profile save / node start|stop / peer dial|connect|disconnect / log clear / acp allow|deny / gui navigate。
 3. 不可逆红线：identity reset 会删除节点身份（key.seed），除非人明确说"重置身份"，
    永远不得执行；执行时必须带 --confirm 且仅限人指定的数据目录。
 4. 不得绕过安全机制：gui navigate/gui invoke 仅接受服务端白名单（8 个路由、5 个只读命令），
@@ -107,6 +110,9 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 - **token/白名单不可绕过**：gui 域命令经控制通道由 GUI 服务端白名单校验（路由 8 个、
   invoke 只读命令 5 个），被拒绝即为终态，AI 不得重试变形绕过；身份凭据（key.seed）
   只能由实现读取，AI 不得打印、复制或迁移其内容。
+- **ACP 授权面**：acp allow/deny 直写节点策略表（<data-dir>/acp-policy.json），
+  执行前必须向人复述目标 PeerId 与 scope 并获确认；deny 对不存在条目报错退出 1，
+  属预期行为（默认拒绝语义，非故障）。
 
 ## 5. 与 GUI 的关系
 
@@ -115,7 +121,7 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 同一份数据。GUI 数据目录（macOS）`~/Library/Application Support/com.p2p.console`，前端
 日志 `~/Library/Logs/com.p2p.console/frontend.log`，均可用 `--gui-data-dir`/`--log-dir` 覆盖。
 
-## 6. 命令面全目录（33 命令）
+## 6. 命令面全目录（36 命令）
 
 条目格式：用途/前置 → 参数表（名称/类型/必填/默认）→ 文本输出例 → --json 输出例。
 类型取值：flag（无值开关）/string/int/path/kv/枚举值说明。尖括号示例为实测采样占位。
@@ -662,5 +668,70 @@ https://github.com/imeepos/p2p/releases/tag/client-v0.1.2
 {"url":"https://github.com/imeepos/p2p/releases/tag/client-v0.1.2"}
 ```
 退出码：--url 非 https/github.com 白名单 → 1。
+
+### p2pctl acp allow
+用途：授予 peer 访问本机 agent 的授权（upsert：条目已存在则为更新并刷新 grantedAt）。前置：无（纯本地策略表，离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（base58，32 字节） | 是 | —— |
+| --scope | sandbox 或 workspace | 否 | sandbox |
+| --allow-mcp | string（可重复；mcpServers 白名单按名引用） | 否 | 无 |
+| --ask-route | remote_gui 或 owner_local | 否 | remote_gui |
+| --note | string | 否 | 无 |
+| --fingerprint | string（TOFU 指纹显式登记进策略表） | 否 | 空 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已授权 peer=HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj（新建条目）
+scope=sandbox
+allow_mcp=fs,web
+ask_route=remote_gui
+granted_at=2026-09-04T06:00:00Z
+```
+--json：
+```
+{"created":true,"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","scope":"sandbox","allowMcp":["fs","web"],"askRoute":"remote_gui","grantedAt":"2026-09-04T06:00:00Z"}
+```
+退出码：PeerId 非法（非 base58 或解码后非 32 字节）→ 1；策略表损坏 → 1（可读报错，禁止静默回退空表）。
+
+### p2pctl acp deny
+用途：撤销 peer 授权（删除策略表条目，回到默认拒绝语义）。前置：无（离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（base58，32 字节） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已撤销授权 peer=HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj（回到默认拒绝）
+```
+--json：
+```
+{"removed":true,"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj"}
+```
+退出码：条目不存在 → 1（明确报错不静默）；PeerId 非法 → 1；策略表损坏 → 1。
+
+### p2pctl acp list
+用途：表格列出全部授权条目（peer/scope/allowMcp/askRoute/grantedAt/指纹/note）。前置：无（离线可跑；策略文件缺失视为空表）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本（有条目）：
+```
+共 1 条授权
+PEER                                          SCOPE    ALLOW_MCP  ASK_ROUTE   GRANTED_AT            FINGERPRINT  NOTE
+HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj  sandbox  fs,web     remote_gui  2026-09-04T14:49:29Z  ff00         nb
+```
+文本（空表）：
+```
+策略表为空（默认拒绝：未列入条目的 peer 一律无授权）
+```
+--json（空表）：
+```
+{"peers":[]}
+```
+退出码：策略表损坏 → 1（可读报错）。
 
 <!-- AI-DOCS-SYNC:END -->

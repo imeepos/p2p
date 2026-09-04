@@ -1,5 +1,6 @@
 //! p2pctl 入口：解析命令、分发命令域、错误转退出码（0 成功 / 1 运行失败 / 2 用法错误）。
 
+mod acp;
 mod chat;
 mod cli;
 mod config;
@@ -48,5 +49,6 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Log { command } => log::run(command).await,
         cli::Command::Metrics { command } => metrics::run(command).await,
         cli::Command::Update { command } => update::run(command).await,
+        cli::Command::Acp { command } => acp::run(command).await,
     }
 }
