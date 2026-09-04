@@ -150,6 +150,11 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - stale-running：running=true 但 updatedAt 静默 2h+ 是僵尸标记，不可信；用户明确「所有会话」时按 updatedAt 清理（归档只隐藏分组面，不停进程）。上轮「排除 running」适用于保守场景，两条按用户指令二选一。
 - 机械验收唯一路径：读活跃实例 `<home>/storages/workspace.json` 全量比对 archivedSessionIds；session_link_list 常态返回全量（含已归档）且无 archived 字段，不能当验收面。
 
+## 2026-09-04 IM-T46A 回复消息后端轮（Rust 契约加法任务）
+- 本仓 rustfmt 对带 message 的 `assert_eq!`/`assert!` 宏按 fn_call_width=80 折行且 CJK 宽度按 2 计——单行断言压不进 80 就老老实实多行；要保紧凑格式（如 300 行红线贴线的测试文件）直接给整个测试 fn 挂 `#[rustfmt::skip]`（chat_e2e.rs 既有手法），写完立刻 `cargo fmt --all -- --check` 自查，别等 make check 兜底。
+- git branch -d 拒删只看 origin/main（远端陈旧即拒），不看本地 main——先 `git merge-base --is-ancestor <tip> main` 证内容已入本地 main，再放心 `-D`。
+- DSH read 工具截断超长行（约 2000 字符）：对含超长 note 行的 JSON（如 .devloop/loop-state.json）「read 后 join 再 JSON.parse」会假报非法 JSON；校验/改写一律 python3 直读文件。
+
 ## 2026-09-04 IM-T47 渲染矩阵轮（gui 纯测试任务）
 - RTL getByText 对含真实换行的文本不可靠：matcher 被归一化成空格（「您好\n请查收」→「您好 请查收」）后仍报 Unable to find，而 DOM 里 <p> 文本确实存在——「换行保留」类断言直接 querySelector 定位元素 + textContent 精确相等，机械且稳定。
 - 测 store 的排序/合并行为禁止 setState 直塞数组（绕过 mergeMessages），要走真实动作路径：mock chatHistory 返回乱序页 → click 好友触发 selectPeer → 断言 DOM 序。直塞测的是组件不测逻辑。

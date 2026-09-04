@@ -168,3 +168,5 @@ _none yet — be the first._
 
 - 2026-09-03 CL3 轮：并行波会改公共签名（本轮 Chat::send 被 T36 增第 5 参 reply_to）——合并 main 后必须全量 cargo build + cargo test 再提交；E2E 脚本里「二进制存在就跳过构建」的惰性构建会用陈旧二进制假绿，验收前强制重建一次。
 - 2026-09-03 CL3 轮：底座 chat 链路（含 itest）按 TCP 地址验证——CLI E2E 建好友取 listenAddrs 里 /t 地址，取 /u（QUIC）会间歇性第二发消息 failed（连接重建竞态）。
+- 2026-09-04 IM-T46A 轮：并行会话高峰期，门禁绿与 ff 合并之间别做任何别的事——本轮验收绿后 main 被推进两次，每次都得 rebase+全量复跑（约 4 分钟/轮）；零交集 rebase 很便宜，但门禁必须在新基线重跑，合并动作本身要抢窗口立即执行。
+- 2026-09-04 IM-T46A 轮：`git diff --name-only <branch>..main` 列出的是双方全部差异（含自己分支的改动），grep 它当「文件交集检查」会满屏自己——交集判断要看对方新提交碰了哪些已知范围。

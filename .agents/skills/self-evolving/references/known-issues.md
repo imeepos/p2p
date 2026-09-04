@@ -317,6 +317,9 @@ failed: early eof（客户端侧超时中止）。
 - 修法：含非 ASCII 的文件改动用编辑工具精确替换；sed 正则含 / 时换 | 分隔符。
 
 
+## 2026-09-04 IM-T46A 轮纠正：仓库外 worktree 本会话全程可用
+- 现场纠正下条（2026-09-03 CL3 轮）：本会话 worktree 建在 /Users/imeepos/ext512/wt-im-reply-backend（仓库外、与仓库根同级），read/edit/write/glob 全程正常，未被视图边界拦截。下条经验不是普适规律，是否受限取决于会话工作区配置；保险起见仍可优先 .worktrees/，但别因「仓库外必炸」的预判改变工作规划。
+
 ## 2026-09-03 CL3 轮：DSH 会话双视图——worktree 建在仓库外文件工具看不到
 - 症状：bash 里 git worktree add ../p2p-xxx 成功（git worktree list 可见），但 read/glob/grep/write/edit 全部 not found；同窗口 bash 还间歇性 spawn ENOENT。
 - 原因：DSH 文件工具视图以会话工作区根（仓库目录）为挂载边界，根外的同级目录不在视图内；bash 走独立通道与文件工具不同视图，且偶发 worker 故障。
