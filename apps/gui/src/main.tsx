@@ -10,6 +10,7 @@ import { ThemeProvider } from "./theme/theme-provider";
 import { installAgentBridge } from "./lib/agent-bridge";
 import { installControlBridge } from "./lib/control-bridge";
 import { installErrorReport } from "./lib/error-report";
+import { installPageBridge } from "./lib/page-bridge";
 import "./index.css";
 
 // 错误感知管线先于渲染安装：白屏/渲染异常也要进 frontend.log（契约 §8）。
@@ -17,6 +18,8 @@ installErrorReport();
 installAgentBridge();
 // GC1 控制通道：hash 路由实时上报（health 的 route 字段来源）
 installControlBridge();
+// GC3 页面语义协议：/page/* 端点经 __P2P_PAGES__ 桥驱动页面注册表
+installPageBridge();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

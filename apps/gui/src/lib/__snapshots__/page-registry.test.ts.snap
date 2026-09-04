@@ -1,0 +1,134 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`PAGE_REGISTRY 注册表校验 > chat 与 peers descriptor 快照 1`] = `
+{
+  "actions": [
+    {
+      "args": [
+        {
+          "description": "好友 PeerId",
+          "name": "peer",
+          "required": true,
+          "type": "string",
+        },
+        {
+          "description": "正文，trim 后 1..2000 字符",
+          "name": "text",
+          "required": true,
+          "type": "string",
+        },
+      ],
+      "description": "向好友发送文本（乐观更新，与聊天输入框同源）",
+      "name": "sendText",
+    },
+    {
+      "args": [
+        {
+          "description": "好友 PeerId",
+          "name": "peerId",
+          "required": true,
+          "type": "string",
+        },
+        {
+          "description": "昵称，缺省空串",
+          "name": "nickname",
+          "required": false,
+          "type": "string",
+        },
+        {
+          "description": "多地址字符串列表",
+          "name": "addrs",
+          "required": false,
+          "type": "array",
+        },
+      ],
+      "description": "添加好友（PeerId 必填，昵称/地址选填），与添加好友表单同源",
+      "name": "addFriend",
+    },
+    {
+      "args": [
+        {
+          "description": "好友 PeerId",
+          "name": "peer",
+          "required": true,
+          "type": "string",
+        },
+        {
+          "description": "危险动作，必须显式传 true",
+          "name": "confirm",
+          "required": true,
+          "type": "boolean",
+        },
+      ],
+      "confirm": true,
+      "description": "移除好友（不删本地消息历史），与移除确认框同源",
+      "name": "removeFriend",
+    },
+  ],
+  "description": "IM 聊天页：好友会话文本发送与好友管理",
+  "name": "chat",
+}
+`;
+
+exports[`PAGE_REGISTRY 注册表校验 > chat 与 peers descriptor 快照 2`] = `
+{
+  "actions": [
+    {
+      "args": [
+        {
+          "description": "拨号目标",
+          "name": "target",
+          "required": true,
+          "type": "string",
+        },
+      ],
+      "description": "按拨号目标（multiaddr 或 host:port）发起拨号",
+      "name": "dial",
+    },
+    {
+      "args": [
+        {
+          "description": "对端 PeerId",
+          "name": "peerId",
+          "required": true,
+          "type": "string",
+        },
+      ],
+      "description": "按 PeerId 连接已发现的对端",
+      "name": "connect",
+    },
+    {
+      "args": [
+        {
+          "description": "对端 PeerId",
+          "name": "peerId",
+          "required": true,
+          "type": "string",
+        },
+      ],
+      "description": "断开与对端的连接",
+      "name": "disconnect",
+    },
+    {
+      "args": [
+        {
+          "description": "对端 PeerId",
+          "name": "peerId",
+          "required": true,
+          "type": "string",
+        },
+        {
+          "description": "超时毫秒，默认 5000",
+          "name": "timeoutMs",
+          "required": false,
+          "type": "number",
+        },
+      ],
+      "description": "探活对端并返回 RTT 与路径报告",
+      "name": "ping",
+    },
+  ],
+  "description": "邻居页：拨号、连接管理与探活",
+  "name": "peers",
+}
+`;
