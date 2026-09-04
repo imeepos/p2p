@@ -131,37 +131,41 @@ export function ProfileCard() {
           <LoadFailedNotice onRetry={retryLoad} messageKey="settings.profile.loadFailed" />
         ) : (
           <>
-            <div className="flex items-center gap-4">
-              <AvatarPreview src={current.avatar} alt={t("settings.profile.avatarAlt")} />
-              <div className="flex flex-col gap-1.5">
-                <Label>{t("settings.profile.avatar")}</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <ImageUpIcon aria-hidden />
-                    {t("settings.profile.avatarUpload")}
-                  </Button>
-                  {current.avatar ? (
+            <div className="flex flex-col gap-1.5">
+              {/* IM-V2 R3 S1：头像圆标与标签/按钮行同轴居中，说明文字整行
+                  下移，消除三行侧列与 64px 圆标的基线视差 */}
+              <div className="flex items-center gap-4">
+                <AvatarPreview src={current.avatar} alt={t("settings.profile.avatarAlt")} />
+                <div className="flex flex-col gap-1.5">
+                  <Label>{t("settings.profile.avatar")}</Label>
+                  <div className="flex gap-2">
                     <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
-                      onClick={() => setDraft({ ...current, avatar: null })}
+                      variant="outline"
+                      onClick={() => fileRef.current?.click()}
                     >
-                      <Trash2Icon aria-hidden />
-                      {t("settings.profile.avatarRemove")}
+                      <ImageUpIcon aria-hidden />
+                      {t("settings.profile.avatarUpload")}
                     </Button>
-                  ) : null}
+                    {current.avatar ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDraft({ ...current, avatar: null })}
+                      >
+                        <Trash2Icon aria-hidden />
+                        {t("settings.profile.avatarRemove")}
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
-                {/* IM-V2 S1：说明文字对比度提到 WCAG AA（text-gray-600 级） */}
-                <p className="text-xs text-gray-600 dark:text-gray-300">
-                  {t("settings.profile.avatarHint")}
-                </p>
               </div>
+              {/* 说明文字对比度 WCAG AA（text-gray-600 级） */}
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                {t("settings.profile.avatarHint")}
+              </p>
               <input
                 ref={fileRef}
                 type="file"
