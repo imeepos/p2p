@@ -142,3 +142,4 @@ _none yet — be the first._
 - 2026-09-04 T36 轮：后台 bash job 的权威退出码在 job_list 的 detail 字段（"exit code: 0"），输出重定向/日志缺 stdout 时以 detail 为准，不要靠翻日志猜。
 - 2026-09-04 T36 轮：bash 工具偶发 spawn ENOENT（code worker 瞬断）——隔 1-2 分钟自动恢复，用 job_list 等轻调用探活，勿连续重击。
 - 2026-09-04 T36 轮：重派任务书修正验收 cd 深度时先复算再执行——apps/gui/src-tauri 的 ../../.. 恰为各 worktree 根，p2p-t36 与 .worktrees/t36 两处语义一致，无需改命令只需换 workdir。
+- 2026-09-04 IM 好友流轮：测试从 fixtures 出发而非从用户旅程出发——fixtures 让数据从天而降，「第一个数据从哪来」永远没被测到；后端/IPC/mock 三层各自全绿看不见「GUI 零调用点」断链，只有从零开始走用户路径才暴露（用户开箱卡死第一步后才被发现）。边界测试越测越细不等于覆盖：细度堆在已建成模块上，方向偏了越勤越糟。
