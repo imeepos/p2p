@@ -263,3 +263,7 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-04 GC3：DSH bash 沙箱 fs 开销下冷 cargo 全量构建会「假死」——10 个 rustc 全部 0% CPU 各只吃 1-2s CPU，30+ 分钟编不完依赖（icu 系）；解法=CARGO_TARGET_DIR 指向主树已预热的目标目录（apps/gui/src-tauri/target 自带 20k 产物，同依赖集增量只编业务 crate，3m03s 收官）。前提：确认无并发 cargo 会话共用该目录。
 - 2026-09-04 GC3：全新 worktree 无 node_modules，pnpm install 报 ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY——加 CI=true 环境变量即过（pnpm store 硬链接，328 包 27s）。
 - 2026-09-04 GC3：vitest 全量跑冷缓存（新 worktree 首跑）会假红——transform/setup 累计 500s+，多个 5s testTimeout 用例排队超时；隔离重跑单文件全部绿即定性为负载抖动；最终验收在主树温缓存跑（48 文件 286 测试全绿）。
+- 2026-09-04 IM-T43：friends.json 预置数据的集成测试，必须先写盘再 spawn_at（Chat::new 装载时读入内存态）；spawn() 之后再写 friends.json 对 friend_update/friends_list 不可见——messages JSONL 是惰性加载没这个坑，reply_compat 先例不可直接照搬到 friends 域。
+- 2026-09-04 IM-T43：run_code 里发多行 git commit message 用 `git commit -F - <<'MSG' ... MSG` heredoc；JSON.stringify(msg) 会把换行变字面反斜杠 n 进标题行。TS 模板串嵌 shell 代码时，shell 的美元花括号变量与反引号必须转义，否则宿主先插值报语法错——拿不准就拆成行数组 join。
+- 2026-09-04 IM-T43：cli-parity.sh 内部会 cargo build p2pctl 用默认共享 target——并行轮先 CARGO_TARGET_DIR=隔离目录 build 好，再把二进制 cp 到脚本期望路径（apps/cli/target/debug/p2pctl），脚本检测到存在即跳过构建，共享锁零占用。
+- 2026-09-04 IM-T43：zustand 泛型 helper（chat-local.ts 模式）里 (s: S) => 字面对象子集 不满足 Partial<S>（S 未定形索引签名展开），三处返回值 as Partial<S> 即过 tsc。
