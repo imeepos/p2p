@@ -252,3 +252,6 @@ _none yet — be the first._
 - 2026-09-04 U1：并行会话会扫提交主树未跟踪文件——主树里的 scratch 测试副本（ui-regression-scratch.sh）被顺手指令提交入库（c92d983）；测试副本要么放 /tmp 要么用完立刻删，主树留过夜就会被别人"帮忙"入库。
 - 2026-09-04 U1：tauri custom-protocol 构建把前端 dist 嵌进二进制——pnpm build（先清空 dist）与 cargo build 并发时，嵌进去的可能是空/半成品 dist，症状=webview 加载空页、页面桥永不安装且无任何报错；修法=重跑 cargo build --features custom-protocol 重嵌。诊断入口：~/Library/Logs/com.p2p.console/{p2p-console,frontend}.log（应用日志不走 stdout，脚本里 tail gui.log 常为空）。
 - 2026-09-04 U1：回归脚本的就绪/探针类修复要与并行会话的同类分支对齐格式（同文本改动 git 自动合流）——动手前先 grep 别人未合并分支对同一文件的改动。
+- 2026-09-05 ACP3：开工前的必读清单要包含 skill references 的「当日条目」——本卡 worktree 被并行会话 prune/超时杀 checkout 的坑，known-issues 449 行与 techniques 468 行当日已各有一条同族记录，先读能省两轮重建；读材料时把「与本卡操作同形的条目」（worktree/长构建/转义写文件）过一遍再动手。
+- 2026-09-05 ACP3：验收门禁红灯先做「域归属三步定性」——git diff origin/main HEAD --stat 看红灯域文件是否在自己 diff 里、查红灯读的输入是源码还是工作树陈旧产物、隔离复跑最小面；三步都干净就原样上报协调者，别替邻域修门禁（并行会话可能正在改同一处）。
+- 2026-09-05 ACP3：对下游不可见的传输语义（EOF/半关闭/窗口更新时机）要在设计评审时就写探针用例锁行为——本卡 yamux 半关闭 no-op 与批量窗口更新饿死写侧，都是集成测试随机挂死才暴露，探针前置能把 3 小时定位压成 10 分钟。

@@ -473,3 +473,15 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 症状：脚本带 --keep 自测全绿，验收（无参形态）第一行就报 $1 unbound variable 直接退出。
 - 原因：set -u 对未传位置参数取值即崩；自测形态与验收形态不一致（自测永远带参）。
 - 修法：位置参数一律空值兜底（美元花括号冒号连字符写法）后再用；脚本自测必须覆盖「无参」这个验收真实形态，参数解析分支用桩二进制定向测试（伪 CTL/GUI_BIN/dist 令构建全跳过，无 GUI 也能验证解析与结构化报错路径）。
+
+## 2026-09-05 ACP3：tungstenite 0.30 半关闭 no-op + yamux 0.13 批量窗口更新——双向字节泵大消息随机挂死
+- 症状：WS⇄P2P 泵小消息 roundtrip 过后，单条 ~200KB WS 消息回传 4/5 停滞 10s+；对端连接级断开时泵也可能永不结束。
+- 原因两层：① tokio_util Compat 把 tokio shutdown 映射到 futures AsyncWrite::poll_shutdown，yamux 0.13.10 Stream 未覆写它（默认 no-op），半关闭 FIN 发不出；② yamux 流控窗口更新批量策略（flow_control next_window_update：<max_window/2 不发），echo 式停等流量下余量 credit 长期低于阈值，且 poll_read 里 send_window_update 遇命令通道满返回 Pending 即跳过、只在下次 poll_read 重试——读者一空闲更新即永久滞留，写侧等 credit 挂死。
+- 修法（apps/acp-console/pump.rs）：双向 spawn+select 首侧结束即 abort 另一侧（join 因对侧永久 pending 悬挂）；写分 16KiB 块+每块 flush+5s 超时重 kick、读 30s 超时重 kick（停滞落 WARN 不静默）；连接级死亡用 PeerDisconnected 事件与泵 select 竞速兜底（句柄 drop 不是关闭语义，EOF 不可依赖）。
+- 教训：底座传输的 EOF/半关闭语义必须写探针实测，不能按 TCP 直觉假设；长流泵挂死要「事件竞速+超时重 kick」双兜底。
+
+## 2026-09-05 ACP3：反向同步合并后 make check 假红——cli-parity/ai-docs-sync 实测的是合并前旧 p2pctl 二进制
+- 症状：merge origin/main 后 make check 报 cli-parity「p2pctl 实测无此命令」（TSV 有映射、源码也有 update 子命令）；rm apps/cli/target/debug/p2pctl 重建后 cli-parity 过，ai-docs-sync 又红（文档缺 friends update/--group 条目，origin/main 自带欠账，归 IM-T43 文档会话）。
+- 原因：cli-parity 只在 p2pctl 二进制缺失时才重建，合并前一轮 make check 留下的旧二进制被继续实测；ai-docs-sync 红与分支无关（git diff origin/main HEAD 只含 apps/acp-console）。
+- 修法：反向同步合并后先删 apps/cli/target/debug/p2pctl 再跑 make check；判红归属先看 `git diff origin/main HEAD --stat` 是否含红灯域文件，域外红灯原样上报协调者，不动别人文件域。
+- 关联：本文件 449 行「worktree add 中断留半成品」同日再踩（并行会话 prune 掉本会话刚建 worktree 的管理区，checkout 81% 被杀）——开工前先读 known-issues 当日条目，worktree add 一律 run_in_background + 完成后 rev-parse --show-toplevel 核对 + worktree lock 自保。
