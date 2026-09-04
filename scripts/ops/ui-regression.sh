@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
-# U1 UI 回归批产：页面语义协议（GC3/GC4）8 路由逐页回归（navigate+page 断言、动作断言、截图证据）。
+# U1 UI 回归批产：页面语义协议 8 路由逐页回归（navigate+descriptor+动作断言+截图证据）。
 # CONFIRM_NEG=危险动作缺 confirm 被拒；EXEC_STRUCT=动作以非法参数真执行取结构化拒绝（零写入）。
-# GC3c 起 8/8 路由全量注册：原 REGISTRY_GAP 五页转为真实动作断言计分。
-# 用法：[--keep <dir>]；默认临时目录退出全清、--keep 直写指定目录；幂等零写入（从不传 confirm=true）。
+# 用法：[--keep <dir>]；幂等零持久写入，confirm=true 唯一豁免 events.clear（易失内存缓冲，幂等）。
 set -euo pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
 
@@ -33,8 +32,7 @@ GUI_LOG="$TMP/gui.log"
 REPORT="$TMP/report.txt"
 SHOT_DIR="$TMP"
 if [ -n "$KEEP_DIR" ]; then
-    # 证据直写指定目录：截图运行中即落盘、报告随 tee 直写；不靠退出时搬运
-    # （搬运式 cp 一旦静默失败，--keep 就变成 0 图且无信号）。
+    # 证据直写指定目录：截图运行中即落盘、报告随 tee 直写，不靠退出时搬运（cp 静默失败会变 0 图）。
     mkdir -p "$KEEP_DIR" || fail "KEEP_DIR_UNWRITABLE" "无法创建证据目录: $KEEP_DIR"
     SHOT_DIR="$KEEP_DIR"
     REPORT="$KEEP_DIR/report.txt"
@@ -121,15 +119,15 @@ build_if_missing() {
         echo "p2pctl 不存在，构建 apps/cli…" >&2
         (cd "$ROOT" && cargo build --manifest-path apps/cli/Cargo.toml) >&2
     fi
-    if [ ! -f "$GUI_DIR/dist/index.html" ]; then
+    # dist 缺失或 src/配置比产物新即重建（mtime 一线检测）：回归测旧前端整场假红/假绿
+    if [ ! -f "$GUI_DIR/dist/index.html" ] \
+        || [ -n "$(find "$GUI_DIR/src" "$GUI_DIR/package.json" -newer "$GUI_DIR/dist/index.html" -print -quit 2>/dev/null)" ]; then
         [ -d "$GUI_DIR/node_modules" ] || (cd "$GUI_DIR" && pnpm install --frozen-lockfile) >&2
-        echo "前端产物缺失，pnpm build…" >&2
+        echo "前端产物缺失或过期，pnpm build…" >&2
         (cd "$GUI_DIR" && pnpm build) >&2
     fi
-    # tauri v2 plain cargo build 是 dev 态二进制（加载 devUrl），无 dev 服务器时
-    # webview 空壳必 PAGE_TIMEOUT，必须 custom-protocol（cli-page-e2e.sh 实测）。
-    # cargo test 会把 GUI_BIN 重建成 dev 态且 mtime 翻新，marker 比对识别这种
-    # "新但错模式"的 staleness（2026-09-04 GC3c 回归实测）。
+    # tauri v2 plain cargo build 是 dev 态二进制（加载 devUrl 空壳），必须
+    # custom-protocol；cargo test 会重建成 dev 态且 mtime 翻新，marker 比对识别之。
     MARKER="$GUI_DIR/src-tauri/target/debug/.custom-protocol-built"
     if [ ! -x "$GUI_BIN" ] || [ "$GUI_BIN" -nt "$MARKER" ]; then
         echo "GUI 二进制缺失或非 custom-protocol 态，cargo build src-tauri…" >&2
@@ -141,13 +139,12 @@ build_if_missing() {
 }
 
 start_gui() {
-    # 健康外部实例直接复用：双实例并存会互写 endpoint（后初始化者胜），且外部
-    # 进程不是本脚本的 cleanup 对象——杀外部 GUI 是事故。
+    # 健康外部实例直接复用（双实例会互写 endpoint；外部进程不杀——杀外部 GUI 是事故）。
     if [ -f "$EP_FILE" ]; then
         EPID="$(grep -Eo '"pid": [0-9]+' "$EP_FILE" 2>/dev/null | grep -Eo '[0-9]+')"
         if [ -n "$EPID" ] && ps -p "$EPID" >/dev/null 2>&1 \
             && "$CTL" gui status --json >/dev/null 2>&1 \
-            && ! "$CTL" gui page 2>&1 | grep -q "PAGE_TIMEOUT"; then
+            && "$CTL" gui page --json >/dev/null 2>&1; then
             echo "复用已运行 GUI 实例 pid=$EPID（外部进程不杀不复位）"
             return 0
         fi
@@ -156,13 +153,13 @@ start_gui() {
     "$GUI_BIN" >>"$GUI_LOG" 2>&1 &
     CHILD=$!
     disown "$CHILD" 2>/dev/null || true
-    # 就绪门含 page 协议探针：端点就绪 ≠ webview 桥就绪（重载下桥安装晚于端点，
-    # 直接开跑会全数 PAGE_TIMEOUT 假红）；探针单次 ≤5s（服务端回执超时）。
+    # 就绪门探针=真实 round-trip 成功（gui page --json 退出码 0）：端点就绪 ≠ 桥就绪，
+    # 仅排除 PAGE_TIMEOUT 字样会被其他错误形态提前放行（GC3c 实测）。单次 ≤5s。
     for i in $(seq 1 60); do
         if [ -f "$EP_FILE" ] \
             && grep -Eq "\"pid\": $CHILD([^0-9]|$)" "$EP_FILE" \
             && "$CTL" gui status --json >/dev/null 2>&1 \
-            && ! "$CTL" gui page 2>&1 | grep -q "PAGE_TIMEOUT"; then
+            && "$CTL" gui page --json >/dev/null 2>&1; then
             echo "GUI 就绪 pid=$CHILD"
             return 0
         fi
@@ -183,8 +180,7 @@ check_field() {
     fi
 }
 
-# navigate 后 route 归位轮询（≤5s）：控制通道 route 为异步传播，立即查询会读到
-# 旧页（GUI 启动后首页必现竞态）；上界与 page 回执 5s 超时同一量级。
+# navigate 后 route 异步传播，轮询 ≤5s 归位（立即查询会读到旧页，上界与 page 回执超时同量级）。
 wait_route() {
     local route="$1" i
     for i in $(seq 1 20); do
@@ -214,11 +210,15 @@ assert_action() {
             expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action settings resetIdentity --navigate ;;
         dashboard)
             expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action dashboard stop --navigate ;;
-        diagnostics)
+        diagnostics) # HAPPY_PATH：refresh 只读 IPC 真执行取结构化回包
+            PAGE_MODE="HAPPY_PATH"
+            must_ok "$CTL" gui action diagnostics refresh tailLines=5 --navigate >/dev/null
             expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action diagnostics clearAll --navigate ;;
         discovery)
             expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action discovery removeBootstrap --navigate ;;
-        events)
+        events) # HAPPY_PATH：clear 带 confirm 真执行（易失缓冲，清后幂等）
+            PAGE_MODE="HAPPY_PATH"
+            must_ok "$CTL" gui action events clear confirm=true --navigate >/dev/null
             expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action events clear --navigate ;;
         relay) # EXEC_STRUCT：非法地址在校验层结构化拒绝，零写入真执行
             PAGE_MODE="EXEC_STRUCT"

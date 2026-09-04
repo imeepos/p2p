@@ -3,10 +3,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := check
 
-.PHONY: check fmt fmt-check line-limit clippy test gui-check version-check gate-tests panic-hygiene cli-parity ai-docs-sync release-check
+.PHONY: check fmt fmt-check line-limit clippy test gui-check gui-tauri-check version-check gate-tests panic-hygiene cli-parity ai-docs-sync release-check
 
 # 聚合门禁：先验证门禁脚本，再跑版本/格式/行数/clippy/测试/GUI/panic 卫生
-check: gate-tests version-check fmt-check line-limit clippy test gui-check panic-hygiene cli-parity ai-docs-sync
+check: gate-tests version-check fmt-check line-limit clippy test gui-check gui-tauri-check panic-hygiene cli-parity ai-docs-sync
 
 # 自动修复格式
 fmt:
@@ -31,6 +31,17 @@ test:
 # GUI 门禁：lint + build + vitest（含启动冒烟，白屏事故后加入）
 gui-check:
 	bash scripts/check/gui.sh
+
+# src-tauri 独立门禁：该 crate 脱离根 workspace，根 test/clippy 不覆盖；
+# 非 macOS 且缺 webkit2gtk 时显式 SKIP（CI ubuntu），本机 macOS 真跑 cargo test
+gui-tauri-check:
+	bash scripts/check/gui-tauri.sh
+
+# UI 回归（opt-in，不进 check）：macOS GUI 会话专用，分钟级：起 GUI 实例逐页
+# navigate/descriptor/动作断言/截图；GUI 改动合并前后手动跑（分层门禁实践：
+# 快门禁进 CI，重 E2E 独立靶）
+ui-regression:
+	bash scripts/ops/ui-regression.sh
 
 # 版本一致性：apps/gui 三处版本（package.json / tauri.conf.json / Cargo.toml）必须同值
 version-check:
