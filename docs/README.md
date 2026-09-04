@@ -23,6 +23,14 @@
 | [research/p2p-legal-risk-cn.md](research/p2p-legal-risk-cn.md) | P2P 应用国内法律法规风险调研：金融类 P2P 为禁区、技术型 P2P 的电信资质/内容/版权合规重心 |
 | [design/remote-support-design.md](design/remote-support-design.md) | 远程电脑支持服务（AI 维修坐席）方案 v1：任意 agent 接入（临时 MCP server + 接入桥）、工具面与双端执法、执行记录与文件修改交付、0-6 工单闭环与分期 |
 | [design/remote-support-plan.md](design/remote-support-plan.md) | 远程支持 P0b 实施计划 v1：P0b 剪裁、repair-* 四工件接缝、协议 ID/ticket/MCP 传输/执法契约裁决、T20-T28 任务表与三批次节奏 |
+| [design/im-chat-design.md](design/im-chat-design.md) | IM 聊天系统设计 v1（冻结基线）：好友 1:1 私聊、/im/chat/1 四帧线协议、消息模型与 MIME 白名单、本地存储与 outbox 离线投递、里程碑拆单 |
+| [design/gui-contract.md](design/gui-contract.md) | GUI 前后端契约（冻结 + 加法演进）：Tauri 命令/事件/数据形状全表；v4 更新检查、v5 邻居来源、v6 节点资料、v7 IM 聊天（含 replyTo 引用加法） |
+| [design/gui-plan.md](design/gui-plan.md) | p2p GUI 总体规划 v1：定位范围、视图与路由、里程碑波次（契约细节见 gui-contract） |
+| [design/mux-transport-lifecycle.md](design/mux-transport-lifecycle.md) | Mux 与传输层连接生命周期语义定稿：YamuxMux/QuicMux 对照、TCP 会话自毁复盘与统一定义 |
+| [release-gates.md](release-gates.md) | 发布门禁：发布路径机械门禁清单与 client-v0.1.1 事故复盘（2026-09-03 起生效） |
+| [ops/im-chat-drill.md](ops/im-chat-drill.md) | IM 聊天真机演练清单：双 GUI 实例加好友、五类消息、离线 flush、历史分页、回复引用（含校准项与验收记录模板） |
+| [ops/repair-runner-integration.md](ops/repair-runner-integration.md) | 远程支持单 runner 接入说明：repair-bridge ⇄ repair-helper stdio 桥，DSH 为接入首例 |
+| [ops/repair-p0b-drill.md](ops/repair-p0b-drill.md) | P0b 真机演练清单：3 类问题诊断+修复各 1 例（人工里程碑，不入账本） |
 
 ## 约定
 
