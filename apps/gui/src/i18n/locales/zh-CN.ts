@@ -324,6 +324,14 @@ const zhCN = {
     attachTooLarge: "附件不能超过 64 MiB",
     cancelSend: "取消发送",
     download: "下载",
+    mediaRetryHint: "请重新选择文件发送",
+    nodeStopped: {
+      hint: "节点未运行，聊天功能不可用；启动节点后即可收发消息。",
+      start: "启动节点",
+      starting: "启动中…",
+      startFailed: "节点启动失败",
+    },
+    sendFailedReason: "消息发送失败：对方可能不在线、版本过旧或未开启聊天功能",
     reply: {
       action: "回复",
       previewLabel: "回复",
@@ -337,7 +345,7 @@ const zhCN = {
       kindFile: "文件",
     },
     status: {
-      pending: "发送中",
+      pending: "等待对方上线",
       sent: "已发送",
       delivered: "已送达",
       failed: "失败",

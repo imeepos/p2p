@@ -333,6 +333,15 @@ const enUS: typeof zhCN = {
     attachTooLarge: "Attachment cannot exceed 64 MiB",
     cancelSend: "Cancel send",
     download: "Download",
+    mediaRetryHint: "Please pick the file and send it again",
+    nodeStopped: {
+      hint: "The node is not running, so chat is unavailable; start the node to send and receive messages.",
+      start: "Start node",
+      starting: "Starting…",
+      startFailed: "Failed to start node",
+    },
+    sendFailedReason:
+      "Message failed to send: the peer may be offline, on an older version, or has chat disabled",
     reply: {
       action: "Reply",
       previewLabel: "Replying to",
@@ -346,7 +355,7 @@ const enUS: typeof zhCN = {
       kindFile: "File",
     },
     status: {
-      pending: "Sending",
+      pending: "Waiting for peer to come online",
       sent: "Sent",
       delivered: "Delivered",
       failed: "Failed",

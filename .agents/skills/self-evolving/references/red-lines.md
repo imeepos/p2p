@@ -38,3 +38,6 @@
 - 禁止把构建/测试命令用管道收尾后直接接 && 链（如 cargo build 2>&1 | tail -1 && test ...）：管道退出码是 tail 的，构建红了链照样走，会把坏提交推上远端（CL3 轮实推过一次）。要脱管道就 set -o pipefail，或在链里显式判断 PIPESTATUS。
 - 禁止对共享 append-only 文件（skill references、账本 JSON）用整文件覆写做追加：并行会话可能在读取与提交之间刚推了新节，覆写即回滚他人内容（2026-09-04 实证：known-issues.md 追加一行回滚了七节沉淀）；提交前 git diff 必查删除行数，非纯追加不下提交；已发生的回滚用 git show 父版本重建并机械校验节头数量。
 - 禁止在主树工作区直接改任何文件（哪怕一行常量修正、哪怕是为救验收）：验收失败时的快速修正也必须走 worktree 分支流程（2026-09-04 GC2 实证：GIF magic 修正直接 edit 主树文件，即查即改仍须 checkout 还原重走分支；「快修」与红线之间没有豁免档位）。
+- 禁止在 zustand/useSyncExternalStore 选择器内联派生新引用（`s.x[id] ?? []`、`?? {}`、map/filter）：每次调用返回新对象即快照不稳，React 无限重渲直崩 Maximum update depth exceeded（2026-09-04 IM-T50 测试 Harness 实证，known-issues 2026-09-03 同族条目仍再踩）。稳法：选择器只取 record 引用，`??` 派生放组件体。
+- 禁止 edit 的 old_string 覆盖「无需修改的上下文行」而不在 new_string 原样带回（2026-09-04 IM-T50 实证：替换块吞掉 mock-ipc 的 addKnownPeer 属性，11 用例连崩）；边界取最小可唯一定位区段，替换后立即 read 回核。
+- 禁止后台跑 cargo 验收/构建链不带 timeout 裸奔（2026-09-04 实证：t49 链 cargo test 挂死持 target 锁 15 小时，全家 clippy/check 排队 25 分钟起；cargo 锁等待无超时参数，挂死即无限堵）。稳法：整链 timeout/gtimeout 包裹 + CARGO_TARGET_DIR 指独立目录 + 定期 ps 清点孤儿 cargo。

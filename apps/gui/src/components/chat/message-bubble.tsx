@@ -28,6 +28,8 @@ interface MessageBubbleProps {
   highlighted?: boolean;
   onReply?: (message: ChatMessageJson) => void;
   onQuoteOpen?: (message: ChatMessageJson) => void;
+  /** 失败重发（IM-T51）：仅 me+failed+text 提供入口；媒体走重新选择提示。 */
+  onRetry?: (message: ChatMessageJson) => void;
 }
 
 // 回复入口：悬停/键盘聚焦可见，位于气泡外侧；不干扰气泡本体点击。
@@ -71,6 +73,7 @@ export function MessageBubble({
   highlighted = false,
   onReply,
   onQuoteOpen,
+  onRetry,
 }: MessageBubbleProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
@@ -134,6 +137,21 @@ export function MessageBubble({
             >
               {t("chat.cancelSend")}
             </button>
+          ) : null}
+          {isMe && message.status === "failed" && message.kind === "text" && onRetry ? (
+            <button
+              type="button"
+              data-testid={`message-retry-${message.id}`}
+              className="underline underline-offset-2"
+              onClick={() => onRetry(message)}
+            >
+              {t("chat.retry")}
+            </button>
+          ) : null}
+          {isMe && message.status === "failed" && message.kind !== "text" ? (
+            <span data-testid={`media-retry-hint-${message.id}`}>
+              {t("chat.mediaRetryHint")}
+            </span>
           ) : null}
         </div>
       </div>

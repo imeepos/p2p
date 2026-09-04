@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 import { replyKindKey, replySummaryOf } from "./reply-summary";
 import { EmojiPicker } from "./emoji-picker";
+import { notifyFailedSendReport } from "./send-notify";
 
 const MAX_TEXT_CHARS = 2000;
 
@@ -57,10 +58,13 @@ export function Composer({
   peer,
   replyTarget,
   onReplyCancel,
+  disabled = false,
 }: {
   peer: string;
   replyTarget: ChatMessageJson | null;
   onReplyCancel: () => void;
+  /** 节点未运行等场景的外部禁用（IM-T51）：输入/发送/附件/表情全部不可用 */
+  disabled?: boolean;
 }) {
   const { t } = useTranslation();
   const sendText = useChatStore((s) => s.sendText);
@@ -90,12 +94,13 @@ export function Composer({
   };
 
   const send = async () => {
-    if (!canSend) return;
+    if (!canSend || disabled) return;
     setSending(true);
     try {
-      await sendText(peer, trimmed, replyTarget?.id);
+      const report = await sendText(peer, trimmed, replyTarget?.id);
       setText("");
       onReplyCancel();
+      notifyFailedSendReport(report);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       toastError(t("chat.sendFailed"), { description: reason });
@@ -118,8 +123,9 @@ export function Composer({
       try {
         const media = await fileToChatMedia(file);
         const kind = inferKind(file.name, file.type);
-        await sendMedia(peer, kind, media, replyTarget?.id);
+        const report = await sendMedia(peer, kind, media, replyTarget?.id);
         onReplyCancel();
+        notifyFailedSendReport(report);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         console.error("[chat] 附件发送失败", error);
@@ -145,6 +151,7 @@ export function Composer({
           variant="ghost"
           size="icon"
           aria-label={t("chat.emoji")}
+          disabled={disabled}
           onClick={() => setEmojiOpen((open) => !open)}
         >
           <Smile className="size-4" />
@@ -154,7 +161,7 @@ export function Composer({
           variant="ghost"
           size="icon"
           aria-label={t("chat.attach")}
-          disabled={sending}
+          disabled={sending || disabled}
           onClick={() => fileRef.current?.click()}
         >
           <ImagePlus className="size-4" />
@@ -174,12 +181,13 @@ export function Composer({
           placeholder={t("chat.inputPlaceholder")}
           aria-label={t("chat.inputPlaceholder")}
           data-testid="chat-input"
+          disabled={disabled}
           className={cn("min-h-10 flex-1", tooLong && "border-destructive")}
         />
         <Button
           type="button"
           onClick={() => void send()}
-          disabled={!canSend}
+          disabled={!canSend || disabled}
           data-testid="chat-send"
         >
           <Send className="size-4" />

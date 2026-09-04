@@ -237,3 +237,26 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 ## 2026-09-04 R1 friends 写锁轮
 - flock 锁挂在 open file description 上：同进程两次 open 的两个 fd 互相冲突（第二者 LOCK_NB 得 WouldBlock）——单进程双 fd 即可测「持锁超时显式报错 / 释放后重获」全路径，不必真起多进程。
 - 跨进程文件锁选型锚点：Unix 用 flock(LOCK_EX|LOCK_NB 自旋 + 截止时间) 进程崩溃内核自动释放无陈锁；超时报错带锁路径与「拒绝静默覆盖」语义满足可观测红线。锁内必须重读磁盘权威态再合并写（只加锁不重读仍是 last-write-wins）。
+
+## 2026-09-04 IM-T50 轮
+- run_code 的 bash 命令写在反引号模板里时，shell 循环变量 ${i} 会被 TS 先插值报 ReferenceError——含 shell 变量/循环的命令一律用单引号字符串承载（与 red-lines 反引号条同族，本条补变量插值变种）。
+- 验收红定性三步：隔离复跑最小面（cargo test -p 单包 / 单文件 vitest）+ 查可疑产物 mtime + 同码他树全绿对照；三步齐才允许记为环境竞态并错峰重跑全量。
+- edit 批量修改生产文件后先跑最小面单测（本次 mock-chat 11 连崩由一条 edit 引出，单文件 vitest 半分钟定位），不要攒到全量门禁才发现。
+
+## 2026-09-04 cargo 锁竞争排查工具箱
+- 定位链路：ps aux | grep -E '[c]argo|[r]ustc' → ps -o pid,ppid,lstart,etime,%cpu,command 看族谱 → pgrep -lP <pid> 验有无编译子进程 → sample <pid> 2 看内核栈卡点；CPU 秒数是「活着干活」与「挂死占坑」的唯一硬指标。
+- macOS 本机 `lsof <文件路径>` 会无限挂住（当日实测两连挂，进程明明存在也查不出持有者）——查进程句柄一律 `lsof -p <pid>`，别对锁文件做文件级 lsof。
+- 多会话 workspace（本机 84 会话在册）并行 cargo 是常态：动手前先 ps 全景再行动；孤儿验收链特征 = bash -c 包裹 + 日志在 /tmp + 父会话已关（/tmp/t49-*.log 命名即此类）。
+- rust-analyzer 也抢 ./target 锁：VS Code settings 设 "rust-analyzer.cargo.targetDir": true（落 target/rust-analyzer）消除编辑器与终端 cargo 互相阻塞。
+
+## 2026-09-04 IM-T49 轮
+- `git commit --amend` 永远只打 HEAD：多提交序列里修非 HEAD 的提交，amend 必错位（当日把 wire 测试修复并进了命令层提交）。重排未推送历史的可靠姿势 = `git reset --soft <基点>` 后按文件分组重新 commit；要合并进指定提交用 `git commit --fixup=<hash>` + `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <基点>`，且 fixup 前确认目标哈希未被 amend 改写（目标一变 autosquash 静默 no-op）。
+- `cargo xxx | tail` 的退出码是 tail 的，cargo 失败也「completed」——门禁判决一律把整链输出重定向进日志文件并追加 `echo EXIT=$?`，以日志里的标记行定成败，不信管道外层。
+- 通知会打断 job_output 等待（报 abort）但进程往往还活着：先 ps 查 PID 与日志尾再决定 kill，别盲目重启造成双跑。被并行会话毒化的主树验收，干净判决用 CARGO_TARGET_DIR 指独立目录整链重跑（本次隔离跑 11 分钟 exit 0）。
+
+## 2026-09-04 DSH 工具链高负载排障（锁竞争方案落地轮）
+- read 工具对超长行截断 2000 字符——禁止用 read 输出拼回 JSON 再 parse（当日 JSON.parse 报控制字符炸）；结构化文件变换一律 python3 直接处理原文件（json.load/dump 往返 + 写后回读断言任务数）。
+- bash 工具 PATH 固定不含 /opt/homebrew/bin——'brew list' 判存会误报 command not found 导致「已装判成未装」（当日 coreutils 实际已装仍触发重复安装）；调 homebrew 工具（gtimeout/graphviz）一律全路径或先补 PATH。
+- 高负载机器上 run_code 组合调用频繁 30s 超时且无部分输出——拆最小单工具步骤逐个跑；长安装类命令一律 run_in_background 靠完成通知收割，不信前台超时前的残局。
+- 仓库 .gitignore 忽略 .vscode——编辑器级配置走用户级 settings.json（~/Library/Application Support/Code/User/settings.json），不入库不进 worktree 流程。
+- 2026-09-04 跨机 CLI 聊天演练配方：chat serve 的 listen_addrs 报 127.0.0.1 但实绑 0.0.0.0（swarm/mod.rs:139 bind、swarm/config.rs to_transport 仅展示替换）→ 双端各用固定 --quic-port + 隔离 --data-dir，好友 --addr 填「对端 LAN IP + 报告端口」即直连，无需 mDNS/rendezvous。102 端 rsync Cargo.toml+Cargo.lock+crates+apps/cli 后 cargo build 干净全量 2m09s（12 核 debug）；注意别把本机 target/ 一起 rsync（Mach-O 到 Linux 报 Exec format error）。
