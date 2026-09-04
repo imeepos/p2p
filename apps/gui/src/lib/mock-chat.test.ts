@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { mockBackend } from "./mock-ipc";
+import { forceMockMessageStatus, injectMockIncoming } from "./mock-chat-inject";
 import type { GuiConfig, NodeEventJson } from "./ipc-types";
 
 // mock chat 段（契约 v7 §12）：好友校验/发送状态事件/历史分页/媒体占位。
@@ -255,5 +256,55 @@ describe("mock chat：发送与历史", () => {
     await expect(
       mockBackend.chatMediaFile(p, textReport.message.id),
     ).rejects.toThrow(/不是媒体消息/);
+  });
+});
+describe("mock chat：场景注入（IM-T50）", () => {
+  it("injectMockIncoming 注入 them 五类型消息并发 chat_message 事件", async () => {
+    const p = peerId("inject-them");
+    const events: NodeEventJson[] = [];
+    const unlisten = await mockBackend.onNodeEvent((e) => events.push(e));
+
+    const t1 = injectMockIncoming(p, { kind: "text", text: "对方文本" });
+    expect(t1).toMatchObject({ sender: "them", kind: "text", text: "对方文本", status: "delivered" });
+    for (const kind of ["image", "audio", "video", "file"] as const) {
+      const m = injectMockIncoming(p, {
+        kind,
+        media: { name: `demo-${kind}.bin`, mime: "application/octet-stream", dataBase64: "aGk=" },
+      });
+      expect(m).toMatchObject({ sender: "them", kind });
+      expect(m.media).toMatchObject({ name: `demo-${kind}.bin`, size: 2 });
+    }
+
+    expect(events.filter((e) => e.type === "chat_message")).toHaveLength(5);
+    const history = await mockBackend.chatHistory(p, null, 10);
+    expect(history).toHaveLength(5);
+    expect(history.every((m) => m.sender === "them")).toBe(true);
+    await unlisten();
+  });
+
+  it("注入校验：text 缺文本 / 媒体缺 media 显式报错", () => {
+    const p = peerId("inject-invalid");
+    expect(() => injectMockIncoming(p, { kind: "text" })).toThrow(/需要非空 text/);
+    expect(() => injectMockIncoming(p, { kind: "image" })).toThrow(/需要 media/);
+  });
+
+  it("forceMockMessageStatus 推进 pending→failed 并改历史态；目标缺失报错", async () => {
+    const p = peerId("inject-status");
+    await mockBackend.chatFriendAdd(p, "", []);
+    const events: NodeEventJson[] = [];
+    const unlisten = await mockBackend.onNodeEvent((e) => events.push(e));
+
+    const sent = await mockBackend.chatSend(p, "text", "我的消息");
+    expect(sent.message.status).toBe("pending");
+    const forced = forceMockMessageStatus(p, sent.message.id, "failed");
+    expect(forced.status).toBe("failed");
+    const statusEvents = events.filter((e) => e.type === "chat_status");
+    expect(statusEvents).toHaveLength(1);
+    expect(statusEvents[0]).toMatchObject({ peer: p, messageId: sent.message.id, status: "failed" });
+
+    const history = await mockBackend.chatHistory(p, null, 10);
+    expect(history.find((m) => m.id === sent.message.id)?.status).toBe("failed");
+    expect(() => forceMockMessageStatus(p, "no-such-id", "failed")).toThrow(/不存在/);
+    await unlisten();
   });
 });

@@ -16,6 +16,7 @@ import { randomWalkHistory } from "./metrics-history";
 import { FACTORY_LIST_DEFAULTS } from "@/views/shared/factory-defaults";
 import { mockUpdateCheck, mockUpdateOpenReleasePage } from "./mock-update";
 import { createMockChatBackend } from "./mock-chat";
+import { forceMockMessageStatus, injectMockIncoming } from "./mock-chat-inject";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -202,6 +203,13 @@ const mockChat = createMockChatBackend({
     if (!state.knownPeers.includes(peer)) state.knownPeers.push(peer);
   },
 });
+
+// IM-T50 dev 注入入口：mock 模式下控制台/演示脚本可经 window.__MOCK_CHAT__
+// 驱动 them 气泡注入与状态推进（全状态矩阵演示与集成测试共用一套接口）。
+(window as unknown as Record<string, unknown>).__MOCK_CHAT__ = {
+  inject: injectMockIncoming,
+  forceStatus: forceMockMessageStatus,
+};
 
 export const mockBackend: IpcBackend = {
   ...mockChat,

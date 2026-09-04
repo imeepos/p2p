@@ -52,6 +52,25 @@ interface MockChatState {
 
 const state: MockChatState = { friends: new Map(), history: new Map() };
 
+// 场景注入运行时（IM-T50）：后端创建即登记，mock-chat-inject 经此驱动
+// 历史与事件通道；不改变 IpcBackend 契约面，不入 prod bundle。
+export interface MockChatRuntime {
+  emit(event: NodeEventJson): void;
+  newId(): string;
+  appendMessage(message: ChatMessageJson): ChatMessageJson;
+  findMessage(peer: string, messageId: string): ChatMessageJson | undefined;
+}
+
+let activeRuntime: MockChatRuntime | null = null;
+
+// 未初始化时显式抛错（可观测信号），不静默。
+export function activeMockChatRuntime(): MockChatRuntime {
+  if (!activeRuntime) {
+    throw new Error("mock chat 后端未初始化：先调用 createMockChatBackend");
+  }
+  return activeRuntime;
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -78,6 +97,16 @@ function snapshotMessage(message: ChatMessageJson): ChatMessageJson {
 }
 
 export function createMockChatBackend(deps: MockChatDeps): MockChatBackend {
+  activeRuntime = {
+    emit: deps.emit,
+    newId: uuid,
+    appendMessage: (message) => {
+      appendMessage(message);
+      return snapshotMessage(message);
+    },
+    findMessage: (peer, messageId) =>
+      state.history.get(peer)?.find((m) => m.id === messageId),
+  };
   // 已送达文本消息的脚本化回复：让 chat_message 入站事件在 mock 下可见可测。
   function scheduleMockReply(peer: string, source: ChatMessageJson): void {
     if (source.kind !== "text" || !source.text) return;
