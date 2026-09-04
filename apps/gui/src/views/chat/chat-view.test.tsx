@@ -207,4 +207,13 @@ describe("ChatView 三态一致性", () => {
     await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
     logSpy.mockRestore();
   });
+
+  it("选中好友且无消息时显示暂无消息空态而非空白面板", async () => {
+    mocks.friends.mockResolvedValue([friend("friend-a", "小圆")]);
+    mocks.history.mockResolvedValue([]);
+    render(<ChatView />);
+    await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
+    fireEvent.click(screen.getByText("小圆"));
+    await waitFor(() => expect(screen.getByText("暂无消息")).toBeTruthy());
+  });
 });
