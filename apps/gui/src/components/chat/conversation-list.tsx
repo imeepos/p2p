@@ -122,7 +122,7 @@ export function ConversationList({
   if (friends.length === 0) {
     return (
       <EmptyState
-        className="min-h-56"
+        className="min-h-56 flex-1"
         icon={MessageCircle}
         title={t("chat.noFriends")}
         description={t("chat.noFriendsHint")}
