@@ -294,3 +294,7 @@ _none yet — be the first._
 - 2026-09-05：当 E2E 断言「脚本末行 == OK 标记」时，修复是 grep 标记而不是 tail -1——trap 清理函数在 OK 行之后还会输出 Terminated 等系统噪声，tail 会误报。
 - 2026-09-05：当分支合并期间 main 被并行会话连续推进导致 ff-only 反复失败时，修复是「fetch → merge main → 跑门禁 → push → 立刻重试 ff」紧凑循环，把竞态窗口压到秒级；ff 失败不删 worktree，commit 始终安全在分支 ref 上。
 - 2026-09-05：当接手任务发现验收脚本在 main 上本来就红（别的波次合并了新裁决没跑该脚本）时，修复是先在 main 复现确认存量、再按「断言语义不弱化」适配新语义并把适配写进提交正文，避免误判为自己改坏。
+- 2026-09-05 G4 重复派单：任务书对 worktree 的预设（「他人遗留零提交空 worktree」）必须实证再动手——mtime 新鲜度 + reflog + 存活进程三查在 90 秒内证伪预设（group.rs 实时编辑 + group_contract 编译指纹 + 90 秒前的 git reset），立即停手让位避免双写事故；归属不明先 session_link 逐会话问询核销。
+- 2026-09-05 G4 接管：git status 陈旧 stat 缓存会漏报整个脏文件集（33 文件 796 行漂移首次 status 只见 1 个 untracked，merge 写索引后才显形）；接管 worktree 先 git diff HEAD --stat 强制重哈希再信状态。
+- 2026-09-05 G4 审计：判定大 diff 是否纯 fmt——git show <c> -- <paths> 删除/新增两侧行去空白后 sort|uniq -c 比对 token 多集，逐对可配对即零语义（rustfmt 换行/尾逗号/match 臂加括号会让 -w 的 --stat 仍有行数差，别被吓住）。
+- 2026-09-05 G4 收尾：重复派单撞车时「以 main 合入状态为准」——授权接管的瞬间执行者可能恰好收尾完（本次 rebase 时 fmt/clippy 修复笔被 git 自动丢弃 "patch contents already upstream"），rebase 的自动去重就是最干净的冲突裁决。

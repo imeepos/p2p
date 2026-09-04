@@ -677,3 +677,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：nohup bin > log 2>&1 后 log 空，进程却正常运行（端口已绑定）。
 原因：排查时混淆了「同路径两代进程」——上一代孤儿占着端口/日志，新一代启动即 AddrInUse 退出，其 die 输出进了被 rm 后未链接的旧 inode。
 修法：forensic 前先 ls /proc/<pid>/cwd 定位进程锚定目录、ss -lnup 比对端口持有人 pid，再决定读哪个文件；诊断信息走 stderr（无缓冲）不走 stdout。
+
+## 2026-09-05 git status 谎报「干净」（陈旧 stat 缓存）
+症状：接手他人 worktree，git status 只报 1 个 untracked，实际工作区相对 HEAD 有 33 文件 796 行漂移；跑 git merge（任何写索引操作）后漂移「突然」全部显形为 modified。
+原因：索引 stat 元数据（mtime/size）与工作文件巧合匹配时 git 跳过内容重哈希，陈旧缓存把脏树报成干净。
+修法：接管任何 worktree 先跑 git diff HEAD --stat（强制重哈希）核对真状态；处置未预期漂移前用 reflog + 文件 mtime + 存活进程三件套判归属，别急着删重建。

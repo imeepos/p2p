@@ -35,3 +35,8 @@
 - **期望**：底座层修复单复核（rendezvous 连接复用/多查号；facade 注册重试与地址优选），涉及 crates/p2p-discovery 与 p2p-swarm，属底座卡非应用层。
 
 ---
+
+## tests/smoke.rs 固定端口并行假红（T44 口径未覆盖，2026-09-05 G4 验收实测）
+- **现象**：two_nodes_discover_ping_and_observe_dialhop 0.04s 即 FAILED：节点 b 启动 Address already in use (os error 48)——同机多会话并行跑各自节点测试时固定端口相撞；单跑即复绿。
+- **现役吸收**：gui-tauri 门禁撞红先单测复跑鉴别环境散；尽量避免多会话同时跑 make check。
+- **期望**：tests/smoke.rs 改端口 0 动态分配（T44 已修 chat 系测试，本文件漏网），src-tauri 测试域小改。
