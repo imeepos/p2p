@@ -19,3 +19,10 @@
 - **期望**：观察是否复现；若复现扩大，用 `GIT_TRACE_PERFORMANCE=1` 与 commit-graph 重建（`git commit-graph write --reachable`）定位。
 
 ---
+
+## p2pctl-ai-guide.md 操作性缺口（2026-09-04 AI 试运行发现，详情 docs/notes/ai-pilot-findings.md）
+
+- **信息缺失**：无「两节点聊天最小拓扑」章节——chat 收发用 chat 身份（chat serve 输出）而非守护身份、接收方须 chat serve 常驻、friends add --addr 格式，均需试错才能拼出（§1.3 只陈述现象）。
+- **信息缺失**：identity.lock 未记载——chat serve 与 chat send 同 data-dir 互斥（§1.3 守护信号只列 daemon.*）；建议补锁清单+互斥矩阵；另缺「查本机 chat 身份」的离线只读命令。
+- **信息不准**：§1.4/gui screenshot 前置缺「macOS 屏幕录制授权」（实测 CAPTURE_PERMISSION_DENIED 直接判死 screenshot 与 ui-regression.sh）；gui page 条目称 dashboard 未注册会 PAGE_NOT_REGISTERED，实测 dashboard 正常返回 descriptor。
+

@@ -566,3 +566,16 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 症状：对 263/533 行的经验文件做 read 后 join 回写，提交时 stat 显示 -251 行——存量经验被静默吞掉。
 - 原因：read 的 lines 数组被输出预算截断而未核对 totalLines；拼接回写成了"截断版全文"。
 - 修法：大文件的追加一律走「tools.write 临时片段 + bash cat 临时片段 >> 目标 + wc -l 核对行数增量」，禁止 read-全量-modify-write 回写；回写前 diff 行数差必须等于新增行数。
+
+## 2026-09-04 p2p chat 两套身份根 + identity.lock：chat send 拓扑与互斥（AI 试运行实录）
+- 症状1：用 node start/status 输出的守护 peerId 当 chat 对端，chat send 快速失败 status=Failed（非文档所写超时 Pending）；B 端 history 恒空。
+- 症状2：同 data-dir 先跑了 chat serve 再 chat send，报「身份被占用：该身份已有进程在运行…锁=<data-dir>/identity.lock …拒绝静默覆盖」。
+- 原因：chat 域身份（chat serve 输出的 peerId，存 <data-dir>/chat 一侧）与节点守护身份是两套根；chat 收发的对端必须是接收方 chat serve 的 chat peerId + 其监听地址（chat friends add --addr ip/u端口）；identity.lock 由 chat serve 持有、chat send 需要，二者同 data-dir 互斥；node 守护进程不持该锁可共存。
+- 修法：接收端起 chat serve 抓首行 JSON（peerId/listenAddrs），发送端 friends add 用它 + send；发完 SIGTERM 收 chat serve；排「身份被占用」先 pgrep 同 data-dir 的 chat serve。
+- 文档缺口详见 docs/notes/ai-pilot-findings.md（F2-F5）。
+
+## 2026-09-04 gui screenshot / ui-regression.sh 挂 CAPTURE_PERMISSION_DENIED
+- 症状：p2pctl gui screenshot 报 [CAPTURE_PERMISSION_DENIED] macOS 屏幕录制权限缺失（HTTP 403）；scripts/ops/ui-regression.sh 8/8 路由全 FAIL、末行 UI-REG-FAIL（其余断言 58/74 全过）。
+- 原因：GUI 进程没有被授予 macOS 屏幕录制权限（TCC）；navigate/page 等控制通道命令不受影响。
+- 修法：系统设置 > 隐私与安全性 > 屏幕录制 给 p2p-console 授权后重跑；授权属 OS 级人工操作，AI/CLI 无法自助完成。
+

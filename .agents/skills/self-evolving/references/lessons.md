@@ -276,3 +276,5 @@ _none yet — be the first._
 - 2026-09-05 G2：给 NodeEventJson 判别联合加事件类型的全部下游落点清单——event-meta.ts 的 BADGE_VARIANT 与 EVENT_TYPE_KEY 两张 Record<NodeEventType,…> 表 + eventSummary switch + lib/event-text.ts 的 describeNodeEvent switch + 双 locale 的 events.types/events.summary 子树；漏一处 tsc/gui 门禁就红，按清单逐点补齐再跑门禁。
 - 2026-09-05 G2：react-hooks/set-state-in-effect 门禁下视图初始取数的仓库既定写法是「const load = useCallback(() => { ipc.x().then(setState).catch(收尾) }, [])」+ effect 直接 load()；async 函数体内 setState 再在 effect 里 void 调用会被新规则拦（diagnostics-view.tsx 注释即此 idiom 的权威示例）。
 - 2026-09-05 G2：测试文件同样受 300 行纪律（存量 310/314 不构成豁免）——mock 单例测试拆文件时事件收集器必须带 reset() 并在 beforeEach 调用，否则同文件用例间事件计数互相污染（本轮 3 个假红全源于此）；拆分是纯 test refactor 单独成提交。
+- 2026-09-04 AI 试运行：文档驱动操作撞上「两套身份」类系统时，把每次失败报错当拓扑探针用——Failed(快速) vs Pending(超时) 的差异本身就指明对端身份不符还是网络不通。
+- 2026-09-04 run_code：bash 惯用法写进 JS 模板串必须转义美元花括号（PIPESTATUS 被 JS 当插值求值直接 ReferenceError），含反引号的内容更要用数组 join + heredoc 落盘。
