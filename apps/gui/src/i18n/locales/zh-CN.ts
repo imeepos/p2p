@@ -320,6 +320,18 @@ const zhCN = {
     attachTooLarge: "附件不能超过 64 MiB",
     cancelSend: "取消发送",
     download: "下载",
+    reply: {
+      action: "回复",
+      previewLabel: "回复",
+      cancel: "取消回复",
+      jump: "跳转到被引用消息",
+      quotedMissing: "引用消息不在本地",
+      kindText: "文本",
+      kindImage: "图片",
+      kindAudio: "音频",
+      kindVideo: "视频",
+      kindFile: "文件",
+    },
     status: {
       pending: "发送中",
       sent: "已发送",

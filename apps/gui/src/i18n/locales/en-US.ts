@@ -329,6 +329,18 @@ const enUS: typeof zhCN = {
     attachTooLarge: "Attachment cannot exceed 64 MiB",
     cancelSend: "Cancel send",
     download: "Download",
+    reply: {
+      action: "Reply",
+      previewLabel: "Replying to",
+      cancel: "Cancel reply",
+      jump: "Jump to quoted message",
+      quotedMissing: "Quoted message is not in local history",
+      kindText: "Text",
+      kindImage: "Image",
+      kindAudio: "Audio",
+      kindVideo: "Video",
+      kindFile: "File",
+    },
     status: {
       pending: "Sending",
       sent: "Sent",
