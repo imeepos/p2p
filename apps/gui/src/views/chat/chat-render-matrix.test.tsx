@@ -289,4 +289,15 @@ describe("渲染矩阵·补缺口", () => {
     expect(within(area).getByText("失败")).toBeTruthy();
     expect(screen.getByRole("button", { name: "取消发送" })).toBeTruthy();
   });
+
+  it("media：img/video 标签限宽 max-w-full 防溢出气泡", () => {
+    seedConversation([
+      mediaMessage("mw-i", PEER, "image", chatMedia("wide.png", "image/png", 1, "asset://chat/wide.png")),
+      mediaMessage("mw-v", PEER, "video", chatMedia("wide.mp4", "video/mp4", 2, "asset://chat/wide.mp4"), { tsMs: 2000 }),
+    ]);
+    mountChat();
+    const area = bubbleArea();
+    expect(area.querySelector("img")?.className).toContain("max-w-full");
+    expect(area.querySelector("video")?.className).toContain("max-w-full");
+  });
 });
