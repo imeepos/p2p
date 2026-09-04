@@ -378,3 +378,18 @@ devloop_ledger(action=save) 修正任务记录（note 写明误跑根因）；
 replace 转义再过 heredoc，等于双层转义，反斜杠被当正文写进文件。
 修法：quoted heredoc 内容零转义直写；已污染用 python3 replace(chr(92)+chr(96),
 chr(96)) 修复并断言计数，别用 sed 硬拼正则。
+
+- 2026-09-04 N1：run_code 里 tools.bash 报 "binding arguments must be lossless JSON"。
+  症状：同一段 helper 代码时好时坏，报错点指回 bash 绑定调用。
+  原因：description 等参数动态计算（如 command.slice(0,60)）或单次调用塞多条长命令，
+  序列化失败；与命令内容本身无关。
+  修法：description 一律静态字符串；复杂批次拆成单条调用，每条一次 run_code。
+- 2026-09-04 N1：bash 里 grep 变量模式未加 -e，模式以 -- 开头（如 --json）被当
+  grep 自己的选项，报 "unrecognized option" 门禁红得不知所云。
+  修法：一切变量模式写 grep -Fxq -e "$var"；写门禁脚本时逐处检查。
+- 2026-09-04 N1：负向注入测试（人为改坏文件验证门禁变红）后想用 git checkout 恢复，
+  但文件还未 commit（untracked），checkout 报 pathspec 错误无法恢复；后续负向测试
+  在已污染文件上叠加，现象互相干扰。
+  修法：负向测试前先把干净版本 commit（有 ref 才能恢复）；或准备好原始内容随时重写。
+- 2026-09-04 N1：tools.write 报 "file changed since it was read"——chmod 等元数据
+  操作也算改变。修法：重读一次该文件再写。

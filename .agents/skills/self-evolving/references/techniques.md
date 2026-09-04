@@ -212,3 +212,12 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-04 N2：run_code 生成 bash 脚本一律「行数组 join + write 落盘 + 执行
   文件」，不要内联在模板串里跑（内含 ${} 与引号必炸）；脚本内 JSON 断言用
   python3 heredoc 函数化（深比较/成员/计数），比 grep/sed 拼断言稳。
+- 2026-09-04 N1：run_code 传 600+ 行长文本给 tools.write 时，经 JS 模板串转手会
+  词法炸（Expected ',' got '<lexing error>'）；直接把内容作为 write 的 JSON 字符串
+  参数传，不经 JS 字符串拼接。
+- 2026-09-04 N1：门禁脚本防假绿自检法——写完门禁必做负向注入四件套：多出条目/
+  缺条目/参数改名/删参数行，逐一断言门禁变红且诊断指向正确改动点。本次
+  ai-docs-sync.sh 四类注入全红（含 cli-guide 真实发生过的 --nickname→--name 漂移样本）。
+- 2026-09-04 N1：无网络对端时的命令面实测技巧：chat serve --json 现场生成合法
+  peer id；friends add 用第二个 --data-dir 避开"不能与自己通信"；gui navigate 打
+  当前所在路由即零打扰实测；log tail/clear 用 --log-dir 指向临时目录不碰真实日志。

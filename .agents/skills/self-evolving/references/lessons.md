@@ -202,3 +202,9 @@ _none yet — be the first._
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
+- 2026-09-04 N1：文档与实现的漂移是真实发生的（cli-guide.md §5 曾写 --peer-id/--name，
+  实际 clap 参数是 --peer/--nickname）。凡"命令面/接口面"文档必须配机械同步门禁
+  （实测 --help ↔ 文档双向比对），手写完事必漂。
+- 2026-09-04 N1：合并到 main 的收尾动作（worktree remove / branch -d）做完后立刻
+  复核交付物仍在 main 且 hash 可达——并行会话可能同时推进 main 指针，别拿最后一条
+  log 行当自己的合并提交。
