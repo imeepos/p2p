@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T10:25:02.484Z",
+  "updatedAt": "2026-09-04T10:35:46.027Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -351,6 +351,17 @@
       "ownerSession": "session-ae9e8f18-537f-4cfc-87ea-b9ab071d230a",
       "scope": "apps/cli gui 域扩展 + scripts/ops/cli-page-e2e.sh + 两文档增章；禁碰 apps/gui 源码（协议缺陷回报协调者）；GC3 合并后开工",
       "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-gc4-target; exec /opt/homebrew/bin/gtimeout -k 30 1800 bash -c '\\''cd /Users/imeepos/ext512/p2p && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo build --manifest-path apps/cli/Cargo.toml > /tmp/gc4.log 2>&1 && test -f scripts/ops/cli-page-e2e.sh && bash scripts/ops/cli-page-e2e.sh > /tmp/gc4e2e.log 2>&1 && grep -q GC4-E2E-OK /tmp/gc4e2e.log && bash scripts/check/ai-docs-sync.sh > /tmp/gc4p.log 2>&1 && grep -q AI-DOCS-OK /tmp/gc4p.log && echo GC4-OK || { echo GC4-FAIL; tail -25 /tmp/gc4.log /tmp/gc4e2e.log /tmp/gc4p.log 2>/dev/null; exit 1; }'\\'''"
+    },
+    {
+      "id": "IM-T52",
+      "goal": "聊天页滚动体系重构（用户实测反馈）：a) 布局修复——聊天页不得产生页面级（全局）滚动条：app 壳层定高（视口高），主内容区固定剩余空间，聊天栅格填满该空间（定位疑似根因：现用 min-h-[calc(100vh-220px)] 允许内容撑高整页，消息一多整页滚动、输入框被挤出视口，需改为定高+内部滚动）；b) 滚动域分离——好友列表与消息列表各自内部滚动（overflow-y-auto + min-h-0），互不影响，输入条与会话头固定不动；c) 滚动条美化——两处滚动条统一样式（细轨道、圆角滑块、hover 态，双主题适配），可用 CSS scrollbar 样式或引入 scroll-area 组件；d) 消息列表新消息自动滚底、切会话重置、向上翻页不打断（现有行为保持）",
+      "title": "IM-T52 聊天页滚动体系重构与滚动条美化",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "fix/im-chat-scroll",
+      "ownerSession": "session-996b38fc-4420-440c-aaa6-f95fbbdc43df",
+      "scope": "apps/gui/src：components/layout/app-layout.tsx（壳层定高）、views/chat/chat-view.tsx（栅格定高）、components/chat/message-list.tsx 与 conversation-list.tsx（滚动域）、i18n 不需新词条；crates 与 src-tauri 只读；五页 views 只读",
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
     }
   ]
 }
