@@ -143,3 +143,12 @@ _none yet — be the first._
 - 2026-09-04 T36 轮：bash 工具偶发 spawn ENOENT（code worker 瞬断）——隔 1-2 分钟自动恢复，用 job_list 等轻调用探活，勿连续重击。
 - 2026-09-04 T36 轮：重派任务书修正验收 cd 深度时先复算再执行——apps/gui/src-tauri 的 ../../.. 恰为各 worktree 根，p2p-t36 与 .worktrees/t36 两处语义一致，无需改命令只需换 workdir。
 - 2026-09-04 IM 好友流轮：测试从 fixtures 出发而非从用户旅程出发——fixtures 让数据从天而降，「第一个数据从哪来」永远没被测到；后端/IPC/mock 三层各自全绿看不见「GUI 零调用点」断链，只有从零开始走用户路径才暴露（用户开箱卡死第一步后才被发现）。边界测试越测越细不等于覆盖：细度堆在已建成模块上，方向偏了越勤越糟。
+
+- 2026-09-03 T36 边界轮：rustfmt 默认 small-heuristics（struct_lit_width=18）会把一行宽结构体字面量展开成多行，写测试文件时按「fmt 输出形态」设计：预绑定中间变量、用元组/构造函数代替宽结构体字面量、json! 宏内容不被 fmt 重排可放心单行。
+- 2026-09-03 T36 边界轮：run_code 用 JS 模板字符串搬运 Rust 源码会被内容截断，大文件一律走 bash 单引号 heredoc（cat <<'EOF'）。
+- 2026-09-03 T36 边轮：edit 工具的 old_string 必须匹配 rustfmt 之后的磁盘真实文本，凭上一次记忆改必失配；每次 bash 写盘后要重新 read 再 edit。
+- 2026-09-03 T36 边轮：GUI build_node 对空 bootstrap/relay/observation 会回退出厂云端端点（config.rs default_*），离线测试配置必须显式传回环占位地址，否则测试悄悄连公网。
+- 2026-09-03 T36 边轮：chat_send 对「已登记但死亡地址」的拨号降级链（直连→打洞→中继）耗时 >30s，命令层投递验收要用双回环真实节点拿 delivered=true，不要赌死地址快速失败。
+- 2026-09-03 T36 边轮：并行边界轮多会话同仓作业，worktree 会被协调会话清理、main 随时前进；开工前 git worktree list + 分支重置到最新 main，交付后立即 commit+push 不留未提交状态。
+- 2026-09-04 IM-T44 轮：itest 夹具监听端口写死（哪怕只是测试用）就是潜伏 flake——其他进程占住端口即 AddrInUse 假红、空闲时全绿，归因极难；夹具一律 quic_port(0)/tcp_port(0) 内核分配，重启场景（同 data_dir 同身份）端口必变后用 friend_add upsert 把新 listen_addrs 刷新进对端地址簿（与真实应用重连发现同语义），facade 默认配置本就是端口 0，别画蛇添足传固定值。
+- 2026-09-04 IM-T44 轮：修复「占端口假红」的消融两步要同轮留证——修复前占住原固定端口复现红（panic 栈指到夹具 build 行），修复后不释放占端口进程跑全量全绿（lsof 实证占用仍在），才能证明修的正是端口依赖；只报三次连跑绿，无法排除「本来就绿」。
