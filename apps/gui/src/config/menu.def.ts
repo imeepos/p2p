@@ -2,6 +2,7 @@
 // 注册变更压独立小提交，不得混入 feature 提交。
 import {
   Activity,
+  Bot,
   LayoutDashboard,
   MessageCircle,
   Network,
@@ -26,6 +27,7 @@ export const MENU_ENTRIES: readonly MenuEntry[] = [
   { path: "/discovery", titleKey: "discovery.title", icon: Radar },
   { path: "/relay", titleKey: "relay.title", icon: Waypoints },
   { path: "/chat", titleKey: "chat.title", icon: MessageCircle },
+  { path: "/acp", titleKey: "acp.title", icon: Bot },
   { path: "/events", titleKey: "events.title", icon: Activity },
   { path: "/settings", titleKey: "settings.title", icon: Settings },
   { path: "/diagnostics", titleKey: "diagnostics.title", icon: Stethoscope },
