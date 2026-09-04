@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T06:16:45.293Z",
+  "updatedAt": "2026-09-04T06:37:00.326Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23/T25 全 done（T25 b7b831f，31 tests 一次通过，shell_union 即白名单数据源）；T24（3adc549c，一致性测试机械防漂移）与 T26（801a58c9）并行 doing，T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。 | IM 阶段（2026-09-04，IM 协调 session-b7d42619 接任项目负责人）：设计定稿 im-chat-design.md + 契约 v7（gui-contract §12）落 main（254b3cf），主树基线 make check exit 0 后开闸。批次一 T29 ∥ T30 并行；T31 待 T30、T32 待 T29、T33 待 T29+T32。与 E10/RS 双轨互斥（零文件交集），coordinatorSession 保持 E10 协调不动。T1-T16 已 done 历史折叠为本 note（协调表全量在案，未删任何验收记录）。 | IM 边界测试增强轮（2026-09-04，负责人 session-4297b5f0）：T34 Rust 核心边界 ∥ T35 GUI 边界 ∥ T36 Tauri/协议异常边界，均为只新增测试、互斥目录，先并行后逐单门禁。 | IM 好友流修复轮（2026-09-04，项目负责人本会话）：用户实测 GUI 卡死第一步——零好友无添加入口（后端/IPC/mock 三层就绪，唯 GUI 零调用点）；反思入册 docs/notes/2026-09-04-im-friend-flow-test-gap-reflection.md。立卡：T41 添加好友+从零旅程测试（P0，立即派）∥ T44 p2p-chat 夹具固定端口 flake 认领修复（P1，与 T41 零文件交集可并行）；T42 移除好友（P1，依赖 T41 合入——同文件互斥防撞）；T43 好友分组（P2，需契约加法修订，T41/T42 合入后协调裁决）。机械守卫入验收：IPC chat 方法在 views/components 必须有非测试调用点。 | RS P0b 九单验收记录折叠（T20(a87fb33)/T21(9fbe79a)/T22(35ad480)/T23(5c9b9b8)/T24(e592714)/T25(b7b831f)/T26(0e0222d)/T27(c1a4c79)/T28(41b46e6) 全 done，逐条 goal/验收命令/note 见 git 历史版本 dc76a59； coordination.md 检查轮 60-69 有全量叙事），为 30 上限腾位。 | CLI 对等波（2026-09-04，项目负责人 session-61813ecd-158c-4a81-abdd-24f3b629440d）：用户裁定「GUI 的所有操作都必须有等价 CLI」便于 AI 接入。新建 apps/cli（独立 cargo 项目、bin=p2pctl、复用 crates/p2p-cli、不进底座 workspace）承载全量操作。立卡：CL1 脚手架（P0，专属新会话 session-308c8462-a342-4760-85a7-0470735fd907，立即派发）→ CL2 节点/配置/档案/对端/身份 ∥ CL3 聊天（P0，CL1 合并后由协调会话派并行新会话，文件域互斥：CL2=node/config/profile/peer/identity 模块+cli-node-e2e.sh，CL3=chat 模块+cli-chat-e2e.sh，注册表合并序 CL2→CL3）→ CL4 日志/更新+cli-parity 守卫+cli-guide 文档（P1，CL2/CL3 落齐后）。守卫红线：apps/gui/src-tauri generate_handler 新增命令而 CLI 无映射即红（scripts/check/cli-parity.sh，豁免显式清单）。与 E10/RS/IM 波零文件交集。 | CLI 对等波推进（2026-09-04 12:30）：CL1 done（协调复跑验收 CL1-OK，main f846671，feat/cli-scaffold 已删）；CL2 doing（session-e0540f32）/ CL3 doing（session-034f304f）并行，文件域互斥，合并序 CL2→CL3；两单齐后派 CL4（日志/更新+cli-parity 守卫+docs/ops/cli-guide.md）。勘误：本仓库远端实为 origin（无 gitea），后续任务书统一用 origin。 | CL2 done（2026-09-04 13:05）：协调复跑验收 CL2-OK（cli-node-e2e 双节点环回真链路），合并 d92f064，分支已清理；CL3 仍在途（b802edf 反向同步后打磨中）。 | CL3 done（2026-09-04 13:15）：协调连跑两遍 cli-chat-e2e 均 CL3-E2E-OK，合并 aa18d0c（含 replyTo 适配），分支已清理；CL4 doing（session-session-b9b336a7-667b-485d-ada7-251e37ca7809）收官：log/update 命令域 + scripts/check/cli-parity.sh 机械守卫（接入 make check）+ docs/ops/cli-guide.md。 | 账本折叠（2026-09-04 13:20，协调者）：done 的 T 系历史任务 14 条折叠为本行（T23b,T23b2,T29,T30,T31,T32,T33,T34,T35,T36,T37,T38,T39,T40），验收留痕见 git log 与 docs/skill 各轮沉淀。 | GC 波立项（2026-09-04 13:20，用户裁定）：CLI 须能截图/录屏/操作当前已打开的 GUI——此前 CL1-CL4 的对等范围是 Tauri 命令面，不含 GUI 本体运行时控制，属规划缺口现补。两单：GC1 GUI 侧本地控制通道（token 鉴权+回环绑定+invoke 白名单，红线：不向 generate_handler 新增命令防 parity 守卫假红）→ GC2 p2pctl gui 命令域+真机联动 E2E+parity 登记注意与 CL4 守卫时序。首次真机录屏会触发 macOS 屏幕录制权限弹窗，需用户点击授权。 | GC1 派发（2026-09-04 13:22）：GC1 doing（session-session-1277cf5a-d14c-4465-b22b-87adf810face，worktree feat/gui-control-channel）；GC2 待 GC1 合并后派发。 | CL4 done（2026-09-04 14:05）：协调亲跑全量验收 CL4-OK（build+parity+guide+make check）。CLI 对等波 CL1-CL4 收官：parity 守卫实测 GUI 26 命令=映射24+豁免2（frontend_log_append/update_open_release_page 带理由），p2pctl 实测叶子命令 25 个，守卫接入 make check 防漂移；交付 0a65d7c/981f73f/8744339/ad7a632/d57e4f4（补 metrics_get 对等缺口）。在途：GC1（GUI 控制通道）→ GC2（p2pctl gui 域）。",
+  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23/T25 全 done（T25 b7b831f，31 tests 一次通过，shell_union 即白名单数据源）；T24（3adc549c，一致性测试机械防漂移）与 T26（801a58c9）并行 doing，T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。 | IM 阶段（2026-09-04，IM 协调 session-b7d42619 接任项目负责人）：设计定稿 im-chat-design.md + 契约 v7（gui-contract §12）落 main（254b3cf），主树基线 make check exit 0 后开闸。批次一 T29 ∥ T30 并行；T31 待 T30、T32 待 T29、T33 待 T29+T32。与 E10/RS 双轨互斥（零文件交集），coordinatorSession 保持 E10 协调不动。T1-T16 已 done 历史折叠为本 note（协调表全量在案，未删任何验收记录）。 | IM 边界测试增强轮（2026-09-04，负责人 session-4297b5f0）：T34 Rust 核心边界 ∥ T35 GUI 边界 ∥ T36 Tauri/协议异常边界，均为只新增测试、互斥目录，先并行后逐单门禁。 | IM 好友流修复轮（2026-09-04，项目负责人本会话）：用户实测 GUI 卡死第一步——零好友无添加入口（后端/IPC/mock 三层就绪，唯 GUI 零调用点）；反思入册 docs/notes/2026-09-04-im-friend-flow-test-gap-reflection.md。立卡：T41 添加好友+从零旅程测试（P0，立即派）∥ T44 p2p-chat 夹具固定端口 flake 认领修复（P1，与 T41 零文件交集可并行）；T42 移除好友（P1，依赖 T41 合入——同文件互斥防撞）；T43 好友分组（P2，需契约加法修订，T41/T42 合入后协调裁决）。机械守卫入验收：IPC chat 方法在 views/components 必须有非测试调用点。 | RS P0b 九单验收记录折叠（T20(a87fb33)/T21(9fbe79a)/T22(35ad480)/T23(5c9b9b8)/T24(e592714)/T25(b7b831f)/T26(0e0222d)/T27(c1a4c79)/T28(41b46e6) 全 done，逐条 goal/验收命令/note 见 git 历史版本 dc76a59； coordination.md 检查轮 60-69 有全量叙事），为 30 上限腾位。 | CLI 对等波（2026-09-04，项目负责人 session-61813ecd-158c-4a81-abdd-24f3b629440d）：用户裁定「GUI 的所有操作都必须有等价 CLI」便于 AI 接入。新建 apps/cli（独立 cargo 项目、bin=p2pctl、复用 crates/p2p-cli、不进底座 workspace）承载全量操作。立卡：CL1 脚手架（P0，专属新会话 session-308c8462-a342-4760-85a7-0470735fd907，立即派发）→ CL2 节点/配置/档案/对端/身份 ∥ CL3 聊天（P0，CL1 合并后由协调会话派并行新会话，文件域互斥：CL2=node/config/profile/peer/identity 模块+cli-node-e2e.sh，CL3=chat 模块+cli-chat-e2e.sh，注册表合并序 CL2→CL3）→ CL4 日志/更新+cli-parity 守卫+cli-guide 文档（P1，CL2/CL3 落齐后）。守卫红线：apps/gui/src-tauri generate_handler 新增命令而 CLI 无映射即红（scripts/check/cli-parity.sh，豁免显式清单）。与 E10/RS/IM 波零文件交集。 | CLI 对等波推进（2026-09-04 12:30）：CL1 done（协调复跑验收 CL1-OK，main f846671，feat/cli-scaffold 已删）；CL2 doing（session-e0540f32）/ CL3 doing（session-034f304f）并行，文件域互斥，合并序 CL2→CL3；两单齐后派 CL4（日志/更新+cli-parity 守卫+docs/ops/cli-guide.md）。勘误：本仓库远端实为 origin（无 gitea），后续任务书统一用 origin。 | CL2 done（2026-09-04 13:05）：协调复跑验收 CL2-OK（cli-node-e2e 双节点环回真链路），合并 d92f064，分支已清理；CL3 仍在途（b802edf 反向同步后打磨中）。 | CL3 done（2026-09-04 13:15）：协调连跑两遍 cli-chat-e2e 均 CL3-E2E-OK，合并 aa18d0c（含 replyTo 适配），分支已清理；CL4 doing（session-session-b9b336a7-667b-485d-ada7-251e37ca7809）收官：log/update 命令域 + scripts/check/cli-parity.sh 机械守卫（接入 make check）+ docs/ops/cli-guide.md。 | 账本折叠（2026-09-04 13:20，协调者）：done 的 T 系历史任务 14 条折叠为本行（T23b,T23b2,T29,T30,T31,T32,T33,T34,T35,T36,T37,T38,T39,T40），验收留痕见 git log 与 docs/skill 各轮沉淀。 | GC 波立项（2026-09-04 13:20，用户裁定）：CLI 须能截图/录屏/操作当前已打开的 GUI——此前 CL1-CL4 的对等范围是 Tauri 命令面，不含 GUI 本体运行时控制，属规划缺口现补。两单：GC1 GUI 侧本地控制通道（token 鉴权+回环绑定+invoke 白名单，红线：不向 generate_handler 新增命令防 parity 守卫假红）→ GC2 p2pctl gui 命令域+真机联动 E2E+parity 登记注意与 CL4 守卫时序。首次真机录屏会触发 macOS 屏幕录制权限弹窗，需用户点击授权。 | GC1 派发（2026-09-04 13:22）：GC1 doing（session-session-1277cf5a-d14c-4465-b22b-87adf810face，worktree feat/gui-control-channel）；GC2 待 GC1 合并后派发。 | CL4 done（2026-09-04 14:05）：协调亲跑全量验收 CL4-OK（build+parity+guide+make check）。CLI 对等波 CL1-CL4 收官：parity 守卫实测 GUI 26 命令=映射24+豁免2（frontend_log_append/update_open_release_page 带理由），p2pctl 实测叶子命令 25 个，守卫接入 make check 防漂移；交付 0a65d7c/981f73f/8744339/ad7a632/d57e4f4（补 metrics_get 对等缺口）。在途：GC1（GUI 控制通道）→ GC2（p2pctl gui 域）。 | GC1 done（2026-09-04 14:22）：协调亲跑验收 GC1-OK（control_channel 集成 10/10），红线审计过——generate_handler 保持 26 未新增、127.0.0.1 HTTP JSON + token(600) + invoke 白名单 + 前端路由上报桥（d4e1783/66d49fd）。GC2 doing（session-session-fe4da7d2-cbda-4838-8904-cee93729464c）。提醒：GC2 真机 E2E 首跑会触发 macOS 屏幕录制权限弹窗，需用户授权。",
   "tasks": [
     {
       "id": "T17",
@@ -87,11 +87,14 @@
       "goal": "聊天页好友在线状态：好友列表条目显示在线/离线标识（数据源现成——node-store.peers[peerId].connected，event-reducer 已按 peer_connected/peer_disconnected 翻转）；会话头部同步显示当前对端状态；口径裁决：底层连接建立即在线（展示语义，非端到端心跳）；测试：事件驱动状态切换（connected 置绿/disconnected 置灰）、刷新后初始态与事件流一致、多好友混合状态、节点未启动时全部离线态不异常、状态标识不干扰点击选择；zh/en i18n 全覆盖；【追加热修】协调者识图审计确认聊天页布局崩坏（右侧会话区塌缩约 100px 窄条致空态文案两字一行竖排、标题行与按钮对齐差、主操作重复、内容偏左右半屏空白）——本单先以独立 fix 提交修复布局崩坏（识图复核：左 16rem 好友栏+右侧 1fr 填满+空态居中可读），再提交在线状态 feat 提交；验收新增：修复后重截图（无头 Chrome 1440x900）右栏占比>60% 且空态文案每行>=8 字",
       "title": "IM-T45 好友在线状态与状态测试",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/im-online-status",
       "ownerSession": "session-db548dc0-31ef-4112-a786-eae3f439e0bb",
       "scope": "apps/gui/src：components/chat/conversation-list.tsx、views/chat/chat-view.tsx、stores/chat-store.ts（如需）、i18n 词条、新增 views/chat/online-status.test.tsx；crates 与 src-tauri 只读",
-      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/online-status.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"在线\" apps/gui/src/views/chat/online-status.test.tsx'"
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/online-status.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"在线\" apps/gui/src/views/chat/online-status.test.tsx'",
+      "mergedMain": "43db63d",
+      "acceptedAt": "2026-09-04T06:36:29.772Z",
+      "note": "独立验收双绿：机械（在线状态 5/5+i18n 423=423+守卫+tip 全量门禁 bash-331 exit 0）+识图（右栏 58%、文案横排、比例 1:2.5）；识图复核发现三处栅格残留已打回，补丁 1f6a8ee 合入后像素级终验通过（竖缝消失/底边齐 y=827/空白带 433→40px，无新问题）——打回-复验闭环首次完整走通"
     },
     {
       "id": "IM-T46A",
@@ -113,9 +116,9 @@
       "goal": "回复消息·GUI 交互与引用渲染：消息气泡提供回复动作（悬停菜单或右键），触发后输入区显示引用预览（被引用消息摘要，取消可退）；发送携带 replyTo；气泡内渲染引用块（点击滚动到被引用消息——本地历史有则滚动高亮，无则显示占位文案，不白屏）；五种消息类型均可被回复且引用预览按类型显示摘要（图片显示[图片]/音频[音频]等 i18n 文案）；测试：回复旅程（收到消息→回复→气泡含引用块→对方视角入站渲染含引用）、引用取消、被引用消息不在本地的占位、五类型引用预览矩阵、旧消息（无 replyTo）渲染不回归；依赖 IM-T46A 合入（类型字段）与 IM-T42 合入（气泡菜单文件互斥）",
       "title": "IM-T46B 回复消息·GUI 交互与引用渲染",
       "priority": "P1",
-      "status": "todo",
+      "status": "doing",
       "branch": "feat/im-reply-gui",
-      "ownerSession": "待派（依赖 IM-T46A + IM-T42 合入）",
+      "ownerSession": "session-7ac3fd05-8f44-4be4-b2ca-dfbffd304700",
       "scope": "apps/gui/src：components/chat/**、stores/chat-store.ts、lib/ipc-types.ts+ipc.ts+mock-chat.ts（replyTo 类型与透传）、i18n 词条、新增 views/chat/chat-reply.test.tsx；crates 与 src-tauri 只读",
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-reply.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -q \"replyTo\" apps/gui/src/lib/ipc-types.ts && grep -rln \"chatSend\" apps/gui/src/components | grep -v test | grep -q .'"
     },
@@ -191,22 +194,22 @@
     {
       "id": "GC1",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "title": "GC-GUI 本地控制通道（截图/录屏/操作原语）",
       "goal": "GUI 增加本机控制通道（仅 127.0.0.1 或 unix socket、token 鉴权首跑生成 600 权限、随 GUI 启停、端点经状态文件公布供 CLI 发现）：原语 health/screenshot/record start-stop/navigate（对齐现有 8 路由）/invoke（白名单转发既有 Tauri 命令，禁开放任意调用）；屏幕录制权限缺失返回结构化错误禁静默黑图；红线：不向 generate_handler 新增命令（通道独立模块内聚），必须新增时先回报协调者联动 GC2；cargo test 集成覆盖 token 拒绝/健康/截图非空/导航断言",
       "branch": "feat/gui-control-channel",
-      "ownerSession": "session-1277cf5a-d14c-4465-b22b-87adf810face",
+      "ownerSession": "",
       "scope": "apps/gui/src-tauri/** 为主（lib.rs 注册表零新增）；禁碰 apps/cli、crates/**、Makefile、docs/ops/cli-guide.md；与 IM 波并行改 lib.rs 需双向同步",
       "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p/apps/gui/src-tauri && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo build > /tmp/gc1.log 2>&1 && cargo test > /tmp/gc1t.log 2>&1 && grep -q \"test result: ok\" /tmp/gc1t.log && echo GC1-OK || { echo GC1-FAIL; tail -30 /tmp/gc1.log /tmp/gc1t.log 2>/dev/null; exit 1; }'"
     },
     {
       "id": "GC2",
       "priority": "P1",
-      "status": "todo",
+      "status": "doing",
       "title": "GC-CLI gui 命令域 + 联动 E2E + parity 更新",
       "goal": "p2pctl 新增 gui 命令域：gui status（发现运行中 GUI 与通道端点）/gui screenshot -o 路径/gui record start-stop/gui navigate/gui invoke（对齐 GC1 原语）；新增 scripts/ops/cli-gui-e2e.sh 真机链路（起 GUI→截图文件非空→navigate 断言路由→录屏 stop 产出文件→清理造数，末行 GC2-E2E-OK）；cli-parity 映射表登记 GUI 侧新增面；权限类失败显式报错",
       "branch": "feat/cli-gui-domain",
-      "ownerSession": "",
+      "ownerSession": "session-fe4da7d2-cbda-4838-8904-cee93729464c",
       "scope": "apps/cli 内 gui 模块 + scripts/ops/cli-gui-e2e.sh + parity 映射表更新；GC1 合并后开工",
       "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p && export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo build --manifest-path apps/cli/Cargo.toml > /tmp/gc2.log 2>&1 && test -f scripts/ops/cli-gui-e2e.sh && bash scripts/ops/cli-gui-e2e.sh > /tmp/gc2e2e.log 2>&1 && grep -q GC2-E2E-OK /tmp/gc2e2e.log && bash scripts/check/cli-parity.sh > /tmp/gc2p.log 2>&1 && grep -q CLI-PARITY-OK /tmp/gc2p.log && echo GC2-OK || { echo GC2-FAIL; tail -30 /tmp/gc2.log /tmp/gc2e2e.log /tmp/gc2p.log 2>/dev/null; exit 1; }'"
     },
