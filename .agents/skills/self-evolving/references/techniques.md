@@ -140,3 +140,6 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - worktree 收尾命令链里 `git merge --ff-only ... | tail -1` 管道吞退出码，ff 失败后 && 链照常往下跑（worktree 被删、分支被删）——git 收尾链禁用管道中转，失败路径用 `; echo rc=$?` 显式收码；ff 失败后分支仍在远端，`git worktree add` 重建即可按红线 rebase 重试。
 - 大并行环境下「本会话门禁绿」与「全仓 make check 绿」必须分开判定：本次 make check 三连红（panic-hygiene 不认 *_tests.rs、并行合并遗留 fmt 脏、repair-bridge 在途 crate clippy）全部非本会话产物；先 grep 日志归因到文件，别人的 crate（有活跃 worktree/coordination 退回记录）不越界修，报告里单列归因。
 - 门禁脚本自身也有盲区：panic-hygiene 排除表只精确匹配 tests.rs，仓库约定已演进到 *_tests.rs（book/error/refresh 命名）——新命名形态入册时同步扩门禁排除 + 自测夹具加用例，否则首个踩中的 crate 会假红。
+
+- worktree 复用主树构建缓存：`ln -s 主树/target wt/target`（根 workspace 与 src-tauri 各一个）+ `ln -s apps/gui/node_modules`，cargo/pnpm 秒级增量；注意 target 软链在 git status 显示为未跟踪 `?? target`（.gitignore 的 `target/` 不匹配符号链接），提交时用显式路径即可。
+- 驱动私有协议 handler 的集成测试套路：受测端 Chat::new 注册 handler，攻击端裸 Node 手写帧（p2p_protocol::write_frame，payload 首字节=类型头）；绕过 write_frame 的 1MiB 校验测帧超限需手写 varint 长度前缀；让受端回坏 ACK 用 Node::handle_protocol 换装自定义 ProtocolHandler（同 ID 覆盖注册）。

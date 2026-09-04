@@ -290,3 +290,6 @@ failed: early eof（客户端侧超时中止）。
 - 集成测试用 NodeBuilder 默认 data_dir（./p2p-data）会把 key.seed 落进 crate 目录并被 git add 卷进提交——tests 一律 .data_dir(temp_dir)，.gitignore 兜底 p2p-data/；已误入的用 git rm --cached + amend 剔除（提交未扩散前强推自愈）。
 - cargo fmt 必须是提交前最后一步：fmt 之后又改代码（哪怕一行）再提交，make check 的 fmt-check 必红；本轮 static_peers itest 两次实锤。收尾命令顺序固化为 fmt → test → fmt --check → commit。
 - 广播事件在订阅前发送即丢：验证「启动时载入产生的登记/事件」不能靠 subscribe 后 try_recv，要么提前订阅要么走状态查询口（peer_registered/peer_addrs）——地址簿恢复类断言一律用状态口。
+
+- T36 任务书验收命令路径缺陷（2026-09-03）：`cd apps/gui/src-tauri && ... && cd ../.. && make check` 中 src-tauri 距仓库根三层，`cd ../..` 落在 apps/（无 Makefile）导致 make 必然报 No rule to make target。修正应为 `cd ../../..`。执行会话按修正版跑通全量门禁，字面命令 exit 2。
+- 主树 Makefile check 的 test 阶段跑 `cargo test --workspace`，p2p-chat 固定端口测试（31101+）与其他会话并行时存在已知 flake（协调挂账 1b07415），边界测试新增文件一律用随机端口（Node::builder 默认 0）。

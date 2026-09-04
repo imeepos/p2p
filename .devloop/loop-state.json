@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T03:38:13.687Z",
+  "updatedAt": "2026-09-04T03:41:05.863Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -352,9 +352,9 @@
       "goal": "聊天页添加好友能力（堵死第一步断链）：好友列表区常驻添加入口（空态与常态均可见可达，空态引导一键直达表单）；表单字段 PeerId 必填/昵称选填/地址多条选填，前端预校验与后端一致（base58/昵称长度/地址语法），后端错误可读展示；成功即刷列表并可直接进入新会话，重复添加可读报错不产生重复条目；失败不白屏不丢已填内容；mock（VITE_MOCK_IPC=1）与真实 Tauri 行为一致；zh/en i18n 全覆盖无硬编码文案；测试：从零开始旅程测试（零好友→空态→打开表单→提交→好友出现→选中→发文本上屏）+ 入口存在性（空态/常态）+ 校验与错误路径（非法 PeerId/重复添加/后端拒绝）+ IPC 调用点静态守卫（IpcBackend 全部 chat 方法在 views/components 至少一个非测试调用点，豁免清单制）",
       "title": "IM-T41 添加好友入口与从零旅程测试",
       "priority": "P0",
-      "status": "todo",
+      "status": "doing",
       "branch": "fix/im-friend-add",
-      "ownerSession": "待派",
+      "ownerSession": "session-1efc7ea4-8baf-4bc5-a3fe-884941016d6f",
       "scope": "apps/gui/src：views/chat/chat-view.tsx 与 components/chat/（新增添加好友对话框组件）、stores/chat-store.ts（如需 friendAdded 刷新）、i18n/types.ts+locales（chat 词条追加）、新增 views/chat/chat-friend-add.test.tsx 与调用点守卫测试；src-tauri 与 crates 只读；menu.def.ts 不动（入口在聊天页内）",
       "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-friend-add.test.tsx && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check && grep -rln \"chatFriendAdd\" apps/gui/src/views apps/gui/src/components | grep -v test | grep -q . && grep -q \"从零开始\" apps/gui/src/views/chat/chat-friend-add.test.tsx'"
     },
@@ -385,9 +385,9 @@
       "goal": "p2p-chat 测试夹具固定端口 flake 修复（RS 跨轨情报认领，轮 71 挂账）：tests/common/mod.rs 固定端口被占即 AddrInUse 假红（offline_pending_then_flush_on_peer_connected），改端口 0 OS 分配或锁文件预留，消融验证：占住原端口跑全绿；连跑三次稳定绿",
       "title": "IM-T44 p2p-chat 测试夹具端口 flake 修复",
       "priority": "P1",
-      "status": "todo",
+      "status": "doing",
       "branch": "test/chat-fixture-port0",
-      "ownerSession": "待派",
+      "ownerSession": "session-7afb1930-28d3-4e45-8072-79de0a62d08f",
       "scope": "仅 crates/p2p-chat/tests/**（夹具端口分配）；生产源码只读；与 T41 零文件交集",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && for i in 1 2 3; do cargo test -p p2p-chat || exit 1; done && make check'"
     }
