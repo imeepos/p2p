@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T12:30:29.131Z",
+  "updatedAt": "2026-09-04T12:52:22.000Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -47,11 +47,14 @@
       "goal": "桥两端共享纯库（设计 §3/§4/§6，零网络零进程逻辑）：/dsh-acp/1 与资源上限常量（帧 1MiB/单行护栏 16MiB/续连窗口 90s/会话缓存 8MiB/每连接会话 4/每 peer 并发 1）；握手帧 serde（client→桥 v/conn/token/reattach，桥→client ready{scope,agent,bridge} 或 denied）；ndjson 字节分块重组器（≤1MiB 切分、超 16MiB 断流、CRLF 容忍、有界缓冲）；thiserror 错误码（peer-not-allowed/line-too-long/subprocess-failed/cap-reached/reattach-ticket-invalid/handshake-malformed）；策略表 PeerId→{scope sandbox|workspace|owner, allow_mcp, ask_route remote_gui|owner_local, note, granted_at, fingerprint}，查无默认拒绝，tmp+rename 原子写，损坏显式报错；roundtrip 与边界测试全覆盖",
       "title": "ACP1 acp-common 共享库（握手/分块/错误码/策略 serde）",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/acp-common",
       "ownerSession": "session-f805f6b8-2b80-45d6-aa7f-f3766da75e25",
       "scope": "新增 apps/acp-common/**（独立 cargo 项目，[workspace] 空表仿 apps/cli 先例，最小依赖禁 tokio）；不动 crates/**、根 Cargo.toml、apps/ 其他目录",
-      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-acp-common-target; exec /opt/homebrew/bin/gtimeout -k 30 3600 bash -c '''export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/acp-common && cargo fmt --check && cargo test && cargo clippy --all-targets -- -D warnings && cd ../.. && make check''''"
+      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-acp-common-target; exec /opt/homebrew/bin/gtimeout -k 30 3600 bash -c '''export PATH=\"$HOME/.cargo/bin:$PATH\" && cd apps/acp-common && cargo fmt --check && cargo test && cargo clippy --all-targets -- -D warnings && cd ../.. && make check''''",
+      "mergedMain": "6039bb9",
+      "acceptedAt": "2026-09-04T12:52:22.000Z",
+      "note": "协调亲验：worktree 反向同步 3939339（6039bb9）后 cargo fmt/test(34 passed)/clippy 全绿；主树 ff 合并 6039bb9 已推 origin；全量 make check 后台复核中（job bash-448）；审计通过——独立项目/零 tokio/六上限常量/策略默认拒绝/文件≤200行。会话归档。"
     },
     {
       "id": "ACP2",
