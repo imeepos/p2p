@@ -296,3 +296,6 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 后台验收命令经管道收尾（`make check | tail`）时 job 退出码是 tail 的，假 exit 0 掩盖真失败：必须 `set -o pipefail` 并回读 `PIPESTATUS[0]`，或落日志文件后 `echo EXIT:$?`（2026-09-04 ACP6b make check 首跑假绿实证）。
 - Radix Select 组件测试前提三桩：`HTMLElement.prototype` 的 scrollIntoView/hasPointerCapture/releasePointerCapture 各 `Object.defineProperty(..., {configurable:true, value: vi.fn()})`；点选拿 pointerDown({button:0, pointerType:"mouse"}) 开面板再对 option pointerUp+click（权威先例 chat-friend-group.test.tsx 移动分组用例）。
 - 2026-09-04 run_code 源码载体对反引号字符敏感：不仅模板字符串，普通字符串字面量里出现反引号字符同样炸解析（报 Expected , got ; / Expression expected，定位不到真实行）。要写含反引号的内容（Markdown 代码标记、带转义引号的 Rust 字符串）一律用 String.fromCharCode(96) 拼接，或改走 bash heredoc 落盘。
+- 2026-09-05 查 crates.io 依赖真实版本列表（rsproxy sparse index）：3 字符 crate 路径是 `/index/3/<首字符>/<名字>`（如 curl -s https://rsproxy.cn/index/3/y/yrs | jq），2 字符是 /2/<名>，≥4 字符才是 /前2/次2/<名>——路径写错只会得到 NoSuchKey。yrs 用它确认 0.27.4 最新（"0.6" 是 2021 年化石）。
+- 2026-09-05 yrs 追加日志「应用成功却不可见」诊断：examples/ 下写临时探针（examples 可直接用 crate 的依赖 yrs），逐行 decode→apply 后打 map.iter 键集合，再打 update.insertions(true) 的 client/clock 区间——两行同 client 同 clock 即 clientID 撞车实锤。
+- 2026-09-05 并发追加压测抓现场：临时拷贝 E2E 脚本并把 trap cleanup 置空（sed 替换 cleanup 函数体）跑 N 轮，失败轮的临时数据目录原样保留供逐行 forensic；正常跑完的目录逐个 CLI 读回计数定位失败轮。

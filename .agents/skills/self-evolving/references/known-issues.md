@@ -602,3 +602,21 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：cargo fmt 遇任一文件解析失败会静默跳过全部格式化（管道 head/tail 又吞退出码），
   手写长行在后续 fmt 成功时被展开，行数暴涨。
 - 修法：行数斗争中每次 fmt 后核对退出码/stderr 为空再 wc；解析错误未清零前行数测量不可信。
+
+## 2026-09-05 yrs 默认 ClientID::random（fastrand）在本机同时刻并发进程产出相同 ID
+症状：friends yrs 追加日志 E2E 偶发「全量 11 笔实得 10」，文件 11 行全部合法 JSON+base64、
+逐行 apply 无报错，但末行 update 应用后键集不变（条目静默消失）。
+原因：yrs 0.27 ClientID::random 走 fastrand::Rng::new()，本机同微秒窗口 spawn 的多个
+进程拿到相同种子 → 两个 Doc 同 clientID；同 ID 同 clock 的第二条 update 被当已知块
+静默忽略（yrs 语义：known info 被提取即丢弃）。
+修法：跨进程唯一 ID 不依赖 fastrand——uuid v4（OS 熵）派生 53bit clientID
+（Doc::with_client_id，0 置 1）；诊断手法：decode 后打 update.insertions(true) 的
+client/clock 区间，两行同 client 即实锤。
+
+## 2026-09-05 跨进程 O_APPEND 追加「行体与换行分两次 write」必撕裂
+症状：两进程并发追加同一日志文件时偶发出现行被拼接成一行（两个 JSON 文档同行），
+读取按行解析整行失败跳过 → 双双丢失。
+原因：write_all(line) 与 write_all(b"\n") 是两个 write() 调用，O_APPEND 只保证单次
+write 的末尾定位原子，两次调用之间另一进程可插入整行。
+修法：行+换行拼进同一缓冲一次 write_all（小行在本地文件系统上等效原子提交）；
+消息 JSONL 的 append_line 原实现同样隐患，但跨进程同文件并发写已被 D6 身份锁排除，未动。
