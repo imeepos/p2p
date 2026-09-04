@@ -5,7 +5,7 @@
 p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数名与实现逐字一致；
 文档含实现不存在的命令即红。**AI 与人都不手改命令目录**，发现实现缺陷回报协调者。
 
-- 二进制构建：`cargo build --manifest-path apps/cli/Cargo.toml`，产物 `apps/cli/target/debug/p2pctl`（下文简称 `p2pctl`）。
+- 二进制构建：`export PATH=$HOME/.cargo/bin:$PATH && cargo build --manifest-path apps/cli/Cargo.toml`，产物 `apps/cli/target/debug/p2pctl`（下文简称 `p2pctl`）。cargo 不在 PATH 时首跑报 `command not found`（2026-09-04 AI 试运行摩擦 F1），见 §1.4 前置矩阵。
 - 本文档示例全部实测采样；`<data-dir>` 等尖括号为占位符，实际值见各命令 `--data-dir` 默认值。
 
 ## 1. 全局约定
@@ -30,16 +30,26 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 - **身份有两套根**：chat 域身份与聊天库同根（`<data-dir>/chat` 一侧，`chat serve`
   输出的 peerId 即它）；节点守护身份取配置 `dataDir`（缺省回落
   `<data-dir>/p2p-data`）。因此 `chat serve` 与 `node start` 输出的 peerId 可以不同，
-  属正常现象。
+  属正常现象。聊天收发（friends add / send、history --peer）一律使用 **chat 身份**
+  peerId 与 `chat serve` 的监听地址；把守护 peerId 当聊天对端是最常见错法，表现为
+  `chat send` 立即 status=Failed（见 §6 chat send 条目与附录A 配方）。
 - 守护进程可观测信号：`daemon.pid` / `daemon.meta.json` / `daemon.sock` / `daemon.log`。
+- **chat 身份互斥锁**：`<data-dir>/identity.lock`——chat 域进程同数据目录互斥：
+  `chat serve` 常驻持锁期间，同 data-dir `chat send` 立即退出 1：`p2pctl: 运行失败:
+  身份被占用：该身份已有进程在运行（同数据目录不支持多程序并行），如需切换请先停止
+  另一进程；锁=<data-dir>/identity.lock…`。持锁者是 chat serve，需求方是 chat send；
+  排障＝停掉同数据目录另一 chat 进程，锁随进程正常退出（SIGINT/SIGTERM）释放。
+  node 守护与 chat 域进程身份根不同，可共存。
 
 ### 1.4 前置条件矩阵
 
 | 前置 | 适用命令 | 不满足时的表现 |
 |---|---|---|
+| cargo 在 PATH（`$HOME/.cargo/bin`） | 二进制构建（cargo build/clippy/test） | `cargo: command not found`（退出 127）；先 `export PATH=$HOME/.cargo/bin:$PATH` |
+| macOS 屏幕录制授权 | gui screenshot/record、scripts/ops/ui-regression.sh | 退出 1：CAPTURE_PERMISSION_DENIED（HTTP 403），PNG/GIF 不产出；GUI 重编译后 TCC 授权记录可能失效需重新授权（系统设置 > 隐私与安全性 > 屏幕录制），OS 级授权须人完成 |
 | 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
 | 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance | 退出 1：节点身份加载失败；offer publish 不代生成身份 |
-| 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1，消息保留本机 status=Pending；peer 域退出 1 |
+| 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1：超时未送达 status=Pending / 对端身份不符快速失败 status=Failed（均保留本机记录，见 chat send 条目与附录A）；peer 域退出 1 |
 | 节点守护进程运行 | peer connect/disconnect/ping/dial、metrics get 实时值 | 退出 1：连接节点守护进程失败；metrics get 例外：返回全零不报错 |
 | GUI 进程运行 | gui 全域（status/screenshot/record/navigate/invoke/page/action） | 退出 1（控制通道不可达） |
 | GUI 日志目录存在（默认自动） | log tail/clear | 退出 1，文件不存在类错误 |
@@ -51,6 +61,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 发消息 | `p2pctl chat send --peer <PEER_ID> --text "..." --json` |
 | 查好友 / 加好友 / 删好友 | `chat friends list` / `chat friends add <PEER_ID>` / `chat friends remove <PEER_ID>` |
 | 看消息历史 | `chat history --peer <PEER_ID> --json` |
+| 两节点聊天 E2E 最小拓扑 / chat 与守护双身份说明 | 见附录A（B 起 chat serve → A 用其 chat peerId+监听地址加好友 → send 断言 delivered） |
 | 查附件落盘路径 | `chat media file --peer <PEER_ID> --message-id <ID> --json` |
 | 看节点状态 | `p2pctl node status --json` |
 | 启动 / 停止节点 | `node start` / `node stop` |
@@ -82,7 +93,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 你是 p2p 节点的运维助手，通过 p2pctl 命令行工具操作 p2p。请严格遵守：
 
 【工具认知】
-- 可执行文件：apps/cli/target/debug/p2pctl（先 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在）。
+- 可执行文件：apps/cli/target/debug/p2pctl（先 export PATH=$HOME/.cargo/bin:$PATH 再 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在；cargo 不在 PATH 会报 command not found）。
 - 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 45 个叶子命令。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
@@ -152,6 +163,10 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 --json：
 ```
 {"running":false,"pid":null,"logPath":"<data-dir>/daemon.log","dataDir":"<data-dir>","degraded":false,"reason":"无 pid 文件 <data-dir>/daemon.pid"}
+```
+--json（运行中，含 peerId/listenAddrs）：
+```
+{"running":true,"pid":81444,"peerId":"aogbzDcMk5VeRUVkjLK8kLHHv4FWbaeQkg57ErxKmcq","listenAddrs":["127.0.0.1/u52063","127.0.0.1/t59667"],"uptimeSecs":3612,"logPath":"<data-dir>/daemon.log","dataDir":"<data-dir>","degraded":false,"reason":""}
 ```
 
 ### p2pctl node start
@@ -301,7 +316,17 @@ stderr：
 ```
 p2pctl: 运行失败: 消息未送达对端（status=Pending），已保留本机记录
 ```
-退出码：超时未送达 → 1（消息保留本机 status=Pending，可经 history 复核）；PEER_ID 为本机身份 → 1。
+失败形态二（快速失败，秒级返回不等待超时）：对端身份不符或不可路由时 status=Failed。
+--json：
+```
+{"message":{"status":"failed","id":"0a4fdac8-410c-483c-9cf6-bb007fa4a814"},"delivered":false,"flushedOutbox":0}
+```
+stderr：
+```
+p2pctl: 运行失败: 消息未送达对端（status=Failed），已保留本机记录
+```
+两形态区分：status=Failed＝快速失败，典型成因是对端 peerId 填了守护身份而非 chat 身份、对端未起 chat serve、或地址簿 addr 失效；status=Pending＝等满超时未送达（对端离线/不可达）。正确拓扑与排障见附录A。
+退出码：超时未送达 → 1（status=Pending）；身份不符快速失败 → 1（status=Failed）；两者均保留本机记录，可经 history 复核；PEER_ID 为本机身份 → 1。
 
 ### p2pctl chat media file
 用途：查询附件落盘绝对路径。前置：无（消息 id 必须存在于本机 history）。
@@ -322,7 +347,7 @@ p2pctl: 运行失败: 未找到：消息不存在：abc
 退出码：消息不存在 → 1；存在 → 0（输出绝对路径行 / JSON absolutePath）。
 
 ### p2pctl chat serve
-用途：常驻运行聊天节点，输出 peerId 与监听地址后等待信号（E2E/守护支撑）。前置：无。
+用途：常驻运行聊天节点，输出 peerId 与监听地址后等待信号（E2E/守护支撑）。前置：无；运行期间持有 <data-dir>/identity.lock，与同数据目录 chat send 互斥（见 §1.3）。输出的 peerId 是 chat 身份，与 node start 守护 peerId 不同根，聊天收发一律用本条输出的 peerId 与 listen 地址（配方见附录A）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --data-dir | path | 否 | ./p2p-data |
@@ -477,7 +502,7 @@ recording=false
 --json：同字段 camelCase（version/window/route/pid/uptimeMs/recording）。
 
 ### p2pctl gui screenshot
-用途：截图主窗口内容并落盘 PNG。前置：GUI 进程运行；输出路径须绝对。
+用途：截图主窗口内容并落盘 PNG。前置：GUI 进程运行；输出路径须绝对；macOS 屏幕录制授权（缺失时退出 1：CAPTURE_PERMISSION_DENIED，HTTP 403；GUI 重编译后 TCC 授权记录可能失效，需人在 系统设置 > 隐私与安全性 > 屏幕录制 重新授权，见 §1.4）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | -o, --output | path | 是 | —— |
@@ -496,7 +521,7 @@ bytes=163208
 ```
 
 ### p2pctl gui record start
-用途：开始录屏（产物 GIF）。前置：GUI 进程运行；输出路径须绝对。
+用途：开始录屏（产物 GIF）。前置：GUI 进程运行；输出路径须绝对；屏幕录制授权同 gui screenshot（CAPTURE_PERMISSION_DENIED 见 §1.4）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | -o, --output | path | 是 | —— |
@@ -560,7 +585,7 @@ path=#/chat
 退出码：白名单外命令 → 1（不得绕过）。
 
 ### p2pctl gui page
-用途：查询当前页语义 descriptor：name/description 与 actions 表格（动作与页面按钮同源走 store/IPC，非 DOM 模拟）。前置：GUI 进程运行；当前页未在注册表（如 dashboard）时服务端 PAGE_NOT_REGISTERED 拒绝。
+用途：查询当前页语义 descriptor：name/description 与 actions 表格（动作与页面按钮同源走 store/IPC，非 DOM 模拟）。前置：GUI 进程运行；当前页未进注册表时服务端 PAGE_NOT_REGISTERED 拒绝（2026-09-04 实测 dashboard 已注册，正常返回含 start/stop 动作的 descriptor，勿再以 dashboard 当未注册反例）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --json | flag | 否 | off |
@@ -945,3 +970,70 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 --json：同字段 camelCase（verdict/reason/reqId/period/lender/borrower/model/input/output/estimated/ts）。
 退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1。
 <!-- AI-DOCS-SYNC:END -->
+
+## 附录A. 两节点聊天 E2E 最小拓扑（chat serve 双身份模型）
+
+来源：2026-09-04 AI 操作者试运行（docs/notes/ai-pilot-findings.md，摩擦 F2/F3/F4）。
+本节是可照抄的配方，消除「靠报错猜拓扑」的摩擦。
+
+### A.1 双身份模型（先读再动手）
+
+- 每个数据目录有两套身份：**守护身份**（`node start` 输出的 peerId，根在
+  `<data-dir>/p2p-data`）与 **chat 身份**（`chat serve` 输出的 peerId，根在
+  `<data-dir>/chat`）。两者不同根不同值，属正常现象。
+- 聊天收发（friends add / send、history --peer）全程使用 **chat 身份** peerId 与
+  **chat serve 的监听地址**；把守护 peerId / 守护地址当聊天对端，`chat send` 会
+  立即 status=Failed 快速失败。
+- `chat send` 是一次性命令，不需要本机守护进程，但要求同数据目录没有其他 chat
+  进程持 `identity.lock`（chat serve 与 chat send 互斥，见 §1.3）。
+
+### A.2 配方（A 发给 B，命令与输出形态均为 2026-09-04 实测）
+
+```bash
+# 0. 两端各用独立数据目录（示例 /tmp/ai-pilot-a、/tmp/ai-pilot-b）
+export PATH=$HOME/.cargo/bin:$PATH && cargo build --manifest-path apps/cli/Cargo.toml
+
+# 1. B 端起常驻 chat 节点，记录首行 peer=<B 的 chat peerId> 与 listen=<两条监听地址>
+p2pctl chat serve --data-dir /tmp/ai-pilot-b
+#   chat 节点就绪 peer=<B-CHAT-PEER-ID> listen=127.0.0.1/u57844 127.0.0.1/t59850
+
+# 2.（A 要收回信才需要）A 端临时起 serve 读本机 chat 身份，读完 Ctrl-C 停掉
+#   （identity.lock 与后续 send 互斥，必须先停，见 A.3）
+p2pctl chat serve --data-dir /tmp/ai-pilot-a   # 记下 peer=<A-CHAT-PEER-ID> 后 SIGINT
+
+# 3. A 端加好友：peerId 用 B 的 chat 身份；addr 原样填第 1 步 listen 的两条地址
+p2pctl chat friends add <B-CHAT-PEER-ID> \
+  --addr 127.0.0.1/u57844 --addr 127.0.0.1/t59850 --data-dir /tmp/ai-pilot-a
+
+# 4. A 端发送并断言送达：--json 输出 "delivered":true 即成功，记下返回的消息 id
+p2pctl chat send --peer <B-CHAT-PEER-ID> --text "hello-from-A" --json \
+  --data-dir /tmp/ai-pilot-a
+
+# 5. B 端读回断言：同一消息 id、sender=them、文本与发送一致
+p2pctl chat history --peer <A-CHAT-PEER-ID> --json --data-dir /tmp/ai-pilot-b
+
+# 6. 收尾：serve 以 SIGINT/SIGTERM 停止（identity.lock 随进程退出释放）
+```
+
+### A.3 失败形态速查
+
+| 现象 | 原因 | 处置 |
+|---|---|---|
+| `chat send` 报「身份被占用…锁=<data-dir>/identity.lock」退出 1 | 同数据目录已有 chat serve（或另一 chat 进程）持锁 | 停掉同数据目录另一 chat 进程再 send |
+| `chat send` 秒级失败 status=Failed（delivered=false） | 对端 peerId 填了守护身份、对端未起 chat serve、addr 失效 | 按 A.1/A.2：peerId 取 chat serve 输出，addr 取 listen 行 |
+| `chat send` 等满超时后 status=Pending | 对端进程不在/网络不可达 | 确认对端 serve 存活与地址后重发 |
+
+## 附录B. 产品缺口建议（仅登记，不实现）
+
+来自同次试运行（F5/F6）。本文档只登记建议，实现落地前不得写进 §6 命令目录，
+命令名与行为以实现为准：
+
+1. **chat 身份只读查询命令**：建议新增 `chat identity show`（或让 node status 等
+   现有读命令顺带暴露本机 chat peerId）。动机：当前查本机 chat 身份只能临时起
+   `chat serve` 读首行，而它持 identity.lock 与 chat send 互斥——「学身份必须先起
+   占锁进程、学完还得停」自相矛盾；期望离线可读、不占锁。
+2. **权限自检指引**：gui screenshot/record 与 scripts/ops/ui-regression.sh 挂在
+   macOS 屏幕录制授权上，OS 级授权 AI 无法自助完成，且 GUI 重编译后 TCC 授权记录
+   可能失效需重新授权。建议提供授权状态预检手段（自检命令或文档化探针步骤：先跑
+   轻量 capture 探针再进截图/回归主流程），并把授权路径（系统设置 > 隐私与安全性
+   > 屏幕录制）作为 CAPTURE_PERMISSION_DENIED 的标准前置指引。
