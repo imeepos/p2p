@@ -19,7 +19,7 @@
 - 远程支持 P0b 收官：repair-bridge/helper/enforce/playbook 四工件 + 工单全链贯通，
   真机 3 例为人工里程碑（docs/ops/repair-p0b-drill.md）。
 - CLI 对等波推进（apps/cli，p2pctl）：CL1-CL3 已合入，CL4 对等守卫+文档在途。
-- E10 闲置 LLM 额度共享 Phase 0 在途（llm-share-ledger / llm-share-offer 并行）。
+- E10 闲置 LLM 额度共享 Phase 0 落地：llm-share 三件套 + p2p-itest 双节点 E2E（A1-A7），设计见 docs/design/idle-token-sharing-plan.md。
 - 分包、分支与验收口径见 `docs/coordination.md`（协调者维护，各会话只读）。
 
 ## Crate 地图
@@ -43,10 +43,17 @@
 | `crates/repair-helper` | MCP 宿主：工具面装配、票据校验、shell_exec 执行与审计 |
 | `crates/repair-enforce` | 执法核心（纯逻辑）：红线/scope 门/审批状态机/白名单判定 |
 | `crates/repair-playbook` | playbook 解析与 shell_union 白名单数据源 |
-| `crates/llm-share-ledger` / `crates/llm-share-offer` | 闲置 LLM 额度共享（E10，在途）：收据账本/能力声明与选路 |
+| `crates/llm-share-ledger` | E10 账本：Ed25519 签名收据、append-only 双边流水、预授权冻结硬闸、争议窗口、哈希链对账 |
+| `crates/llm-share-offer` | E10 能力声明：声明模型/签名注册发布/TTL 失效订阅簿/纯函数选路器 |
+| `crates/llm-share-proxy` | E10 代理：/llm-share/proxy/1 三闸准入、SSE 逐帧转发、预授权结算、拨号客户端 |
 
 依赖方向：facade -> swarm -> relay/discovery/protocol -> transport/security/mux -> identity；
 层间只经 trait 交互，任一层可替换（design §3）。
+
+E10 闲置 LLM 额度共享（barter 记账，Phase 0）：B 以 OpenAI chat completions 格式经
+出借方 A 代理调用上游，调用前冻结估算、完成后按 usage 结算并持签名收据；白名单准入、
+req_id 幂等、断流估算计费（estimated 收据+争议窗口）、声明 TTL 失效不选路。
+双节点真链路 E2E 见 `crates/p2p-itest/tests/llm_share_wave.rs`（验收口径 A1-A7）。
 
 ## 快速上手
 

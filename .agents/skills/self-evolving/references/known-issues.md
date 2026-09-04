@@ -318,6 +318,33 @@ failed: early eof（客户端侧超时中止）。
 - 症状：vitest 报 Transform failed Unexpected ">"，指向 fixtures 文件本身（如 chat-render-matrix-fixtures.ts:99），容易误判成测试文件语法错。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
+
+## 2026-09-05 写完量行数必在 cargo fmt 之后（T20 line-limit 红线）
+- 症状：新测试文件写完 wc -l 282 行（<300），commit 后 make check 的 line-limit 报 308 行超限——fmt 前量的不算数。
+- 原因：rustfmt 对 >60 字符的方法链（chain_width）与 >100 字符行强制折行，builder 链一行爆成八行，行数轻松涨 10%。
+- 修法：写完立即 cargo fmt 再 wc -l 才是落地行数；写时避免长链（链上调用 ≤3 个再换行绑定中间变量）；收拢手段=提辅助函数统一重复链 + HashMap::from 替代链式 collect + 文档注释合并。
+
+## 2026-09-05 验收 shell 的 CARGO_TARGET_DIR 劫持独立项目构建，cli-parity 假性 FAIL（T20）
+- 症状：make check 末段报 `cli-parity: FAIL 执行 ' --help' 失败`（命令路径为空）——p2pctl 二进制不在预期位置。
+- 原因：cli-parity.sh 期望 apps/cli/target/debug/p2pctl，其内部 `cargo build --manifest-path apps/cli/Cargo.toml` 继承了验收外层的 CARGO_TARGET_DIR=/tmp/...，产物被引走；apps/cli 自带 [workspace]（独立项目），主树常绿是靠存量旧二进制（8944508 已记「陈旧二进制假绿」同源）。
+- 修法：worktree 验收前预建——`cd apps/cli && unset CARGO_TARGET_DIR && cargo build`，再跑验收；验收命令是机械黑盒，环境垫料属于让门禁按设计前提运行，不改门禁脚本本身。
+
+## 2026-09-05 后台验收 job 输出 memory-dropped，裁决行去 spill 文件捞（T20）
+- 症状：job_output 的 text 尾部只有测试噪声流，"some output was dropped from memory"，看不到退出码与门禁结论。
+- 修法：直接 grep 提示给出的 stdout spill 日志：`grep -nE 'test result:|PASS|FAIL|CLI-PARITY-OK|make:' <log>`——make check 十项门禁的末项（ai-docs-sync）打出 OK 且无 `make: *** Error` 即全绿；vitest 的预期错误栈（bridge-closed 等）出现在 stderr 尾部不代表红。
+
+## 2026-09-04 会话级平台缺陷：run_code 内嵌 bash 工具调用被参数校验拒（ACP 波）
+- 症状：run_code 调用体里只要内嵌 bash 工具调用，外层 description 参数就被判缺失（invalid arguments），连续数小时稳定复现，跨 harness 重启依旧；同轮内 write/read/edit/session_link/schedule/dispatch 全部正常，纯探针正常。
+- 绕行：shell 步骤改走 dispatch_task 子代理，注意 600 秒墙钟上限——长任务用 nohup 脱离加日志落盘，子代理只负责启动不等待；只读快查控制在一分钟内；文件修改直接用 write/edit 工具。
+- 附加教训一：dispatch_task 任务书必须显式要求『验收自检块』格式，否则 report 一律标 rejected，工作其实可能已完成，要以落盘产物为准。
+- 附加教训二：多步骤任务塞进单个 dispatch 必撞墙钟，拆成微任务加落盘日志跨任务接力。
+
+## 2026-09-04 make/子代理环境下门禁脚本 FAIL 分支 dollar-var 紧贴全角字符，unbound variable 吞掉真实失败（门禁加固轮 74bb793）
+- 症状：make gate-tests 报 release-gates.sh line22 unbound variable（变量名乱码）；直跑同一脚本 16/16 全绿——直跑时所有用例 PASS，FAIL 分支根本没执行；爆炸只在有用例真失败时显形，并把真实断言失败输出一起吞掉。
+- 原因：FAIL echo 里 dollar-var 紧跟全角括号（EF BC 88），locale 变体下 bash 把高位字节并入变量名，set -u 直接崩。
+- 修法：门禁脚本所有 dollar-var 紧邻非 ASCII 字符处一律花括号化；复查手法 grep -nP 对两文件扫描（panic-hygiene.sh 同病同治）。修复提交必须 git show 核对内容与消息一致——8fc3f4a 教训：消息写了修复但 diff 为空，问题存活多轮。
+- 教训：门禁失败先分清『断言失败』还是『门禁自身爆炸』，混在一起会双重误诊。
+
 ## 2026-09-04 bash EXIT trap 引用函数 local 变量，set -u 下 unbound 污染退出码（R2 发布脚本轮）
 - 【主树 node_modules 被 worktree install 污染】多轨并行期某会话在 worktree 内 pnpm install 后，主树 apps/gui/node_modules 的包符号链接被重写为指向该 worktree 私有 store；worktree 收尾删除后链接悬空，主树跑 vitest 报 MODULE_NOT_FOUND vitest/vitest.mjs（2026-09-04 实证，T48 收官时暴露）。症状识别：pnpm test 挂在 loader 而非断言、Node 尾栈+空 grep 结果。修复：rm -rf apps/gui/node_modules + 根目录 pnpm install 重建（--force 无效，pnpm 信任 .modules.yaml 状态）。预防：worktree install 后 readlink 主树包链接抽查；主树验收遇 MODULE_NOT_FOUND 先查悬空链接再怀疑代码。
 - 症状：脚本全部步骤日志正常、末行 marker（R2-RELEASE-OK）也打印了，退出码却是 1，且报错出现在所有输出之后：`line N: tmp: unbound variable`。表面看「构建+冒烟全过」，机械验收（看退出码）却判 FAIL。
