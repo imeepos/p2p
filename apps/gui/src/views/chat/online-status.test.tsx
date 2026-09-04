@@ -150,4 +150,14 @@ describe("好友在线状态", () => {
     await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
     expect(mocks.history).toHaveBeenCalledWith(PEER_A, null, 50);
   });
+
+  it("状态点色彩语义：在线绿点、离线全量中性灰（非 40% 透明）", async () => {
+    applyPeerEvents([{ type: "peer_connected", peer: PEER_A }]);
+    mocks.friends.mockResolvedValue([friend("friend-a", "小圆"), friend("friend-b", "阿直")]);
+    render(<ChatView />);
+    await waitFor(() => expect(screen.getByText("阿直")).toBeTruthy());
+    expect(rowStatus(PEER_A).className).toContain("bg-success");
+    expect(rowStatus(PEER_B).className).toContain("bg-muted-foreground");
+    expect(rowStatus(PEER_B).className).not.toMatch(/bg-muted-foreground\//);
+  });
 });
