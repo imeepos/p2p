@@ -24,3 +24,9 @@ p2p-mux = { path = "../p2p-mux" }
 p2p-protocol = { path = "../p2p-protocol" }
 p2p-relay = { path = "../p2p-relay" }
 p2p-transport = { path = "../p2p-transport" }
+
+# llm-share 管理面（T21）：allowlist/声明签发/流水/收据验签纯逻辑层，clap 面在 apps/cli。
+serde = { workspace = true }
+serde_json = { workspace = true }
+llm-share-ledger = { path = "../llm-share-ledger" }
+llm-share-offer = { path = "../llm-share-offer" }

@@ -319,6 +319,10 @@ failed: early eof（客户端侧超时中止）。
 - 原因：fixtures 写了 JSX（render(<Toaster/><ChatView/>)），.ts 不走 react 插件的 JSX 转换。
 - 修法：含 JSX 的测试辅助文件一律 .tsx 后缀；或 fixtures 保持纯数据构造（chat-boundaries-fixtures.ts 先例），把挂载/渲染装配留进 .tsx 测试文件。
 
+## 2026-09-05 run_code 程序体两类 JS 语法坑（T21 实证，各浪费一轮）
+- 症状 A：Expected ',', got ')'——tools.write({ file_path, content: 模板串 }) 模板串闭合后漏了对象字面量的右花括号直接以右括号收尾；症状 B：Expected ';','}' or <eof> / Expected ',', got 'ident'——把多行 bash 命令塞进单引号 JS 字符串（单引号串不能跨行）。
+- 修法：大内容一律模板串且写完立刻核对调用尾部是否有右花括号；多行命令用模板串而非单引号串；内容含插值序列或反引号时改走 write 工具直传 JSON 参数（不经 JS 解析）或 python3 落盘。另：read 读回 join 写回会丢文件尾换行，rustfmt --check 会红，追加换行即愈。
+
 ## 2026-09-05 写完量行数必在 cargo fmt 之后（T20 line-limit 红线）
 - 症状：新测试文件写完 wc -l 282 行（<300），commit 后 make check 的 line-limit 报 308 行超限——fmt 前量的不算数。
 - 原因：rustfmt 对 >60 字符的方法链（chain_width）与 >100 字符行强制折行，builder 链一行爆成八行，行数轻松涨 10%。

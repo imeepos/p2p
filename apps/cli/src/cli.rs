@@ -7,6 +7,7 @@ use crate::chat;
 use crate::config;
 use crate::gui;
 use crate::identity;
+use crate::llm_share;
 use crate::log;
 use crate::metrics;
 use crate::node;
@@ -82,5 +83,10 @@ pub enum Command {
     Acp {
         #[command(subcommand)]
         command: acp::AcpCommand,
+    },
+    /// LLM 额度共享域：allowlist/能力声明/双边流水/收据验签（T21，设计 §3.3/§5.1/§5.2/§6）
+    LlmShare {
+        #[command(subcommand)]
+        command: llm_share::LlmShareCommand,
     },
 }
