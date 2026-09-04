@@ -45,7 +45,7 @@ describe("describe 请求", () => {
 
   it("未注册页回结构化 PAGE_NOT_REGISTERED", async () => {
     installPageBridge();
-    request({ requestId: "r2", kind: "describe" });
+    request({ requestId: "r2", kind: "describe", page: "nonexistent" });
     await vi.waitFor(() => expect(emitMock).toHaveBeenCalled());
     const [, reply] = emitMock.mock.calls[0]!;
     expect(reply).toMatchObject({

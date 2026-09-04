@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # U1 UI 回归批产：页面语义协议（GC3/GC4）8 路由逐页回归（navigate+page 断言、动作断言、截图证据）。
-# CONFIRM_NEG=危险动作缺 confirm 被拒；EXEC_STRUCT=只读动作真执行取结构化拒绝；
-# REGISTRY_GAP=未注册页（R4 只报不改，现仅 chat/peers/settings）断言 PAGE_NOT_REGISTERED，负向计分。
+# CONFIRM_NEG=危险动作缺 confirm 被拒；EXEC_STRUCT=动作以非法参数真执行取结构化拒绝（零写入）。
+# GC3c 起 8/8 路由全量注册：原 REGISTRY_GAP 五页转为真实动作断言计分。
 # 用法：[--keep <dir>]；默认临时目录退出全清、--keep 直写指定目录；幂等零写入（从不传 confirm=true）。
 set -euo pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
@@ -46,7 +46,6 @@ ASSERT_FAIL=0
 PASSED_PAGES=0
 FAILED_PAGES=0
 FAILED_LIST=""
-GAP_PAGES=""
 PAGE_PASS=0
 PAGE_FAIL=0
 PAGE_REASON=""
@@ -180,8 +179,6 @@ check_field() {
     fi
 }
 
-is_registered() { case "$1" in chat|peers|settings) return 0 ;; *) return 1 ;; esac; }
-
 # navigate 后 route 归位轮询（≤5s）：控制通道 route 为异步传播，立即查询会读到
 # 旧页（GUI 启动后首页必现竞态）；上界与 page 回执 5s 超时同一量级。
 wait_route() {
@@ -214,8 +211,19 @@ assert_action() {
                 "$CTL" gui action peers ping peerId="$SYNTH_PEER" timeoutMs=0 --navigate ;;
         settings)
             expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action settings resetIdentity --navigate ;;
+        dashboard)
+            expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action dashboard stop --navigate ;;
+        diagnostics)
+            expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action diagnostics clearAll --navigate ;;
+        discovery)
+            expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action discovery removeBootstrap --navigate ;;
+        events)
+            expect_code ACTION_CONFIRM_REQUIRED "$CTL" gui action events clear --navigate ;;
+        relay) # EXEC_STRUCT：非法地址在校验层结构化拒绝，零写入真执行
+            PAGE_MODE="EXEC_STRUCT"
+            expect_code ACTION_FAILED "$CTL" gui action relay saveRelayAddrs 'relayAddrs=["invalid-addr"]' --navigate ;;
         *)
-            expect_code PAGE_NOT_REGISTERED "$CTL" gui action "$route" noop --navigate ;;
+            a_fail "route 缺动作断言: $route" ;;
     esac
 }
 
@@ -240,14 +248,7 @@ run_page() {
     PAGE_PASS=0; PAGE_FAIL=0; PAGE_REASON=""; PAGE_MODE="CONFIRM_NEG"
     must_ok "$CTL" gui navigate "$route" >/dev/null
     wait_route "$route" || a_fail "route 5s 未归位: $route"
-    if is_registered "$route"; then
-        assert_descriptor_full "$route"
-    else
-        PAGE_MODE="REGISTRY_GAP"
-        GAP_PAGES="$GAP_PAGES $route"
-        # 协议缺口负向断言：未注册页必须结构化拒绝（而非崩溃/静默/超时）。
-        expect_code PAGE_NOT_REGISTERED "$CTL" gui page --json
-    fi
+    assert_descriptor_full "$route"
     assert_action "$route"
     assert_screenshot "$route"
     if [ "$PAGE_FAIL" -eq 0 ]; then
@@ -271,7 +272,6 @@ emit_report() {
         echo "== U1 UI 回归报告（8 路由：navigate/page 断言 + 动作断言 + screenshot） =="
         echo "route        verdict pass/total mode         note"
         printf '%s' "$PAGE_TABLE"
-        echo "GAP_PAGES:${GAP_PAGES}（R4 只报不改待另立卡: 注册表仅登记 chat/peers/settings）"
         echo "SUMMARY: pages=$PAGES_TOTAL passed=$PASSED_PAGES failed=$FAILED_PAGES assertions=$ASSERT_PASS/$((ASSERT_PASS + ASSERT_FAIL))"
         echo "EVIDENCE: keep=$KEEP_DIR dir=$SHOT_DIR pngs=$(ls "$SHOT_DIR" | grep -c '\.png$' || true)"
         if [ "$FAILED_PAGES" -eq 0 ]; then

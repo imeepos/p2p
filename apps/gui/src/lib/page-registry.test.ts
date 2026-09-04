@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const diagMocks = vi.hoisted(() => ({
+  logPath: vi.fn(),
+  logTail: vi.fn(),
+  logClear: vi.fn(),
+}));
+
 const mocks = vi.hoisted(() => ({
   chatFriendAdd: vi.fn(),
   chatFriendRemove: vi.fn(),
@@ -27,13 +33,16 @@ const nodeState = vi.hoisted(() => ({
   refresh: vi.fn(),
 }));
 
-vi.mock("@/lib/ipc", () => ({ ipc: mocks }));
+vi.mock("@/lib/ipc", () => ({ ipc: mocks, diag: diagMocks }));
 vi.mock("@/stores/chat-store", () => ({
   useChatStore: { getState: () => chatState },
 }));
 vi.mock("@/stores/node-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/stores/node-store")>();
-  return { ...actual, useNodeStore: { getState: () => nodeState } };
+  return {
+    ...actual,
+    useNodeStore: { getState: () => nodeState, subscribe: vi.fn() },
+  };
 });
 
 import {
@@ -54,8 +63,17 @@ beforeEach(() => {
 });
 
 describe("PAGE_REGISTRY 注册表校验", () => {
-  it("登记 chat/peers/settings 三个核心页面", () => {
-    expect(Object.keys(PAGE_REGISTRY).sort()).toEqual(["chat", "peers", "settings"]);
+  it("登记全部 8 个路由页面", () => {
+    expect(Object.keys(PAGE_REGISTRY).sort()).toEqual([
+      "chat",
+      "dashboard",
+      "diagnostics",
+      "discovery",
+      "events",
+      "peers",
+      "relay",
+      "settings",
+    ]);
   });
 
   it.each(Object.entries(PAGE_REGISTRY))("页面 %s descriptor 结构合法", (page, entry) => {
@@ -89,6 +107,10 @@ describe("PAGE_REGISTRY 注册表校验", () => {
     }
     expect(confirmed.sort()).toEqual([
       "chat.removeFriend",
+      "dashboard.stop",
+      "diagnostics.clearAll",
+      "discovery.removeBootstrap",
+      "events.clear",
       "settings.resetIdentity",
       "settings.saveAndRestart",
     ]);
@@ -140,14 +162,14 @@ describe("describePage", () => {
   });
 
   it("未注册页结构化报错", () => {
-    const result = describePage("dashboard");
+    const result = describePage("nonexistent");
     expect(result).toMatchObject({ code: "PAGE_NOT_REGISTERED" });
   });
 });
 
 describe("executePageAction 拒绝路径", () => {
   it("未注册页 / 未知动作结构化拒绝", async () => {
-    await expect(executePageAction("dashboard", "x", {})).resolves.toMatchObject({
+    await expect(executePageAction("nonexistent", "x", {})).resolves.toMatchObject({
       ok: false,
       error: { code: "PAGE_NOT_REGISTERED" },
     });

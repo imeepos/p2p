@@ -1,0 +1,35 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`diagnostics 页 descriptor > descriptor 快照与动作清单 1`] = `
+{
+  "actions": [
+    {
+      "args": [
+        {
+          "description": "尾部行数，默认 50",
+          "name": "tailLines",
+          "required": false,
+          "type": "number",
+        },
+      ],
+      "description": "刷新日志路径与尾部内容（与刷新按钮同源）",
+      "name": "refresh",
+    },
+    {
+      "args": [
+        {
+          "description": "危险动作，必须显式传 true",
+          "name": "confirm",
+          "required": true,
+          "type": "boolean",
+        },
+      ],
+      "confirm": true,
+      "description": "清空错误缓冲与日志文件（与清空按钮同源，内容不可恢复）",
+      "name": "clearAll",
+    },
+  ],
+  "description": "诊断页：前端错误缓冲与日志尾部观测",
+  "name": "diagnostics",
+}
+`;
