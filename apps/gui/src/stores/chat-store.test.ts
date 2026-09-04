@@ -13,11 +13,14 @@ const { mocks } = vi.hoisted(() => ({
         replyTo?: string,
       ) => Promise<ChatSendReport>
     >(),
+    history: vi.fn<
+      (peer: string, beforeId?: string | null, limit?: number) => Promise<ChatMessageJson[]>
+    >(),
   },
 }));
 
 vi.mock("@/lib/ipc", () => ({
-  ipc: { chatSend: mocks.send },
+  ipc: { chatSend: mocks.send, chatHistory: mocks.history },
 }));
 
 import { useChatStore } from "./chat-store";
@@ -50,6 +53,7 @@ function seed(messages: ChatMessageJson[], last: ChatMessageJson | null): void {
 
 beforeEach(() => {
   mocks.send.mockReset();
+  mocks.history.mockReset();
   useChatStore.setState({
     friends: [],
     friendsLoaded: false,
@@ -60,6 +64,44 @@ beforeEach(() => {
     historyLoading: {},
     historyLoaded: {},
     hasMore: {},
+    historyError: {},
+    olderError: {},
+  });
+});
+
+describe("chat-store 历史加载错误态（IM-T50）", () => {
+  it("selectPeer 失败落 historyError；重试成功清除并载入消息", async () => {
+    mocks.history.mockRejectedValueOnce(new Error("history db locked"));
+    await expect(useChatStore.getState().selectPeer(PEER)).rejects.toThrow(
+      "history db locked",
+    );
+    expect(useChatStore.getState().historyError[PEER]).toBe("history db locked");
+
+    mocks.history.mockResolvedValueOnce([text("m1", "早", 1000)]);
+    await useChatStore.getState().selectPeer(PEER);
+    expect(useChatStore.getState().historyError[PEER] ?? null).toBeNull();
+    expect(useChatStore.getState().historyLoaded[PEER]).toBe(true);
+    expect(
+      (useChatStore.getState().messagesByPeer[PEER] ?? []).map((m) => m.id),
+    ).toEqual(["m1"]);
+  });
+
+  it("loadOlder 失败落 olderError；成功后清除且旧页并入", async () => {
+    mocks.history
+      .mockResolvedValueOnce(Array.from({ length: 50 }, (_, i) => text(`m${i}`, "页", i + 1)))
+      .mockRejectedValueOnce(new Error("older boom"))
+      .mockResolvedValueOnce([text("old", "更早", 0)]);
+    await useChatStore.getState().selectPeer(PEER);
+    expect(useChatStore.getState().hasMore[PEER]).toBe(true);
+
+    await expect(useChatStore.getState().loadOlder(PEER)).rejects.toThrow("older boom");
+    expect(useChatStore.getState().olderError[PEER]).toBe("older boom");
+
+    await useChatStore.getState().loadOlder(PEER);
+    expect(useChatStore.getState().olderError[PEER] ?? null).toBeNull();
+    expect(
+      (useChatStore.getState().messagesByPeer[PEER] ?? []).some((m) => m.id === "old"),
+    ).toBe(true);
   });
 });
 

@@ -1,14 +1,77 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageSquare } from "lucide-react";
+import { AlertCircle, MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { AsyncButton } from "@/components/feedback/async-button";
 import type { ChatMessageJson } from "@/lib/ipc-types";
+import { useChatStore } from "@/stores/chat-store";
 import { EmptyState } from "@/views/shared/empty-state";
 
 import { MessageBubble } from "./message-bubble";
 
 const LOAD_OLDER_THRESHOLD_PX = 48;
 const HIGHLIGHT_MS = 1600;
+// 历史加载失败错误态（IM-T50）：可读文案 + 原始错误详情 + 重试入口；失败不白屏。
+function HistoryErrorNotice({
+  detail,
+  onRetry,
+}: {
+  detail: string;
+  onRetry: () => Promise<unknown>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      data-testid="chat-history-error"
+      className="flex flex-col items-center gap-1.5 text-center"
+    >
+      <p className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+        <AlertCircle aria-hidden className="size-4" />
+        {t("chat.historyLoadFailed")}
+      </p>
+      <p className="max-w-80 text-xs break-all text-muted-foreground">{detail}</p>
+      <AsyncButton
+        type="button"
+        size="sm"
+        variant="outline"
+        className="mt-1"
+        action={onRetry}
+        onError={(error) => console.error("[chat] 历史加载重试失败", error)}
+      >
+        {t("chat.retry")}
+      </AsyncButton>
+    </div>
+  );
+}
+
+// 更早分页失败信号（IM-T50）：顶部横幅 + 重试，禁止静默。
+function OlderErrorBanner({
+  detail,
+  onRetry,
+}: {
+  detail: string;
+  onRetry: () => Promise<unknown>;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div
+      data-testid="chat-older-error"
+      className="flex items-center justify-center gap-2 py-2 text-xs"
+    >
+      <span className="text-destructive">{t("chat.loadOlderFailed")}</span>
+      <span className="max-w-64 truncate text-muted-foreground">{detail}</span>
+      <AsyncButton
+        type="button"
+        size="sm"
+        variant="outline"
+        action={onRetry}
+        onError={(error) => console.error("[chat] 更早历史重试失败", error)}
+      >
+        {t("chat.retry")}
+      </AsyncButton>
+    </div>
+  );
+}
 
 interface MessageListProps {
   peer: string;
@@ -38,6 +101,12 @@ export function MessageList({
   const stickBottomRef = useRef(true);
   const highlightTimerRef = useRef<number | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  // 加载失败信号（IM-T50）：按本组件 peer 从 store 读取；重试直接复用
+  // selectPeer/loadOlder（失败态下二者必然重新拉取）。
+  const historyError = useChatStore((s) => s.historyError[peer] ?? null);
+  const olderError = useChatStore((s) => s.olderError[peer] ?? null);
+  const selectPeerAction = useChatStore((s) => s.selectPeer);
+  const loadOlderAction = useChatStore((s) => s.loadOlder);
 
   useEffect(() => {
     // switching peer forces stick-to-bottom
@@ -95,12 +164,24 @@ export function MessageList({
       data-testid="message-scroll"
       className="flex-1 overflow-y-auto px-4 py-3"
     >
+      {olderError ? (
+        <OlderErrorBanner detail={olderError} onRetry={() => loadOlderAction(peer)} />
+      ) : null}
       {loadingOlder ? (
         <p className="py-2 text-center text-xs text-muted-foreground">
           {t("chat.loadingHistory")}
         </p>
       ) : null}
-      {!loadingOlder && messages.length === 0 ? (
+      {historyError ? (
+        <div
+          className={
+            messages.length === 0 ? "flex h-full items-center justify-center" : undefined
+          }
+        >
+          <HistoryErrorNotice detail={historyError} onRetry={() => selectPeerAction(peer)} />
+        </div>
+      ) : null}
+      {!loadingOlder && !historyError && messages.length === 0 ? (
         <div className="flex h-full items-center justify-center">
           <EmptyState icon={MessageSquare} title={t("chat.noMessages")} />
         </div>

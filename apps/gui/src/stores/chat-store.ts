@@ -26,6 +26,9 @@ export interface ChatStoreState {
   historyLoading: Record<string, boolean>;
   historyLoaded: Record<string, boolean>;
   hasMore: Record<string, boolean>;
+  // 历史加载失败信号（IM-T50）：selectPeer/loadOlder 的 catch 落这里，成功清除
+  historyError: Record<string, string | null>;
+  olderError: Record<string, string | null>;
   loadFriends: () => Promise<void>;
   selectPeer: (peer: string) => Promise<void>;
   loadOlder: (peer: string) => Promise<void>;
@@ -51,6 +54,8 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   historyLoading: {},
   historyLoaded: {},
   hasMore: {},
+  historyError: {},
+  olderError: {},
 
   loadFriends: async () => {
     try {
@@ -108,10 +113,12 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
           },
           historyLoaded: { ...s.historyLoaded, [peer]: true },
           hasMore: { ...s.hasMore, [peer]: page.length === HISTORY_SIZE },
+          historyError: { ...s.historyError, [peer]: null },
         };
       });
     } catch (error) {
       console.error("[chat] 历史加载失败", peer, error);
+      set((s) => ({ historyError: { ...s.historyError, [peer]: errorOf(error) } }));
       throw error;
     } finally {
       set((s) => ({
@@ -135,9 +142,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
           [peer]: mergeMessages(s.messagesByPeer[peer] ?? [], page),
         },
         hasMore: { ...s.hasMore, [peer]: page.length === HISTORY_SIZE },
+        olderError: { ...s.olderError, [peer]: null },
       }));
     } catch (error) {
       console.error("[chat] 加载更早历史失败", peer, error);
+      set((s) => ({ olderError: { ...s.olderError, [peer]: errorOf(error) } }));
       throw error;
     } finally {
       set((s) => ({
