@@ -107,7 +107,7 @@ pub fn navigate<R: Runtime>(ctx: &ControlCtx<R>, body: &Value) -> Result<Value, 
     let hash = if route == "dashboard" { "#/".to_string() } else { format!("#/{route}") };
     match ctx.main_window() {
         Some(w) => {
-            if let Err(e) = w.eval(&format!("window.location.hash = '{hash}'")) {
+            if let Err(e) = w.eval(format!("window.location.hash = '{hash}'")) {
                 tracing::warn!("control: 导航 eval 失败（路由态仍更新）: {e}");
             }
         }

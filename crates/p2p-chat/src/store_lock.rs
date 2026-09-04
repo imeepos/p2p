@@ -46,7 +46,11 @@ impl FileLock {
 #[cfg(unix)]
 fn try_acquire_once(path: &Path) -> io::Result<Option<FileLock>> {
     use std::os::fd::AsRawFd;
-    let file = fs::OpenOptions::new().create(true).write(true).open(path)?;
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(path)?;
     let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if rc == 0 {
         return Ok(Some(FileLock { file }));
@@ -61,7 +65,11 @@ fn try_acquire_once(path: &Path) -> io::Result<Option<FileLock>> {
 
 #[cfg(not(unix))]
 fn try_acquire_once(path: &Path) -> io::Result<Option<FileLock>> {
-    match fs::OpenOptions::new().write(true).create_new(true).open(path) {
+    match fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+    {
         Ok(_) => Ok(Some(FileLock {
             path: path.to_path_buf(),
         })),
