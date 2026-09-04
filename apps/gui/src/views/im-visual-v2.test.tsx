@@ -35,6 +35,7 @@ import { FormProvider, useForm } from "react-hook-form";
 import { DashboardTrendCard } from "./monitor/dashboard-trend-card";
 import { DashboardView } from "./monitor/dashboard-view";
 import { DegradeChainCard } from "./monitor/degrade-chain-card";
+import { PeersTableCard } from "./monitor/peers-table-card";
 import { PeersToolbar, type StatusFilter } from "./monitor/peers-toolbar";
 import { RecentEventsCard } from "./monitor/recent-events-card";
 import { Topbar } from "@/components/layout/topbar";
@@ -131,11 +132,24 @@ describe("IM-V2 dashboard evidence", () => {
     expect(status.className).toContain("py-5");
   });
 
+  it("D3 全零采样点同样走占位（mock 停止态持续喂零值点不渲染空图）", () => {
+    const zeros = [1, 2, 3].map((n) => ({
+      tMs: n * 1000,
+      activeConnections: 0,
+      relaySessionsActive: 0,
+      dialOkTotal: 0,
+      dialFailTotal: 0,
+    }));
+    render(<DashboardTrendCard history={zeros} running={false} />);
+    expect(screen.getByRole("status").textContent).toContain("暂无趋势数据");
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
   it("D4 底部成功率/最近事件卡最小高度与上方趋势卡节奏一致", () => {
     const a = render(<DegradeChainCard metrics={null} loading />);
-    expect(a.container.querySelector("[data-slot=card]")!.className).toContain("min-h-40");
+    expect(a.container.querySelector("[data-slot=card]")!.className).toContain("min-h-56");
     const b = render(<RecentEventsCard events={[]} loading />);
-    expect(b.container.querySelector("[data-slot=card]")!.className).toContain("min-h-40");
+    expect(b.container.querySelector("[data-slot=card]")!.className).toContain("min-h-56");
   });
 });
 
@@ -177,6 +191,26 @@ describe("IM-V2 peers / discovery evidence", () => {
     expect(active.getAttribute("data-state")).toBe("active");
   });
 
+  it("P1 对端空态不再套全宽 Card，消除外层容器空旷感", () => {
+    const noop = () => async () => ({}) as never;
+    const { container } = render(
+      <PeersTableCard
+        peers={[]}
+        bufferEmpty
+        locale="zh-CN"
+        now={0}
+        onPing={noop}
+        onConnect={noop}
+        onDisconnect={() => async () => true}
+        onShowDetail={() => {}}
+        onOpenDial={() => {}}
+      />,
+    );
+    expect(container.querySelector("[data-slot=card]")).toBeNull();
+    expect(screen.getByText("暂无已知节点")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "拨号添加节点" })).toBeTruthy();
+  });
+
   it("F1 mDNS 卡与 rendezvous 卡都带 h-full，同 grid 行底端对齐", () => {
     const mdns = render(<MdnsCard config={guiConfig() as never} onSaved={() => {}} />);
     const rdv = render(
@@ -208,10 +242,15 @@ describe("IM-V2 relay evidence", () => {
       <RelayConfigCard relayAddrs={["/ip4/10.0.0.2/udp/3403"]} onSave={async () => {}} />,
     );
     expect(config.container.querySelector("[data-slot=card]")!.className).toContain("h-full");
+    expect(config.container.querySelector("[data-slot=card-content]")!.className).toContain("flex-1");
     const { container } = render(<RelayWatermarkCard />);
     expect(container.querySelector(".text-2xl")).toBeNull();
     expect(container.querySelector(".text-lg")).toBeTruthy();
     expect(container.querySelectorAll(".rounded-md.border.p-3")).toHaveLength(2);
+    const cc = container.querySelector("[data-slot=card-content]")!.className;
+    expect(cc).toContain("flex-1");
+    expect(cc).toContain("grid");
+    expect(cc).not.toContain("content-center");
   });
 });
 
@@ -221,8 +260,11 @@ describe("IM-V2 settings evidence", () => {
     render(<ProfileCard />);
     const hint = await screen.findByText("支持 PNG / JPG / WebP，自动压缩为 128×128");
     expect(hint.className).toContain("text-gray-600");
-    const row = hint.parentElement!.parentElement!;
-    expect(row.className).toContain("items-center");
+    // 说明文字已移出侧列：头像行内不再有 <p>，圆标只与标签/按钮行同轴
+    const avatar = document.querySelector("span.rounded-full")!;
+    const row = avatar.closest(".items-center")!;
+    expect(row.querySelectorAll("p")).toHaveLength(0);
+    expect(hint.parentElement!.className).not.toContain("items-center");
   });
 
   it("S2 主题/语言未选中 chip 深描边 gray-300", () => {
