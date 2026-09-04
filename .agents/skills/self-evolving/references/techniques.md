@@ -233,3 +233,7 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   必须是补丁里真实写入的串（另造验证词会假绿）。
 - 2026-09-04 IM-T48：验收链尾接 "; echo EXIT=$?" 会让 job 退出码恒 0——分阶段 echo
   （TEST_EXIT/BUILD_EXIT/MAKECHECK_EXIT 各自收码）+ job_output 读实值判定，链式 && 一处断全线静默停。
+
+## 2026-09-04 R1 friends 写锁轮
+- flock 锁挂在 open file description 上：同进程两次 open 的两个 fd 互相冲突（第二者 LOCK_NB 得 WouldBlock）——单进程双 fd 即可测「持锁超时显式报错 / 释放后重获」全路径，不必真起多进程。
+- 跨进程文件锁选型锚点：Unix 用 flock(LOCK_EX|LOCK_NB 自旋 + 截止时间) 进程崩溃内核自动释放无陈锁；超时报错带锁路径与「拒绝静默覆盖」语义满足可观测红线。锁内必须重读磁盘权威态再合并写（只加锁不重读仍是 last-write-wins）。
