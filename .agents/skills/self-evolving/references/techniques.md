@@ -295,3 +295,4 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 脚本双 bash 兼容验证法：/bin/bash -n + /opt/homebrew/bin/bash -n 各过一遍语法，--self-test 两边各跑一遍（验收链用哪个 bash 取决于调用方 PATH，不能只验一个）；变量展开一律花括号化（延续 90e062a 对 bash 5.3 多字节相邻展开的防御）。
 - 后台验收命令经管道收尾（`make check | tail`）时 job 退出码是 tail 的，假 exit 0 掩盖真失败：必须 `set -o pipefail` 并回读 `PIPESTATUS[0]`，或落日志文件后 `echo EXIT:$?`（2026-09-04 ACP6b make check 首跑假绿实证）。
 - Radix Select 组件测试前提三桩：`HTMLElement.prototype` 的 scrollIntoView/hasPointerCapture/releasePointerCapture 各 `Object.defineProperty(..., {configurable:true, value: vi.fn()})`；点选拿 pointerDown({button:0, pointerType:"mouse"}) 开面板再对 option pointerUp+click（权威先例 chat-friend-group.test.tsx 移动分组用例）。
+- 2026-09-04 run_code 源码载体对反引号字符敏感：不仅模板字符串，普通字符串字面量里出现反引号字符同样炸解析（报 Expected , got ; / Expression expected，定位不到真实行）。要写含反引号的内容（Markdown 代码标记、带转义引号的 Rust 字符串）一律用 String.fromCharCode(96) 拼接，或改走 bash heredoc 落盘。
