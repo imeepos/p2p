@@ -191,7 +191,8 @@
       "status": "todo",
       "title": "IM-T53 chat-boundaries 负载型 flake 加固（事件/历史加载时序）",
       "acceptanceCommand": "cd apps/gui && for i in 1 2 3; do pnpm test --run src/views/chat/chat-boundaries.test.tsx || exit 1; done && pnpm build && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check",
-      "note": "2026-09-05 立卡：T43 验收期间两次全量在负载 30-45 下 chat-boundaries 出现超时型假红（含 dedup 用例期望2得6，事件早于历史加载到达时去重疑似失效）与 app-boot 33s 路由遍历超时。加固方向：waitFor 超时预算、事件与历史加载竞态的去重健壮性、app-boot 分路由拆测。"
+      "note": "2026-09-05 立卡：T43 验收期间两次全量在负载 30-45 下 chat-boundaries 出现超时型假红（含 dedup 用例期望2得6，事件早于历史加载到达时去重疑似失效）与 app-boot 33s 路由遍历超时。加固方向：waitFor 超时预算、事件与历史加载竞态的去重健壮性、app-boot 分路由拆测。",
+      "goal": "chat-boundaries 测试在连续3次串行复跑下零假红，事件与历史加载竞态的去重健壮性达标，app-boot 拆分后无 33s 级超时用例"
     },
     {
       "id": "T21",
