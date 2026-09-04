@@ -146,7 +146,7 @@ start_gui() {
         EPID="$(grep -Eo '"pid": [0-9]+' "$EP_FILE" 2>/dev/null | grep -Eo '[0-9]+')"
         if [ -n "$EPID" ] && ps -p "$EPID" >/dev/null 2>&1 \
             && "$CTL" gui status --json >/dev/null 2>&1 \
-            && ! "$CTL" gui page 2>&1 | grep -q "PAGE_TIMEOUT"; then
+            && "$CTL" gui page --json >/dev/null 2>&1; then
             echo "复用已运行 GUI 实例 pid=$EPID（外部进程不杀不复位）"
             return 0
         fi
@@ -155,13 +155,13 @@ start_gui() {
     "$GUI_BIN" >>"$GUI_LOG" 2>&1 &
     CHILD=$!
     disown "$CHILD" 2>/dev/null || true
-    # 就绪门含 page 协议探针：端点就绪 ≠ webview 桥就绪（重载下桥安装晚于端点，
-    # 直接开跑会全数 PAGE_TIMEOUT 假红）；探针单次 ≤5s（服务端回执超时）。
+    # 就绪门探针必须真实 round-trip 成功（gui page --json 退出码 0）：端点就绪 ≠
+    # webview 桥就绪；仅排除 PAGE_TIMEOUT 字样会被其他错误形态提前放行（GC3c 实测）。
     for i in $(seq 1 60); do
         if [ -f "$EP_FILE" ] \
             && grep -Eq "\"pid\": $CHILD([^0-9]|$)" "$EP_FILE" \
             && "$CTL" gui status --json >/dev/null 2>&1 \
-            && ! "$CTL" gui page 2>&1 | grep -q "PAGE_TIMEOUT"; then
+            && "$CTL" gui page --json >/dev/null 2>&1; then
             echo "GUI 就绪 pid=$CHILD"
             return 0
         fi
