@@ -93,6 +93,7 @@ mod tests {
                 path: Some("/data/chat/media/P/m1_a.png".into()),
             }),
             status: p2p_chat::ChatStatus::Delivered,
+            reply_to: None,
         };
         let out = to_asset_media(env);
         let path = out.media.expect("媒体仍在").path.expect("path 已转换");

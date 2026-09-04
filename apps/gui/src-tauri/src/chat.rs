@@ -75,6 +75,7 @@ pub async fn chat_history(
 }
 
 /// chat_send：校验 → 信封 → 落 outbox → 尝试投递；delivered=true 表示实时送达。
+/// replyTo（可选）：被引用消息的本端消息 id，原样透传；空白引用由 crate 校验拒绝。
 #[tauri::command]
 pub async fn chat_send(
     state: State<'_, AppState>,
@@ -82,11 +83,12 @@ pub async fn chat_send(
     kind: ChatKind,
     text: Option<String>,
     media: Option<ChatMediaInputJson>,
+    reply_to: Option<String>,
 ) -> Result<ChatSendReport, String> {
     let chat = state.chat().await?;
     let media = media.map(decode_media_input).transpose()?;
     let mut report = chat
-        .send(&peer, kind, text, media)
+        .send(&peer, kind, text, media, reply_to)
         .await
         .map_err(|e| e.to_string())?;
     report.message = crate::util::to_asset_media(report.message);

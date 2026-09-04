@@ -21,6 +21,7 @@ fn sample_envelope(media: Option<ChatMediaMeta>) -> ChatEnvelope {
         text: Some("你好世界".into()),
         media,
         status: ChatStatus::Pending,
+        reply_to: None,
     }
 }
 
@@ -81,11 +82,33 @@ fn chat_message_json_text_field_names_match_contract() {
             "text": "你好世界",
             "media": null,
             "status": "pending",
+            "replyTo": null,
         }),
         "ChatMessageJson 字段名/空 Option 须逐字对齐 §12.3"
     );
     let decoded: ChatEnvelope = serde_json::from_value(encoded).expect("反序列化消息");
     assert_eq!(decoded, env, "ChatMessageJson roundtrip 不保真");
+}
+
+// IM-T46A：replyTo 契约加法——Some roundtrip camelCase 逐字、缺失字段容忍（旧记录无引用）
+#[test]
+fn chat_message_json_reply_to_roundtrips_and_missing_field_is_tolerated() {
+    let env = ChatEnvelope {
+        reply_to: Some("quoted-id".into()),
+        ..sample_envelope(None)
+    };
+    let value = serde_json::to_value(&env).expect("序列化");
+    assert_eq!(value["replyTo"], "quoted-id", "replyTo 必须 camelCase");
+    assert!(value.get("reply_to").is_none(), "禁止 snake_case");
+    let back: ChatEnvelope = serde_json::from_value(value).expect("反序列化");
+    assert_eq!(back, env, "replyTo roundtrip 不保真");
+
+    let missing: ChatEnvelope = serde_json::from_value(json!({
+        "id": "id-2", "peer": "PeerA", "sender": "me", "kind": "text",
+        "tsMs": 0, "text": "t", "media": null, "status": "pending",
+    }))
+    .expect("缺 replyTo 的旧格式必须可读（无引用）");
+    assert_eq!(missing.reply_to, None);
 }
 
 #[test]
@@ -143,6 +166,7 @@ fn chat_send_report_roundtrips() {
                 "text": "你好世界",
                 "media": null,
                 "status": "pending",
+                "replyTo": null,
             },
             "delivered": true,
         }),
