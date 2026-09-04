@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T00:28:56.708Z",
+  "updatedAt": "2026-09-04T01:38:06Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
-  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23/T25 全 done（T25 b7b831f，31 tests 一次通过，shell_union 即白名单数据源）；T24（3adc549c，一致性测试机械防漂移）与 T26（801a58c9）并行 doing，T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。 | IM 阶段（2026-09-04，IM 协调 session-b7d42619 接任项目负责人）：设计定稿 im-chat-design.md + 契约 v7（gui-contract §12）落 main（254b3cf），主树基线 make check exit 0 后开闸。批次一 T29 ∥ T30 并行；T31 待 T30、T32 待 T29、T33 待 T29+T32。与 E10/RS 双轨互斥（零文件交集），coordinatorSession 保持 E10 协调不动。T1-T16 已 done 历史折叠为本 note（协调表全量在案，未删任何验收记录）。",
+  "note": "E10 llm-share Phase 0 在途（协调 fd87d7bf）：T17 ledger（872df061）/T18 offer（890d991b）并行 doing，第二批 T19 proxy+itest A1-A7 待 T17 trait 面落地后派。RS 远程支持 P0b 轮开轮（2026-09-04，RS 协调 session-5e733ff8-2bbc-4252-8397-5cd9d50f5b56，用户指令授权）：设计基线 remote-support-design.md v1 + 实施计划 remote-support-plan.md（契约 §3 冻结）；T20-T23/T25 全 done（T25 b7b831f，31 tests 一次通过，shell_union 即白名单数据源）；T24（3adc549c，一致性测试机械防漂移）与 T26（801a58c9）并行 doing，T27 待 T26、T28 收尾；真机 3 例为人工里程碑不入账本。与 E10 双轨互斥：repair-* 与 llm-share-* crate 零交集，根 Cargo.toml 双方只追加。 | IM 阶段（2026-09-04，IM 协调 session-b7d42619 接任项目负责人）：设计定稿 im-chat-design.md + 契约 v7（gui-contract §12）落 main（254b3cf），主树基线 make check exit 0 后开闸。批次一 T29 ∥ T30 并行；T31 待 T30、T32 待 T29、T33 待 T29+T32。与 E10/RS 双轨互斥（零文件交集），coordinatorSession 保持 E10 协调不动。T1-T16 已 done 历史折叠为本 note（协调表全量在案，未删任何验收记录）。 | IM 边界测试增强轮（2026-09-04，负责人 session-4297b5f0）：T34 Rust 核心边界 ∥ T35 GUI 边界 ∥ T36 Tauri/协议异常边界，均为只新增测试、互斥目录，先并行后逐单门禁。",
   "tasks": [
     {
       "id": "T17",
@@ -250,6 +250,50 @@
       "mergedMain": "78e5c89",
       "acceptedAt": "2026-09-03T23:47:21.809Z",
       "note": "一次通过：装配两处 builtin() 接线 + 装配级非空断言（assembly_whitelist_is_builtin_non_empty），全量门禁 exit 0（78e5c89 上实证）。"
+    },
+    {
+      "id": "T34",
+      "goal": "补齐 p2p-chat 核心边界单元测试：文本/昵称 unicode 与长度边界、PeerId 非法与自发自收、MIME kind 矩阵、零字节与 64MiB 边界、文件名路径穿越/控制字符/纯点/超长、JSONL 损坏行与历史分页游标、好友簿原子写与重复操作；只新增测试，不改生产实现",
+      "title": "IM-BT34 Rust 核心边界测试",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "test/im-chat-core-boundaries",
+      "ownerSession": "待派（专属新会话）",
+      "scope": "仅新增 crates/p2p-chat/tests/model_boundaries.rs、crates/p2p-chat/tests/store_boundaries.rs；生产源码只读，apps/gui 与 p2p-itest 只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test model_boundaries --test store_boundaries && cargo test -p p2p-chat && cargo clippy -p p2p-chat -- -D warnings && make check'"
+    },
+    {
+      "id": "T35",
+      "goal": "补齐 GUI 聊天边界测试：空好友/超长昵称、空白与 2000/2001 字符文本、emoji 插入位置与重复点击、附件类型推断/未知 MIME/零字节/64MiB+1、事件乱序与重复、failed/pending 状态渲染、分页空结果与非法游标、媒体裸路径降级展示；只新增测试与必要测试夹具，不改生产实现",
+      "title": "IM-BT35 GUI 聊天边界测试",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "test/im-gui-boundaries",
+      "ownerSession": "待派（专属新会话）",
+      "scope": "仅新增 apps/gui/src/views/chat/chat-boundaries.test.tsx、apps/gui/src/lib/chat-boundaries.test.ts、必要测试 fixtures；apps/gui/src 生产实现与 src-tauri 只读",
+      "acceptanceCommand": "bash -c 'cd apps/gui && pnpm test --run src/views/chat/chat-boundaries.test.tsx src/lib/chat-boundaries.test.ts && pnpm build && pnpm check:i18n && cd ../.. && export PATH=\"$HOME/.cargo/bin:$PATH\" && make check'"
+    },
+    {
+      "id": "T36",
+      "goal": "补齐 Tauri/协议异常边界测试：命令参数缺失与 null、camelCase 字段/Option null、非法 PeerId/自发自收/地址/文本/媒体错误映射、asset URL 路径编码与平台前缀、未知/乱序/超限 chat 帧、重复消息幂等与 ACK 失败可观测；只新增测试，不改生产实现",
+      "title": "IM-BT36 Tauri 与协议边界测试",
+      "priority": "P0",
+      "status": "doing",
+      "branch": "test/im-tauri-protocol-boundaries",
+      "ownerSession": "待派（专属新会话）",
+      "scope": "仅新增 apps/gui/src-tauri/tests/chat_boundaries.rs、crates/p2p-chat/tests/wire_boundaries.rs；既有生产源码只读，GUI 生产实现只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test wire_boundaries && cd apps/gui/src-tauri && cargo test --test chat_boundaries && cargo clippy --all-targets -- -D warnings && cd ../.. && make check'"
+    },
+    {
+      "id": "T37",
+      "goal": "repair-playbook 边界测试补充：markdown 结构边界（缺front matter字段/重复步骤号/步骤缺命令行/空红线/空步骤/CRLF/BOM/超长行）、ParseError 多点收集排序稳定性断言、roundtrip 特殊字符（引号/反引号/竖线）转义保持、shell_union 空集/无shell步骤/跨playbook去重语义固化（与T24一致性测试口径对齐）、三类草案消融式抽测（改坏一处一致性测试确实变红）；只加测试不改行为，缺陷报裁决",
+      "title": "RS-边界轮-T37 playbook 边界测试",
+      "priority": "P1",
+      "status": "doing",
+      "branch": "test/rs-playbook-boundary",
+      "ownerSession": "session-89f85ec3-fc6a-44c6-93b4-49008e45c2e3",
+      "scope": "crates/repair-playbook 测试文件；其余只读",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p repair-playbook && make check'"
     }
   ]
 }
