@@ -59,11 +59,11 @@ p2pctl node stop    [--data-dir DIR] [--json]   # 停止（幂等，重复 stop 
 
 ```bash
 p2pctl chat friends list                                  # 好友簿列表
-p2pctl chat friends add   --peer-id <PEER> [--name N] [--note X]   # upsert 幂等
+p2pctl chat friends add <PEER_ID> [--nickname N] [--note X]        # upsert 幂等
 p2pctl chat friends remove <PEER>                         # 幂等
-p2pctl chat history <PEER> [--limit N] [--data-dir DIR] [--json]  # 消息历史（time desc）
-p2pctl chat send --peer-id <PEER> --text "..."            # 文本消息
-p2pctl chat send --peer-id <PEER> --file <PATH>           # 附件消息
+p2pctl chat history --peer <PEER> [--limit N] [--data-dir DIR] [--json]  # 消息历史（time desc）
+p2pctl chat send --peer <PEER> --text "..."               # 文本消息
+p2pctl chat send --peer <PEER> --file <PATH>              # 附件消息
 p2pctl chat media file --message-id <ID> [--data-dir DIR] # 查附件落盘绝对路径
 p2pctl chat serve [--data-dir DIR]                        # 常驻聊天节点（E2E/守护支撑）
 ```
