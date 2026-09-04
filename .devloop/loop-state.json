@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T20:14:58.251Z",
+  "updatedAt": "2026-09-04T20:16:06.318Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -262,7 +262,7 @@
       "priority": "P1",
       "status": "doing",
       "branch": "fix/gate-script-env-hardening",
-      "ownerSession": "session-1c1b8dee-5a55-4a46-a734-e5a35469daeb",
+      "ownerSession": "session-8630c20f-a9f4-4dc7-a2b7-60009f698f6f",
       "scope": "仅 scripts/check/cli-parity.sh、scripts/check/ai-docs-sync.sh（如需共享逻辑放 scripts/check/lib-*.sh 新文件）；不碰 scripts/ops、crates/**、apps/**",
       "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\"; cd /Users/imeepos/ext512/p2p && git merge --ff-only fix/gate-script-env-hardening 2>/dev/null; S1=$(find apps/cli/src crates/p2p-cli/src -name \"*.rs\" -newer apps/cli/target/debug/p2pctl 2>/dev/null | head -1); if [ -n \"$S1\" ]; then echo STALE-NOT-SELF-HEALED; exit 1; fi; CARGO_TARGET_DIR=/tmp/t22-isolation-target bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK || { echo ISOLATION-PARITY-FAIL; exit 1; }; CARGO_TARGET_DIR=/tmp/t22-isolation-target bash scripts/check/ai-docs-sync.sh | grep -q AI-DOCS-OK || { echo ISOLATION-DOCS-FAIL; exit 1; }; make check >/dev/null 2>&1 && echo T22-ACC-GREEN'"
     },
@@ -273,7 +273,7 @@
       "priority": "P0",
       "status": "doing",
       "branch": "feat/llm-share-smoke",
-      "ownerSession": "session-f00ebde6-caba-41c6-8265-d92fcaba7ce2",
+      "ownerSession": "session-a0fe97db-e2ee-460d-8d60-befe74dc8785",
       "scope": "新增 scripts/ops/llm-share-smoke.sh + docs/ops/llm-share-smoke.md（用法/前置/清理说明）；不碰 scripts/check、crates/**、apps/** 源码；如冒烟暴露产品代码缺陷，只登记回报不越界修",
       "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p && export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" && git pull --ff-only origin main >/dev/null 2>&1; bash scripts/ops/llm-share-smoke.sh > /tmp/t23-smoke-a.log 2>&1 && grep -q SMOKE-OK /tmp/t23-smoke-a.log && bash scripts/ops/llm-share-smoke.sh > /tmp/t23-smoke-b.log 2>&1 && grep -q SMOKE-OK /tmp/t23-smoke-b.log && ! grep -qE \"FAIL$|FAIL \" /tmp/t23-smoke-b.log && echo T23-ACC-GREEN || { echo T23-ACC-FAIL; tail -20 /tmp/t23-smoke-b.log; exit 1; }'"
     }
