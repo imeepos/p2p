@@ -143,6 +143,21 @@ describe("mock chat：发送校验", () => {
       }),
     ).rejects.toThrow(/上限/);
   });
+
+  // IM-T46B：replyTo 与真实后端同语义——提供须非空字符串，原样入库；缺省无引用。
+  it("replyTo 透传：入库携带引用 id，空白引用拒绝", async () => {
+    const p = peerId("reply-passthrough");
+    await mockBackend.chatFriendAdd(p, "", []);
+    await expect(
+      mockBackend.chatSend(p, "text", "hi", undefined, "   "),
+    ).rejects.toThrow(/回复引用非法/);
+    const quoted = await mockBackend.chatSend(p, "text", "reply", undefined, "target-1");
+    expect(quoted.message.replyTo).toBe("target-1");
+    const plain = await mockBackend.chatSend(p, "text", "plain");
+    expect(plain.message.replyTo ?? null).toBeNull();
+    const history = await mockBackend.chatHistory(p);
+    expect(history.find((m) => m.id === quoted.message.id)?.replyTo).toBe("target-1");
+  });
 });
 
 describe("mock chat：发送与历史", () => {

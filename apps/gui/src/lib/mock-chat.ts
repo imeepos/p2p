@@ -1,57 +1,30 @@
 import type {
   ChatFriendJson,
-  ChatKind,
   ChatMediaFile,
-  ChatMediaInput,
   ChatMessageJson,
   IpcBackend,
   NodeEventJson,
 } from "./ipc-types";
-const PEER_ID_RE = /^[1-9A-HJ-NP-Za-km-z]{43,45}$/;
-const ADDR_RE = /^(?:\d{1,3}\.){3}\d{1,3}\/[ut]\d{1,5}$/;
-
-function isValidPeerId(value: string): boolean {
-  return PEER_ID_RE.test(value);
-}
-
-function isValidTransportAddr(value: string): boolean {
-  if (!ADDR_RE.test(value)) return false;
-  const [host, tail] = value.split("/");
-  const octets = host.split(".").map(Number);
-  const port = Number(tail.slice(1));
-  return octets.every((octet) => octet >= 0 && octet <= 255) && port >= 1 && port <= 65535;
-}
+import {
+  MAX_NICKNAME_CHARS,
+  base64ByteSize,
+  isValidPeerId,
+  isValidTransportAddr,
+  mediaPath,
+  validateReplyTo,
+  validateSend,
+} from "./mock-chat-rules";
 
 // 契约 v7 §12 的 mock 侧实现（T30）：好友簿校验、发送状态事件、历史分页与
 // 媒体路径占位。持久化（friends.json/outbox/messages/media）由 src-tauri T32
 // 落地，mock 只保内存态；与真实实现同签名（IpcBackend chat 段）。
+// 校验规则在 mock-chat-rules.ts（与 mock/src-tauri/p2p-chat 同口径）。
 
-const MAX_TEXT_CHARS = 2000;
-const MAX_MEDIA_BYTES = 64 * 1024 * 1024; // 与 chunked.rs MAX_MESSAGE_SIZE 一致
 const HISTORY_DEFAULT_LIMIT = 50;
 const HISTORY_MAX_LIMIT = 100;
 const SENT_DELAY_MS = 120;
 const DELIVERED_DELAY_MS = 180;
 const REPLY_DELAY_MS = 400;
-const MAX_NICKNAME_CHARS = 64;
-
-// 设计 §5 MIME 白名单：kind 与 mime 不匹配一律 Err，不猜不降级。
-const MIME_BY_KIND: Record<
-  Exclude<ChatKind, "text" | "file">,
-  ReadonlySet<string>
-> = {
-  image: new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]),
-  audio: new Set([
-    "audio/mpeg",
-    "audio/wav",
-    "audio/ogg",
-    "audio/m4a",
-    "audio/mp4",
-  ]),
-  video: new Set(["video/mp4", "video/webm", "video/mov", "video/quicktime"]),
-};
-
-const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;
 
 // mock 运行时接线：读 mock-ipc 的节点态（本机 PeerId/运行/连接），发 chat 事件。
 export interface MockChatDeps {
@@ -92,60 +65,6 @@ function uuid(): string {
     const r = (Math.random() * 16) | 0;
     return (ch === "x" ? r : (r & 0x3) | 0x8).toString(16);
   });
-}
-
-// 设计 §4：去路径分隔符/控制字符，仅保留 [A-Za-z0-9._-]，空则回退 attachment。
-function sanitizeName(name: string): string {
-  const kept = name.replace(/[^A-Za-z0-9._-]/g, "");
-  return kept.length > 0 ? kept : "attachment";
-}
-
-function mediaPath(peer: string, messageId: string, name: string): string {
-  return `<app-data>/chat/media/${peer}/${messageId}_${sanitizeName(name)}`;
-}
-
-function base64ByteSize(dataBase64: string): number {
-  const padding = dataBase64.endsWith("==") ? 2 : dataBase64.endsWith("=") ? 1 : 0;
-  return Math.floor((dataBase64.length / 4) * 3) - padding;
-}
-
-function expectedKind(mime: string): ChatKind {
-  for (const [kind, set] of Object.entries(MIME_BY_KIND)) {
-    if (set.has(mime)) return kind as ChatKind;
-  }
-  return "file";
-}
-
-function validateMedia(kind: ChatKind, media: ChatMediaInput): string | null {
-  const mime = media.mime.toLowerCase();
-  if (expectedKind(mime) !== kind) {
-    return `媒体 mime 与 kind 不匹配：${media.mime} 不能作为 ${kind} 发送`;
-  }
-  if (!BASE64_RE.test(media.dataBase64)) return "附件 base64 载荷非法";
-  const size = base64ByteSize(media.dataBase64);
-  if (size > MAX_MEDIA_BYTES) {
-    return `附件超过单条消息上限（${size} > ${MAX_MEDIA_BYTES} 字节）`;
-  }
-  return null;
-}
-
-function validateSend(
-  peer: string,
-  kind: ChatKind,
-  text: string | undefined,
-  media: ChatMediaInput | undefined,
-): string | null {
-  if (!state.friends.has(peer)) return `对方还不是好友：${peer}`;
-  if (kind === "text") {
-    const trimmed = (text ?? "").trim();
-    if (trimmed.length === 0) return "文本消息不能为空";
-    if (trimmed.length > MAX_TEXT_CHARS) {
-      return `文本超过 ${MAX_TEXT_CHARS} 字符上限`;
-    }
-    return null;
-  }
-  if (!media) return `kind=${kind} 的消息必须携带 media`;
-  return validateMedia(kind, media);
 }
 
 function appendMessage(message: ChatMessageJson): void {
@@ -248,8 +167,11 @@ export function createMockChatBackend(deps: MockChatDeps): MockChatBackend {
       return page;
     },
 
-    async chatSend(peer, kind, text, media) {
-      const invalid = validateSend(peer, kind, text, media);
+    // replyTo 透传（IM-T46B）：先校验非空（镜像 crate 侧 InvalidReply），原样入库。
+    async chatSend(peer, kind, text, media, replyTo) {
+      const invalidReply = validateReplyTo(replyTo);
+      if (invalidReply) throw new Error(invalidReply);
+      const invalid = validateSend(peer, kind, text, media, state.friends.has(peer));
       if (invalid) throw new Error(invalid);
       const id = uuid();
       const message: ChatMessageJson = {
@@ -268,6 +190,7 @@ export function createMockChatBackend(deps: MockChatDeps): MockChatBackend {
             }
           : null,
         status: "pending",
+        replyTo: replyTo ?? null,
       };
       appendMessage(message);
       // 离线语义（设计 §6.1）：先落历史（outbox 化），未连接保持 pending；

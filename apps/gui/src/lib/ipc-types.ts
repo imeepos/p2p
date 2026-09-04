@@ -143,6 +143,7 @@ export interface ChatMessageJson {
   text?: string | null;
   media?: ChatMediaJson | null;
   status: ChatMessageStatus; // 本地状态字段，不跨网
+  replyTo?: string | null; // 被引用消息的本端消息 id；null/缺省=无引用（IM-T46A 加法，不校验存在性）
 }
 
 export interface ChatSendReport {
@@ -191,6 +192,7 @@ export interface IpcBackend {
     kind: ChatKind,
     text?: string,
     media?: ChatMediaInput,
+    replyTo?: string | null,
   ): Promise<ChatSendReport>;
   chatMediaFile(peer: string, messageId: string): Promise<ChatMediaFile>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;

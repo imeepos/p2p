@@ -29,6 +29,7 @@ export function placeholderMessage(
   kind: ChatKind,
   text: string | null,
   media?: ChatMediaInput,
+  replyTo?: string | null,
 ): ChatMessageJson {
   return {
     id: localId(),
@@ -46,6 +47,7 @@ export function placeholderMessage(
         }
       : null,
     status: "pending",
+    replyTo: replyTo ?? null,
   };
 }
 

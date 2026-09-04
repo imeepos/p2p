@@ -60,12 +60,13 @@ const tauriBackend: IpcBackend = {
       beforeId: beforeId ?? null,
       limit: limit ?? null,
     }),
-  chatSend: (peer, kind, text, media) =>
+  chatSend: (peer, kind, text, media, replyTo) =>
     invoke<ChatSendReport>("chat_send", {
       peer,
       kind,
       text: text ?? null,
       media: media ?? null,
+      replyTo: replyTo ?? null,
     }),
   chatMediaFile: (peer, messageId) =>
     invoke<ChatMediaFile>("chat_media_file", { peer, messageId }),

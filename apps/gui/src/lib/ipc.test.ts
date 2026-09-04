@@ -90,6 +90,17 @@ describe("ipc chat 命令映射（契约 v7 §12，真实桥接）", () => {
       kind: "text",
       text: "hi",
       media: null,
+      replyTo: null,
+    });
+
+    // IM-T46B：replyTo 可选透传（camelCase，对齐 src-tauri reply_to 参数）
+    await ipc.chatSend("p1", "text", "hi", undefined, "reply-target-1");
+    expect(invokeMock).toHaveBeenCalledWith("chat_send", {
+      peer: "p1",
+      kind: "text",
+      text: "hi",
+      media: null,
+      replyTo: "reply-target-1",
     });
 
     await ipc.chatMediaFile("p1", "m1");

@@ -9,7 +9,7 @@ import { ChatFriendAddDialog } from "@/components/chat/chat-friend-add-dialog";
 import { ChatFriendRemoveDialog } from "@/components/chat/chat-friend-remove-dialog";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { PeerStatusDot } from "@/components/chat/peer-status";
-import type { ChatFriendJson } from "@/lib/ipc-types";
+import type { ChatFriendJson, ChatMessageJson } from "@/lib/ipc-types";
 import { Composer } from "@/components/chat/composer";
 import { MessageList } from "@/components/chat/message-list";
 import { useChatStore } from "@/stores/chat-store";
@@ -36,6 +36,9 @@ export function ChatView() {
   const subscribeEvents = useChatStore((s) => s.subscribeEvents);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<ChatFriendJson | null>(null);
+  // 回复引用预览（IM-T46B）：页内状态即可（Composer/MessageList 同树）；
+  // 清空走 onSelect 事件路径与发送成功回调，避免把 A 会话的引用带进 B 会话发送。
+  const [replyTarget, setReplyTarget] = useState<ChatMessageJson | null>(null);
 
   useEffect(() => {
     void loadFriends();
@@ -69,7 +72,11 @@ export function ChatView() {
             selectedPeer={selectedPeer}
             loading={!friendsLoaded && !friendsError}
             error={friendsError}
-            onSelect={(peerId) => void selectPeer(peerId)}
+            onSelect={(peerId) => {
+              // 切会话即弃引用预览：A 会话的引用不得带进 B 会话发送
+              setReplyTarget(null);
+              void selectPeer(peerId);
+            }}
             onAddFriend={() => setAddFriendOpen(true)}
             onRemoveFriend={(peerId) =>
               setRemoveTarget(friends.find((f) => f.peerId === peerId) ?? null)
@@ -103,8 +110,13 @@ export function ChatView() {
                 hasMore={hasMore}
                 onLoadOlder={() => void loadOlder(selectedPeer)}
                 onCancelPending={(id) => cancelPending(selectedPeer, id)}
+                onReply={setReplyTarget}
               />
-              <Composer peer={selectedPeer} />
+              <Composer
+                peer={selectedPeer}
+                replyTarget={replyTarget}
+                onReplyCancel={() => setReplyTarget(null)}
+              />
             </>
           ) : (
             <EmptyState

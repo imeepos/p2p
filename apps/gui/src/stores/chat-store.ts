@@ -29,11 +29,12 @@ export interface ChatStoreState {
   loadFriends: () => Promise<void>;
   selectPeer: (peer: string) => Promise<void>;
   loadOlder: (peer: string) => Promise<void>;
-  sendText: (peer: string, text: string) => Promise<ChatMessageJson>;
+  sendText: (peer: string, text: string, replyTo?: string | null) => Promise<ChatMessageJson>;
   sendMedia: (
     peer: string,
     kind: ChatKind,
     media: ChatMediaInput,
+    replyTo?: string | null,
   ) => Promise<ChatMessageJson>;
   cancelPending: (peer: string, localMessageId: string) => void;
   forgetFriend: (peer: string) => void;
@@ -146,14 +147,17 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   },
 
   // 乐观发送：先落占位（pending），chatSend 返回后按占位 id 替换；失败移除占位并抛错。
-  sendText: async (peer, text) => {
+  // replyTo 仅在有引用时出现在 IPC 调用上（无引用保持原有调用形状）。
+  sendText: async (peer, text, replyTo) => {
     const trimmed = text.trim();
     if (!trimmed) throw new Error("chat text 为空");
     if (trimmed.length > 2000) throw new Error("chat text 超过 2000 字符");
-    const placeholder = placeholderMessage(peer, "text", text);
+    const placeholder = placeholderMessage(peer, "text", text, undefined, replyTo);
     pushPending(set, peer, placeholder);
     try {
-      const report = await ipc.chatSend(peer, "text", trimmed);
+      const report = replyTo
+        ? await ipc.chatSend(peer, "text", trimmed, undefined, replyTo)
+        : await ipc.chatSend(peer, "text", trimmed);
       swapPending(get, set, peer, placeholder.id, report.message);
       return report.message;
     } catch (error) {
@@ -163,11 +167,13 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     }
   },
 
-  sendMedia: async (peer, kind, media) => {
-    const placeholder = placeholderMessage(peer, kind, null, media);
+  sendMedia: async (peer, kind, media, replyTo) => {
+    const placeholder = placeholderMessage(peer, kind, null, media, replyTo);
     pushPending(set, peer, placeholder);
     try {
-      const report = await ipc.chatSend(peer, kind, undefined, media);
+      const report = replyTo
+        ? await ipc.chatSend(peer, kind, undefined, media, replyTo)
+        : await ipc.chatSend(peer, kind, undefined, media);
       swapPending(get, set, peer, placeholder.id, report.message);
       return report.message;
     } catch (error) {

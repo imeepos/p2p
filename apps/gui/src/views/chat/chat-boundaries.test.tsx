@@ -62,7 +62,7 @@ function emit(event: Parameters<NodeEventHandler>[0]): void {
 
 async function mountComposer(): Promise<void> {
   selectConversation([]);
-  render(<Composer peer={PEER} />);
+  render(<Composer peer={PEER} replyTarget={null} onReplyCancel={() => {}} />);
   await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
 }
 

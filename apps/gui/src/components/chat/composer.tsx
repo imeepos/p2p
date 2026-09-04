@@ -1,21 +1,67 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ImagePlus, Send, Smile } from "lucide-react";
+import { ImagePlus, Send, Smile, X } from "lucide-react";
 
 import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { fileToChatMedia, inferKind } from "@/lib/chat-media";
+import type { ChatMessageJson } from "@/lib/ipc-types";
 import { useChatStore } from "@/stores/chat-store";
 import { cn } from "@/lib/utils";
 
+import { replyKindKey, replySummaryOf } from "./reply-summary";
 import { EmojiPicker } from "./emoji-picker";
 
 const MAX_TEXT_CHARS = 2000;
 
+// 引用预览（IM-T46B）：被引用消息的类型化摘要 + 取消按钮；取消/清空即不带 replyTo。
+function ReplyPreview({
+  target,
+  onCancel,
+}: {
+  target: ChatMessageJson;
+  onCancel: () => void;
+}) {
+  const { t } = useTranslation();
+  const summary = replySummaryOf(target);
+  return (
+    <div
+      className="mb-2 flex items-center gap-2 rounded-md border bg-muted/50 px-2 py-1.5 text-xs"
+      data-testid="chat-reply-preview"
+    >
+      <span className="shrink-0 font-medium">{t("chat.reply.previewLabel")}</span>
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">
+        {t(replyKindKey(target.kind))}
+        {summary ? <span className="ml-1">{summary}</span> : null}
+      </span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="size-5 shrink-0"
+        aria-label={t("chat.reply.cancel")}
+        data-testid="chat-reply-cancel"
+        onClick={onCancel}
+      >
+        <X aria-hidden className="size-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 // 输入条：多行文本 + 表情面板 + 附件；回车发送，shift+enter 换行；
 // 空文本/超长禁用发送并提示；附件超限走 toastError（失败留信号）。
-export function Composer({ peer }: { peer: string }) {
+// 带引用时（replyTarget）文本与附件发送均透传 replyTo，成功后清预览。
+export function Composer({
+  peer,
+  replyTarget,
+  onReplyCancel,
+}: {
+  peer: string;
+  replyTarget: ChatMessageJson | null;
+  onReplyCancel: () => void;
+}) {
   const { t } = useTranslation();
   const sendText = useChatStore((s) => s.sendText);
   const sendMedia = useChatStore((s) => s.sendMedia);
@@ -47,8 +93,9 @@ export function Composer({ peer }: { peer: string }) {
     if (!canSend) return;
     setSending(true);
     try {
-      await sendText(peer, trimmed);
+      await sendText(peer, trimmed, replyTarget?.id);
       setText("");
+      onReplyCancel();
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       toastError(t("chat.sendFailed"), { description: reason });
@@ -71,7 +118,8 @@ export function Composer({ peer }: { peer: string }) {
       try {
         const media = await fileToChatMedia(file);
         const kind = inferKind(file.name, file.type);
-        await sendMedia(peer, kind, media);
+        await sendMedia(peer, kind, media, replyTarget?.id);
+        onReplyCancel();
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         console.error("[chat] 附件发送失败", error);
@@ -85,6 +133,7 @@ export function Composer({ peer }: { peer: string }) {
 
   return (
     <div className="border-t p-3">
+      {replyTarget ? <ReplyPreview target={replyTarget} onCancel={onReplyCancel} /> : null}
       {emojiOpen ? (
         <div className="mb-2">
           <EmojiPicker onPick={insertEmoji} />
