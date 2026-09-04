@@ -300,4 +300,15 @@ describe("渲染矩阵·补缺口", () => {
     expect(area.querySelector("img")?.className).toContain("max-w-full");
     expect(area.querySelector("video")?.className).toContain("max-w-full");
   });
+
+  it("failed 角标 AA 色：me 气泡内用双主题红类而非 text-destructive", () => {
+    seedConversation([
+      mediaMessage("cf-1", PEER, "file", chatMedia("bad.zip", "application/zip", 1, "/data/bad.zip"), { status: "failed" }),
+    ]);
+    mountChat();
+    const badge = bubbleArea().querySelector('[data-testid="message-status"]');
+    expect(badge?.className).toContain("text-red-300");
+    expect(badge?.className).toContain("dark:text-red-700");
+    expect(badge?.className).not.toContain("text-destructive");
+  });
 });
