@@ -19,7 +19,7 @@ export function NodeStoppedCard() {
   };
 
   return (
-    <div data-testid="chat-node-stopped" className="border-t p-3">
+    <div data-testid="chat-node-stopped" className="shrink-0 border-t p-3">
       <p className="text-sm text-muted-foreground">{t("chat.nodeStopped.hint")}</p>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <AsyncButton

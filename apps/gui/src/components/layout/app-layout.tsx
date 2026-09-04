@@ -48,18 +48,18 @@ export function AppLayout() {
   }, [refresh]);
 
   return (
-    <div className="flex h-screen w-full overflow-hidden">
+    <div className="flex h-dvh w-full overflow-hidden">
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div
-            className="grid grid-cols-12 gap-4 p-6"
+            className="grid min-h-0 flex-1 grid-cols-12 gap-4 p-6"
             aria-label={t("common.appName")}
           >
             <div
               key={location.pathname}
-              className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 col-span-12 grid grid-cols-12 gap-4"
+              className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 col-span-12 flex min-h-0 flex-col gap-4"
             >
               <Outlet />
             </div>

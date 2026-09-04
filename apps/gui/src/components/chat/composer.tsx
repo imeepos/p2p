@@ -138,7 +138,7 @@ export function Composer({
   };
 
   return (
-    <div className="border-t p-3">
+    <div className="shrink-0 border-t p-3">
       {replyTarget ? <ReplyPreview target={replyTarget} onCancel={onReplyCancel} /> : null}
       {emojiOpen ? (
         <div className="mb-2">

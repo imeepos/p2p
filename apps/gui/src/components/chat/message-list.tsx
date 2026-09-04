@@ -165,7 +165,7 @@ export function MessageList({
       ref={scrollRef}
       onScroll={onScroll}
       data-testid="message-scroll"
-      className="flex-1 overflow-y-auto px-4 py-3"
+      className="scroll-slim min-h-0 flex-1 overflow-y-auto px-4 py-3"
     >
       {olderError ? (
         <OlderErrorBanner detail={olderError} onRetry={() => loadOlderAction(peer)} />

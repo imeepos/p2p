@@ -58,8 +58,14 @@ export function ChatView() {
   return (
     <>
       <PageHeader titleKey="chat.title" descriptionKey="chat.description" />
-      <div className="col-span-12 grid min-h-[calc(100vh-220px)] grid-cols-[16rem_1fr] gap-4">
-        <section aria-label={t("chat.friends")} className="flex flex-col rounded-lg border">
+      <div
+        data-testid="chat-grid"
+        className="grid min-h-0 flex-1 grid-cols-[16rem_1fr] gap-4"
+      >
+        <section
+          aria-label={t("chat.friends")}
+          className="flex min-h-0 flex-col rounded-lg border"
+        >
           <div className="flex items-center justify-between gap-2 px-3 py-2">
             <h2 className="font-medium">{t("chat.friends")}</h2>
             <Button
@@ -73,36 +79,45 @@ export function ChatView() {
               {t("chat.addFriend.action")}
             </Button>
           </div>
-          <ConversationList
-            friends={friends}
-            lastMessages={lastMessages}
-            selectedPeer={selectedPeer}
-            loading={!friendsLoaded && !friendsError}
-            error={friendsError}
-            onSelect={(peerId) => {
-              // 切会话即弃引用预览：A 会话的引用不得带进 B 会话发送
-              setReplyTarget(null);
-              void selectPeer(peerId);
-            }}
-            onAddFriend={() => setAddFriendOpen(true)}
-            onRemoveFriend={(peerId) =>
-              setRemoveTarget(friends.find((f) => f.peerId === peerId) ?? null)
-            }
-            onRetry={async () => {
-              await loadFriends();
-              const err = useChatStore.getState().friendsError;
-              if (err) throw new Error(err);
-            }}
-          />
+          {/* 列表区内滚域（IM-T52）：卡片头部固定，滚动只发生在本容器 */}
+          <div
+            data-testid="friends-scroll"
+            className="scroll-slim flex min-h-0 flex-1 flex-col overflow-y-auto"
+          >
+            <ConversationList
+              friends={friends}
+              lastMessages={lastMessages}
+              selectedPeer={selectedPeer}
+              loading={!friendsLoaded && !friendsError}
+              error={friendsError}
+              onSelect={(peerId) => {
+                // 切会话即弃引用预览：A 会话的引用不得带进 B 会话发送
+                setReplyTarget(null);
+                void selectPeer(peerId);
+              }}
+              onAddFriend={() => setAddFriendOpen(true)}
+              onRemoveFriend={(peerId) =>
+                setRemoveTarget(friends.find((f) => f.peerId === peerId) ?? null)
+              }
+              onRetry={async () => {
+                await loadFriends();
+                const err = useChatStore.getState().friendsError;
+                if (err) throw new Error(err);
+              }}
+            />
+          </div>
         </section>
 
         <section
           aria-label={t("chat.conversation")}
-          className="flex min-h-72 flex-col rounded-lg border"
+          className="flex min-h-0 flex-col rounded-lg border"
         >
           {selectedPeer ? (
             <>
-              <div className="border-b px-4 py-2">
+              <div
+                data-testid="chat-conversation-header"
+                className="shrink-0 border-b px-4 py-2"
+              >
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <span>{selectedFriend?.nickname || selectedPeer.slice(0, 8)}</span>
                   <PeerStatusDot
