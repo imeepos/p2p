@@ -219,4 +219,16 @@ describe("回复消息 GUI", () => {
       { timeout: 3000 },
     );
   });
+
+  it("极端内容：超长文件名引用块两行截断（截断类名在位）", async () => {
+    const longName = "F".repeat(200) + ".pdf";
+    await mountWithHistory([
+      mediaMessage("q-long", PEER, "file", chatMedia(longName, "application/pdf"), { sender: "them", tsMs: 1 }),
+      { ...textMessage("q-rep", PEER, "见附件", { sender: "me", tsMs: 2 }), replyTo: "q-long" },
+    ]);
+    const quote = within(bubbleArea()).getByTestId("chat-quote-block");
+    expect(quote.textContent).toContain(longName.slice(0, 8));
+    expect(quote.className).toContain("line-clamp-2");
+    expect(quote.className).toContain("overflow-wrap");
+  });
 });
