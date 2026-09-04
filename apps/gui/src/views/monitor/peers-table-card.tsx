@@ -131,30 +131,25 @@ export function PeersTableCard({
         : { key, dir: key === "status" ? "asc" : "desc" },
     );
 
+  // 空态直接出 EmptyState（IM-V2 R3 P1）：不再套全宽 Card，消除外层容器空旷感
   return (
     <div className="col-span-12">
-      <Card className="gap-3 py-4">
-        <CardContent className="px-0">
-          {peers.length === 0 ? (
-            <div className="px-6">
-              <EmptyState
-                icon={bufferEmpty ? UsersIcon : SearchXIcon}
-                title={
-                  bufferEmpty ? t("peers.empty") : t("common.table.empty")
-                }
-                description={
-                  bufferEmpty ? t("peers.emptyHint") : undefined
-                }
-                action={
-                  bufferEmpty ? (
-                    <Button type="button" size="sm" onClick={onOpenDial}>
-                      {t("peers.emptyAction")}
-                    </Button>
-                  ) : undefined
-                }
-              />
-            </div>
-          ) : (
+      {peers.length === 0 ? (
+        <EmptyState
+          icon={bufferEmpty ? UsersIcon : SearchXIcon}
+          title={bufferEmpty ? t("peers.empty") : t("common.table.empty")}
+          description={bufferEmpty ? t("peers.emptyHint") : undefined}
+          action={
+            bufferEmpty ? (
+              <Button type="button" size="sm" onClick={onOpenDial}>
+                {t("peers.emptyAction")}
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <Card className="gap-3 py-4">
+          <CardContent className="px-0">
             <Table containerClassName="max-h-96 overflow-y-auto">
               <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card">
                 <TableRow>
@@ -191,9 +186,9 @@ export function PeersTableCard({
                 ))}
               </TableBody>
             </Table>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
