@@ -20,20 +20,23 @@ pub struct TestNode {
     pub dir: PathBuf,
 }
 
-/// 全新目录建节点（随机端口由调用方指定固定值，保证重启后地址簿仍可拨）。
-pub async fn spawn(tag: &str, quic: u16, tcp: u16) -> TestNode {
+/// 全新目录建节点（端口 0 由内核动态分配：固定端口被其他进程占用时
+/// 监听绑定 AddrInUse，用例假红，属潜伏 flake）。
+pub async fn spawn(tag: &str) -> TestNode {
     let dir = std::env::temp_dir().join(format!("p2p-chat-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    spawn_at(tag, quic, tcp, &dir).await
+    spawn_at(tag, &dir).await
 }
 
 /// 复用既有目录建节点（同 data_dir = 同身份；重启场景用）。
-pub async fn spawn_at(_tag: &str, quic: u16, tcp: u16, dir: &Path) -> TestNode {
+/// 端口 0 动态分配：重启后端口必变，测试需把节点新 listen_addrs 用
+/// friend_add（upsert）刷新进对端地址簿后才可拨。
+pub async fn spawn_at(_tag: &str, dir: &Path) -> TestNode {
     let node = Arc::new(
         Node::builder()
             .mdns(false)
-            .quic_port(quic)
-            .tcp_port(tcp)
+            .quic_port(0)
+            .tcp_port(0)
             .data_dir(dir.join("node"))
             .build()
             .await

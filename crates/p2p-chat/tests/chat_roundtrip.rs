@@ -9,8 +9,8 @@ use p2p_chat::{ChatKind, ChatMediaInput, ChatStatus, Sender, MAX_MESSAGE_SIZE};
 /// (a) 文本送达：实时 delivered、ACK 语义、双端 messages/<peer>.jsonl 落盘。
 #[tokio::test]
 async fn text_delivery_ack_and_both_persist() {
-    let a = spawn("rt-a", 31101, 31102).await;
-    let b = spawn("rt-b", 31103, 31104).await;
+    let a = spawn("rt-a").await;
+    let b = spawn("rt-b").await;
     add_each_other(&a, &b).await;
     let peer_a = peer_str(&a.node);
     let peer_b = peer_str(&b.node);
@@ -59,8 +59,8 @@ async fn text_delivery_ack_and_both_persist() {
 /// (b) 附件：≈64MiB 分片边界送达；超限（64MiB+1）发送前拒绝（可读中文 Err）。
 #[tokio::test]
 async fn attachment_chunk_boundary_and_oversize_reject() {
-    let a = spawn("at-a", 31111, 31112).await;
-    let b = spawn("at-b", 31113, 31114).await;
+    let a = spawn("at-a").await;
+    let b = spawn("at-b").await;
     add_each_other(&a, &b).await;
     let peer_a = peer_str(&a.node);
     let peer_b = peer_str(&b.node);

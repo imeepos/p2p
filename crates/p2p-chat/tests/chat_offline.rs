@@ -16,8 +16,8 @@ use p2p_chat::{ChatEvent, ChatKind, ChatStatus};
 /// → outbox flush 重发 → delivered，B 侧收到 chat_message。
 #[tokio::test]
 async fn offline_pending_then_flush_on_peer_connected() {
-    let a = spawn("of-a", 31121, 31122).await;
-    let b = spawn("of-b", 31123, 31124).await;
+    let a = spawn("of-a").await;
+    let b = spawn("of-b").await;
     add_each_other(&a, &b).await;
     let peer_a = peer_str(&a.node);
     let peer_b = peer_str(&b.node);
@@ -37,10 +37,14 @@ async fn offline_pending_then_flush_on_peer_connected() {
     assert_eq!(report.message.status, ChatStatus::Pending);
     assert_eq!(outbox_lines(&a, &peer_b), 1, "outbox 留 1 条待发");
 
-    // B 重启上线（同 data_dir = 同身份，同端口 = A 地址簿仍可拨）
-    let b2 = spawn_at("of-b", 31123, 31124, &b.dir).await;
+    // B 重启上线（同 data_dir = 同身份）。端口 0 动态分配后重启端口必变，
+    // A 地址簿刷新 B2 当前监听地址（friend_add upsert），flush 才可拨。
+    let b2 = spawn_at("of-b", &b.dir).await;
     assert_eq!(peer_str(&b2.node), peer_b, "重启身份不变");
     let mut ev_b2 = b2.chat.events();
+    a.chat
+        .friend_add(&peer_b, "b", b2.node.listen_addrs(), None)
+        .expect("a 刷新 b 重启后地址");
 
     // B 主动拨 A（模拟应用重连）：A 侧触发 PeerConnected(B) → flush
     b2.node
@@ -85,8 +89,8 @@ async fn offline_pending_then_flush_on_peer_connected() {
 /// 幂等；friends.json 原子落盘内容一致。
 #[tokio::test]
 async fn friends_add_remove_list_and_invalid_reject() {
-    let a = spawn("fr-a", 31131, 31132).await;
-    let b = spawn("fr-b", 31133, 31134).await;
+    let a = spawn("fr-a").await;
+    let b = spawn("fr-b").await;
     let peer_b = peer_str(&b.node);
     let own = peer_str(&a.node);
 

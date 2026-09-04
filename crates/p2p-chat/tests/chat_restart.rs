@@ -14,9 +14,9 @@ use p2p_chat::{ChatEvent, ChatKind, ChatStatus};
 
 #[tokio::test]
 async fn restart_recovers_outbox_and_flushes() {
-    // A/B 首次启动：固定端口，便于重启后地址簿仍可拨
-    let a = spawn("rs-a", 31141, 31142).await;
-    let b = spawn("rs-b", 31143, 31144).await;
+    // A/B 首次启动：端口 0 内核动态分配（不再依赖固定端口）
+    let a = spawn("rs-a").await;
+    let b = spawn("rs-b").await;
     add_each_other(&a, &b).await;
     let peer_a = peer_str(&a.node);
     let peer_b = peer_str(&b.node);
@@ -35,20 +35,28 @@ async fn restart_recovers_outbox_and_flushes() {
     assert_eq!(report.message.status, ChatStatus::Pending);
     assert_eq!(outbox_lines(&a, &peer_b), 1, "outbox 落盘 1 条");
 
-    // A 重启：同 data_dir（保留 key.seed → 身份不变）+ 同端口（地址簿仍可拨）
+    // A 重启：同 data_dir（保留 key.seed → 身份不变）；端口 0 动态分配
     let a_dir = a.dir.clone();
     a.node.shutdown();
     tokio::time::sleep(Duration::from_millis(300)).await;
-    let a2 = spawn_at("rs-a", 31141, 31142, &a_dir).await;
+    let a2 = spawn_at("rs-a", &a_dir).await;
     assert_eq!(peer_str(&a2.node), peer_a, "重启身份不变");
     let mut ev_a2 = node_events(&a2.node);
 
-    // B 重启上线（同 data_dir/端口 → 身份不变）
-    let b2 = spawn_at("rs-b", 31143, 31144, &b.dir).await;
+    // B 重启上线（同 data_dir → 身份不变）
+    let b2 = spawn_at("rs-b", &b.dir).await;
     assert_eq!(peer_str(&b2.node), peer_b);
     let mut ev_b2 = b2.chat.events();
 
-    // 触发连接：B2 拨 A2（B2 好友簿地址与 A2 端口一致）
+    // 双方地址簿互相刷新为重启后的真实监听地址（端口已变，旧地址不可拨）
+    a2.chat
+        .friend_add(&peer_b, "b", b2.node.listen_addrs(), None)
+        .expect("a2 刷新 b2 地址");
+    b2.chat
+        .friend_add(&peer_a, "a", a2.node.listen_addrs(), None)
+        .expect("b2 刷新 a2 地址");
+
+    // 触发连接：B2 拨 A2
     b2.node
         .connect(parse_peer(&peer_a))
         .await
