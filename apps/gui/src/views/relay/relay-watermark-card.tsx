@@ -23,7 +23,7 @@ function WatermarkValue({
 }) {
   // IM-V2 R2：分立嵌套框（边框小卡）+ 缩小字号，与左列表单卡节奏对齐。
   return (
-    <div className="min-w-0 rounded-md border p-3">
+    <div className="flex min-w-0 flex-col justify-center rounded-md border p-3">
       <span className="text-muted-foreground block text-xs">{label}</span>
       <span className="mt-1 block text-lg font-semibold tabular-nums">
         {formatNumber(value, locale)}
@@ -45,7 +45,8 @@ export function RelayWatermarkCard() {
         <CardTitle>{t("relay.watermark.title")}</CardTitle>
         <CardDescription>{t("relay.watermark.hint")}</CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 gap-4">
+      {/* 盒子拉伸填满内容区：底边与左卡 footer 齐平（IM-V2 R3 R2） */}
+      <CardContent className="grid flex-1 grid-cols-2 gap-4">
         {metrics === null ? (
           <>
             <Skeleton className="h-12" />

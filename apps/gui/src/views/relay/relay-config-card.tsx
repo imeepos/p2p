@@ -80,7 +80,8 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
         <CardTitle>{t("relay.config.title")}</CardTitle>
         <CardDescription>{t("relay.config.hint")}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      {/* flex-1：卡被拉伸时把 footer 钉到卡底，左右卡内容底边齐平（R3 R2） */}
+      <CardContent className="flex flex-1 flex-col gap-3">
         <FormProvider {...form}>
           <AddressListEditor<RelayFormValues>
             control={form.control}
