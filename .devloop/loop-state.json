@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-03T23:47:21Z",
+  "updatedAt": "2026-09-04T00:28:56.708Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -214,11 +214,14 @@
       "goal": "全链 E2E itest + 演练文档（依赖 T29+T32）：新增 crates/p2p-itest/tests/chat_e2e.rs 两节点全链（roles A/B：加好友→文本送达→附件送达→B 重启后 A outbox flush 重发→A 历史回读含重启前后）；docs/ops/im-chat-drill.md 真机演练清单（双 GUI 实例加好友→五种消息→离线重启 flush→历史分页）",
       "title": "IM-T33 全链 E2E + 演练文档",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "branch": "feat/im-e2e",
       "ownerSession": "session-d69ac632-5a23-4502-b755-a9ad71447c30",
       "scope": "新增 crates/p2p-itest/tests/chat_e2e.rs + docs/ops/im-chat-drill.md；不动生产实现",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test chat_e2e && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test chat_e2e && make check'",
+      "mergedMain": "65eb04e",
+      "acceptedAt": "2026-09-04T00:28:56.708Z",
+      "note": "独立验收 exit 0：cargo test -p p2p-itest --test chat_e2e（五场景全绿：加好友可见/文本实时 delivered/≥1MiB 附件字节逐位一致/重启 flush/历史分页）+ make check 全绿（line-limit 239 文件/gui-check 142 测试/panic-hygiene 99 文件）；范围合规 5 文件；rebase 后复跑仍绿；协调者 ff-only 合入并全清现场"
     },
     {
       "id": "T23b",
