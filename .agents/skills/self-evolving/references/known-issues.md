@@ -584,6 +584,13 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：GUI 进程没有被授予 macOS 屏幕录制权限（TCC）；navigate/page 等控制通道命令不受影响。
 - 修法：系统设置 > 隐私与安全性 > 屏幕录制 给 p2p-console 授权后重跑；授权属 OS 级人工操作，AI/CLI 无法自助完成。
 
+- 症状：run_code 里 tools.write 报 `file has not been read`，尽管同名文件在主树刚读过。
+- 原因：fs-observation-policy 按**精确路径**判定，worktree 与主树是两条路径。
+- 修法：写前对目标 worktree 路径先 read 一次（limit 1 即可）；多文件批量改时把 read 排在程序最前。
+
+- 症状：测试共享夹具文件（如 acp-view-test-utils.tsx）重导出 mock 单例或 zustand store 后，`pnpm build`（tsc -b）报 TS4094/TS4023 匿名类/不可命名类型；vitest 却全绿。
+- 原因：*.test.* 被 tsc 排除出 emit，夹具文件名不带 .test. 就参与 d.ts 生成，而 mock 单例/zustand store 的推断类型含私有成员或未导出接口。
+- 修法：夹具只导出纯函数；测试文件各自动态 import 原模块取单例（vi.stubEnv 后 `await import` 的顺序语义还顺带保住了 mock 注入时机）。
 
 ## 2026-09-04 make check 真网络测试与并行 cargo 任务同机抢跑 30s 超时假红
 症状：make check 在 crates/p2p observe_addr（observed_addr_registered_and_dialable）FAILED，耗时恰 30.02s=测试超时预算；同机另有 cargo clippy 与子进程集成测试在跑。

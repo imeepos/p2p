@@ -63,8 +63,61 @@ describe("transcript model", () => {
 
   it("未知 update 种类计数留痕不静默丢弃", () => {
     let st = emptyTranscript();
-    st = applyUpdate(st, { sessionUpdate: "tool_call", toolCall: {} });
+    st = applyUpdate(st, { sessionUpdate: "future_kind" });
     expect(st.turns).toHaveLength(0);
     expect(st.ignoredUpdates).toBe(1);
+  });
+});
+
+describe("tool timeline", () => {
+  const call = {
+    sessionUpdate: "tool_call" as const,
+    toolCallId: "call-1",
+    title: "Reading config",
+    kind: "read",
+    status: "pending" as const,
+    rawInput: { path: "a.ts" },
+  };
+
+  it("tool_call 建时间线节点；update 同 id 原地迁移状态，字段缺省保持", () => {
+    let st = emptyTranscript();
+    st = applyUpdate(st, call);
+    expect(st.turns[0]).toMatchObject({
+      kind: "tool",
+      toolCallId: "call-1",
+      title: "Reading config",
+      toolKind: "read",
+      status: "pending",
+      inputText: '{"path":"a.ts"}',
+      outputText: "",
+    });
+    st = applyUpdate(st, { sessionUpdate: "tool_call_update", toolCallId: "call-1", status: "in_progress" });
+    expect(st.turns).toHaveLength(1);
+    expect(st.turns[0]).toMatchObject({ status: "in_progress", title: "Reading config" });
+    st = applyUpdate(st, {
+      sessionUpdate: "tool_call_update",
+      toolCallId: "call-1",
+      status: "completed",
+      content: [{ type: "content", content: { type: "text", text: "3 files found" } }],
+    });
+    expect(st.turns[0]).toMatchObject({ status: "completed", outputText: "3 files found" });
+  });
+
+  it("failed 迁移与未知 id 的 update 新建节点（title 回退 toolCallId）", () => {
+    let st = emptyTranscript();
+    st = applyUpdate(st, call);
+    st = applyUpdate(st, { sessionUpdate: "tool_call_update", toolCallId: "call-2", status: "failed" });
+    expect(st.turns).toHaveLength(2);
+    expect(st.turns[1]).toMatchObject({ toolCallId: "call-2", title: "call-2", status: "failed" });
+  });
+
+  it("工具节点不打断同气泡聚合（消息块仍归并到 open assistant）", () => {
+    let st = emptyTranscript();
+    st = applyUpdate(st, msgChunk("部"));
+    st = applyUpdate(st, call);
+    st = applyUpdate(st, msgChunk("分A"));
+    st = applyUpdate(st, msgChunk("分B"));
+    expect(st.turns.map((t) => t.kind)).toEqual(["assistant", "tool"]);
+    expect(st.turns[0]).toMatchObject({ text: "部分A分B", streaming: true });
   });
 });
