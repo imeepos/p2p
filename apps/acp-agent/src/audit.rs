@@ -31,6 +31,39 @@ pub enum AuditEvent {
         conn: String,
         detail: String,
     },
+    /// cwd 监狱拒绝：scope 解析越界或不可用（设计 §6 工作区行）。
+    CwdDenied {
+        peer: String,
+        scope: String,
+        detail: String,
+    },
+    /// mcpServers 处置：action = stripped / replaced / rejected（设计 §6 MCP 行）。
+    McpRewritten {
+        peer: String,
+        conn: String,
+        action: String,
+        detail: String,
+    },
+    /// 权限动作：action = forwarded / auto-allowed / owner-local /
+    /// timeout-rejected / unanswered-rejected（设计 §6 工具行）。
+    PermissionActed {
+        peer: String,
+        conn: String,
+        action: String,
+        detail: String,
+    },
+    /// 续连受理：detail = replayed=<补放条数>。
+    ReattachAccepted {
+        peer: String,
+        conn: String,
+        detail: String,
+    },
+    /// 续连拒绝：票据未知/跨设备。
+    ReattachDenied { peer: String, detail: String },
+    /// 续连窗口过期，子进程走退出阶梯。
+    WindowExpired { peer: String, detail: String },
+    /// 无票据新连接顶替窗口期遗留槽位。
+    SlotSuperseded { peer: String, detail: String },
 }
 
 impl AuditEvent {
@@ -42,6 +75,13 @@ impl AuditEvent {
             Self::SpawnFailed { .. } => "spawn-failed",
             Self::ClientGone { .. } => "client-gone",
             Self::SubprocessExit { .. } => "subprocess-exit",
+            Self::CwdDenied { .. } => "cwd-denied",
+            Self::McpRewritten { .. } => "mcp-rewritten",
+            Self::PermissionActed { .. } => "permission-acted",
+            Self::ReattachAccepted { .. } => "reattach-accepted",
+            Self::ReattachDenied { .. } => "reattach-denied",
+            Self::WindowExpired { .. } => "window-expired",
+            Self::SlotSuperseded { .. } => "slot-superseded",
         }
     }
 
@@ -52,7 +92,14 @@ impl AuditEvent {
             | Self::ConnEstablished { peer, .. }
             | Self::SpawnFailed { peer, .. }
             | Self::ClientGone { peer, .. }
-            | Self::SubprocessExit { peer, .. } => peer,
+            | Self::SubprocessExit { peer, .. }
+            | Self::CwdDenied { peer, .. }
+            | Self::McpRewritten { peer, .. }
+            | Self::PermissionActed { peer, .. }
+            | Self::ReattachAccepted { peer, .. }
+            | Self::ReattachDenied { peer, .. }
+            | Self::WindowExpired { peer, .. }
+            | Self::SlotSuperseded { peer, .. } => peer,
         }
     }
 
@@ -100,6 +147,41 @@ impl AuditSink for TracingAudit {
             }
             AuditEvent::SubprocessExit { peer, conn, detail } => {
                 tracing::info!(target: "acp_audit", ts, event = event.kind(), peer, conn, detail, "subprocess exited");
+            }
+            AuditEvent::CwdDenied {
+                peer,
+                scope,
+                detail,
+            } => {
+                tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, scope, detail, "cwd jail denied");
+            }
+            AuditEvent::McpRewritten {
+                peer,
+                conn,
+                action,
+                detail,
+            } => {
+                tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, conn, action, detail, "mcpServers rewritten");
+            }
+            AuditEvent::PermissionActed {
+                peer,
+                conn,
+                action,
+                detail,
+            } => {
+                tracing::info!(target: "acp_audit", ts, event = event.kind(), peer, conn, action, detail, "permission acted");
+            }
+            AuditEvent::ReattachAccepted { peer, conn, detail } => {
+                tracing::info!(target: "acp_audit", ts, event = event.kind(), peer, conn, detail, "reattach accepted");
+            }
+            AuditEvent::ReattachDenied { peer, detail } => {
+                tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, detail, "reattach denied");
+            }
+            AuditEvent::WindowExpired { peer, detail } => {
+                tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, detail, "reattach window expired");
+            }
+            AuditEvent::SlotSuperseded { peer, detail } => {
+                tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, detail, "stale slot superseded by fresh connection");
             }
         }
     }

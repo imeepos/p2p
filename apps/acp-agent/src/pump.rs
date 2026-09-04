@@ -81,7 +81,8 @@ pub async fn pump_child_to_wire(
 }
 
 /// 读到一条不含换行的行；EOF 且无残留 => Ok(true)；EOF 带半行 => Err。
-async fn read_bounded_line(
+/// 会话泵与子进程读取任务（child 模块）共用。
+pub(crate) async fn read_bounded_line(
     reader: &mut BufReader<ChildStdout>,
     out: &mut Vec<u8>,
 ) -> io::Result<bool> {

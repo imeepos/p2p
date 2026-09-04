@@ -1,10 +1,11 @@
 //! 桥配置：全部字段有默认值；配置文件（JSON）可省略任意字段，CLI 参数逐项覆盖。
 //! 凭据不经配置传递：API key 只进子进程环境（设计 §6），本结构不含任何秘密。
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use acp_common::consts::PROTOCOL_ID;
+use acp_common::consts::{PERMISSION_TIMEOUT_SECS, PROTOCOL_ID, REATTACH_WINDOW_DEFAULT_SECS};
 use acp_common::AcpPaths;
 
 pub const DEFAULT_DATA_DIR: &str = "./acp-data";
@@ -40,6 +41,16 @@ pub struct AgentConfig {
     pub max_connections: u32,
     /// 宽限期秒数。
     pub grace_secs: u64,
+    /// sandbox 监狱根目录；None = <data_dir>/sandbox（设计 §6 工作区行）。
+    pub sandbox_root: Option<String>,
+    /// scope=workspace 的锁定授权目录；未配置则该 scope 拒绝 spawn。
+    pub workspace_dir: Option<String>,
+    /// 续连窗口秒数（设计 §5，默认取 acp-common 常量）。
+    pub reattach_window_secs: u64,
+    /// request_permission 客户端应答上限秒数，超时代答 reject-once（设计 §6）。
+    pub permission_timeout_secs: u64,
+    /// node 预定义 MCP 服务定义（名称 -> 完整定义；命令字节只在 host 手里）。
+    pub mcp_definitions: BTreeMap<String, serde_json::Value>,
 }
 
 impl Default for AgentConfig {
@@ -55,6 +66,11 @@ impl Default for AgentConfig {
             log_dir: None,
             max_connections: DEFAULT_MAX_CONNECTIONS,
             grace_secs: DEFAULT_GRACE_SECS,
+            sandbox_root: None,
+            workspace_dir: None,
+            reattach_window_secs: REATTACH_WINDOW_DEFAULT_SECS,
+            permission_timeout_secs: PERMISSION_TIMEOUT_SECS,
+            mcp_definitions: BTreeMap::new(),
         }
     }
 }
@@ -123,6 +139,24 @@ impl AgentConfig {
     /// 宽限期下限 1s：0 会把退出阶梯退化成即时 SIGKILL。
     pub fn grace(&self) -> Duration {
         Duration::from_secs(self.grace_secs.max(1))
+    }
+
+    /// sandbox 监狱根：未配置时落在数据目录下。
+    pub fn sandbox_root(&self) -> PathBuf {
+        match &self.sandbox_root {
+            Some(p) => PathBuf::from(p),
+            None => self.paths().root.join("sandbox"),
+        }
+    }
+
+    /// 续连窗口下限 1s：0 会让断流立即降级为退出阶梯。
+    pub fn window(&self) -> Duration {
+        Duration::from_secs(self.reattach_window_secs.max(1))
+    }
+
+    /// 权限应答上限下限 1s。
+    pub fn permission_timeout(&self) -> Duration {
+        Duration::from_secs(self.permission_timeout_secs.max(1))
     }
 }
 #[cfg(test)]
