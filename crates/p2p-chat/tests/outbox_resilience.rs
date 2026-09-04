@@ -140,3 +140,53 @@ async fn fabricated_failed_outbox_entries_do_not_poison_new_sends() {
     cleanup(&b);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[tokio::test]
+async fn drain_peer_delivers_offline_queue_after_peer_returns() {
+    // 演练 2.8 CLI 化：离线积压 1 条，对端回归后一次 drain 全部补投（D5）。
+    let a = spawn("drain-a").await;
+    let b = spawn("drain-b").await;
+    add_each_other(&a, &b).await;
+    let a_peer = peer_str(&a.node);
+    let b_peer = peer_str(&b.node);
+
+    // B 下线，A 发送 → 保持 pending。
+    b.node.shutdown();
+    let report = a
+        .chat
+        .send(&b_peer, ChatKind::Text, Some("offline queue me".into()), None, None)
+        .await
+        .expect("send accepted");
+    assert!(!report.delivered, "offline send must stay pending");
+
+    // B 回归（新端口），A 刷新地址簿后 drain。
+    let b2 = spawn_at("drain-b2", &b.dir).await;
+    b2.chat
+        .friend_add(&a_peer, "a", a.node.listen_addrs(), None)
+        .expect("b2 re-add a");
+    a.chat
+        .friend_add(&b_peer, "b", b2.node.listen_addrs(), None)
+        .expect("a refresh b addrs");
+
+    let drained = a
+        .chat
+        .drain_peer(&b_peer, std::time::Duration::from_secs(10))
+        .await
+        .expect("drain runs");
+    assert_eq!(drained, 1, "exactly the offline entry is drained");
+
+    wait_until("b2 history has offline message", || {
+        b2.chat
+            .history(&a_peer, None, 10)
+            .map(|m| m.len() == 1)
+            .unwrap_or(false)
+    });
+    let row = a
+        .chat
+        .history(&b_peer, None, 10)
+        .expect("a history")[0]
+        .clone();
+    assert_eq!(row.status, ChatStatus::Delivered, "record flips to delivered");
+    cleanup(&a);
+    cleanup(&b2);
+}

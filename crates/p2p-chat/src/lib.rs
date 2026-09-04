@@ -13,6 +13,7 @@ mod store_lock;
 mod wire;
 
 use std::path::PathBuf;
+use std::time::Duration;
 use std::sync::Arc;
 
 use p2p::Node;
@@ -225,5 +226,23 @@ impl Chat {
             message: env,
             delivered,
         })
+    }
+
+    /// 排空该 peer 的 outbox（CLI one-shot 收尾用，D5）：主动连接后 flush，budget 内尽力而为。
+    /// 返回本轮成功补投的条目数（按队列长度差计）。
+    pub async fn drain_peer(&self, peer: &str, budget: Duration) -> Result<usize, ChatError> {
+        let pid = model::parse_peer_id(peer)?;
+        let before = self.core.store.outbox_for(peer).len();
+        if before == 0 {
+            return Ok(0);
+        }
+        self.core
+            .node
+            .connect(pid)
+            .await
+            .map_err(|e| ChatError::ConnectFailed(format!("连接 {peer} 失败：{e}")))?;
+        let _ = tokio::time::timeout(budget, outbox::flush_peer(&self.core, peer)).await;
+        let after = self.core.store.outbox_for(peer).len();
+        Ok(before.saturating_sub(after))
     }
 }
