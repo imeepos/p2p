@@ -409,3 +409,9 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
   修法：负向测试前先把干净版本 commit（有 ref 才能恢复）；或准备好原始内容随时重写。
 - 2026-09-04 N1：tools.write 报 "file changed since it was read"——chmod 等元数据
   操作也算改变。修法：重读一次该文件再写。
+
+## 2026-09-04 IM-T50：并行轮共享 target 的两类验收假红（CARGO_BIN_EXE NotFound / vitest 负载超时雪崩）
+- 症状一：make check 的 cargo test 在 repair-bridge boundary 报 Command::new(env!("CARGO_BIN_EXE_repair-bridge")) NotFound，而该二进制实际存在且 40 分钟前构建；隔离复跑 cargo test -p repair-bridge 9/9 绿。
+- 症状二：同轮主树 vitest 3 用例撞 5s/30s 超时上限 + 1 例「找到多个取消按钮」；同码 worktree 侧 256/256 全绿。
+- 原因：load 34-45 下多会话并发 cargo/vitest——集成测试起子进程时 bin 目标正被并行构建短暂移换；vitest 用例 CPU 配额被挤压，RTL waitFor 类断言在慢时钟下偶发失真。
+- 修法：全量验收红先三步定性——隔离复跑最小面（cargo test -p 单包 / 单文件 vitest）、查产物 mtime、同码他树全绿对照——确认环境竞态后错峰重跑，不对环境红改代码；与 IM-T45 端口互踩条同族，本条补二进制竞态与负载超时两个变种。
