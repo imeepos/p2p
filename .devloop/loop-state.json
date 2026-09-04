@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T02:50:49.299Z",
+  "updatedAt": "2026-09-04T02:59:17.700Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -256,11 +256,14 @@
       "goal": "补齐 p2p-chat 核心边界单元测试：文本/昵称 unicode 与长度边界、PeerId 非法与自发自收、MIME kind 矩阵、零字节与 64MiB 边界、文件名路径穿越/控制字符/纯点/超长、JSONL 损坏行与历史分页游标、好友簿原子写与重复操作；只新增测试，不改生产实现",
       "title": "IM-BT34 Rust 核心边界测试",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "test/im-bt34-new",
       "ownerSession": "session-b89bb31d-04b0-443e-8c7c-a21ecfa16df9",
       "scope": "仅新增 crates/p2p-chat/tests/model_boundaries.rs、crates/p2p-chat/tests/store_boundaries.rs；生产源码只读，apps/gui 与 p2p-itest 只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test model_boundaries --test store_boundaries && cargo test -p p2p-chat && cargo clippy -p p2p-chat -- -D warnings && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test model_boundaries --test store_boundaries && cargo test -p p2p-chat && cargo clippy -p p2p-chat -- -D warnings && make check'",
+      "mergedMain": "b8393b8",
+      "acceptedAt": "2026-09-04T02:59:17.700Z",
+      "note": "独立验收 exit 0：model_boundaries（Unicode 全角 trim/文本与昵称长度临界/敌意文件名 sanitize 矩阵/MIME kind 矩阵/64MiB 边界）+ store_boundaries（PeerId 非法与自拒/JSONL 空文件无换行损坏行重复条目/分页 limit 0-1-100-101 与无效游标/原子写失败 IO 信号/附件边界与落盘路径）+ p2p-chat 全量 + clippy -D warnings + make check 全绿；范围合规两文件 364 行；rebase 至 23e6a25 后复跑仍绿；协调者 ff-only 合入，重复内容分支 test/t34-rust-boundaries 已清理"
     },
     {
       "id": "T35",
