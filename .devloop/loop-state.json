@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T18:04:57.044Z",
+  "updatedAt": "2026-09-04T18:05:42.916Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -164,9 +164,9 @@
       "goal": "E10 两节点 E2E 与文档收官（设计 §10 A1-A7 全量）：crates/p2p-itest/tests/llm_share_wave.rs 双节点真链路——A1 OpenAI 语义一致流式问答（mock 上游）/A2 冻结不足结构化拒绝零上游调用/A3 双边流水一致+收据验签+篡改必败/A4 req_id 重放单笔/A5 非白名单拒绝+TTL 过期不选路/A6 断流 estimated 收据+争议窗口接口可用/A7 workspace 全绿 clippy 零告警；docs/design/idle-token-sharing-plan.md 实现状态标注 + README 组件清单补 llm-share 三件套",
       "title": "E10 两节点 E2E（A1-A7）与文档收官",
       "priority": "P0",
-      "status": "todo",
+      "status": "doing",
       "branch": "feat/e10-llm-e2e",
-      "ownerSession": "待派（T19 合入后开专属新会话）",
+      "ownerSession": "session-80a043c0-e51b-44a6-a898-b6a4fba65e25",
       "scope": "新增 crates/p2p-itest/tests/llm_share_wave.rs + docs/design/idle-token-sharing-plan.md 状态标注 + README.md 组件段；不改 p2p-* 内核",
       "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-t20-target; exec /opt/homebrew/bin/gtimeout -k 30 3600 bash -c '''export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-itest --test llm_share_wave && cargo test -p llm-share-ledger -p llm-share-offer -p llm-share-proxy && make check''''"
     },
