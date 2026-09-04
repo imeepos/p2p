@@ -26,9 +26,7 @@ pub fn parse_tag(tag: &str) -> Result<SemVer, String> {
         if part.is_empty() || !part.bytes().all(|b| b.is_ascii_digit()) {
             return Err(format!("版本段必须是非空纯数字: {tag}"));
         }
-        segs[slot] = part
-            .parse()
-            .map_err(|_| format!("版本段数值溢出: {tag}"))?;
+        segs[slot] = part.parse().map_err(|_| format!("版本段数值溢出: {tag}"))?;
     }
     Ok(SemVer {
         major: segs[0],

@@ -100,6 +100,34 @@ pub enum NodeEventJson {
         #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
         ts_ms: Option<u64>,
     },
+    /// 群消息入站（契约 §7，已落盘）。
+    #[serde(rename = "chat_group_message")]
+    ChatGroupMessage {
+        #[serde(rename = "groupId")]
+        group_id: String,
+        message: p2p_chat::GroupMessage,
+        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
+        ts_ms: Option<u64>,
+    },
+    /// 群发送状态推进（契约 §7：acks 推进 / delivered）。
+    #[serde(rename = "chat_group_status")]
+    ChatGroupStatus {
+        #[serde(rename = "groupId")]
+        group_id: String,
+        #[serde(rename = "messageId")]
+        message_id: String,
+        acks: Vec<String>,
+        status: p2p_chat::ChatStatus,
+        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
+        ts_ms: Option<u64>,
+    },
+    /// 群状态变更（契约 §7：roster 变更/踢出/解散/退群回执）。
+    #[serde(rename = "chat_group_state")]
+    ChatGroupState {
+        group: p2p_chat::GroupInfo,
+        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
+        ts_ms: Option<u64>,
+    },
     /// 发送状态迁移（契约 v7 §12.2）。
     #[serde(rename = "chat_status")]
     ChatStatus {
@@ -128,7 +156,10 @@ impl NodeEventJson {
             | Self::NodeStopped { ts_ms }
             | Self::NodeError { ts_ms, .. }
             | Self::ChatMessage { ts_ms, .. }
-            | Self::ChatStatus { ts_ms, .. } => *ts_ms = ts,
+            | Self::ChatStatus { ts_ms, .. }
+            | Self::ChatGroupMessage { ts_ms, .. }
+            | Self::ChatGroupStatus { ts_ms, .. }
+            | Self::ChatGroupState { ts_ms, .. } => *ts_ms = ts,
         }
         self
     }
@@ -138,7 +169,11 @@ impl From<NodeEvent> for NodeEventJson {
     fn from(ev: NodeEvent) -> Self {
         // ts_ms 交给 emit 出口统一盖戳，此处恒为 None
         match ev {
-            NodeEvent::PeerDiscovered { peer, addrs, source } => Self::PeerDiscovered {
+            NodeEvent::PeerDiscovered {
+                peer,
+                addrs,
+                source,
+            } => Self::PeerDiscovered {
                 peer: peer.to_string(),
                 addrs,
                 source: source.into(),
@@ -167,7 +202,12 @@ impl From<NodeEvent> for NodeEventJson {
                 reason,
                 ts_ms: None,
             },
-            NodeEvent::DialHop { peer, hop, ok, detail } => Self::DialHop {
+            NodeEvent::DialHop {
+                peer,
+                hop,
+                ok,
+                detail,
+            } => Self::DialHop {
                 peer: peer.to_string(),
                 hop: hop.into(),
                 ok,
@@ -197,6 +237,31 @@ impl From<p2p_chat::ChatEvent> for NodeEventJson {
                 status,
                 ts_ms: None,
             },
+        }
+    }
+}
+impl From<p2p_chat::GroupEvent> for NodeEventJson {
+    fn from(ev: p2p_chat::GroupEvent) -> Self {
+        // ts_ms 交给 emit 出口统一盖戳；媒体路径在输出边界转 asset URL
+        match ev {
+            p2p_chat::GroupEvent::Message { group_id, message } => Self::ChatGroupMessage {
+                group_id,
+                message: crate::util::to_asset_group_media(message),
+                ts_ms: None,
+            },
+            p2p_chat::GroupEvent::Status {
+                group_id,
+                message_id,
+                acks,
+                status,
+            } => Self::ChatGroupStatus {
+                group_id,
+                message_id,
+                acks,
+                status,
+                ts_ms: None,
+            },
+            p2p_chat::GroupEvent::State { group } => Self::ChatGroupState { group, ts_ms: None },
         }
     }
 }

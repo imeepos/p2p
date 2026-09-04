@@ -1,7 +1,7 @@
 //! 契约 §3 数据类型 serde 单测：camelCase 逐字段断言 + roundtrip。
 
-use super::{GuiConfig, MetricsJson, NodeStatus, PingOutcome, DialReport, DialHopJson, HopKind};
 use super::testing::{roundtrip, sample_config};
+use super::{DialHopJson, DialReport, GuiConfig, HopKind, MetricsJson, NodeStatus, PingOutcome};
 use serde_json::{json, Value};
 
 #[test]
@@ -154,7 +154,10 @@ fn ping_outcome_success_and_failure_shapes() {
         hops: Vec::new(),
         error: None,
     };
-    roundtrip(&ok, json!({ "ok": true, "rttMs": 12, "hops": [], "error": null }));
+    roundtrip(
+        &ok,
+        json!({ "ok": true, "rttMs": 12, "hops": [], "error": null }),
+    );
     let failed = PingOutcome {
         ok: false,
         rtt_ms: None,

@@ -37,8 +37,8 @@ impl ApiErr {
 /// 绑定 127.0.0.1（禁止对外网卡）：显式端口失败即 Err；默认端口被占用 warn 后回退临时端口。
 pub fn listen() -> Result<(tiny_http::Server, SocketAddr), String> {
     let try_bind = |port: u16| -> Result<(tiny_http::Server, SocketAddr), String> {
-        let listener =
-            TcpListener::bind(("127.0.0.1", port)).map_err(|e| format!("绑定 127.0.0.1:{port} 失败: {e}"))?;
+        let listener = TcpListener::bind(("127.0.0.1", port))
+            .map_err(|e| format!("绑定 127.0.0.1:{port} 失败: {e}"))?;
         let addr = listener
             .local_addr()
             .map_err(|e| format!("读取监听地址失败: {e}"))?;
@@ -93,7 +93,10 @@ fn respond<R: Runtime>(ctx: &Arc<ControlCtx<R>>, mut request: tiny_http::Request
     }
 }
 
-fn dispatch<R: Runtime>(ctx: &Arc<ControlCtx<R>>, request: &mut tiny_http::Request) -> (u16, Value) {
+fn dispatch<R: Runtime>(
+    ctx: &Arc<ControlCtx<R>>,
+    request: &mut tiny_http::Request,
+) -> (u16, Value) {
     let method = request.method().as_str().to_string();
     let path = request.url().split('?').next().unwrap_or("/").to_string();
     if !authorized(ctx, request) {
@@ -123,8 +126,8 @@ fn dispatch<R: Runtime>(ctx: &Arc<ControlCtx<R>>, request: &mut tiny_http::Reque
         ("POST", "/navigate") => handlers::navigate(ctx, &payload),
         ("POST", "/invoke") => handlers::invoke(ctx, &payload),
         ("GET", "/page/current") => {
-            let request_id = query_param(request.url(), "requestId")
-                .unwrap_or_else(super::page::new_request_id);
+            let request_id =
+                query_param(request.url(), "requestId").unwrap_or_else(super::page::new_request_id);
             super::page::page_current(ctx, &request_id)
         }
         ("POST", "/page/action") => super::page::page_action(ctx, &payload),

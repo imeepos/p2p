@@ -136,7 +136,9 @@ pub async fn chat_media_file(
 
 /// base64 解码为 p2p-chat 媒体入参；解码前按长度粗估拒绝超限载荷（≤64MiB，契约 §12.1），
 /// 解码失败返回可读中文 Err。mime/尺寸的精确校验仍由 crate validate_media 兜底。
-fn decode_media_input(input: ChatMediaInputJson) -> Result<p2p_chat::ChatMediaInput, String> {
+pub(crate) fn decode_media_input(
+    input: ChatMediaInputJson,
+) -> Result<p2p_chat::ChatMediaInput, String> {
     if estimated_bytes(&input.data_base64) > p2p_chat::MAX_MESSAGE_SIZE {
         return Err("附件超过单条消息上限（64MiB）".to_string());
     }

@@ -1,7 +1,7 @@
 //! 契约 §2 事件联合 serde 单测：判别名/字段名逐字断言 + NodeEvent 全变体映射 + 可选 tsMs。
 
+use super::testing::roundtrip;
 use super::{HopKind, NodeEventJson, SourceKind};
-use super::testing::{roundtrip};
 use serde_json::{json, Value};
 
 #[test]
@@ -21,11 +21,17 @@ fn node_event_discovered_connected_disconnected() {
         }),
     );
     roundtrip(
-        &NodeEventJson::PeerConnected { peer: "PeerA".into(), ts_ms: None },
+        &NodeEventJson::PeerConnected {
+            peer: "PeerA".into(),
+            ts_ms: None,
+        },
         json!({ "type": "peer_connected", "peer": "PeerA" }),
     );
     roundtrip(
-        &NodeEventJson::PeerDisconnected { peer: "PeerA".into(), ts_ms: None },
+        &NodeEventJson::PeerDisconnected {
+            peer: "PeerA".into(),
+            ts_ms: None,
+        },
         json!({ "type": "peer_disconnected", "peer": "PeerA" }),
     );
 }
@@ -117,16 +123,51 @@ fn ts_ms_absent_when_none() {
 #[test]
 fn ts_ms_stamped_on_every_variant() {
     let events = vec![
-        NodeEventJson::PeerDiscovered { peer: "p".into(), addrs: vec![], source: SourceKind::Mdns, ts_ms: None },
-        NodeEventJson::PeerConnected { peer: "p".into(), ts_ms: None },
-        NodeEventJson::PeerDisconnected { peer: "p".into(), ts_ms: None },
-        NodeEventJson::ListenFailed { addr: "a".into(), reason: "r".into(), ts_ms: None },
-        NodeEventJson::DialFailed { peer: None, reason: "r".into(), ts_ms: None },
-        NodeEventJson::ProtocolViolation { peer: "p".into(), reason: "r".into(), ts_ms: None },
-        NodeEventJson::DialHop { peer: "p".into(), hop: HopKind::Direct, ok: true, detail: "d".into(), ts_ms: None },
-        NodeEventJson::NodeStarted { listen_addrs: vec![], ts_ms: None },
+        NodeEventJson::PeerDiscovered {
+            peer: "p".into(),
+            addrs: vec![],
+            source: SourceKind::Mdns,
+            ts_ms: None,
+        },
+        NodeEventJson::PeerConnected {
+            peer: "p".into(),
+            ts_ms: None,
+        },
+        NodeEventJson::PeerDisconnected {
+            peer: "p".into(),
+            ts_ms: None,
+        },
+        NodeEventJson::ListenFailed {
+            addr: "a".into(),
+            reason: "r".into(),
+            ts_ms: None,
+        },
+        NodeEventJson::DialFailed {
+            peer: None,
+            reason: "r".into(),
+            ts_ms: None,
+        },
+        NodeEventJson::ProtocolViolation {
+            peer: "p".into(),
+            reason: "r".into(),
+            ts_ms: None,
+        },
+        NodeEventJson::DialHop {
+            peer: "p".into(),
+            hop: HopKind::Direct,
+            ok: true,
+            detail: "d".into(),
+            ts_ms: None,
+        },
+        NodeEventJson::NodeStarted {
+            listen_addrs: vec![],
+            ts_ms: None,
+        },
         NodeEventJson::NodeStopped { ts_ms: None },
-        NodeEventJson::NodeError { reason: "r".into(), ts_ms: None },
+        NodeEventJson::NodeError {
+            reason: "r".into(),
+            ts_ms: None,
+        },
     ];
     for event in events {
         let encoded = serde_json::to_value(event.clone().stamped(1700000000123)).unwrap();
@@ -197,11 +238,21 @@ fn node_event_from_kernel_event_maps_every_variant() {
             },
         ),
         (
-            p2p::NodeEvent::DialFailed { peer: None, reason: "x".into() },
-            NodeEventJson::DialFailed { peer: None, reason: "x".into(), ts_ms: None },
+            p2p::NodeEvent::DialFailed {
+                peer: None,
+                reason: "x".into(),
+            },
+            NodeEventJson::DialFailed {
+                peer: None,
+                reason: "x".into(),
+                ts_ms: None,
+            },
         ),
         (
-            p2p::NodeEvent::ProtocolViolation { peer, reason: "x".into() },
+            p2p::NodeEvent::ProtocolViolation {
+                peer,
+                reason: "x".into(),
+            },
             NodeEventJson::ProtocolViolation {
                 peer: peer_str.clone(),
                 reason: "x".into(),

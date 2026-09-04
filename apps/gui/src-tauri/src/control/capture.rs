@@ -26,7 +26,10 @@ pub struct CaptureError {
 
 impl CaptureError {
     pub fn new(code: &'static str, message: impl Into<String>) -> Self {
-        Self { code, message: message.into() }
+        Self {
+            code,
+            message: message.into(),
+        }
     }
 }
 
@@ -40,7 +43,9 @@ pub fn encode_png(frame: &Frame) -> Result<Vec<u8>, String> {
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
     let mut writer = encoder.write_header().map_err(|e| e.to_string())?;
-    writer.write_image_data(&frame.rgba).map_err(|e| e.to_string())?;
+    writer
+        .write_image_data(&frame.rgba)
+        .map_err(|e| e.to_string())?;
     writer.finish().map_err(|e| e.to_string())?;
     Ok(buf)
 }
@@ -49,7 +54,10 @@ pub fn encode_png(frame: &Frame) -> Result<Vec<u8>, String> {
 pub fn ensure_png(bytes: &[u8]) -> Result<(), String> {
     const MAGIC: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
     if bytes.len() < 33 || bytes[..8] != MAGIC {
-        return Err(format!("输出不是合法 PNG（{} 字节），拒绝落盘", bytes.len()));
+        return Err(format!(
+            "输出不是合法 PNG（{} 字节），拒绝落盘",
+            bytes.len()
+        ));
     }
     Ok(())
 }
@@ -85,9 +93,17 @@ pub fn decode_png(bytes: &[u8]) -> Result<Frame, CaptureError> {
         .map_err(|e| CaptureError::new("CAPTURE_FAILED", format!("PNG 解码失败: {e}")))?;
     buf.truncate(info.buffer_size());
     if info.color_type == png::ColorType::Rgb {
-        Ok(Frame { width: info.width, height: info.height, rgba: rgb_to_rgba(&buf) })
+        Ok(Frame {
+            width: info.width,
+            height: info.height,
+            rgba: rgb_to_rgba(&buf),
+        })
     } else {
-        Ok(Frame { width: info.width, height: info.height, rgba: buf })
+        Ok(Frame {
+            width: info.width,
+            height: info.height,
+            rgba: buf,
+        })
     }
 }
 
@@ -129,11 +145,16 @@ impl<R: Runtime> FrameSource for RealFrameSource<R> {
                 // 等待只发生在服务线程的外层 recv，主线程不被内层阻塞饿死回调。
                 unsafe { macos::request_snapshot(&platform, tx) };
             })
-            .map_err(|e| CaptureError::new("CAPTURE_UNAVAILABLE", format!("webview 句柄派发失败: {e}")))?;
+            .map_err(|e| {
+                CaptureError::new("CAPTURE_UNAVAILABLE", format!("webview 句柄派发失败: {e}"))
+            })?;
         match rx.recv_timeout(Duration::from_secs(5)) {
             Ok(Ok(png)) => decode_png(&png),
             Ok(Err(e)) => Err(e),
-            Err(_) => Err(CaptureError::new("CAPTURE_FAILED", "快照 5s 内未完成（回调未达），放弃本次截图")),
+            Err(_) => Err(CaptureError::new(
+                "CAPTURE_FAILED",
+                "快照 5s 内未完成（回调未达），放弃本次截图",
+            )),
         }
     }
 
@@ -155,7 +176,10 @@ pub struct SyntheticFrameSource {
 
 impl SyntheticFrameSource {
     pub fn new() -> Self {
-        Self { seq: AtomicU64::new(0), size: 64 }
+        Self {
+            seq: AtomicU64::new(0),
+            size: 64,
+        }
     }
 }
 
@@ -180,7 +204,11 @@ impl FrameSource for SyntheticFrameSource {
                 rgba[i + 3] = 255;
             }
         }
-        Ok(Frame { width: w, height: h, rgba })
+        Ok(Frame {
+            width: w,
+            height: h,
+            rgba,
+        })
     }
 }
 

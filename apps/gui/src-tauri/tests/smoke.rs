@@ -154,23 +154,30 @@ async fn two_nodes_discover_ping_and_observe_dialhop() {
 
     let (app_a, status_a, mut rx_a, log_a) = start_node("a", free_port(), free_port()).await;
     let (app_b, status_b, mut rx_b, log_b) = start_node("b", free_port(), free_port()).await;
-    let peer_b = status_b
-        .peer_id
-        .clone()
-        .expect("节点 B 启动后必有 PeerId");
+    let peer_b = status_b.peer_id.clone().expect("节点 B 启动后必有 PeerId");
     let peer_a = status_a.peer_id.clone().expect("节点 A 启动后必有 PeerId");
 
     // 1. mDNS 互发现：双方都收到对方 PeerDiscovered
-    let seen_b = wait_event(&mut rx_a, DISCOVER_TIMEOUT, |ev| {
-        matches!(ev, NodeEvent::PeerDiscovered { peer, .. } if peer.to_string() == peer_b)
-    })
+    let seen_b = wait_event(
+        &mut rx_a,
+        DISCOVER_TIMEOUT,
+        |ev| matches!(ev, NodeEvent::PeerDiscovered { peer, .. } if peer.to_string() == peer_b),
+    )
     .await;
-    assert!(seen_b.is_some(), "A 未在 {DISCOVER_TIMEOUT:?} 内经 mDNS 发现 B");
-    let seen_a = wait_event(&mut rx_b, DISCOVER_TIMEOUT, |ev| {
-        matches!(ev, NodeEvent::PeerDiscovered { peer, .. } if peer.to_string() == peer_a)
-    })
+    assert!(
+        seen_b.is_some(),
+        "A 未在 {DISCOVER_TIMEOUT:?} 内经 mDNS 发现 B"
+    );
+    let seen_a = wait_event(
+        &mut rx_b,
+        DISCOVER_TIMEOUT,
+        |ev| matches!(ev, NodeEvent::PeerDiscovered { peer, .. } if peer.to_string() == peer_a),
+    )
     .await;
-    assert!(seen_a.is_some(), "B 未在 {DISCOVER_TIMEOUT:?} 内经 mDNS 发现 A");
+    assert!(
+        seen_a.is_some(),
+        "B 未在 {DISCOVER_TIMEOUT:?} 内经 mDNS 发现 A"
+    );
 
     // 2. DialHop 事件流可观测：对确定不可达目标拨号，必得 direct 失败跳
     //    （随机 PeerId 保证不是 self-dial；127.0.0.1:1 毫秒级拒连）

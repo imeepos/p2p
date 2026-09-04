@@ -11,7 +11,7 @@ use std::path::Path;
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
-use notify_debouncer_mini::notify::{RecursiveMode, RecommendedWatcher};
+use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebouncedEvent, Debouncer};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime};
@@ -100,8 +100,12 @@ fn spawn_inner<R: Runtime>(
 ) -> Result<(WatchHandle, Option<mpsc::Receiver<EventBatch>>), WatchInitError> {
     let targets = targets(app_data_dir);
     let (tx, rx) = mpsc::channel();
-    let debouncer: Debouncer<RecommendedWatcher> = new_debouncer(debounce, tx)
-        .map_err(|e| WatchInitError { stage: "debouncer", path: None, message: e.to_string() })?;
+    let debouncer: Debouncer<RecommendedWatcher> =
+        new_debouncer(debounce, tx).map_err(|e| WatchInitError {
+            stage: "debouncer",
+            path: None,
+            message: e.to_string(),
+        })?;
     let shared: SharedDebouncer = Arc::new(Mutex::new(debouncer));
     watch_dir(&shared, &targets.app_dir)?;
     pre_create_chat_dir(&targets);

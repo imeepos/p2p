@@ -6,9 +6,9 @@
 use p2p_swarm::MetricsSnapshot;
 use serde::{Deserialize, Serialize};
 
+mod node_event;
 #[cfg(test)]
 pub(crate) mod testing;
-mod node_event;
 
 pub use node_event::{NodeEventJson, SourceKind};
 

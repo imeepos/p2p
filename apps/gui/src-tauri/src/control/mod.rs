@@ -109,10 +109,7 @@ fn wake_recv(addr: SocketAddr) {
 }
 
 /// 生产入口：GUI setup 调用。返回 Err 时调用方必须留显式日志，GUI 继续运行。
-pub fn spawn<R: Runtime>(
-    app: &AppHandle<R>,
-    data_dir: &Path,
-) -> Result<ControlHandle<R>, String> {
+pub fn spawn<R: Runtime>(app: &AppHandle<R>, data_dir: &Path) -> Result<ControlHandle<R>, String> {
     let window = app.get_webview_window("main");
     let frame: Arc<dyn FrameSource> = Arc::new(capture::RealFrameSource::new(window));
     let token = paths::load_or_create_token(&paths::control_dir(data_dir))?;

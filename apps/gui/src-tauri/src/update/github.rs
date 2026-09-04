@@ -9,8 +9,7 @@ use tracing::{debug, error};
 use crate::update::version::{self, SemVer};
 
 /// GitHub Releases 公开只读端点（契约 §9：编译期常量，不做用户配置）。
-pub const RELEASES_ENDPOINT: &str =
-    "https://api.github.com/repos/imeepos/p2p/releases?per_page=10";
+pub const RELEASES_ENDPOINT: &str = "https://api.github.com/repos/imeepos/p2p/releases?per_page=10";
 
 /// HTTP 超时（契约 §9：10s）。
 const HTTP_TIMEOUT: Duration = Duration::from_secs(10);
@@ -50,8 +49,8 @@ pub struct LatestRelease {
 /// 响应文本选最新一条稳定候选：仅取 draft=false 且 prerelease=false 且 tag 可解析
 /// 为三段版本者，按版本取最大；无候选返回 None。响应不是 release 数组视为非法（Err）。
 pub fn latest_stable(body: &str) -> Result<Option<LatestRelease>, String> {
-    let entries: Vec<ReleaseEntry> = serde_json::from_str(body)
-        .map_err(|e| format!("GitHub Releases 响应非法: {e}"))?;
+    let entries: Vec<ReleaseEntry> =
+        serde_json::from_str(body).map_err(|e| format!("GitHub Releases 响应非法: {e}"))?;
     let mut best: Option<(SemVer, LatestRelease)> = None;
     for entry in entries {
         if entry.draft || entry.prerelease {
@@ -101,9 +100,7 @@ impl GitHubSource {
 }
 
 impl crate::update::ReleasesSource for GitHubSource {
-    fn fetch_releases_json(
-        &self,
-    ) -> crate::update::FetchFuture {
+    fn fetch_releases_json(&self) -> crate::update::FetchFuture {
         let client = self.client.clone();
         Box::pin(async move {
             let resp = client

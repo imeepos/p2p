@@ -41,6 +41,8 @@ pub struct StartedNode {
     pub events: broadcast::Receiver<NodeEvent>,
     /// chat 事件接收端（chat_message/chat_status 转发任务由命令层接管）。
     pub chat_events: broadcast::Receiver<p2p_chat::ChatEvent>,
+    /// 群事件接收端（chat_group_* 转发任务由命令层接管，G4）。
+    pub group_events: broadcast::Receiver<p2p_chat::GroupEvent>,
 }
 
 /// 全局应用状态：Tauri managed。
@@ -81,10 +83,11 @@ impl AppState {
         let history = Arc::new(MetricsHistory::new());
         spawn_metrics_sampler(node.clone(), history.clone());
         // chat 装配依赖运行中的 node；失败回滚（停 node、不占槽），不留半启动状态
-        let chat_events = self.chat.install(node.clone()).await.inspect_err(|_| {
-            node.shutdown();
-            history.stop_and_clear();
-        })?;
+        let (chat_events, group_events) =
+            self.chat.install(node.clone()).await.inspect_err(|_| {
+                node.shutdown();
+                history.stop_and_clear();
+            })?;
         *slot = Some(RunningNode {
             node,
             config: cfg.clone(),
@@ -104,6 +107,7 @@ impl AppState {
             listen_addrs,
             events,
             chat_events,
+            group_events,
         })
     }
 

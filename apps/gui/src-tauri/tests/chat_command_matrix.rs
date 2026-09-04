@@ -45,7 +45,10 @@ struct DirGuard(PathBuf);
 impl Drop for DirGuard {
     fn drop(&mut self) {
         if let Err(e) = std::fs::remove_dir_all(&self.0) {
-            eprintln!("[chat-cmd-matrix] 清理临时目录失败 {}: {e}", self.0.display());
+            eprintln!(
+                "[chat-cmd-matrix] 清理临时目录失败 {}: {e}",
+                self.0.display()
+            );
         }
     }
 }
@@ -89,11 +92,20 @@ async fn send_command_rejects_pairing_base64_and_self() {
     commands::node_start(handle.clone(), state.clone(), loopback_config(&dir))
         .await
         .expect("启动回环离线节点");
-    let status = commands::node_status(state.clone()).await.expect("状态快照");
+    let status = commands::node_status(state.clone())
+        .await
+        .expect("状态快照");
     let own = status.peer_id.expect("peer_id 必有");
     let remote = bs58::encode([42u8; 32]).into_string();
     let cases: Vec<SendErrCase> = vec![
-        ("text 参数 null 视为空", ChatKind::Text, None, None, remote.clone(), "文本为空"),
+        (
+            "text 参数 null 视为空",
+            ChatKind::Text,
+            None,
+            None,
+            remote.clone(),
+            "文本为空",
+        ),
         (
             "text 带附件拒绝",
             ChatKind::Text,
@@ -102,9 +114,30 @@ async fn send_command_rejects_pairing_base64_and_self() {
             remote.clone(),
             "不能携带附件",
         ),
-        ("image 缺附件拒绝", ChatKind::Image, None, None, remote.clone(), "必须携带附件"),
-        ("自发自收拒绝", ChatKind::Text, Some("hi".into()), None, own, "自己"),
-        ("base64 非法拒绝", ChatKind::File, None, Some(bad_b64()), remote, "base64"),
+        (
+            "image 缺附件拒绝",
+            ChatKind::Image,
+            None,
+            None,
+            remote.clone(),
+            "必须携带附件",
+        ),
+        (
+            "自发自收拒绝",
+            ChatKind::Text,
+            Some("hi".into()),
+            None,
+            own,
+            "自己",
+        ),
+        (
+            "base64 非法拒绝",
+            ChatKind::File,
+            None,
+            Some(bad_b64()),
+            remote,
+            "base64",
+        ),
     ];
     for (what, kind, text, input, peer, expect) in cases {
         let err = chat_send(state.clone(), peer, kind, text, input, None)
@@ -144,22 +177,35 @@ async fn command_layer_loopback_delivery_with_reply_to() {
     let handle_a = app_a.handle().clone();
     handle_a.manage(AppState::new(dir.join("a")));
     let state_a = handle_a.state::<AppState>();
-    let status_a = commands::node_start(handle_a.clone(), state_a.clone(), loopback_config(&dir.join("a")))
-        .await
-        .expect("启动 A");
+    let status_a = commands::node_start(
+        handle_a.clone(),
+        state_a.clone(),
+        loopback_config(&dir.join("a")),
+    )
+    .await
+    .expect("启动 A");
     let peer_a = status_a.peer_id.expect("A peer_id 必有");
     let app_b = tauri::test::mock_app();
     let handle_b = app_b.handle().clone();
     handle_b.manage(AppState::new(dir.join("b")));
     let state_b = handle_b.state::<AppState>();
-    let status_b = commands::node_start(handle_b.clone(), state_b.clone(), loopback_config(&dir.join("b")))
-        .await
-        .expect("启动 B");
+    let status_b = commands::node_start(
+        handle_b.clone(),
+        state_b.clone(),
+        loopback_config(&dir.join("b")),
+    )
+    .await
+    .expect("启动 B");
     let peer_b = status_b.peer_id.expect("B peer_id 必有");
 
-    chat_friend_add(state_b.clone(), peer_a.clone(), "A".into(), status_a.listen_addrs)
-        .await
-        .expect("B 登记 A");
+    chat_friend_add(
+        state_b.clone(),
+        peer_a.clone(),
+        "A".into(),
+        status_a.listen_addrs,
+    )
+    .await
+    .expect("B 登记 A");
     let report = chat_send(
         state_b.clone(),
         peer_a,
@@ -176,14 +222,26 @@ async fn command_layer_loopback_delivery_with_reply_to() {
         ChatStatus::Delivered,
         "实时送达后状态应 delivered"
     );
-    assert_eq!(report.message.reply_to.as_deref(), Some("quoted-1"), "replyTo 透传");
+    assert_eq!(
+        report.message.reply_to.as_deref(),
+        Some("quoted-1"),
+        "replyTo 透传"
+    );
 
     let hist = chat_history(state_a.clone(), peer_b, None, None)
         .await
         .expect("A 侧命令层历史");
     assert_eq!(hist.len(), 1, "对端应落盘 1 条: {hist:?}");
-    assert_eq!(hist[0].reply_to.as_deref(), Some("quoted-1"), "入站 replyTo 保留");
-    assert_eq!(hist[0].text.as_deref(), Some("x".repeat(2000).as_str()), "2000 字符完整");
+    assert_eq!(
+        hist[0].reply_to.as_deref(),
+        Some("quoted-1"),
+        "入站 replyTo 保留"
+    );
+    assert_eq!(
+        hist[0].text.as_deref(),
+        Some("x".repeat(2000).as_str()),
+        "2000 字符完整"
+    );
 
     commands::node_stop(handle_a.clone(), state_a.clone())
         .await

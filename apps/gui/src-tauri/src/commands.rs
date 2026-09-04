@@ -5,9 +5,9 @@
 use tauri::{AppHandle, Runtime, State};
 
 use crate::events;
+use crate::history::MetricsPoint;
 use crate::profile::NodeProfile;
 use crate::state::AppState;
-use crate::history::MetricsPoint;
 use crate::types::{DialReport, GuiConfig, MetricsJson, NodeEventJson, NodeStatus, PingOutcome};
 
 /// node_start：构建 Node 并启动；已运行 Err。
@@ -21,6 +21,7 @@ pub async fn node_start<R: Runtime>(
     let started = state.start(cfg).await?;
     events::spawn(app.clone(), started.events);
     events::spawn_chat(app.clone(), started.chat_events);
+    events::spawn_group(app.clone(), started.group_events);
     events::emit(
         &app,
         NodeEventJson::NodeStarted {
@@ -100,10 +101,7 @@ pub async fn peer_connect(
 
 /// peer_disconnect：挂断与该节点的连接；幂等，返回是否确有连接被关闭。
 #[tauri::command]
-pub async fn peer_disconnect(
-    state: State<'_, AppState>,
-    peer_id: String,
-) -> Result<bool, String> {
+pub async fn peer_disconnect(state: State<'_, AppState>, peer_id: String) -> Result<bool, String> {
     state.disconnect(&peer_id).await
 }
 
@@ -138,4 +136,3 @@ pub async fn identity_reset<R: Runtime>(
 pub async fn metrics_history(state: State<'_, AppState>) -> Result<Vec<MetricsPoint>, String> {
     Ok(state.metrics_history().await)
 }
-

@@ -161,8 +161,14 @@ fn drain_hops(rx: &mut broadcast::Receiver<NodeEvent>) -> Vec<DialHopJson> {
     let mut hops = Vec::new();
     loop {
         match rx.try_recv() {
-            Ok(NodeEvent::DialHop { hop, ok, detail, .. }) => {
-                hops.push(DialHopJson { hop: hop.into(), ok, detail });
+            Ok(NodeEvent::DialHop {
+                hop, ok, detail, ..
+            }) => {
+                hops.push(DialHopJson {
+                    hop: hop.into(),
+                    ok,
+                    detail,
+                });
             }
             Ok(_) => {}
             Err(broadcast::error::TryRecvError::Lagged(n)) => {

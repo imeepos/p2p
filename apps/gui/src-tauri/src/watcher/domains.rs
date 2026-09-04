@@ -86,7 +86,10 @@ mod tests {
 
     #[test]
     fn classify_maps_whitelist_files() {
-        assert_eq!(classify(&dir("app").join("gui-config.json")), Some(DataDomain::Config));
+        assert_eq!(
+            classify(&dir("app").join("gui-config.json")),
+            Some(DataDomain::Config)
+        );
         // 原子写临时文件与正式文件同域
         assert_eq!(
             classify(&dir("app").join("gui-config.json.tmp")),
@@ -134,10 +137,7 @@ mod tests {
             domains: vec![DataDomain::Config.key(), DataDomain::Chat.key()],
         };
         let json = serde_json::to_value(&payload).unwrap();
-        assert_eq!(
-            json,
-            serde_json::json!({ "domains": ["config", "chat"] })
-        );
+        assert_eq!(json, serde_json::json!({ "domains": ["config", "chat"] }));
     }
 
     #[test]
@@ -145,6 +145,9 @@ mod tests {
         let t = targets(Path::new("/data"));
         assert_eq!(t.app_dir, PathBuf::from("/data"));
         assert_eq!(t.chat_dir, PathBuf::from("/data/chat"));
-        assert_eq!(friends_path(Path::new("/data")), PathBuf::from("/data/chat/friends.json"));
+        assert_eq!(
+            friends_path(Path::new("/data")),
+            PathBuf::from("/data/chat/friends.json")
+        );
     }
 }

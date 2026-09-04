@@ -23,7 +23,8 @@ pub fn control_dir(base: &Path) -> PathBuf {
 
 /// 读已有 token；缺失或异常时重新生成（异常重建留 warn 可观测）。
 pub fn load_or_create_token(dir: &Path) -> Result<String, String> {
-    std::fs::create_dir_all(dir).map_err(|e| format!("创建控制通道目录 {} 失败: {e}", dir.display()))?;
+    std::fs::create_dir_all(dir)
+        .map_err(|e| format!("创建控制通道目录 {} 失败: {e}", dir.display()))?;
     let file = dir.join("token");
     if let Ok(raw) = std::fs::read_to_string(&file) {
         let token = raw.trim();

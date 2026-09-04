@@ -4,9 +4,9 @@
 //! 测试喂固定响应，严禁真实外网。候选过滤与失败语义见 github.rs / 契约 §9。
 
 pub mod github;
-pub mod version;
 #[cfg(test)]
 mod tests;
+pub mod version;
 
 use std::future::Future;
 use std::pin::Pin;
@@ -101,7 +101,10 @@ fn published_at_ms(release: &LatestRelease) -> Option<i64> {
     match chrono::DateTime::parse_from_rfc3339(raw) {
         Ok(t) => Some(t.timestamp_millis()),
         Err(e) => {
-            warn!("release {} 的 published_at 非法，按缺失处理: {raw} ({e})", release.tag);
+            warn!(
+                "release {} 的 published_at 非法，按缺失处理: {raw} ({e})",
+                release.tag
+            );
             None
         }
     }
