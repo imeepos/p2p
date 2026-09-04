@@ -140,7 +140,8 @@ async fn same_id_status_progression_collapses_to_latest() {
     let rows = chat.history(peer, None, 10).expect("history reads");
     assert_eq!(rows.len(), 1, "same id collapses to single row");
     assert_eq!(
-        rows[0].status, p2p_chat::ChatStatus::Delivered,
+        rows[0].status,
+        p2p_chat::ChatStatus::Delivered,
         "last-wins keeps the final status"
     );
     node.shutdown();

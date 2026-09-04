@@ -6,6 +6,7 @@
 
 mod core;
 mod model;
+mod outbox;
 mod store;
 mod store_io;
 mod store_lock;
@@ -45,13 +46,14 @@ impl Chat {
             store,
             events: tx.clone(),
             send_locks: std::sync::Mutex::new(std::collections::HashMap::new()),
+            flush_tried: std::sync::Mutex::new(std::collections::HashMap::new()),
         });
         core.rearm_friend_addrs()?;
         let proto =
             p2p::ProtocolId::new(CHAT_PROTOCOL).map_err(|e| ChatError::Protocol(e.to_string()))?;
         core.node
             .handle_protocol(Arc::new(wire::ChatHandler::new(core.clone(), proto)));
-        core::spawn_outbox_task(core.clone());
+        outbox::spawn_outbox_task(core.clone());
         Ok(Self { core })
     }
 

@@ -147,6 +147,8 @@ pub enum ChatError {
     ConnectFailed(String),
     #[error("发送失败：{0}")]
     SendFailed(String),
+    #[error("流失败：{0}")]
+    StreamFailed(String),
     #[error("未找到：{0}")]
     NotFound(String),
     #[error("回复引用非法：{0}")]

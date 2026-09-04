@@ -60,7 +60,10 @@ pub(crate) fn dedup_last_by_id(envelopes: Vec<ChatEnvelope>) -> Vec<ChatEnvelope
         }
         last.insert(env.id.clone(), env);
     }
-    order.into_iter().filter_map(|id| last.remove(&id)).collect()
+    order
+        .into_iter()
+        .filter_map(|id| last.remove(&id))
+        .collect()
 }
 
 /// 追加一行 JSONL（文件不存在即创建）。
