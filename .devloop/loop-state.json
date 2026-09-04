@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-04T01:39:55.783Z",
+  "updatedAt": "2026-09-04T01:40:23.640Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -282,7 +282,7 @@
       "branch": "test/im-tauri-protocol-boundaries",
       "ownerSession": "session-4f6ad1d0-4aa6-4bfe-a544-15d304dffdb7",
       "scope": "仅新增 apps/gui/src-tauri/tests/chat_boundaries.rs、crates/p2p-chat/tests/wire_boundaries.rs；既有生产源码只读，GUI 生产实现只读",
-      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test wire_boundaries && cd apps/gui/src-tauri && cargo test --test chat_boundaries && cargo clippy --all-targets -- -D warnings && cd ../.. && make check'"
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" && cargo test -p p2p-chat --test wire_boundaries && cd apps/gui/src-tauri && cargo test --test chat_boundaries && cargo clippy --all-targets -- -D warnings && cd ../../.. && make check'"
     },
     {
       "id": "T37",
