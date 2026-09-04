@@ -10,6 +10,7 @@ import { EmptyState } from "@/views/shared/empty-state";
 import { GroupCreateDialog } from "./group-create-dialog";
 import { GroupConversation } from "./group-conversation";
 import { GroupList } from "./group-list";
+import { GroupMemberPanel } from "./group-member-panel";
 
 // 群聊页（G3 完整视图）：左群列表（建群入口 + state 置底）右会话区
 // （消息渲染/输入条），成员管理面板由会话头「管理」进入。
@@ -27,6 +28,7 @@ export function GroupView() {
   const selectGroup = useGroupStore((s) => s.selectGroup);
   const subscribeEvents = useGroupStore((s) => s.subscribeEvents);
   const [createOpen, setCreateOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
 
   useEffect(() => {
     void loadGroups();
@@ -107,7 +109,11 @@ export function GroupView() {
           className="flex min-h-0 flex-col rounded-lg border"
         >
           {selectedGroup ? (
-            <GroupConversation key={selectedGroup.groupId} group={selectedGroup} />
+            <GroupConversation
+              key={selectedGroup.groupId}
+              group={selectedGroup}
+              onOpenManage={() => setManageOpen(true)}
+            />
           ) : (
             <EmptyState
               className="max-w-none flex-1"
@@ -119,6 +125,13 @@ export function GroupView() {
         </section>
       </div>
       <GroupCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+      {selectedGroup && manageOpen ? (
+        <GroupMemberPanel
+          group={selectedGroup}
+          open
+          onOpenChange={setManageOpen}
+        />
+      ) : null}
     </>
   );
 }

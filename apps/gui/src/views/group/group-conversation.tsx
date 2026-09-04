@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Settings2 } from "lucide-react";
 
 import { Composer, type ComposerTransport } from "@/components/chat/composer";
 import { NodeStoppedCard } from "@/components/chat/node-stopped-card";
+import { Button } from "@/components/ui/button";
 import type { ChatMessageJson, GroupJson } from "@/lib/ipc-types";
 import { useGroupStore } from "@/stores/group-store";
 import { useNodeStore } from "@/stores/node-store";
@@ -13,12 +15,13 @@ import { toBubbleMessage } from "./group-names";
 
 interface GroupConversationProps {
   group: GroupJson;
+  onOpenManage: () => void;
 }
 
-// 群会话右栏：头部（名/状态徽标/成员数）+ 消息流 + 输入条。
+// 群会话右栏：头部（名/状态徽标/成员数/管理入口）+ 消息流 + 输入条。
 // 非 active 群消息只读（设计 §5：退群/被踢/解散后不可再发，历史保留）；
 // 输入条复用 1:1 Composer，经 transport 注入群发送面。
-export function GroupConversation({ group }: GroupConversationProps) {
+export function GroupConversation({ group, onOpenManage }: GroupConversationProps) {
   const { t } = useTranslation();
   const selfPeerId = useGroupStore((s) => s.selfPeerId);
   const friends = useGroupStore((s) => s.friends);
@@ -59,6 +62,17 @@ export function GroupConversation({ group }: GroupConversationProps) {
           <span className="text-muted-foreground text-xs">
             {t("group.members", { count: group.members.length })}
           </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            data-testid="group-manage"
+            onClick={onOpenManage}
+          >
+            <Settings2 aria-hidden />
+            {t("group.manage.action")}
+          </Button>
         </div>
       </div>
       {readOnly ? (
