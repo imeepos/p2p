@@ -193,7 +193,7 @@ async fn group_full_chain_three_nodes() {
     }).await;
 
     // 7) 重邀回归：C 收高 rev roster → state 回 active
-    r.a.chat.group.group_invite(&g.group_id, &[c_peer.clone()]).await.expect("重邀");
+    r.a.chat.group.group_invite(&g.group_id, std::slice::from_ref(&c_peer)).await.expect("重邀");
     wait_until("C 端回归 active", || state_is(&r.c, &g.group_id, GroupState::Active)).await;
 
     // 8) 解散：C 收 G_KICK(disbanded) → disbanded；解散后禁发
