@@ -6,12 +6,15 @@
 
 mod core;
 mod friend;
+mod identity_lock;
 mod model;
 mod outbox;
 mod store;
 mod store_io;
 mod store_lock;
 mod wire;
+
+pub use identity_lock::try_lock_identity;
 
 use std::path::PathBuf;
 use std::sync::Arc;
