@@ -10,6 +10,7 @@ mod error;
 mod gui;
 mod identity;
 mod lifecycle;
+mod llm_share;
 mod log;
 mod metrics;
 mod node;
@@ -50,5 +51,6 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Metrics { command } => metrics::run(command).await,
         cli::Command::Update { command } => update::run(command).await,
         cli::Command::Acp { command } => acp::run(command).await,
+        cli::Command::LlmShare { command } => llm_share::run(command).await,
     }
 }
