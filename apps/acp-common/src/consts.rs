@@ -17,6 +17,8 @@ pub const LINE_GUARD_LIMIT: usize = 16 * 1024 * 1024;
 pub const REATTACH_WINDOW_DEFAULT_SECS: u64 = 90;
 /// 每会话 update 环形缓存上限字节数（设计 §5）
 pub const SESSION_UPDATE_CACHE_LIMIT: usize = 8 * 1024 * 1024;
+/// request_permission 透传后客户端应答上限秒数，超时桥代答 reject-once（设计 §6 工具行）
+pub const PERMISSION_TIMEOUT_SECS: u64 = 60;
 /// 每连接会话上限（设计 §7 资源门禁）
 pub const MAX_SESSIONS_PER_CONN: u32 = 4;
 /// 每 peer 并发连接上限（设计 §7 资源门禁）

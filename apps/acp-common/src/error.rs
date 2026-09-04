@@ -23,6 +23,8 @@ pub enum ErrorCode {
     ConnCapReached { cap: u32 },
     #[error("reattach-ticket-invalid: reattach ticket unknown, expired, or cross-device")]
     ReattachTicketInvalid,
+    #[error("cwd-denied: subprocess working directory outside policy jail")]
+    CwdDenied,
     #[error("handshake-malformed: handshake frame failed validation")]
     HandshakeMalformed,
     #[error("ndjson-truncated: stream ended with an unterminated line")]
@@ -40,6 +42,7 @@ impl ErrorCode {
             Self::SessionCapReached { .. } => "session-cap-reached",
             Self::ConnCapReached { .. } => "conn-cap-reached",
             Self::ReattachTicketInvalid => "reattach-ticket-invalid",
+            Self::CwdDenied => "cwd-denied",
             Self::HandshakeMalformed => "handshake-malformed",
             Self::NdjsonTruncated => "ndjson-truncated",
         }
