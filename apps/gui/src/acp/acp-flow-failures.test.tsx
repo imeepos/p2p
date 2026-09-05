@@ -218,7 +218,7 @@ describe("AcpView reconnect retry", () => {
     const { renderConnected } = await import("./acp-view-test-utils");
     await renderConnected();
     act(() => {
-      mockAcpConsole.dropAll();
+      mockAcpConsole.dropAll(1000, "agent-stream-dropped");
     });
     const banner = await screen.findByTestId("acp-reconnect-banner");
     expect(banner.textContent).toContain("立即重试");

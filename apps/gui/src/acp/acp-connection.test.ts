@@ -187,11 +187,20 @@ describe("AcpConnection", () => {
     expect(h.notifications).toHaveLength(1);
   });
 
-  it("1006 空 reason（401 升级拒绝实测形态）归类 abnormal 并触发重连", () => {
+  it("1006 空 reason（401 升级拒绝实测形态）首轮即停转 offline，不进重连计数", () => {
     const h = harness(FAST_POLICY);
     h.conn.connect();
     h.sockets[0].serverClose(1006, "");
     expect(last(h.closes)).toEqual({ kind: "abnormal", code: 1006 });
+    expect(last(h.phases)).toBe("offline");
+    expect(h.reconnects).toHaveLength(0);
+  });
+
+  it("1006 有 reason（对端异常断流）仍走自动重连", () => {
+    const h = harness(FAST_POLICY);
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    h.sockets[0].serverClose(1006, "abnormal-but-recoverable");
     expect(last(h.phases)).toBe("reconnecting");
     expect(h.reconnects).toEqual([1]);
   });

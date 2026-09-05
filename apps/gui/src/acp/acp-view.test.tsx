@@ -47,22 +47,20 @@ describe("AcpView connection", () => {
     expect(screen.getByTestId("acp-phase-badge").textContent).toContain("在线");
   });
 
-  it("token 错误：401 升级拒绝呈 1006 abnormal（真机 R3a），重连耗尽转离线", async () => {
+  it("token 错误：1006 空 reason 首轮即停转离线并提示检查 token（真机 R3a）", async () => {
     useAcpStore.setState({ draft: draftEndpoint() });
     useAcpStore.getState().setDraft({ token: "wrong-token" });
     render(<AcpView />);
     fireEvent.click(screen.getByTestId("acp-connect"));
     await waitFor(() => {
-      expect(screen.getByTestId("acp-close-info")).toBeTruthy();
+      expect(screen.getByTestId("acp-close-info").textContent).toContain("检查 token");
     });
-    expect(screen.getByTestId("acp-close-info").textContent).toContain("1006");
-    await waitFor(
-      () => {
-        expect(screen.getByTestId("acp-phase-badge").textContent).toContain("离线");
-      },
-      { timeout: 15_000 },
-    );
-  }, 25_000);
+    await waitFor(() => {
+      expect(screen.getByTestId("acp-phase-badge").textContent).toContain("离线");
+    });
+    expect(screen.getByTestId("acp-offline-reason").textContent).toContain("检查 token");
+    expect(screen.queryByTestId("acp-reconnect-notice")).toBeNull();
+  });
 
   it("端点可保存并回填（手动添加）", async () => {
     render(<AcpView />);
@@ -117,8 +115,8 @@ describe("AcpView sessions", () => {
     await renderConnected();
     await newSession();
     act(() => {
-      // 真机对拍 R3h：对端死亡不发 Close 帧，客户端视角 1006 空 reason
-      mockAcpConsole.dropAll();
+      // 有 reason 的异常断流走自动重连（1006 空 reason 已按鉴权速断）
+      mockAcpConsole.dropAll(1000, "agent-stream-dropped");
     });
     await waitFor(
       () => {

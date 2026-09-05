@@ -105,6 +105,12 @@ export class AcpConnection {
     this.pending.clear();
     const info = classifyClose(code, reason);
     this.events.onCloseInfo(info);
+    // 真机对拍 R3a：401 升级拒绝客户端视角为 1006 空 reason——重连必同败，首轮即停
+    if (info.kind === "abnormal" && info.code === 1006 && info.reason === "") {
+      console.warn("[acp] 1006 无原因关闭（疑鉴权拒绝），不进重连计数转 offline");
+      this.events.onPhase("offline");
+      return;
+    }
     if (this.userClosed || info.kind === "denied" || info.kind === "dial-failed") {
       // 鉴权/拨号失败是配置错误：重连必然同败，转 offline 留给用户改参数
       this.events.onPhase("offline");

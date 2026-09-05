@@ -55,11 +55,19 @@ function Field(props: {
   );
 }
 
+/** 1006 空 reason（401 升级拒绝实测形态）：提示检查 token 而非笼统异常 */
+function closeReasonKey(info: { kind: string; code: number; reason: string }): I18nKey | null {
+  if (info.kind === "abnormal" && info.code === 1006 && info.reason === "") {
+    return "acp.reconnect.checkToken";
+  }
+  return CLOSE_KEY[info.kind] ?? null;
+}
+
 function CloseInfoText() {
   const { t } = useTranslation();
   const closeInfo = useAcpStore((s) => s.closeInfo);
   if (!closeInfo || closeInfo.kind === "closed") return null;
-  const key = CLOSE_KEY[closeInfo.kind];
+  const key = closeReasonKey(closeInfo);
   if (!key) return null;
   return (
     <p className="text-destructive text-sm" data-testid="acp-close-info">
@@ -97,7 +105,7 @@ function OfflineRetryRow() {
   const closeInfo = useAcpStore((s) => s.closeInfo);
   const lastError = useAcpStore((s) => s.lastError);
   const connect = useAcpStore((s) => s.connect);
-  const closeKey = closeInfo && closeInfo.kind !== "closed" ? CLOSE_KEY[closeInfo.kind] : null;
+  const closeKey = closeInfo && closeInfo.kind !== "closed" ? closeReasonKey(closeInfo) : null;
   const errorKey = lastError ? ACP_ERROR_KEYS[lastError] : null;
   const reason = closeKey && closeInfo
     ? `${t(closeKey)} (code ${closeInfo.code})`
