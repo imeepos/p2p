@@ -323,6 +323,10 @@ failed: early eof（客户端侧超时中止）。
 
 - T36 任务书验收命令路径缺陷（2026-09-03）：`cd apps/gui/src-tauri && ... && cd ../.. && make check` 中 src-tauri 距仓库根三层，`cd ../..` 落在 apps/（无 Makefile）导致 make 必然报 No rule to make target。修正应为 `cd ../../..`。执行会话按修正版跑通全量门禁，字面命令 exit 2。
 - 主树 Makefile check 的 test 阶段跑 `cargo test --workspace`，p2p-chat 固定端口测试（31101+）与其他会话并行时存在已知 flake（协调挂账 1b07415），边界测试新增文件一律用随机端口（Node::builder 默认 0）。
+
+- DSH bash 绑定间歇性抛 "binding arguments must be lossless JSON"（2026-09-05）：命令含进程替换 `<( )` 时必现，个别普通命令（如 `grep -E 'x:' -A3 file`）也偶发；报错指向参数序列化而非命令本身，命令根本没执行。修法：换等价简单命令重试，集合交集计算挪到 JS 里做，文件内容检索改用专用 grep 工具。
+
+- `git branch -d` 拒删"确已合并进 main"的分支（2026-09-05）：-d 比对的是分支的上游引用而非 HEAD，上游 stale 或已删（gone/diverge）时连与 main 同一点位的分支都拒删，警告原文都承认 "even though it is merged to HEAD"。修法：先 `git log main..<branch> | wc -l` 复核为 0，再 `-D`；复核步骤不可省，-D 的安全性全靠它。
 ## 2026-09-04 DSH：GLM-5.3-Flash 发图报「当前模型不支持图片」——配错键名，pi-ai 认 `input` 不认 `inputModalities`
 - 症状：GUI（127.0.0.1:18181，bigmodel/GLM-5.3-Flash）发送图片即报「当前模型不支持图片」，但该模型明明支持视觉。
 - 原因：`~/.dsh/settings.yaml` 的 `llm-pi-ai.providers.<route>.models[]` 条目写了 `inputModalities: [ text, image ]`——这是 llm-deepseek 插件的目录键名；llm-pi-ai 的模型 schema（config.ts `modelFields`）只读 `input`，未知键静默透传不被读取，模型落到 `defaultInput: ['text']`，session-controller 的图片准入门（`MODEL_DOES_NOT_SUPPORT_IMAGES`）按 text-only 拒收。
