@@ -177,6 +177,91 @@ async fn invite_kick_leave_disband_semantics() {
     cleanup(&c);
 }
 
+/// 解散专项（G6）：非 owner 显式 Err；rev 推进；G_KICK 载荷逐字断言
+/// （B 下线后解散，帧留 goutbox 落盘）；重复解散显式 Err（状态与 rev 不再推进）。
+#[tokio::test]
+async fn disband_owner_guard_payload_and_idempotency() {
+    let a = spawn("dis-a").await;
+    let b = spawn("dis-b").await;
+    add_each_other(&a, &b).await;
+    let peer_b = peer_str(&b.node);
+    let g = a
+        .chat
+        .group
+        .group_create("解散专项", std::slice::from_ref(&peer_b))
+        .await
+        .expect("create");
+    wait_until("B 收 roster", || {
+        b.chat
+            .group
+            .group_list()
+            .iter()
+            .any(|x| x.group_id == g.group_id)
+    })
+    .await;
+
+    // 非 owner 解散：显式 Err，群状态与 rev 不动
+    let err = b
+        .chat
+        .group
+        .group_disband(&g.group_id)
+        .await
+        .expect_err("非 owner 解散必须拒绝");
+    assert!(err.to_string().contains("群主"), "err: {err}");
+    let g0 = a
+        .chat
+        .group
+        .group_list()
+        .into_iter()
+        .find(|x| x.group_id == g.group_id)
+        .expect("g0");
+    assert_eq!(g0.rev, 0);
+    assert_eq!(g0.state, GroupState::Active);
+
+    // B 下线后 owner 解散：命令仍成功（离线成员经 goutbox 补投）
+    b.node.shutdown();
+    let g1 = a
+        .chat
+        .group
+        .group_disband(&g.group_id)
+        .await
+        .expect("disband");
+    assert_eq!(g1.state, GroupState::Disbanded);
+    assert_eq!(g1.rev, 1, "解散 rev 推进");
+
+    // G_KICK 载荷逐字断言：goutbox/<B>.jsonl 的 kick 帧
+    let path = a.dir.join("chat/goutbox").join(format!("{peer_b}.jsonl"));
+    let content = std::fs::read_to_string(&path).expect("goutbox 落盘");
+    let kick = content
+        .lines()
+        .map(|l| serde_json::from_str::<serde_json::Value>(l).expect("jsonl 行"))
+        .find(|v| v["kind"] == "kick")
+        .expect("kick 帧必在队");
+    assert_eq!(kick["kick"]["groupId"], g.group_id.as_str());
+    assert_eq!(kick["kick"]["rev"], 1);
+    assert_eq!(kick["kick"]["reason"], "disbanded");
+
+    // 重复解散：显式 Err，rev 停在 1（不重推帧）
+    let err = a
+        .chat
+        .group
+        .group_disband(&g.group_id)
+        .await
+        .expect_err("重复解散必须拒绝");
+    assert!(err.to_string().contains("不可解散"), "err: {err}");
+    let g2 = a
+        .chat
+        .group
+        .group_list()
+        .into_iter()
+        .find(|x| x.group_id == g.group_id)
+        .expect("g2");
+    assert_eq!(g2.rev, 1);
+    assert_eq!(g2.state, GroupState::Disbanded);
+    cleanup(&a);
+    cleanup(&b);
+}
+
 /// 历史保留：被踢/退群/解散不删数据，group_history 仍可分页读。
 #[tokio::test]
 async fn history_preserved_after_state_changes() {

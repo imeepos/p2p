@@ -145,27 +145,28 @@ impl Group {
         Ok(group)
     }
 
-    /// 解散（owner-only）：rev+1，对全体成员发 G_KICK(reason=disbanded)，本端 state 置位。
+    /// 解散（owner-only）：仅 active 可解散（重复解散显式 Err，不重推帧）；
+    /// rev+1，对全体其他成员发 G_KICK(reason=disbanded)，本端 state 置位。
     pub async fn group_disband(&self, group_id: &str) -> GroupResult<GroupInfo> {
         let mut group = self.owned_group(group_id)?;
-        group.state = GroupState::Disbanded;
-        let mut queued = Vec::new();
-        for member in self.core.others(&group) {
-            let kick = GroupKick {
-                group_id: group.group_id.clone(),
-                rev: group.rev + 1,
-                reason: "disbanded".into(),
-            };
-            queued.push((
-                member,
-                GoutboxFrame::Kick {
-                    kick: Box::new(kick),
-                },
-            ));
+        if group.state != GroupState::Active {
+            return Err(ChatError::InvalidUpdate(format!(
+                "群状态 {:?}，不可解散",
+                group.state
+            )));
         }
+        group.state = GroupState::Disbanded;
+        let kick = Box::new(GroupKick {
+            group_id: group.group_id.clone(),
+            rev: group.rev + 1,
+            reason: "disbanded".into(),
+        });
+        let targets = self.core.others(&group);
         self.bump_push(&mut group).await?;
-        for (member, frame) in queued {
-            self.core.push_frame(&member, frame).await?;
+        for member in targets {
+            self.core
+                .push_frame(&member, GoutboxFrame::Kick { kick: kick.clone() })
+                .await?;
         }
         Ok(group)
     }
