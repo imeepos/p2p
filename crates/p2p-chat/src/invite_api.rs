@@ -81,10 +81,12 @@ impl crate::Chat {
             .into_iter()
             .find(|i| i.peer_id == peer_id && i.direction == InviteDirection::In)
             .ok_or_else(|| ChatError::NotFound(format!("无待处理邀请：{peer_id}")))?;
+        // F5：邀请内 nickname 是邀请方对受邀方的备注，错当对端自称沿用会让
+        // 好友簿显示名退化；缺省统一回退 PeerId 缩略（与 update --nickname 空串同口径）。
         let name = {
             let t = validate_nickname(nickname)?;
             if t.is_empty() {
-                invite.nickname.clone()
+                crate::model::nickname_fallback(peer_id)
             } else {
                 t
             }

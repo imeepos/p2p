@@ -36,9 +36,12 @@ pub struct ListArgs {
 pub struct AcceptArgs {
     /// 邀请方 peer id
     peer_id: String,
-    /// 本机为对方设置的显示名（缺省沿用邀请内对端自称）
+    /// 本机为对方设置的显示名（缺省回退 PeerId 缩略，与 update --nickname 空串同口径）
     #[arg(long, default_value = "")]
     nickname: String,
+    /// 输出单行紧凑 JSON
+    #[arg(long)]
+    json: bool,
     /// 数据目录
     #[arg(long, default_value = DEFAULT_DATA_DIR)]
     data_dir: String,
@@ -101,7 +104,7 @@ async fn accept(args: AcceptArgs) -> CliResult<()> {
         .await
         .map_err(runtime_err)?;
     emit(
-        false,
+        args.json,
         &InviteOpReport { ok: true },
         &format!("已同意好友邀请：{}（{}）", friend.nickname, friend.peer_id),
     )

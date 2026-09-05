@@ -209,11 +209,11 @@ fn emit(core: &ChatCore, peer: &str, state: InviteState) {
     });
 }
 
-/// 空昵称回退 peer 全串（GUI 展示层可再缩略）。
+/// 空昵称回退 PeerId 缩略（F5：禁落原文，与 accept/update 缺省口径一致）。
 fn display_name(raw: &str, peer: &str) -> String {
     match validate_nickname(raw) {
         Ok(n) if !n.is_empty() => n,
-        _ => peer.to_string(),
+        _ => crate::model::nickname_fallback(peer),
     }
 }
 

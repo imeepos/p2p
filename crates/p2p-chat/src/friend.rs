@@ -88,11 +88,19 @@ impl Chat {
                     .map_err(|e| ChatError::InvalidAddr(format!("{addr}: {e}")))?;
             }
         }
+        // 空串回退 PeerId 缩略（F5：与 accept 缺省昵称同口径，禁落原文/空串）。
         let nickname = patch
             .nickname
             .as_deref()
             .map(model::validate_nickname)
-            .transpose()?;
+            .transpose()?
+            .map(|n| {
+                if n.is_empty() {
+                    model::nickname_fallback(peer_id)
+                } else {
+                    n
+                }
+            });
         let note = match patch.note.as_deref() {
             Some(n) if n.trim().is_empty() => Some(None),
             Some(n) => Some(Some(n.to_string())),

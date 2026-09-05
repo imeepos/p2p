@@ -163,7 +163,14 @@ pub fn validate_text(raw: &str) -> Result<String, ChatError> {
     Ok(t.to_string())
 }
 
-/// 昵称校验：trim 后 ≤64 字符（空串允许，GUI 回退 PeerId 缩略）。
+/// 昵称缺省回退：PeerId 前 8 字符 + "..."（F5：禁落 PeerId 原文；
+/// accept 缺省、update --nickname 空串、自愈 display_name 同一口径）。
+pub fn nickname_fallback(peer_id: &str) -> String {
+    let head: String = peer_id.chars().take(8).collect();
+    format!("{head}...")
+}
+
+/// 昵称校验：trim 后 ≤64 字符（空串允许，CLI/GUI 层回退 nickname_fallback）。
 pub fn validate_nickname(raw: &str) -> Result<String, ChatError> {
     let t = raw.trim();
     if t.chars().count() > 64 {
@@ -235,6 +242,14 @@ mod tests {
         assert!(validate_text(&"a".repeat(2001)).is_err());
         assert!(validate_text(&"a".repeat(2000)).is_ok());
         assert!(validate_text(&"汉".repeat(2000)).is_ok());
+    }
+
+    #[test]
+    fn nickname_fallback_abbreviates_peer_id() {
+        let pid = "abcdEFGH1234";
+        assert_eq!(nickname_fallback(pid), "abcdEFGH...");
+        assert_eq!(nickname_fallback("短"), "短...");
+        assert!(nickname_fallback(&"x".repeat(8)).len() < pid.len() + 4, "缩略短于原文");
     }
 
     #[test]
