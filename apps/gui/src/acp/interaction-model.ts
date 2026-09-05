@@ -21,6 +21,14 @@ export interface PermissionRequestView {
   status: PermissionStatus;
 }
 
+/** 权限到达提醒：store 登记后由 PermissionNoticeBridge 转 toast（seq 自增供效果去重） */
+export interface PermissionNotice {
+  requestId: number;
+  sessionId: string;
+  title: string;
+  seq: number;
+}
+
 export interface InteractionState {
   permissions: PermissionRequestView[];
   configOptions: ConfigOption[];

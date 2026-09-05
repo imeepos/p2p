@@ -157,16 +157,26 @@ function handleAgentRequest(
       connection?.respond(id, cancelledOutcome());
       return;
     }
+    const before = useAcpStore.getState().interactions[sessionId]?.permissions.length ?? 0;
+    const title = p.toolCall?.title ?? p.toolCall?.toolCallId ?? String(id);
     mapInteraction(sessionId, (s) =>
       addPermission(s, {
         requestId: id,
         sessionId,
-        title: p.toolCall?.title ?? p.toolCall?.toolCallId ?? String(id),
+        title,
         toolKind: p.toolCall?.kind ?? null,
         options: Array.isArray(p.options) ? p.options : [],
         receivedAt: Date.now(),
       }),
     );
+    // 新到权限（去重帧不重复提醒）：登记 notice，桥组件转 toast（P1 主动提醒）
+    const after = useAcpStore.getState().interactions[sessionId]?.permissions.length ?? 0;
+    if (after > before) {
+      useAcpStore.setState((s) => {
+        const seq = s.permissionSeq + 1;
+        return { permissionSeq: seq, permissionNotice: { requestId: id, sessionId, title, seq } };
+      });
+    }
     return;
   }
   console.warn("[acp] 未支持的 agent 请求，回 method-not-found", method);

@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 import type { AcpCloseInfo, AcpEndpoint, AcpPhase, InitializeResult, SessionSummary } from "./protocol";
-import type { InteractionState } from "./interaction-model";
+import type { InteractionState, PermissionNotice } from "./interaction-model";
 import type { AcpScope, DirectoryEntry, DiscoveryPeer } from "./directory-model";
 import {
   addManual,
@@ -49,6 +49,9 @@ interface AcpConsoleState {
   promptPendingBySession: Record<string, boolean>;
   /** 每会话未发送草稿：切会话互不污染，杜绝把话发给另一个 agent（P1 草稿隔离） */
   promptDrafts: Record<string, string>;
+  /** 最新到达的权限提醒（seq 自增去重），PermissionNoticeBridge 转 toast */
+  permissionNotice: PermissionNotice | null;
+  permissionSeq: number;
   lastError: string | null;
   setPromptDraft: (sessionId: string, text: string) => void;
   setDraft: (patch: Partial<AcpEndpoint>) => void;
@@ -97,6 +100,8 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   directory: [],
   promptPendingBySession: {},
   promptDrafts: {},
+  permissionNotice: null,
+  permissionSeq: 0,
   lastError: null,
 
   setPromptDraft: (sessionId, text) => {
@@ -171,6 +176,8 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
       interactions: {},
       promptPendingBySession: {},
       promptDrafts: {},
+      permissionNotice: null,
+      permissionSeq: 0,
       lastError: null,
     });
   },

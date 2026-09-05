@@ -4,6 +4,8 @@ import { Bot, Loader2, X } from "lucide-react";
 
 
 import { PageHeader } from "@/components/page/page-header";
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
+import { PermissionNoticeBridge } from "@/acp/components/permission-notice-bridge";
 import { useAcpStore } from "@/acp/acp-store";
 import { CapabilitiesCard } from "@/acp/components/capabilities-card";
 import { ConfigPanel } from "@/acp/components/config-panel";
@@ -157,12 +159,16 @@ function MainColumn() {
   );
 }
 
-/** ACP 控制台页：连接管理 + 连接目录 + 会话侧栏 + transcript（设计 §8） */
+/** ACP 控制台页：连接管理 + 连接目录 + 会话侧栏 + transcript（设计 §8）。
+ *  本页自持一份 ConfirmProvider：与 main.tsx 全站 Provider 嵌套无害，
+ *  保证 AcpView 独立渲染（测试/嵌入场景）时确认纪律不缺位。 */
 export function AcpView() {
   const phase = useAcpStore((s) => s.phase);
   return (
-    <div className="col-span-12 grid grid-cols-12 gap-4">
-      <PageHeader titleKey="acp.title" descriptionKey="acp.description" />
+    <ConfirmProvider>
+      <PermissionNoticeBridge />
+      <div className="col-span-12 grid grid-cols-12 gap-4">
+        <PageHeader titleKey="acp.title" descriptionKey="acp.description" />
       {phase === "online" ? (
         <CapabilitiesCard />
       ) : (
@@ -177,6 +183,7 @@ export function AcpView() {
         </div>
         <MainColumn />
       </div>
-    </div>
+      </div>
+    </ConfirmProvider>
   );
 }

@@ -88,7 +88,7 @@ describe("AcpView permission timeout in store", () => {
 });
 
 describe("AcpView permission options", () => {
-  it("多档选项完整渲染，点 allow_always 回对应 selected outcome", async () => {
+  it("多档选项完整渲染；allow_always 经确认弹框后回对应 selected outcome", async () => {
     mockAcpConsole.configure({
       promptScript: [
         {
@@ -111,7 +111,11 @@ describe("AcpView permission options", () => {
     expect(screen.getByTestId("acp-permission-option-" + id + "-allow-once")).toBeTruthy();
     expect(screen.getByTestId("acp-permission-option-" + id + "-allow-always")).toBeTruthy();
     expect(screen.getByTestId("acp-permission-option-" + id + "-reject-once")).toBeTruthy();
+    // 两步门槛：单击只弹确认框，确认后才应答（P1 应答分级）
     fireEvent.click(screen.getByTestId("acp-permission-option-" + id + "-allow-always"));
+    await screen.findByText("确认始终允许？");
+    expect(mockAcpConsole.responses.find((r) => r.id === id)).toBeUndefined();
+    fireEvent.click(screen.getByText("始终允许"));
     await waitFor(() => {
       expect(screen.getByTestId("acp-permission-status-" + id).textContent).toContain("已批准");
     });
