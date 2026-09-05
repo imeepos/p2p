@@ -263,3 +263,17 @@ _none yet — be the first._
   「（Expected unicode escape）且整段程序不执行、其中所有已发工具调用全部回滚——
   大块代码文本搬移用「read 行切片 + write 整写」，长文本一律走 write 工具，
   不在 JS 串里手拼含转义的代码内容。」
+- 2026-09-05 UD 会话：中央登记守卫测试（acp/group-registration）用正则
+  /path="([^"]+)"/ 解析 App.tsx 源码——把 App.tsx 改成 createHashRouter
+  的对象式 { path: "peers" } 会打碎它们（禁改文件不能适配）；正解是
+  createRoutesFromChildren 保留 JSX 路由声明，data router 与登记守卫两全。
+- 2026-09-05 UD 会话：eslint-plugin-react-hooks v7 有 refs 规则，render 期
+  ref.current = x 直接报错（旧写法 hook 保最新闭包失效）；替代是 useEffect
+  内同步 ref，或干脆 effect 内重注册回调（Map.set 幂等）。组件文件混导出
+  函数触发 react-refresh/only-export-components——纯逻辑拆独立 .ts 文件。
+- 2026-09-05 UD 会话：vitest 不做类型检查（测试文件跑得过），tsc -b 才拦
+  vi.fn 签名/HTMLElement 属性错误——「测试全绿」后 build 仍可能红；先
+  typecheck 再报绿。vi.mock 的模块工厂对象方法签名要和真实调用参数一致。
+- 2026-09-05 UD 会话：useConfirm 这类 context hook，测试 harness 里把
+  <Provider> 包在组件返回 JSX 内没用——必须包住调用 hook 的组件本身
+  （render 外层），否则 useConfirm() 在挂载时即 throw。
