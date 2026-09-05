@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Outlet, useLocation } from "react-router-dom";
 
 import { CommandPalette } from "@/components/command-palette/command-palette";
-import { Sidebar } from "@/components/layout/sidebar";
+import { IconRail } from "@/components/layout/icon-rail";
 import { StatusBar } from "@/components/layout/status-bar";
 import { Topbar } from "@/components/layout/topbar";
 import {
@@ -20,7 +20,6 @@ const REFRESH_INTERVAL_MS = 5000;
 export function AppLayout() {
   const { t } = useTranslation();
   const location = useLocation();
-  const [collapsed, setCollapsed] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const bootstrap = useNodeStore((s) => s.bootstrap);
   const refresh = useNodeStore((s) => s.refresh);
@@ -50,7 +49,7 @@ export function AppLayout() {
 
   return (
     <div className="flex h-dvh w-full overflow-hidden">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((v) => !v)} />
+      <IconRail />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
