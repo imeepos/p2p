@@ -47,8 +47,8 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 |---|---|---|
 | cargo 在 PATH（`$HOME/.cargo/bin`） | 二进制构建（cargo build/clippy/test） | `cargo: command not found`（退出 127）；先 `export PATH=$HOME/.cargo/bin:$PATH` |
 | macOS 屏幕录制授权 | gui screenshot/record、scripts/ops/ui-regression.sh | 退出 1：CAPTURE_PERMISSION_DENIED（HTTP 403），PNG/GIF 不产出；GUI 重编译后 TCC 授权记录可能失效需重新授权（系统设置 > 隐私与安全性 > 屏幕录制），OS 级授权须人完成 |
-| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
-| 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance | 退出 1：节点身份加载失败；offer publish 不代生成身份 |
+| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
+| 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance | 退出 1：节点身份加载失败；offer publish 不代生成身份；正向门面是 p2pctl identity init（幂等，显式创建后即可重试） |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1：超时未送达 status=Pending / 对端身份不符快速失败 status=Failed（均保留本机记录，见 chat send 条目与附录A）；peer 域退出 1 |
 | 节点守护进程运行 | peer connect/disconnect/ping/dial、metrics get 实时值 | 退出 1：连接节点守护进程失败；metrics get 例外：返回全零不报错 |
 | GUI 进程运行 | gui 全域（status/screenshot/record/navigate/invoke/page/action） | 退出 1（控制通道不可达） |
@@ -685,6 +685,47 @@ actions=3
 --json：同源结构化 {requestId,result}（result 即动作返回值原样）。
 退出码：非当前页 → 1（结构化错误含「gui navigate <页面>」指引）；危险动作缺 confirm=true → 1（ACTION_CONFIRM_REQUIRED 透传）；动作不存在 → 1（ACTION_NOT_FOUND，含可用动作清单）；页面名非法 → 1（PAGE_NOT_FOUND，含可用页清单）；前端未回执 → 1（PAGE_TIMEOUT）。
 
+### p2pctl identity init
+用途：显式创建本机节点身份（node 域，<data-dir>/p2p-data/key.seed，文件 0600、目录 0700）。幂等：身份已存在时输出既有身份并退出 0，不重建。前置：无（新目录可作首命令，替代借道 node start/chat serve 造身份的旧路径）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本（首建）：
+```
+身份已创建 peer=<peerId>
+seed=<data-dir>/p2p-data/key.seed
+pubkey=<公钥 base58>
+mode=0600
+```
+文本（幂等重入）：首行变为「身份已存在 peer=<peerId>」，其余同上。
+--json：
+```
+{"created":true,"peerId":"…","publicKey":"…","seedPath":"…","mode":"0600"}
+```
+退出码：成功（含幂等重入）→ 0；种子创建/加载失败 → 1。
+
+### p2pctl identity show
+用途：只读查看本机身份（node|chat 双身份），输出 peerId 与公钥。不起进程、不占 identity.lock，节点/聊天运行中可安全调用。前置：目标域身份已存在（缺失退出 1，不代生成）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --domain | enum(node\|chat) | 否 | node |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+domain=node
+peer=<peerId>
+pubkey=<公钥 base58>
+seed=<种子路径>
+```
+双根：node=<data-dir>/p2p-data/key.seed（守护身份）；chat=<data-dir>/key.seed（聊天身份，同 chat serve 首行输出的 peerId）。
+--json：
+```
+{"domain":"node","peerId":"…","publicKey":"…","seedPath":"…"}
+```
+退出码：成功 → 0；目标域身份不存在 → 1；种子加载失败 → 1。
+
 ### p2pctl identity reset
 用途：重置身份：停节点 + 删除 key.seed，不可逆。前置：无；红线见 §4。
 | 参数 | 类型 | 必填 | 默认 |
@@ -1000,12 +1041,13 @@ lender=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk  period=2026-09  lent_out=40
 退出码：身份缺失 → 1；流水文件损坏 → 1；本机未参与任何流水 → 正常输出空 rows。
 
 ### p2pctl llm-share receipt verify
-用途：指定收据文件离线 Ed25519 验签（§5.1，MVP A3）：先校验公钥与 lender PeerId 绑定（PeerId = sha256(pubkey)），再验规范化 payload 签名；任何字段篡改必 FAIL。出借方公钥取自其 offer 信封 pubkey 字段（base58）。
+用途：指定收据文件离线 Ed25519 验签（§5.1，MVP A3）：先校验公钥与 lender PeerId 绑定（PeerId = sha256(pubkey)），再验规范化 payload 签名；任何字段篡改必 FAIL。--pubkey 缺省读本机节点身份公钥（与 offer publish 签名同根）；显式给出时取其 offer 信封 pubkey 字段（base58）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | <PATH> | 位置参数 path（收据文件，§5.1 wire JSON） | 是 | —— |
-| --pubkey | string（出借方公钥 base58，32 字节） | 是 | —— |
+| --pubkey | string（出借方公钥 base58，32 字节） | 否 | 本机节点身份公钥（<data-dir>/p2p-data/key.seed） |
 | --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
 文本（PASS）：
 ```
 verdict=PASS
@@ -1026,7 +1068,7 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 （req_id/period/lender/borrower/model/usage/estimated/ts 各行同 PASS 形态）
 ```
 --json：同字段 camelCase（verdict/reason/reqId/period/lender/borrower/model/input/output/estimated/ts）。
-退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1。
+退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1；缺省 --pubkey 且本机身份未初始化 → 1（含 identity init 指引）。
 ### p2pctl group create
 用途：建群。校验成员 ⊆ 好友簿、≤32、不含本机；群名 trim 后 1..=64 字符。建群后对每个初始成员推 roster（成员离线经 goutbox 补投，命令不失败）。
 | 参数 | 类型 | 必填 | 默认 |

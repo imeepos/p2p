@@ -96,8 +96,14 @@ p2pctl peer ping <PEER_ID> [--timeout-ms MS]          # echo 协议测 RTT（rtt
 ### identity —— 身份域
 
 ```bash
+p2pctl identity init [--data-dir DIR] [--json]  # 显式创建本机节点身份（0600 落盘；幂等，已存在输出既有身份退出 0）
+p2pctl identity show [--domain node|chat] [--data-dir DIR] [--json]  # 只读查身份：不起进程、不占 identity.lock
 p2pctl identity reset --confirm [--data-dir DIR]  # 危险操作：停节点 + 删 key.seed；缺 --confirm 拒绝
 ```
+
+注意：node 身份在 `<data-dir>/p2p-data/key.seed`（守护身份），chat 身份在
+`<data-dir>/key.seed`（聊天身份，同 `chat serve` 首行输出的 peerId），两根不同。
+`identity show --domain chat` 可离线读聊天身份，无需起 serve、不触发 `identity.lock` 互斥。
 
 ### log —— GUI 前端日志域（CL4）
 
