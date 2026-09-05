@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import type { I18nKey } from "@/i18n/types";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 import { useAcpStore } from "@/acp/acp-store";
@@ -29,18 +30,29 @@ const PHASE_KEY: Record<AcpPhase, I18nKey> = {
   offline: "acp.connection.phase.offline",
 };
 
-/** 能力位如实渲染：agent 未声明显示 undeclared，绝不代答 true/false */
-function CapBadge({ label, value }: { label: string; value: CapValue }) {
+/** 能力位如实渲染：支持 = success 徽章；未声明/不支持统一灰化降级并附说明，
+ *  绝不与「支持」混淆，也绝不代答 true/false */
+function CapBadge({ id, label, value }: { id: string; label: string; value: CapValue }) {
   const { t } = useTranslation();
+  const supported = value === true;
+  const hint =
+    value === undefined
+      ? t("acp.capabilities.undeclaredHint")
+      : value === false
+        ? t("acp.capabilities.unsupportedHint")
+        : undefined;
   return (
-    <div className="flex items-center justify-between gap-2 text-sm">
-      <span>{label}</span>
+    <div
+      className={cn("flex items-center justify-between gap-2 text-sm", !supported && "opacity-80")}
+      data-testid={"acp-cap-" + id}
+    >
+      <span className={supported ? undefined : "text-muted-foreground"}>{label}</span>
       {value === undefined ? (
-        <StatusBadge tone="neutral">{t("acp.capabilities.undeclared")}</StatusBadge>
+        <StatusBadge tone="neutral" title={hint}>{t("acp.capabilities.undeclared")}</StatusBadge>
       ) : value ? (
         <StatusBadge tone="success">{t("acp.capabilities.supported")}</StatusBadge>
       ) : (
-        <StatusBadge tone="neutral">{t("acp.capabilities.unsupported")}</StatusBadge>
+        <StatusBadge tone="neutral" title={hint}>{t("acp.capabilities.unsupported")}</StatusBadge>
       )}
     </div>
   );
@@ -78,8 +90,9 @@ export function CapabilitiesCard() {
             {capabilities.protocolVersion ?? undeclared}
           </span>
         </div>
-        <CapBadge label={t("acp.capabilities.loadSession")} value={caps.loadSession} />
+        <CapBadge id="loadSession" label={t("acp.capabilities.loadSession")} value={caps.loadSession} />
         <CapBadge
+          id="embeddedContext"
           label={t("acp.capabilities.embeddedContext")}
           value={caps.promptCapabilities?.embeddedContext}
         />
