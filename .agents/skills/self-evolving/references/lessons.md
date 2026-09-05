@@ -343,3 +343,18 @@ _none yet — be the first._
   没同步测试 fixture），独立 fix 提交解锁验收，不混进本轮 feature 提交。
 
 - (2026-09-04 ACP-P1 流程打磨) 开始时 `git status -sb` 无 ahead 标记不等于安全:并行会话在你看代码的几分钟里就可能把 main 推进 12 个提交。ff-only 前重新 fetch+核对,红了按纪律回 feature 侧 `git merge main` 消化,本次零冲突通过。
+
+## 2026-09-05 R1 群聊 goutbox 可靠性轮
+- 2026-09-05 R1：并行会话共写仓库时本地 main 是移动靶，ff-only 失败是常态不是事故——
+  标准动作：worktree 内 rebase main → git diff <旧基> main -- <本域路径> 增量为零则
+  既有门禁结果继续有效 → push --force-with-lease → 主树立即重试 ff-only。
+  本轮 1 小时内 main 两次前进（a5a1bea→b86cee0→ccb7cd7），均按此收敛，零丢失。
+- 2026-09-05 R1：worktree 里 git diff main --stat 冒出巨量无关文件 ≠ 工作树被污染，
+  先 rev-parse main 对比开工基点再下结论——那只是 main 被并行会话推进的投影；
+  误判成「门禁改写工作树」会白费排障时间。
+- 2026-09-05 R1：broadcast 事件订阅必须先于触发动作——ev 在 group_create 之后才
+  subscribe 必丢 State 事件，表现为 30s 超时假故障；凡「等不到事件」先查订阅点与
+  触发点的先后再怀疑协议。
+- 2026-09-05 R1：测试 helper 抽取不能吞掉时序控制权——「离线制造积压」与「成员重启」
+  封装进同一 helper 后重启先于积压发送，C 根本没离线（acked=2 假象）；时序敏感场景
+  helper 只做无时序装配，关键时刻（关停/重启）留在用例体内按剧本排列。

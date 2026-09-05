@@ -316,3 +316,15 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - (2026-09-04 增补单轮) sonner toastError 有 3s 去重窗口,同文案第二条直接 dismiss 全部 toast:同文件多个用例断言同一失败文案时,第二条改断 store 状态,否则 findByText 超时假红。
 - (2026-09-04 增补单轮) fake-timer 下 mock 回放脚本的时间线要按步长累加算准(含 stop 步),advance 不足会『应答未到达』假红;vi.advanceTimersByTimeAsync 后再断言。
 - (2026-09-04 增补单轮) 行数红线对『会在本轮膨胀的文件』要预算:本轮 acp-connection.test.ts 两轮追加超 300,提交前统一 wc -l 白名单内所有改动文件兜底。
+
+## 2026-09-05 R1 群聊 goutbox 可靠性轮
+- 2026-09-05 R1：回归测试红绿有效性机械验证——fix 与测试同树就绪后
+  git stash push -- <src目录> 只留测试跑红（红点必须正是断言的缺陷行为），
+  stash pop 后跑绿；「测试真的在测缺陷」从口头承诺变成两分钟内可复现的事实。
+- 2026-09-05 R1：时序类断言的确定性判据——#[tokio::test] 默认当前线程调度，被测
+  命令 .await 返回后到断言之间不落任何 await 点，则后台任务（PeerConnected flush
+  等）物理上不可能插队；「命令内完成/紧邻一步送达」类断言全部用同步读盘即可排除竞态。
+- 2026-09-05 R1：run_code 模板字符串含反引号/复杂转义会在解析层直接炸
+  （Expected unicode escape）且整段程序不执行、其中所有已发工具调用全部回滚——
+  大块代码文本搬移用「read 行切片 + write 整写」，长文本一律走 write 工具，
+  不在 JS 串里手拼含转义的代码内容。
