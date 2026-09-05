@@ -255,3 +255,11 @@ _none yet — be the first._
 - 2026-09-05 给跨域共享类型（如 EventStateSlice）加必填字段会编译炸掉并行 PR 域的测试文件（它们不可改）：新增字段做成可选+缺省回退（reduceEvent 内 (state.eventSeq ?? 0)+1），本域测试显式补全，契约语义写进注释。
 - 2026-09-05 冷 worktree 跑 make check（含 cargo 全量冷编 + gui-tauri）>10 分钟，同步等待必撞工具超时：一开始就 run_in_background 落盘日志（make check > /tmp/x.log 2>&1; echo EXIT=$?），job_output 轮询。
 - 2026-09-05 门禁跑批期间不改任何文件是硬规则：先把所有源码改完再起 make check；中途补丁会让该次门禁失去证明力，只能重跑全量。
+- 2026-09-05 UC 会话事故复盘：对共享 append-only 文件跑 git restore 前，必须先
+  git diff 全量核对——主树 lessons.md 里叠着他会话 14 行未提交追加，本次 restore
+  连同抹掉，仅抢救出尾部三行（见下条恢复标记）。教训：只 restore 自己能逐行
+  说清来源的 hunks；外来内容一律先另存再处置。
+- 2026-09-05 恢复记录（自主树未提交残留抢救，原会话请以完整原文重录，本条仅防丢失）：
+  「（Expected unicode escape）且整段程序不执行、其中所有已发工具调用全部回滚——
+  大块代码文本搬移用「read 行切片 + write 整写」，长文本一律走 write 工具，
+  不在 JS 串里手拼含转义的代码内容。」
