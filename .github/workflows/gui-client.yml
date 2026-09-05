@@ -121,13 +121,16 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          key=no; pwd_state=unset
-          [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && key=yes
+          key=no
+          pwd_state=unset
+          # bash -e 安全：禁用裸 [ ] && 赋值（条件为假会中止整步，Windows Git Bash 实证）
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then key=yes; fi
           if [ -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD+x}" ]; then
-            [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ] && pwd_state=nonempty || pwd_state=empty
+            if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then pwd_state=nonempty; else pwd_state=empty; fi
           fi
           echo "key_present=$key" >> "$GITHUB_OUTPUT"
           echo "pwd_state=$pwd_state" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: "①候选命中：TAURI_SIGNING_PRIVATE_KEY 为空——secret 未配置/名字不符/作用域不可见"
         if: steps.sigdiag.outputs.key_present == 'no'
