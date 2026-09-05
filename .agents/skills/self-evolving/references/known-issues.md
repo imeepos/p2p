@@ -316,6 +316,16 @@ failed: early eof（客户端侧超时中止）。
 - 原因：src-tauri 的 Cargo.toml 声明空 [workspace] 脱离根 workspace，根 fmt/clippy/test/panic-hygiene 四门禁与 gui-check（pnpm）都不覆盖它；6c4d882 改 p2p-cli 的 EchoHandler 形状（panic 卫生清零）时无人发现 src-tauri 消费点同步失效。
 - 修法：任何改冻结 crate 公开形状的提交，先 `grep -rn "Sym" apps/gui/src-tauri` 查桥接层消费点（它是 p2p-cli 的 path 依赖方）；给该 crate 建议补一条 `cd apps/gui/src-tauri && cargo clippy -- -D warnings && cargo test` 进 gui.sh 或单独 gate，消除盲区。
 
+## 2026-09-05 PR2：ai-docs-sync 参数机械比对「看不见」clap visible_alias
+- 症状：log 域给 --log-dir 加 `visible_alias = "data-dir"` 后，ai-docs-sync 报「文档参数 --data-dir 实现不存在」，但肉眼 --help 输出里明明有。
+- 原因：该守卫对 Options 段逐行取**首个** `--长参数`（awk match 只取每行第一处）；clap 把 visible_alias 渲染成与主参数同行（`--log-dir <LOG_DIR> ... [alias: --data-dir]`），别名永远不是行首参，提取不到。
+- 修法：别名一律用独立参数声明（两个字段 + 取值函数 `data_dir.or(log_dir)` 定优先级），--help 各占一行即可双向比对；文档参数表同步加行。判据：给参数加别名前先看消费它的机械守卫怎么解析 help。
+
+## 2026-09-05 PR2：run_code 里用 JS 模板串包 bash heredoc 被 `${...}` 插值炸掉
+- 症状：写脚本含 `${BASH_SOURCE[0]}`/`${TMPDIR:-/tmp}` 时 run_code 直接解析报错（Unexpected token），或静默错值。
+- 原因：JS 模板串先于 bash 解释 `${`，`${TMPDIR:-/tmp}` 的 `:-` 直接是 JS 语法错误。
+- 修法：bash/脚本内容用行数组 join("\n") 传 tools.write；行内有单双引号混排时优先 heredoc 但转义 `\${`；写完 bash -n 或 grep 自验再跑。
+
 ## 2026-09-04 在只属于自己 scope 的 worktree 里跑全仓 cargo fmt：13 个历史文件被重排成噪声（GUI 节点资料轮）
 - 症状：后台门禁跑完 `cargo fmt` 后 git status 冒出十几个自己从未碰过的 src-tauri 文件改动，且与并行会话的编辑面冲突风险陡增。
 - 原因：src-tauri 历史提交本就未过 rustfmt（fmt 门禁只管根 workspace），在 src-tauri 目录里跑 `cargo fmt` 会把整个目录重排一遍——「格式化自己」变成了「格式化全目录」。
@@ -324,6 +334,11 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-04 勘误：日志「串址」实为同机多实例共享接口地址（IP 同、端口异）
 - 勘误对象：当日「QUIC 拨号端点只绑 0.0.0.0」分析中的「跨节点串址」论断。复核日志：DZvczj 与 EhUaawMPK 重叠的 3 个地址是 IP 相同、端口不同（/u58245 vs /u64802）——TransportAddr 含端口，二者并非同一地址；系同一物理机跑两个实例（lab 同机多节点部署形态），共享全部接口地址合法，且 macOS 多接口 + 隐私临时 v6 地址本就多达十余个。
 - 教训：判定「串址」必须比对含端口的完整 TransportAddr；共享 IP+异端口优先怀疑同机多实例，再怀疑污染。本轮 false alarm 源于只比对 IP 就下结论。
+
+## 2026-09-04 真机 dsh E2E 探针 initialize 缺 protocolVersion：握手成功仍 SKIP（wave-d1 实测）
+- 症状：real_dsh_handshake_initialize_roundtrip 以 ACP_E2E_REAL_DSH 指向真 dsh（node apps/cli/lib/bin.js --profile acp）运行，握手 ready 正常（ticket 也在），但 initialize 应答是错误而非 result：{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params","data":{"_errors":[],"protocolVersion":{"_errors":["Invalid input: expected number, received undefined"]}}}}，用例按「initialize not answerable on this host」SKIP 收场（test result: ok，非真绿）。
+- 原因：探针发送的 params 仅 {"clientCapabilities":{}}，真 dsh 的 initialize 入参校验（zod）要求 protocolVersion 为 number——桩侧宽容、真机侧严格，缺字段只在真链路暴露。
+- 修法：探针 initialize params 补 protocolVersion（number）重跑；若仍 -32602，按错误 data 的字段级 _errors 逐个对照 dsh 侧 schema 补齐（它已指明缺失字段名）。
 
 ## 2026-09-05 OPS1 内联多行 commit message 的反引号段被命令替换静默吃掉
 - 症状：git commit -m "<多行 message>"（run_code 里 JSON.stringify 内联传参）提交成功，但 message 中反引号包裹段（`cmd | tail`、`p2pctl --json | grep -q`）消失，正文留双空格；提交当场报 bash: cmd: command not found。

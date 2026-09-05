@@ -1,35 +1,15 @@
-//! identity 命令域：对齐 GUI identity_reset。危险操作必须显式 --confirm；
-//! 停运行中节点后删除身份数据目录的 key.seed（不存在视为已重置，语义同 GUI）。
+//! identity reset：停节点 + 删 key.seed（危险操作，语义同 GUI identity_reset）。
 
-use clap::{Args, Subcommand};
 use serde::Serialize;
 
 use crate::error::{CliError, CliResult};
 use crate::lifecycle;
 use crate::node;
-use crate::node::DEFAULT_DATA_DIR;
 use crate::output;
 use crate::paths::Paths;
 use crate::store;
 
-#[derive(Subcommand)]
-pub enum IdentityCommand {
-    /// 重置身份：停节点 + 删除 key.seed；必须显式 --confirm
-    Reset(ResetArgs),
-}
-
-#[derive(Args)]
-pub struct ResetArgs {
-    /// 危险操作确认（缺失即拒绝执行）
-    #[arg(long)]
-    confirm: bool,
-    /// 输出结构化 JSON
-    #[arg(long)]
-    json: bool,
-    /// CLI 数据目录
-    #[arg(long, default_value = DEFAULT_DATA_DIR)]
-    data_dir: String,
-}
+use super::ResetArgs;
 
 /// 重置结论：文本/JSON 共用。
 #[derive(Serialize)]
@@ -41,13 +21,7 @@ struct ResetReport {
     online_after: bool,
 }
 
-pub async fn run(cmd: IdentityCommand) -> CliResult<()> {
-    match cmd {
-        IdentityCommand::Reset(a) => reset(a).await,
-    }
-}
-
-async fn reset(args: ResetArgs) -> CliResult<()> {
+pub(super) async fn reset(args: ResetArgs) -> CliResult<()> {
     if !args.confirm {
         return Err(CliError::Runtime(
             "重置身份是危险操作，必须显式传入 --confirm".into(),
@@ -87,7 +61,7 @@ mod tests {
 
     #[test]
     fn seed_removal_is_idempotent() {
-        let dir = std::env::temp_dir().join(format!("p2pctl-id-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("p2pctl-id-rm-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let seed = dir.join("key.seed");

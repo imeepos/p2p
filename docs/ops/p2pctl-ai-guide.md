@@ -47,8 +47,8 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 |---|---|---|
 | cargo 在 PATH（`$HOME/.cargo/bin`） | 二进制构建（cargo build/clippy/test） | `cargo: command not found`（退出 127）；先 `export PATH=$HOME/.cargo/bin:$PATH` |
 | macOS 屏幕录制授权 | gui screenshot/record、scripts/ops/ui-regression.sh | 退出 1：CAPTURE_PERMISSION_DENIED（HTTP 403），PNG/GIF 不产出；GUI 重编译后 TCC 授权记录可能失效需重新授权（系统设置 > 隐私与安全性 > 屏幕录制），OS 级授权须人完成 |
-| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
-| 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance | 退出 1：节点身份加载失败；offer publish 不代生成身份 |
+| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
+| 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance | 退出 1：节点身份加载失败；offer publish 不代生成身份；正向门面是 p2pctl identity init（幂等，显式创建后即可重试） |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1：超时未送达 status=Pending / 对端身份不符快速失败 status=Failed（均保留本机记录，见 chat send 条目与附录A）；peer 域退出 1 |
 | 节点守护进程运行 | peer connect/disconnect/ping/dial、metrics get 实时值 | 退出 1：连接节点守护进程失败；metrics get 例外：返回全零不报错 |
 | GUI 进程运行 | gui 全域（status/screenshot/record/navigate/invoke/page/action） | 退出 1（控制通道不可达） |
@@ -66,6 +66,10 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 看节点状态 | `p2pctl node status --json` |
 | 启动 / 停止节点 | `node start` / `node stop` |
 | 测连通 / 拨号 / 挂断 | `peer ping <PEER_ID>` / `peer dial "<PEER_ID>@<ADDR>"` / `peer disconnect <PEER_ID>` |
+| 查地址簿与在线态 | `peer list --json` |
+| 查发现缓存 / 邻居（谁在网、地址从哪来） | `discovery list --json` |
+| 查中继会话与水位 | `relay status --json` |
+| 看节点守护进程日志 | `node log tail --lines 100 --json` |
 | 查 / 改配置 | `config get --json` / `config save -`（写，须人确认） |
 | 查 / 改节点资料 | `profile get --json` / `profile save -`（写，须人确认） |
 | 查运行时指标 | `metrics get --json` |
@@ -143,7 +147,7 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 同一份数据。GUI 数据目录（macOS）`~/Library/Application Support/com.p2p.console`，前端
 日志 `~/Library/Logs/com.p2p.console/frontend.log`，均可用 `--gui-data-dir`/`--log-dir` 覆盖。
 
-## 6. 命令面全目录（45 命令）
+## 6. 命令面全目录（49 命令）
 
 条目格式：用途/前置 → 参数表（名称/类型/必填/默认）→ 文本输出例 → --json 输出例。
 类型取值：flag（无值开关）/string/int/path/kv/枚举值说明。尖括号示例为实测采样占位。
@@ -201,6 +205,17 @@ pid=80955
 {"stopped":true,"pid":80955}
 ```
 退出码：未运行时重复 stop 报"未运行"，仍退出 0。
+
+### p2pctl node log tail
+用途：读节点守护进程日志 `<data-dir>/daemon.log` 末尾 N 行（观测只读）。前置：无——文件缺失输出空行集（首启前合法状态），不报错。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --lines | int | 否 | 200（上限 1000） |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：逐行原样输出日志行（守护进程 stderr 落盘内容，含 `p2pctl-daemon: running pid=...` 启动行）。
+--json：`{"path":"<data-dir>/daemon.log","lines":["..."]}` 形态。
+注意：本命令读 daemon.log；GUI 前端日志 frontend.log 属 `log` 域，两路不混。
 
 ### p2pctl chat friends list
 用途：列出全部好友（默认按分组展示，未分组置底）。前置：无（空簿输出"好友簿为空（或该分组无成员）"）。
@@ -567,11 +582,49 @@ p2pctl: 运行失败: 连接节点守护进程失败: No such file or directory 
 | --timeout-ms | int | 否 | 5000 |
 | --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
-文本（成功）：`rtt_ms=<数值>` 形态 key=value 行。
+文本（成功）：`pong from <PEER_ID> rtt_ms=<数值> rtt_us=<数值>` 形态 key=value 行；
+亚毫秒 RTT 以 0.1ms 精度呈现（如 `rtt_ms=0.4 rtt_us=412`），不再恒 0。
 stderr（守护未运行）：
 ```
 p2pctl: 运行失败: 连接节点守护进程失败: No such file or directory (os error 2)
 ```
+
+### p2pctl peer list
+用途：列出地址簿与在线态（守护进程观测注册表只读查询）。前置：节点守护进程运行。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：首行 `total=<N> connected=<M>` 汇总；逐对端一行
+`peer=<PEER_ID> connected=<bool> source=<mdns|rendezvous|manual> lastSeenMs=<ts> firstSeenMs=<ts>`，
+地址行 `addr=<ADDR>` 紧随其后。
+--json：`{"peers":[{"peerId","addrs","source","connected","lastSeenMs","firstSeenMs"}],"total","connected"}` 形态。
+注意：只反映本守护进程启动后的对端痕迹（事件聚合，语义同 GUI 邻居表）。
+
+### p2pctl discovery list
+用途：发现缓存只读查询（邻居与登记地址，口径同 GUI 发现页）。前置：节点守护进程运行。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：首行来源计数 `total=<N> mdns=<A> rendezvous=<B> manual=<C> connected=<D>`，
+逐邻居 `neighbor=<PEER_ID> source=... connected=... lastSeenMs=... firstSeenMs=...` + `addr=` 行。
+--json：`{"neighbors":[...],"stats":{"total","connected","mdns","rendezvous","manual"}}` 形态。
+
+### p2pctl relay status
+用途：中继会话/水位只读快照。前置：节点守护进程运行。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+relaySessionsActive=2 relayReconnects=0 activeConnections=3
+dialPunch ok=1 fail=0
+dialRelay ok=0 fail=2
+relayAddr=43.240.223.138/u3403
+```
+--json：`{"relaySessionsActive","relayReconnects","activeConnections","dialPunchOk","dialPunchFail","dialRelayOk","dialRelayFail","relayAddrs"}` 形态。
 
 ### p2pctl gui status
 用途：查询运行中 GUI 的状态（版本/窗口/当前路由）。前置：GUI 进程运行。
@@ -716,6 +769,47 @@ actions=3
 --json：同源结构化 {requestId,result}（result 即动作返回值原样）。
 退出码：非当前页 → 1（结构化错误含「gui navigate <页面>」指引）；危险动作缺 confirm=true → 1（ACTION_CONFIRM_REQUIRED 透传）；动作不存在 → 1（ACTION_NOT_FOUND，含可用动作清单）；页面名非法 → 1（PAGE_NOT_FOUND，含可用页清单）；前端未回执 → 1（PAGE_TIMEOUT）。
 
+### p2pctl identity init
+用途：显式创建本机节点身份（node 域，<data-dir>/p2p-data/key.seed，文件 0600、目录 0700）。幂等：身份已存在时输出既有身份并退出 0，不重建。前置：无（新目录可作首命令，替代借道 node start/chat serve 造身份的旧路径）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本（首建）：
+```
+身份已创建 peer=<peerId>
+seed=<data-dir>/p2p-data/key.seed
+pubkey=<公钥 base58>
+mode=0600
+```
+文本（幂等重入）：首行变为「身份已存在 peer=<peerId>」，其余同上。
+--json：
+```
+{"created":true,"peerId":"…","publicKey":"…","seedPath":"…","mode":"0600"}
+```
+退出码：成功（含幂等重入）→ 0；种子创建/加载失败 → 1。
+
+### p2pctl identity show
+用途：只读查看本机身份（node|chat 双身份），输出 peerId 与公钥。不起进程、不占 identity.lock，节点/聊天运行中可安全调用。前置：目标域身份已存在（缺失退出 1，不代生成）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --domain | enum(node\|chat) | 否 | node |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+domain=node
+peer=<peerId>
+pubkey=<公钥 base58>
+seed=<种子路径>
+```
+双根：node=<data-dir>/p2p-data/key.seed（守护身份）；chat=<data-dir>/key.seed（聊天身份，同 chat serve 首行输出的 peerId）。
+--json：
+```
+{"domain":"node","peerId":"…","publicKey":"…","seedPath":"…"}
+```
+退出码：成功 → 0；目标域身份不存在 → 1；种子加载失败 → 1。
+
 ### p2pctl identity reset
 用途：重置身份：停节点 + 删除 key.seed，不可逆。前置：无；红线见 §4。
 | 参数 | 类型 | 必填 | 默认 |
@@ -740,6 +834,7 @@ p2pctl: 运行失败: 重置身份是危险操作，必须显式传入 --confirm
 |---|---|---|---|
 | --json | flag | 否 | off |
 | --log-dir | path | 否 | GUI 日志目录 |
+| --data-dir | path | 否 | 无（同 --log-dir 的别名；同时给出时优先于 --log-dir） |
 | --lines | int | 否 | 200（上限 1000） |
 文本：逐行原样输出日志 JSONL 行。
 ```
@@ -756,6 +851,7 @@ p2pctl: 运行失败: 重置身份是危险操作，必须显式传入 --confirm
 |---|---|---|---|
 | --json | flag | 否 | off |
 | --log-dir | path | 否 | GUI 日志目录 |
+| --data-dir | path | 否 | 无（同 --log-dir 的别名；同时给出时优先于 --log-dir） |
 文本：
 ```
 /Users/imeepos/Library/Logs/com.p2p.console/frontend.log
@@ -768,6 +864,7 @@ p2pctl: 运行失败: 重置身份是危险操作，必须显式传入 --confirm
 |---|---|---|---|
 | --json | flag | 否 | off |
 | --log-dir | path | 否 | GUI 日志目录 |
+| --data-dir | path | 否 | 无（同 --log-dir 的别名；同时给出时优先于 --log-dir） |
 文本：
 ```
 已清理前端日志 current=true rotated=false path=<log-dir>/frontend.log
@@ -1031,12 +1128,13 @@ lender=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk  period=2026-09  lent_out=40
 退出码：身份缺失 → 1；流水文件损坏 → 1；本机未参与任何流水 → 正常输出空 rows。
 
 ### p2pctl llm-share receipt verify
-用途：指定收据文件离线 Ed25519 验签（§5.1，MVP A3）：先校验公钥与 lender PeerId 绑定（PeerId = sha256(pubkey)），再验规范化 payload 签名；任何字段篡改必 FAIL。出借方公钥取自其 offer 信封 pubkey 字段（base58）。
+用途：指定收据文件离线 Ed25519 验签（§5.1，MVP A3）：先校验公钥与 lender PeerId 绑定（PeerId = sha256(pubkey)），再验规范化 payload 签名；任何字段篡改必 FAIL。--pubkey 缺省读本机节点身份公钥（与 offer publish 签名同根）；显式给出时取其 offer 信封 pubkey 字段（base58）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | <PATH> | 位置参数 path（收据文件，§5.1 wire JSON） | 是 | —— |
-| --pubkey | string（出借方公钥 base58，32 字节） | 是 | —— |
+| --pubkey | string（出借方公钥 base58，32 字节） | 否 | 本机节点身份公钥（<data-dir>/p2p-data/key.seed） |
 | --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
 文本（PASS）：
 ```
 verdict=PASS
@@ -1057,7 +1155,7 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 （req_id/period/lender/borrower/model/usage/estimated/ts 各行同 PASS 形态）
 ```
 --json：同字段 camelCase（verdict/reason/reqId/period/lender/borrower/model/input/output/estimated/ts）。
-退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1。
+退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1；缺省 --pubkey 且本机身份未初始化 → 1（含 identity init 指引）。
 ### p2pctl group create
 用途：建群。校验成员 ⊆ 好友簿、≤32、不含本机；群名 trim 后 1..=64 字符。建群后对每个初始成员推 roster（成员离线经 goutbox 补投，命令不失败）。
 | 参数 | 类型 | 必填 | 默认 |

@@ -143,16 +143,18 @@ pub async fn ping(node: &Node, peer_id: &str, timeout_ms: u64) -> Result<Value, 
             },
         }
     };
+    // F13：毫秒整数会吞掉本机回环的亚毫秒 RTT（恒 0），响应附 rttMicros。
+    let micros = elapsed_us(started);
     let outcome = match reply {
         Ok(data) if data == p2p_cli::echo::PING_PAYLOAD => PingOutcome {
             ok: true,
-            rtt_ms: Some(elapsed_ms(started)),
+            rtt_ms: Some(micros / 1000),
             hops,
             error: None,
         },
         Ok(data) => PingOutcome {
             ok: false,
-            rtt_ms: Some(elapsed_ms(started)),
+            rtt_ms: Some(micros / 1000),
             hops,
             error: Some(format!("echo 应答与请求不符（实得 {} 字节）", data.len())),
         },
@@ -163,11 +165,57 @@ pub async fn ping(node: &Node, peer_id: &str, timeout_ms: u64) -> Result<Value, 
             error: Some(format!("echo 请求失败: {e}")),
         },
     };
-    Ok(serde_json::to_value(&outcome).unwrap_or(Value::Null))
+    let mut value = serde_json::to_value(&outcome).unwrap_or(Value::Null);
+    if let Value::Object(map) = &mut value {
+        map.insert("rttMicros".into(), json!(micros));
+    }
+    Ok(value)
+}
+
+fn elapsed_us(started: Instant) -> u64 {
+    u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX)
 }
 
 fn elapsed_ms(started: Instant) -> u64 {
-    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+    elapsed_us(started) / 1000
+}
+
+/// peer list 事实源（F10）：地址簿全量 + 在线计数。
+pub fn peer_list_json(registry: &crate::observe::PeerRegistry) -> Value {
+    let peers = registry.snapshot();
+    let stats = registry.stats();
+    serde_json::to_value(serde_json::json!({
+        "peers": peers,
+        "total": stats.total,
+        "connected": stats.connected,
+    }))
+    .unwrap_or(Value::Null)
+}
+
+/// discovery list 事实源（F10）：地址缓存全量 + 来源计数（同 GUI 发现页）。
+pub fn discovery_list_json(registry: &crate::observe::PeerRegistry) -> Value {
+    let neighbors = registry.snapshot();
+    let stats = registry.stats();
+    serde_json::to_value(serde_json::json!({
+        "neighbors": neighbors,
+        "stats": stats,
+    }))
+    .unwrap_or(Value::Null)
+}
+
+/// relay status 只读快照（F10）：中继会话/重连水位 + 降级链逐跳统计 + 配置端点。
+pub fn relay_status(node: &Node, config: &crate::types::GuiConfig) -> Result<Value, String> {
+    let m = node.metrics();
+    Ok(json!({
+        "relaySessionsActive": m.relay_sessions_active,
+        "relayReconnects": m.relay_reconnects,
+        "activeConnections": m.active_connections,
+        "dialPunchOk": m.dial_punch_ok,
+        "dialPunchFail": m.dial_punch_fail,
+        "dialRelayOk": m.dial_relay_ok,
+        "dialRelayFail": m.dial_relay_fail,
+        "relayAddrs": config.relay_addrs,
+    }))
 }
 
 /// metrics_get：运行时指标快照（语义同 GUI AppState::metrics 运行分支）。

@@ -212,13 +212,14 @@ _none yet — be the first._
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
+
 - 2026-09-05 PR1 轮：bash 后台启动 serve 的函数不能被 `VAR="$(fn)"` 命令替换
   包裹——子 shell 里 PIDS+=("$!") 只改副本，父 shell 数组恒空，pop 时报 bad
   array subscript；模式是函数内直接改父 shell 数组 + 就绪结果写全局变量带回，
   纯读函数才允许命令替换。
 - 2026-09-05 PR1 轮：bash 生成脚本内容经 JS 模板字符串写入时，脚本里的
   `${...}` 会被 JS 当插值吃掉（parse error Expected ident）；改用逐行数组
-  join("\n") 的普通字符串承载，或全部 `\${` 转义。
+  join 普通字符串承载，或全部转义 `${`。
 - 2026-09-05 PR1 轮：本仓库 chat serve/一次性命令的身份锁要求数据目录已存在，
   mktemp -d 下的子目录直接当 --data-dir 会报「身份被占用…No such file or
   directory」（锁文件建不出来）；E2E 起节点前先 mkdir -p 各 data-dir。
@@ -228,171 +229,14 @@ _none yet — be the first._
 - 2026-09-05 PR1 轮：同一个日志文件不能被两次后台运行复用（第一次残留与第二
   次输出交错假象）；每轮独立文件名或先清空。cargo 增量重链接全部集成测试
   二进制是分钟级操作，改 lib 后的验证优先 cargo test -p <crate> --lib 快筛。
-- 2026-09-05 OPS1：`set -euo pipefail` 不含字面子串 `set -o pipefail`——验收约定是 grep -L 字面审计时整批脚本会被误判缺 pipefail；拆成 set -eu 与 set -o pipefail 两行，语义等价且机械可审计。
-- 2026-09-04 N1：文档与实现的漂移是真实发生的（cli-guide.md §5 曾写 --peer-id/--name，
-  实际 clap 参数是 --peer/--nickname）。凡"命令面/接口面"文档必须配机械同步门禁
-  （实测 --help ↔ 文档双向比对），手写完事必漂。
-- 2026-09-04 N1：合并到 main 的收尾动作（worktree remove / branch -d）做完后立刻
-  复核交付物仍在 main 且 hash 可达——并行会话可能同时推进 main 指针，别拿最后一条
-  log 行当自己的合并提交。
-- 2026-09-04 IM-T48：视觉走查驱动脚本先跑探针模式（单页单断言核对取值层级/选择器/等待策略）再扩全量
-  矩阵——直接上全量脚本，错层 bug 让三轮全量白跑。
-- 2026-09-05 ACP 合并轮：两条并行 lineage（main 侧 §8 架构重构 × 分支侧真机校准修正）冲突时，取
-  前进架构为基底、把语义修正逐条移植成小 edit；老分支"内容已被吸收"的判据链 = 合并前触碰文件级
-  tree-diff 一致 + 合并后语义点抽查 + 全量门禁，而不是合并后逐字树一致——吸收后演化才是常态，
-  逐字比对必然满屏假 DIFF。
-- 2026-09-05 同一测试文件两个 lineage 行为互相矛盾（文本帧 vs 二进制帧）：以真机实测口径为准绳定
-  实现形态，另一侧测试只改解码/时序、保留断言意图；同步 getByTestId 断言遇到合并带来的异步帧队列
-  （Blob 帧要求到达序串行）同理，改 await 不改断言对象。
-- 2026-09-04 IM-T48：mock 环境的状态覆盖上限开工前查清（p2p GUI mock 心跳只连 randomPeerId，好友永不
-  连接、chatSend 无失败路径——delivered/failed/them 气泡在 mock 下不可达），能进 vitest 的状态别指望
-  浏览器走查凑出来。
-- 2026-09-04 IM-T48：对比度/几何这类"离线可算"的证据比运行时截图更硬，但计算脚本必须带锚点自校验
-  （白/黑=21.0、#767676/白=4.54），否则会产出貌似精确的错数字并写进提交信息。
-- 2026-09-04 R1：run_code 里成功的 bash 调用也可能吞掉 stdout（本次 heredoc 写文件与链式命令两次返回空）——写文件/验收后必须独立回读验证（wc/bash -n/grep），空输出既不能当失败也不能当成功证据。
-- 2026-09-04 R1：进程内「两个 Store 实例指向同一数据目录」等价复现跨进程并发写竞态（各自内存态、无共享锁，修复前 B 启动时空簿会整簿覆盖 A）——跨进程丢写类回归先用双实例单测毫秒级锁住，跨进程 E2E 只做终验。
-- 2026-09-04 IM-T50：主树 make check 是并行轮的共享资源，load 40+ 下 vitest 超时与 cargo 子进程竞态都是环境病——先隔离定性再错峰重跑，别对着环境红改代码。
-- 2026-09-04 IM-T50：被协调者通牒/接管时，第一动作是只读核查自己工作区状态并秒回事实清单（已交付提交/未提交面/后台任务），迟到的沉默会被误读成无进展。
-- 2026-09-04 IM-T50：known-issues 登记过的坑（zustand 选择器 `?? []` 快照不稳）写测试时没回忆起来又踩——写涉及 store 的代码前先 grep 一遍 references 再动手。
-
-- 2026-09-05（ACP2 轮）：run_code 的 JS 里嵌大段 Rust/TS 源码用模板字面量会被内容打断——两个假错误（"Expected ',' got ')'"、数组里裸标识符 ReferenceError）排查各耗 20 分钟，与真实 bug 无关。稳法：content 用行数组 + join 换行构造，数组内禁止留占位裸标识符，写完立即 wc -l 核行数。
-- 2026-09-05（ACP2 轮）：并行会话共用 /tmp 撞日志文件名——/tmp/acp-check.log 被并行 ACP3 会话的 cargo 输出整份覆盖，一度误判成自己的构建在编别人的 crate。对策：临时日志一律带卡号/会话号前缀（如 acp2-a2-*.log）。
-- 2026-09-05（ACP2 轮）：DSH 会话重启会 TERM 整个后台任务树，nohup+disown 也逃不掉；长门禁（make check 全量 30 分钟+）对策=按 make 目标分片前台跑（每片 timeoutMs 10 分钟级），cargo/pnpm 增量缓存让被杀重跑只补剩余，各片 EXIT 落日志文件断点续跑。
-- 2026-09-05（ACP2 轮）：make check 十个门禁目标各自幂等可独立跑（gate-tests/version-check/fmt-check/line-limit/clippy/test/gui-check/panic-hygiene/cli-parity/ai-docs-sync），分片全绿等价整跑；重活 clippy/test 靠前次被杀留下的增量缓存，二跑 0.4s/3min 收官。
-- 2026-09-05（ACP2 轮）：git commit -m 的多行 message 经 JSON.stringify 进入 bash 双引号后 \n 是字面反斜杠 n，不换行；多行提交信息一律写临时文件用 -F 传。
-- 2026-09-05（ACP2 轮）：底座契约缺口——p2p ProtocolHandler::handle(stream) 不暴露远端 PeerId，需要 per-peer 鉴权的上层 app（acp-agent）只能订阅 Node 事件维护在线集：恰一 peer 在线才归属、多 peer 歧义 fail-closed 拒绝（session.rs+peers.rs 已实现并测试），待底座流分发层把 peer 传进 handler 后解除；做 ACP4/继续连时别在这个边界上再踩一遍。
-
-- 2026-09-04 IM-T49：rustup 升级（clippy 1.98）会让已合入 main 的存量代码突然门禁红（needless_borrow/suspicious_open_options 新 lint），与在途改动无关——验收红先看报错里的 lint 名与 clippy 版本再定性，零行为机械修复按 IM-T47 先例随当前分支独立 fix 提交并在报告披露。
-- 2026-09-04 IM-T49：残留 worktree 的增强测试拖 17 天不评估，API 已漂移四处（Chat::send 加参/WireEnvelope 加字段/命令加参/端口夹具），适配成本随时间只涨不跌——盘点类清理任务要早办，评估结论本身就是适配点的清单。
-- 2026-09-04 CLI 演练：共享主树多会话并行下，测试会话进行中 main 会漂移（本会话 004b441→ffc0f0d 且中途出了热fix），报告必须锚定「实际构建所用的 commit」并对期间合入的相关修复做同异性辨析，否则缺陷归因张冠李戴。
-- 2026-09-04 CLI 演练：ssh 远端嵌 python 单行做 JSON 解析，双层引号每嵌一层丢一档转义（\"message\" 到远端成 [message]）——远程侧解析用 tail/grep 最简形态，或把解析脚本放本地管道远端只出原始行。
-- 2026-09-04 CLI 演练：IM-T49 已登记的「| tail 吞退出码」在 bash 侧再踩（cargo build | tail 后 $? 取到 tail 的 0 假绿）——构建/发布类命令后判产物存在性与 file 格式才是权威验收。
-- 2026-09-04 GC3：派发大型多文件任务给 dispatch_task 前先拆掉「冷构建」因素（构建单独后台跑、代码产出单独派），600s 墙钟只够纯编辑型工作；超时后先查产物再接管，半成品质量好就接着用，别推倒重写。
-- 2026-09-04 GC3：开工前 git worktree add 要单独一步跑且给足超时，跨步骤复合命令被中断会留下「分支已建、目录半成品、worktree 未注册」的三态脏局面，恢复顺序=删目录→删分支→重来。
-- 2026-09-04 GC3b：vitest 4 的 test options（timeout 等）在第二参 it(name, {timeout}, fn)，放第三参（旧版 number 位置）过不了 tsc；修「负载型假红」时同病守卫要 grep 全库找齐一起治（IPC 守卫修完后 i18n 扫描守卫立刻顶上暴雷），否则验收口径（连续两遍全量）永远凑不齐。
-
-- 2026-09-04 U1：验收命令的调用形态就是测试用例——自测覆盖了 --keep 形态、验收跑无参形态，set -u 一行崩全盘；先读验收命令再反推脚本必须吃下的全部调用形态。
-- 2026-09-04 U1：head -c 8 经 xxd -p 产出 16 个 hex 字符，与 8 字符 magic 常量做全等恒假（60 断言里唯一全崩的一条）；模板里 grep 前缀匹配是有语义的，抄模板要抄语义而不是自创写法。
-- 2026-09-04 U1：链式命令里 cd 失败后续命令在原 cwd 继续跑出假结果（在主树里读出 branch=main 误判 worktree 异常）——链首 set -e 并显式回显 pwd 再做状态判断。
-- 2026-09-04 U1：并行会话活跃仓库里 main 高频前进、worktree 注册可能被他人动过——每个 git 操作后立即验证真实状态，合并前 fetch 反向同步，异象先查 worktree list 与 reflog 归因再动手。
-- 2026-09-04 U1：run_code 模板字符串里内嵌含美元花括号的 bash 内容必炸（TS 插值与 bash 展开双层打架，本日三次 parse error、一次 commit message 吃掉形参）——提交信息走文件加 commit -F，脚本内容避开该写法。
-
-- 2026-09-04 U2（gui-updater 轮）：60s 超时连环杀进程的根因是 ext512 外置卷小文件 I/O 病态慢——clone 30MB 仓库 8m48s、push 本地 1m25s、rm -rf 带 node_modules 的目录必然超时；已知条目只记了「被杀」现象，本轮补根因与对策：重活全部显式 timeoutMs（10 分钟级）或丢 background，主战场搬到内置卷（/tmp）clone。
-- 2026-09-04 U2（gui-updater 轮）：本日两次 worktree add 成功 checkout 后 `.git/worktrees/<name>` 元数据消失（git worktree list 不显示、worktree 内 git 命令报 not a git repository），一次还伴随 checkout 缺整个 crates/ 目录；同仓库其他会话的老 worktree 完好，疑与并行会话 git 操作/外置卷异常叠加有关。对策：worktree 创建后立即 `git worktree list` 验证；元数据消失时只清目录+prune，绝不在残骸上继续干活。
-- 2026-09-04 U3（gate-braces 轮）：分析时刚写出「模板串里 ${ 会插值」的警告，下一步自己仍用模板字面量嵌修复脚本，当场 ReferenceError——识别出转义风险的那一刻就切换写法（行数组/write 工具），不要让惯用模板串活到下一行代码；另：grep 命中按行报告，一行多处 `$var` 会漏数（本次 15 行实为 16 处），替换后必须用同一正则复查清零兜底。
-
-- 2026-09-04 U1：端点就绪 ≠ webview 桥就绪——tauri 控制端点先写、React 桥后安装，重载下差几十秒；就绪探针语义必须是「桥有应答」而非「命令退出 0」：初始路由 dashboard 未注册属合法应答（exit 1 + PAGE_NOT_REGISTERED），只有 PAGE_TIMEOUT 才是桥没起来。判「命令成功」会让就绪环永不满足。
-- 2026-09-04 U1：脚本里 kill 后台子进程后，其信号终止状态可经异步 reap 泄进脚本退出码（绿灯运行被调用方 && 链误断）——disown + cleanup 内显式 wait 归零 + 成功路径显式 exit 0，三板斧跨 bash 版本确定。
-- 2026-09-04 U1：并行会话会扫提交主树未跟踪文件——主树里的 scratch 测试副本（ui-regression-scratch.sh）被顺手指令提交入库（c92d983）；测试副本要么放 /tmp 要么用完立刻删，主树留过夜就会被别人"帮忙"入库。
-- 2026-09-04 U1：tauri custom-protocol 构建把前端 dist 嵌进二进制——pnpm build（先清空 dist）与 cargo build 并发时，嵌进去的可能是空/半成品 dist，症状=webview 加载空页、页面桥永不安装且无任何报错；修法=重跑 cargo build --features custom-protocol 重嵌。诊断入口：~/Library/Logs/com.p2p.console/{p2p-console,frontend}.log（应用日志不走 stdout，脚本里 tail gui.log 常为空）。
-- 2026-09-04 U1：回归脚本的就绪/探针类修复要与并行会话的同类分支对齐格式（同文本改动 git 自动合流）——动手前先 grep 别人未合并分支对同一文件的改动。
-- 2026-09-04 R7：rsync 目录到远端构建机必须 --exclude target——漏排一次就把本机 Mach-O 盖掉远端 ELF，且 rsync -a 保 mtime 让 cargo 误判最新不重编（真机回归两次被坑，判据=file 格式而非存在性）。
-- 2026-09-04 R7：测试辅助函数返回 Future（如 wait_until 调用方需 .await）时，漏 await 不报错只降级为「断言永远即时通过」——失败行号指到无关断言，先 grep 编译警告 unused Future 再读断言。
-- 2026-09-04 R7：Copy 类型（PeerId）逐字段改造时 clippy clone_on_copy 会连环冒出——改签名前先查类型是否 Copy，一次改净。
-- 2026-09-05 T19：homebrew bash 5.3.9 起 `$var（`（变量名紧邻多字节字符）展开会把首字节并入变量名（f\357），set -u 直接 unbound variable；/bin/bash 3.2 无此行为——验收命令 PATH 前置 /opt/homebrew/bin 时 make 配方里的 `bash` 解析到 5.3.9，同脚本两个 bash 版本行为分歧先查 `which bash`。门禁/脚本里 `$var` 紧邻非 ASCII 一律写 `${var}`（version.sh 缺文件路径、FAIL 分支文案全是雷区）。
-- 2026-09-05 T19：cli-parity 门禁 `if [ ! -x p2pctl ]` 惰性构建 + 验收命令全局 CARGO_TARGET_DIR → 产物落 /tmp 而脚本找 apps/cli/target（空则当场崩）；且存在旧二进制时无条件信任——陈旧二进制把另一波漏更文档的登记债整个掩盖（TSV 新行 + 旧二进制 = 假绿，删二进制才显形）。接手共享门禁前先查 `ls -la apps/cli/target/debug/p2pctl` 的时间戳对不对得上当前源。
-- 2026-09-05 ACP5：验收 && 链中「cmd | tail N」的退出码取 tail 恒 0，遮蔽上游失败（本轮 clippy 假绿：INNER=0 但 CLIPPY_EXIT=101）；写验收链改用 PIPESTATUS 或拆步判定，复核旧日志 grep build failed/error 残留。
-- 2026-09-05 ACP3：开工前必读清单要含 skill references 的「当日条目」——worktree 被并行 prune/超时杀 checkout 的坑当日已有两条同族记录，先读能省两轮重建；把与本卡操作同形的条目（worktree/长构建/转义写文件）过一遍再动手。
-- 2026-09-05 ACP3：验收门禁红灯先做「域归属三步定性」——git diff origin/main HEAD --stat 看红灯域文件是否在自己 diff 里、查红灯读的输入是源码还是工作树陈旧产物、隔离复跑最小面；三步都干净就原样上报协调者，不代修邻域（并行会话可能正在改同一处）。
-- 2026-09-05 ACP3：对下游不可见的传输语义（EOF/半关闭/窗口更新时机）要在设计评审时就写探针用例锁行为——yamux 批量窗口更新饿死写侧是集成测试随机挂死才暴露的，探针前置能把 3 小时定位压成 10 分钟；且探针纠偏过一次源码静读的误判（半关闭其实可用）。
-
-- 2026-09-05 ACP4：tokio 单任务要同时 select 多个流又要在分支里 &mut self：把 select 收敛到一个 next_event 辅助函数（只借 receiver），分支体再借 self，借用冲突自然消失；跨模块拆 impl 时子模块可访问父模块私有字段。
-- 2026-09-05 ACP4：集成测试无限挂死的标准排查——先 pkill 全家（cargo/测试二进制/桩进程），再逐测跑 + 后台任务落盘状态文件（START/END/rc+时间戳），挂点一目了然；整包 600s 超时跑只会烧时间。
-- 2026-09-05 ACP4：测试断言失败先用探针对照真实值再定性——本轮监狱目录断言拿错 peer（桥是对的）、replay 后撞上 initialize 回声行（合法透传）都是断言错；但真正的桥缺陷（代答缺换行、早期行真空期丢失）也伪装成测试挂死，两者必须靠探针证据区分。
-- 2026-09-05 G2：agent bash 通道里多行 shell（heredoc/跨行引号串）高频翻车（本轮两次 syntax error）——git 提交信息的稳法是 tools.write 临时片段 + git commit -F 片段 + rm；「多行命令用 join(' && ') 拼接」会把 heredoc 体逐行粘上 && 直接报废，长命令一律拆步或落文件。
-- 2026-09-05 G2：长任务期间主树会漂移（本轮开工 fetch 时 main=895c3a4，收尾已到 c1ade46，58 文件含 GUI 与 scripts/check 本身）——开工 fetch 不够，收尾四步前必须重查 main；ff-only 失败走「worktree rebase main → force-with-lease 推分支 → make check 全量重跑（门禁脚本变了旧绿不算数）」，无文件重叠的 rebase 十秒内完成，别怕。
-- 2026-09-05 G2：给 NodeEventJson 判别联合加事件类型的全部下游落点清单——event-meta.ts 的 BADGE_VARIANT 与 EVENT_TYPE_KEY 两张 Record<NodeEventType,…> 表 + eventSummary switch + lib/event-text.ts 的 describeNodeEvent switch + 双 locale 的 events.types/events.summary 子树；漏一处 tsc/gui 门禁就红，按清单逐点补齐再跑门禁。
-- 2026-09-05 G2：react-hooks/set-state-in-effect 门禁下视图初始取数的仓库既定写法是「const load = useCallback(() => { ipc.x().then(setState).catch(收尾) }, [])」+ effect 直接 load()；async 函数体内 setState 再在 effect 里 void 调用会被新规则拦（diagnostics-view.tsx 注释即此 idiom 的权威示例）。
-- 2026-09-05 G2：测试文件同样受 300 行纪律（存量 310/314 不构成豁免）——mock 单例测试拆文件时事件收集器必须带 reset() 并在 beforeEach 调用，否则同文件用例间事件计数互相污染（本轮 3 个假红全源于此）；拆分是纯 test refactor 单独成提交。
-- 2026-09-04 AI 试运行：文档驱动操作撞上「两套身份」类系统时，把每次失败报错当拓扑探针用——Failed(快速) vs Pending(超时) 的差异本身就指明对端身份不符还是网络不通。
-- 2026-09-04 run_code：bash 惯用法写进 JS 模板串必须转义美元花括号（PIPESTATUS 被 JS 当插值求值直接 ReferenceError），含反引号的内容更要用数组 join + heredoc 落盘。
-- 2026-09-04 ACP6b：run_code 给 tools.write 传整文件内容时模板字符串可能炸出莫名 lexing error（Expected ',', got ';'），与内容里反引号/插值无关——单引号行数组 + join("\n") 是稳态（191 行中文协议文件一次通过）。
-- 2026-09-04 ACP6b：异步回放面的断言 helper（取 mock 权限请求 id、等能力卡出现）必须内部 waitFor，同步取值比帧到达早半拍直接空引用；helper 返回 Promise 让调用方 await，别为了调用简洁做同步版。
-- 2026-09-05：给被大量既有测试裸渲染的视图加 useNavigate，会把所有无 Router 包裹的旧测试一次性打崩（G3 一加 79 失败）；App 根是 HashRouter 时改 window.location.hash 跳转零测试改动，新路由测试也用 HashRouter + window.location.hash 驱动。
-- 2026-09-05：zustand 页面接第二个 store 订阅同一 ipc 事件总线后，既有测试的 onNodeEvent 替身若写「handler = current」单槽会顶掉前者、chat_message 断言全超时；替身必须改数组 push + 循环投递（真实事件总线一对多），且数组不许 beforeEach 清空——store 订阅有模块级 latch，清空后后续测试无人收事件。
-- 2026-09-05：eslint react-refresh/only-export-components 禁止 .tsx 组件文件同导出纯函数（G3 在 group-list.tsx 导出 orderedGroups 被红）；纯函数下沉同名 .ts。react-hooks v7 的 set-state-in-effect 禁 effect 内同步 setState——面板类组件用「open 才挂载」的父级条件渲染替代打开时重置状态。
-- 2026-09-05：vitest 的 vi.fn<T>() 泛型参数个数必须与 mockImplementation 实参个数一致（tsc TS2345）；带参 mock 声明写成 vi.fn<(groupId: string, memberId: string) => Promise<R>>()。
-- 2026-09-05：断言用 getAllByTestId(/^prefix-.+$/) 正则会把容器 testid（group-member-panel/group-member-list）一并匹配导致假红；正则按值域字符集收窄（base58 无 l/i 恰好排除 panel/list）或行级 testid 用独立前缀。
-- 2026-09-05：GUI 单群操作无契约命令时（v1 无 group_disband），用已有 owner-only 原语组合出操作面（逐个 groupKick 全员=解散入口）并在确认文案明示语义降级，交接报告单列遗留——比留死按钮更利于后续契约加法时切换。
-- 2026-09-04 G1：pub(crate) 类型不能 pub use 出 crate（E0365）——契约模型要跨 crate 消费就直接声明 pub，别先 pub(crate) 再 re-export。
-- 2026-09-04 G1：300 行红线 + rustfmt max_width=100 下，链式调用/多参签名按 fmt 后行数计预算（fmt 展开动辄 +30%）；跨模块 `impl 同crate类型` 是合规分文件手段，文件头注明"行数红线再平衡"。
-- 2026-09-04 G1：并行会话高频合入 main 时 ff-only 失败是常态——rebase → 重跑 clippy+line-limit+定向测试 → 立即重试，整套动作一分钟内连惯做完，拖久了又漂。
-- 2026-09-05：当 crates.io 依赖凭记忆写小版本号时，修复是先查 sparse index 真实版本列表——`yrs = "0.6"` 解析到 2021 年远古 API（PrelimMap/Transaction 单数形态），现代 yrs 是 0.27+（TransactionMut/ReadTxn trait 形态），API 完全对不上。
-- 2026-09-05：当 E2E 断言「脚本末行 == OK 标记」时，修复是 grep 标记而不是 tail -1——trap 清理函数在 OK 行之后还会输出 Terminated 等系统噪声，tail 会误报。
-- 2026-09-05：当分支合并期间 main 被并行会话连续推进导致 ff-only 反复失败时，修复是「fetch → merge main → 跑门禁 → push → 立刻重试 ff」紧凑循环，把竞态窗口压到秒级；ff 失败不删 worktree，commit 始终安全在分支 ref 上。
-- 2026-09-05：当接手任务发现验收脚本在 main 上本来就红（别的波次合并了新裁决没跑该脚本）时，修复是先在 main 复现确认存量、再按「断言语义不弱化」适配新语义并把适配写进提交正文，避免误判为自己改坏。
-- 2026-09-05 G4 重复派单：任务书对 worktree 的预设（「他人遗留零提交空 worktree」）必须实证再动手——mtime 新鲜度 + reflog + 存活进程三查在 90 秒内证伪预设（group.rs 实时编辑 + group_contract 编译指纹 + 90 秒前的 git reset），立即停手让位避免双写事故；归属不明先 session_link 逐会话问询核销。
-- 2026-09-05 G4 接管：git status 陈旧 stat 缓存会漏报整个脏文件集（33 文件 796 行漂移首次 status 只见 1 个 untracked，merge 写索引后才显形）；接管 worktree 先 git diff HEAD --stat 强制重哈希再信状态。
-- 2026-09-05 G4 审计：判定大 diff 是否纯 fmt——git show <c> -- <paths> 删除/新增两侧行去空白后 sort|uniq -c 比对 token 多集，逐对可配对即零语义（rustfmt 换行/尾逗号/match 臂加括号会让 -w 的 --stat 仍有行数差，别被吓住）。
-- 2026-09-05 G4 收尾：重复派单撞车时「以 main 合入状态为准」——授权接管的瞬间执行者可能恰好收尾完（本次 rebase 时 fmt/clippy 修复笔被 git 自动丢弃 "patch contents already upstream"），rebase 的自动去重就是最干净的冲突裁决。
-- 2026-09-05 fmt 口径漂移跨会话传播：某会话合 main 未跑 cargo fmt --all --check，rustfmt 版本口径差堵死下游 G4/G5 两道 fmt 门禁；合 main 前必跑 fmt --check，撞墙方用「零语义 style 提交」在 feature 侧代修是既定解（rebase 同字节补丁自动去重，零冲突）。
-
-## 2026-09-05 邀请制加好友会话
-- 工具链转义洋葱：write/edit 的内容经 harness 会吃一层反斜杠（\" 变 "、\\n 变真换行），
-  含转义序列的代码补丁一律改走 node fs 直写或 bash heredoc（chr 拼接最稳），失败 5+ 次的教训。
-- python 生成 bash 脚本时，脚本内禁止 ${、反引号、反斜杠序列（awk 切分替代 %% 切分，
-  python -c JSON 断言替代嵌套引号 grep），否则 JS/py/bash 三层转义无法对齐。
-- D6 身份互斥实证：serve 常驻 + 同 data-dir 一次性命令并行，同 peerId 第二次拨号必败
-  （对端半开残留）；CLI e2e 编排必须轮转持锁 + 固定 --quic-port 保地址稳定。
-- 竞态修复模式：挂起重投（PeerConnected 触发）与用户操作（同意/拒绝）竞态，
-  用持久化 delivered 标记 + 锁内复查双保险，单靠时序等待是假修复。
-- bottom-up 验收顺序正确性：crate 集成测试（6/6）先绿再写 CLI e2e，能把协议缺陷
-  与编排缺陷干净分离；本次编排错误三次险些误判为协议缺陷。
-- 2026-09-05 G6：接单先全仓 grep 任务关键词做存量盘点再动手——G6 的"补 group_disband"
-  大半已被 G4/G5 顺手实现（核心命令/src-tauri 接线/cli/parity/guide 全在），真缺口只剩
-  GUI 前端命令面与契约表行；先盘点避免了重复实现与跨会话双写，改动面从"五层"缩到实需。
-- 2026-09-05 G6：后台管道 `make check | tail` 会吞退出码（tail 恒 0，job 显示 completed
-  不代表 make 成功）；判长门禁过没过要核"是否走到了最后一个 target 并打出 OK 标记"
-  （Makefile 依赖链默认首错即停，末关 AI-DOCS-OK 在场即全绿）。
-
-- [ACP-P2 页面打磨轮] run_code 内嵌 tools.bash 每次调用必须带 description 字段，漏传直接 bindingFailure（本轮浪费 2 次调用）；bash 的 workdir 不传时默认落主树工作区——并行 worktree 轮里在 worktree 内验收务必显式传 workdir，否则 grep/测试会静默读到主树旧代码（本轮 E 项清单因此重跑 2 次）。
-
-- 2026-09-05 R2 群聊打磨轮：任务书里的文件路径先验存在再动手——任务书写
-  crates/p2p-itest/tests/smoke.rs，实际文件在 apps/gui/src-tauri/tests/smoke.rs
-  （缺陷源 ISSUE.md 自身写「src-tauri 测试域」）；read 报 not found 后第一动作是
-  glob 全仓找同名文件，不是按任务书路径硬改。
-- 2026-09-05 R2：apps/cli、apps/gui/src-tauri 是独立 cargo 项目（Cargo.toml 声明
-  空 [workspace] 脱离根 workspace），根目录 cargo test -p <pkg> 报 did not match
-  any packages——必须进目录跑 cargo test；同理根 fmt/clippy 门禁不覆盖它们，
-  在独立项目里跑 cargo fmt 会把存量格式漂移一并改掉，须 git checkout --
-  无关文件保住提交原子性。
-- 2026-09-05 R2：接手验收先跑一次现状测试，把「存量红」与「自己引入的红」
-  分开——本轮 apps/cli tests 在 main 上就编译红（8d33eb9 改 InviteReport 类型
-  没同步测试 fixture），独立 fix 提交解锁验收，不混进本轮 feature 提交。
-
-- (2026-09-04 ACP-P1 流程打磨) 开始时 `git status -sb` 无 ahead 标记不等于安全:并行会话在你看代码的几分钟里就可能把 main 推进 12 个提交。ff-only 前重新 fetch+核对,红了按纪律回 feature 侧 `git merge main` 消化,本次零冲突通过。
-
-## 2026-09-05 R1 群聊 goutbox 可靠性轮
-- 2026-09-05 R1：并行会话共写仓库时本地 main 是移动靶，ff-only 失败是常态不是事故——
-  标准动作：worktree 内 rebase main → git diff <旧基> main -- <本域路径> 增量为零则
-  既有门禁结果继续有效 → push --force-with-lease → 主树立即重试 ff-only。
-  本轮 1 小时内 main 两次前进（a5a1bea→b86cee0→ccb7cd7），均按此收敛，零丢失。
-- 2026-09-05 R1：worktree 里 git diff main --stat 冒出巨量无关文件 ≠ 工作树被污染，
-  先 rev-parse main 对比开工基点再下结论——那只是 main 被并行会话推进的投影；
-  误判成「门禁改写工作树」会白费排障时间。
-- 2026-09-05 R1：broadcast 事件订阅必须先于触发动作——ev 在 group_create 之后才
-  subscribe 必丢 State 事件，表现为 30s 超时假故障；凡「等不到事件」先查订阅点与
-  触发点的先后再怀疑协议。
-- 2026-09-05 R1：测试 helper 抽取不能吞掉时序控制权——「离线制造积压」与「成员重启」
-  封装进同一 helper 后重启先于积压发送，C 根本没离线（acked=2 假象）；时序敏感场景
-  helper 只做无时序装配，关键时刻（关停/重启）留在用例体内按剧本排列。
-
-- 2026-09-05 ACP-P3：测试 mock 里造「网络不可达」别用 `Promise.reject(...)` 当返回值——
-  被拒 promise 无人 await 会挂成 unhandled rejection，vitest 用例全绿但退出码 1（门禁假红）；
-  用字符串哨兵（如 "throw"）让 mock 体内显式 throw。
-- 2026-09-05 ACP-P3：stub WS 工厂想桥化服务器行为（如 ready 后推通知），不能在工厂返回时
-  包装 onopen——客户端拿到 socket 之后才挂处理器，会把你包的 handler 整个覆盖；
-  劫持 send（客户端首条消息到达即触发）既不被覆盖又更贴近桥的真实时序。
-- 2026-09-05 ACP-P3：接手「断链路」类任务先追数据流的每一跳（桥签发票据→console 落盘→
-  HTTP 暴露→GUI 携回），断裂点可能在离需求描述最远的一跳——本轮需求书写的是「GUI 不带票据」，
-  实际 console 落盘的 ticket 就是错的（自生成 conn 而非桥签发票据），只改 GUI 等于白改。
-
-- 2026-09-05：协调轮误判「会话未动工」——看到无 worktree、无分支就催办，实际对方早已走完收尾四步（分支删净正是完工的样子）。无 worktree/分支在「没开始」与「已收尾」两态长得一模一样，判定前必须先 git log --grep 或 merge-base 查产物在不在 main 祖先链；「dispatch 超时 ≠ 任务死亡 接管前先查产物」的完整读法：查产物查 main 日志，不是查 worktree。
-- 2026-09-05 ACP-P3 收尾轮：透过 bash 工具嵌 python heredoc 时，外层 TS 模板字符串先吃掉 \n——python 里要字面反斜杠 n 必须写 \\n，否则 SyntaxError 白跑一轮（EOL while scanning string literal）。
-- 2026-09-05 ACP-P3 收尾轮：改共享账本前先 git status 看脏 + 语义 diff 对 HEAD——本轮工作树里 D1/OPS1 是协调会话的既有未提交编辑，若不核对就会误报成自己改丢/改多了东西。
-- 2026-09-05 ACP-P3 收尾轮：任务卡写死的 worktree 路径可能已合并删除——先 git worktree list 再定位代码实际所在（本次 ACP worktree 已并入 main f864159，测试在主树）。
-- 2026-09-05：run_code 里给 write/write 传含反引号的 markdown 内容别用模板串裸嵌（` 转义链一断就 Expected ',', got ';'）；用行数组 join("\n") 或 bash heredoc(quoted delimiter) 落盘，长文档一律如此。
-- 2026-09-05：试用/派发类任务的清理路径开工前先设计：pkill 按数据目录前缀匹配 + 逐个 node stop，收尾打印"残留进程: N"留证据；本轮 /tmp/persona-trial 清零，且发现同机其他 checkout（p2p-invite）6 个泄漏 serve，巡检应覆盖多 checkout。
-- 2026-09-05：管道后 echo exit=$? 测的是管道尾（head 等）不是目标命令，本轮自己又踩（正是 OPS1 主题）；要拿真实退出码就把 stdout 落文件再单独跑 grep，或 set -o pipefail。
-- 2026-09-05：发现"输出丢失"类缺陷靠字节级断言（cat -A / 文件 0 字节 + exit 0 + 副作用已发生），肉眼看终端永远看不出重定向差异；node start --json 丢输出就是这么抓到的。
-- 2026-09-05：给并行子会话派任务书一次写全五件套：需求逐条/文件域互斥清单/验收命令(退出码语义)/合并序(注册表冲突消化方)/停等纪律；本轮 PR1-PR3 三会话并行靠这个把 cli.rs 冲突风险前置消解。
+- 2026-09-05：git commit 提交的是整个暂存区，不是刚 add 的路径——soft reset 重做
+  提交序列时，`git add <path> && git commit` 会把 index 里所有遗留暂存卷进一个
+  巨石提交。修法：要么 commit 用 pathspec 形式 `git commit -m msg -- <paths>`
+  （按工作区状态只提交指定路径），要么提交前 git status 确认暂存区干净。
+- 2026-09-05：对独立 cargo workspace 的子包（apps/cli 有自己的 [workspace]）跑
+  `cargo fmt --manifest-path` 会把包内他域文件的存量格式漂移一并重写（根 fmt
+  门禁只扫根 workspace，漂移因此长期潜伏）；会凭空造出他域文件 diff，撞并行 PR
+  的冲突面。fmt 后必须 git status 核对，非本任务文件一律 checkout -- 回退。
+- 2026-09-05：run_code 模板串里生成 JS/TS 代码时，行尾续行反斜杠与换行转义需要
+  双重转义层级心算，很容易造出合法 TS 但非法目标语言的序列；写完立刻跑一次
+  目标脚本冒烟（--help 级别即可），本次靠冒烟 30 秒内抓住语法错。
