@@ -21,6 +21,22 @@
 
 ---
 
+## DSH session_link_list 在 run_code 内绑定必败（2026-09-05 persona 轮发现）
+
+- **症状**：run_code 内调用 `session_link_list`（无论传 `{}` 还是无参）一律报 `binding arguments must be lossless JSON`；session_link_talk/collect/create/send 同会话均正常。协调者被迫改用 git 探针（worktree/ls-remote）判断子会话进度。
+- **期望**：修复该工具在 run_code SDK 层的参数序列化；或文档明示只能直调。
+
+## DSH workspace_session_manage 单会话归档返回全工作区归档清单（2026-09-05 persona 轮发现，不可逆事故）
+
+- **症状**：`archiveSession` 传单 sessionId（PR2 会话 b920c195），响应 `archivedSessionIds` 却返回 300+ 条——本工作区几乎全部历史会话被批量归档（含 E10/RS/IM 等历任协调会话）；第二次对 PR3 会话调用返回 387 条。按工具文档单会话形态只应归档一个。
+- **影响**：归档不可逆（宿主无取消归档），其他协调线的历史会话被隐藏；幸运的是运行中的 PR1/PR3 会话与调用方自身未被归档。
+- **期望**：查宿主实现是否把单 sessionId 误当过滤条件反向批量归档；修复前其他协调者慎用该工具。
+
+## DSH session_link_collect 对运行中目标拒收 claimToken（2026-09-05 persona 轮发现）
+
+- **症状**：talk 超时拿到 claimToken 后立刻 collect，报「会话历史中找不到该凭证对应的己方消息」；目标会话结束当前轮次后同一 token 即可正常收取。疑似运行中会话的消息历史未实时落盘。
+- **期望**：文档补充「collect 仅在目标完成当前轮次后可用」，或实现运行中历史可读。
+
 ## p2pctl-ai-guide.md 操作性缺口（2026-09-04 AI 试运行发现，详情 docs/notes/ai-pilot-findings.md）
 
 - **信息缺失**：无「两节点聊天最小拓扑」章节——chat 收发用 chat 身份（chat serve 输出）而非守护身份、接收方须 chat serve 常驻、friends add --addr 格式，均需试错才能拼出（§1.3 只陈述现象）。
