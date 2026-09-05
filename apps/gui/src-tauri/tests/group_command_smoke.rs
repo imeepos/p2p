@@ -93,7 +93,9 @@ async fn group_create_and_send_loopback_delivery() {
     chat_invite_accept(state_b.clone(), peer_a.clone(), "A".into())
         .await
         .expect("B 同意来邀");
-    let invites_b = chat_invites_list(state_b.clone()).await.expect("B 邀请列表");
+    let invites_b = chat_invites_list(state_b.clone())
+        .await
+        .expect("B 邀请列表");
     assert!(invites_b.iter().all(|i| i.peer_id != peer_a));
     let group = group_create(state_a.clone(), "项目群".into(), vec![peer_b.clone()])
         .await

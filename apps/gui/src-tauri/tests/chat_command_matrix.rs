@@ -213,7 +213,9 @@ async fn command_layer_loopback_delivery_with_reply_to() {
         .await
         .expect("A 同意来邀");
     assert_eq!(accepted.peer_id, peer_b);
-    let a_invites = chat_invites_list(state_a.clone()).await.expect("A 邀请列表");
+    let a_invites = chat_invites_list(state_a.clone())
+        .await
+        .expect("A 邀请列表");
     assert!(
         a_invites.iter().all(|i| i.peer_id != peer_b),
         "同意后来邀必须清除"

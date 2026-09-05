@@ -74,12 +74,11 @@ pub async fn chat_invite_accept(
 
 /// chat_invite_reject：拒绝来邀（通知对方尽力而为）。
 #[tauri::command]
-pub async fn chat_invite_reject(
-    state: State<'_, AppState>,
-    peer_id: String,
-) -> Result<(), String> {
+pub async fn chat_invite_reject(state: State<'_, AppState>, peer_id: String) -> Result<(), String> {
     let chat = state.chat().await?;
-    chat.invite_reject(&peer_id).await.map_err(|e| e.to_string())
+    chat.invite_reject(&peer_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// chat_invite_cancel：撤回本机待同意邀请。
@@ -89,7 +88,9 @@ pub async fn chat_invite_cancel(
     peer_id: String,
 ) -> Result<bool, String> {
     let chat = state.chat().await?;
-    chat.invite_cancel(&peer_id).await.map_err(|e| e.to_string())
+    chat.invite_cancel(&peer_id)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// chat_friend_update（IM-T43）：分组/昵称/备注补丁；空补丁与越界组名由 crate 校验拒绝；
