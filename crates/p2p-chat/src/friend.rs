@@ -5,7 +5,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::model::ChatError;
+use crate::model::{self, ChatError};
+use crate::Chat;
 
 /// 组名上限（trim 后字符数）。
 pub const MAX_GROUP_CHARS: usize = 32;
@@ -59,6 +60,49 @@ pub fn validate_group(raw: Option<&str>) -> Result<Option<String>, ChatError> {
         )));
     }
     Ok(Some(t.to_string()))
+}
+
+impl Chat {
+    pub fn friend_update(
+        &self,
+        peer_id: &str,
+        patch: &FriendPatch,
+    ) -> Result<ChatFriend, ChatError> {
+        let _ = model::parse_peer_id(peer_id)?;
+        if patch.is_empty() {
+            return Err(ChatError::InvalidUpdate(
+                "更新内容为空：group/nickname/note 至少提供一项".into(),
+            ));
+        }
+        let group = validate_group(patch.group.as_deref())?;
+        let nickname = patch
+            .nickname
+            .as_deref()
+            .map(model::validate_nickname)
+            .transpose()?;
+        let note = match patch.note.as_deref() {
+            Some(n) if n.trim().is_empty() => Some(None),
+            Some(n) => Some(Some(n.to_string())),
+            None => None,
+        };
+        let mut friends = self.core.store.friends_list()?;
+        let slot = friends
+            .iter_mut()
+            .find(|f| f.peer_id == peer_id)
+            .ok_or_else(|| ChatError::NotFound(format!("好友不在簿：{peer_id}")))?;
+        if patch.group.is_some() {
+            slot.group = group;
+        }
+        if let Some(name) = nickname {
+            slot.nickname = name;
+        }
+        if let Some(value) = note {
+            slot.note = value;
+        }
+        let updated = slot.clone();
+        self.core.store.upsert_friend(updated.clone())?;
+        Ok(updated)
+    }
 }
 
 #[cfg(test)]

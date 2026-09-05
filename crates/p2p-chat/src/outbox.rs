@@ -1,5 +1,4 @@
-//! outbox/goutbox 双队列投递泵（design §6.2）：PeerConnected 统一触发；1:1 队列
-//! 纪律零改动，群队列复用同一纪律（批量上限/一次重投/二次死信），分派走 group_core。
+//! outbox/goutbox 双队列投递泵（design §6.2）：PeerConnected 统一触发，群队列复用同一纪律，分派走 group_core。
 
 use std::sync::Arc;
 
@@ -17,10 +16,9 @@ use crate::model::{
     ChatStatus,
 };
 
-/// 单次 flush 批量上限；超出部分等下一次连接事件继续。
 const FLUSH_BATCH_CAP: usize = 32;
 
-/// 监听 PeerConnected：依次触发该 peer 的 1:1 outbox 与群 goutbox flush。
+/// 监听 PeerConnected：依次触发 1:1 outbox / 群 goutbox / 邀请重投。
 pub(crate) fn spawn_outbox_task(core: Arc<ChatCore>, group: Arc<GroupCore>) {
     tokio::spawn(async move {
         let mut rx = core.node.events();
@@ -35,7 +33,6 @@ pub(crate) fn spawn_outbox_task(core: Arc<ChatCore>, group: Arc<GroupCore>) {
                         tracing::warn!(%peer, error = %e, "群 outbox flush 失败");
                     }
                     crate::invite_api::flush_invites_peer(&core, &peer_s).await;
-                    // 邀请重投（邀请制收敛路径）
                 }
                 Ok(_) => {}
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,

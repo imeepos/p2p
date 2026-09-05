@@ -6,8 +6,8 @@
 
 use std::path::{Path, PathBuf};
 
-use p2p_chat::{ChatKind, ChatStatus, GroupState};
-use p2p_console::chat::chat_friend_add;
+use p2p_chat::{ChatKind, ChatStatus};
+use p2p_console::chat::{chat_friend_invite, chat_invite_accept, chat_invites_list};
 use p2p_console::commands;
 use p2p_console::group::{group_create, group_disband, group_history, group_list, group_send};
 use p2p_console::state::AppState;
@@ -85,9 +85,16 @@ async fn group_create_and_send_loopback_delivery() {
     let state_a = handle_a.state::<AppState>();
     let state_b = handle_b.state::<AppState>();
 
-    chat_friend_add(state_a.clone(), peer_b.clone(), "B".into(), addrs_b)
+    // 邀请流建双向好友：A 邀请 B（B 在线）→ B 同意（群成员 ⊆ 好友簿）
+    let invite = chat_friend_invite(state_a.clone(), peer_b.clone(), "B".into(), addrs_b)
         .await
-        .expect("A 登记 B（群成员必须 ⊆ 好友簿）");
+        .expect("A 发邀请");
+    assert!(invite.delivered, "B 在线必须实时送达");
+    chat_invite_accept(state_b.clone(), peer_a.clone(), "A".into())
+        .await
+        .expect("B 同意来邀");
+    let invites_b = chat_invites_list(state_b.clone()).await.expect("B 邀请列表");
+    assert!(invites_b.iter().all(|i| i.peer_id != peer_a));
     let group = group_create(state_a.clone(), "项目群".into(), vec![peer_b.clone()])
         .await
         .expect("建群");

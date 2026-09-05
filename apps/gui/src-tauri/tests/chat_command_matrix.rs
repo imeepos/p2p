@@ -199,10 +199,8 @@ async fn command_layer_loopback_delivery_with_reply_to() {
     .expect("启动 B");
     let peer_b = status_b.peer_id.expect("B peer_id 必有");
 
-    chat_friend_invite(
     // 邀请流：B 发邀请（A 在线，实时送达）→ A 同意（双向互为好友）
     let invite = chat_friend_invite(
-
         state_b.clone(),
         peer_a.clone(),
         "A".into(),
