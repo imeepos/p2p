@@ -21,7 +21,7 @@ pub enum FriendsCommand {
     List(ListArgs),
     /// 发好友邀请（邀请制：对方同意后双向互为好友；重复邀请幂等刷新）
     Add(AddArgs),
-    /// 更新好友（分组/昵称/备注补丁，至少提供一项；addrs 不可经此修改）
+    /// 更新好友（分组/昵称/备注/可拨地址补丁，至少提供一项）
     Update(UpdateArgs),
     /// 移除好友（幂等；不在簿返回 removed=false）
     Remove(RemoveArgs),

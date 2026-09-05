@@ -26,8 +26,8 @@ pub struct ChatFriend {
     pub group: Option<String>,
 }
 
-/// friend_update 补丁（IM-T43）：group/nickname/note 至少一项，三项皆 None 拒绝；
-/// peer 不在簿 Err；addrs 不可经此修改（只能经 friend_add 刷新）；group 空串 = 移出分组。
+/// friend_update 补丁（IM-T43 + PR1 --addr）：group/nickname/note/addrs 至少一项，
+/// 皆 None 拒绝；peer 不在簿 Err；group 空串 = 移出分组；addrs 整组替换（校验同 add）。
 #[derive(Clone, Debug, Default)]
 pub struct FriendPatch {
     /// Some(v) = 修改分组；空串归一化为 None（移出分组）。
@@ -36,12 +36,17 @@ pub struct FriendPatch {
     pub nickname: Option<String>,
     /// Some(v) = 修改备注；trim 后空串归一化为 None。
     pub note: Option<String>,
+    /// Some(v) = 整组替换可拨地址（格式同 friend_add --addr，非法地址拒绝）。
+    pub addrs: Option<Vec<String>>,
 }
 
 impl FriendPatch {
-    /// 三项皆未提供 → false（friend_update 拒绝空补丁）。
+    /// 全部未提供 → false（friend_update 拒绝空补丁）。
     pub fn is_empty(&self) -> bool {
-        self.group.is_none() && self.nickname.is_none() && self.note.is_none()
+        self.group.is_none()
+            && self.nickname.is_none()
+            && self.note.is_none()
+            && self.addrs.is_none()
     }
 }
 
@@ -68,13 +73,21 @@ impl Chat {
         peer_id: &str,
         patch: &FriendPatch,
     ) -> Result<ChatFriend, ChatError> {
-        let _ = model::parse_peer_id(peer_id)?;
+        let peer = model::parse_peer_id(peer_id)?;
         if patch.is_empty() {
             return Err(ChatError::InvalidUpdate(
-                "更新内容为空：group/nickname/note 至少提供一项".into(),
+                "更新内容为空：group/nickname/note/addrs 至少提供一项".into(),
             ));
         }
         let group = validate_group(patch.group.as_deref())?;
+        if let Some(addrs) = &patch.addrs {
+            for addr in addrs {
+                self.core
+                    .node
+                    .add_peer_address(peer, addr)
+                    .map_err(|e| ChatError::InvalidAddr(format!("{addr}: {e}")))?;
+            }
+        }
         let nickname = patch
             .nickname
             .as_deref()
@@ -98,6 +111,9 @@ impl Chat {
         }
         if let Some(value) = note {
             slot.note = value;
+        }
+        if let Some(addrs) = &patch.addrs {
+            slot.addrs = addrs.clone();
         }
         let updated = slot.clone();
         self.core.store.upsert_friend(updated.clone())?;

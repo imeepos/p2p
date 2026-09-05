@@ -1,7 +1,7 @@
-//! chat friends update 子域（IM-T43）：分组/昵称/备注补丁，addrs 不可经此修改。
+//! chat friends update 子域（IM-T43 + PR1 --addr）：分组/昵称/备注/可拨地址补丁。
 //!
 //! 语义对齐 GUI chat_friend_update（契约 §12.1）：至少提供一项，空串 group = 移出
-//! 分组；peer 不在簿或校验拒绝 → 可读 Err 退出码 1。
+//! 分组；--addr 可重复，整组替换（格式同 add）；peer 不在簿或校验拒绝 → 退出码 1。
 
 use clap::Args;
 use serde::Serialize;
@@ -24,6 +24,9 @@ pub struct UpdateArgs {
     /// 备注（空串 = 清空）
     #[arg(long)]
     note: Option<String>,
+    /// 可拨地址（ip/u端口 或 ip/t端口；可重复，整组替换）
+    #[arg(long)]
+    addr: Vec<String>,
     /// 输出单行紧凑 JSON
     #[arg(long)]
     json: bool,
@@ -39,6 +42,7 @@ impl UpdateArgs {
             group: self.group.clone(),
             nickname: self.nickname.clone(),
             note: self.note.clone(),
+            addrs: (!self.addr.is_empty()).then(|| self.addr.clone()),
         }
     }
 }
@@ -50,6 +54,7 @@ struct FriendUpdateReport {
     group: Option<String>,
     nickname: String,
     note: Option<String>,
+    addrs: Vec<String>,
 }
 
 pub async fn run(args: UpdateArgs) -> CliResult<()> {
@@ -64,6 +69,7 @@ pub async fn run(args: UpdateArgs) -> CliResult<()> {
         group: friend.group,
         nickname: friend.nickname,
         note: friend.note,
+        addrs: friend.addrs,
     };
     let text = format!(
         "已更新好友 {}（{}）group={}",
@@ -98,6 +104,7 @@ mod tests {
             group: Some("g".into()),
             nickname: None,
             note: Some(String::new()),
+            addr: vec!["127.0.0.1/u1".into()],
             json: true,
             data_dir: String::new(),
         };
@@ -105,6 +112,17 @@ mod tests {
         assert_eq!(patch.group.as_deref(), Some("g"));
         assert!(patch.nickname.is_none());
         assert_eq!(patch.note.as_deref(), Some(""));
+        assert_eq!(patch.addrs.as_deref(), Some(["127.0.0.1/u1".to_string()].as_slice()));
         assert!(!patch.is_empty());
+        let empty = UpdateArgs {
+            peer_id: "p".into(),
+            group: None,
+            nickname: None,
+            note: None,
+            addr: vec![],
+            json: true,
+            data_dir: String::new(),
+        };
+        assert!(empty.patch().is_empty(), "全缺补丁仍拒绝");
     }
 }
