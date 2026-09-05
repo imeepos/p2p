@@ -461,7 +461,7 @@ const zhCN = {
       disbandAction: "解散群聊",
       disbandConfirmTitle: "解散群聊",
       disbandConfirmDesc:
-        "「{{group}}」将被解散：全体成员移出，历史保留（v1 以逐个移除实现）。",
+        "「{{group}}」将被解散：全体成员移出，历史保留，操作不可撤销。",
       disbandConfirm: "解散",
       disbandFailed: "解散失败：",
     },

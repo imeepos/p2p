@@ -34,6 +34,7 @@ export function GroupMemberPanel({ group, open, onOpenChange }: GroupMemberPanel
   const kick = useGroupStore((s) => s.kick);
   const leave = useGroupStore((s) => s.leave);
   const rename = useGroupStore((s) => s.rename);
+  const disband = useGroupStore((s) => s.disband);
   const [inviting, setInviting] = useState(false);
   // 面板由 GroupView 按需挂载（open 才 mount），初值即打开时刻的群名，
   // 无需 effect 内同步 setState 重置。
@@ -91,8 +92,8 @@ export function GroupMemberPanel({ group, open, onOpenChange }: GroupMemberPanel
     if (ok) void run("group.manage.leaveFailed", () => leave(group.groupId));
   };
 
-  // v1 契约无独立解散命令（设计 §5 语义在 G1/契约加法后切换）：以 owner
-  // 逐个 groupKick 全体其他成员达成解散面，确认流明示此语义。
+  // 解散（G6 起 owner-only 真命令）：rev+1，对全体其他成员 G_KICK(disbanded)，
+  // 本端 state=disbanded；重复解散后端显式 Err 原文上浮。
   const disbandGroup = async () => {
     const ok = await confirm({
       title: t("group.manage.disbandConfirmTitle"),
@@ -101,12 +102,7 @@ export function GroupMemberPanel({ group, open, onOpenChange }: GroupMemberPanel
       destructive: true,
     });
     if (!ok) return;
-    void run("group.manage.disbandFailed", async () => {
-      const others = group.members.filter((m) => m !== group.owner);
-      for (const member of others) {
-        await kick(group.groupId, member);
-      }
-    });
+    void run("group.manage.disbandFailed", () => disband(group.groupId));
   };
 
   const renameGroup = () => {

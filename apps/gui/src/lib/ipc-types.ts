@@ -274,6 +274,7 @@ export interface IpcBackend {
   groupKick(groupId: string, memberId: string): Promise<GroupJson>;
   groupLeave(groupId: string): Promise<GroupJson>;
   groupRename(groupId: string, name: string): Promise<GroupJson>;
+  groupDisband(groupId: string): Promise<GroupJson>;
   groupSend(
     groupId: string,
     kind: ChatKind,

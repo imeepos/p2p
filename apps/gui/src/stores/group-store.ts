@@ -58,6 +58,7 @@ export interface GroupStoreState {
   kick: (groupId: string, memberId: string) => Promise<GroupJson>;
   leave: (groupId: string) => Promise<GroupJson>;
   rename: (groupId: string, name: string) => Promise<GroupJson>;
+  disband: (groupId: string) => Promise<GroupJson>;
   upsertGroup: (group: GroupJson) => void;
   subscribeEvents: () => Promise<void>;
 }
@@ -217,6 +218,12 @@ export const useGroupStore = create<GroupStoreState>()((set, get) => ({
 
   rename: async (groupId, name) => {
     const group = await ipc.groupRename(groupId, name);
+    get().upsertGroup(group);
+    return group;
+  },
+
+  disband: async (groupId) => {
+    const group = await ipc.groupDisband(groupId);
     get().upsertGroup(group);
     return group;
   },

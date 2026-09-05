@@ -102,6 +102,9 @@ describe("mock group：roster 操作面", () => {
     await expect(
       mockBackend.groupRename(foreign.groupId, "新名"),
     ).rejects.toThrow(/仅群主/);
+    await expect(
+      mockBackend.groupDisband(foreign.groupId),
+    ).rejects.toThrow(/仅群主/);
     const before = bus.eventsOf("chat_group_state").length;
     const left = await mockBackend.groupLeave(foreign.groupId);
     expect(left.state).toBe("left");
@@ -141,6 +144,26 @@ describe("mock group：roster 操作面", () => {
     expect(renamed.rev).toBe(3);
     expect(renamed.name).toBe("新研发群");
     expect(bus.eventsOf("chat_group_state")).toHaveLength(4); // 建群+invite+kick+rename
+  });
+
+  it("groupDisband：owner 解散 state=disbanded 且 rev+1；非 active 重复解散 Err", async () => {
+    await startNode();
+    const a = await addFriend("g4a");
+    const group = await mockBackend.groupCreate("解散面", [a]);
+    const before = bus.eventsOf("chat_group_state").length;
+
+    const disbanded = await mockBackend.groupDisband(group.groupId);
+    expect(disbanded.state).toBe("disbanded");
+    expect(disbanded.rev).toBe(1);
+    const rosterEvents = bus.eventsOf("chat_group_state");
+    expect(rosterEvents).toHaveLength(before + 1);
+    expect(
+      (rosterEvents[rosterEvents.length - 1] as { group: GroupJson }).group.state,
+    ).toBe("disbanded");
+
+    // 仅 active 可解散：重复解散显式 Err（幂等保护，不再发回执）
+    await expect(mockBackend.groupDisband(group.groupId)).rejects.toThrow(/不可用/);
+    expect(bus.eventsOf("chat_group_state")).toHaveLength(before + 1);
   });
 
   it("群成员上限 32：满员后邀请拒绝", async () => {

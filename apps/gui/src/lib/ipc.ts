@@ -94,6 +94,7 @@ const tauriBackend: IpcBackend = {
   groupLeave: (groupId) => invoke<GroupJson>("group_leave", { groupId }),
   groupRename: (groupId, name) =>
     invoke<GroupJson>("group_rename", { groupId, name }),
+  groupDisband: (groupId) => invoke<GroupJson>("group_disband", { groupId }),
   groupSend: (groupId, kind, text, media, replyTo) =>
     invoke<GroupSendReport>("group_send", {
       groupId,

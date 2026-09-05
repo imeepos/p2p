@@ -22,6 +22,7 @@ const { mocks } = vi.hoisted(() => ({
     groupKick: vi.fn<(groupId: string, memberId: string) => Promise<GroupJson>>(),
     groupLeave: vi.fn<(groupId: string) => Promise<GroupJson>>(),
     groupRename: vi.fn<(groupId: string, name: string) => Promise<GroupJson>>(),
+    groupDisband: vi.fn<(groupId: string) => Promise<GroupJson>>(),
     nodeStatus: vi.fn<() => Promise<NodeStatus>>(),
     chatFriendsList: vi.fn<() => Promise<ChatFriendJson[]>>(),
     eventHandler: { current: null as NodeEventHandler | null },
@@ -36,6 +37,7 @@ vi.mock("@/lib/ipc", () => ({
     groupKick: mocks.groupKick,
     groupLeave: mocks.groupLeave,
     groupRename: mocks.groupRename,
+    groupDisband: mocks.groupDisband,
     nodeStatus: mocks.nodeStatus,
     chatFriendsList: mocks.chatFriendsList,
     onNodeEvent: (handler: NodeEventHandler) => {
@@ -104,6 +106,7 @@ beforeEach(() => {
   mocks.groupKick.mockReset();
   mocks.groupLeave.mockReset();
   mocks.groupRename.mockReset();
+  mocks.groupDisband.mockReset();
   mocks.chatFriendsList.mockReset().mockResolvedValue([
     friend(ALICE, "小爱"),
     friend(BOB, ""),
@@ -210,16 +213,11 @@ describe("GroupMemberPanel 退群与解散", () => {
     );
   });
 
-  it("解散：owner 专属入口，确认后逐个 groupKick 全体其他成员", async () => {
-    // 逐个移除语义：mock 基于当前 store 名单过滤，模拟后端 rev 收敛
-    mocks.groupKick.mockImplementation(async (_groupId: string, memberId: string) => {
-      const current =
-        useGroupStore.getState().groups.find((g) => g.groupId === GROUP_ID) ?? GROUP;
-      return {
-        ...current,
-        rev: current.rev + 1,
-        members: current.members.filter((m) => m !== memberId),
-      };
+  it("解散：owner 专属入口，确认后调 groupDisband 一次（不走逐个 kick 变通）", async () => {
+    mocks.groupDisband.mockResolvedValueOnce({
+      ...GROUP,
+      rev: 1,
+      state: "disbanded",
     });
     renderView("?g=" + GROUP_ID);
     await openPanel();
@@ -227,16 +225,10 @@ describe("GroupMemberPanel 退群与解散", () => {
     fireEvent.click(screen.getByTestId("group-disband"));
     fireEvent.click(await screen.findByRole("button", { name: "解散" }));
 
-    await waitFor(() => expect(mocks.groupKick).toHaveBeenCalledTimes(2));
-    expect(mocks.groupKick).toHaveBeenCalledWith(GROUP_ID, ALICE);
-    expect(mocks.groupKick).toHaveBeenCalledWith(GROUP_ID, BOB);
-    // 名单只剩 owner；base58 字符集正则排除容器 testid（panel/list 含 l）
-    await waitFor(() =>
-      expect(
-        screen.getAllByTestId(/^group-member-[1-9A-HJ-NP-Za-km-z]+$/),
-      ).toHaveLength(1),
-    );
-    expect(screen.getByTestId("group-member-" + SELF)).toBeTruthy();
+    await waitFor(() => expect(mocks.groupDisband).toHaveBeenCalledTimes(1));
+    expect(mocks.groupDisband).toHaveBeenCalledWith(GROUP_ID);
+    // 变通路径必须已移除：解散不得触发任何 groupKick
+    expect(mocks.groupKick).not.toHaveBeenCalled();
   });
 });
 

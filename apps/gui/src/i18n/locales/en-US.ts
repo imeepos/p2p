@@ -473,7 +473,7 @@ const enUS: typeof zhCN = {
       disbandAction: "Disband group",
       disbandConfirmTitle: "Disband group",
       disbandConfirmDesc:
-        "\"{{group}}\" will be disbanded: every member is removed, history is kept (v1 removes members one by one).",
+        "\"{{group}}\" will be disbanded: every member is removed, history is kept. This cannot be undone.",
       disbandConfirm: "Disband",
       disbandFailed: "Disband failed: ",
     },

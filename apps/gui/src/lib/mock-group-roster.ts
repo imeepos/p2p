@@ -23,6 +23,7 @@ export type MockGroupRosterBackend = Pick<
   | "groupKick"
   | "groupLeave"
   | "groupRename"
+  | "groupDisband"
 >;
 
 // 建/邀成员公共校验：名单去重非空、不含本机、全部在好友簿、总量 ≤32。
@@ -146,6 +147,18 @@ export function createMockGroupRosterOps(
       const invalidName = validateGroupChatName(name);
       if (invalidName) throw new Error(invalidName);
       group.name = name.trim();
+      touchRoster(group);
+      emitRoster(deps.emit, group);
+      return snapshotGroup(group);
+    },
+
+    // owner-only；仅 active 可解散（重复解散显式 Err）；rev+1，本端 state=disbanded
+    //（成员端 G_KICK 通知由真实实现补发，mock 单机无对端）。
+    async groupDisband(groupId) {
+      const group = requireGroup(groupId);
+      requireOwner(group, self());
+      requireActive(group);
+      group.state = "disbanded";
       touchRoster(group);
       emitRoster(deps.emit, group);
       return snapshotGroup(group);
