@@ -1,8 +1,9 @@
 //! log 命令域（CL4）：对齐 GUI frontend_log_tail / frontend_log_path / frontend_log_clear。
 //! frontend_log_append 是 GUI 前端专属行为（浏览器侧采集源），CLI 不提供，
-//! 豁免登记见 scripts/check/cli-parity.tsv。默认读 GUI 日志目录，--log-dir 覆盖。
+//! 豁免登记见 scripts/check/cli-parity.tsv。默认读 GUI 日志目录，--log-dir
+//! 覆盖；--data-dir 为兼容别名（F7：与他域参数命名对齐，同指日志目录）。
 
-mod backend;
+pub(crate) mod backend;
 
 use clap::Subcommand;
 use serde::Serialize;
@@ -10,7 +11,8 @@ use serde::Serialize;
 use crate::error::CliResult;
 use crate::output;
 
-use backend::{FrontendLog, DEFAULT_TAIL_LINES};
+pub(crate) use backend::DEFAULT_TAIL_LINES;
+use backend::FrontendLog;
 
 #[derive(Subcommand)]
 pub enum LogCommand {
@@ -27,8 +29,9 @@ pub struct LogArgs {
     /// 输出结构化 JSON
     #[arg(long)]
     json: bool,
-    /// GUI 日志目录覆盖（默认取 GUI 应用日志目录 com.p2p.console）
-    #[arg(long)]
+    /// GUI 日志目录覆盖（默认取 GUI 应用日志目录 com.p2p.console）；
+    /// --data-dir 为同义别名（读 <dir>/frontend.log，F7 参数命名对齐）
+    #[arg(long, visible_alias = "data-dir")]
     log_dir: Option<String>,
 }
 
