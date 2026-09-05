@@ -38,7 +38,10 @@ function waitForHash(expected: string): Promise<void> {
   );
 }
 
+// /network 行置于首位：其落点为 4.1 会话记忆语义（全新会话落 overview，
+// 停留过则落最后 tab），必须在其他行写入 tab 记忆前断言；其余行落点不变。
 describe.each([
+  ["/network", "/network/overview"],
   ["/", "/network/overview"],
   ["/peers", "/network/peers"],
   ["/discovery", "/network/discovery"],
@@ -47,7 +50,6 @@ describe.each([
   ["/diagnostics", "/network/diagnostics"],
   ["/group", "/chat?kind=group"],
   ["/acp", "/chat?kind=agent"],
-  ["/network", "/network/overview"],
 ])("5.3 重定向行 %s", (from, to) => {
   it(`重定向到 ${to}`, async () => {
     window.location.hash = "#" + from;
