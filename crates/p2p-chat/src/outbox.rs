@@ -14,6 +14,10 @@ use crate::model::{ChatError, ChatStatus};
 
 const FLUSH_BATCH_CAP: usize = 32;
 
+/// 死信阈值：条目硬失败（连接成功但流/协议失败）跨进程持久累计达 3 次即死信出队；
+/// 连接失败与 unknown_group 不计数——不可达窗口不消耗预算（design §6.2 改版）。
+const GOUTBOX_DEADLETTER_ATTEMPTS: u32 = 3;
+
 /// 监听 PeerConnected：依次触发 1:1 outbox / 群 goutbox / 邀请重投。
 pub(crate) fn spawn_outbox_task(core: Arc<ChatCore>, group: Arc<GroupCore>) {
     tokio::spawn(async move {
@@ -66,10 +70,11 @@ pub(crate) async fn flush_peer(core: &ChatCore, peer: &str) -> Result<(), ChatEr
     Ok(())
 }
 
-/// 投递并记账：ACK 出队/记 acks；unknown_group 与连接失败保持 pending；硬失败标记 failed。
+/// 投递并统一记账：ACK 出队/记 acks；unknown_group 与连接失败保持 pending 不计数；
+/// 硬失败标记 failed 并跨进程累计尝试次数（内联/后台共享同一落盘台账，design §6.2）。
 pub(crate) async fn attempt(group: &GroupCore, entry: &GoutboxEntry) -> Result<bool, ChatError> {
     // 传输类失败（复用死亡连接的 mux closed 等）强拆重拨重试一次（同 1:1 deliver 纪律）
-    match dispatch_entry(group, entry).await {
+    let outcome = match dispatch_entry(group, entry).await {
         Ok(v) => Ok(v),
         Err(first @ ChatError::StreamFailed(_)) => {
             tracing::warn!(to = %entry.to, entry = %entry.id, error = %first, "群投递强拆重拨");
@@ -77,7 +82,27 @@ pub(crate) async fn attempt(group: &GroupCore, entry: &GoutboxEntry) -> Result<b
             dispatch_entry(group, entry).await
         }
         Err(e) => Err(e),
+    };
+    if let Err(e) = &outcome {
+        if !matches!(e, ChatError::ConnectFailed(_)) {
+            let attempts = entry.attempts + 1;
+            tracing::warn!(
+                to = %entry.to,
+                entry = %entry.id,
+                error = %e,
+                attempts,
+                cap = GOUTBOX_DEADLETTER_ATTEMPTS,
+                "群投递硬失败，累计尝试次数"
+            );
+            if let Err(io) = group
+                .store
+                .mark_goutbox_failed(&entry.to, &entry.id, attempts)
+            {
+                tracing::warn!(to = %entry.to, entry = %entry.id, error = %io, "尝试计数落盘失败");
+            }
+        }
     }
+    outcome
 }
 
 async fn dispatch_entry(group: &GroupCore, entry: &GoutboxEntry) -> Result<bool, ChatError> {
@@ -107,11 +132,7 @@ async fn dispatch_entry(group: &GroupCore, entry: &GoutboxEntry) -> Result<bool,
             Err(e)
         }
         Err(e) => {
-            tracing::warn!(to = %entry.to, entry = %entry.id, error = %e, "goutbox 条目投递失败，标记 failed");
-            group
-                .store
-                .set_goutbox_status(&entry.to, &entry.id, ChatStatus::Failed)
-                .map_err(ChatError::Io)?;
+            tracing::warn!(to = %entry.to, entry = %entry.id, error = %e, "goutbox 条目投递失败");
             Err(e)
         }
     }
@@ -173,52 +194,51 @@ fn on_acked(group: &GroupCore, entry: &GoutboxEntry) -> Result<(), ChatError> {
     Ok(())
 }
 
-/// goutbox flush（群侧纪律同 1:1）：批量上限内逐条投递；failed 重投一次未愈即死信出队。
+/// goutbox flush（群侧纪律同 1:1）：批量上限内逐条投递；硬失败攒满即死信出队。
 async fn flush_group_peer(group: &GroupCore, peer: &str) -> Result<(), ChatError> {
     let _guard = group.chat.peer_guard(peer).await;
-    flush_entries(group, peer).await
+    flush_entries(group, peer, None).await
 }
 
-/// 无锁补投体（调用方须已持该 peer 串行锁）：PeerConnected 泵与命令内补投共用。
-/// 批量上限内逐条投递；failed 条目本进程重投一次，未愈即死信出队（毒条目保护不变）。
-pub(crate) async fn flush_entries(group: &GroupCore, peer: &str) -> Result<(), ChatError> {
+/// 无锁补投体（调用方须已持该 peer 串行锁）：PeerConnected 泵与命令内补投共用，
+/// 经条目落盘 attempts 共享同一尝试台账（同口径计数，无各自私账，消灭双路径竞态）。
+/// skip = 命令内「先补积压再投新条」时排除本条，保证每条目每命令至多一次尝试。
+pub(crate) async fn flush_entries(
+    group: &GroupCore,
+    peer: &str,
+    skip: Option<&str>,
+) -> Result<(), ChatError> {
     for entry in group
         .store
         .goutbox_for(peer)
         .into_iter()
         .take(FLUSH_BATCH_CAP)
     {
-        if dead_letter_if_spent(group, peer, &entry) {
+        if skip == Some(entry.id.as_str()) {
             continue;
         }
-        if attempt(group, &entry).await.is_err() {
-            group
-                .flush_tried
-                .lock()
-                .unwrap_or_else(|e| e.into_inner())
-                .insert((peer.to_string(), entry.id.clone()), ());
+        if dead_letter_if_exhausted(group, peer, &entry) {
+            continue;
         }
+        attempt(group, &entry).await.ok();
     }
     Ok(())
 }
 
-/// failed 条目是否已在本进程重投过：是则死信出队（历史记录保留）并返回 true。
-fn dead_letter_if_spent(group: &GroupCore, peer: &str, entry: &GoutboxEntry) -> bool {
-    if entry.status != ChatStatus::Failed {
-        return false;
-    }
-    let key = (peer.to_string(), entry.id.clone());
-    if !group
-        .flush_tried
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .contains_key(&key)
-    {
+/// 死信判定：硬失败次数跨进程持久累计（attempts 落盘）达上限即出队留告警；
+/// 不可达窗口（连接失败）不计数，积压不在单进程内被死信（33df7e4 残余缺陷修法）。
+fn dead_letter_if_exhausted(group: &GroupCore, peer: &str, entry: &GoutboxEntry) -> bool {
+    if entry.attempts < GOUTBOX_DEADLETTER_ATTEMPTS {
         return false;
     }
     match group.store.remove_goutbox(peer, &entry.id) {
         Ok(()) => {
-            tracing::warn!(to = %peer, entry = %entry.id, "goutbox 条目重投未愈，死信出队");
+            tracing::warn!(
+                to = %peer,
+                entry = %entry.id,
+                attempts = entry.attempts,
+                "goutbox 条目重试耗尽，死信出队（历史记录保留）"
+            );
             true
         }
         Err(e) => {

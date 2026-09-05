@@ -91,6 +91,9 @@ pub(crate) struct GoutboxEntry {
     pub id: String,
     pub to: String,
     pub status: ChatStatus,
+    /// 硬失败跨进程持久累计（死信判据）；连接失败/unknown_group 不计。旧文件缺省 0。
+    #[serde(default)]
+    pub attempts: u32,
     #[serde(flatten)]
     pub frame: GoutboxFrame,
 }
@@ -173,15 +176,17 @@ impl GroupStore {
         rewrite_jsonl::<GoutboxEntry>(&self.goutbox_path(to), |e| e.id != entry_id)
     }
 
-    pub(crate) fn set_goutbox_status(
+    /// 硬失败记账：status=Failed + 尝试次数（跨进程持久，attempt 统一调用）。
+    pub(crate) fn mark_goutbox_failed(
         &self,
         to: &str,
         entry_id: &str,
-        status: ChatStatus,
+        attempts: u32,
     ) -> std::io::Result<()> {
         rewrite_jsonl::<GoutboxEntry>(&self.goutbox_path(to), |e| {
             if e.id == entry_id {
-                e.status = status;
+                e.status = ChatStatus::Failed;
+                e.attempts = attempts;
             }
             true
         })

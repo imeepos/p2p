@@ -107,6 +107,7 @@ impl Group {
                 id: uuid::Uuid::new_v4().to_string(),
                 to: to.clone(),
                 status: ChatStatus::Pending,
+                attempts: 0,
                 frame: GoutboxFrame::Msg {
                     msg: Box::new(msg.clone()),
                 },
@@ -120,25 +121,24 @@ impl Group {
         let mut acked = 0usize;
         for entry in &entries {
             let _guard = self.core.chat.peer_guard(&entry.to).await;
+            // 先补投该成员既有积压（skip 本条），再投新条：每条目每命令至多一次尝试，
+            // 与后台 flush 共享条目落盘 attempts 台账（33df7e4 双路径竞态修法）。
+            if let Err(e) = outbox::flush_entries(&self.core, &entry.to, Some(&entry.id)).await {
+                tracing::warn!(to = %entry.to, error = %e, "命令内 goutbox 补投失败，留待后续连接");
+            }
             match outbox::attempt(&self.core, entry).await {
                 Ok(true) => acked += 1,
                 Ok(false) => {}
-                // 未建连：保持 pending 待 PeerConnected flush（design §6.2），无法补投
-                Err(ChatError::ConnectFailed(_)) => continue,
+                // 连接失败/硬失败：状态与尝试计数已由 attempt 统一记账，留待后续 flush
+                Err(ChatError::ConnectFailed(_)) => {}
                 Err(e) => {
                     tracing::warn!(
                         to = %entry.to,
                         entry = %entry.id,
                         error = %e,
-                        "群消息投递失败，已标记 failed"
+                        "群消息投递失败"
                     );
                 }
-            }
-            // 命令内补投（design §6.2 一次性命令加法）：该成员已建连，退出前把其
-            // goutbox 积压投完或显式失败留痕，不依赖后台任务与进程退出的竞态；
-            // 常驻 serve 的 PeerConnected flush 语义不变。
-            if let Err(e) = outbox::flush_entries(&self.core, &entry.to).await {
-                tracing::warn!(to = %entry.to, error = %e, "命令内 goutbox 补投失败，留待后续连接");
             }
         }
         Ok(self.finish_report(&group.group_id, msg, targets.len(), acked))

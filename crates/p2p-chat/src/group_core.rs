@@ -2,7 +2,7 @@
 //! 收敛应用在 group_model.rs，投递泵与记账在 outbox.rs；per-peer 串行锁复用 1:1
 //! ChatCore（群流量与 1:1 同连接互斥，规避 yamux 并发开流缺陷）。
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use p2p::ProtocolId;
 use p2p_identity::PeerId;
@@ -27,8 +27,6 @@ pub(crate) struct GroupCore {
     pub(crate) chat: Arc<ChatCore>,
     pub(crate) store: GroupStore,
     pub(crate) events: broadcast::Sender<GroupEvent>,
-    /// 已重投过一次的 failed 条目 (to, entryId)：每进程一次机会，二次死信（outbox.rs）。
-    pub(crate) flush_tried: Mutex<std::collections::HashMap<(String, String), ()>>,
 }
 
 impl GroupCore {
@@ -38,7 +36,6 @@ impl GroupCore {
             chat,
             store,
             events,
-            flush_tried: Mutex::new(std::collections::HashMap::new()),
         }
     }
 
@@ -223,27 +220,28 @@ impl GroupCore {
         stream.flush().await.map_err(Self::io_send)
     }
 
-    /// 先落 goutbox（异常原子性）再立即投递一次；失败保留条目等 PeerConnected flush。
+    /// 先落 goutbox（异常原子性）→ 命令内补投积压 → 投递本条；失败留条目等 flush。
     pub(crate) async fn push_frame(&self, to: &str, frame: GoutboxFrame) -> Result<(), ChatError> {
         let entry = GoutboxEntry {
             id: uuid::Uuid::new_v4().to_string(),
             to: to.to_string(),
             status: ChatStatus::Pending,
+            attempts: 0,
             frame,
         };
         self.store.append_goutbox(&entry).map_err(ChatError::Io)?;
         let _guard = self.chat.peer_guard(to).await;
+        // 命令内补投（design §6.2 一次性命令加法）：先补该成员既有积压（不含本条），
+        // 退出前投完或显式失败留痕，禁后台任务与进程退出的竞态；与后台 flush 共享
+        // 条目落盘 attempts 台账。常驻 serve 的 PeerConnected flush 语义不变。
+        if let Err(e) = crate::outbox::flush_entries(self, to, Some(&entry.id)).await {
+            tracing::warn!(to = %to, error = %e, "命令内 goutbox 补投失败，留待后续连接");
+        }
         match crate::outbox::attempt(self, &entry).await {
             Ok(_) => {}
-            // 对端离线/不可达：条目已入队，PeerConnected 后 flush（design §6.2），命令不失败
+            // 对端离线/不可达：条目已入队且不计数，PeerConnected 后 flush（design §6.2）
             Err(ChatError::ConnectFailed(_)) => return Ok(()),
             Err(e) => return Err(e),
-        }
-        // 命令内补投（design §6.2 一次性命令加法）：该成员已建连，退出前把其
-        // goutbox 积压（含 failed 重投机会）投完或显式失败留痕，禁后台任务与
-        // 进程退出的竞态；常驻 serve 的 PeerConnected flush 语义不变。
-        if let Err(e) = crate::outbox::flush_entries(self, to).await {
-            tracing::warn!(to = %to, error = %e, "命令内 goutbox 补投失败，留待后续连接");
         }
         Ok(())
     }
