@@ -12,6 +12,7 @@ const enUS: typeof zhCN = {
       copy: "Copy",
       cancel: "Cancel",
       confirm: "Confirm",
+      back: "Back",
       refresh: "Refresh",
       collapse: "Collapse sidebar",
       expand: "Expand sidebar",
@@ -954,9 +955,7 @@ const enUS: typeof zhCN = {
       groups: "Groups",
       agents: "Agents",
     },
-    placeholder: {
-      description: "Friend, group and agent management will move here in a later release.",
-    },
+    description: "Friends, groups and agents: management and add flows",
     anchor: {
       goto: "Go to {{section}} section",
     },
@@ -1017,6 +1016,11 @@ const enUS: typeof zhCN = {
       disabledBadge: "Disabled",
       untestedBadge: "Test failed",
       policySummary: "Policy allow {{allow}} / ask {{ask}} / deny {{deny}}",
+      disabledHint: "Disabling keeps the config: the endpoint disconnects and cannot start new sessions until re-enabled.",
+      removeConfirmTitle: "Delete agent endpoint",
+      removeConfirmDescription:
+        "This deletes the \"{{name}}\" config and disconnects it, and also removes the local session record index. This cannot be undone.",
+      removeConfirmAction: "Delete",
     },
     endpoint: {
       title: "Add agent endpoint",

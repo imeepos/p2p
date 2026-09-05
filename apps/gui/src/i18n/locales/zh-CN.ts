@@ -10,6 +10,7 @@ const zhCN = {
       copy: "复制",
       cancel: "取消",
       confirm: "确认",
+      back: "返回",
       refresh: "刷新",
       collapse: "收起侧栏",
       expand: "展开侧栏",
@@ -934,9 +935,7 @@ const zhCN = {
       groups: "群聊",
       agents: "Agent",
     },
-    placeholder: {
-      description: "好友、群聊与 Agent 管理将在后续版本迁移至此。",
-    },
+    description: "好友、群聊与 Agent 管理与添加流",
     anchor: {
       goto: "定位到{{section}}分区",
     },
@@ -997,6 +996,11 @@ const zhCN = {
       disabledBadge: "已停用",
       untestedBadge: "测试未通过",
       policySummary: "权限 自动{{allow}}/询问{{ask}}/拒绝{{deny}}",
+      disabledHint: "停用后保留配置：断开连接且不可发起新会话，可随时重新启用。",
+      removeConfirmTitle: "删除 Agent endpoint",
+      removeConfirmDescription:
+        "将删除「{{name}}」的配置并断开连接，将同时移除本地会话记录索引，操作不可撤销。",
+      removeConfirmAction: "删除",
     },
     endpoint: {
       title: "添加 Agent endpoint",
