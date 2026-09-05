@@ -15,7 +15,7 @@ describe("directory model", () => {
     let entries: DirectoryEntry[] = [];
     entries = addManual(entries, " peer-x ");
     expect(entries).toEqual([
-      { peer: "peer-x", name: null, scope: "sandbox", source: "manual", addrs: [] },
+      { peer: "peer-x", name: null, scope: "sandbox", source: "manual", addrs: [], via: null },
     ]);
     expect(addManual(entries, "")).toBe(entries);
     expect(addManual(entries, "peer-x")).toBe(entries);
@@ -53,5 +53,62 @@ describe("directory model", () => {
     const groups = groupBySource(mixed);
     expect(groups.discovered.map((e) => e.peer)).toEqual(["d-1", "d-2"]);
     expect(groups.manual.map((e) => e.peer)).toEqual(["m-1"]);
+  });
+
+  it("/discovery 响应映射：owner 声明名/来源/地址进发现组（目标二）", () => {
+    const entries = upsertDiscovered(
+      [],
+      [
+        {
+          peer: "peer-mdns",
+          addrs: ["/ip4/10.0.0.8/tcp/4001"],
+          name: "home-agent",
+          source: "mdns",
+        },
+      ],
+    );
+    expect(entries).toMatchObject([
+      {
+        peer: "peer-mdns",
+        name: "home-agent",
+        via: "mdns",
+        addrs: ["/ip4/10.0.0.8/tcp/4001"],
+        source: "discovered",
+        scope: "sandbox",
+      },
+    ]);
+  });
+
+  it("缺字段容错：name/source/addrs 缺失或非法不炸且如实留空（目标二）", () => {
+    const entries = upsertDiscovered([], [
+      { peer: "peer-bare" },
+      { peer: "peer-bad-addrs", addrs: "not-an-array" as unknown as string[] },
+      { peer: "peer-null-name", name: null, source: null },
+      { peer: 42 as unknown as string, addrs: [] },
+      null,
+    ] as never);
+    expect(entries.map((e) => e.peer)).toEqual(["peer-bare", "peer-bad-addrs", "peer-null-name"]);
+    const bare = entries.find((e) => e.peer === "peer-bare");
+    expect(bare).toMatchObject({ name: null, via: null, addrs: [] });
+  });
+
+  it("去重合并：同 peer 跨快照合并地址不重复（目标二）", () => {
+    let entries = upsertDiscovered([], [
+      { peer: "peer-x", addrs: ["/ip4/10.0.0.8/tcp/4001"], source: "mdns" },
+    ]);
+    entries = upsertDiscovered(entries, [
+      {
+        peer: "peer-x",
+        addrs: ["/ip4/10.0.0.8/tcp/4001", "/ip4/10.0.0.9/tcp/4001"],
+        name: "renamed",
+        source: "rendezvous",
+      },
+    ]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      addrs: ["/ip4/10.0.0.8/tcp/4001", "/ip4/10.0.0.9/tcp/4001"],
+      name: "renamed",
+      via: "rendezvous",
+    });
   });
 });
