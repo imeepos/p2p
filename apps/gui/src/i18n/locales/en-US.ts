@@ -685,7 +685,7 @@ const enUS: typeof zhCN = {
   palette: {
     placeholder: "Search pages, peers or addresses…",
     empty: "No results",
-    groups: { menu: "Pages", peers: "Known peers", addresses: "Known addresses" },
+    groups: { menu: "Navigation", peers: "Known peers", addresses: "Known addresses" },
     copyPeerId: "Copy PeerId",
     copyAddress: "Copy address",
     copied: "Copied to clipboard",

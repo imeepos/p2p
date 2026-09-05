@@ -13,7 +13,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { MENU_ENTRIES } from "@/config/menu.def";
+import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import { useEscapeKey } from "@/hooks/use-hotkeys";
 import { useNodeStore, selectPeerList } from "@/stores/node-store";
 import { errorText } from "@/views/shared/form-flow";
@@ -68,14 +68,14 @@ function MenuGroup({ onClose }: { onClose: () => void }) {
   };
   return (
     <CommandGroup heading={t("palette.groups.menu")}>
-      {MENU_ENTRIES.map((entry) => (
+      {PALETTE_NAV_ENTRIES.map((entry) => (
         <CommandItem
           key={entry.path}
-          value={"menu " + entry.path + " " + t(entry.titleKey)}
+          value={"menu " + entry.path + " " + t(entry.labelKey)}
           onSelect={() => go(entry.path)}
         >
           <entry.icon className="size-4" />
-          <span>{t(entry.titleKey)}</span>
+          <span>{t(entry.labelKey)}</span>
         </CommandItem>
       ))}
     </CommandGroup>

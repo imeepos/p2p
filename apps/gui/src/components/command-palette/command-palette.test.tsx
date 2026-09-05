@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { MENU_ENTRIES } from "@/config/menu.def";
+import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import "@/i18n";
 import { CommandPalette } from "./command-palette";
 import { requestOpenCommandPalette } from "./palette-bus";
@@ -32,17 +32,17 @@ function renderPalette(open: boolean, onOpenChange = () => {}) {
 afterEach(() => cleanup());
 
 describe("CommandPalette", () => {
-  it("打开时列出全部注册路由菜单项", async () => {
+  it("打开时列出全部导航注册项（节点组数据为空时不渲染）", async () => {
     renderPalette(true);
     expect(await screen.findByRole("dialog")).toBeTruthy();
-    expect(screen.getAllByRole("option")).toHaveLength(MENU_ENTRIES.length);
+    expect(screen.getAllByRole("option")).toHaveLength(PALETTE_NAV_ENTRIES.length);
   });
 
-  it("底部渲染修正后的快捷键说明（1..9，与热键实现一致）", async () => {
+  it("底部渲染修正后的快捷键说明（1..4，与热键实现一致）", async () => {
     renderPalette(true);
     await screen.findByRole("dialog");
     expect(screen.getByText("Cmd/Ctrl+K 打开命令面板")).toBeTruthy();
-    expect(screen.getByText("Cmd/Ctrl+1..9 切换前 9 个页面")).toBeTruthy();
+    expect(screen.getByText("Cmd/Ctrl+1..4 切换一级入口")).toBeTruthy();
     expect(screen.getByText("Esc 关闭")).toBeTruthy();
   });
 

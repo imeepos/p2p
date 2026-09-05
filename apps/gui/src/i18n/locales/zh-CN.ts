@@ -669,7 +669,7 @@ const zhCN = {
   palette: {
     placeholder: "搜索页面、节点或地址…",
     empty: "无匹配结果",
-    groups: { menu: "页面", peers: "已知节点", addresses: "已知地址" },
+    groups: { menu: "导航", peers: "已知节点", addresses: "已知地址" },
     copyPeerId: "复制 PeerId",
     copyAddress: "复制地址",
     copied: "已复制到剪贴板",
