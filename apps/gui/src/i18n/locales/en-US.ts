@@ -72,6 +72,12 @@ const enUS: typeof zhCN = {
       addrDuplicate: "Duplicate address",
     },
     addressList: { add: "Add address", remove: "Remove address", empty: "No addresses" },
+    errorBoundary: {
+      title: "Something went wrong",
+      retry: "Retry",
+      goHome: "Go to home",
+      reload: "Reload window",
+    },
   },
   dashboard: {
     title: "Dashboard",
@@ -632,6 +638,11 @@ const enUS: typeof zhCN = {
     copied: "Copied to clipboard",
     open: "Command palette",
     hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..8 to switch pages; Esc to close",
+    hints: {
+      open: "Cmd/Ctrl+K opens the command palette",
+      navigate: "Cmd/Ctrl+1..9 switches to the first 9 pages",
+      close: "Esc closes",
+    },
   },
   diagnostics: {
     title: "Diagnostics",

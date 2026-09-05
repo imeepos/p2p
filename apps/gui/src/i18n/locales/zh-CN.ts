@@ -69,6 +69,12 @@ const zhCN = {
       addrDuplicate: "地址重复",
     },
     addressList: { add: "添加地址", remove: "删除地址", empty: "暂无地址" },
+    errorBoundary: {
+      title: "界面出错了",
+      retry: "重试",
+      goHome: "返回首页",
+      reload: "重载窗口",
+    },
   },
   dashboard: {
     title: "仪表盘",
@@ -619,6 +625,11 @@ const zhCN = {
     copied: "已复制到剪贴板",
     open: "命令面板",
     hint: "Cmd/Ctrl+K 打开；Cmd/Ctrl+1..8 切换页面；Esc 关闭",
+    hints: {
+      open: "Cmd/Ctrl+K 打开命令面板",
+      navigate: "Cmd/Ctrl+1..9 切换前 9 个页面",
+      close: "Esc 关闭",
+    },
   },
   diagnostics: {
     title: "诊断",
