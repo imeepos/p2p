@@ -2,6 +2,8 @@
 
 <!-- 排查技巧、工具命令、调试手法。格式：什么场景 → 怎么用。 -->
 
+- 2026-09-05 传输层错误取证走 source 链 Debug 遍历：quinn 的 ReadError/WriteError/ConnectionError 经 io::Error 包装后 Display 只剩 "connection lost"，Reason 全灭；在错误落地处 `let mut s = e.source(); while let Some(x)=s { println!("{x:?}"); s=x.source(); }` 遍历打印，即可看到 `ConnectionLost(ApplicationClosed(ApplicationClose{reason:b"hangup"}))` 级别的真因（BASE1 由此一击定位池收敛误杀）。伴随信号：服务端零告警 + 客户端秒败 = 连接被对端/中间层主动关，先查 close 归因再查网络。
+- 2026-09-05 失败按「进程级二值」分布时，查每进程不变量而非每连接随机性：PeerId 排序、endpoint/句柄复用、静态 tie-break 规则都是候选。同型对照实验（fresh endpoint vs shared endpoint × 快速连发 vs 加间隔）一次就能把变量空间切成两半——BASE1 用 3 组 30 连发矩阵把「网络抖动」假设排除、锁定收敛规则误用。
 - 2026-09-04 预跑 ai-docs-sync 门禁免 worktree 全量 cargo 重建：`sed -e 's|^DOC=.*|DOC="<worktree文档路径>"|' -e 's|^CTL=.*|CTL="<主树新鲜二进制>"|' scripts/check/ai-docs-sync.sh > /tmp/sync-wt.sh && bash /tmp/sync-wt.sh`——拷贝后 ROOT 推导失效，但二进制不陈旧就不进重建分支，45 条目/139 项参数比对/示例抽验照跑；合并回主树后再跑真脚本终验。
 - 2026-09-04 补「lossless JSON」条：不止传 {} 或整个 undefined，参数对象里带显式 undefined 键（如条件未命中的 timeoutMs: undefined）同样在绑定阶段炸；用 if 组装对象、只放命中的键。
 - 2026-09-05 GUI 中央登记三件套提交顺序：feature 提交（src/新目录+测试）先行、登记提交（menu.def/App.tsx/locale/守卫测试）随后，HEAD 必绿；两段用 `git add <精确路径>` 分批 stage，feature 后补的红线修正用 `git commit --fixup=<feat> && GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <main>` 折回，rebase 顺带把过时的 merge commit 线性化。

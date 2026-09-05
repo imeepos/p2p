@@ -2,6 +2,11 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-05 连接池「双向同时拨号」收敛规则误用于同向重拨，重连被死连接残留挡下（BASE1/T23）
+症状：第二借方进程经 bootstrap 查号挂满 10s 握手超时，每轮重试再挂；服务端周期性 server link ended 噪音；同 PeerId 新进程重连一律失败（ISSUE 半开残留）。复现呈**进程级二值**（同一份代码有的进程全挂、有的全过）。
+原因：池收敛规则「恒保留较小 PeerId 一端拨出的连接」本为双向同时拨号竞态设计（两端结论一致），却被 admit 到同向重复入池——对端重连时池内旧条目尚未被回收（QUIC 空闲超时窗口最长约 30s，半开更久），新连接被判 RejectedExisting 并 close(hangup)。是否触发取决于两端 PeerId 排序，故按进程二值。
+修法：池条目记录方向，同向重复入池一律新连接胜出（Replaced），跨向竞态仍走静态规则；客户端侧配连接复用（查号与周期循环共用一条连接），把「同向第二条存活连接」这个会引发替换抖动的形态消灭在源头。
+
 ## 2026-09-04 AGENTS.md 收尾四步写死 git push gitea，本仓库远端实际只有 origin
 症状：按 AGENTS.md「远端名是 gitea 不是 origin」执行收尾第①步，`git push gitea` 报 'gitea' does not appear to be a git repository。
 原因：规则文本来自其他仓库配置或历史，与本仓（ext512/p2p，`git remote -v` 只有 origin=github.com:imeepos/p2p）不符；任务书写「远端 origin」反而与实际一致。
