@@ -339,3 +339,5 @@ _none yet — be the first._
 - 2026-09-05 R2：接手验收先跑一次现状测试，把「存量红」与「自己引入的红」
   分开——本轮 apps/cli tests 在 main 上就编译红（8d33eb9 改 InviteReport 类型
   没同步测试 fixture），独立 fix 提交解锁验收，不混进本轮 feature 提交。
+
+- (2026-09-04 ACP-P1 流程打磨) 开始时 `git status -sb` 无 ahead 标记不等于安全:并行会话在你看代码的几分钟里就可能把 main 推进 12 个提交。ff-only 前重新 fetch+核对,红了按纪律回 feature 侧 `git merge main` 消化,本次零冲突通过。
