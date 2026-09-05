@@ -12,7 +12,7 @@ check: gate-tests version-check fmt-check line-limit clippy test gui-check gui-t
 fmt:
 	export PATH="$$HOME/.cargo/bin:$$PATH"; cargo fmt
 
-# 格式检查（只读）
+# 格式检查（只读）：根 workspace + src-tauri 独立 workspace（见 fmt.sh 头注释）
 fmt-check:
 	bash scripts/check/fmt.sh
 
@@ -20,7 +20,7 @@ fmt-check:
 line-limit:
 	bash scripts/check/line-limit.sh
 
-# clippy 全 workspace，警告一律当错误
+# clippy 全 workspace + src-tauri 独立 workspace，警告一律当错误（ubuntu SKIP 口径见 clippy.sh）
 clippy:
 	bash scripts/check/clippy.sh
 
@@ -53,6 +53,7 @@ gate-tests:
 	bash scripts/check/tests/panic-hygiene.sh
 	bash scripts/check/tests/cli-parity.sh
 	bash scripts/check/tests/mock-ipc-guards.sh
+	bash scripts/check/tests/src-tauri-gate.sh
 
 # CLI 对等守卫：GUI generate_handler 全集 ↔ p2pctl 实测命令面（映射表 cli-parity.tsv）
 cli-parity:
