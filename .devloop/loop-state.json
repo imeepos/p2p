@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-05T03:24:31.602Z",
+  "updatedAt": "2026-09-05T03:25:05.196Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -336,7 +336,7 @@
       "priority": "P0",
       "status": "doing",
       "branch": "fix/base-seams",
-      "ownerSession": "session-5f4dc6a5-8469-42d3-907e-86d34de01c9e",
+      "ownerSession": "session-23f166c0-eb64-498f-bec3-c0112b56ef4c",
       "scope": "crates/p2p-discovery、crates/p2p-protocol、crates/p2p-swarm 三仓 + 因 trait 签名变化的下游最小机械适配（apps/acp-agent、apps/acp-console、crates/p2p-chat 仅编译必需接线，不改行为逻辑，逐条列明）；不碰 docs/ops（D1 在途）、E10 三 crate、scripts/**；单文件 ≤300 行",
       "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\"; cd /Users/imeepos/ext512/p2p && cargo test -p p2p-discovery -p p2p-protocol -p p2p-swarm 2>&1 | grep -E \"multi_query|peer_passthrough|register_retry\" | grep -qi \"ok\" && cargo test -p p2p-discovery -p p2p-protocol -p p2p-swarm >/dev/null 2>&1 && cargo clippy -p p2p-discovery -p p2p-protocol -p p2p-swarm --all-targets -- -D warnings >/dev/null 2>&1 && make check >/dev/null 2>&1 && echo BASE1-ACC-GREEN'"
     }
