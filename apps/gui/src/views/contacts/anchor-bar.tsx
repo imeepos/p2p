@@ -2,21 +2,14 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
-export const CONTACTS_SECTIONS = ["friends", "groups", "agents"] as const;
-
-export type ContactsSectionId = (typeof CONTACTS_SECTIONS)[number];
-
-export function isContactsSectionId(value: string | null): value is ContactsSectionId {
-  return (CONTACTS_SECTIONS as readonly string[]).includes(value ?? "");
-}
+import { CONTACTS_SECTIONS, type ContactsSectionId } from "./contacts-sections";
 
 interface AnchorBarProps {
   active: ContactsSectionId;
   onGo: (id: ContactsSectionId) => void;
 }
 
-// 页顶锚点条（§3.1）：好友 | 群 | Agent，点击滚动定位，当前节高亮；
-// 锚点 id 固定 friends/groups/agents（占位页与命令面板 /contacts#* 契约）。
+// 页顶锚点条（§3.1）：好友 | 群 | Agent，点击滚动定位，当前节高亮。
 export function AnchorBar({ active, onGo }: AnchorBarProps) {
   const { t } = useTranslation();
   return (

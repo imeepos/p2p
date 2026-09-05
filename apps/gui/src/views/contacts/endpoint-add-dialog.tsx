@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,9 +22,9 @@ import {
 } from "@/components/ui/select";
 import { EMPTY_DRAFT, newEndpointId } from "@/acp/endpoint-storage";
 import { useAcpStore } from "@/acp/acp-store";
+import { useEndpointMetaStore } from "@/acp/endpoint-meta";
 import type { AcpEndpoint } from "@/acp/protocol";
 import type { I18nKey } from "@/i18n/types";
-import { Loader2Icon } from "lucide-react";
 
 import {
   hasEndpointFormErrors,
@@ -38,7 +39,7 @@ function FieldError({ code }: { code?: string }) {
   if (!code) return null;
   return (
     <p className="text-destructive text-xs" data-testid={"contacts-endpoint-error-" + code}>
-      {t(`contacts.endpoint.errors.${code}` as I18nKey)}
+      {t(("contacts.endpoint.errors." + code) as I18nKey)}
     </p>
   );
 }
@@ -57,17 +58,20 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   const saved = useAcpStore((s) => s.saved);
   const draft = useAcpStore((s) => s.draft);
   const upsertSaved = useAcpStore((s) => s.upsertSaved);
-  const { start, testingId, result } = useEndpointTest();
+  const { start, testing } = useEndpointTest();
   const [form, setForm] = useState<AcpEndpoint>(draft);
   const [fieldErrors, setFieldErrors] = useState<EndpointFormErrors | null>(null);
   const idRef = useRef<string | null>(null);
 
-  useEffect(() => {
+  // 打开瞬间播种一次（渲染期状态调整，不落 effect）：表单回最近草稿
+  const [seededOpen, setSeededOpen] = useState(false);
+  if (open !== seededOpen) {
+    setSeededOpen(open);
     if (open) {
       setForm(draft);
       setFieldErrors(null);
     }
-  }, [open, draft]);
+  }
 
   const patch = (field: keyof AcpEndpoint) => (value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -95,7 +99,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
 
   const test = () => {
     if (!validate()) return;
-    start(ensureId(), form);
+    start({ ...form, endpointId: ensureId() });
   };
 
   const save = () => {
@@ -106,7 +110,10 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   };
 
   const history = wsUrlHistory(saved);
-  const testing = testingId !== null;
+  const activeId = idRef.current;
+  const outcome = useEndpointMetaStore((s) =>
+    activeId ? s.lastTest[activeId] ?? null : null,
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -129,11 +136,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
                 data-testid="contacts-endpoint-wsurl"
               />
               {history.length > 0 ? (
-                <Select
-                  value=""
-                  onValueChange={(v) => v && patch("wsUrl")(v)}
-                  disabled={testing}
-                >
+                <Select value="" onValueChange={(v) => v && patch("wsUrl")(v)} disabled={testing}>
                   <SelectTrigger className="w-28" data-testid="contacts-endpoint-history">
                     <SelectValue placeholder={t("contacts.endpoint.historyLabel")} />
                   </SelectTrigger>
@@ -194,12 +197,12 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
                 t("contacts.endpoint.test")
               )}
             </Button>
-            {result?.outcome === "ok" ? (
+            {outcome === "ok" ? (
               <span className="text-success text-xs" data-testid="contacts-endpoint-test-ok">
                 {t("contacts.endpoint.testPassed")}
               </span>
             ) : null}
-            {result?.outcome === "failed" ? (
+            {outcome === "failed" ? (
               <span className="text-destructive text-xs" data-testid="contacts-endpoint-test-failed">
                 {t("contacts.endpoint.testFailed")}
               </span>

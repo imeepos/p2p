@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDownIcon, ChevronRightIcon, UserPlusIcon } from "lucide-react";
 
@@ -26,9 +26,6 @@ export function FriendSection() {
   const [moveTarget, setMoveTarget] = useState<ChatFriendJson | null>(null);
   const [removeTarget, setRemoveTarget] = useState<ChatFriendJson | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsedGroups());
-
-  // 分组折叠记忆来自 localStorage，挂载后同步一次（其他窗口改动温和跟随）
-  useEffect(() => setCollapsed(loadCollapsedGroups()), []);
 
   const toggleGroup = (name: string | null) => {
     setCollapsed((prev) => {

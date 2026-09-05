@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAcpStore } from "@/acp/acp-store";
+import { useEndpointMetaStore } from "@/acp/endpoint-meta";
 import { ACP_ERROR_KEYS } from "@/acp/store-events";
 import type { I18nKey } from "@/i18n/types";
 import type { AcpEndpoint } from "@/acp/protocol";
@@ -66,15 +67,16 @@ export function DrawerConnection({
   const phase = useAcpStore((s) => s.phase);
   const lastError = useAcpStore((s) => s.lastError);
   const closeInfo = useAcpStore((s) => s.closeInfo);
-  const { start, testingId, result } = useEndpointTest();
+  const endpointId = endpoint.endpointId!;
+  const lastTest = useEndpointMetaStore((s) => s.lastTest[endpointId] ?? null);
+  const { start, testing } = useEndpointTest();
   const [editing, setEditing] = useState(false);
   const [draft, setDraftLocal] = useState<AcpEndpoint>(endpoint);
 
-  const endpointId = endpoint.endpointId!;
-  const testing = testingId === endpointId;
   const phaseKey = PHASE_KEY[isActive ? phase : "idle"] as I18nKey;
+  const outcome = testing ? null : lastTest;
 
-  const startTest = () => start(endpointId, editing ? draft : endpoint);
+  const startTest = () => start(editing ? draft : endpoint);
 
   return (
     <div className="flex flex-col gap-3" data-testid="contacts-drawer-connection">
@@ -160,12 +162,12 @@ export function DrawerConnection({
         >
           {t("contacts.endpoint.test")}
         </Button>
-        {result && result.id === endpointId && result.outcome === "ok" ? (
+        {outcome === "ok" ? (
           <span className="text-success text-xs" data-testid="contacts-drawer-test-ok">
             {t("contacts.endpoint.testPassed")}
           </span>
         ) : null}
-        {result && result.id === endpointId && result.outcome === "failed" ? (
+        {outcome === "failed" ? (
           <span className="text-destructive text-xs" data-testid="contacts-drawer-test-failed">
             {t("contacts.endpoint.testFailed")}
           </span>
