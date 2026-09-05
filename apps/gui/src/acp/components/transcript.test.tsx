@@ -1,6 +1,7 @@
 // 工具时间线与思考面板打磨测试（P2 页面打磨）：超长内容折叠、失败态红系
-// 高亮、思考展开排版；直接播种 store 渲染 Transcript，不依赖 mock WS 链路。
-import { fireEvent, render, screen } from "@testing-library/react";
+// 高亮、思考展开排版、自动滚底、错误结算徽章；直接播种 store 渲染
+// Transcript，不依赖 mock WS 链路。
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { useAcpStore } from "@/acp/acp-store";
@@ -82,5 +83,69 @@ describe("ThoughtTurn 展开排版", () => {
     expect(body.className).toContain("leading-6");
     expect(body.className).toContain("px-3");
     expect(screen.getByTestId("acp-thought-toggle-3").getAttribute("aria-expanded")).toBe("true");
+  });
+});
+
+describe("Transcript 自动滚动", () => {
+  function scrollEl(): HTMLElement {
+    const el = screen.getByTestId("acp-transcript-scroll");
+    Object.defineProperty(el, "scrollHeight", { configurable: true, value: 1000 });
+    Object.defineProperty(el, "clientHeight", { configurable: true, value: 400 });
+    return el;
+  }
+
+  function appendTurn(id: number) {
+    act(() => {
+      seed([
+        ...useAcpStore.getState().transcripts[SID]!.turns,
+        { kind: "assistant", id, text: "msg-" + id, streaming: false, stopReason: "end_turn" },
+      ]);
+    });
+  }
+
+  it("追加内容自动滚到底", () => {
+    seed([{ kind: "user", id: 1, text: "hi" }]);
+    render(<Transcript sessionId={SID} />);
+    const el = scrollEl();
+    appendTurn(2);
+    expect(el.scrollTop).toBe(1000);
+  });
+
+  it("用户上滚查看历史时暂停跟随，滚回底部恢复跟随", () => {
+    seed([{ kind: "user", id: 1, text: "hi" }]);
+    render(<Transcript sessionId={SID} />);
+    const el = scrollEl();
+    appendTurn(2);
+    expect(el.scrollTop).toBe(1000);
+    // 手动上滚：远底（1000-10-400=590 >= 64）→ 暂停跟随
+    el.scrollTop = 10;
+    fireEvent.scroll(el);
+    appendTurn(3);
+    expect(el.scrollTop).toBe(10);
+    // 滚回近底（1000-600-400=0 < 64）→ 恢复跟随
+    el.scrollTop = 600;
+    fireEvent.scroll(el);
+    appendTurn(4);
+    expect(el.scrollTop).toBe(1000);
+  });
+});
+
+describe("AssistantTurn 错误结算徽章", () => {
+  it("stopReason=error 渲染红色系失败徽章而非灰字", () => {
+    seed([{ kind: "assistant", id: 9, text: "boom", streaming: false, stopReason: "error" }]);
+    render(<Transcript sessionId={SID} />);
+    const wrap = screen.getByTestId("acp-stop-reason-9");
+    expect(wrap.textContent).toContain("失败");
+    expect(wrap.querySelector("span")?.className).toContain("border-destructive/30");
+  });
+
+  it("普通 stopReason 仍为灰字，不受 error 徽章影响", () => {
+    seed([{ kind: "assistant", id: 8, text: "ok", streaming: false, stopReason: "end_turn" }]);
+    render(<Transcript sessionId={SID} />);
+    const el = screen.getByTestId("acp-stop-reason-8");
+    expect(el.textContent).toContain("正常结束");
+    // testid 直落于灰字 span 本体，无 danger 徽章子元素
+    expect(el.className).toContain("text-muted-foreground");
+    expect(el.querySelector("span")).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,13 @@ const STOP_KEY: Record<string, I18nKey> = {
   max_turn_requests: "acp.transcript.stop.max_turn_requests",
   refusal: "acp.transcript.stop.refusal",
   cancelled: "acp.transcript.stop.cancelled",
+  error: "acp.transcript.stop.error",
 };
+
+/** prompt 错误结算态（stopReason=error）呈现为红色系失败徽章的判定 */
+function isErrorStop(reason: string): boolean {
+  return reason === "error";
+}
 
 const TOOL_STATUS_TONE: Record<ToolCallStatus, StatusTone> = {
   pending: "neutral",
@@ -83,6 +89,10 @@ function AssistantTurn({ turn }: { turn: Extract<Turn, { kind: "assistant" }> })
         {turn.streaming ? (
           <span className="text-muted-foreground text-xs" data-testid="acp-streaming-badge">
             {t("acp.transcript.streaming")}
+          </span>
+        ) : turn.stopReason && isErrorStop(turn.stopReason) ? (
+          <span data-testid={"acp-stop-reason-" + turn.id}>
+            <StatusBadge tone="danger" dot>{stopReasonText(t, turn.stopReason)}</StatusBadge>
           </span>
         ) : turn.stopReason ? (
           <span className="text-muted-foreground text-xs" data-testid={"acp-stop-reason-" + turn.id}>
@@ -187,10 +197,33 @@ function UserTurn({ turn }: { turn: Extract<Turn, { kind: "user" }> }) {
   );
 }
 
+/** 近底判定阈值：距底小于该值视为跟随（对齐 chat message-list 既有行为） */
+const STICK_BOTTOM_PX = 64;
+
 export function Transcript({ sessionId }: TranscriptProps) {
   const { t } = useTranslation();
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const stickBottomRef = useRef(true);
   const transcript = useAcpStore((s) => s.transcripts[sessionId]);
-  const turns = transcript?.turns ?? [];
+  // 兜底空数组须稳定引用，否则每次渲染都会重触发滚动 effect（exhaustive-deps）
+  const turns = useMemo(() => transcript?.turns ?? [], [transcript]);
+
+  useEffect(() => {
+    // 切会话强制恢复跟随（对齐 chat：switching peer forces stick-to-bottom）
+    stickBottomRef.current = true;
+  }, [sessionId]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el && stickBottomRef.current) el.scrollTop = el.scrollHeight;
+  }, [turns, sessionId]);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    stickBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_BOTTOM_PX;
+  };
+
   if (turns.length === 0) {
     return (
       <div className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
@@ -199,18 +232,25 @@ export function Transcript({ sessionId }: TranscriptProps) {
     );
   }
   return (
-    <div className="flex flex-col gap-2" data-testid="acp-transcript">
-      {turns.map((turn) => {
-        if (turn.kind === "thought") return <ThoughtTurn key={turn.id} sessionId={sessionId} turn={turn} />;
-        if (turn.kind === "assistant") return <AssistantTurn key={turn.id} turn={turn} />;
-        if (turn.kind === "tool") return <ToolTurn key={turn.id} turn={turn} />;
-        return <UserTurn key={turn.id} turn={turn} />;
-      })}
-      {transcript && transcript.ignoredUpdates > 0 ? (
-        <p className="text-muted-foreground text-xs">
-          {t("acp.transcript.ignored", { count: transcript.ignoredUpdates })}
-        </p>
-      ) : null}
+    <div
+      ref={scrollRef}
+      onScroll={onScroll}
+      className="scroll-slim flex max-h-[65vh] min-h-0 flex-col gap-2 overflow-y-auto"
+      data-testid="acp-transcript-scroll"
+    >
+      <div className="flex flex-col gap-2" data-testid="acp-transcript">
+        {turns.map((turn) => {
+          if (turn.kind === "thought") return <ThoughtTurn key={turn.id} sessionId={sessionId} turn={turn} />;
+          if (turn.kind === "assistant") return <AssistantTurn key={turn.id} turn={turn} />;
+          if (turn.kind === "tool") return <ToolTurn key={turn.id} turn={turn} />;
+          return <UserTurn key={turn.id} turn={turn} />;
+        })}
+        {transcript && transcript.ignoredUpdates > 0 ? (
+          <p className="text-muted-foreground text-xs">
+            {t("acp.transcript.ignored", { count: transcript.ignoredUpdates })}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
