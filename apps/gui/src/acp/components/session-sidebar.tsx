@@ -16,6 +16,7 @@ function SessionRow(props: {
   sessionId: string;
   title: string;
   active: boolean;
+  online: boolean;
   onResume: (sessionId: string) => void;
   onClose: (sessionId: string) => void;
 }) {
@@ -31,6 +32,7 @@ function SessionRow(props: {
       <button
         type="button"
         className="min-w-0 flex-1 text-left"
+        disabled={!props.online}
         onClick={() => props.onResume(props.sessionId)}
         title={t("acp.sessions.resume")}
         aria-current={props.active ? "true" : undefined}
@@ -42,6 +44,7 @@ function SessionRow(props: {
         size="icon"
         variant="ghost"
         className="size-7"
+        disabled={!props.online}
         onClick={() => props.onClose(props.sessionId)}
         aria-label={t("acp.sessions.close")}
         data-testid={"acp-session-close-" + props.sessionId}
@@ -90,6 +93,7 @@ export function SessionSidebar() {
               sessionId={session.sessionId}
               title={session.title ?? session.sessionId}
               active={session.sessionId === activeSessionId}
+              online={online}
               onResume={(id) => void resumeSession(id)}
               onClose={(id) => void closeSession(id)}
             />

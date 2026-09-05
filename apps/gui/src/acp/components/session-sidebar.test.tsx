@@ -34,4 +34,20 @@ describe("SessionSidebar 可访问性", () => {
     const close = screen.getByTestId("acp-session-close-s-1");
     expect(close.getAttribute("aria-label")).toBe("关闭会话");
   });
+
+  it("离线时 resume/close 禁用，与新建按钮一致（P2-ADD 需求8）", () => {
+    useAcpStore.setState({ phase: "idle" });
+    render(<SessionSidebar />);
+    const row = screen.getByTestId("acp-session-row-s-1");
+    expect((row.querySelector("button") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("acp-session-close-s-1") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("acp-session-new") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("在线时 resume/close 可用", () => {
+    render(<SessionSidebar />);
+    const row = screen.getByTestId("acp-session-row-s-1");
+    expect((row.querySelector("button") as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId("acp-session-close-s-1") as HTMLButtonElement).disabled).toBe(false);
+  });
 });
