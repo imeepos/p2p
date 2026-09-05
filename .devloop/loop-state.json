@@ -353,6 +353,82 @@
       "goal": "cli-parity 能拦截陈旧二进制（构造旧 binary 必红）；scripts/ops/headless-metrics 入库可对 mock 页面产出 JSON 指标；全部验收脚本 pipefail 化",
       "acceptanceCommand": "cd /Users/imeepos/ext512/p2p && export PATH=\"$HOME/.cargo/bin:$PATH\" && bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK && test -f scripts/ops/headless-metrics.mjs && node scripts/ops/headless-metrics.mjs --help >/dev/null 2>&1; test -f scripts/ops/headless-metrics.mjs && grep -q 'set -o pipefail' scripts/check/cli-parity.sh && make check",
       "note": "2026-09-05 立卡：T43/T53 验收期间三次事故暴露（cli-parity 不查 p2pctl 二进制新鲜度产假红/CDP 度量脚本三次内联重写且嵌套转义翻车/验收临时命令管道吞退出码产假绿），沉淀为仓库资产与机械拦截。 [2026-09-05 协调复核 session-fb61042c] 核心三件亲验：headless-metrics.mjs 在库（3b45b13）、cli-parity.sh pipefail 字面在、新鲜度守卫进 main；worktree/分支已清理（origin 留档 f864159）。披露：脚本 --help 被当未知参数 die(4)，验收命令因分号未拦——已转入 persona 轮需求 UX-FIX 清单。"
+    },
+    {
+      "id": "PR1",
+      "priority": "P0",
+      "status": "doing",
+      "title": "PR1 chat 可达性与行箱闭环（persona 轮 F1/F3/F4/F5/F12）",
+      "goal": "serve 端口记忆；成功会话自动学习回写好友簿 addrs；friends update 开放 --addr；chat outbox list/flush；serve 启动与周期 flush；离线 send exit 0 + status=pending；invites 写命令支持 --json；accept 缺省昵称回退缩略；附件 mime 嗅探。验收=cli-chat-reach-e2e 两连绿断言 PORT-PERSIST/ADDR-LEARN/ADDR-EDIT/OUTBOX-FLUSH/PENDING-EXIT/INVITE-JSON，末行 PR1-REACH-OK",
+      "branch": "feat/chat-reach-outbox",
+      "ownerSession": "session-0166f944-6813-42cd-ad8d-5db7b7096b8c",
+      "scope": "crates/p2p-chat/**、apps/cli/src/chat/**、scripts/ops/cli-chat-reach-e2e.sh（新建）、docs/ops/cli-guide.md 与 docs/ops/p2pctl-ai-guide.md 对应段；禁碰 apps/cli 其他模块、crates/p2p-* 底座（p2p-chat 除外）、apps/gui",
+      "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p && export PATH=$HOME/.cargo/bin PATHNAME_PLACEHOLDER && cargo build --manifest-path apps/cli/Cargo.toml >/dev/null 2>&1 && bash scripts/ops/cli-chat-reach-e2e.sh > /tmp/pr1e1.log 2>&1 && grep -q PR1-REACH-OK /tmp/pr1e1.log && bash scripts/ops/cli-chat-reach-e2e.sh > /tmp/pr1e2.log 2>&1 && grep -q PR1-REACH-OK /tmp/pr1e2.log && cargo test -p p2p-chat >/dev/null 2>&1 && make check >/dev/null 2>&1 && echo PR1-ACC-GREEN'",
+      "note": " [2026-09-05 立卡+派发] 任务书全文见会话 greeting 与 docs/notes/persona-trial-findings-2026-09-05.md。补录原因：首录脚本反斜杠剥层静默失败。PR2/PR3 已先行进 main，PR1 合并前须再反向同步。"
+    },
+    {
+      "id": "PR2",
+      "priority": "P1",
+      "status": "done",
+      "title": "PR2 CLI 观测对等 + node start 输出修复（persona 轮 F7/F9/F10/F13）",
+      "goal": "见 docs/notes/persona-trial-findings-2026-09-05.md 需求映射",
+      "branch": "feat/cli-observe-parity",
+      "ownerSession": "session-b920c195-53a4-4463-961a-5630c2fc6506",
+      "scope": "apps/cli 观测域（daemon/lifecycle/node/peer/log/observe/relay/discovery）+scripts/ops/cli-observe-e2e.sh+双文档",
+      "acceptanceCommand": "cli-observe-e2e 两连绿 PR2-OBSERVE-OK + cargo test -p p2p-cli + make check（协调已亲验）",
+      "note": " [2026-09-05 协调复核 session-fb61042c] 主树权威复验 PR2-ACC-GREEN；文件域审计合规；worktree/分支已清。执行会话已归档。",
+      "mergedMain": "e148c5e",
+      "acceptedAt": "2026-09-05T07:58:53.156Z"
+    },
+    {
+      "id": "PR3",
+      "priority": "P1",
+      "status": "done",
+      "title": "PR3 身份正门与一致性小包（persona 轮 F6/F14/F15）",
+      "goal": "见 docs/notes/persona-trial-findings-2026-09-05.md 需求映射",
+      "branch": "feat/identity-frontdoor",
+      "ownerSession": "session-7aed84a1-1a6a-4602-af74-496dd4ccd553",
+      "scope": "apps/cli identity 域+llm_share receipt+headless-metrics --help+双文档",
+      "acceptanceCommand": "identity init/show 机械断言 + headless-metrics --help + cargo test -p p2p-cli + ai-docs-sync + make check（协调已亲验）",
+      "note": " [2026-09-05 协调复核 session-fb61042c] 主树权威复验 PR3-ACC-GREEN；文件域审计合规；worktree/分支已清。执行会话已归档。",
+      "mergedMain": "5cd5ddc",
+      "acceptedAt": "2026-09-05T07:58:53.156Z"
+    },
+    {
+      "id": "PR4",
+      "priority": "P2",
+      "status": "todo",
+      "title": "PR4 公网默认显式化与 lan-only（persona 轮 F8）",
+      "goal": "见 docs/notes/persona-trial-findings-2026-09-05.md",
+      "branch": "待派",
+      "ownerSession": "",
+      "scope": "见 findings 文档需求映射",
+      "acceptanceCommand": "echo NOT-DISPATCHED; exit 1",
+      "note": " [2026-09-05 立卡] PR2 已合并，可派。"
+    },
+    {
+      "id": "PR5",
+      "priority": "P1",
+      "status": "todo",
+      "title": "PR5 chat 双工控制通道（persona 轮 F2，需设计裁决）",
+      "goal": "见 docs/notes/persona-trial-findings-2026-09-05.md",
+      "branch": "待派",
+      "ownerSession": "",
+      "scope": "见 findings 文档需求映射",
+      "acceptanceCommand": "echo NOT-DISPATCHED; exit 1",
+      "note": " [2026-09-05 立卡] PR1 合并后启动设计裁决。"
+    },
+    {
+      "id": "PR6",
+      "priority": "P2",
+      "status": "todo",
+      "title": "PR6 llm-share 借方调用入口（persona 轮 F11，Phase 1 决策门）",
+      "goal": "见 docs/notes/persona-trial-findings-2026-09-05.md",
+      "branch": "待派",
+      "ownerSession": "",
+      "scope": "见 findings 文档需求映射",
+      "acceptanceCommand": "echo NOT-DISPATCHED; exit 1",
+      "note": " [2026-09-05 立卡] 需求登记。"
     }
   ],
   "notes": "\n[2026-09-05 折叠] CLI-C1..C4（p2pctl 脚手架/命令域/聊天域/文档-parity）全部 done 后折叠，提交见 git log --grep 'CLI-C'，验收命令留存于 coordination.md 历史。"
