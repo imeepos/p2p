@@ -83,7 +83,7 @@ async fn peer_passthrough_handler_receives_dialer_identity() {
     let mut registry = HandlerRegistry::default();
     registry.register(Arc::new(IdentityCapture { id: proto.clone(), seen: tx }));
 
-    let (mut client, server) = tokio::io::duplex(4096);
+    let (client, server) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move {
         let _ = dispatch_inbound_with_peer(Box::new(server), Some(dialer), &registry).await;
     });
@@ -108,7 +108,7 @@ async fn bare_dispatch_keeps_legacy_handle_entry() {
     let mut registry = HandlerRegistry::default();
     registry.register(Arc::new(IdentityCapture { id: proto.clone(), seen: tx }));
 
-    let (mut client, server) = tokio::io::duplex(4096);
+    let (client, server) = tokio::io::duplex(4096);
     let server_task = tokio::spawn(async move {
         let served = dispatch_inbound(Box::new(server), &registry).await;
         assert!(served.is_err(), "bare dispatch must reach legacy handle");
