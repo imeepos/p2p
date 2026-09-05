@@ -751,3 +751,18 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：worktree 内 make check 的 clippy 阶段报 E0463 can not find crate for std/core——aarch64-apple-darwin target may not be installed，但 rustup show 显示 host target 已装（2026-09-05）。
 原因：构建进行中有并发 rustup 工具链操作（其他会话或后台 update）短暂摘走 std 组件，属瞬时环境抖动，与代码无关（该分支零 Rust 改动）。
 修法：先 rustup show 核对工具链与 target 完好，直接重跑该门禁（clippy 重试 32s PASS），再重跑全量 make check 拿干净绿；勿查代码、勿动 toolchain。
+
+## 2026-09-05 P1 聚合聊天会话：bash 相对路径 git 命令漏传 workdir，误删主树文件并污染其暂存区
+症状：收尾回主树 ff-only 合并前，git status 发现主树暂存区有 D friend-row.tsx / chat-page.tsx / chat-view.tsx——恰是本会话分支删除的三文件，但本会话从未在主树操作过。
+原因：一条 git rm 用了相对路径且没传 workdir，落到默认会话工作区（主树），把 HEAD 文件删了并进了主树暂存区；后续 ls/wc 又都在 worktree 验证，两头状态割裂一路没对上。
+修法：①主树 git restore --staged <paths> + git restore <paths> 恢复到 HEAD 再合并；②红钱：凡 git/git rm/checkout 等改状态的命令必须显式传 workdir，或路径一律写绝对路径；③合并前 git status --short 核对主树干净是最后防线，看到"不认识的暂存"先查归属（git worktree list + diff --cached）再动手。
+
+## 2026-09-05 P1 会话：vitest 全绿掩盖 tsc 类型错，build 才暴露
+症状：vitest 120 文件全 PASS，pnpm -C apps/gui build 却报 TS6133/TS2339/TS2345 一串。
+原因：vitest 不跑类型检查（esbuild 剥类型），未用变量、Mock 泛型不匹配、i18n 动态 key 类型不兼容全被放过。
+修法：GUI 提交前固定三连：tsc --noEmit、eslint --max-warnings 0、vitest run；i18n 动态键 t("a." + x) 撞 I18nKey 类型用 as const 键映射表，别绕类型。
+
+## 2026-09-05 P1 会话：测试文件 beforeEach 清空事件 handlers 数组，后置用例事件全丢
+症状：同一测试文件首用例 emit 事件生效，后续用例 emit 无效（unread 不涨、消息不上屏）。
+原因：store 的事件订阅是模块级单例（subscriptionStarted 幂等），首挂载注册一次；beforeEach 清空 handlers 数组后后续挂载不再重注册。
+修法：不清 handlers（重复注册的归并按消息 id 去重，幂等）；或用例内 waitFor(handlers.length > 0) 等订阅就绪再 emit。
