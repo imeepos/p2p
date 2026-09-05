@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import type { I18nKey } from "@/i18n/types";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 import { useAcpStore } from "@/acp/acp-store";
 import type { ToolCallStatus } from "@/acp/protocol";
-import type { Turn } from "@/acp/transcript-model";
+import { toolIoView, type Turn } from "@/acp/transcript-model";
 
 /** ACP v1 stopReason 各态文案；未知值回退原样透传 */
 const STOP_KEY: Record<string, I18nKey> = {
@@ -57,7 +58,10 @@ function ThoughtTurn({ sessionId, turn }: { sessionId: string; turn: Extract<Tur
         {turn.open ? t("acp.transcript.thoughtHide") : t("acp.transcript.thoughtShow")}
       </Button>
       {turn.open ? (
-        <p className="text-muted-foreground mx-2 mb-2 whitespace-pre-wrap text-xs leading-relaxed">
+        <p
+          className="text-muted-foreground mx-2 mb-2 max-w-prose rounded-md bg-muted/40 px-3 py-2 whitespace-pre-wrap text-xs leading-6"
+          data-testid={"acp-thought-body-" + turn.id}
+        >
           {turn.text}
         </p>
       ) : null}
@@ -91,12 +95,51 @@ function AssistantTurn({ turn }: { turn: Extract<Turn, { kind: "assistant" }> })
 }
 
 
-/** 工具时间线节点：名称/状态徽章/入参/结果（设计 §8 工具行） */
+/** 工具入参/结果块：超过约 6 行默认折叠，展开开关带 aria-expanded/aria-controls */
+function ToolIoBlock(props: { text: string; testId: string; muted?: boolean }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const view = toolIoView(props.text);
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      <pre
+        id={props.testId + "-body"}
+        className={cn(
+          "max-w-[90%] overflow-x-auto rounded px-2 py-1 text-xs whitespace-pre-wrap break-all",
+          props.muted && "bg-muted/50 text-muted-foreground",
+        )}
+        data-testid={props.testId}
+      >
+        {view.collapsible && !open ? view.preview : props.text}
+      </pre>
+      {view.collapsible ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground h-6 px-2 text-xs"
+          aria-expanded={open}
+          aria-controls={props.testId + "-body"}
+          data-testid={props.testId + "-toggle"}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? t("acp.tools.collapse") : t("acp.tools.expand")}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+/** 工具时间线节点：名称/状态徽章/入参/结果（设计 §8 工具行）；失败态红系整行高亮 */
 function ToolTurn({ turn }: { turn: Extract<Turn, { kind: "tool" }> }) {
   const { t } = useTranslation();
   return (
     <div
-      className="border-l-border/60 ml-2 flex flex-col gap-1 border-l pl-3"
+      className={cn("ml-2 flex flex-col gap-1 border-l pl-3",
+        turn.status === "failed"
+          ? "border-l-destructive bg-destructive/5 rounded-r-md py-1"
+          : "border-l-border/60",
+      )}
       data-testid={"acp-turn-tool-" + turn.toolCallId}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -119,16 +162,14 @@ function ToolTurn({ turn }: { turn: Extract<Turn, { kind: "tool" }> }) {
         </span>
       </div>
       {turn.inputText ? (
-        <pre className="bg-muted/50 max-w-[90%] overflow-x-auto rounded px-2 py-1 text-xs whitespace-pre-wrap break-all text-muted-foreground"
-          data-testid={"acp-tool-input-" + turn.toolCallId}>
-          {turn.inputText}
-        </pre>
+        <ToolIoBlock muted
+          text={turn.inputText}
+          testId={"acp-tool-input-" + turn.toolCallId} />
       ) : null}
       {turn.outputText ? (
-        <pre className="max-w-[90%] overflow-x-auto rounded px-2 py-1 text-xs whitespace-pre-wrap break-all"
-          data-testid={"acp-tool-output-" + turn.toolCallId}>
-          {turn.outputText}
-        </pre>
+        <ToolIoBlock
+          text={turn.outputText}
+          testId={"acp-tool-output-" + turn.toolCallId} />
       ) : null}
     </div>
   );

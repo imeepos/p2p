@@ -324,3 +324,5 @@ _none yet — be the first._
 - 2026-09-05 G6：后台管道 `make check | tail` 会吞退出码（tail 恒 0，job 显示 completed
   不代表 make 成功）；判长门禁过没过要核"是否走到了最后一个 target 并打出 OK 标记"
   （Makefile 依赖链默认首错即停，末关 AI-DOCS-OK 在场即全绿）。
+
+- [ACP-P2 页面打磨轮] run_code 内嵌 tools.bash 每次调用必须带 description 字段，漏传直接 bindingFailure（本轮浪费 2 次调用）；bash 的 workdir 不传时默认落主树工作区——并行 worktree 轮里在 worktree 内验收务必显式传 workdir，否则 grep/测试会静默读到主树旧代码（本轮 E 项清单因此重跑 2 次）。

@@ -35,12 +35,13 @@ function ConfigRow({ option }: { option: ConfigOption }) {
   const { t } = useTranslation();
   const setConfigOption = useAcpStore((s) => s.setConfigOption);
   if (option.type !== "select" || !option.options || option.options.length === 0) return null;
+  const labelId = "acp-config-label-" + option.id;
   return (
     <div className="flex items-center justify-between gap-2 text-sm">
-      <span>{optionLabel(t, option)}</span>
+      <span id={labelId}>{optionLabel(t, option)}</span>
       <Select value={String(option.currentValue)}
         onValueChange={(v) => void setConfigOption(option.id, v)}>
-        <SelectTrigger size="sm" className="w-44"
+        <SelectTrigger size="sm" className="w-44" aria-labelledby={labelId}
           data-testid={"acp-config-option-" + option.id}>
           <SelectValue />
         </SelectTrigger>

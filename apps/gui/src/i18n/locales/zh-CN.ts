@@ -682,6 +682,8 @@ const zhCN = {
       supported: "支持",
       unsupported: "不支持",
       undeclared: "未声明",
+      undeclaredHint: "agent 未在 initialize 中声明此能力",
+      unsupportedHint: "agent 已声明不支持此能力",
     },
     sessions: {
       card: "会话",
@@ -725,6 +727,8 @@ const zhCN = {
         fetch: "取数",
         other: "其他",
       },
+      expand: "展开全部",
+      collapse: "收起",
     },
     permission: {
       card: "权限请求",
@@ -745,6 +749,8 @@ const zhCN = {
     usage: {
       title: "上下文占用",
       detail: "{{used}} / {{size}} tokens（{{percent}}%）",
+      warning: "上下文占用超过 80%，建议新开会话",
+      critical: "上下文即将耗尽，请尽快新开会话",
     },
     reattach: {
       banner: "已续连，补放 {{count}} 条错过的更新",
@@ -754,6 +760,7 @@ const zhCN = {
       addPlaceholder: "手动添加 Peer ID",
       add: "添加",
       empty: "暂无节点，发现或手动添加后出现在这里",
+      emptyHint: "把节点注册到 rendezvous 或与控制台同处一个 mDNS 域，会自动出现在「发现」组；也可在上方手动添加 Peer ID。",
       discovered: "发现",
       manual: "手动",
       scope: {
@@ -764,6 +771,8 @@ const zhCN = {
       remove: "移除",
       fill: "填入连接表单",
       invalidPeer: "Peer ID 不能为空",
+      groupDiscovered: "发现（rendezvous / mDNS）",
+      groupManual: "手动 / 已保存",
     },
     composer: {
       placeholder: "输入 prompt...",

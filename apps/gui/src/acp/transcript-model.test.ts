@@ -6,6 +6,7 @@ import {
   applyUserPrompt,
   emptyTranscript,
   settleTranscript,
+  toolIoView,
   toggleThought,
 } from "./transcript-model";
 
@@ -119,5 +120,25 @@ describe("tool timeline", () => {
     st = applyUpdate(st, msgChunk("分B"));
     expect(st.turns.map((t) => t.kind)).toEqual(["assistant", "tool"]);
     expect(st.turns[0]).toMatchObject({ text: "部分A分B", streaming: true });
+  });
+});
+
+describe("tool io fold", () => {
+  it("短文本不折叠，preview 即原文", () => {
+    expect(toolIoView("line-1")).toEqual({ collapsible: false, preview: "line-1" });
+    expect(toolIoView("a\nb\nc\nd\ne\nf")).toEqual({ collapsible: false, preview: "a\nb\nc\nd\ne\nf" });
+  });
+
+  it("超过 6 行折叠，preview 截到前 6 行", () => {
+    const text = Array.from({ length: 10 }, (_, i) => "line-" + i).join("\n");
+    const view = toolIoView(text);
+    expect(view.collapsible).toBe(true);
+    expect(view.preview).toBe("line-0\nline-1\nline-2\nline-3\nline-4\nline-5");
+  });
+
+  it("超长单行折叠，preview 截到 400 字符", () => {
+    const view = toolIoView("x".repeat(401));
+    expect(view.collapsible).toBe(true);
+    expect(view.preview.length).toBe(400);
   });
 });

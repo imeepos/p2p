@@ -33,6 +33,7 @@ function SessionRow(props: {
         className="min-w-0 flex-1 text-left"
         onClick={() => props.onResume(props.sessionId)}
         title={t("acp.sessions.resume")}
+        aria-current={props.active ? "true" : undefined}
       >
         <p className="truncate text-sm font-medium">{props.title}</p>
         <p className="text-muted-foreground truncate text-xs">{props.sessionId}</p>
