@@ -17,6 +17,7 @@
 - **症状**：主树执行 `git merge-base --is-ancestor <commit> main` 无任何锁（.git/*.lock 为空、无 gc/repack 进程）持续挂起，gtimeout 10s 杀出 rc=124；同仓 worktree 内与 rev-parse/log/ls-tree 等其余 git 命令均正常。复现 2 次，未破案。
 - **绕行**：祖先判定改用 `git ls-tree main --name-only`（产物级判据）或 `git log main | grep <hash>`；已在 E10-T20/T21 验收链避免使用 merge-base。
 - **期望**：观察是否复现；若复现扩大，用 `GIT_TRACE_PERFORMANCE=1` 与 commit-graph 重建（`git commit-graph write --reachable`）定位。
+- **后续观察（2026-09-05 同日）**：同命令对同仓重执行 rc=0 正常返回，判定为瞬时资源竞争类（当时多会话并行 git 操作密集），暂不升级；判据绕行继续沿用。
 
 ---
 
