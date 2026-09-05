@@ -380,3 +380,6 @@ _none yet — be the first._
 - 2026-09-05：管道后 echo exit=$? 测的是管道尾（head 等）不是目标命令，本轮自己又踩（正是 OPS1 主题）；要拿真实退出码就把 stdout 落文件再单独跑 grep，或 set -o pipefail。
 - 2026-09-05：发现"输出丢失"类缺陷靠字节级断言（cat -A / 文件 0 字节 + exit 0 + 副作用已发生），肉眼看终端永远看不出重定向差异；node start --json 丢输出就是这么抓到的。
 - 2026-09-05：给并行子会话派任务书一次写全五件套：需求逐条/文件域互斥清单/验收命令(退出码语义)/合并序(注册表冲突消化方)/停等纪律；本轮 PR1-PR3 三会话并行靠这个把 cli.rs 冲突风险前置消解。
+- 2026-09-05 PR2：独立 workspace 子目录（apps/cli）跑全 crate `cargo fmt` 会重排 chat/group 等他域历史文件（根 fmt 门禁不覆盖它们所以常年不齐，src-tauri known-issue 同理的又一实例）——fmt 后立即 git status，他域脏文件先 diff 确认纯格式噪声（并对照 git worktree list 排除并行会话 WIP）再 checkout 还原。
+- 2026-09-05 PR2：E2E 封公网光写空列表不行——装配层 with_factory_fallback 把空 bootstrap/relay/observation 回落成公网出厂默认；必须预写非空 loopback 占位端点的 gui-config.json（端口 0=随机，loopback 连接失败不阻断起节点）。
+- 2026-09-05 PR2：验收链复跑 e2e 的幂等性靠「mktemp 新目录 + trap 清理 + stop 兜底 kill」组合，别依赖固定路径状态重置；两连跑各写独立日志文件防覆盖取证。
