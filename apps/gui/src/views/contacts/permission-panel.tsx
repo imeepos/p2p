@@ -137,6 +137,16 @@ function PermissionRow({ req }: { req: PermissionRequestView }) {
             {req.status === "pending" ? t("acp.permission.pending") : t(STATUS_KEY[req.status])}
           </StatusBadge>
         </span>
+        {req.autoAnswered ? (
+          <span
+            className="text-muted-foreground rounded border px-1.5 py-0.5 text-xs"
+            data-testid={"acp-permission-auto-" + req.requestId}
+          >
+            {t("contacts.policy.autoAnswered", {
+              tier: t(req.autoAnswered === "allow" ? "contacts.policy.tier.allow" : "contacts.policy.tier.deny"),
+            })}
+          </span>
+        ) : null}
       </div>
       {req.status === "pending" ? (
         <>

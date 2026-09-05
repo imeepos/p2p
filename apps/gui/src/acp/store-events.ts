@@ -9,6 +9,7 @@ import {
 } from "./acp-connection";
 import {
   cancelledOutcome,
+  selectedOutcome,
   REATTACH_METHOD,
   type AcpEndpoint,
   type AcpPhase,
@@ -17,8 +18,15 @@ import {
   type ReattachParams,
   type SessionUpdateParams,
   type ConfigOption,
+  type PermissionOption,
   type UsageUpdate,
 } from "./protocol";
+import { policyOf } from "./endpoint-meta";
+import {
+  allowOnceOptionId,
+  decideTier,
+  rejectOptionId,
+} from "./endpoint-policy";
 import {
   addPermission,
   applyConfigOptions,
@@ -27,6 +35,7 @@ import {
   permissionExpired,
   rejectUnanswered,
   resolvePermission,
+  resolvePermissionAuto,
   type InteractionState,
 } from "./interaction-model";
 import { applyUpdate, emptyTranscript, type TranscriptState } from "./transcript-model";
@@ -143,6 +152,32 @@ function sweepExpiredPermissions(): void {
   }
 }
 
+/** §3.3 策略应答：allow 档仅 allow_once（无 once 选项不代答回落人工）；
+ *  deny 档优先显式 reject 选项、无则 cancelled（镜像桥超时代答） */
+function autoAnswerIfPolicyed(
+  connection: AcpConnection | null,
+  id: number,
+  ctx: {
+    tier: "ask" | "allow" | "deny";
+    options: PermissionOption[];
+    title: string;
+    endpointId: string | null;
+  },
+): boolean {
+  if (ctx.tier === "ask") return false;
+  if (ctx.tier === "allow") {
+    const optionId = allowOnceOptionId(ctx.options);
+    if (!optionId) return false;
+    console.warn("[acp] 权限请求按策略自动允许（allow_once）", { id, title: ctx.title, endpointId: ctx.endpointId });
+    connection?.respond(id, selectedOutcome(optionId));
+    return true;
+  }
+  const rejectId = rejectOptionId(ctx.options);
+  console.warn("[acp] 权限请求按策略自动拒绝", { id, title: ctx.title, endpointId: ctx.endpointId, via: rejectId ? "reject-option" : "cancelled" });
+  connection?.respond(id, rejectId ? selectedOutcome(rejectId) : cancelledOutcome());
+  return true;
+}
+
 function handleAgentRequest(
   method: string,
   params: unknown,
@@ -172,6 +207,23 @@ function handleAgentRequest(
     // 新到权限（去重帧不重复提醒）：登记 notice，桥组件转 toast（P1 主动提醒）
     const after = useAcpStore.getState().interactions[sessionId]?.permissions.length ?? 0;
     if (after > before) {
+      // §3.3 权限策略：命中默认档/例外时登记后立即自动应答（allow 仅逐次放行；
+      // deny 无 reject 选项走 cancelled，镜像桥超时语义），不再 toast 打扰
+      const endpointId = useAcpStore.getState().activeEndpointId;
+      const tier = decideTier(policyOf(endpointId), {
+        toolKind: p.toolCall?.kind ?? null,
+        title,
+      });
+      const answered = autoAnswerIfPolicyed(connection, id, {
+        tier,
+        options: Array.isArray(p.options) ? p.options : [],
+        title,
+        endpointId,
+      });
+      if (answered) {
+        mapInteraction(sessionId, (inner) => resolvePermissionAuto(inner, id, tier === "allow" ? "allow" : "deny"));
+        return;
+      }
       useAcpStore.setState((s) => {
         const seq = s.permissionSeq + 1;
         return { permissionSeq: seq, permissionNotice: { requestId: id, sessionId, title, seq } };

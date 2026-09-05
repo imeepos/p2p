@@ -19,6 +19,8 @@ export interface PermissionRequestView {
   /** 收到时刻（epoch ms），60s 倒计时基准，与桥侧超时对齐 */
   receivedAt: number;
   status: PermissionStatus;
+  /** §3.3 权限策略命中：登记时已被策略自动应答（allow 仅逐次放行） */
+  autoAnswered?: "allow" | "deny";
 }
 
 /** 权限到达提醒：store 登记后由 PermissionNoticeBridge 转 toast（seq 自增供效果去重） */
@@ -75,6 +77,27 @@ export function addPermission(
 export function allowOptionId(options: PermissionOption[]): string | null {
   const allow = options.find((o) => typeof o.kind === "string" && o.kind.startsWith("allow"));
   return allow ? allow.optionId : null;
+}
+
+/** §3.3 策略自动应答归并：置终态并留 autoAnswered 标记供面板显式呈现 */
+export function resolvePermissionAuto(
+  state: InteractionState,
+  requestId: number,
+  tier: "allow" | "deny",
+): InteractionState {
+  let changed = false;
+  const permissions = state.permissions.map((p) => {
+    if (p.requestId === requestId && p.status === "pending") {
+      changed = true;
+      return {
+        ...p,
+        status: tier === "allow" ? ("approved" as const) : ("rejected" as const),
+        autoAnswered: tier,
+      };
+    }
+    return p;
+  });
+  return changed ? { ...state, permissions } : state;
 }
 
 export function resolvePermission(

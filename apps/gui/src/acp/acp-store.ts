@@ -12,7 +12,7 @@ import {
   upsertDiscovered,
 } from "./directory-model";
 import { emptyTranscript, toggleThought, type TranscriptState } from "./transcript-model";
-import { loadStored, persistStored } from "./endpoint-storage";
+import { loadStored, newEndpointId, persistStored } from "./endpoint-storage";
 import { closeConnection } from "./store-events";
 import {
   runCancelPrompt,
@@ -66,6 +66,10 @@ interface AcpConsoleState {
   setDraft: (patch: Partial<AcpEndpoint>) => void;
   saveDraft: () => void;
   removeSaved: (peer: string) => void;
+  /** §3.2 通讯录添加流：endpoint 主键兜底补齐后按 id 收藏（peer 可空） */
+  upsertSaved: (endpoint: AcpEndpoint) => AcpEndpoint;
+  /** §3.3 危险区：按 endpointId 删除收藏（旧 removeSaved 按 peer 键保留兼容） */
+  removeSavedById: (endpointId: string) => void;
   connect: () => void;
   disconnect: () => void;
   /** 断线重连横幅的立即重试入口（不打断自动重连计数） */
@@ -150,6 +154,29 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
 
   removeSaved: (peer) => {
     const next = get().saved.filter((e) => e.peer !== peer);
+    set({ saved: next });
+    persistStored({ draft: get().draft, saved: next });
+  },
+
+  upsertSaved: (endpoint) => {
+    const id = endpoint.endpointId?.trim() || newEndpointId();
+    const stamped = { ...endpoint, endpointId: id };
+    const saved = get().saved;
+    // 同 id 覆盖（编辑保存）；同 wsUrl+peer 幂等（重复添加不产生双条目）
+    const idx = saved.findIndex(
+      (e) =>
+        e.endpointId === id ||
+        (e.wsUrl === stamped.wsUrl && (e.peer || "") === (stamped.peer || "")),
+    );
+    const next =
+      idx >= 0 ? saved.map((e, i) => (i === idx ? stamped : e)) : [...saved, stamped];
+    set({ saved: next, draft: stamped });
+    persistStored({ draft: stamped, saved: next });
+    return stamped;
+  },
+
+  removeSavedById: (endpointId) => {
+    const next = get().saved.filter((e) => e.endpointId !== endpointId);
     set({ saved: next });
     persistStored({ draft: get().draft, saved: next });
   },
