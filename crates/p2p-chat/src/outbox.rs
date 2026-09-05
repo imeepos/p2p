@@ -117,7 +117,8 @@ async fn dispatch_entry(group: &GroupCore, entry: &GoutboxEntry) -> Result<bool,
     }
 }
 
-/// ACK 记账：出队条目；消息帧追加 acks，按「覆盖当前其他全体成员」判定 delivered。
+/// ACK 记账：出队条目；消息帧把成员计入 acks，全员确认时历史状态收敛 delivered
+/// （磁盘与事件同源，design §4 状态机；实时路径的收敛在 finish_report）。
 fn on_acked(group: &GroupCore, entry: &GoutboxEntry) -> Result<(), ChatError> {
     let GoutboxFrame::Msg { msg } = &entry.frame else {
         return group
@@ -129,21 +130,16 @@ fn on_acked(group: &GroupCore, entry: &GoutboxEntry) -> Result<(), ChatError> {
         .store
         .remove_goutbox(&entry.to, &entry.id)
         .map_err(ChatError::Io)?;
-    group
-        .store
-        .patch_message(&msg.group_id, &msg.id, |m| {
-            if !m.acks.contains(&entry.to) {
-                m.acks.push(entry.to.clone());
-            }
-        })
-        .map_err(ChatError::Io)?;
-    let acks = group
+    let mut acks = group
         .store
         .history(&msg.group_id)
         .into_iter()
         .find(|m| m.id == msg.id)
         .map(|m| m.acks)
         .unwrap_or_default();
+    if !acks.contains(&entry.to) {
+        acks.push(entry.to.clone());
+    }
     let local = group.chat.node.local_peer_id().to_string();
     let delivered = group
         .store
@@ -155,6 +151,15 @@ fn on_acked(group: &GroupCore, entry: &GoutboxEntry) -> Result<(), ChatError> {
                 .all(|m| acks.contains(m))
         })
         .unwrap_or(false);
+    group
+        .store
+        .patch_message(&msg.group_id, &msg.id, |m| {
+            m.acks = acks.clone();
+            if delivered {
+                m.status = ChatStatus::Delivered;
+            }
+        })
+        .map_err(ChatError::Io)?;
     group.emit(crate::group_model::GroupEvent::Status {
         group_id: msg.group_id.clone(),
         message_id: msg.id.clone(),

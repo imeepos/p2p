@@ -10,7 +10,7 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use common::{add_each_other, cleanup, peer_str, spawn, spawn_at, wait_event, TestNode};
-use p2p_chat::{ChatKind, GroupEvent};
+use p2p_chat::{ChatKind, ChatStatus, GroupEvent};
 
 /// 发端 goutbox/<peer>.jsonl 行数（0 = 该成员无积压条目）。
 fn backlog(a_dir: &Path, peer: &str) -> usize {
@@ -125,6 +125,11 @@ async fn backfill_lands_within_next_send_command() {
         msg1.acks.contains(&peer_b) && msg1.acks.contains(&peer_c),
         "补投送达计入 acks 且含全员：{:?}",
         msg1.acks
+    );
+    assert_eq!(
+        msg1.status,
+        ChatStatus::Delivered,
+        "全员确认后磁盘历史状态收敛 delivered"
     );
     assert_eq!(backlog(&a.dir, &peer_c), 0, "已送达即出队，无双账本");
     assert_eq!(backlog(&a.dir, &peer_b), 0);
