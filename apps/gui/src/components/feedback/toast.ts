@@ -32,8 +32,10 @@ function isDuplicate(key: string): boolean {
 }
 
 export function toastSuccess(message: string, description?: string) {
+  // 去重命中只忽略本次重复调用；禁止 toast.dismiss()——无参会把屏幕上
+  // 不相关的在显提示全部关掉，重复消息必须只影响重复那条自身。
   if (isDuplicate("ok:" + message)) {
-    return toast.dismiss();
+    return undefined;
   }
   return toast.success(message, {
     description,
@@ -77,8 +79,9 @@ export function toastError(
   options?: string | ToastErrorOptions,
 ) {
   const normalized = normalizeErrorOptions(options);
+  // 同 toastSuccess：去重只忽略重复调用本身，绝不全量关闭在显提示
   if (isDuplicate("err:" + message)) {
-    return toast.dismiss();
+    return undefined;
   }
   const clipboardText = buildErrorDetailClipboard(message, normalized);
   return toast.error(message, {

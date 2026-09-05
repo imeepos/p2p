@@ -6,6 +6,7 @@ import "@/i18n";
 import {
   buildErrorDetailClipboard,
   toastError,
+  toastSuccess,
   type ToastErrorOptions,
 } from "./toast";
 
@@ -92,5 +93,32 @@ describe("buildErrorDetailClipboard", () => {
     expect(
       buildErrorDetailClipboard("boom", { detail: "full stack" }),
     ).toBe("error: boom\ndetail: full stack");
+  });
+});
+
+describe("toast 去重只影响重复那条", () => {
+  it("在显 A、B 期间重复发 A：A 不新增，B 不消失", async () => {
+    render(<Toaster position="bottom-right" />);
+    act(() => {
+      toastError("去重甲");
+      toastSuccess("去重乙");
+    });
+    await screen.findByText("去重乙");
+    expect(screen.getAllByText("去重甲")).toHaveLength(1);
+    act(() => {
+      toastError("去重甲");
+    });
+    expect(screen.getAllByText("去重甲")).toHaveLength(1);
+    expect(screen.getByText("去重乙")).toBeTruthy();
+  });
+
+  it("重复成功提示同样只忽略重复本身", async () => {
+    render(<Toaster position="bottom-right" />);
+    act(() => {
+      toastSuccess("去重丙");
+      toastSuccess("去重丙");
+    });
+    await screen.findByText("去重丙");
+    expect(screen.getAllByText("去重丙")).toHaveLength(1);
   });
 });
