@@ -376,6 +376,7 @@ const zhCN = {
       noMatch: "无匹配会话",
       back: "返回会话列表",
       loading: "正在加载会话…",
+      self: "我",
     },
     preview: {
       image: "[图片]",

@@ -21,6 +21,29 @@ function get() {
   return useAcpStore.getState();
 }
 
+/** §2.2/§2.3：端点最后交互时间（仅内存态）；无端点 id（草稿未保存）时跳过 */
+function touchEndpointInteraction(): void {
+  const endpointId = get().activeEndpointId;
+  if (!endpointId) return;
+  useAcpStore.setState((s) => ({
+    lastInteractionByEndpoint: { ...s.lastInteractionByEndpoint, [endpointId]: Date.now() },
+  }));
+}
+
+/** 回合落定：ok=true 失败路径只刷交互时间不计未读；ok=false 收到完整回复，
+ *  聚焦端点不计未读（§2.3 自己操作期间不产生新未读）。 */
+function settleEndpointArrival(failed: boolean): void {
+  const endpointId = get().activeEndpointId;
+  if (!endpointId) return;
+  useAcpStore.setState((s) => ({
+    lastInteractionByEndpoint: { ...s.lastInteractionByEndpoint, [endpointId]: Date.now() },
+    unreadByEndpoint:
+      failed || s.focusedEndpointId === endpointId
+        ? s.unreadByEndpoint
+        : { ...s.unreadByEndpoint, [endpointId]: (s.unreadByEndpoint[endpointId] ?? 0) + 1 },
+  }));
+}
+
 /** 发送成功清空该会话草稿；失败保留（composer 可原样重发） */
 function clearPromptDraft(sessionId: string): void {
   useAcpStore.setState((s) => {
@@ -65,6 +88,7 @@ export function startConnect(): void {
     capabilities: null,
     lastError: null,
     activePeer: draft.peer,
+    activeEndpointId: draft.endpointId ?? null,
   });
   startConnection(draft);
 }
@@ -84,6 +108,7 @@ export function runDisconnect(): void {
     reconnect: null,
     reattachNotice: null,
     sessionLostNotice: false,
+    activeEndpointId: null,
   });
 }
 
@@ -182,11 +207,15 @@ export async function runSendPrompt(text: string): Promise<boolean> {
     }));
   mapTranscript(sessionId, (t) => applyUserPrompt(t, trimmed));
   settlePending(true);
+  // §2.2：发出 prompt 即记一次本端交互时间
+  touchEndpointInteraction();
   try {
     const result = (await conn.sessionPrompt(sessionId, trimmed)) as { stopReason?: string };
     settlePending(false);
     clearPromptDraft(sessionId);
     mapTranscript(sessionId, (t) => settleTranscript(t, result.stopReason ?? "end_turn"));
+    // §2.3：完整回复落定即到货——未聚焦该端点时 unread+1，聚焦只刷交互时间
+    settleEndpointArrival(false);
     return true;
   } catch (error) {
     console.warn("[acp] prompt 失败", error);
@@ -195,6 +224,8 @@ export async function runSendPrompt(text: string): Promise<boolean> {
     useAcpStore.setState({ lastError: "promptFailed" });
     // 失败结算写约定值 "error"：气泡承载失败徽章（渲染归 P2），不再与正常结束同形
     mapTranscript(sessionId, (t) => settleTranscript(t, "error"));
+    // 失败同样是一次交互（条目显 error 态），但不产生未读
+    settleEndpointArrival(true);
     return false;
   }
 }

@@ -36,6 +36,8 @@ export interface GroupStoreState {
   selectedGroupId: string | null;
   messagesByGroup: Record<string, GroupMessageJson[]>;
   lastMessageByGroup: Record<string, GroupMessageJson | null>;
+  /** §2.3 未读计数：仅内存态，选中即清零；自己发送的消息不计 */
+  unreadByGroup: Record<string, number>;
   historyLoading: Record<string, boolean>;
   historyLoaded: Record<string, boolean>;
   hasMore: Record<string, boolean>;
@@ -73,6 +75,7 @@ export const useGroupStore = create<GroupStoreState>()((set, get) => ({
   selectedGroupId: null,
   messagesByGroup: {},
   lastMessageByGroup: {},
+  unreadByGroup: {},
   historyLoading: {},
   historyLoaded: {},
   hasMore: {},
@@ -113,7 +116,13 @@ export const useGroupStore = create<GroupStoreState>()((set, get) => ({
   },
 
   selectGroup: async (groupId) => {
-    set({ selectedGroupId: groupId });
+    // §2.3 选中清零：query 落定即经本入口
+    set((s) => ({
+      selectedGroupId: groupId,
+      unreadByGroup: s.unreadByGroup[groupId]
+        ? { ...s.unreadByGroup, [groupId]: 0 }
+        : s.unreadByGroup,
+    }));
     if (get().historyLoaded[groupId] || get().historyLoading[groupId]) return;
     set((s) => ({ historyLoading: { ...s.historyLoading, [groupId]: true } }));
     try {
@@ -251,6 +260,19 @@ export const useGroupStore = create<GroupStoreState>()((set, get) => ({
         event,
       );
       if (patch) set(patch);
+      // §2.3 未读：未选中该群收到的他人消息 +1（去重后的事件才计）
+      if (event.type === "chat_group_message" && patch) {
+        const self = get().selfPeerId;
+        const senderId = event.message.senderId;
+        if (senderId !== self && get().selectedGroupId !== event.groupId) {
+          set((s) => ({
+            unreadByGroup: {
+              ...s.unreadByGroup,
+              [event.groupId]: (s.unreadByGroup[event.groupId] ?? 0) + 1,
+            },
+          }));
+        }
+      }
     });
     void unlisten;
   },

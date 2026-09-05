@@ -16,6 +16,7 @@ import type {
   ChatMessageJson,
   ChatSendReport,
 } from "@/lib/ipc-types";
+import { reduceChatMessage } from "./chat-events";
 
 const HISTORY_SIZE = 50;
 let subscriptionStarted = false;
@@ -32,6 +33,8 @@ export interface ChatStoreState {
   selectedPeer: string | null;
   messagesByPeer: Record<string, ChatMessageJson[]>;
   lastMessageByPeer: Record<string, ChatMessageJson | null>;
+  /** §2.3 未读计数：仅内存态，选中即清零，重启归零 */
+  unreadByPeer: Record<string, number>;
   historyLoading: Record<string, boolean>;
   historyLoaded: Record<string, boolean>;
   hasMore: Record<string, boolean>;
@@ -71,6 +74,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   selectedPeer: null,
   messagesByPeer: {},
   lastMessageByPeer: {},
+  unreadByPeer: {},
   historyLoading: {},
   historyLoaded: {},
   hasMore: {},
@@ -139,7 +143,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   },
 
   selectPeer: async (peer) => {
-    set({ selectedPeer: peer });
+    // §2.3 选中清零：query 落定即经本入口，未读随之归零
+    set((s) => ({
+      selectedPeer: peer,
+      unreadByPeer: s.unreadByPeer[peer] ? { ...s.unreadByPeer, [peer]: 0 } : s.unreadByPeer,
+    }));
     if (get().historyLoaded[peer] || get().historyLoading[peer]) return;
     set((s) => ({
       historyLoading: { ...s.historyLoading, [peer]: true },
@@ -264,21 +272,8 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     subscriptionStarted = true;
     const unlisten = await ipc.onNodeEvent((event) => {
       if (event.type === "chat_message") {
-        set((s) => {
-          const peer = event.message.peer;
-          const list = s.messagesByPeer[peer] ?? [];
-          if (list.some((m) => m.id === event.message.id)) return s;
-          return {
-            messagesByPeer: {
-              ...s.messagesByPeer,
-              [peer]: mergeMessages(list, [event.message]),
-            },
-            lastMessageByPeer: {
-              ...s.lastMessageByPeer,
-              [peer]: event.message,
-            },
-          };
-        });
+        const patch = reduceChatMessage(get(), event);
+        if (patch) set(patch);
       } else if (event.type === "chat_invite") {
         // 邀请生命周期：刷新邀请簿与好友簿（accepted 双向建簿）
         void get().loadInvites();

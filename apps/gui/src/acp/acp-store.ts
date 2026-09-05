@@ -33,6 +33,13 @@ interface AcpConsoleState {
   draft: AcpEndpoint;
   saved: AcpEndpoint[];
   activePeer: string | null;
+  /** 当前连接对应的本地端点 id（§2.2 主键）；草稿未保存时为 null */
+  activeEndpointId: string | null;
+  /** /chat?agent= 聚焦的端点 id：null 表示聊天页未停在该 agent 会话 */
+  focusedEndpointId: string | null;
+  /** §2.2/§2.3：每端点最后交互时间与未读（仅内存态，重启归零） */
+  lastInteractionByEndpoint: Record<string, number>;
+  unreadByEndpoint: Record<string, number>;
   closeInfo: AcpCloseInfo | null;
   reconnect: { attempt: number; max: number } | null;
   /** dsh/bridge/reattach 通知折射的续连补放横幅 */
@@ -53,6 +60,8 @@ interface AcpConsoleState {
   permissionNotice: PermissionNotice | null;
   permissionSeq: number;
   lastError: string | null;
+  /** 聊天页深链落定入口：记录聚焦并清零该端点未读（§2.3 选中清零） */
+  setFocusedEndpoint: (endpointId: string | null) => void;
   setPromptDraft: (sessionId: string, text: string) => void;
   setDraft: (patch: Partial<AcpEndpoint>) => void;
   saveDraft: () => void;
@@ -88,6 +97,10 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   draft: stored.draft,
   saved: stored.saved,
   activePeer: null,
+  activeEndpointId: null,
+  focusedEndpointId: null,
+  lastInteractionByEndpoint: {},
+  unreadByEndpoint: {},
   closeInfo: null,
   reconnect: null,
   reattachNotice: null,
@@ -103,6 +116,19 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   permissionNotice: null,
   permissionSeq: 0,
   lastError: null,
+
+  setFocusedEndpoint: (endpointId) => {
+    set((s) => {
+      if (!endpointId) return { focusedEndpointId: null };
+      return {
+        focusedEndpointId: endpointId,
+        // §2.3 选中清零
+        unreadByEndpoint: s.unreadByEndpoint[endpointId]
+          ? { ...s.unreadByEndpoint, [endpointId]: 0 }
+          : s.unreadByEndpoint,
+      };
+    });
+  },
 
   setPromptDraft: (sessionId, text) => {
     set((s) => ({ promptDrafts: { ...s.promptDrafts, [sessionId]: text } }));
@@ -165,6 +191,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
     set({
       phase: "idle",
       activePeer: null,
+      activeEndpointId: null,
       closeInfo: null,
       reconnect: null,
       reattachNotice: null,

@@ -386,6 +386,7 @@ const enUS: typeof zhCN = {
       noMatch: "No matching conversations",
       back: "Back to conversation list",
       loading: "Loading conversations…",
+      self: "Me",
     },
     preview: {
       image: "[Image]",

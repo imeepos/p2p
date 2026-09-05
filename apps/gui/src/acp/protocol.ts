@@ -25,6 +25,10 @@ export interface AcpEndpoint {
   peer: string;
   /** 续连票据（可选；断线窗口内重连时透传给桥） */
   reattach?: string;
+  /** 本地端点 id（§2.2 新引入，替代 wsUrl 作会话主键）；存档迁移时补生成 */
+  endpointId?: string;
+  /** 端点别名（§2.2）；缺省回退 wsUrl host:port */
+  alias?: string;
   /** console status HTTP 地址（http://127.0.0.1:<status_port>，stdout ready 行的 status）。
    *  缺省时自动重连退化为 fresh 拨号、发现清单不轮询（apps/acp-console/README.md） */
   statusUrl?: string;
