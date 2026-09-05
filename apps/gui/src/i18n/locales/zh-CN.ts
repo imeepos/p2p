@@ -684,6 +684,8 @@ const zhCN = {
       undeclared: "未声明",
       undeclaredHint: "agent 未在 initialize 中声明此能力",
       unsupportedHint: "agent 已声明不支持此能力",
+      image: "图像输入",
+      audio: "音频输入",
     },
     sessions: {
       card: "会话",
@@ -704,6 +706,7 @@ const zhCN = {
         max_turn_requests: "达到轮次上限",
         refusal: "模型拒绝回答",
         cancelled: "已取消",
+        error: "失败",
       },
       thoughtShow: "展开思考",
       thoughtHide: "收起思考",
@@ -773,6 +776,7 @@ const zhCN = {
       invalidPeer: "Peer ID 不能为空",
       groupDiscovered: "发现（rendezvous / mDNS）",
       groupManual: "手动 / 已保存",
+      scopeHint: "scope 仅为本地归类，真实授权走桥侧 p2pctl acp allow 流程",
     },
     composer: {
       placeholder: "输入 prompt...",

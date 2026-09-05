@@ -701,6 +701,8 @@ const enUS: typeof zhCN = {
       undeclared: "Undeclared",
       undeclaredHint: "The agent did not declare this capability in initialize",
       unsupportedHint: "The agent declared this capability as unsupported",
+      image: "Image input",
+      audio: "Audio input",
     },
     sessions: {
       card: "Sessions",
@@ -721,6 +723,7 @@ const enUS: typeof zhCN = {
         max_turn_requests: "Turn limit reached",
         refusal: "Model refused",
         cancelled: "Cancelled",
+        error: "Error",
       },
       thoughtShow: "Show thinking",
       thoughtHide: "Hide thinking",
@@ -790,6 +793,7 @@ const enUS: typeof zhCN = {
       invalidPeer: "Peer ID must not be empty",
       groupDiscovered: "Discovered (rendezvous / mDNS)",
       groupManual: "Manual / Saved",
+      scopeHint: "Scope is a local label only; grant real access via the bridge-side p2pctl acp allow flow",
     },
     composer: {
       placeholder: "Type a prompt...",
