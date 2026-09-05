@@ -3,14 +3,9 @@ import { useTranslation } from "react-i18next";
 import { HOP_KEY } from "./hop-labels";
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n";
-import { describeNodeEvent } from "@/lib/event-text";
-import type { NodeEventJson } from "@/lib/ipc-types";
+import type { DialHopKind, NodeEventJson } from "@/lib/ipc-types";
 import { eventTimeMs, formatRelative } from "./event-clock";
-import {
-  EVENT_TYPE_KEY,
-  eventBadgeVariant,
-  eventSummary,
-} from "./event-meta";
+import { EVENT_TYPE_KEY, eventBadgeVariant, eventSummary } from "./event-meta";
 import { toLooseT } from "./loose-t";
 
 interface RecentEventLineProps {
@@ -23,11 +18,15 @@ interface RecentEventLineProps {
 export function RecentEventLine({ event, locale, now }: RecentEventLineProps) {
   const { t } = useTranslation();
   const tt = toLooseT(t);
-  const summary = eventSummary(event, {
-    hopLabel: (kind) => tt(HOP_KEY[kind]),
+  const labels = {
+    hopLabel: (kind: DialHopKind) => tt(HOP_KEY[kind]),
     okLabel: tt("events.outcome.ok"),
     failLabel: tt("events.outcome.fail"),
-  });
+  };
+  const summary = eventSummary(event, labels);
+  // tooltip 与行内文案共用同一 i18n 模板（不截断 PeerId），
+  // 不再展示 describeNodeEvent 的原始协议串，消灭中英混排。
+  const fullSummary = eventSummary(event, labels, { full: true });
 
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -36,7 +35,7 @@ export function RecentEventLine({ event, locale, now }: RecentEventLineProps) {
       </Badge>
       <span
         className="min-w-0 flex-1 truncate"
-        title={describeNodeEvent(event)}
+        title={tt(fullSummary.key, fullSummary.values)}
       >
         {tt(summary.key, summary.values)}
       </span>

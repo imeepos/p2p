@@ -73,10 +73,7 @@ export interface EventSummary {
   values: Record<string, string>;
 }
 
-const short = (peerId: string | null): string =>
-  peerId ? peerId.slice(0, 8) : "-";
-
-type HopLabel = (kind: DialHopKind) => string;
+export type HopLabel = (kind: DialHopKind) => string;
 
 export interface SummaryLabels {
   hopLabel: HopLabel;
@@ -84,10 +81,18 @@ export interface SummaryLabels {
   failLabel: string;
 }
 
+export interface EventSummaryOptions {
+  /** true 时 PeerId/消息 id 不截断：供 tooltip 等需要完整信息的场景。 */
+  full?: boolean;
+}
+
 export function eventSummary(
   event: NodeEventJson,
   labels: SummaryLabels,
+  options: EventSummaryOptions = {},
 ): EventSummary {
+  const short = (peerId: string | null): string =>
+    peerId ? (options.full ? peerId : peerId.slice(0, 8)) : "-";
   switch (event.type) {
     case "peer_discovered":
       return {
@@ -144,7 +149,7 @@ export function eventSummary(
     case "chat_message":
       return { key: "events.summary.chatMessage", values: { peer: short(event.peer) } };
     case "chat_status":
-      return { key: "events.summary.chatStatus", values: { id: event.messageId.slice(0, 8), status: event.status } };
+      return { key: "events.summary.chatStatus", values: { id: short(event.messageId), status: event.status } };
     case "chat_group_message":
       return {
         key: "events.summary.chatGroupMessage",

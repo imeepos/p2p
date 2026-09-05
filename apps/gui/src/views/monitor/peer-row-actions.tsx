@@ -15,12 +15,6 @@ interface PeerRowActionsProps {
   onShowDetail: (peerId: string) => void;
 }
 
-// 拨号失败的归因：取最后一个失败跳的 detail，空报告兜底通用文案。
-function dialFailReason(report: DialReport): string {
-  const failed = [...report.hops].reverse().find((hop) => !hop.ok);
-  return failed?.detail ?? "all hops failed";
-}
-
 // 行操作：未连接给拨号、已连接给挂断；ping 与详情恒在（契约 §1 peer_connect/disconnect）。
 export function PeerRowActions({
   peer,
@@ -59,7 +53,13 @@ export function PeerRowActions({
           variant="outline"
           action={async () => {
             const report = await onConnect(peer)();
-            if (!report.ok) throw new Error(dialFailReason(report));
+            if (!report.ok) {
+              // 兜底原因走 i18n，不展示硬编码英文。
+              const failed = [...report.hops].reverse().find((hop) => !hop.ok);
+              throw new Error(
+                failed?.detail ?? t("peers.connectFailFallback"),
+              );
+            }
             return report;
           }}
           onSuccess={() => toastSuccess(t("peers.connectOk"))}
@@ -80,7 +80,9 @@ export function PeerRowActions({
         variant="outline"
         action={async () => {
           const outcome = await onPing(peer)();
-          if (!outcome.ok) throw new Error(outcome.error ?? "ping failed");
+          if (!outcome.ok) {
+            throw new Error(outcome.error ?? t("peers.pingFailFallback"));
+          }
           return outcome;
         }}
         onSuccess={(result) =>
