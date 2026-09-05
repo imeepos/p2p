@@ -32,7 +32,7 @@ import {
   isFlowMark,
   errorText,
 } from "@/views/shared/form-flow";
-import { useUnsavedGuard } from "@/views/shared/unsaved-guard";
+import { useUnsavedGuard } from "@/views/shared/use-unsaved-guard";
 
 interface RelayFormValues {
   relayAddrs: AddressRow[];

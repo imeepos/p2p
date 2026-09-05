@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
-import { UnsavedRouteGuard, useUnsavedGuard } from "./unsaved-guard";
+import { UnsavedRouteGuard } from "./unsaved-guard";
+import { useUnsavedGuard } from "./use-unsaved-guard";
 
 // 代表性脏编辑面：hasUnsaved/discard 由外部可变旗标驱动，覆盖注册表全链路。
 let dirty = false;

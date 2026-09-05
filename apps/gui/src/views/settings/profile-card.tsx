@@ -24,7 +24,7 @@ import {
 import { useProfileStore } from "@/stores/profile-store";
 import { errorText } from "@/views/shared/form-flow";
 import { LoadFailedNotice } from "@/views/shared/load-state";
-import { useUnsavedGuard } from "@/views/shared/unsaved-guard";
+import { useUnsavedGuard } from "@/views/shared/use-unsaved-guard";
 
 const AVATAR_INPUT_ACCEPT = "image/png,image/jpeg,image/webp";
 

@@ -28,7 +28,10 @@ vi.mock("@/theme/theme-provider", () => ({
 import "@/i18n";
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { useProfileStore } from "@/stores/profile-store";
-import { discardAllUnsaved, hasAnyUnsaved } from "./unsaved-guard";
+import {
+  discardAllUnsaved,
+  hasAnyUnsaved,
+} from "./use-unsaved-guard";
 import { ProfileCard } from "@/views/settings/profile-card";
 import { RelayConfigCard } from "@/views/relay/relay-config-card";
 import { SettingsView } from "@/views/settings/settings-view";

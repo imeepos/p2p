@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/page/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ipc } from "@/lib/ipc";
 import { useNodeStore } from "@/stores/node-store";
-import { useUnsavedGuard } from "@/views/shared/unsaved-guard";
+import { useUnsavedGuard } from "@/views/shared/use-unsaved-guard";
 import { AdvertiseCard } from "./advertise-card";
 import { AppearanceCard } from "./appearance-card";
 import {

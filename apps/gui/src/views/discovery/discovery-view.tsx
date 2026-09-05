@@ -13,7 +13,7 @@ import { DiscoveredTableCard } from "./discovered-table-card";
 import { MdnsCard } from "./mdns-card";
 import { RendezvousCard } from "./rendezvous-card";
 import { LoadFailedNotice } from "@/views/shared/load-state";
-import { useUnsavedGuard } from "@/views/shared/unsaved-guard";
+import { useUnsavedGuard } from "@/views/shared/use-unsaved-guard";
 import { useGuiConfig } from "@/views/shared/use-gui-config";
 
 // 发现页：mDNS 开关与设置页统一「置脏 + 保存条」模型（切换只置脏，保存落盘，
