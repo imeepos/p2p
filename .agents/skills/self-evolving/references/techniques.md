@@ -352,3 +352,7 @@ run_code 里用 TS 模板字面量写 bash 内容时，bash 的 ${VAR} 会被 JS
 vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 开始前，红路径探测秒级返回——「必红」回归放 gate-tests 成本极低，别因怕慢而放弃真实红路径探测、只测夹具。
 - 2026-09-05：GUI 门禁先本地全量三连（eslint src 全目录 + pnpm build + vitest run 全量）再 make check——gui-check 的 eslint 含 react-hooks 编译器规则，vitest 全绿不代表 lint 绿，三连绿后 make check 一次过的概率大幅上升。
 - 2026-09-05：逐码断言表单错误：CASES 表 {field, value, code} it.each 循环，断言 testid 为前缀-error-加码 且文本 === i18n.t(key)——「稳定错误码 + i18n」验收从此机械可验。
+- 2026-09-05 发布链路：gh 未装时取 CI 证据——~/.config/gh/hosts.yml 的 oauth_token 直接作 Bearer；job logs API 公开仓库未认证也 403（Must have admin rights）；步骤 env dump 判读 "VAR: ***"=secret 存在非空、"VAR:" 空=secret 不存在（GitHub secrets 不存空串，workflow 表达式对缺失 secret 求值空串导出）；条件步命中与否看 jobs API steps[].name+conclusion，免拉日志。
+- 2026-09-05 发布链路：base64 报错 "Invalid symbol N, offset M" 定因法——拿 M 对照本地正确值长度，M==长度即锁定「尾部多一个字符」，N 是杂字符 ASCII；本地 tauri signer sign + 构造同形态脏值可逐字复现 CI 报错，免全量 build。
+- 2026-09-05 发布链路：写 GitHub Actions secret 免 gh 装——python3 pynacl SealedBox 加密原文件后 PUT /repos/{o}/{r}/actions/secrets/{name}，204 后 GET secrets 看 updated_at 变动；验证构建修复用 workflow_dispatch（release job 只挂 tag ref，自然 skipped，零发布副作用）。
+- 2026-09-05 DSH：run_code 里长含反引号/markdown 的文本会被 JS 模板串截断、bash 变量在模板串里会被 JS 插值——多行内容用行数组 push 后 join，bash 变量写成转义形式。

@@ -780,3 +780,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：make check 在 gui-check 挂：effect 内同步 setState（含 effect 内转手调 setState 的辅助函数）全被点名；渲染期调整块引用了后置声明的 setter 也报 immutability。
 修法：三型改造——(1) localStorage 等同步源回 useState 惰性初始化器；(2) 「props 变化重置表单」用渲染期哨兵比较（if (lastOpen !== open) { setLastOpen(open); ... }），且哨兵块必须声明在使用点之前；(3) 结论落外部系统（zustand/meta/存储）由订阅端选择器呈现，effect 只做外部写入不做 setState。
 ---
+
+## 2026-09-05 发布链路：CI 签名步 Invalid symbol 37, offset 348 四平台同挂
+- 症状：tauri 签名步 failed to decode base64 secret key: Invalid symbol 37, offset 348，全平台一致复现。
+- 原因：密钥文件无尾换行，终端 cat 回显后 zsh 显示 EOL 标记 %（PROMPT_EOL_MARKER），全选复制时带入 GitHub secret，值尾多一个杂字符；offset 恰等于本地正确密钥长度 348，symbol 37 即 % 的 ASCII 码。
+- 修法：secret 一律文件重定向写入（gh secret set NAME < file 或 API+原文件 sealed box），禁止从终端回显复制；修复验证用 secrets 列表 updated_at + workflow_dispatch 免推 tag 看打包步变绿。
