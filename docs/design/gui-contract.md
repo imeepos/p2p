@@ -342,6 +342,7 @@ interface UpdateDownloadBackend {
 | group_kick | groupId: string, memberId: string | GroupJson | owner-only；rev+1 推余员 + G_KICK |
 | group_leave | groupId: string | GroupJson | 本端 state=left；G_LEAVE 通知 owner |
 | group_rename | groupId: string, name: string | GroupJson | owner-only；rev+1 推 roster |
+| group_disband | groupId: string | GroupJson | owner-only；rev+1，对全体其他成员发 G_KICK(reason=disbanded)；本端 state=disbanded；非 active 重复解散显式 Err |
 | group_send | groupId, kind: ChatKind, text?, media?: ChatMediaInput, replyTo? | GroupSendReport | 校验→fan-out；见设计 §6 |
 | group_history | groupId: string, beforeId?: string, limit?: number | GroupMessageJson[] | 同 1:1 分页语义 |
 | group_media_file | groupId: string, messageId: string | { path, mime, name } | 同 1:1，目录为 media/<groupId>/ |
@@ -396,10 +397,10 @@ interface GroupSendReport {
   （群 per-member 离线队列）、groups/<groupId>.jsonl（群历史）、media/<groupId>/。
 - 送达展示：GroupSendReport 的 acked/recipients/delivered 与 GroupMessageJson.acks
   推导「已送达 |acks|/n」；sent 状态不用于群消息（枚举保留不占用）。
-- 实现补充（设计 §7 命令表外登记）：src-tauri 另注册 group_disband（owner-only
-  解散，设计 §5 语义：rev+1、对全体成员发 G_KICK(reason=disbanded)、本端
-  state=disbanded）；G2 ipc/mock 命令面九叶未含此命令，前端接线为 G3 群管理面板
-  遗留缺口（i18n 词条已备）。
+- 实现登记（G6 升格，2026-09-05）：group_disband 已列入 §14.1 命令表（设计
+  §5 语义：owner 校验、rev+1、对全体其他成员发 G_KICK(reason=disbanded)、本端
+  state=disbanded；非 active 重复解散显式 Err）。G2 九命令面缺口闭环：ipc/mock/
+  store 与群管理面板均接真命令，逐个 groupKick 变通移除。
 - 验收对齐点：A 侧 serde 字段名与上表及事件逐字一致（tests/group_contract.rs
   矩阵断言，Option 序列化 null、acks 缺省容忍旧记录）；B 侧 TS 类型与上表逐字一致
   （ipc-types.ts / ipc.ts 九方法）；mock 与真实实现同签名（mock-group-roster）；

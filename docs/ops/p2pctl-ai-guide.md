@@ -1032,7 +1032,7 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 | --group | string | 是 | —— |
 | --json | flag | 否 | off |  |  |  |
 | --data-dir | path | 否 | ./p2p-data |  |  |  |
-退出码：非 owner → 1。
+退出码：非 owner / 群已非 active（含重复解散）→ 1。
 
 ### p2pctl group send
 用途：发群消息（--text 文本或 --file 附件，二选一）。fan-out 至全体其他成员；未全员送达按退出码 1 失败（报告仍输出，成员离线经 goutbox 补投）。
