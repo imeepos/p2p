@@ -1,6 +1,14 @@
-import { GlobeIcon, MoonIcon, SunIcon, SunMoonIcon } from "lucide-react";
+import {
+  GlobeIcon,
+  MoonIcon,
+  SearchIcon,
+  SunIcon,
+  SunMoonIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { requestOpenCommandPalette } from "@/components/command-palette/palette-bus";
+import { commandShortcutLabel } from "@/components/command-palette/shortcut";
 import { AsyncButton } from "@/components/feedback/async-button";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Badge } from "@/components/ui/badge";
@@ -174,6 +182,26 @@ function LanguageMenu() {
   );
 }
 
+// 命令面板唯一可见入口（此前仅隐藏快捷键可发现）：徽标随平台显示 Cmd/Ctrl+K
+function CommandPaletteButton() {
+  const { t } = useTranslation();
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="text-muted-foreground gap-1.5 px-2"
+      aria-label={t("palette.open")}
+      title={t("palette.open")}
+      onClick={requestOpenCommandPalette}
+    >
+      <SearchIcon className="size-4" />
+      <kbd className="border-border bg-muted text-muted-foreground pointer-events-none inline-flex h-5 items-center rounded border px-1.5 font-mono text-[10px] font-medium">
+        {commandShortcutLabel()}
+      </kbd>
+    </Button>
+  );
+}
+
 export function Topbar() {
   const { t } = useTranslation();
 
@@ -183,6 +211,7 @@ export function Topbar() {
         {t("common.appName")}
       </span>
       <div className="flex items-center gap-2">
+        <CommandPaletteButton />
         <NodeStatusPill />
         <StartStopButton />
         <ThemeMenu />

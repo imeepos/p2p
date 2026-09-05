@@ -28,7 +28,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       )}
     >
       <nav className="flex flex-1 flex-col gap-1 p-2">
-        {MENU_ENTRIES.map((entry) => (
+        {MENU_ENTRIES.map((entry, index) => (
           <NavLink
             key={entry.path}
             to={entry.path}
@@ -45,6 +45,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           >
             <entry.icon className="size-4 shrink-0" aria-hidden />
             {!collapsed && <span className="truncate">{t(entry.titleKey)}</span>}
+            {/* 数字徽标与 useNumberRouteHotkeys 的 Cmd/Ctrl+1..9 映射一致：
+                第 10 项起的注册路由无数字热键，徽标相应省略 */}
+            {!collapsed && index < 9 && (
+              <kbd className="border-border bg-muted text-muted-foreground ml-auto rounded border px-1.5 font-mono text-[10px] font-medium">
+                {index + 1}
+              </kbd>
+            )}
           </NavLink>
         ))}
       </nav>
