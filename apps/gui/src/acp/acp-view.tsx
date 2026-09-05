@@ -69,6 +69,26 @@ function ReattachBanner() {
   );
 }
 
+/** 在线态连接状态条：全页唯一的常驻断开入口（连接卡在 online 态已卸载） */
+function OnlineStatusBar() {
+  const { t } = useTranslation();
+  const activePeer = useAcpStore((s) => s.activePeer);
+  const wsUrl = useAcpStore((s) => s.draft.wsUrl);
+  const disconnect = useAcpStore((s) => s.disconnect);
+  return (
+    <div
+      className="border-success/40 bg-success/10 flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+      data-testid="acp-online-bar"
+    >
+      <span className="text-success shrink-0">{t("acp.feedback.connectedTo", { peer: activePeer ?? "" })}</span>
+      <span className="text-muted-foreground min-w-0 truncate text-xs">{wsUrl}</span>
+      <Button variant="outline" size="sm" onClick={disconnect} data-testid="acp-online-disconnect">
+        {t("acp.connection.disconnect")}
+      </Button>
+    </div>
+  );
+}
+
 /** 连接中加载态：主列不得无反馈空白（spinner + 握手文案） */
 function ConnectingIndicator() {
   const { t } = useTranslation();
@@ -89,6 +109,7 @@ function MainColumn() {
   const activeSessionId = useAcpStore((s) => s.activeSessionId);
   return (
     <div className="col-span-12 flex min-h-0 flex-col gap-4 lg:col-span-9">
+      {phase === "online" ? <OnlineStatusBar /> : null}
       <ReconnectBanner />
       <ReattachBanner />
       {phase === "connecting" ? (

@@ -125,3 +125,18 @@ describe("AcpView session focus fallback", () => {
     expect(screen.getByTestId("acp-main-empty")).toBeTruthy();
   });
 });
+
+describe("AcpView online status bar", () => {
+  it("online 态主列顶部显示连接状态条，随时可断开", async () => {
+    await renderConnected();
+    const bar = screen.getByTestId("acp-online-bar");
+    expect(bar.textContent).toContain("mock-peer");
+    expect(bar.textContent).toContain("断开");
+    fireEvent.click(screen.getByTestId("acp-online-disconnect"));
+    await waitFor(() => {
+      expect(screen.getByTestId("acp-phase-badge").textContent).toContain("未连接");
+    });
+    expect(screen.queryByTestId("acp-online-bar")).toBeNull();
+    expect(screen.getByTestId("acp-connect")).toBeTruthy();
+  });
+});
