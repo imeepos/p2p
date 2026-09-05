@@ -199,7 +199,8 @@ fn fmt_friend(f: &ChatFriend) -> String {
 mod tests {
     use super::*;
 
-    fn fixture(nickname: &str, group: Option<&str>) -> ChatFriend {
+    /// 好友簿条目（list/分组展示用）。
+    fn friend(nickname: &str, group: Option<&str>) -> ChatFriend {
         ChatFriend {
             peer_id: "p".into(),
             nickname: nickname.into(),
@@ -209,16 +210,29 @@ mod tests {
         }
     }
 
+    /// 邀请簿条目（add=发邀请的 InviteReport 载荷）。
+    fn fixture(direction: p2p_chat::InviteDirection) -> p2p_chat::FriendInvite {
+        p2p_chat::FriendInvite {
+            peer_id: "p".into(),
+            nickname: "小 b".into(),
+            addrs: vec!["127.0.0.1/u1".into()],
+            note: None,
+            direction,
+            ts_ms: 1,
+            delivered: false,
+        }
+    }
+
     #[test]
     fn invite_report_json_shape_is_judgeable() {
         let report = p2p_chat::InviteReport {
             delivered: true,
-            invite: fixture("b", Some("同事")),
+            invite: fixture(p2p_chat::InviteDirection::Out),
         };
         let v = serde_json::to_value(&report).unwrap();
         assert_eq!(v["delivered"], serde_json::json!(true));
         assert_eq!(v["invite"]["peerId"], serde_json::json!("p"));
-        assert_eq!(v["invite"]["group"], serde_json::json!("同事"));
+        assert_eq!(v["invite"]["direction"], serde_json::json!("out"));
     }
 
     #[test]
@@ -229,7 +243,7 @@ mod tests {
 
     #[test]
     fn friend_text_line_contains_key_fields() {
-        let line = fmt_friend(&fixture("小 b", None));
+        let line = fmt_friend(&friend("小 b", None));
         assert!(line.contains("小 b"));
         assert!(line.contains("127.0.0.1/u1"));
         assert!(line.contains("group=-"));
@@ -238,17 +252,17 @@ mod tests {
     #[test]
     fn group_sections_orders_named_groups_with_ungrouped_last() {
         let friends = vec![
-            fixture("z", None),
-            fixture("b", Some("同事")),
-            fixture("a", Some("家人")),
-            fixture("c", Some("同事")),
+            friend("z", None),
+            friend("b", Some("同事")),
+            friend("a", Some("家人")),
+            friend("c", Some("同事")),
         ];
         let sections = group_sections(&friends);
         let names: Vec<Option<&str>> = sections.iter().map(|(g, _)| *g).collect();
         assert_eq!(names, vec![Some("同事"), Some("家人"), None], "未分组置底");
         assert_eq!(sections[0].1.len(), 2, "组内保序聚合");
         // 空串组名视同未分组
-        let blank = [fixture("x", Some(""))];
+        let blank = [friend("x", Some(""))];
         assert_eq!(friend_group(&blank[0]), None);
     }
 }
