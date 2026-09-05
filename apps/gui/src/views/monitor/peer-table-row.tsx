@@ -18,8 +18,6 @@ import {
 import { PeerRowActions } from "./peer-row-actions";
 import { PeerIdCell } from "@/views/shared/peer-id-cell";
 
-const SHORT_PEER_ID_LEN = 10;
-
 const STATUS_DOT: Record<PeerStatusKind, string> = {
   connected: "bg-success motion-safe:animate-pulse",
   discovered: "bg-info",
@@ -71,7 +69,7 @@ export function PeerTableRow({
     <TableRow>
       <TableCell className="font-mono text-xs">
         <span className="flex items-center gap-1">
-          <PeerIdCell peerId={peer.peerId} expandedTo={SHORT_PEER_ID_LEN} />
+          <PeerIdCell peerId={peer.peerId} />
           <CopyButton value={peer.peerId} className="size-6" />
         </span>
       </TableCell>

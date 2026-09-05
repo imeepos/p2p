@@ -11,6 +11,7 @@ import {
 } from "@/components/monitor/sheet";
 import { Separator } from "@/components/ui/separator";
 import type { PeerEntry } from "@/stores/node-store";
+import { PEER_ID_PREFIX_LEN } from "@/views/shared/peer-id-cell";
 
 function SectionTitle({ children }: { children: string }) {
   return <h3 className="text-sm font-medium">{children}</h3>;
@@ -84,7 +85,7 @@ export function PeerDetailSheet({ peer, onOpenChange }: PeerDetailSheetProps) {
         <SheetHeader>
           <SheetTitle>{t("peers.detail.title")}</SheetTitle>
           <SheetDescription className="font-mono">
-            {peer ? `${peer.peerId.slice(0, 16)}…` : ""}
+            {peer ? `${peer.peerId.slice(0, PEER_ID_PREFIX_LEN)}…` : ""}
           </SheetDescription>
         </SheetHeader>
         {peer && (

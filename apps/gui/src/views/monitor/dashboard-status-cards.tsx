@@ -6,14 +6,13 @@ import type { Locale } from "@/i18n";
 import { formatUptime } from "@/lib/format";
 import type { NodeStatus } from "@/lib/ipc-types";
 import { StatusBadge } from "@/views/shared/status-badge";
+import { PEER_ID_PREFIX_LEN } from "@/views/shared/peer-id-cell";
 import { useTicker } from "./use-ticker";
-
-const SHORT_PEER_ID_LEN = 12;
 
 function PeerIdValue({ peerId }: { peerId: string }) {
   return (
     <span className="flex items-center gap-1">
-      <span title={peerId}>{peerId.slice(0, SHORT_PEER_ID_LEN)}…</span>
+      <span title={peerId}>{peerId.slice(0, PEER_ID_PREFIX_LEN)}…</span>
       <CopyButton value={peerId} className="size-6" />
     </span>
   );
