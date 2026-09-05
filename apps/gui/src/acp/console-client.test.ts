@@ -4,12 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { fetchDiscoveryPeers, queryReattachTicket } from "./console-client";
 
-function stubFetch(payload: () => { ok: boolean; body: unknown } | Promise<never>): void {
+function stubFetch(payload: () => { ok: boolean; body: unknown } | "throw"): void {
+  // "throw" 哨兵而非 Promise.reject：被拒 promise 无人 await 会挂成 unhandled rejection
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => {
       const p = payload();
-      if (p instanceof Promise) throw new Error("console unreachable");
+      if (p === "throw") throw new Error("console unreachable");
       return { ok: p.ok, json: async () => p.body };
     }),
   );
@@ -57,7 +58,7 @@ describe("queryReattachTicket /reattach 契约", () => {
   });
 
   it("console 不可达/非 2xx：折化 unavailable 不抛出（fresh 拨号兜底）", async () => {
-    stubFetch(() => Promise.reject(new Error("down")) as never);
+    stubFetch(() => "throw");
     const down = await queryReattachTicket("http://s", "t", "p");
     expect(down).toEqual({ ticket: null, expiresAtUnixMs: null, reason: "unavailable" });
     stubFetch(() => ({ ok: false, body: { error: "unauthorized" } }));
@@ -100,7 +101,7 @@ describe("fetchDiscoveryPeers /discovery 契约", () => {
   });
 
   it("console 不可达/坏形响应：null（调用方停止轮询）", async () => {
-    stubFetch(() => Promise.reject(new Error("down")) as never);
+    stubFetch(() => "throw");
     expect(await fetchDiscoveryPeers("http://s", "t")).toBeNull();
     stubFetch(() => ({ ok: true, body: { nope: 1 } }));
     expect(await fetchDiscoveryPeers("http://s", "t")).toEqual([]);
