@@ -699,6 +699,8 @@ const enUS: typeof zhCN = {
       supported: "Supported",
       unsupported: "Not supported",
       undeclared: "Undeclared",
+      undeclaredHint: "The agent did not declare this capability in initialize",
+      unsupportedHint: "The agent declared this capability as unsupported",
     },
     sessions: {
       card: "Sessions",
@@ -742,6 +744,8 @@ const enUS: typeof zhCN = {
         fetch: "Fetch",
         other: "Other",
       },
+      expand: "Expand all",
+      collapse: "Collapse",
     },
     permission: {
       card: "Permission request",
@@ -762,6 +766,8 @@ const enUS: typeof zhCN = {
     usage: {
       title: "Context usage",
       detail: "{{used}} / {{size}} tokens ({{percent}}%)",
+      warning: "Context usage is above 80%; consider starting a new session",
+      critical: "Context is almost full; start a new session soon",
     },
     reattach: {
       banner: "Reattached, replayed {{count}} missed updates",
@@ -771,6 +777,7 @@ const enUS: typeof zhCN = {
       addPlaceholder: "Add Peer ID manually",
       add: "Add",
       empty: "No peers yet; discovered or manual entries appear here",
+      emptyHint: "Register the node with the rendezvous point or run it in the same mDNS domain and it shows up under Discovered; you can also add a Peer ID manually above.",
       discovered: "Discovered",
       manual: "Manual",
       scope: {
@@ -781,6 +788,8 @@ const enUS: typeof zhCN = {
       remove: "Remove",
       fill: "Fill into connection form",
       invalidPeer: "Peer ID must not be empty",
+      groupDiscovered: "Discovered (rendezvous / mDNS)",
+      groupManual: "Manual / Saved",
     },
     composer: {
       placeholder: "Type a prompt...",
