@@ -774,6 +774,16 @@ const enUS: typeof zhCN = {
     },
     reattach: {
       banner: "Reattached, replayed {{count}} missed updates",
+      bannerNone: "Reattached, no missed updates to replay",
+      dismiss: "Dismiss banner",
+    },
+    feedback: {
+      connecting: "Connecting to agent, waiting for handshake...",
+    },
+    reconnect: {
+      retryNow: "Retry now",
+      retryConnect: "Retry connection",
+      offlineFallback: "Connection lost; automatic reconnection did not succeed",
     },
     directory: {
       card: "Connection directory",

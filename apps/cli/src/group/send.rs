@@ -11,8 +11,8 @@ use serde::Serialize;
 use crate::error::{CliError, CliResult};
 use crate::node::DEFAULT_DATA_DIR;
 
-use crate::chat::{emit, runtime_err};
 use crate::chat::context;
+use crate::chat::{emit, runtime_err};
 
 #[derive(Args)]
 pub struct SendArgs {
@@ -103,10 +103,26 @@ fn parse_kind(s: &str) -> Result<p2p_chat::ChatKind, CliError> {
     }
 }
 
+/// --name 缺省显示名：取路径 basename（help 承诺「默认取文件名」；全路径经
+/// media 落盘 sanitize 后不可读，ISSUE 2026-09-05）。无 basename（如 "/"、".."）
+/// 时回落全路径字符串，不 panic。
+fn default_display_name(file: &std::path::Path) -> String {
+    file.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| file.to_string_lossy().into_owned())
+}
+
 /// 载荷归一：--text/--file 二选一（互斥显式报错，R4 语义显式化）。
 fn payload(
     args: &SendArgs,
-) -> Result<(p2p_chat::ChatKind, Option<String>, Option<p2p_chat::ChatMediaInput>), CliError> {
+) -> Result<
+    (
+        p2p_chat::ChatKind,
+        Option<String>,
+        Option<p2p_chat::ChatMediaInput>,
+    ),
+    CliError,
+> {
     match (&args.text, &args.file) {
         (Some(_), Some(_)) | (None, None) => Err(CliError::Runtime(
             "必须且只能提供 --text 或 --file 之一".into(),
@@ -127,14 +143,18 @@ fn payload(
             let name = args
                 .name
                 .clone()
-                .unwrap_or_else(|| file.to_string_lossy().into_owned());
+                .unwrap_or_else(|| default_display_name(file));
             let mime = args
                 .mime
                 .clone()
                 .unwrap_or_else(|| "application/octet-stream".into());
             let data = std::fs::read(file)
                 .map_err(|e| CliError::Runtime(format!("读附件失败 {}: {e}", file.display())))?;
-            Ok((kind, None, Some(p2p_chat::ChatMediaInput { name, mime, data })))
+            Ok((
+                kind,
+                None,
+                Some(p2p_chat::ChatMediaInput { name, mime, data }),
+            ))
         }
     }
 }
@@ -182,7 +202,11 @@ pub async fn history(args: HistoryArgs) -> CliResult<()> {
     let msgs = ctx
         .chat
         .group
-        .group_history(&args.group, args.before_id.as_deref(), args.limit.unwrap_or(0))
+        .group_history(
+            &args.group,
+            args.before_id.as_deref(),
+            args.limit.unwrap_or(0),
+        )
         .map_err(runtime_err)?;
     let text = if msgs.is_empty() {
         format!("无群历史消息（group={}）", args.group)
@@ -199,7 +223,12 @@ pub async fn history(args: HistoryArgs) -> CliResult<()> {
                 )
             })
             .collect();
-        format!("共 {} 条（group={}）\n{}", msgs.len(), args.group, lines.join("\n"))
+        format!(
+            "共 {} 条（group={}）\n{}",
+            msgs.len(),
+            args.group,
+            lines.join("\n")
+        )
     };
     emit(args.json, &msgs, &text)
 }
@@ -219,4 +248,55 @@ pub async fn run_media(command: MediaCommand) -> CliResult<()> {
         meta.name
     );
     emit(args.json, &meta, &text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn display_name_takes_basename() {
+        // 纯文件名 / 相对路径 / 绝对路径 / 特殊字符（空格+Unicode+井号）
+        assert_eq!(default_display_name(Path::new("shot.png")), "shot.png");
+        assert_eq!(
+            default_display_name(Path::new("tmp/im-group-drill/shot.png")),
+            "shot.png"
+        );
+        assert_eq!(default_display_name(Path::new("/x/y/shot.png")), "shot.png");
+        assert_eq!(
+            default_display_name(Path::new("tmp/im-group-drill/截 图#1.png")),
+            "截 图#1.png"
+        );
+    }
+
+    #[test]
+    fn display_name_falls_back_without_basename() {
+        assert_eq!(default_display_name(Path::new("..")), "..");
+        assert_eq!(default_display_name(Path::new("/")), "/");
+    }
+
+    #[test]
+    fn payload_media_defaults_to_basename() {
+        let dir = std::env::temp_dir().join(format!("p2pctl_send_test_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("创建临时目录");
+        let file = dir.join("shot.png");
+        std::fs::write(&file, b"png").expect("写临时附件");
+        let args = SendArgs {
+            group: "g".into(),
+            text: None,
+            file: Some(file),
+            kind: Some("image".into()),
+            mime: None,
+            name: None,
+            reply_to: None,
+            timeout_secs: 30,
+            json: false,
+            data_dir: ".".into(),
+        };
+        let (_, _, media) = payload(&args).expect("payload 应成功");
+        let media = media.expect("--file 必产 media");
+        assert_eq!(media.name, "shot.png");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

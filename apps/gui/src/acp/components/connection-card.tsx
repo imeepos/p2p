@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { I18nKey } from "@/i18n/types";
 import { useAcpStore } from "@/acp/acp-store";
+import { ACP_ERROR_KEYS } from "@/acp/store-events";
 import type { AcpEndpoint, AcpPhase } from "@/acp/protocol";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 
@@ -28,15 +29,6 @@ const PHASE_KEY: Record<AcpPhase, I18nKey> = {
   online: "acp.connection.phase.online",
   reconnecting: "acp.connection.phase.reconnecting",
   offline: "acp.connection.phase.offline",
-};
-
-const ERROR_KEY: Record<string, I18nKey> = {
-  initializeFailed: "acp.errors.initializeFailed",
-  endpointIncomplete: "acp.errors.endpointIncomplete",
-  sessionNewFailed: "acp.errors.sessionNewFailed",
-  sessionResumeFailed: "acp.errors.sessionResumeFailed",
-  sessionCloseFailed: "acp.errors.sessionCloseFailed",
-  promptFailed: "acp.errors.promptFailed",
 };
 
 const CLOSE_KEY: Record<string, I18nKey> = {
@@ -81,7 +73,7 @@ function Notices() {
   const { t } = useTranslation();
   const reconnect = useAcpStore((s) => s.reconnect);
   const lastError = useAcpStore((s) => s.lastError);
-  const errorKey = lastError ? ERROR_KEY[lastError] : null;
+  const errorKey = lastError ? ACP_ERROR_KEYS[lastError] : null;
   return (
     <>
       <CloseInfoText />
@@ -96,6 +88,34 @@ function Notices() {
         </p>
       ) : null}
     </>
+  );
+}
+
+/** offline 终态折射：失败原因文案与显式重试入口，不再只靠徽章隐示 */
+function OfflineRetryRow() {
+  const { t } = useTranslation();
+  const closeInfo = useAcpStore((s) => s.closeInfo);
+  const lastError = useAcpStore((s) => s.lastError);
+  const connect = useAcpStore((s) => s.connect);
+  const closeKey = closeInfo && closeInfo.kind !== "closed" ? CLOSE_KEY[closeInfo.kind] : null;
+  const errorKey = lastError ? ACP_ERROR_KEYS[lastError] : null;
+  const reason = closeKey && closeInfo
+    ? `${t(closeKey)} (code ${closeInfo.code})`
+    : errorKey
+      ? t(errorKey)
+      : t("acp.reconnect.offlineFallback");
+  return (
+    <div
+      className="border-destructive/40 bg-destructive/10 flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+      data-testid="acp-offline-panel"
+    >
+      <p className="text-destructive" data-testid="acp-offline-reason">
+        {reason}
+      </p>
+      <Button variant="outline" size="sm" onClick={() => void connect()} data-testid="acp-retry-connect">
+        {t("acp.reconnect.retryConnect")}
+      </Button>
+    </div>
   );
 }
 
@@ -163,6 +183,7 @@ export function ConnectionCard() {
           <Field label={t("acp.connection.peer")} value={draft.peer} onChange={patch("peer")} testid="acp-input-peer" />
         </div>
         <Notices />
+        {phase === "offline" ? <OfflineRetryRow /> : null}
         <div className="flex flex-wrap gap-2">
           {connecting ? (
             <Button variant="outline" onClick={disconnect} data-testid="acp-disconnect">

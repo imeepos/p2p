@@ -306,3 +306,8 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-05 mock 上游喂 SSE 必须是「data: {json}\n\n」事件原文（空行分帧），裸 JSON 块提取不出 usage → 收据 estimated=true（extract_usage 只认 data: 行前缀）；断流剧本要在 usage 帧前断，否则按实际 usage 结算不出 estimated 收据。
 - 2026-09-05 git bundle 给无 github 出网的机器供代码：bundle create f HEAD（打包机器当前 HEAD）→ 对端 git clone f dst；增量更新 git fetch f HEAD + reset --hard FETCH_HEAD。5.9MiB 包秒传，crates.io 可达即可构建。
 - 2026-09-05 facade 观测（OBS1 反射口）单次探测 2s 超时且装配期只试一次：跨机 UDP 随机丢包会让注册退化 loopback 地址（查询端 is_routable 过滤后为空）。载体进程在装配前对反射口做有界重试预检（OBS1 魔法 UDP 探测）可消掉这类整轮毒化。
+
+- (2026-09-04) i18n key-set 门禁(i18n-diff.sh)只比对 zh/en 键集合,不校验插值变量:断言文案时注意 `{{count}}` 缺失会在运行时静默渲染空串,测试要断言整句而非数字。
+- (2026-09-04) 行数红线(300)会倒逼测试落点:向已有 257 行的测试文件追加会破线,提前 `wc -l` 目标文件再决定新建 `*-flow-*.test.tsx` 还是就地扩展。
+- (2026-09-04) 一次 commit message 要多段正文时,用多个 `-m '标题' -m '正文'` 参数,别在 bash 字符串里写 `\n`(会被字面量嵌入)。
+- (2026-09-04) RTL 断言 `expect(el).toBeNull()` 的 el 必须来自 `queryBy*`;`getBy*` 找不到直接抛错,失败信息会误导排查方向。

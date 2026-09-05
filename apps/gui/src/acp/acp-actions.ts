@@ -13,6 +13,7 @@ import {
   currentConnection,
   mapInteraction,
   mapTranscript,
+  notifyActionFailure,
   startConnection,
 } from "./store-events";
 import { useAcpStore } from "./acp-store";
@@ -58,6 +59,11 @@ export function startConnect(): void {
   startConnection(draft);
 }
 
+/** 手动立即重试入口：不打断自动重连计数，仅提前拨号 */
+export function runRetryNow(): void {
+  currentConnection()?.retryNow();
+}
+
 export function runDisconnect(): void {
   const sessionId = get().activeSessionId;
   if (sessionId) rejectPendingPermissions(sessionId, true);
@@ -75,6 +81,7 @@ export async function runNewSession(): Promise<void> {
     await get().refreshSessions();
   } catch (error) {
     console.warn("[acp] session/new 失败", error);
+    notifyActionFailure("sessionNewFailed", error);
     useAcpStore.setState({ lastError: "sessionNewFailed" });
   }
 }
@@ -98,6 +105,7 @@ export async function runResumeSession(sessionId: string): Promise<void> {
     useAcpStore.setState({ activeSessionId: sessionId });
   } catch (error) {
     console.warn("[acp] session/resume 失败", error);
+    notifyActionFailure("sessionResumeFailed", error);
     useAcpStore.setState({ lastError: "sessionResumeFailed" });
   }
 }
@@ -109,16 +117,23 @@ export async function runCloseSession(sessionId: string): Promise<void> {
     await conn.sessionDelete(sessionId);
   } catch (error) {
     console.warn("[acp] session/delete 失败", error);
+    notifyActionFailure("sessionCloseFailed", error);
     useAcpStore.setState({ lastError: "sessionCloseFailed" });
   }
-  useAcpStore.setState((s) => ({
-    sessions: s.sessions.filter((e) => e.sessionId !== sessionId),
-    activeSessionId: s.activeSessionId === sessionId ? null : s.activeSessionId,
-    transcripts: Object.fromEntries(
-      Object.entries(s.transcripts).filter(([id]) => id !== sessionId),
-    ),
-    interactions: dropSession(s.interactions, sessionId),
-  }));
+  useAcpStore.setState((s) => {
+    const sessions = s.sessions.filter((e) => e.sessionId !== sessionId);
+    // 焦点回退：关掉的是当前会话时自动落到列表下一个，无会话才回空态
+    const nextActive =
+      s.activeSessionId === sessionId ? (sessions[0]?.sessionId ?? null) : s.activeSessionId;
+    return {
+      sessions,
+      activeSessionId: nextActive,
+      transcripts: Object.fromEntries(
+        Object.entries(s.transcripts).filter(([id]) => id !== sessionId),
+      ),
+      interactions: dropSession(s.interactions, sessionId),
+    };
+  });
 }
 
 function dropSession(
@@ -146,6 +161,7 @@ export async function runSendPrompt(text: string): Promise<void> {
     mapTranscript(sessionId, (t) => settleTranscript(t, result.stopReason ?? "end_turn"));
   } catch (error) {
     console.warn("[acp] prompt 失败", error);
+    notifyActionFailure("promptFailed", error);
     useAcpStore.setState({ promptPending: false, lastError: "promptFailed" });
     mapTranscript(sessionId, (t) => settleTranscript(t, null));
   }
@@ -187,6 +203,7 @@ export async function runSetConfigOption(configId: string, value: string | boole
     mapInteraction(activeSessionId, (s) => applyConfigOptions(s, r.configOptions));
   } catch (error) {
     console.warn("[acp] set_config_option 失败", error);
+    notifyActionFailure("setConfigFailed", error);
     useAcpStore.setState({ lastError: "setConfigFailed" });
   }
 }
