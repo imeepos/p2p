@@ -8,8 +8,10 @@
 #   4. 缺映射 / 映射命令不存在 / 豁免无理由 / 表内陈旧行 → 输出清单并以非 0 退出。
 # T22 环境加固：p2pctl 缺失或陈旧（apps/cli/src + crates/p2p-cli/src 任一 .rs 更新）
 # 自动重建并输出观测日志；构建显式固定 CARGO_TARGET_DIR，消解外部注入导致的
-# 产物落点漂移（CTL 判定路径失真 → 假红）。bash scripts/check/cli-parity.sh
-# --self-test 可离线自测两道防御。
+# 产物落点漂移（CTL 判定路径失真 → 假红）。
+# OPS1 新鲜度拦截：源码 mtime 会被 checkout/拷贝整体重置（2026-09-03 陈旧二进制
+# 假红，误报 chat_friend_update 无此命令），二进制 mtime 早于 CLI 源路径域最后
+# 提交时间时同样强制重建。bash scripts/check/cli-parity.sh --self-test 可离线自测。
 # 成功时末行输出 CLI-PARITY-OK。
 set -euo pipefail
 
@@ -21,19 +23,33 @@ CTL="${ROOT}/apps/cli/target/debug/p2pctl"
 fail() { echo "cli-parity: FAIL $1" >&2; exit 1; }
 
 # --- 0. T22 环境加固原语 + 离线自测 ---
-p2pctl_stale() {  # <ctl> <src-dir>...：二进制缺失或任一源码目录存在更新 .rs → 需重建(0)
-    local ctl="$1"; shift
-    local dir
+git_commit_epoch() {  # <root> <src-dir>...：源目录域最后一次提交时间（epoch 秒）；无记录输出空
+    local root="$1" d
+    shift
+    local rel=()
+    for d in "$@"; do rel+=("${d#"${root}"/}"); done
+    git -C "${root}" log -1 --format=%ct -- "${rel[@]}" 2>/dev/null || true
+}
+ctl_mtime_epoch() {  # <file>：macOS/GNU 双格式取 mtime（epoch 秒）；取不到输出 0（按陈旧处理）
+    stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0
+}
+p2pctl_stale() {  # <ctl> <root> <src-dir>...：缺失 / 任一源 .rs 更新 / 早于源路径域最后提交 → 重建(0)
+    local ctl="$1" root="$2" dir last_commit
+    shift 2
     [ -x "${ctl}" ] || return 0
     for dir in "$@"; do
         if [ -n "$(find "${dir}" -name '*.rs' -newer "${ctl}" -print -quit 2>/dev/null)" ]; then
             return 0
         fi
     done
-    return 1
+    # mtime 盲区（2026-09-03 假红）：源文件 mtime 会被 checkout/拷贝整体重置而失真；
+    # 二进制 mtime 早于源路径域最后提交时间 → 必缺该提交的代码 → 判陈旧强制重建。
+    last_commit="$(git_commit_epoch "${root}" "$@")"
+    [ -n "${last_commit}" ] || return 1
+    [ "$(ctl_mtime_epoch "${ctl}")" -lt "${last_commit}" ]
 }
 p2pctl_rebuild() {  # <tag>：固定 CARGO_TARGET_DIR 重建，产物落点与 CTL 判定路径严格一致
-    echo "${1}: rebuilt stale p2pctl（缺失或源码更新，固定 target 目录重建 apps/cli）…" >&2
+    echo "${1}: rebuilt stale p2pctl（缺失、源码更新或早于最后提交，固定 target 目录重建 apps/cli）…" >&2
     (cd "${ROOT}" && CARGO_TARGET_DIR="${ROOT}/apps/cli/target" \
         cargo build --manifest-path apps/cli/Cargo.toml -q)
 }
@@ -45,17 +61,17 @@ self_test() {  # 伪造临时树断言新鲜度判定与 target 隔离，不触�
     src="${self_test_tmp}/src"; src2="${self_test_tmp}/src2"; ctl="${self_test_tmp}/ctl"
     mkdir "${src}" "${src2}" "${self_test_tmp}/bin"
     fakebin="${self_test_tmp}/bin"
-    p2pctl_stale "${ctl}" "${src}" "${src2}" \
+    p2pctl_stale "${ctl}" "${self_test_tmp}" "${src}" "${src2}" \
         || { echo "self-test: 二进制缺失未判需重建" >&2; return 1; }
     touch "${src}/a.rs" "${src2}/b.rs"; : > "${ctl}"; chmod +x "${ctl}"
-    if p2pctl_stale "${ctl}" "${src}" "${src2}"; then
+    if p2pctl_stale "${ctl}" "${self_test_tmp}" "${src}" "${src2}"; then
         echo "self-test: 新鲜二进制被误判陈旧" >&2; return 1
     fi
     touch "${src2}/b.rs"
-    p2pctl_stale "${ctl}" "${src}" "${src2}" \
+    p2pctl_stale "${ctl}" "${self_test_tmp}" "${src}" "${src2}" \
         || { echo "self-test: 源码更新未判陈旧（自愈未触发）" >&2; return 1; }
     touch "${ctl}"; touch "${src}/notes.txt"
-    if p2pctl_stale "${ctl}" "${src}" "${src2}"; then
+    if p2pctl_stale "${ctl}" "${self_test_tmp}" "${src}" "${src2}"; then
         echo "self-test: 非 .rs 变更误触发重建" >&2; return 1
     fi
     printf '#!/usr/bin/env bash\nprintf "%%s" "${CARGO_TARGET_DIR-UNSET}"\n' > "${fakebin}/cargo"
@@ -87,7 +103,7 @@ gui_has() { printf '%s\n' "${gui_cmds}" | grep -Fxq "$1"; }
 
 # --- 2. p2pctl 就位（缺失或源码比二进制新即重建；构建固定 CARGO_TARGET_DIR） ---
 export PATH="${HOME}/.cargo/bin:${PATH}"
-if p2pctl_stale "${CTL}" "${ROOT}/apps/cli/src" "${ROOT}/crates/p2p-cli/src"; then
+if p2pctl_stale "${CTL}" "${ROOT}" "${ROOT}/apps/cli/src" "${ROOT}/crates/p2p-cli/src"; then
     p2pctl_rebuild cli-parity || fail "p2pctl 构建失败"
 fi
 

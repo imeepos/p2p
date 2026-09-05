@@ -66,4 +66,39 @@ for expect in "缺映射清单" "identity_reset" "映射命令不存在清单" "
     printf '%s\n' "$out" | grep -q "$expect" \
         || { echo "自测 FAIL：反场景缺 [$expect]，实得：$out" >&2; exit 1; }
 done
+# --- OPS1 新鲜度场景：源码 mtime 整体拨旧后，只有 git 提交时间能暴露二进制陈旧 ---
+# 构造：夹具树转 git 仓，源码 mtime 拨 2019、二进制拨 2020、提交时间锚定 2025——
+# mtime 维度全「新鲜」，二进制早于最后提交必须触发重建；fake cargo 打桩记录调用，
+# HOME 拨空防 ~/.cargo/bin 真 cargo 抢在打桩之前。
+lib_fixture "    frontend_log::frontend_log_append,"
+printf '%b\n' \
+  "node_start\tmapped\tnode status\t" \
+  "node_status\tmapped\tnode status\t" \
+  "frontend_log_append\texempt\t\tGUI 前端专属行为，无采集源，理由充分" \
+  > "$TMP/scripts/check/cli-parity.tsv"
+mkdir -p "$TMP/apps/cli/src" "$TMP/crates/p2p-cli/src" "$TMP/fakebin" "$TMP/fakehome"
+echo 'fn main() {}' > "$TMP/apps/cli/src/main.rs"
+echo 'pub fn _f() {}' > "$TMP/crates/p2p-cli/src/lib.rs"
+printf '#!/usr/bin/env bash\ntouch "$REBUILD_MARKER"\n' > "$TMP/fakebin/cargo"
+chmod +x "$TMP/fakebin/cargo"
+git -C "$TMP" init -q
+git -C "$TMP" add -A
+GIT_AUTHOR_DATE='2025-01-01T00:00:00Z' GIT_COMMITTER_DATE='2025-01-01T00:00:00Z' \
+  git -C "$TMP" -c user.email=f@f -c user.name=f commit -qm fixture
+find "$TMP/apps" "$TMP/crates" -name '*.rs' -exec touch -t 201901010000 {} +
+touch -t 202001010000 "$TMP/apps/cli/target/debug/p2pctl"
+out="$(HOME="$TMP/fakehome" PATH="$TMP/fakebin:$PATH" REBUILD_MARKER="$TMP/.rebuilt" \
+  bash "$TMP/scripts/check/cli-parity.sh" 2>&1)"
+printf '%s\n' "$out" | tail -1 | grep -q "^CLI-PARITY-OK$" \
+  || { echo "自测 FAIL：旧二进制（早于最后提交）应重建后 OK，实得：$out" >&2; exit 1; }
+[ -f "$TMP/.rebuilt" ] \
+  || { echo "自测 FAIL：二进制早于最后提交未触发重建（新鲜度拦截失效）" >&2; exit 1; }
+rm -f "$TMP/.rebuilt"
+touch "$TMP/apps/cli/target/debug/p2pctl"
+out="$(HOME="$TMP/fakehome" PATH="$TMP/fakebin:$PATH" REBUILD_MARKER="$TMP/.rebuilt" \
+  bash "$TMP/scripts/check/cli-parity.sh" 2>&1)"
+printf '%s\n' "$out" | tail -1 | grep -q "^CLI-PARITY-OK$" \
+  || { echo "自测 FAIL：新鲜二进制场景应直接 OK，实得：$out" >&2; exit 1; }
+[ ! -f "$TMP/.rebuilt" ] \
+  || { echo "自测 FAIL：新鲜二进制被误判陈旧（误触发重建）" >&2; exit 1; }
 echo "cli-parity-selftest: PASS"
