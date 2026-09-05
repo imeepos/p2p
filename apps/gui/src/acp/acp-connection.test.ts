@@ -187,20 +187,16 @@ describe("AcpConnection", () => {
     expect(h.notifications).toHaveLength(1);
   });
 
-  it("1006 空 reason（401 升级拒绝实测形态）首轮即停转 offline，不进重连计数", () => {
+  it("1006 空 reason 首轮即停不重连；有 reason 仍走自动重连", () => {
     const h = harness(FAST_POLICY);
     h.conn.connect();
     h.sockets[0].serverClose(1006, "");
     expect(last(h.closes)).toEqual({ kind: "abnormal", code: 1006 });
     expect(last(h.phases)).toBe("offline");
     expect(h.reconnects).toHaveLength(0);
-  });
-
-  it("1006 有 reason（对端异常断流）仍走自动重连", () => {
-    const h = harness(FAST_POLICY);
     h.conn.connect();
-    h.sockets[0].serverOpen();
-    h.sockets[0].serverClose(1006, "abnormal-but-recoverable");
+    h.sockets[1].serverOpen();
+    h.sockets[1].serverClose(1006, "abnormal-but-recoverable");
     expect(last(h.phases)).toBe("reconnecting");
     expect(h.reconnects).toEqual([1]);
   });
@@ -292,10 +288,7 @@ describe("AcpConnection", () => {
       h.sockets[0].serverOpen();
       const pending = h.conn.sessionList();
       // 立即挂 catch，避免超时 rejection 在断言前成为 unhandled
-      const outcome = pending.then(
-        () => "settled",
-        (e: Error) => e.message,
-      );
+      const outcome = pending.then(undefined, (e: Error) => e.message);
       await vi.advanceTimersByTimeAsync(31_000);
       expect(await outcome).toBe("acp-request-timeout");
     } finally {
