@@ -6,7 +6,11 @@ mod common;
 use common::{add_each_other, cleanup, peer_str, spawn, wait_event, wait_until, TestNode};
 use p2p_chat::{ChatError, ChatEvent, FriendInvite, InviteDirection, InviteState};
 
-async fn invite_of(node: &TestNode, peer: &str, direction: InviteDirection) -> Option<FriendInvite> {
+async fn invite_of(
+    node: &TestNode,
+    peer: &str,
+    direction: InviteDirection,
+) -> Option<FriendInvite> {
     node.chat
         .invites_list()
         .expect("invites_list")
@@ -56,13 +60,28 @@ async fn invite_accept_builds_mutual_friendship() {
     assert!(!in_invite.addrs.is_empty(), "来邀应携带 A 的可回拨地址");
 
     // 同意：B 建好友并回投 ACCEPT；A 收 accepted 事件后建同一好友（双向互为好友）
-    wait_event(&mut b_events, invite_event(&a_peer, InviteState::Incoming), "in 邀请事件").await;
-    let friend = b.chat.invite_accept(&a_peer, "阿 a").await.expect("invite_accept");
+    wait_event(
+        &mut b_events,
+        invite_event(&a_peer, InviteState::Incoming),
+        "in 邀请事件",
+    )
+    .await;
+    let friend = b
+        .chat
+        .invite_accept(&a_peer, "阿 a")
+        .await
+        .expect("invite_accept");
     assert_eq!(friend.nickname, "阿 a");
     assert!(has_friend(&b, &a_peer), "同意后 B 侧立即建立好友");
     wait_until("A 侧经 ACCEPT 建立好友", || has_friend(&a, &b_peer)).await;
-    assert!(invite_of(&a, &b_peer, InviteDirection::Out).await.is_none(), "完成后 out 邀请清除");
-    assert!(invite_of(&b, &a_peer, InviteDirection::In).await.is_none(), "完成后 in 邀请清除");
+    assert!(
+        invite_of(&a, &b_peer, InviteDirection::Out).await.is_none(),
+        "完成后 out 邀请清除"
+    );
+    assert!(
+        invite_of(&b, &a_peer, InviteDirection::In).await.is_none(),
+        "完成后 in 邀请清除"
+    );
     cleanup(&a);
     cleanup(&b);
 }
@@ -82,7 +101,12 @@ async fn invite_reject_notifies_inviter_and_keeps_none() {
     b.chat.invite_reject(&a_peer).await.expect("invite_reject");
     assert!(invite_of(&b, &a_peer, InviteDirection::In).await.is_none());
     assert!(!has_friend(&b, &a_peer), "拒绝后 B 不得建立好友");
-    wait_event(&mut a_events, invite_event(&b_peer, InviteState::Rejected), "rejected 事件").await;
+    wait_event(
+        &mut a_events,
+        invite_event(&b_peer, InviteState::Rejected),
+        "rejected 事件",
+    )
+    .await;
     wait_until("A 侧 out 邀请被拒绝清除", || {
         a.chat
             .invites_list()
@@ -91,7 +115,10 @@ async fn invite_reject_notifies_inviter_and_keeps_none() {
             .all(|i| i.peer_id != b_peer)
     })
     .await;
-    assert!(invite_of(&a, &b_peer, InviteDirection::Out).await.is_none(), "被拒后 out 邀请清除");
+    assert!(
+        invite_of(&a, &b_peer, InviteDirection::Out).await.is_none(),
+        "被拒后 out 邀请清除"
+    );
     assert!(!has_friend(&a, &b_peer), "被拒后 A 不得有好友条目");
     cleanup(&a);
     cleanup(&b);
@@ -154,7 +181,11 @@ async fn accept_without_pending_invite_is_not_found() {
         .await
         .expect_err("无来邀同意必须 Err");
     assert!(matches!(err, ChatError::NotFound(_)));
-    let err = b.chat.invite_reject(&peer_str(&a.node)).await.expect_err("无来邀拒绝必须 Err");
+    let err = b
+        .chat
+        .invite_reject(&peer_str(&a.node))
+        .await
+        .expect_err("无来邀拒绝必须 Err");
     assert!(matches!(err, ChatError::NotFound(_)));
     cleanup(&a);
     cleanup(&b);
@@ -166,7 +197,11 @@ async fn undeliverable_invite_stays_pending_locally() {
     let b = spawn("inv-pend-b").await;
     let b_peer = peer_str(&b.node);
     // 不登记任何地址：连接必失败，邀请挂起（delivered=false），好友簿不变
-    let report = a.chat.friend_invite(&b_peer, "小 b", vec![], None).await.expect("invite");
+    let report = a
+        .chat
+        .friend_invite(&b_peer, "小 b", vec![], None)
+        .await
+        .expect("invite");
     assert!(!report.delivered, "无地址不得宣称送达");
     assert!(
         invite_of(&a, &b_peer, InviteDirection::Out).await.is_some(),

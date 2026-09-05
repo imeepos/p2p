@@ -15,6 +15,7 @@ mod group_wire;
 mod identity_lock;
 mod invite;
 mod invite_api;
+mod invite_handler;
 mod model;
 mod outbox;
 mod store;
@@ -23,6 +24,7 @@ mod store_friends;
 mod store_friends_tests;
 mod store_io;
 mod store_invite;
+mod store_io;
 mod store_lock;
 mod wire;
 mod wire_invite;
@@ -51,7 +53,7 @@ use core::ChatCore;
 
 /// 聊天线协议 ID（wire-protocol.md §8.1 登记）。
 pub const CHAT_PROTOCOL: &str = "/im/chat/1";
-/// 邀请线协议 ID（wire-protocol.md §8.2 登记）。
+/// 邀请线协议 ID（wire-protocol.md §8.3 登记）。
 pub const INVITE_PROTOCOL: &str = "/im/invite/1";
 
 const EVENT_CAPACITY: usize = 128; // 1:1 与群各自独立事件通道
@@ -75,13 +77,13 @@ impl Chat {
         });
         core.rearm_friend_addrs()?;
         invite_api::rearm_invite_addrs(&core)?;
-        let chat_proto = p2p::ProtocolId::new(CHAT_PROTOCOL)
-            .map_err(|e| ChatError::Protocol(e.to_string()))?;
+        let chat_proto =
+            p2p::ProtocolId::new(CHAT_PROTOCOL).map_err(|e| ChatError::Protocol(e.to_string()))?;
         core.node
             .handle_protocol(Arc::new(wire::ChatHandler::new(core.clone(), chat_proto)));
         let invite_proto = p2p::ProtocolId::new(INVITE_PROTOCOL)
             .map_err(|e| ChatError::Protocol(e.to_string()))?;
-        core.node.handle_protocol(Arc::new(wire_invite::InviteHandler::new(
+        core.node.handle_protocol(Arc::new(invite_handler::InviteHandler::new(
             core.clone(),
             invite_proto,
         )));
@@ -292,7 +294,11 @@ impl Chat {
 
     /// 排空该 peer 的 outbox（CLI one-shot 收尾用，D5）：主动连接后 flush，budget 内尽力而为。
     /// 返回本轮成功补投的条目数（按队列长度差计）。
-    pub async fn drain_peer(&self, peer: &str, budget: std::time::Duration) -> Result<usize, ChatError> {
+    pub async fn drain_peer(
+        &self,
+        peer: &str,
+        budget: std::time::Duration,
+    ) -> Result<usize, ChatError> {
         let pid = model::parse_peer_id(peer)?;
         let before = self.core.store.outbox_for(peer).len();
         if before == 0 {

@@ -101,7 +101,10 @@ async fn friends_add_remove_list_and_invalid_reject() {
         .unwrap_err();
     assert!(err.to_string().contains("base58"), "err: {err}");
     // 自加拒绝
-    let err = a.chat.friend_add_direct(&own, "self", vec![], None).unwrap_err();
+    let err = a
+        .chat
+        .friend_add_direct(&own, "self", vec![], None)
+        .unwrap_err();
     assert!(err.to_string().contains("自己"), "err: {err}");
     // 超长昵称拒绝
     let err = a

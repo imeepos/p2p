@@ -22,10 +22,7 @@ pub enum ChatEvent {
     /// 邀请制加好友事件：incoming = 收到邀请；accepted = 对方同意（好友建立）；
     /// rejected = 对方拒绝。state 序列化为小写（契约 §12.2）。
     #[serde(rename = "chat_invite")]
-    ChatInvite {
-        peer: String,
-        state: InviteState,
-    },
+    ChatInvite { peer: String, state: InviteState },
 }
 
 #[cfg(test)]

@@ -3,15 +3,15 @@ import { join } from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ChatFriendJson, NodeEventHandler } from "@/lib/ipc-types";
+import type { ChatFriendJson, FriendInviteJson, InviteReportJson, NodeEventHandler } from "@/lib/ipc-types";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     friends: vi.fn<() => Promise<ChatFriendJson[]>>(),
     addFriend: vi.fn<
-      (peerId: string, nickname: string, addrs: string[]) => Promise<ChatFriendJson>
+      (peerId: string, nickname: string, addrs: string[]) => Promise<InviteReportJson>
     >(),
-    invites: vi.fn(async () => []),
+    invites: vi.fn<() => Promise<FriendInviteJson[]>>(async () => []),
     accept: vi.fn<(peerId: string, nickname: string) => Promise<unknown>>(),
     reject: vi.fn<(peerId: string) => Promise<void>>(),
     cancel: vi.fn<(peerId: string) => Promise<boolean>>(),

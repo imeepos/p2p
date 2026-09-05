@@ -107,7 +107,8 @@ mod tests {
     use super::*;
 
     fn temp_store(tag: &str) -> (Store, std::path::PathBuf) {
-        let dir = std::env::temp_dir().join(format!("p2p-invite-store-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("p2p-invite-store-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("mkdir");
         (Store::new(dir.clone()).expect("store"), dir)
@@ -128,14 +129,18 @@ mod tests {
     #[test]
     fn upsert_same_peer_same_direction_replaces_entry() {
         let (store, dir) = temp_store("upsert");
-        store.upsert_invite(invite("p", InviteDirection::In)).expect("insert");
+        store
+            .upsert_invite(invite("p", InviteDirection::In))
+            .expect("insert");
         let mut refreshed = invite("p", InviteDirection::In);
         refreshed.nickname = "n2".into();
         store.upsert_invite(refreshed).expect("refresh");
         assert_eq!(store.invites_list().expect("list").len(), 1, "同条目不重复");
         let mut other = invite("p", InviteDirection::Out);
         other.nickname = "out".into();
-        store.upsert_invite(other).expect("opposite direction is distinct");
+        store
+            .upsert_invite(other)
+            .expect("opposite direction is distinct");
         assert_eq!(store.invites_list().expect("list").len(), 2);
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -143,7 +148,9 @@ mod tests {
     #[test]
     fn remove_is_direction_scoped_and_reports_hit() {
         let (store, dir) = temp_store("remove");
-        store.upsert_invite(invite("p", InviteDirection::In)).expect("insert");
+        store
+            .upsert_invite(invite("p", InviteDirection::In))
+            .expect("insert");
         assert!(
             !store
                 .remove_invite("p", InviteDirection::Out)
@@ -151,7 +158,9 @@ mod tests {
             "方向不匹配不删"
         );
         assert!(
-            store.remove_invite("p", InviteDirection::In).expect("remove in"),
+            store
+                .remove_invite("p", InviteDirection::In)
+                .expect("remove in"),
             "命中返回 true"
         );
         assert!(store.invites_list().expect("list").is_empty());

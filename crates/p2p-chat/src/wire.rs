@@ -20,8 +20,8 @@ use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::events::ChatEvent;
 use crate::model::{
-    parse_peer_id, validate_media, validate_text, ChatEnvelope, ChatError, ChatKind,
-    ChatMediaMeta, ChatStatus, Sender,
+    parse_peer_id, validate_media, validate_text, ChatEnvelope, ChatError, ChatKind, ChatMediaMeta,
+    ChatStatus, Sender,
 };
 use crate::ChatCore;
 

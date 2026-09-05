@@ -83,7 +83,11 @@ impl crate::Chat {
             .ok_or_else(|| ChatError::NotFound(format!("无待处理邀请：{peer_id}")))?;
         let name = {
             let t = validate_nickname(nickname)?;
-            if t.is_empty() { invite.nickname.clone() } else { t }
+            if t.is_empty() {
+                invite.nickname.clone()
+            } else {
+                t
+            }
         };
         let friend = insert_friend(
             &self.core,
@@ -92,7 +96,9 @@ impl crate::Chat {
             invite.addrs.clone(),
             invite.note.clone(),
         )?;
-        self.core.store.remove_invite(peer_id, InviteDirection::In)?;
+        self.core
+            .store
+            .remove_invite(peer_id, InviteDirection::In)?;
         self.reply_frame(peer_id, ACCEPT, "", Vec::new()).await;
         Ok(friend)
     }
@@ -100,7 +106,10 @@ impl crate::Chat {
     /// 拒绝来邀：移除本机 in 邀请并通知对方（通知尽力而为）。
     pub async fn invite_reject(&self, peer_id: &str) -> Result<(), ChatError> {
         parse_peer_id(peer_id)?;
-        let removed = self.core.store.remove_invite(peer_id, InviteDirection::In)?;
+        let removed = self
+            .core
+            .store
+            .remove_invite(peer_id, InviteDirection::In)?;
         if !removed {
             return Err(ChatError::NotFound(format!("无待处理邀请：{peer_id}")));
         }
@@ -111,7 +120,10 @@ impl crate::Chat {
     /// 撤回本机待同意邀请（对方未必在线，通知尽力而为）。
     pub async fn invite_cancel(&self, peer_id: &str) -> Result<bool, ChatError> {
         parse_peer_id(peer_id)?;
-        let removed = self.core.store.remove_invite(peer_id, InviteDirection::Out)?;
+        let removed = self
+            .core
+            .store
+            .remove_invite(peer_id, InviteDirection::Out)?;
         if removed {
             self.reply_frame(peer_id, REJECT, "", Vec::new()).await;
         }

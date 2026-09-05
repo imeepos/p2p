@@ -40,3 +40,17 @@
 - **现象**：two_nodes_discover_ping_and_observe_dialhop 0.04s 即 FAILED：节点 b 启动 Address already in use (os error 48)——同机多会话并行跑各自节点测试时固定端口相撞；单跑即复绿。
 - **现役吸收**：gui-tauri 门禁撞红先单测复跑鉴别环境散；尽量避免多会话同时跑 make check。
 - **期望**：tests/smoke.rs 改端口 0 动态分配（T44 已修 chat 系测试，本文件漏网），src-tauri 测试域小改。
+---
+## 2026-09-05 同 peerId 重连被对端半开连接残留挡下（底座）
+- 现象：同一身份第一次进程拨对端成功；该进程退出后，同 peerId 的任何新进程
+  再拨同一对端（对端进程一直存活）一律 ConnectFailed（send/邀请重投同现）。
+- 影响：CLI 一次性命令模型下第二次投递必失败；邀请自愈收敛依赖重连，被挡。
+- 复现：scripts/ops/cli-friend-invite-e2e.sh 注释（编排绕开：对端重启清残留）。
+- 疑点：p2p-swarm pool/liveness 对死连接的半开判定缺失，B 端按 peerId 拒新连接。
+- 待办：底座补半开检测或入站新连接替换死连接；修复后 e2e 可去掉固定端口与轮转。
+
+## 2026-09-05 旧 friends add 语义脚本待改造
+- scripts/ops/cli-chat-e2e.sh、cli-live-e2e.sh、cli-gui-data-e2e.sh、
+  cli-chat-concurrency-e2e.sh、cli-friends-race-e2e.sh 仍按旧直加语义编排，
+  邀请制下需改造（新增 cli-friend-invite-e2e.sh 已覆盖核心邀请流）。不在 make check，
+  opt-in 执行前必须先迁移，避免假绿。
