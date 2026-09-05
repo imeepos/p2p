@@ -51,7 +51,7 @@ async fn probe(r: &Rig) -> Option<(BoxedStream, String)> {
     assert!(ready.ticket.is_some(), "fresh conn must carry a ticket");
     send_line(
         &mut stream,
-        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"clientCapabilities\":{}}}",
+        "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":1,\"clientCapabilities\":{}}}",
     )
     .await;
     loop {

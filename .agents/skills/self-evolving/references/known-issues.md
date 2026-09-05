@@ -325,6 +325,11 @@ failed: early eof（客户端侧超时中止）。
 - 勘误对象：当日「QUIC 拨号端点只绑 0.0.0.0」分析中的「跨节点串址」论断。复核日志：DZvczj 与 EhUaawMPK 重叠的 3 个地址是 IP 相同、端口不同（/u58245 vs /u64802）——TransportAddr 含端口，二者并非同一地址；系同一物理机跑两个实例（lab 同机多节点部署形态），共享全部接口地址合法，且 macOS 多接口 + 隐私临时 v6 地址本就多达十余个。
 - 教训：判定「串址」必须比对含端口的完整 TransportAddr；共享 IP+异端口优先怀疑同机多实例，再怀疑污染。本轮 false alarm 源于只比对 IP 就下结论。
 
+## 2026-09-04 真机 dsh E2E 探针 initialize 缺 protocolVersion：握手成功仍 SKIP（wave-d1 实测）
+- 症状：real_dsh_handshake_initialize_roundtrip 以 ACP_E2E_REAL_DSH 指向真 dsh（node apps/cli/lib/bin.js --profile acp）运行，握手 ready 正常（ticket 也在），但 initialize 应答是错误而非 result：{"jsonrpc":"2.0","id":1,"error":{"code":-32602,"message":"Invalid params","data":{"_errors":[],"protocolVersion":{"_errors":["Invalid input: expected number, received undefined"]}}}}，用例按「initialize not answerable on this host」SKIP 收场（test result: ok，非真绿）。
+- 原因：探针发送的 params 仅 {"clientCapabilities":{}}，真 dsh 的 initialize 入参校验（zod）要求 protocolVersion 为 number——桩侧宽容、真机侧严格，缺字段只在真链路暴露。
+- 修法：探针 initialize params 补 protocolVersion（number）重跑；若仍 -32602，按错误 data 的字段级 _errors 逐个对照 dsh 侧 schema 补齐（它已指明缺失字段名）。
+
 ## 2026-09-05 OPS1 内联多行 commit message 的反引号段被命令替换静默吃掉
 - 症状：git commit -m "<多行 message>"（run_code 里 JSON.stringify 内联传参）提交成功，但 message 中反引号包裹段（`cmd | tail`、`p2pctl --json | grep -q`）消失，正文留双空格；提交当场报 bash: cmd: command not found。
 - 原因：JSON.stringify 不转义反引号；bash 双引号串内反引号即命令替换，子命令失败输出空串。
