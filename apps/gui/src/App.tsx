@@ -1,4 +1,10 @@
-import { HashRouter, Route, Routes } from "react-router-dom";
+import {
+  createHashRouter,
+  createRoutesFromChildren,
+  Route,
+  RouterProvider,
+} from "react-router-dom";
+import type { ReactNode } from "react";
 
 import { AppLayout } from "@/components/layout/app-layout";
 import { AcpPage } from "@/routes/acp-page";
@@ -11,25 +17,32 @@ import { GroupPage } from "@/routes/group-page";
 import { PeersPage } from "@/routes/peers-page";
 import { RelayPage } from "@/routes/relay-page";
 import { SettingsPage } from "@/routes/settings-page";
+import { UnsavedRouteGuard } from "@/views/shared/unsaved-guard";
 
 // 路由注册与 menu.def.ts 一一对应；新增视图先改 menu.def 再补这里。
+// data router（createHashRouter + createRoutesFromChildren）为 useBlocker 前提：
+// 未保存守卫在路由层拦截，侧栏点击与 Cmd/Ctrl+数字快捷键两条导航路径统一覆盖。
+function guarded(element: ReactNode): ReactNode {
+  return <UnsavedRouteGuard>{element}</UnsavedRouteGuard>;
+}
+
+const routes = createRoutesFromChildren(
+  <Route element={<AppLayout />}>
+    <Route index element={<DashboardPage />} />
+    <Route path="peers" element={<PeersPage />} />
+    <Route path="discovery" element={guarded(<DiscoveryPage />)} />
+    <Route path="relay" element={guarded(<RelayPage />)} />
+    <Route path="chat" element={<ChatPage />} />
+    <Route path="group" element={<GroupPage />} />
+    <Route path="acp" element={<AcpPage />} />
+    <Route path="events" element={<EventsPage />} />
+    <Route path="settings" element={guarded(<SettingsPage />)} />
+    <Route path="diagnostics" element={<DiagnosticsPage />} />
+  </Route>,
+);
+
+const router = createHashRouter(routes);
+
 export default function App() {
-  return (
-    <HashRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="peers" element={<PeersPage />} />
-          <Route path="discovery" element={<DiscoveryPage />} />
-          <Route path="relay" element={<RelayPage />} />
-          <Route path="chat" element={<ChatPage />} />
-          <Route path="group" element={<GroupPage />} />
-          <Route path="acp" element={<AcpPage />} />
-          <Route path="events" element={<EventsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="diagnostics" element={<DiagnosticsPage />} />
-        </Route>
-      </Routes>
-    </HashRouter>
-  );
+  return <RouterProvider router={router} />;
 }
