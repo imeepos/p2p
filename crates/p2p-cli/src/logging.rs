@@ -92,9 +92,14 @@ mod tests {
         let node = config_of(&["p2p-cli", "node", "--data", "d"]);
         let file = node.file.unwrap();
         assert!(!file.dir.as_os_str().is_empty(), "目录必须有值");
+        // 断言落盘目录 == 平台标准日志目录（wiring 回归）：macOS
+        // ~/Library/Logs/p2p-cli，XDG ~/.local/state/p2p-cli/logs——目录
+        // 末段两平台不同（app 名 vs logs），不能按末段写死单一平台形态
+        // （2026-09-05 CI ubuntu 实锤：该断言在 linux 恒红）。
+        let expect = p2p_log::default_log_dir("p2p-cli").expect("测试环境必能定位平台日志目录");
         assert_eq!(
-            file.dir.file_name().map(|s| s.to_string_lossy()),
-            Some("p2p-cli".into())
+            file.dir, expect,
+            "node 日志目录必须是 p2p_log 平台标准日志目录"
         );
     }
 }
