@@ -34,15 +34,7 @@ impl FrontendLog {
 
     /// 读末尾 max 行；文件不存在返回空（GUI 首启前合法状态，不算错误）。
     pub fn tail(&self, max_lines: usize) -> std::io::Result<Vec<String>> {
-        let max = max_lines.min(MAX_TAIL_LINES);
-        let file = match std::fs::File::open(&self.path) {
-            Ok(f) => f,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
-            Err(e) => return Err(e),
-        };
-        let lines: Vec<String> = read_lines(file)?;
-        let start = lines.len().saturating_sub(max);
-        Ok(lines[start..].to_vec())
+        tail_lines(&self.path, max_lines)
     }
 
     /// 清理 frontend.log 与 frontend.log.1；返回 (删了当前代, 删了轮转代)。幂等。
@@ -57,6 +49,20 @@ impl FrontendLog {
 fn read_lines(file: std::fs::File) -> std::io::Result<Vec<String>> {
     use std::io::BufRead;
     std::io::BufReader::new(file).lines().collect()
+}
+
+/// 任意日志文件的尾读内核（log tail 与 node log tail 共用，F7 语义对齐）：
+/// 上限钳制 MAX_TAIL_LINES；文件不存在返回空（首启前合法状态，不算错）。
+pub fn tail_lines(path: &Path, max_lines: usize) -> std::io::Result<Vec<String>> {
+    let max = max_lines.min(MAX_TAIL_LINES);
+    let file = match std::fs::File::open(path) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(e),
+    };
+    let lines: Vec<String> = read_lines(file)?;
+    let start = lines.len().saturating_sub(max);
+    Ok(lines[start..].to_vec())
 }
 
 /// 删除文件；NotFound 视为已清理，其余错误上抛（禁止静默吞错）。

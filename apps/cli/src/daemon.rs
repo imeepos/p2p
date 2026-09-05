@@ -11,6 +11,7 @@ use tokio::net::UnixListener;
 
 use crate::error::{CliError, CliResult};
 use crate::ops;
+use crate::observe::{self, PeerRegistry};
 use crate::paths::{remove_file_if_exists, Paths};
 use crate::store;
 use crate::types::{default_bootstrap, default_observation_addrs, default_relay_addrs, GuiConfig};
@@ -54,6 +55,8 @@ struct Ctx {
     started: Instant,
     started_at_ms: u64,
     log_path: PathBuf,
+    /// 观测注册表（F10）：peer list / discovery list 的事实源。
+    registry: Arc<PeerRegistry>,
 }
 
 pub async fn run(data_dir: &str) -> CliResult<()> {
@@ -71,12 +74,16 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
         p2p_cli::echo::EchoHandler::new()
             .map_err(|e| CliError::Runtime(format!("echo 协议装配失败: {e}")))?,
     ));
+    // 采集器尽早起：装配后到 serve 前的发现事件也归约进注册表。
+    let registry = Arc::new(PeerRegistry::new());
+    observe::spawn_collector(&node, registry.clone());
     let ctx = Arc::new(Ctx {
         node: Arc::new(node),
         started_at_ms: now_ms(),
         started: Instant::now(),
         config,
         log_path: paths.log(),
+        registry,
     });
     write_runtime_files(&paths, &ctx)?;
     serve(paths, ctx).await
@@ -190,6 +197,9 @@ async fn dispatch(ctx: &Ctx, request: &Value) -> Value {
             ctx.started,
             ctx.started_at_ms,
         )),
+        "peerList" => Ok(ops::peer_list_json(&ctx.registry)),
+        "discoveryList" => Ok(ops::discovery_list_json(&ctx.registry)),
+        "relayStatus" => ops::relay_status(&ctx.node, &ctx.config),
         "metrics" => ops::metrics(&ctx.node),
         "dial" => {
             let target = request.get("target").and_then(Value::as_str).unwrap_or("");
@@ -224,7 +234,7 @@ fn str_arg(request: &Value, key: &str) -> String {
         .to_string()
 }
 
-fn now_ms() -> u64 {
+pub(crate) fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)

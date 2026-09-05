@@ -316,6 +316,16 @@ failed: early eof（客户端侧超时中止）。
 - 原因：src-tauri 的 Cargo.toml 声明空 [workspace] 脱离根 workspace，根 fmt/clippy/test/panic-hygiene 四门禁与 gui-check（pnpm）都不覆盖它；6c4d882 改 p2p-cli 的 EchoHandler 形状（panic 卫生清零）时无人发现 src-tauri 消费点同步失效。
 - 修法：任何改冻结 crate 公开形状的提交，先 `grep -rn "Sym" apps/gui/src-tauri` 查桥接层消费点（它是 p2p-cli 的 path 依赖方）；给该 crate 建议补一条 `cd apps/gui/src-tauri && cargo clippy -- -D warnings && cargo test` 进 gui.sh 或单独 gate，消除盲区。
 
+## 2026-09-05 PR2：ai-docs-sync 参数机械比对「看不见」clap visible_alias
+- 症状：log 域给 --log-dir 加 `visible_alias = "data-dir"` 后，ai-docs-sync 报「文档参数 --data-dir 实现不存在」，但肉眼 --help 输出里明明有。
+- 原因：该守卫对 Options 段逐行取**首个** `--长参数`（awk match 只取每行第一处）；clap 把 visible_alias 渲染成与主参数同行（`--log-dir <LOG_DIR> ... [alias: --data-dir]`），别名永远不是行首参，提取不到。
+- 修法：别名一律用独立参数声明（两个字段 + 取值函数 `data_dir.or(log_dir)` 定优先级），--help 各占一行即可双向比对；文档参数表同步加行。判据：给参数加别名前先看消费它的机械守卫怎么解析 help。
+
+## 2026-09-05 PR2：run_code 里用 JS 模板串包 bash heredoc 被 `${...}` 插值炸掉
+- 症状：写脚本含 `${BASH_SOURCE[0]}`/`${TMPDIR:-/tmp}` 时 run_code 直接解析报错（Unexpected token），或静默错值。
+- 原因：JS 模板串先于 bash 解释 `${`，`${TMPDIR:-/tmp}` 的 `:-` 直接是 JS 语法错误。
+- 修法：bash/脚本内容用行数组 join("\n") 传 tools.write；行内有单双引号混排时优先 heredoc 但转义 `\${`；写完 bash -n 或 grep 自验再跑。
+
 ## 2026-09-04 在只属于自己 scope 的 worktree 里跑全仓 cargo fmt：13 个历史文件被重排成噪声（GUI 节点资料轮）
 - 症状：后台门禁跑完 `cargo fmt` 后 git status 冒出十几个自己从未碰过的 src-tauri 文件改动，且与并行会话的编辑面冲突风险陡增。
 - 原因：src-tauri 历史提交本就未过 rustfmt（fmt 门禁只管根 workspace），在 src-tauri 目录里跑 `cargo fmt` 会把整个目录重排一遍——「格式化自己」变成了「格式化全目录」。

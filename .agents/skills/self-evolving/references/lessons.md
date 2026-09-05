@@ -212,6 +212,17 @@ _none yet — be the first._
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
+- 2026-09-05：git commit 提交的是整个暂存区，不是刚 add 的路径——soft reset 重做
+  提交序列时，`git add <path> && git commit` 会把 index 里所有遗留暂存卷进一个
+  巨石提交。修法：要么 commit 用 pathspec 形式 `git commit -m msg -- <paths>`
+  （按工作区状态只提交指定路径），要么提交前 git status 确认暂存区干净。
+- 2026-09-05：对独立 cargo workspace 的子包（apps/cli 有自己的 [workspace]）跑
+  `cargo fmt --manifest-path` 会把包内他域文件的存量格式漂移一并重写（根 fmt
+  门禁只扫根 workspace，漂移因此长期潜伏）；会凭空造出他域文件 diff，撞并行 PR
+  的冲突面。fmt 后必须 git status 核对，非本任务文件一律 checkout -- 回退。
+- 2026-09-05：run_code 模板串里生成 JS/TS 代码时，行尾续行反斜杠 \\ 与 \\n 需要
+  双重转义层级心算，很容易造出 `\\",` 这类合法 TS 但非法目标语言的序列；写完
+  立刻跑一次目标脚本冒烟（--help 级别即可），本次靠冒烟 30 秒内抓住语法错。
 - 2026-09-05 OPS1：`set -euo pipefail` 不含字面子串 `set -o pipefail`——验收约定是 grep -L 字面审计时整批脚本会被误判缺 pipefail；拆成 set -eu 与 set -o pipefail 两行，语义等价且机械可审计。
 - 2026-09-04 N1：文档与实现的漂移是真实发生的（cli-guide.md §5 曾写 --peer-id/--name，
   实际 clap 参数是 --peer/--nickname）。凡"命令面/接口面"文档必须配机械同步门禁
@@ -380,3 +391,6 @@ _none yet — be the first._
 - 2026-09-05：管道后 echo exit=$? 测的是管道尾（head 等）不是目标命令，本轮自己又踩（正是 OPS1 主题）；要拿真实退出码就把 stdout 落文件再单独跑 grep，或 set -o pipefail。
 - 2026-09-05：发现"输出丢失"类缺陷靠字节级断言（cat -A / 文件 0 字节 + exit 0 + 副作用已发生），肉眼看终端永远看不出重定向差异；node start --json 丢输出就是这么抓到的。
 - 2026-09-05：给并行子会话派任务书一次写全五件套：需求逐条/文件域互斥清单/验收命令(退出码语义)/合并序(注册表冲突消化方)/停等纪律；本轮 PR1-PR3 三会话并行靠这个把 cli.rs 冲突风险前置消解。
+- 2026-09-05 PR2：独立 workspace 子目录（apps/cli）跑全 crate `cargo fmt` 会重排 chat/group 等他域历史文件（根 fmt 门禁不覆盖它们所以常年不齐，src-tauri known-issue 同理的又一实例）——fmt 后立即 git status，他域脏文件先 diff 确认纯格式噪声（并对照 git worktree list 排除并行会话 WIP）再 checkout 还原。
+- 2026-09-05 PR2：E2E 封公网光写空列表不行——装配层 with_factory_fallback 把空 bootstrap/relay/observation 回落成公网出厂默认；必须预写非空 loopback 占位端点的 gui-config.json（端口 0=随机，loopback 连接失败不阻断起节点）。
+- 2026-09-05 PR2：验收链复跑 e2e 的幂等性靠「mktemp 新目录 + trap 清理 + stop 兜底 kill」组合，别依赖固定路径状态重置；两连跑各写独立日志文件防覆盖取证。

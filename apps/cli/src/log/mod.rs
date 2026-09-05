@@ -1,8 +1,9 @@
 //! log 命令域（CL4）：对齐 GUI frontend_log_tail / frontend_log_path / frontend_log_clear。
 //! frontend_log_append 是 GUI 前端专属行为（浏览器侧采集源），CLI 不提供，
-//! 豁免登记见 scripts/check/cli-parity.tsv。默认读 GUI 日志目录，--log-dir 覆盖。
+//! 豁免登记见 scripts/check/cli-parity.tsv。默认读 GUI 日志目录，--log-dir
+//! 覆盖；--data-dir 为兼容别名（F7：与他域参数命名对齐，同指日志目录）。
 
-mod backend;
+pub(crate) mod backend;
 
 use clap::Subcommand;
 use serde::Serialize;
@@ -10,7 +11,8 @@ use serde::Serialize;
 use crate::error::CliResult;
 use crate::output;
 
-use backend::{FrontendLog, DEFAULT_TAIL_LINES};
+pub(crate) use backend::DEFAULT_TAIL_LINES;
+use backend::FrontendLog;
 
 #[derive(Subcommand)]
 pub enum LogCommand {
@@ -30,6 +32,16 @@ pub struct LogArgs {
     /// GUI 日志目录覆盖（默认取 GUI 应用日志目录 com.p2p.console）
     #[arg(long)]
     log_dir: Option<String>,
+    /// 同 --log-dir：兼容他域 --data-dir 命名（F7；同时给出时本参数优先）
+    #[arg(long)]
+    data_dir: Option<String>,
+}
+
+impl LogArgs {
+    /// 目录取值：--data-dir（他域命名）优先，回落 --log-dir。
+    pub fn dir(&self) -> Option<&str> {
+        self.data_dir.as_deref().or(self.log_dir.as_deref())
+    }
 }
 
 #[derive(clap::Args)]
@@ -72,7 +84,7 @@ pub async fn run(cmd: LogCommand) -> CliResult<()> {
 }
 
 fn tail(args: TailArgs) -> CliResult<()> {
-    let log = resolve(&args.common.log_dir)?;
+    let log = resolve(args.common.dir())?;
     let max = args.lines.unwrap_or(DEFAULT_TAIL_LINES).max(1) as usize;
     let lines = log
         .tail(max)
@@ -86,7 +98,7 @@ fn tail(args: TailArgs) -> CliResult<()> {
 }
 
 fn path(args: LogArgs) -> CliResult<()> {
-    let log = resolve(&args.log_dir)?;
+    let log = resolve(args.dir())?;
     let report = PathReport {
         path: path_string(&log),
     };
@@ -94,7 +106,7 @@ fn path(args: LogArgs) -> CliResult<()> {
 }
 
 fn clear(args: LogArgs) -> CliResult<()> {
-    let log = resolve(&args.log_dir)?;
+    let log = resolve(args.dir())?;
     let (removed_current, removed_rotated) = log
         .clear()
         .map_err(|e| crate::error::CliError::Runtime(format!("前端日志清理失败: {e}")))?;
@@ -111,8 +123,8 @@ fn clear(args: LogArgs) -> CliResult<()> {
     output::emit(args.json, &report, &text)
 }
 
-fn resolve(log_dir: &Option<String>) -> CliResult<FrontendLog> {
-    FrontendLog::resolve(log_dir.as_deref()).map_err(crate::error::CliError::Runtime)
+fn resolve(log_dir: Option<&str>) -> CliResult<FrontendLog> {
+    FrontendLog::resolve(log_dir).map_err(crate::error::CliError::Runtime)
 }
 
 fn path_string(log: &FrontendLog) -> String {
@@ -141,13 +153,15 @@ mod tests {
             common: LogArgs {
                 json: false,
                 log_dir: Some(log_dir.clone()),
+                data_dir: None,
             },
             lines: Some(2),
         })
         .unwrap();
         clear(LogArgs {
             json: false,
-            log_dir: Some(log_dir.clone()),
+            log_dir: None,
+            data_dir: Some(log_dir.clone()),
         })
         .unwrap();
         assert!(!file.exists(), "clear 应删除 frontend.log");
