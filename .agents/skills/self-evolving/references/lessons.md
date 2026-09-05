@@ -213,6 +213,7 @@ _none yet — be the first._
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
 
+
 - 2026-09-05 PR1 轮：bash 后台启动 serve 的函数不能被 `VAR="$(fn)"` 命令替换
   包裹——子 shell 里 PIDS+=("$!") 只改副本，父 shell 数组恒空，pop 时报 bad
   array subscript；模式是函数内直接改父 shell 数组 + 就绪结果写全局变量带回，
@@ -229,6 +230,14 @@ _none yet — be the first._
 - 2026-09-05 PR1 轮：同一个日志文件不能被两次后台运行复用（第一次残留与第二
   次输出交错假象）；每轮独立文件名或先清空。cargo 增量重链接全部集成测试
   二进制是分钟级操作，改 lib 后的验证优先 cargo test -p <crate> --lib 快筛。
+
+- 2026-09-05 UB：run_code 里用模板串装含反引号/花括号密集的 shell 命令，两次在
+  "解析 program" 阶段炸 Unterminated template（与目标文件无关）；长命令一律改成
+  字符串数组 + join(" ") 拼参，模板串只留给无特殊字符的短串。
+- 2026-09-05 UB：tools.edit 删文件尾部重复块时，old_string 若只含重复块本身会命中
+  两处被拒；锚点必须带上目标块独有的相邻行（如前一个 describe 的收尾断言），
+  先 read 全文核对匹配次数再动手。
+
 - 2026-09-05：git commit 提交的是整个暂存区，不是刚 add 的路径——soft reset 重做
   提交序列时，`git add <path> && git commit` 会把 index 里所有遗留暂存卷进一个
   巨石提交。修法：要么 commit 用 pathspec 形式 `git commit -m msg -- <paths>`
