@@ -2,12 +2,12 @@
 
 mod acp;
 mod chat;
-mod group;
 mod cli;
 mod config;
 mod control;
 mod daemon;
 mod error;
+mod group;
 mod gui;
 mod identity;
 mod lifecycle;
@@ -15,6 +15,7 @@ mod llm_share;
 mod log;
 mod metrics;
 mod node;
+mod observe;
 mod ops;
 mod output;
 mod paths;

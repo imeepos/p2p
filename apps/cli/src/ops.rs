@@ -170,6 +170,44 @@ fn elapsed_ms(started: Instant) -> u64 {
     u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
+/// peer list 事实源（F10）：地址簿全量 + 在线计数。
+pub fn peer_list_json(registry: &crate::observe::PeerRegistry) -> Value {
+    let peers = registry.snapshot();
+    let stats = registry.stats();
+    serde_json::to_value(serde_json::json!({
+        "peers": peers,
+        "total": stats.total,
+        "connected": stats.connected,
+    }))
+    .unwrap_or(Value::Null)
+}
+
+/// discovery list 事实源（F10）：地址缓存全量 + 来源计数（同 GUI 发现页）。
+pub fn discovery_list_json(registry: &crate::observe::PeerRegistry) -> Value {
+    let neighbors = registry.snapshot();
+    let stats = registry.stats();
+    serde_json::to_value(serde_json::json!({
+        "neighbors": neighbors,
+        "stats": stats,
+    }))
+    .unwrap_or(Value::Null)
+}
+
+/// relay status 只读快照（F10）：中继会话/重连水位 + 降级链逐跳统计 + 配置端点。
+pub fn relay_status(node: &Node, config: &crate::types::GuiConfig) -> Result<Value, String> {
+    let m = node.metrics();
+    Ok(json!({
+        "relaySessionsActive": m.relay_sessions_active,
+        "relayReconnects": m.relay_reconnects,
+        "activeConnections": m.active_connections,
+        "dialPunchOk": m.dial_punch_ok,
+        "dialPunchFail": m.dial_punch_fail,
+        "dialRelayOk": m.dial_relay_ok,
+        "dialRelayFail": m.dial_relay_fail,
+        "relayAddrs": config.relay_addrs,
+    }))
+}
+
 /// metrics_get：运行时指标快照（语义同 GUI AppState::metrics 运行分支）。
 pub fn metrics(node: &Node) -> Result<Value, String> {
     let snapshot = MetricsJson::from(node.metrics());
