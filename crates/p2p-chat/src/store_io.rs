@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde::de::DeserializeOwned;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::invite::FriendInvite;
 use crate::model::{ChatEnvelope, ChatStatus};
@@ -152,6 +152,48 @@ pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<(), std::io::Err
     fs::write(&tmp, bytes)?;
     fs::rename(&tmp, path)?;
     Ok(())
+}
+
+/// 归并：同 id 多行以最后一行为准，按首现位置排序（跨进程写交错产物）。
+pub(crate) fn dedup_last<T>(items: Vec<T>, id: impl Fn(&T) -> &str) -> Vec<T> {
+    let mut order: Vec<String> = Vec::new();
+    let mut last: std::collections::HashMap<String, T> = std::collections::HashMap::new();
+    for item in items {
+        let key = id(&item).to_string();
+        if !last.contains_key(&key) {
+            order.push(key.clone());
+        }
+        last.insert(key, item);
+    }
+    order.into_iter().filter_map(|k| last.remove(&k)).collect()
+}
+
+/// 重写 JSONL：解析成功的行经 f 变更（false = 删除该行），其余行（含损坏行）原样保留。
+pub(crate) fn rewrite_jsonl<T: Serialize + serde::de::DeserializeOwned>(
+    path: &Path,
+    f: impl Fn(&mut T) -> bool,
+) -> std::io::Result<()> {
+    let content = match fs::read_to_string(path) {
+        Ok(c) => c,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(e),
+    };
+    let mut out = String::new();
+    for line in content.lines() {
+        match serde_json::from_str::<T>(line) {
+            Ok(mut v) => {
+                if f(&mut v) {
+                    out.push_str(&serde_json::to_string(&v).map_err(std::io::Error::other)?);
+                    out.push('\n');
+                }
+            }
+            _ => {
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+    }
+    atomic_write(path, out.as_bytes())
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::group::{GroupKick, GroupLeave, GroupRoster};
 use crate::model::{sanitize_name, ChatError, ChatKind, ChatMediaMeta, ChatStatus};
-use crate::store_io::{append_line, atomic_write, load_jsonl};
+use crate::store_io::{append_line, atomic_write, dedup_last, load_jsonl, rewrite_jsonl};
 use crate::store_lock::FileLock;
 
 /// 群名上限（trim 后字符数，design §1）。
@@ -111,48 +111,6 @@ fn load_groups(path: &Path) -> Vec<GroupInfo> {
             Vec::new()
         }
     }
-}
-
-/// 归并：同 id 多行以最后一行为准，按首现位置排序（跨进程写交错产物）。
-fn dedup_last<T>(items: Vec<T>, id: impl Fn(&T) -> &str) -> Vec<T> {
-    let mut order: Vec<String> = Vec::new();
-    let mut last: std::collections::HashMap<String, T> = std::collections::HashMap::new();
-    for item in items {
-        let key = id(&item).to_string();
-        if !last.contains_key(&key) {
-            order.push(key.clone());
-        }
-        last.insert(key, item);
-    }
-    order.into_iter().filter_map(|k| last.remove(&k)).collect()
-}
-
-/// 重写 JSONL：解析成功的行经 f 变更（false = 删除该行），其余行（含损坏行）原样保留。
-fn rewrite_jsonl<T: Serialize + serde::de::DeserializeOwned>(
-    path: &Path,
-    f: impl Fn(&mut T) -> bool,
-) -> std::io::Result<()> {
-    let content = match fs::read_to_string(path) {
-        Ok(c) => c,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
-        Err(e) => return Err(e),
-    };
-    let mut out = String::new();
-    for line in content.lines() {
-        match serde_json::from_str::<T>(line) {
-            Ok(mut v) => {
-                if f(&mut v) {
-                    out.push_str(&serde_json::to_string(&v).map_err(std::io::Error::other)?);
-                    out.push('\n');
-                }
-            }
-            _ => {
-                out.push_str(line);
-                out.push('\n');
-            }
-        }
-    }
-    atomic_write(path, out.as_bytes())
 }
 
 /// 群存储（同步 std::fs：文件小、频率低，与 1:1 store 同风格）。
