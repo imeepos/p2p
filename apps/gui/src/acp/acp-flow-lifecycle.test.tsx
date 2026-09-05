@@ -1,6 +1,7 @@
 // 流程打磨轮 R3/R4/R5 测试：续连补放横幅生命周期、连接中加载态、会话焦点回退。
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { WsLike } from "./ws-factory";
 
 vi.stubEnv("VITE_MOCK_IPC", "1");
 
@@ -8,10 +9,26 @@ const { AcpView } = await import("./acp-view");
 const { mockAcpConsole } = await import("./mock-acp-ws");
 const { useAcpStore } = await import("./acp-store");
 const { renderConnected, resetFixtures } = await import("./acp-view-test-utils");
+const { setWsFactory } = await import("./ws-factory");
 await import("@/i18n");
 
 beforeEach(() => {
   resetFixtures();
+});
+
+/** 打开时机由测试控制、不做任何应答的 socket：驱动 connecting 加载态 */
+class ManualSocket implements WsLike {
+  onopen: (() => void) | null = null;
+  onclose: ((ev: { code: number; reason: string }) => void) | null = null;
+  onerror: ((ev: { message?: string }) => void) | null = null;
+  onmessage: ((ev: { data: unknown }) => void) | null = null;
+  send(): void {}
+  close(): void {}
+}
+
+afterEach(() => {
+  setWsFactory(null);
+  useAcpStore.getState().disconnect();
 });
 
 describe("AcpView reattach banner lifecycle", () => {
@@ -63,5 +80,20 @@ describe("AcpView reattach banner lifecycle", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("AcpView connecting indicator", () => {
+  it("phase=connecting 期间主列显示加载指示，不落空态", async () => {
+    setWsFactory(() => new ManualSocket());
+    render(<AcpView />);
+    fireEvent.click(screen.getByTestId("acp-connect"));
+    const indicator = await screen.findByTestId("acp-connecting-indicator");
+    expect(indicator.textContent).toContain("等待握手");
+    expect(screen.queryByTestId("acp-main-empty")).toBeNull();
+    useAcpStore.getState().disconnect();
+    await waitFor(() => {
+      expect(screen.queryByTestId("acp-connecting-indicator")).toBeNull();
+    });
   });
 });

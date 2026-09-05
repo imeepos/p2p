@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Bot, X } from "lucide-react";
+import { Bot, Loader2, X } from "lucide-react";
 
 
 import { PageHeader } from "@/components/page/page-header";
@@ -69,15 +69,34 @@ function ReattachBanner() {
   );
 }
 
+/** 连接中加载态：主列不得无反馈空白（spinner + 握手文案） */
+function ConnectingIndicator() {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="text-muted-foreground flex items-center gap-2 py-8 text-sm"
+      data-testid="acp-connecting-indicator"
+    >
+      <Loader2 className="size-4 animate-spin" aria-hidden />
+      <span>{t("acp.feedback.connecting")}</span>
+    </div>
+  );
+}
+
 function MainColumn() {
   const { t } = useTranslation();
+  const phase = useAcpStore((s) => s.phase);
   const activeSessionId = useAcpStore((s) => s.activeSessionId);
   return (
     <div className="col-span-12 flex min-h-0 flex-col gap-4 lg:col-span-9">
       <ReconnectBanner />
       <ReattachBanner />
-      {activeSessionId === null ? (
-        <EmptyState icon={Bot} title={t("acp.sessions.empty")} description={t("acp.sessions.emptyHint")} />
+      {phase === "connecting" ? (
+        <ConnectingIndicator />
+      ) : activeSessionId === null ? (
+        <div data-testid="acp-main-empty">
+          <EmptyState icon={Bot} title={t("acp.sessions.empty")} description={t("acp.sessions.emptyHint")} />
+        </div>
       ) : (
         <>
           <ConfigPanel />
