@@ -1,6 +1,6 @@
 import type { ChatKind, ChatMediaInput, GroupJson, GroupMessageJson } from "./ipc-types";
 import { activeMockGroupChatRuntime } from "./mock-group-state";
-import { base64ByteSize, groupMediaPath } from "./mock-chat-rules";
+import { base64ByteSize, groupMediaPath } from "./chat-limits";
 
 // mock 群场景注入：dev 演示与集成测试经 window.__MOCK_GROUP__ 驱动
 // 入站群消息（chat_group_message 事件通道）与外部群播种（owner ≠ 本机）。

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { ipc } from "@/lib/ipc";
-import { MAX_TEXT_CHARS } from "@/lib/mock-chat-rules";
+import { MAX_TEXT_CHARS } from "@/lib/chat-limits";
 import type {
   ChatFriendJson,
   ChatKind,

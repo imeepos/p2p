@@ -5,7 +5,7 @@ import type {
   ChatMessageStatus,
 } from "./ipc-types";
 import { activeMockChatRuntime } from "./mock-chat";
-import { base64ByteSize, mediaPath } from "./mock-chat-rules";
+import { base64ByteSize, mediaPath } from "./chat-limits";
 
 // mock 场景注入（IM-T50）：dev 演示与集成测试的全状态矩阵驱动——
 // them 气泡注入与消息状态强制推进走与真实后端同构的

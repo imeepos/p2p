@@ -338,3 +338,7 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
   （Expected unicode escape）且整段程序不执行、其中所有已发工具调用全部回滚——
   大块代码文本搬移用「read 行切片 + write 整写」，长文本一律走 write 工具，
   不在 JS 串里手拼含转义的代码内容。
+
+run_code 里用 TS 模板字面量写 bash 内容时，bash 的 ${VAR} 会被 JS 当插值解析：${1:-x} 直接语法错（Unexpected token），${BASH_SOURCE[0]} 运行时才报 BASH_SOURCE is not defined——同一天连踩三次。写法：模板串里一律转义后写，或改普通串数组 join 整写（后者更稳，Makefile 的 tab 配方同理用 \t 拼）。
+给产物特征扫描类内容守卫定特征清单，必须双向实测校准后才可信：干净构建必须零命中（防误报假红）＋泄漏/注入场景必须命中（防漏报假绿）。本条产出 gui-dist-scan.sh 的 mock 特征清单（2026-09-05）。
+vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 开始前，红路径探测秒级返回——「必红」回归放 gate-tests 成本极低，别因怕慢而放弃真实红路径探测、只测夹具。

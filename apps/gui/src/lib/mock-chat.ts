@@ -15,12 +15,12 @@ import {
   validateGroupName,
   validateReplyTo,
   validateSend,
-} from "./mock-chat-rules";
+} from "./chat-limits";
 
 // 契约 v7 §12 的 mock 侧实现（T30）：好友簿校验、发送状态事件、历史分页与
 // 媒体路径占位。持久化（friends.json/outbox/messages/media）由 src-tauri T32
 // 落地，mock 只保内存态；与真实实现同签名（IpcBackend chat 段）。
-// 校验规则在 mock-chat-rules.ts（与 mock/src-tauri/p2p-chat 同口径）。
+// 校验常量与校验函数在 chat-limits.ts（生产视图与 mock 共用，与后端同口径）。
 
 const HISTORY_DEFAULT_LIMIT = 50;
 const HISTORY_MAX_LIMIT = 100;

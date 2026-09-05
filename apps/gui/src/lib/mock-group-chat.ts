@@ -25,7 +25,7 @@ import {
   groupMediaPath,
   validateMessagePayload,
   validateReplyTo,
-} from "./mock-chat-rules";
+} from "./chat-limits";
 import { createMockGroupRosterOps, type MockGroupRosterBackend } from "./mock-group-roster";
 
 // 契约群聊段（im-group-design §7）的 mock 侧组装：roster 操作面在

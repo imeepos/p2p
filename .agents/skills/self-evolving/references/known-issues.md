@@ -737,3 +737,7 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：全量 make check 在 test 阶段 FAILED——observed_addr_registered_and_dialable "timed out waiting for rendezvous PeerDiscovered"（30s 超时）。
 原因：网络型集成测试依赖真实 rendezvous 发现时序，负载/环境下偶发超时；同一树首跑 PASS、复跑 0.06s PASS，纯 flake。
 修法：先 rerun 单测确认（cargo test -p p2p --test observe_addr），复跑全量 make check 拿干净绿；GUI-only 分支遇 Rust 测试红先比对 diff 是否触及 Rust，再判 flake，勿慌改代码。
+
+症状：worktree 内 make check 的 clippy 阶段报 E0463 can not find crate for std/core——aarch64-apple-darwin target may not be installed，但 rustup show 显示 host target 已装（2026-09-05）。
+原因：构建进行中有并发 rustup 工具链操作（其他会话或后台 update）短暂摘走 std 组件，属瞬时环境抖动，与代码无关（该分支零 Rust 改动）。
+修法：先 rustup show 核对工具链与 target 完好，直接重跑该门禁（clippy 重试 32s PASS），再重跑全量 make check 拿干净绿；勿查代码、勿动 toolchain。

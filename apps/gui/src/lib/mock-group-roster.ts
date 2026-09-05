@@ -1,6 +1,6 @@
 import type { GroupJson, IpcBackend } from "./ipc-types";
 import { newGroupMessageId as uuid } from "./mock-group-state";
-import { MAX_GROUP_MEMBERS, validateGroupChatName } from "./mock-chat-rules";
+import { MAX_GROUP_MEMBERS, validateGroupChatName } from "./chat-limits";
 import {
   emitRoster,
   groupState,
