@@ -4,6 +4,9 @@
 
 - **信息不准**：docs/ops/updater-release.md 写本机密钥「无密码」，实际密钥头解码为 `rsign encrypted secret key`（空密码加密）。本地 `tauri build` 不设 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 时签名步尝试 TTY 提示，报 `Device not configured (os error 6)`。
 - **正确做法**：本地构建必须 `export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_SIGNING_PRIVATE_KEY_PATH")" && export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""`（两者都要）。文档待更正。
+- **2026-09-05 解决后记**：docs/ops/updater-release.md 已按事实改写（密钥空密码加密语义、
+  双变量必须同时导出、四条真实报错对照表），并新增发布前机械预检
+  scripts/ops/updater-signing-preflight.sh（--self-test 9 场景红绿自检防假绿，已挂发布清单第 0 步）。
 
 ## gui-client tag→release 签名路径从未成功过（2026-09-05 发布预检确认，定因待日志）
 
@@ -12,6 +15,18 @@
 - **影响**：该步失败则任何 client-v* tag 都出不了 release。
 - **期望**：拉 run 33946473330 「Tauri 打包」步日志核对真实报错；按 ①②③ 对应修正后重跑。
 - **2026-09-05 后记**：client-v0.1.5 tag 已推（0722 后），run 结果将直接验证上述候选——成功则出带 .sig 的 release，失败则注解/日志给出定因。
+- **2026-09-05 解决后记（定因闭环）**：经本机 gh 凭据（hosts.yml oauth_token，repo scope）拉取
+  run 33946473330（v0.1.4）与 run 33970431521（v0.1.5）四平台日志，真实报错均为
+  `failed to decode secret key: failed to decode base64 secret key: Invalid symbol 37, offset 348`。
+  定因＝候选③精确化：GitHub secret `TAURI_SIGNING_PRIVATE_KEY` 值＝正确 348 字符密钥＋尾随
+  `%`（ASCII 37；密钥文件无尾换行，zsh 终端 EOL 标记被一并复制进 secret）。①②排除证据：
+  打包步 env dump `TAURI_SIGNING_PRIVATE_KEY: ***`（secret 存在非空）而
+  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD:` 为空白（secret 不存在，workflow 表达式导出空串恰为
+  空密码密钥所需）；v0.1.5 run steps 元数据「①/②候选命中」两步均 skipped。
+  本地 tauri signer 等价复现：密钥追加 `%` 逐字复现 CI 报错；不导出 PASSWORD 复现
+  `Device not configured (os error 6)`；正确双变量导出签名成功（绿路径）。
+  secret 已于 2026-09-05T23:35Z 经 API 以本地密钥原文重写（PUT 204，updated_at 可查）；
+  端到端验证待下个 tag（步骤见 docs/ops/updater-release.md「所有者侧 secret 核验与端到端验证」）。
 
 ## ci.yml（ubuntu 全量门禁）在 main 存量红且本地 macOS 绿（2026-09-05 发布预检发现）
 
