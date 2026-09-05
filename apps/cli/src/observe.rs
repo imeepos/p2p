@@ -27,7 +27,7 @@ pub struct PeerEntry {
 }
 
 /// 来源计数（discovery list 汇总行）。
-#[derive(Clone, Copy, Debug, Default, Serialize, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RegistryStats {
     pub total: usize,

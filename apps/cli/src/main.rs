@@ -6,6 +6,7 @@ mod cli;
 mod config;
 mod control;
 mod daemon;
+mod discovery;
 mod error;
 mod group;
 mod gui;
@@ -21,6 +22,7 @@ mod output;
 mod paths;
 mod peer;
 mod profile;
+mod relay;
 mod store;
 mod types;
 mod update;
@@ -48,6 +50,8 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Config { command } => config::run(command).await,
         cli::Command::Profile { command } => profile::run(command).await,
         cli::Command::Peer { command } => peer::run(command).await,
+        cli::Command::Discovery { command } => discovery::run(command).await,
+        cli::Command::Relay { command } => relay::run(command).await,
         cli::Command::Gui { command } => gui::run(command).await,
         cli::Command::Identity { command } => identity::run(command).await,
         cli::Command::Log { command } => log::run(command).await,

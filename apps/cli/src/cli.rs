@@ -5,6 +5,7 @@ use clap::Parser;
 use crate::acp;
 use crate::chat;
 use crate::config;
+use crate::discovery;
 use crate::group;
 use crate::gui;
 use crate::identity;
@@ -14,6 +15,7 @@ use crate::metrics;
 use crate::node;
 use crate::peer;
 use crate::profile;
+use crate::relay;
 use crate::update;
 
 #[derive(Parser)]
@@ -55,10 +57,20 @@ pub enum Command {
         #[command(subcommand)]
         command: profile::ProfileCommand,
     },
-    /// 对端域：拨号/连接/挂断/测距
+    /// 对端域：拨号/连接/挂断/测距/地址簿
     Peer {
         #[command(subcommand)]
         command: peer::PeerCommand,
+    },
+    /// 发现域：邻居/地址缓存只读查询（F10 观测对等）
+    Discovery {
+        #[command(subcommand)]
+        command: discovery::DiscoveryCommand,
+    },
+    /// 中继域：会话/水位只读查询（F10 观测对等）
+    Relay {
+        #[command(subcommand)]
+        command: relay::RelayCommand,
     },
     /// GUI 域：控制通道原语 status/screenshot/record/navigate/invoke（GC2）
     Gui {
