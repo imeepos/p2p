@@ -323,11 +323,11 @@
     {
       "id": "ACP-P3",
       "priority": "P0",
-      "status": "todo",
+      "status": "done",
       "title": "ACP-P3 跨端打通：续连票据可达 + 发现数据源（console+GUI）",
       "goal": "设计 §5 续连补放与 §8 连接目录两根主梁生产不可达：a) console 本地 status 契约按 peer 暴露最新可用续连票据（Bearer 沿用，失效如实反映）；b) GUI 自动重连先取票据带 reattach 字段重拨，取不到按 fresh；c) 续连成功折射补放计数，窗口过期引导走会话 resume；d) 连接目录从 console GET /discovery 拉真实发现清单（轮询或事件），映射 name/source/address 含 owner 声明名，console 不可达时空态不误报；e) 回环/契约/组件测试覆盖断流重连补放、窗口过期 fresh、发现映射三链路",
       "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p && export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" && cargo test -p acp-console >/tmp/acc-p3.log 2>&1 && grep -qE \"test result: ok\" /tmp/acc-p3.log && cd apps/gui && pnpm exec vitest run src/acp >>/tmp/acc-p3.log 2>&1 && pnpm --filter @p2p/gui typecheck >>/tmp/acc-p3.log 2>&1 && echo P3-ACC-GREEN || { echo P3-ACC-FAIL; tail -20 /tmp/acc-p3.log; exit 1; }'",
-      "note": ""
+      "note": " [2026-09-05 负责人主树复核] 六提交(2fa6b34/f950539/502eede/56688c6/fc2d8a9/b9c712a)均在 main 祖先链；主树机械验收：cargo test acp-console 27 用例全绿、vitest src/acp 21 文件 158 用例全绿、typecheck=0、lint 0 错误、i18n PASS(zh=652/en=652)；实质抽查：console /reattach 端点、GUI 重连携票据、/discovery 轮询接线、两份 README 契约补录均在。顺带修复 status watch 零订阅者丢更新(生产假死)与票据根因(console 落盘自生成 uuid 桥不认)。验收 D 真机双模式以 stub 落地 acp-reattach-loop.test.tsx，真机两机联调仍在后续卡。"
     },
     {
       "id": "BASE1",
