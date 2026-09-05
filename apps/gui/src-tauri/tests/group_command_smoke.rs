@@ -6,7 +6,7 @@
 
 use std::path::{Path, PathBuf};
 
-use p2p_chat::{ChatKind, ChatStatus};
+use p2p_chat::{ChatKind, ChatStatus, GroupState};
 use p2p_console::chat::{chat_friend_invite, chat_invite_accept, chat_invites_list};
 use p2p_console::commands;
 use p2p_console::group::{group_create, group_disband, group_history, group_list, group_send};
@@ -162,9 +162,14 @@ async fn group_disband_loopback_member_receipt() {
     let state_a = handle_a.state::<AppState>();
     let state_b = handle_b.state::<AppState>();
 
-    chat_friend_add(state_a.clone(), peer_b.clone(), "B".into(), addrs_b)
+    // 邀请流建双向好友（群成员必须 ⊆ 好友簿）
+    let invite = chat_friend_invite(state_a.clone(), peer_b.clone(), "B".into(), addrs_b)
         .await
-        .expect("A 登记 B");
+        .expect("A 发邀请");
+    assert!(invite.delivered, "B 在线必须实时送达");
+    chat_invite_accept(state_b.clone(), peer_a.clone(), "A".into())
+        .await
+        .expect("B 同意来邀");
     let group = group_create(state_a.clone(), "解散群".into(), vec![peer_b.clone()])
         .await
         .expect("建群");
