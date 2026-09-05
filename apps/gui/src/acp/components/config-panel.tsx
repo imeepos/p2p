@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Card,
   CardContent,
@@ -29,11 +30,23 @@ function optionLabel(t: (key: I18nKey) => string, option: ConfigOption): string 
   return key ? t(key) : option.name;
 }
 
-/** 单个下拉：选项来自 agent 真实目录（config_option_update / session 面），
+/** 单个配置行：select 走下拉、boolean 走开关，均纳入既有配置下发链路；
  * 未识别 type 按 ACP 契约忽略（agent 会用默认值继续） */
 function ConfigRow({ option }: { option: ConfigOption }) {
   const { t } = useTranslation();
   const setConfigOption = useAcpStore((s) => s.setConfigOption);
+  if (option.type === "boolean") {
+    const labelId = "acp-config-label-" + option.id;
+    const checked = option.currentValue === true;
+    return (
+      <div className="flex items-center justify-between gap-2 text-sm">
+        <span id={labelId}>{optionLabel(t, option)}</span>
+        <Switch checked={checked} onCheckedChange={(v) => void setConfigOption(option.id, v)}
+          aria-labelledby={labelId}
+          data-testid={"acp-config-option-" + option.id} />
+      </div>
+    );
+  }
   if (option.type !== "select" || !option.options || option.options.length === 0) return null;
   const labelId = "acp-config-label-" + option.id;
   return (

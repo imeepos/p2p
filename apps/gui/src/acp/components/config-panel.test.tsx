@@ -1,7 +1,7 @@
 // 配置面板可访问性测试（P2 页面打磨）：下拉触发器经 aria-labelledby
 // 关联类别标签，读屏可念出「模型」而非裸值。
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAcpStore } from "@/acp/acp-store";
 import type { ConfigOption } from "@/acp/protocol";
@@ -47,9 +47,21 @@ describe("ConfigPanel 可访问性", () => {
     expect(document.getElementById(labelId ?? "")?.textContent).toBe("模型");
   });
 
-  it("非 select 或空目录的选项不渲染行", () => {
-    seed([{ id: "toggle", name: "T", type: "boolean", currentValue: true }]);
+  it("未识别 type 的选项不渲染行", () => {
+    seed([{ id: "future", name: "F", type: "hologram", currentValue: "x" }]);
     const { container } = render(<ConfigPanel />);
     expect(container.querySelector("[data-testid^='acp-config-option']")).toBeNull();
+  });
+
+  it("boolean 配置渲染开关并纳入下发链路（setConfigOption 收布尔）", async () => {
+    const spy = vi.spyOn(useAcpStore.getState(), "setConfigOption").mockResolvedValue();
+    seed([{ id: "verbose", name: "Verbose", type: "boolean", currentValue: true }]);
+    render(<ConfigPanel />);
+    const sw = screen.getByTestId("acp-config-option-verbose");
+    expect(sw.getAttribute("aria-checked")).toBe("true");
+    expect(sw.getAttribute("aria-labelledby")).toBe("acp-config-label-verbose");
+    fireEvent.click(sw);
+    expect(spy).toHaveBeenCalledWith("verbose", false);
+    spy.mockRestore();
   });
 });
