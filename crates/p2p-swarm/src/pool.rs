@@ -23,11 +23,20 @@ pub enum ConnKind {
     RelayCircuit,
 }
 
-/// 池条目：连接本体 + 使用记账（空闲回收的「使用中」判据）；类别在入池
-/// 时由调用方直接交给 serve 循环，不落条目。
+/// 连接方向（收敛策略的输入）：与 dial.rs 的 ConnDirection 同义，收窄在
+/// 本池内定义以免反向依赖 swarm 模块（pub(super) 不可见）。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PoolDirection {
+    Inbound,
+    Outbound,
+}
+
+/// 池条目：连接本体 + 使用记账（空闲回收的「使用中」判据）+ 方向；类别在
+/// 入池时由调用方直接交给 serve 循环，不落条目。
 pub(crate) struct PoolEntry {
     pub(crate) mux: Mux,
     pub(crate) usage: Arc<ConnUsage>,
+    pub(crate) direction: PoolDirection,
 }
 
 /// admit 的裁决结果：Accepted 空池直收；Replaced 新连接顶替旧连接；
@@ -95,49 +104,63 @@ impl ConnectionPool {
 
     /// 幂等插入：peer 已在册时丢弃新连接并返回 false（先到者优先）。
     /// 生产路径走 [Self::admit_as] 收敛裁决；本方法供测试铺底。
+    /// 方向固定记 Outbound：测试铺底不关心方向语义。
     #[cfg(test)]
     pub fn insert(&self, peer: PeerId, mux: Mux) -> bool {
         let mut conns = self.conns.lock().expect("pool lock");
         if conns.contains_key(&peer) {
             return false;
         }
-        conns.insert(peer, self.entry(mux));
+        conns.insert(peer, self.entry(mux, PoolDirection::Outbound));
         true
     }
 
-    fn entry(&self, mux: Mux) -> PoolEntry {
+    fn entry(&self, mux: Mux, direction: PoolDirection) -> PoolEntry {
         PoolEntry {
             mux,
             usage: Arc::new(ConnUsage::new(unix_now())),
+            direction,
         }
+    }
+
+    /// 在册连接的方向（收敛策略判断同向重拨用）；不在册返回 None。
+    pub(crate) fn entry_direction(&self, peer: &PeerId) -> Option<PoolDirection> {
+        self.conns
+            .lock()
+            .expect("pool lock")
+            .get(peer)
+            .map(|e| e.direction)
     }
 
     /// 收敛裁决原子入口（测试用）：空池直收；冲突时按 prefer_new 二选一。
     /// 生产走 [Self::admit_as] 取使用记账挂业务流。
     #[cfg(test)]
     pub fn admit(&self, peer: PeerId, mux: Mux, prefer_new: bool) -> Admission {
-        self.admit_as(peer, mux, prefer_new).0
+        self.admit_as(peer, mux, PoolDirection::Outbound, prefer_new)
+            .0
     }
 
     /// 收敛裁决并返回胜者条目的使用记账（落选为 None），
     /// 供 serve 循环把业务流挂在正确连接的计数上（E8）。
+    /// 方向随条目落池，供下次收敛判断「同向重拨」。
     pub(crate) fn admit_as(
         &self,
         peer: PeerId,
         mux: Mux,
+        direction: PoolDirection,
         prefer_new: bool,
     ) -> (Admission, Option<Arc<ConnUsage>>) {
         let mut conns = self.conns.lock().expect("pool lock");
         match conns.remove(&peer) {
             None => {
-                let entry = self.entry(mux);
+                let entry = self.entry(mux, direction);
                 let usage = entry.usage.clone();
                 conns.insert(peer, entry);
                 (Admission::Accepted, Some(usage))
             }
             Some(old) => {
                 if prefer_new {
-                    let entry = self.entry(mux);
+                    let entry = self.entry(mux, direction);
                     let usage = entry.usage.clone();
                     conns.insert(peer, entry);
                     (Admission::Replaced(old.mux), Some(usage))

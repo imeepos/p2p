@@ -212,6 +212,12 @@ pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) 
 /// 两端对每条连接的方向认知相反、结论一致，最终两点各持同一条连接。
 /// 若无此收敛，各留各的会出现：A 池里是 A 拨的、B 池里是 B 拨的，
 /// 流与 serve 循环分家，单方向 request 永远无应答（2026-09 GUI 闪断实测根因）。
+///
+/// 同向重复入池（对端进程重启后同身份重拨、rendezvous 查号重连）不受该规则
+/// 淘汰：旧连接已死而池条目尚在（半开残留窗口）时按旧规则会把新连接判落选
+/// close，对端表现为「重连必失败直至旧条目被空闲/探活回收」（T23 两机冒烟
+/// 第二借方 10s 握手超时、ISSUE 半开残留挡重连同根因）。故同向重复一律
+/// 新连接胜出；跨向竞态仍走静态规则。
 pub(super) fn insert_connection(
     swarm: &Swarm,
     peer: PeerId,
@@ -219,8 +225,12 @@ pub(super) fn insert_connection(
     direction: ConnDirection,
     kind: ConnKind,
 ) {
-    let prefer_new = converge_prefers_new(swarm, peer, direction);
-    let (admission, usage) = swarm.pool.admit_as(peer, mux.clone(), prefer_new);
+    let same_dir_redial = swarm.pool.entry_direction(&peer) == Some(pool_direction(direction));
+    let prefer_new = same_dir_redial || converge_prefers_new(swarm, peer, direction);
+    let (admission, usage) =
+        swarm
+            .pool
+            .admit_as(peer, mux.clone(), pool_direction(direction), prefer_new);
     match admission {
         Admission::RejectedExisting(dup) => {
             tracing::debug!(%peer, "duplicate connection converged to existing, closing new");
@@ -252,4 +262,11 @@ pub(super) fn insert_connection(
 fn converge_prefers_new(swarm: &Swarm, peer: PeerId, direction: ConnDirection) -> bool {
     let keep_outbound = swarm.local_peer_id() > peer;
     (direction == ConnDirection::Outbound) == keep_outbound
+}
+
+fn pool_direction(direction: ConnDirection) -> crate::pool::PoolDirection {
+    match direction {
+        ConnDirection::Inbound => crate::pool::PoolDirection::Inbound,
+        ConnDirection::Outbound => crate::pool::PoolDirection::Outbound,
+    }
 }

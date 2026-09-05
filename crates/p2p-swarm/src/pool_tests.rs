@@ -8,7 +8,7 @@ use std::time::Duration;
 use p2p_identity::PeerId;
 use p2p_mux::{BoxedStream, MuxControl};
 
-use crate::pool::{Admission, ConnectionPool};
+use crate::pool::{Admission, ConnectionPool, PoolDirection};
 
 type Mux = Arc<dyn MuxControl>;
 
@@ -46,6 +46,20 @@ fn take_removes_and_returns_once() {
     assert!(pool.insert(peer, mux.clone()));
     assert!(Arc::ptr_eq(&pool.take(&peer).expect("taken"), &mux));
     assert!(pool.take(&peer).is_none(), "second take must find none");
+}
+
+#[test]
+fn entry_direction_tracks_last_admitted_direction() {
+    let pool = ConnectionPool::new();
+    let peer = PeerId::from_bytes([11; 32]);
+    pool.admit_as(peer, stub(), PoolDirection::Inbound, true);
+    assert_eq!(
+        pool.entry_direction(&peer),
+        Some(PoolDirection::Inbound),
+        "admit_as must record the connection direction"
+    );
+    pool.admit_as(peer, stub(), PoolDirection::Outbound, true);
+    assert_eq!(pool.entry_direction(&peer), Some(PoolDirection::Outbound));
 }
 
 #[test]
