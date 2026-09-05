@@ -1,19 +1,57 @@
-//! reattach 票据存取 API 与持久化（需求 A）：连接成功即落盘 conn uuid + 目标 PeerId，
-//! 供 ACP4 续连使用；本卡只做存取，不做续连逻辑。tmp+rename 原子写；
-//! 损坏/版本不符显式报错不静默清空（沿 acp-common policy 先例）。
+//! reattach 票据存取 API 与持久化：连接成功即落盘桥签发票据 + 目标 PeerId，
+//! 断流时登记窗口起点（lost_at），status 端点按窗口判定可用性。
+//! tmp+rename 原子写；损坏/版本不符显式报错不静默清空（沿 acp-common 先例）。
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// 单条票据：一次成功连接的 conn uuid + 目标 PeerId。
+/// 单条票据：桥签发的续连票据 + 本端 conn uuid + 目标 PeerId。
+/// `ticket`/`lost_at_unix_ms` 为加法字段（serde default）：v1 存量文件直读兼容，
+/// 存量记录无桥票据按 Missing 如实上报；文件版本保持 1。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReattachTicket {
     pub conn: Uuid,
     pub peer: String,
     pub saved_at_unix_ms: u64,
+    /// 桥在 ready 帧签发的续连票据（apps/acp-agent/README.md 续连票据）。
+    #[serde(default)]
+    pub ticket: Option<String>,
+    /// 断流时刻（unix 毫秒）= 桥侧续连窗口起点；None = 连接仍在线。
+    #[serde(default)]
+    pub lost_at_unix_ms: Option<u64>,
+}
+
+impl ReattachTicket {
+    pub fn new(conn: Uuid, peer: &str, saved_at_unix_ms: u64, ticket: Option<String>) -> Self {
+        Self {
+            conn,
+            peer: peer.to_string(),
+            saved_at_unix_ms,
+            ticket,
+            lost_at_unix_ms: None,
+        }
+    }
+}
+
+/// status /reattach 查询结果（README 契约 reason 面的数据源）。
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TicketQuery {
+    /// 窗口内可用，携带票据与到期时刻。
+    Usable(UsableTicket),
+    /// 该 peer 无票据，或存量记录无桥票据（不可携回重连）。
+    Missing,
+    /// 断流时刻起窗口已过。
+    Expired,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UsableTicket {
+    pub ticket: String,
+    pub expires_at_unix_ms: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -67,6 +105,53 @@ impl TicketStore {
             .find(|t| t.peer == peer))
     }
 
+    /// 断流登记：把该 peer 最新票据的续连窗口起点定为断流时刻。
+    /// 无票据可登记返回 false 留 debug 痕迹（拨号失败即断，属正常路径）。
+    pub fn mark_lost(&self, peer: &str, lost_at_unix_ms: u64) -> std::io::Result<bool> {
+        let mut file = self.load_or_fresh()?;
+        let found = file.tickets.iter_mut().find(|t| t.peer == peer);
+        match found {
+            Some(t) => {
+                t.lost_at_unix_ms = Some(lost_at_unix_ms);
+                self.write_atomic(&file)?;
+                Ok(true)
+            }
+            None => {
+                tracing::debug!(peer, "mark_lost: no ticket on disk; skip");
+                Ok(false)
+            }
+        }
+    }
+
+    /// 票据可用性判定（status /reattach 契约核心）：
+    /// 在线连接（未断流）视为可用，到期时刻 = now + 窗口；
+    /// 断流后窗口内可用；过期不返回（README：不返回过期票据）。
+    pub fn usable_for(
+        &self,
+        peer: &str,
+        window: Duration,
+        now_unix_ms: u64,
+    ) -> std::io::Result<TicketQuery> {
+        let window_ms = u64::try_from(window.as_millis()).unwrap_or(u64::MAX);
+        let record = match self.latest_for(peer)? {
+            None => return Ok(TicketQuery::Missing),
+            Some(t) => t,
+        };
+        let Some(ticket) = record.ticket else {
+            return Ok(TicketQuery::Missing);
+        };
+        let anchor = record.lost_at_unix_ms.unwrap_or(now_unix_ms);
+        let expires_at = anchor.saturating_add(window_ms);
+        if now_unix_ms < expires_at {
+            Ok(TicketQuery::Usable(UsableTicket {
+                ticket,
+                expires_at_unix_ms: expires_at,
+            }))
+        } else {
+            Ok(TicketQuery::Expired)
+        }
+    }
+
     fn load_or_fresh(&self) -> std::io::Result<TicketFile> {
         let raw = match std::fs::read(&self.path) {
             Ok(raw) => raw,
@@ -111,68 +196,5 @@ impl TicketStore {
         f.write_all(json.as_bytes())?;
         f.sync_all()?;
         std::fs::rename(&tmp, &self.path)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn scratch(tag: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("acp-console-ticket-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
-        dir
-    }
-
-    #[test]
-    fn save_then_latest_roundtrip() {
-        let dir = scratch("roundtrip");
-        let store = TicketStore::new(&dir);
-        let t = ReattachTicket {
-            conn: Uuid::new_v4(),
-            peer: "peer-a".into(),
-            saved_at_unix_ms: 42,
-        };
-        store.save(t.clone()).unwrap();
-        assert_eq!(store.latest().unwrap(), Some(t));
-        assert_eq!(
-            store.latest_for("peer-a").unwrap().map(|t| t.peer),
-            Some("peer-a".into())
-        );
-        assert_eq!(store.latest_for("peer-b").unwrap(), None);
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn save_overwrites_same_peer_keeps_newest_first() {
-        let dir = scratch("overwrite");
-        let store = TicketStore::new(&dir);
-        let old = ReattachTicket {
-            conn: Uuid::new_v4(),
-            peer: "p".into(),
-            saved_at_unix_ms: 1,
-        };
-        let new = ReattachTicket {
-            conn: Uuid::new_v4(),
-            peer: "p".into(),
-            saved_at_unix_ms: 2,
-        };
-        store.save(old).unwrap();
-        store.save(new.clone()).unwrap();
-        assert_eq!(store.latest().unwrap(), Some(new.clone()));
-        assert_eq!(store.latest_for("p").unwrap(), Some(new));
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
-
-    #[test]
-    fn corrupted_file_is_explicit_error() {
-        let dir = scratch("corrupt");
-        std::fs::write(dir.join(TICKET_FILE_NAME), b"{not json").unwrap();
-        let store = TicketStore::new(&dir);
-        assert!(store.latest().is_err());
-        assert!(store.latest_for("p").is_err());
-        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

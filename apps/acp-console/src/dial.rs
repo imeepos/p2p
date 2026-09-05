@@ -37,28 +37,36 @@ pub fn parse_peer_id(s: &str) -> Result<PeerId, String> {
     Ok(PeerId::from_bytes(arr))
 }
 
-/// 开流并完成握手往返。返回本次连接的 conn uuid 与已握手的裸字节流
+/// 握手往返产物：conn 为本端连接 uuid，ticket 为桥在 ready 帧签发的续连票据
+/// （apps/acp-agent/README.md 续连票据；旧桥无票据面则为 None）。
+#[derive(Debug, Clone)]
+pub struct HandshakeOutcome {
+    pub conn: Uuid,
+    pub ticket: Option<String>,
+}
+
+/// 开流并完成握手往返。返回握手产物与已握手的裸字节流
 /// （协议 ID 首帧之后即纯字节面，ACP ndjson 由两端直读直写）。
 pub async fn dial_and_handshake(
     node: &Node,
     expected: PeerId,
     agent_token: Option<String>,
     reattach: Option<Uuid>,
-) -> Result<(PeerId, Uuid, BoxedStream), DialError> {
+) -> Result<(PeerId, HandshakeOutcome, BoxedStream), DialError> {
     let protocol = ProtocolId::new(PROTOCOL_ID).map_err(|e| DialError::Dial(e.to_string()))?;
     let stream = node
         .new_stream(expected, protocol)
         .await
         .map_err(|e| DialError::Dial(e.to_string()))?;
-    let (conn, stream) = exchange_hello(stream, agent_token, reattach).await?;
-    Ok((expected, conn, stream))
+    let (outcome, stream) = exchange_hello(stream, agent_token, reattach).await?;
+    Ok((expected, outcome, stream))
 }
 
 async fn exchange_hello(
     mut stream: BoxedStream,
     agent_token: Option<String>,
     reattach: Option<Uuid>,
-) -> Result<(Uuid, BoxedStream), DialError> {
+) -> Result<(HandshakeOutcome, BoxedStream), DialError> {
     let conn = Uuid::new_v4();
     let hello = ClientHello {
         v: HANDSHAKE_VERSION,
@@ -84,7 +92,7 @@ async fn exchange_hello(
 async fn read_hello(
     mut reader: BufReader<BoxedStream>,
     conn: Uuid,
-) -> Result<(Uuid, BoxedStream), DialError> {
+) -> Result<(HandshakeOutcome, BoxedStream), DialError> {
     let mut reply = String::new();
     let n = tokio::time::timeout(HANDSHAKE_TIMEOUT, reader.read_line(&mut reply))
         .await
@@ -97,7 +105,13 @@ async fn read_hello(
     }
     let stream = reader.into_inner();
     match parse_server_hello(reply.trim()) {
-        Ok(ServerHello::Ready { .. }) => Ok((conn, stream)),
+        Ok(ServerHello::Ready { ready }) => Ok((
+            HandshakeOutcome {
+                conn,
+                ticket: ready.ticket,
+            },
+            stream,
+        )),
         Ok(ServerHello::Denied { denied }) => Err(DialError::Denied(denied)),
         Err(code) => Err(DialError::Malformed(code.to_string())),
     }
