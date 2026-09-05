@@ -234,11 +234,18 @@ impl GroupCore {
         self.store.append_goutbox(&entry).map_err(ChatError::Io)?;
         let _guard = self.chat.peer_guard(to).await;
         match crate::outbox::attempt(self, &entry).await {
-            Ok(_) => Ok(()),
+            Ok(_) => {}
             // 对端离线/不可达：条目已入队，PeerConnected 后 flush（design §6.2），命令不失败
-            Err(ChatError::ConnectFailed(_)) => Ok(()),
-            Err(e) => Err(e),
+            Err(ChatError::ConnectFailed(_)) => return Ok(()),
+            Err(e) => return Err(e),
         }
+        // 命令内补投（design §6.2 一次性命令加法）：该成员已建连，退出前把其
+        // goutbox 积压（含 failed 重投机会）投完或显式失败留痕，禁后台任务与
+        // 进程退出的竞态；常驻 serve 的 PeerConnected flush 语义不变。
+        if let Err(e) = crate::outbox::flush_entries(self, to).await {
+            tracing::warn!(to = %to, error = %e, "命令内 goutbox 补投失败，留待后续连接");
+        }
+        Ok(())
     }
 
     /// 向全体其他成员推 roster（owner 权威广播；离线成员 goutbox 补投，§5 最终一致）。

@@ -171,6 +171,12 @@ fn on_acked(group: &GroupCore, entry: &GoutboxEntry) -> Result<(), ChatError> {
 /// goutbox flush（群侧纪律同 1:1）：批量上限内逐条投递；failed 重投一次未愈即死信出队。
 async fn flush_group_peer(group: &GroupCore, peer: &str) -> Result<(), ChatError> {
     let _guard = group.chat.peer_guard(peer).await;
+    flush_entries(group, peer).await
+}
+
+/// 无锁补投体（调用方须已持该 peer 串行锁）：PeerConnected 泵与命令内补投共用。
+/// 批量上限内逐条投递；failed 条目本进程重投一次，未愈即死信出队（毒条目保护不变）。
+pub(crate) async fn flush_entries(group: &GroupCore, peer: &str) -> Result<(), ChatError> {
     for entry in group
         .store
         .goutbox_for(peer)
