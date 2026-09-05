@@ -187,10 +187,11 @@ export function ConnectionCard() {
         </span>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2">
           <Field label={t("acp.connection.wsUrl")} value={draft.wsUrl} onChange={patch("wsUrl")} testid="acp-input-ws-url" />
           <Field label={t("acp.connection.token")} value={draft.token} onChange={patch("token")} testid="acp-input-token" type="password" />
           <Field label={t("acp.connection.peer")} value={draft.peer} onChange={patch("peer")} testid="acp-input-peer" />
+          <Field label={t("acp.connection.statusUrl")} value={draft.statusUrl ?? ""} onChange={patch("statusUrl")} testid="acp-input-status-url" />
         </div>
         <Notices />
         {phase === "offline" ? <OfflineRetryRow /> : null}

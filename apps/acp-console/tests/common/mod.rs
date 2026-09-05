@@ -26,11 +26,12 @@ pub const STEP: Duration = Duration::from_secs(10);
 /// 测试用续连窗口：短窗让 offline 迁移在测试内可见。
 pub const TEST_WINDOW: Duration = Duration::from_millis(400);
 
-/// agent 模拟端点：握手应答 + 字节 echo；可配置拒绝码与握手后半关闭探针。
+/// agent 模拟端点：握手应答 + 字节 echo；可配置拒绝码、签发票据与握手后半关闭探针。
 pub struct AgentMock {
     deny: Option<String>,
     drop_after_ready: bool,
     half_close_after_ready: bool,
+    issue_ticket: Option<String>,
     received: Mutex<Option<ClientHello>>,
 }
 
@@ -40,6 +41,7 @@ impl AgentMock {
             deny: None,
             drop_after_ready: false,
             half_close_after_ready: false,
+            issue_ticket: None,
             received: Mutex::new(None),
         }
     }
@@ -49,6 +51,7 @@ impl AgentMock {
             deny: Some(code.to_string()),
             drop_after_ready: false,
             half_close_after_ready: false,
+            issue_ticket: None,
             received: Mutex::new(None),
         }
     }
@@ -59,6 +62,18 @@ impl AgentMock {
             deny: None,
             drop_after_ready: false,
             half_close_after_ready: true,
+            issue_ticket: None,
+            received: Mutex::new(None),
+        }
+    }
+
+    /// echo + ready 帧签发续连票据（桥约定：票据进 ready，客户端携回重连）。
+    pub fn echo_with_ticket(ticket: &str) -> Self {
+        Self {
+            deny: None,
+            drop_after_ready: false,
+            half_close_after_ready: false,
+            issue_ticket: Some(ticket.to_string()),
             received: Mutex::new(None),
         }
     }
@@ -82,11 +97,14 @@ impl ProtocolHandler for AgentMock {
         let hello = parse_client_hello(line.trim())
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
         *self.received.lock().unwrap() = Some(hello);
-        let reply = match &self.deny {
-            Some(code) => ServerHello::Denied {
+        let reply = match (&self.deny, &self.issue_ticket) {
+            (Some(code), _) => ServerHello::Denied {
                 denied: code.clone(),
             },
-            None => ServerHello::ready(Scope::Sandbox, "mock-agent"),
+            (None, Some(ticket)) => {
+                ServerHello::ready_with_ticket(Scope::Sandbox, "mock-agent", ticket)
+            }
+            (None, None) => ServerHello::ready(Scope::Sandbox, "mock-agent"),
         };
         let mut out = reply
             .to_line()
@@ -229,4 +247,31 @@ pub fn teardown(rig: Rig) {
     rig.agent.shutdown();
     rig.console.shutdown();
     let _ = std::fs::remove_dir_all(&rig.data_dir);
+}
+
+/// status 端点依赖（与 main.rs 同装配：hub + discovery + 票据 + 窗口）。
+pub fn status_deps(rig: &Rig) -> acp_console::status::StatusDeps {
+    acp_console::status::StatusDeps {
+        hub: rig.hub.clone(),
+        discovery: rig.disc.clone(),
+        tickets: rig.tickets.clone(),
+        window: TEST_WINDOW,
+    }
+}
+
+/// 裸 HTTP GET（status 契约测试用）：返回完整响应文本。
+pub async fn http_get(addr: std::net::SocketAddr, path: &str, token: Option<&str>) -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut s = tokio::net::TcpStream::connect(addr).await.unwrap();
+    let head = match token {
+        Some(t) => format!("GET {path} HTTP/1.1\r\nAuthorization: Bearer {t}\r\n\r\n"),
+        None => format!("GET {path} HTTP/1.1\r\n\r\n"),
+    };
+    s.write_all(head.as_bytes()).await.unwrap();
+    let mut buf = Vec::new();
+    tokio::time::timeout(STEP, s.read_to_end(&mut buf))
+        .await
+        .unwrap()
+        .unwrap();
+    String::from_utf8(buf).unwrap()
 }

@@ -27,6 +27,29 @@ bash scripts/check/gui-gate.sh   # 仓库根：GUI 合并门禁（rust clippy/te
 
 约定：单文件 ≤300 行；i18n locale 只允许文件末尾按命名空间追加（append-only，
 注册变更独立小提交）；menu.def.ts 注册制，新增视图先登记再挂路由。
+
+## ACP 页与 acp-console 本地 HTTP 对接（P3 跨端打通）
+
+ACP 页（src/acp）除本地 WS 外还消费 console 的 status HTTP 面
+（契约权威：apps/acp-console/README.md「status 端点契约」）：
+
+- **statusUrl 字段**：连接表单新增「Status 地址（HTTP）」，即 console stdout
+  ready 行里的 `status`（`http://127.0.0.1:<status_port>`）。留空时自动重连退化为
+  fresh 拨号、发现清单不轮询，其余功能不受影响。
+- **续连票据自动携回（设计 §5）**：断流自动重连前，连接层先查
+  `GET /reattach?peer=<peer>`（Bearer = 表单 token）；窗口内拿到票据则握手行带
+  `reattach=<uuid>`，桥补放后既有横幅显示补放条数；`reason=expired` 则按 fresh
+  重连并显示「原会话已失效」引导（走会话侧栏既有 resume 流程）。手动「连接/
+  立即重试」恒 fresh，不查票据。
+- **发现清单轮询（设计 §8 连接目录）**：连接目录可见且页面在线时每 5s 拉
+  `GET /discovery`；owner 声明名、来源渠道（mdns/rendezvous/manual）与地址映射进
+  目录「发现」组，按 peer 幂等去重。退后台暂停轮询，console 不可达即停止——
+  目录回空态引导，不弹错误。
+
+对接测试：`src/acp/console-client.test.ts`（HTTP 契约与容错）、
+`src/acp/acp-reattach-loop.test.tsx`（断流→携票据重连→补放通知 stub 回环）、
+`src/acp/use-discovery-poll.test.ts`（轮询生命周期）。
+
 ## Agent 观测与操作入口（G-H）
 
 前端错误不再只进 console：`src/lib/error-report.ts` 采集 window error /

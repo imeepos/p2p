@@ -695,3 +695,10 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：对 running 会话 send/talk 显示 delivered，但消息长期不其入历史，session_link_collect 报「凭证无法识别：找不到该凭证对应的己方消息」。
 原因：会话深陷单一长命令（如全量 make check）时消息只入队不落史，talk 超时返回的 claimToken 对应的己方消息从未写入。
 对策：不依赖 collect 追僵尸会话；改用 git 产物观测（worktree/分支/提交）判断进度，等会话转 idle 后再 talk，一次性把累积问题合并成单条问询。
+
+
+## (2026-09-05) tokio watch::send 在零订阅者时丢弃更新，快照 API 假死
+症状：acp-console /status 与 /reattach 永远返回初始 offline 快照；单测里 watch changed() 等不到后续迁移、轮询快照停在初值。测试全绿的生产路径（loopback 只等有订阅者的相位）掩盖了它，直到「断流后等 offline」的新用例踩穿。
+原因：transition() 用 `let _ = self.tx.send(snap)`——watch 语义是 send 在无 Receiver 时返回 Err 且**不更新当前值**；生产 status 端点是纯 HTTP 轮询，天然零常驻订阅者。
+修法：快照型 watch 一律 send_replace（无条件推进当前值，通知可有可无）。判据：凡是「没人订阅也要能读」的 watch，禁用 send。
+

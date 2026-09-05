@@ -1,5 +1,6 @@
-//! 本地 status 端点（需求 C 的查询面，GUI 波依赖；README 为契约权威）：
-//! GET /status 返回连接状态机快照，GET /discovery 返回发现候选清单；
+//! 本地 status 端点（查询面，GUI 波依赖；README 为契约权威）：
+//! GET /status 返回连接状态机快照，GET /discovery 返回发现候选清单，
+//! GET /reattach?peer= 返回该 peer 当前可用的续连票据（窗口内，不过期不返）；
 //! Bearer token 鉴权，绑 127.0.0.1。手写最小 HTTP/1.1 头解析，不引服务端框架。
 
 use std::io;
@@ -12,7 +13,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::discovery::DiscoveryHub;
-use crate::state::StatusHub;
+use crate::state::{now_unix_ms, StatusHub};
+use crate::ticket::{TicketQuery, TicketStore};
 
 /// 请求头读取护栏：头多大都不信任。
 const HEAD_CAP: usize = 8 * 1024;
@@ -22,6 +24,8 @@ const HEAD_TIMEOUT: Duration = Duration::from_secs(5);
 pub struct StatusDeps {
     pub hub: Arc<StatusHub>,
     pub discovery: Arc<DiscoveryHub>,
+    pub tickets: Arc<TicketStore>,
+    pub window: Duration,
 }
 
 pub struct StatusServer {
@@ -63,9 +67,9 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
             return;
         }
     };
-    let (method, path, bearer) = parse_head(&head);
+    let (method, target, bearer) = parse_head(&head);
     if bearer.as_deref() != Some(token.as_str()) {
-        tracing::warn!(%path, "status: unauthorized request");
+        tracing::warn!(%target, "status: unauthorized request");
         reply(
             &mut tcp,
             401,
@@ -75,7 +79,8 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
         .await;
         return;
     }
-    match (method.as_str(), path.as_str()) {
+    let (path, query) = target.split_once('?').unwrap_or((target.as_str(), ""));
+    match (method.as_str(), path) {
         ("GET", "/status") => {
             let body = serde_json::to_string(&deps.hub.snapshot())
                 .unwrap_or_else(|_| "{\"error\":\"serialize\"}".into());
@@ -94,8 +99,50 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
             .unwrap_or_else(|_| "{\"error\":\"serialize\"}".into());
             reply(&mut tcp, 200, "OK", &body).await;
         }
+        ("GET", "/reattach") => handle_reattach(&mut tcp, &deps, query).await,
         _ => reply(&mut tcp, 404, "Not Found", "{\"error\":\"not-found\"}").await,
     }
+}
+
+/// GET /reattach?peer=<base58>：该 peer 当前可用的续连票据。
+/// 不存在（missing）/已过期（expired）/存储不可读（unavailable）如实反映，
+/// 过期票据绝不返回（README 契约）。
+async fn handle_reattach(tcp: &mut TcpStream, deps: &StatusDeps, query: &str) {
+    let Some(peer) = query_param(query, "peer").filter(|p| !p.is_empty()) else {
+        reply(tcp, 400, "Bad Request", "{\"error\":\"missing-peer\"}").await;
+        return;
+    };
+    let body = match deps.tickets.usable_for(peer, deps.window, now_unix_ms()) {
+        Ok(q) => ticket_body(peer, &q),
+        Err(err) => {
+            tracing::error!(peer, error = %err, "reattach query failed");
+            ticket_body(peer, &TicketQuery::Missing)
+        }
+    };
+    reply(tcp, 200, "OK", &body).await;
+}
+
+fn ticket_body(peer: &str, query: &TicketQuery) -> String {
+    let (ticket, expires, reason) = match query {
+        TicketQuery::Usable(t) => (Some(t.ticket.as_str()), Some(t.expires_at_unix_ms), "ok"),
+        TicketQuery::Missing => (None, None, "missing"),
+        TicketQuery::Expired => (None, None, "expired"),
+    };
+    serde_json::json!({
+        "peer": peer,
+        "ticket": ticket,
+        "expires_at_unix_ms": expires,
+        "reason": reason,
+    })
+    .to_string()
+}
+
+/// 取查询串参数（base58 peer 无需百分号解码，缺参为 None）。
+fn query_param<'a>(query: &'a str, key: &str) -> Option<&'a str> {
+    query.split('&').find_map(|pair| {
+        let (k, v) = pair.split_once('=')?;
+        (k == key).then_some(v)
+    })
 }
 
 /// 读请求头（至 "\r\n\r\n"），带护栏与超时；EOF/超限即坏请求。

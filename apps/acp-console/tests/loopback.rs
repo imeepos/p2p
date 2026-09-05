@@ -36,9 +36,10 @@ async fn wait_phase(hub: &StatusHub, target: ConnPhase) -> acp_console::StateSna
 #[tokio::test]
 async fn dial_handshake_roundtrip_carries_bytes() {
     let rig = rig("dial", AgentMock::echo()).await;
-    let (peer, conn, mut stream) = dial_and_handshake(&rig.console, rig.agent_peer, None, None)
+    let (peer, outcome, mut stream) = dial_and_handshake(&rig.console, rig.agent_peer, None, None)
         .await
         .unwrap();
+    let conn = outcome.conn;
     assert_eq!(peer, rig.agent_peer);
     assert_eq!(rig.mock.hello().unwrap().conn, conn);
 
@@ -189,16 +190,9 @@ async fn ws_client_close_propagates_to_agent() {
 #[tokio::test]
 async fn status_endpoint_reports_snapshot_with_token() {
     let rig = rig("status", AgentMock::echo()).await;
-    let server = acp_console::status::StatusServer::start(
-        0,
-        rig.token.clone(),
-        acp_console::status::StatusDeps {
-            hub: rig.hub.clone(),
-            discovery: rig.disc.clone(),
-        },
-    )
-    .await
-    .unwrap();
+    let server = acp_console::status::StatusServer::start(0, rig.token.clone(), status_deps(&rig))
+        .await
+        .unwrap();
 
     let get = |path: &str, auth: Option<&str>| {
         let addr = server.addr;

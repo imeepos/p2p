@@ -358,3 +358,14 @@ _none yet — be the first._
 - 2026-09-05 R1：测试 helper 抽取不能吞掉时序控制权——「离线制造积压」与「成员重启」
   封装进同一 helper 后重启先于积压发送，C 根本没离线（acked=2 假象）；时序敏感场景
   helper 只做无时序装配，关键时刻（关停/重启）留在用例体内按剧本排列。
+
+- 2026-09-05 ACP-P3：测试 mock 里造「网络不可达」别用 `Promise.reject(...)` 当返回值——
+  被拒 promise 无人 await 会挂成 unhandled rejection，vitest 用例全绿但退出码 1（门禁假红）；
+  用字符串哨兵（如 "throw"）让 mock 体内显式 throw。
+- 2026-09-05 ACP-P3：stub WS 工厂想桥化服务器行为（如 ready 后推通知），不能在工厂返回时
+  包装 onopen——客户端拿到 socket 之后才挂处理器，会把你包的 handler 整个覆盖；
+  劫持 send（客户端首条消息到达即触发）既不被覆盖又更贴近桥的真实时序。
+- 2026-09-05 ACP-P3：接手「断链路」类任务先追数据流的每一跳（桥签发票据→console 落盘→
+  HTTP 暴露→GUI 携回），断裂点可能在离需求描述最远的一跳——本轮需求书写的是「GUI 不带票据」，
+  实际 console 落盘的 ticket 就是错的（自生成 conn 而非桥签发票据），只改 GUI 等于白改。
+

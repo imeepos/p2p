@@ -14,7 +14,7 @@ use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Message};
 use tokio_tungstenite::WebSocketStream;
 use uuid::Uuid;
 
-use crate::dial::{self, DialError};
+use crate::dial::{self, DialError, HandshakeOutcome};
 use crate::pump::{self, PumpEnd};
 use crate::state::{ConnPhase, StatusHub};
 use crate::ticket::{ReattachTicket, TicketStore};
@@ -42,8 +42,9 @@ pub async fn run_connection(
     let peer = authed.peer.to_string();
     hub.transition(ConnPhase::Connecting, Some(peer.clone()), None, None);
     match dial::dial_and_handshake(&node, authed.peer, authed.agent_token, authed.reattach).await {
-        Ok((_, conn, stream)) => {
-            persist_ticket(&tickets, &peer, conn);
+        Ok((_, outcome, stream)) => {
+            let conn = outcome.conn;
+            persist_ticket(&tickets, &peer, &outcome);
             hub.transition(
                 ConnPhase::Online,
                 Some(peer.clone()),
@@ -59,6 +60,7 @@ pub async fn run_connection(
                     tracing::info!(peer = %peer, end = ?end, "connection pump finished");
                     settle_after_loss(
                         &hub,
+                        &tickets,
                         peer,
                         conn,
                         window,
@@ -70,6 +72,7 @@ pub async fn run_connection(
                     tracing::warn!(peer = %peer, "peer connection lost; ending pump");
                     settle_after_loss(
                         &hub,
+                        &tickets,
                         peer,
                         conn,
                         window,
@@ -103,13 +106,22 @@ pub async fn run_connection(
 }
 
 /// 断流（泵结束或对端断连）后进入续连窗口；到期且期间未被新连接接管才落 offline。
+/// 窗口起点同步登记进票据（status /reattach 可用性判定的锚点）。
 async fn settle_after_loss(
     hub: &StatusHub,
+    tickets: &TicketStore,
     peer: String,
     conn: Uuid,
     window: Duration,
     detail: Option<String>,
 ) {
+    let lost_at_unix_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    if let Err(err) = tickets.mark_lost(&peer, lost_at_unix_ms) {
+        tracing::error!(peer, %conn, error = %err, "reattach ticket mark_lost failed");
+    }
     hub.transition(
         ConnPhase::ReattachWindow,
         Some(peer.clone()),
@@ -150,21 +162,22 @@ fn end_reason(end: PumpEnd) -> String {
     }
 }
 
-/// 连接成功即落票据（conn uuid + 目标 PeerId，ACP4 续连入口）。
+/// 连接成功即落票据（桥签发票据 + conn + 目标 PeerId，ACP4 续连入口）。
 /// 落盘失败不断连接，但必须留 error 日志（可观测信号）。
-fn persist_ticket(tickets: &TicketStore, peer: &str, conn: Uuid) {
+fn persist_ticket(tickets: &TicketStore, peer: &str, outcome: &HandshakeOutcome) {
     let saved_at_unix_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let ticket = ReattachTicket {
-        conn,
-        peer: peer.to_string(),
-        saved_at_unix_ms,
-    };
+    let ticket = ReattachTicket::new(outcome.conn, peer, saved_at_unix_ms, outcome.ticket.clone());
     match tickets.save(ticket) {
-        Ok(()) => tracing::info!(peer, %conn, "reattach ticket saved"),
-        Err(err) => tracing::error!(peer, %conn, error = %err, "reattach ticket save failed"),
+        Ok(()) => tracing::info!(peer, conn = %outcome.conn, "reattach ticket saved"),
+        Err(err) => tracing::error!(
+            peer,
+            conn = %outcome.conn,
+            error = %err,
+            "reattach ticket save failed"
+        ),
     }
 }
 

@@ -108,6 +108,8 @@ async fn run(args: Args) -> Result<(), String> {
         StatusDeps {
             hub: hub.clone(),
             discovery: disc.clone(),
+            tickets: tickets.clone(),
+            window,
         },
     )
     .await

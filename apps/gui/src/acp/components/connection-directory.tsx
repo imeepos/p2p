@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import type { I18nKey } from "@/i18n/types";
 import { useAcpStore } from "@/acp/acp-store";
 import { groupBySource, type AcpScope, type DirectoryEntry } from "@/acp/directory-model";
+import { useDiscoveryPoll } from "@/acp/use-discovery-poll";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 import { EmptyState } from "@/views/shared/empty-state";
 import { Users } from "lucide-react";
@@ -56,6 +57,14 @@ function DirectoryRow({ entry }: { entry: DirectoryEntry }) {
       </button>
       <div className="flex items-center gap-1.5">
         <SourceBadge source={entry.source} />
+        {entry.via ? (
+          <span
+            className="text-muted-foreground rounded border px-1 text-[10px]"
+            data-testid={"acp-directory-via-" + entry.peer}
+          >
+            {entry.via}
+          </span>
+        ) : null}
         {/* scope 只读：真实授权权威在桥策略表，GUI 侧不提供切换假操纵杆 */}
         <span data-testid={"acp-directory-scope-badge-" + entry.peer}>
           <StatusBadge tone={SCOPE_TONE[entry.scope]} title={scopeHint}>
@@ -95,8 +104,10 @@ export function ConnectionDirectory() {
   const [peer, setPeer] = useState("");
   const [invalid, setInvalid] = useState(false);
   const directory = useAcpStore((s) => s.directory);
+  const draft = useAcpStore((s) => s.draft);
   const addManualPeer = useAcpStore((s) => s.addManualPeer);
   const grouped = groupBySource(directory);
+  useDiscoveryPoll({ statusUrl: draft.statusUrl ?? null, token: draft.token });
 
   const submit = () => {
     if (!peer.trim()) {
@@ -139,11 +150,21 @@ export function ConnectionDirectory() {
           </p>
         ) : null}
         {directory.length === 0 ? (
-          <EmptyState
-            icon={Users}
-            title={t("acp.directory.empty")}
-            description={t("acp.directory.emptyHint")}
-          />
+          <>
+            <EmptyState
+              icon={Users}
+              title={t("acp.directory.empty")}
+              description={t("acp.directory.emptyHint")}
+            />
+            {!draft.statusUrl ? (
+              <p
+                className="text-muted-foreground px-2 text-xs"
+                data-testid="acp-directory-need-status-url"
+              >
+                {t("acp.directory.needStatusUrl")}
+              </p>
+            ) : null}
+          </>
         ) : (
           <div className="flex flex-col gap-3">
             <DirectoryGroup

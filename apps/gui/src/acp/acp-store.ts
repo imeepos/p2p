@@ -37,6 +37,8 @@ interface AcpConsoleState {
   reconnect: { attempt: number; max: number } | null;
   /** dsh/bridge/reattach 通知折射的续连补放横幅 */
   reattachNotice: { replayed: number } | null;
+  /** 续连窗口过期（fresh 重连）后的原会话失效引导 */
+  sessionLostNotice: boolean;
   capabilities: InitializeResult | null;
   sessions: SessionSummary[];
   activeSessionId: string | null;
@@ -55,6 +57,8 @@ interface AcpConsoleState {
   retryNow: () => void;
   /** 续连补放横幅手动关闭 */
   dismissReattachNotice: () => void;
+  /** 原会话失效引导手动关闭 */
+  dismissSessionLostNotice: () => void;
   newSession: () => Promise<void>;
   refreshSessions: () => Promise<void>;
   resumeSession: (sessionId: string) => Promise<void>;
@@ -81,6 +85,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   closeInfo: null,
   reconnect: null,
   reattachNotice: null,
+  sessionLostNotice: false,
   capabilities: null,
   sessions: [],
   activeSessionId: null,
@@ -114,6 +119,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   disconnect: () => runDisconnect(),
   retryNow: () => runRetryNow(),
   dismissReattachNotice: () => set({ reattachNotice: null }),
+  dismissSessionLostNotice: () => set({ sessionLostNotice: false }),
   newSession: () => runNewSession(),
   refreshSessions: () => runRefreshSessions(),
   resumeSession: (sessionId) => runResumeSession(sessionId),
@@ -149,6 +155,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
       closeInfo: null,
       reconnect: null,
       reattachNotice: null,
+      sessionLostNotice: false,
       capabilities: null,
       sessions: [],
       activeSessionId: null,

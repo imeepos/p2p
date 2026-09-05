@@ -656,6 +656,7 @@ const zhCN = {
       wsUrl: "本地 WS 地址",
       token: "Token",
       peer: "Peer ID",
+      statusUrl: "Status 地址（HTTP）",
       connect: "连接",
       disconnect: "断开",
       save: "保存端点",
@@ -760,6 +761,8 @@ const zhCN = {
       banner: "已续连，补放 {{count}} 条错过的更新",
       bannerNone: "已续连，无需要补放的更新",
       dismiss: "关闭横幅",
+      sessionLost: "原会话已失效：续连窗口已过期，可从会话侧栏恢复或新建会话",
+      dismissLost: "关闭提示",
     },
     feedback: {
       connecting: "正在连接 agent，等待握手...",
@@ -790,6 +793,7 @@ const zhCN = {
       groupDiscovered: "发现（rendezvous / mDNS）",
       groupManual: "手动 / 已保存",
       scopeHint: "scope 仅为本地归类，真实授权走桥侧 p2pctl acp allow 流程",
+      needStatusUrl: "填写 status 地址后自动拉取发现清单（console 启动时输出）",
     },
     composer: {
       placeholder: "输入 prompt...",
