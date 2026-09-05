@@ -14,8 +14,6 @@ use crate::error::CliError;
 
 pub struct ChatContext {
     pub chat: Chat,
-    /// connect 触发 PeerConnected → outbox flush（send 未送达时的重投入口）。
-    pub(crate) node: Arc<Node>,
 }
 
 /// serve 与一次性命令共用的节点装配参数（quic 端口/mdns 开关可调）。
@@ -34,7 +32,7 @@ pub async fn open(data_dir: &str) -> Result<ChatContext, CliError> {
         .await
         .map_err(|e| CliError::Runtime(format!("节点装配失败（data-dir={data_dir}）: {e}")))?;
     let node = Arc::new(node);
-    let chat = Chat::new(node.clone(), PathBuf::from(data_dir))
+    let chat = Chat::new(node, PathBuf::from(data_dir))
         .map_err(|e| CliError::Runtime(format!("聊天模块装配失败: {e}")))?;
-    Ok(ChatContext { chat, node })
+    Ok(ChatContext { chat })
 }

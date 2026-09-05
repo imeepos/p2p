@@ -1,7 +1,8 @@
 //! chat 消息子域：history / send / media file（契约 §12.1）。
 //!
-//! send 语义对齐 GUI chat_send：校验在 crate 内完成；delivered=false 或超时时
-//! 先输出报告再以退出码 1 失败（R4：禁止静默假成功）。
+//! send 语义（PR1/F3 修订）：delivered → 0；pending（对端离线已排队，恢复后
+//! 自动补投）→ 0 且 delivered=false；failed（真失败）→ 先输出报告再退出码 1
+//! （R4：禁止静默假成功）。
 
 use std::time::Duration;
 
@@ -57,7 +58,7 @@ pub struct SendArgs {
     /// 回复引用的消息 id（可选，对齐 GUI chat_send 的 replyTo）
     #[arg(long)]
     pub(crate) reply_to: Option<String>,
-    /// 发送整体超时秒数（超时按未送达失败）
+    /// 送达后补投积压预算秒数（上限 30；对端离线按 pending 排队立即返回）
     #[arg(long, default_value_t = 30)]
     pub(crate) timeout_secs: u64,
     /// 输出单行紧凑 JSON
@@ -138,28 +139,17 @@ pub async fn send(args: SendArgs) -> CliResult<()> {
         p2p_chat::try_lock_identity(std::path::Path::new(&args.data_dir)).map_err(runtime_err)?;
     let (kind, text, media) = payload(&args)?;
     let ctx = context::open(&args.data_dir).await?;
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(args.timeout_secs);
-    let mut report = ctx
+    let report = ctx
         .chat
         .send(&args.peer, kind, text, media, args.reply_to.clone())
         .await
         .map_err(runtime_err)?;
-    if !report.delivered {
-        // 首投未实时送达：消息已在 outbox，等自动重投（连接重建竞态以短轮询消化）。
-        wait_outbox_flush(&ctx, &args.peer, &report.message.id, deadline).await;
-        if let Some(env) = latest_status(&ctx, &args.peer, &report.message.id).await {
-            report.delivered = env.status == ChatStatus::Delivered;
-            report.message = env;
-        }
-    }
-    // 送达后顺手排空历史积压（D5）：one-shot 进程退出前补投离线条目，防静默滞留。
+    // 送达后顺手排空历史积压（D5）：预算取 --timeout-secs（上限 30s）；离线对端
+    // 连接失败立即返回，自动补投由 outbox 补投泵/对端连入窗口收敛，不再原地轮询。
     let mut flushed_outbox = 0usize;
     if report.delivered {
-        flushed_outbox = ctx
-            .chat
-            .drain_peer(&args.peer, Duration::from_secs(10))
-            .await
-            .unwrap_or(0);
+        let budget = Duration::from_secs(args.timeout_secs.min(30));
+        flushed_outbox = ctx.chat.drain_peer(&args.peer, budget).await.unwrap_or(0);
     }
     let report = SendReport {
         flushed_outbox,
@@ -170,68 +160,30 @@ pub async fn send(args: SendArgs) -> CliResult<()> {
     } else {
         String::new()
     };
-    let text_out = if report.report.delivered {
-        format!(
+    // 退出码语义（PR1/F3）：delivered → 0；pending → 0（已排队，恢复可达自动补投，
+    // delivered=false 供自动化判定）；failed → 1（真失败，本机记录保留可手动补投）。
+    let text_out = match report.report.message.status {
+        ChatStatus::Delivered => format!(
             "已送达 peer={} id={}{}",
             args.peer, report.report.message.id, tail
-        )
-    } else {
-        format!(
-            "未送达 peer={} id={} status={:?}",
-            args.peer, report.report.message.id, report.report.message.status
-        )
+        ),
+        ChatStatus::Failed => format!(
+            "未送达 peer={} id={} status=Failed（可经 chat outbox flush 手动补投）",
+            args.peer, report.report.message.id
+        ),
+        other => format!(
+            "已排队 peer={} id={} status={other:?}（对端离线，恢复可达后自动补投）",
+            args.peer, report.report.message.id
+        ),
     };
     emit(args.json, &report, &text_out)?;
-    if !report.report.delivered {
-        return Err(CliError::Runtime(format!(
-            "消息未送达对端（status={:?}），已保留本机记录",
-            report.report.message.status
-        )));
+    if report.report.message.status == ChatStatus::Failed {
+        return Err(CliError::Runtime(
+            "消息投递失败（status=Failed），已保留本机记录，可经 chat outbox flush 手动补投"
+                .into(),
+        ));
     }
     Ok(())
-}
-
-/// 未送达时的重投等待：主动 connect 触发 PeerConnected → outbox flush_peer
-/// （同一消息 id，不重复落库）；对端始终不可达则轮询至 deadline 退出，仍报未送达。
-async fn wait_outbox_flush(
-    ctx: &context::ChatContext,
-    peer: &str,
-    msg_id: &str,
-    deadline: tokio::time::Instant,
-) {
-    let peer_id = parse_peer(peer);
-    while tokio::time::Instant::now() < deadline {
-        if let Some(pid) = peer_id {
-            // 池内复用不触发 PeerConnected（outbox flush 不会发生），必须先断再连
-            ctx.node.disconnect(&pid);
-            let _ = ctx.node.connect(pid).await;
-        }
-        tokio::time::sleep(Duration::from_millis(300)).await;
-        if let Some(env) = latest_status(ctx, peer, msg_id).await {
-            if env.status == ChatStatus::Delivered {
-                return;
-            }
-        }
-    }
-}
-
-async fn latest_status(
-    ctx: &context::ChatContext,
-    peer: &str,
-    msg_id: &str,
-) -> Option<ChatEnvelope> {
-    ctx.chat
-        .history(peer, None, 0)
-        .ok()?
-        .into_iter()
-        .find(|m| m.id == msg_id)
-}
-
-/// base58 peer id → PeerId（crate 内解析为私有，CLI 侧自解；非法返回 None）。
-fn parse_peer(s: &str) -> Option<p2p::PeerId> {
-    let bytes = bs58::decode(s).into_vec().ok()?;
-    let arr: [u8; 32] = bytes.try_into().ok()?;
-    Some(p2p::PeerId::from_bytes(arr))
 }
 
 pub async fn run_media(command: MediaCommand) -> CliResult<()> {
@@ -287,13 +239,6 @@ mod tests {
         assert_eq!(v["mime"], serde_json::json!("image/png"));
     }
 
-    #[test]
-    fn parse_peer_accepts_base58_32b_and_rejects_short() {
-        let zeros = "1".repeat(32);
-        assert!(parse_peer(&zeros).is_some());
-        assert!(parse_peer("hello").is_none());
-        assert!(parse_peer("!!!").is_none());
-    }
 
     #[test]
     fn envelope_text_line_marks_sender_side() {
