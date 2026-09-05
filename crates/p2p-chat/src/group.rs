@@ -1,6 +1,6 @@
 //! 群聊门面（design im-group-design.md §7 契约加法）：owner 权威模型，非 owner 的
 //! owner 操作显式 Err，参数无效一律可读中文 Err；1:1 API 与 /im/chat/1 零改动。
-//! 模型在 group_model.rs，发送路径校验/信封构建同居 outbox.rs（行数红线再平衡）。
+//! 模型在 group_model.rs，发送路径校验/信封构建在 group_send.rs（行数红线再平衡）。
 
 use std::path::Path;
 use std::sync::Arc;
@@ -11,12 +11,11 @@ use tokio::sync::broadcast;
 use crate::core::ChatCore;
 use crate::group_model::GroupResult;
 use crate::group_store::{
-    validate_group_name, GoutboxEntry, GoutboxFrame, GroupStore, MAX_GROUP_MEMBERS,
+    validate_group_name, GoutboxFrame, GroupStore, MAX_GROUP_MEMBERS,
 };
 use crate::group_wire::GroupHandler;
 pub use crate::group_wire::GROUP_PROTOCOL;
-use crate::model::{now_ms, parse_peer_id, ChatError, ChatKind, ChatMediaInput, ChatStatus};
-use crate::outbox;
+use crate::model::{now_ms, parse_peer_id, ChatError};
 
 pub use crate::group_model::{GroupEvent, GroupSendReport};
 pub use crate::group_store::{GroupInfo, GroupMessage, GroupState};
@@ -179,47 +178,6 @@ impl Group {
         Ok(group)
     }
 
-    /// 群消息发送（design §6.1）：历史落 pending → 每目标写 goutbox → 串行 fan-out。
-    pub async fn group_send(
-        &self,
-        group_id: &str,
-        kind: ChatKind,
-        text: Option<String>,
-        media: Option<ChatMediaInput>,
-        reply_to: Option<String>,
-    ) -> GroupResult<GroupSendReport> {
-        let group = self.sendable_group(group_id)?;
-        let msg = self.build_message(&group, kind, text, media, reply_to)?;
-        let targets = self.core.others(&group);
-        self.core
-            .store
-            .append_message(&msg)
-            .map_err(ChatError::Io)?;
-        let mut entries = Vec::with_capacity(targets.len());
-        for to in &targets {
-            let entry = GoutboxEntry {
-                id: uuid::Uuid::new_v4().to_string(),
-                to: to.clone(),
-                status: ChatStatus::Pending,
-                frame: GoutboxFrame::Msg {
-                    msg: Box::new(msg.clone()),
-                },
-            };
-            self.core
-                .store
-                .append_goutbox(&entry)
-                .map_err(ChatError::Io)?;
-            entries.push(entry);
-        }
-        let mut acked = 0usize;
-        for entry in &entries {
-            let _guard = self.core.chat.peer_guard(&entry.to).await;
-            if outbox::attempt(&self.core, entry).await.unwrap_or(false) {
-                acked += 1;
-            }
-        }
-        Ok(self.finish_report(&group.group_id, msg, targets.len(), acked))
-    }
 }
 /// roster（design §3.2）：members 全量含 owner；rev 单调递增且仅 owner。
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]

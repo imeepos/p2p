@@ -9,6 +9,7 @@ mod friend;
 mod group;
 mod group_core;
 mod group_model;
+mod group_send;
 mod group_store;
 mod group_wire;
 mod identity_lock;

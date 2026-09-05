@@ -1,4 +1,5 @@
 //! outbox/goutbox 双队列投递泵（design §6.2）：PeerConnected 统一触发，群队列复用同一纪律，分派走 group_core。
+//! 群发送路径校验/信封构建在 group_send.rs（300 行红线再平衡）。
 
 use std::sync::Arc;
 
@@ -6,15 +7,10 @@ use p2p::NodeEvent;
 use tokio::sync::broadcast;
 
 use crate::core::ChatCore;
-use crate::group::Group;
 use crate::group_core::GroupCore;
 use crate::group_store::{GoutboxEntry, GoutboxFrame};
-use crate::group_store::{GroupInfo, GroupMessage, GroupState};
 use crate::group_wire::{G_KICK, G_LEAVE};
-use crate::model::{
-    now_ms, validate_media, validate_text, ChatError, ChatKind, ChatMediaInput, ChatMediaMeta,
-    ChatStatus,
-};
+use crate::model::{ChatError, ChatStatus};
 
 const FLUSH_BATCH_CAP: usize = 32;
 
@@ -218,82 +214,5 @@ fn dead_letter_if_spent(group: &GroupCore, peer: &str, entry: &GoutboxEntry) -> 
             tracing::warn!(to = %peer, entry = %entry.id, error = %e, "死信出队失败，保留条目");
             false
         }
-    }
-}
-
-/// 发送路径前置校验与信封构建（design §6.1；随投递泵同居本文件，300 行红线的模块再平衡）。
-impl Group {
-    /// 发送前置校验：群在册、state=active、本机在成员名单（被踢/退群/解散禁发）。
-    pub(crate) fn sendable_group(&self, group_id: &str) -> Result<GroupInfo, ChatError> {
-        let group = self.core.require_group(group_id)?;
-        let local = self.core.chat.node.local_peer_id().to_string();
-        if group.state != GroupState::Active {
-            return Err(ChatError::InvalidUpdate(
-                "群已退出/被移出/已解散，禁止发送".into(),
-            ));
-        }
-        if !group.members.contains(&local) {
-            return Err(ChatError::InvalidUpdate(
-                "本机不在群成员名单，禁止发送".into(),
-            ));
-        }
-        Ok(group)
-    }
-
-    /// 信封构建与校验（同 1:1 白名单/上限；text/附件互斥；回复引用非空即可，不验存在性）。
-    pub(crate) fn build_message(
-        &self,
-        group: &GroupInfo,
-        kind: ChatKind,
-        text: Option<String>,
-        media: Option<ChatMediaInput>,
-        reply_to: Option<String>,
-    ) -> Result<GroupMessage, ChatError> {
-        if let Some(r) = reply_to.as_deref() {
-            if r.trim().is_empty() {
-                return Err(ChatError::InvalidReply(r.to_string()));
-            }
-        }
-        let text = if kind == ChatKind::Text {
-            Some(validate_text(text.as_deref().unwrap_or_default())?)
-        } else {
-            None
-        };
-        let mut msg = GroupMessage {
-            id: uuid::Uuid::new_v4().to_string(),
-            group_id: group.group_id.clone(),
-            sender_id: self.core.chat.node.local_peer_id().to_string(),
-            kind: kind.clone(),
-            ts_ms: now_ms(),
-            text,
-            media: None,
-            status: ChatStatus::Pending,
-            acks: Vec::new(),
-            reply_to,
-        };
-        match (&kind, media) {
-            (ChatKind::Text, Some(_)) => {
-                return Err(ChatError::InvalidMedia("text 消息不能携带附件".into()));
-            }
-            (ChatKind::Text, None) => {}
-            (kind, None) => {
-                return Err(ChatError::InvalidMedia(format!("{kind} 消息必须携带附件")))
-            }
-            (kind, Some(input)) => {
-                validate_media(kind, &input.mime, input.data.len() as u64)?;
-                let path = self
-                    .core
-                    .store
-                    .save_media(&group.group_id, &msg.id, &input.name, &input.data)
-                    .map_err(ChatError::Io)?;
-                msg.media = Some(ChatMediaMeta {
-                    name: input.name,
-                    mime: input.mime,
-                    size: input.data.len() as u64,
-                    path: Some(path.to_string_lossy().into_owned()),
-                });
-            }
-        }
-        Ok(msg)
     }
 }
