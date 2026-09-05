@@ -39,6 +39,7 @@ export function AdvertiseCard() {
           control={control}
           name="advertisedAddrs"
           label={t("settings.advertise.advertisedAddrs")}
+          hint={t("settings.advertise.advertisedAddrsGuide")}
           placeholder="203.0.113.5/u3400"
         />
         <div className="flex flex-col gap-1">
@@ -58,12 +59,16 @@ export function AdvertiseCard() {
           <p className="text-muted-foreground text-xs">
             {t("settings.advertise.observationPortHint")}
           </p>
+          <p className="text-muted-foreground text-xs leading-5">
+            {t("settings.advertise.observationPortGuide")}
+          </p>
         </div>
         <div className="flex flex-col gap-2">
           <AddressListEditor
             control={control}
             name="observationAddrs"
             label={t("settings.advertise.observationAddrs")}
+            hint={t("settings.advertise.observationAddrsGuide")}
             placeholder="203.0.113.5:3402"
           />
           <FactoryDefaultsNotice name="observationAddrs" />
