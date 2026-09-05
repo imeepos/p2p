@@ -72,3 +72,15 @@
 - **CLI --file 默认显示名取全路径**：`group send --file /x/y/shot.png` 的 media.name 为整条路径，sanitize 后成 `tmpim-group-drillshot.png`；应取 basename（help 文案写『默认取文件名』）。
 - **演练清单拓扑盲区**：D6 身份互斥使『三方 serve 常驻』与『B/C 自有一次性命令』不可同时成立；且 owner 纯一次性拓扑下成员→owner 的 G_LEAVE 无通路（成员簿无 owner 地址可拨、入站连接不触发 flush），演练清单 §5『重邀回归』在该拓扑下必撞『已在群中』假错误。清单需补混合拓扑操作序列（owner 操作与成员 serve 启停的交错步骤）。
 - **验证为正常的部分**：建群/入群 roster、文本与附件 fan-out（acked n/n、字节 sha 一致）、rename 高 rev 收敛、kick/leave/disband 状态迁移与拒发、解散不删数据、未全员送达退出码 1。
+
+## 2026-09-05 R1 收尾观察：apps/cli SendLine 结构体 dead_code 告警
+- cli-parity 重建 p2pctl 时报 `struct SendLine is never constructed`
+  （apps/cli/src/group/send.rs:164，a430c40 basename 修复后输出改走 emit + JSON，
+  旧文本摘要结构体遗留）。不拦门禁（cli-parity 对 warning 不敏感），
+  但每次 make check 都刷一行噪音；建议该结构体随下次 CLI 输出重构一并删除或复用。
+
+## 2026-09-05 R1 收尾观察：本地 main 与 origin/main 长期不同步
+- R1 收尾时 origin/main 仍停在 a5a1bea，本地 main 已被并行会话推进至
+  ccb7cd7 乃至其后继（acp-polish-page 系列合入）。若并行会话结束时未 push main，
+  下一个会话 fetch 后会误判「落后远端」；建议各会话合并进本地 main 后尽快 push main，
+  或在账本登记「本地领先远端 N 提交」的现状，避免下一会话基线误判。
