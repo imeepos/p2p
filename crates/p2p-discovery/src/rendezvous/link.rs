@@ -15,6 +15,10 @@ pub enum RendezvousError {
     Send(String),
     #[error("protocol: {0}")]
     Protocol(String),
+    /// 读端干净收尾（对端查询即断、会话正常结束）：服务端不计为错误，
+    /// 客户端视为链路终止照常走重连。
+    #[error("link closed")]
+    Closed,
 }
 
 /// 一条已建立的双向帧流：write 发送完整帧（长度前缀），read 为接收帧的 BoxedStream。
@@ -47,7 +51,7 @@ impl RendezvousConn {
             .read
             .next()
             .await
-            .ok_or_else(|| RendezvousError::Link("read stream ended".into()))??;
+            .ok_or(RendezvousError::Closed)??;
         M::decode(bytes.as_slice()).map_err(|e| RendezvousError::Protocol(e.to_string()))
     }
 

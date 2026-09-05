@@ -234,6 +234,9 @@ impl RegisterLimiter {
 }
 
 /// 在一条连接上持续服务：Register 校验入库（含每连接限速），Query 应答（同样限速）；流关闭即返回。
+/// 读端干净收尾（查询即断的会话终结）返回 Ok，不作为服务端错误上抛——
+/// 否则每条查号会话结束都在服务端留下一条错误告警（T23 周期性
+/// server link ended 噪音同源）；仅协议/链路级失败返回 Err。
 pub async fn serve_link(
     conn: &mut RendezvousConn,
     registry: &RendezvousRegistry,
@@ -241,7 +244,11 @@ pub async fn serve_link(
     let mut register_limiter = RegisterLimiter::new(RATE_LIMIT_PER_MINUTE);
     let mut query_limiter = RegisterLimiter::new(RATE_LIMIT_QUERIES_PER_MINUTE);
     loop {
-        let req = conn.recv_msg::<Request>().await?;
+        let req = match conn.recv_msg::<Request>().await {
+            Ok(req) => req,
+            Err(RendezvousError::Closed) => return Ok(()),
+            Err(e) => return Err(e),
+        };
         let reply: Vec<u8> = match req.kind {
             Some(request::Kind::Register(reg)) => {
                 if !register_limiter.try_take() {
@@ -268,5 +275,7 @@ pub async fn serve_link(
 
 #[cfg(test)]
 mod cache_tests;
+#[cfg(test)]
+mod multi_query_tests;
 #[cfg(test)]
 mod tests;
