@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAcpStore } from "@/acp/acp-store";
+import { isImeComposing } from "@/acp/ime-guard";
 
 export function PromptComposer() {
   const { t } = useTranslation();
@@ -33,8 +34,10 @@ export function PromptComposer() {
           if (activeSessionId) setPromptDraft(activeSessionId, e.target.value);
         }}
         onKeyDown={(e) => {
-          // Enter 发送、Shift+Enter 换行（IME 组合态守卫由后续提交接入）
+          // Enter 发送、Shift+Enter 换行；IME 组合态（含 keyCode 229 兜底）
+          // 的 Enter 是选词确认，不得触发发送（P0）
           if (e.key !== "Enter" || e.shiftKey) return;
+          if (isImeComposing(e.nativeEvent)) return;
           e.preventDefault();
           submit();
         }}
