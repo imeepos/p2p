@@ -10,6 +10,7 @@ import { discoveryPage } from "./pages/discovery-page";
 import { eventsPage } from "./pages/events-page";
 import { relayPage } from "./pages/relay-page";
 import { acpPage } from "./pages/acp-page";
+import { groupPage } from "./pages/group-page";
 
 export const PAGE_SCHEMA_VERSION = 1;
 
@@ -53,13 +54,14 @@ export type PageActionResult =
   | { ok: true; data: unknown }
   | { ok: false; error: PageProtocolError };
 
-/** 已注册页面（GC3c 起 8 路由全量 + ACP 控制台：dashboard/peers/discovery/relay/chat/events/settings/diagnostics/acp） */
+/** 已注册页面（GC3c 起 8 路由全量 + ACP 控制台 + 群聊：dashboard/peers/discovery/relay/chat/group/acp/events/settings/diagnostics） */
 export const PAGE_REGISTRY: Readonly<Record<string, PageEntry>> = {
   dashboard: dashboardPage,
   peers: peersPage,
   discovery: discoveryPage,
   relay: relayPage,
   chat: chatPage,
+  group: groupPage,
   events: eventsPage,
   settings: settingsPage,
   diagnostics: diagnosticsPage,

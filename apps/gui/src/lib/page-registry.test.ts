@@ -64,7 +64,7 @@ beforeEach(() => {
 });
 
 describe("PAGE_REGISTRY 注册表校验", () => {
-  it("登记全部 9 个路由页面", () => {
+  it("登记全部 10 个路由页面", () => {
     expect(Object.keys(PAGE_REGISTRY).sort()).toEqual([
       "acp",
       "chat",
@@ -72,6 +72,7 @@ describe("PAGE_REGISTRY 注册表校验", () => {
       "diagnostics",
       "discovery",
       "events",
+      "group",
       "peers",
       "relay",
       "settings",
@@ -113,6 +114,9 @@ describe("PAGE_REGISTRY 注册表校验", () => {
       "diagnostics.clearAll",
       "discovery.removeBootstrap",
       "events.clear",
+      "group.disband",
+      "group.kick",
+      "group.leave",
       "settings.resetIdentity",
       "settings.saveAndRestart",
     ]);
