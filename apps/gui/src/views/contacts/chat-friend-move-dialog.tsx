@@ -32,6 +32,8 @@ interface ChatFriendMoveDialogProps {
 
 // Radix SelectItem 禁用空串 value；未分组哨兵与折叠记忆键同款。
 const UNGROUPED = "__ungrouped__";
+// 「新建分组…」路径哨兵：选中才展开文本输入（三律之二改造，§3.4）。
+const NEW_GROUP = "__new_group__";
 
 // 表单预校验失败（i18n 文案）；后端拒绝走 CommandError 原文展示。
 function FormError({ message }: { message: string | null }) {
@@ -65,6 +67,7 @@ export function ChatFriendMoveDialog({
   const friends = useChatStore((s) => s.friends);
   const updateFriendGroup = useChatStore((s) => s.updateFriendGroup);
   const [newGroup, setNewGroup] = useState<string | null>(null);
+  const [creatingNew, setCreatingNew] = useState(false);
   const [moving, setMoving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
@@ -75,6 +78,7 @@ export function ChatFriendMoveDialog({
 
   const reset = () => {
     setNewGroup(null);
+    setCreatingNew(false);
     setFormError(null);
     setCommandError(null);
   };
@@ -97,8 +101,14 @@ export function ChatFriendMoveDialog({
     }
   };
 
-  // 下拉：现有组点选即移动；未分组 = 移出（后端收到空串）。
+  // 下拉（§3.4 三律之二）：已存在分组必须下拉选择，点选即移动；
+  // 未分组 = 移出（后端收到空串）；仅选中「新建分组…」才展开输入框。
   const pickExisting = (value: string) => {
+    if (value === NEW_GROUP) {
+      setCreatingNew(true);
+      return;
+    }
+    setCreatingNew(false);
     void move(value === UNGROUPED ? "" : value);
   };
 
@@ -144,7 +154,7 @@ export function ChatFriendMoveDialog({
             {t("chat.group.selectLabel")}
           </label>
           <Select
-            value={currentGroup}
+            value={creatingNew ? NEW_GROUP : currentGroup}
             onValueChange={pickExisting}
             disabled={moving}
           >
@@ -172,12 +182,20 @@ export function ChatFriendMoveDialog({
               >
                 {t("chat.group.ungrouped")}
               </SelectItem>
+              <SelectSeparator />
+              <SelectItem
+                value={NEW_GROUP}
+                data-testid="friend-move-option-__new_group__"
+              >
+                {t("chat.group.newToggle")}
+              </SelectItem>
             </SelectContent>
           </Select>
           <DialogDescription>{t("chat.group.selectHint")}</DialogDescription>
           <FormError message={formError} />
           <CommandError message={commandError} />
         </div>
+        {creatingNew ? (
         <div className="flex flex-col gap-1.5">
           <label className="text-sm" htmlFor="friend-move-input">
             {t("chat.group.newLabel")}
@@ -212,6 +230,7 @@ export function ChatFriendMoveDialog({
             </Button>
           </div>
         </div>
+        ) : null}
         <DialogFooter>
           <Button
             type="button"
