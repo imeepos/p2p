@@ -32,6 +32,10 @@ export function HopStatsCard() {
       ]
     : [];
 
+  // ok/fail 两段按占比并排（flex 横排），fail>0 且 ok=0 时 fail 段满宽可见。
+  const segmentWidth = (count: number, total: number): string =>
+    total === 0 ? "0%" : ((count / total) * 100).toFixed(4) + "%";
+
   return (
     <Card className="col-span-12 h-full lg:col-span-6">
       <CardHeader>
@@ -70,21 +74,22 @@ export function HopStatsCard() {
                     locale,
                   )}`}
                 >
-                  <div
-                    className="bg-success h-full transition-all motion-reduce:transition-none"
-                    style={{
-                      width:
-                        (row.ok / Math.max(1, row.ok + row.fail)) * 100 + "%",
-                    }}
-                  />
-                  <div
-                    className="bg-destructive h-full transition-all motion-reduce:transition-none"
-                    style={{
-                      width:
-                        (row.fail / Math.max(1, row.ok + row.fail)) * 100 +
-                        "%",
-                    }}
-                  />
+                  <div className="flex h-full w-full">
+                    <div
+                      data-testid={`hop-${row.key}-ok`}
+                      className="bg-success h-full transition-all motion-reduce:transition-none"
+                      style={{
+                        width: segmentWidth(row.ok, row.ok + row.fail),
+                      }}
+                    />
+                    <div
+                      data-testid={`hop-${row.key}-fail`}
+                      className="bg-destructive h-full transition-all motion-reduce:transition-none"
+                      style={{
+                        width: segmentWidth(row.fail, row.ok + row.fail),
+                      }}
+                    />
+                  </div>
                 </div>
                 {row.ok + row.fail === 0 ? (
                   <span className="text-muted-foreground w-28 shrink-0 text-right italic">
