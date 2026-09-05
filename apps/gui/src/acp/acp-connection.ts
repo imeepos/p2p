@@ -48,7 +48,8 @@ export interface AcpConnectionEvents {
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
+  /** null = 不挂通用超时（session/prompt 长回合由应答/断连结算） */
+  timer: ReturnType<typeof setTimeout> | null;
 }
 
 interface JsonRpcWire {
@@ -98,7 +99,7 @@ export class AcpConnection {
     this.ws = null;
     for (const [, p] of this.pending) {
       // 环境无关定时器 API：重连定时器可能在宿主 window 卸载后触发（测试稳定性）
-      clearTimeout(p.timer);
+      if (p.timer) clearTimeout(p.timer);
       p.reject(new Error("acp-connection-closed"));
     }
     this.pending.clear();
@@ -163,7 +164,7 @@ export class AcpConnection {
     const entry = this.pending.get(msg.id);
     if (!entry) return;
     this.pending.delete(msg.id);
-    clearTimeout(entry.timer);
+    if (entry.timer) clearTimeout(entry.timer);
     if (msg.error) {
       entry.reject(new Error(JSON.stringify(msg.error)));
     } else {
@@ -171,17 +172,25 @@ export class AcpConnection {
     }
   }
 
-  request(method: string, params?: unknown): Promise<unknown> {
+  request(
+    method: string,
+    params?: unknown,
+    opts?: { timeoutMs?: number | null },
+  ): Promise<unknown> {
     const ws = this.ws;
     if (!ws) return Promise.reject(new Error("acp-not-connected"));
     const id = this.nextId;
     this.nextId += 1;
+    const timeoutMs = opts && "timeoutMs" in opts ? opts.timeoutMs : REQUEST_TIMEOUT_MS;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
-        console.warn("[acp] 请求超时", method);
-        reject(new Error("acp-request-timeout"));
-      }, REQUEST_TIMEOUT_MS);
+      const timer =
+        timeoutMs === null
+          ? null
+          : setTimeout(() => {
+              this.pending.delete(id);
+              console.warn("[acp] 请求超时", method);
+              reject(new Error("acp-request-timeout"));
+            }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
       // ACP ndjson 行界：console 是字节泵，行尾不带 \n 会被 agent 侧行重组器挂起
       ws.send(JSON.stringify({ jsonrpc: "2.0", id, method, params: params ?? {} }) + "\n");
@@ -215,8 +224,10 @@ export class AcpConnection {
     return (await this.request("session/new", { cwd: cwd ?? null })) as SessionNewResult;
   }
 
+  /** 长回合可能远超通用 30s：prompt 不挂通用超时，只由应答/错误/断连结算 */
   async sessionPrompt(sessionId: string, text: string): Promise<PromptResult> {
-    return (await this.request("session/prompt", promptParams(sessionId, text))) as PromptResult;
+    const params = promptParams(sessionId, text);
+    return (await this.request("session/prompt", params, { timeoutMs: null })) as PromptResult;
   }
 
   sessionCancel(sessionId: string): void {

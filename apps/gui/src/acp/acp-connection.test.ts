@@ -1,6 +1,6 @@
 // AcpConnection 单测：注入假 socket 验证 JSON-RPC 关联、通知分发、
 // 关闭码分类与自动重连迁移（不依赖 jsdom 外的网络）。
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AcpConnection, type AcpConnectionEvents, type ReconnectPolicy } from "./acp-connection";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
@@ -252,5 +252,45 @@ describe("AcpConnection", () => {
     );
     conn.connect();
     expect(sockets[0].url).toContain("reattach=tk-1");
+  });
+
+  it("session/prompt 豁免通用超时：30s 无应答不 reject，应答到达才结算", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = harness();
+      h.conn.connect();
+      h.sockets[0].serverOpen();
+      const pending = h.conn.sessionPrompt("s-1", "hi");
+      let rejected = false;
+      pending.catch(() => {
+        rejected = true;
+      });
+      await vi.advanceTimersByTimeAsync(31_000);
+      expect(rejected).toBe(false);
+      h.sockets[0].serverMessage({ jsonrpc: "2.0", id: 1, result: { stopReason: "end_turn" } });
+      const result = (await pending) as { stopReason?: string };
+      expect(result.stopReason).toBe("end_turn");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("非 prompt 请求仍受通用超时约束", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = harness();
+      h.conn.connect();
+      h.sockets[0].serverOpen();
+      const pending = h.conn.sessionList();
+      // 立即挂 catch，避免超时 rejection 在断言前成为 unhandled
+      const outcome = pending.then(
+        () => "settled",
+        (e: Error) => e.message,
+      );
+      await vi.advanceTimersByTimeAsync(31_000);
+      expect(await outcome).toBe("acp-request-timeout");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

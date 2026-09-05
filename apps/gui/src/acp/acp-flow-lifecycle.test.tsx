@@ -140,3 +140,56 @@ describe("AcpView online status bar", () => {
     expect(screen.getByTestId("acp-connect")).toBeTruthy();
   });
 });
+
+describe("AcpView long-turn prompt", () => {
+  it("长回合超过通用 30s 超时：不误杀，chunk 续写同一气泡不碎裂", async () => {
+    vi.useFakeTimers();
+    try {
+      mockAcpConsole.configure({
+        promptScript: [
+          { kind: "message", text: "长回合A" },
+          { kind: "message", text: "长回合B" },
+          { kind: "stop", reason: "end_turn" },
+        ],
+        chunkDelayMs: 31_000,
+        openDelayMs: 10,
+      });
+      render(<AcpView />);
+      fireEvent.click(screen.getByTestId("acp-connect"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15);
+      });
+      fireEvent.click(screen.getByTestId("acp-session-new"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5);
+      });
+      fireEvent.change(screen.getByTestId("acp-composer-input"), { target: { value: "hi" } });
+      fireEvent.click(screen.getByTestId("acp-composer-send"));
+      // 旧通用超时点（30s）：回合未结束、不得误杀
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(30_000);
+      });
+      expect(useAcpStore.getState().promptPending).toBe(true);
+      // 第一块到达
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_500);
+      });
+      expect(screen.getByTestId("acp-transcript").textContent).toContain("长回合A");
+      // 第二块到达：续写同一气泡（旧代码在此处已碎成多泡）
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(31_000);
+      });
+      const bubbles = document.querySelectorAll('[data-testid^="acp-turn-assistant"]');
+      expect(bubbles).toHaveLength(1);
+      expect(screen.getByTestId("acp-transcript").textContent).toContain("长回合A长回合B");
+      // stop 步在 93s（31s x 3）：应答帧经解码队列回填后 pending 必须复位
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(31_000);
+      });
+      expect(useAcpStore.getState().promptPending).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      mockAcpConsole.reset();
+    }
+  });
+});
