@@ -50,4 +50,26 @@ describe("CapabilitiesCard 能力位降级", () => {
       "agent 未在 initialize 中声明此能力",
     );
   });
+
+  it("image/audio 能力位补齐展示，走统一降级样式（P2-ADD 需求10）", () => {
+    useAcpStore.setState({
+      phase: "online",
+      capabilities: capsResult({
+        loadSession: true,
+        promptCapabilities: { embeddedContext: false, image: true, audio: false },
+      }),
+    });
+    render(<CapabilitiesCard />);
+    const image = screen.getByTestId("acp-cap-image");
+    expect(image.textContent).toContain("图像输入");
+    expect(image.textContent).toContain("支持");
+    expect(image.className).not.toContain("opacity-80");
+    const audio = screen.getByTestId("acp-cap-audio");
+    expect(audio.textContent).toContain("音频输入");
+    expect(audio.textContent).toContain("不支持");
+    expect(audio.className).toContain("opacity-80");
+    const embedded = screen.getByTestId("acp-cap-embeddedContext");
+    expect(embedded.textContent).toContain("不支持");
+    expect(embedded.className).toContain("opacity-80");
+  });
 });

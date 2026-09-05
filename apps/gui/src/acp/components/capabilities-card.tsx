@@ -96,6 +96,16 @@ export function CapabilitiesCard() {
           label={t("acp.capabilities.embeddedContext")}
           value={caps.promptCapabilities?.embeddedContext}
         />
+        <CapBadge
+          id="image"
+          label={t("acp.capabilities.image")}
+          value={caps.promptCapabilities?.image}
+        />
+        <CapBadge
+          id="audio"
+          label={t("acp.capabilities.audio")}
+          value={caps.promptCapabilities?.audio}
+        />
       </CardContent>
     </Card>
   );

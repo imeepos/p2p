@@ -34,7 +34,7 @@ export interface AcpContentBlock {
 
 export interface AgentCapabilities {
   loadSession?: boolean;
-  promptCapabilities?: { embeddedContext?: boolean };
+  promptCapabilities?: { embeddedContext?: boolean; image?: boolean; audio?: boolean };
 }
 
 export interface InitializeResult {
