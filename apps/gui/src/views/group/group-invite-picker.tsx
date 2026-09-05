@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
-import { MAX_GROUP_MEMBERS } from "@/lib/mock-chat-rules";
+import { MAX_GROUP_MEMBERS } from "@/lib/chat-limits";
 import { useGroupStore } from "@/stores/group-store";
 
 import { groupDisplayName } from "./group-names";

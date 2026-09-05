@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { validateGroupName } from "@/lib/mock-chat-rules";
+import { validateGroupName } from "@/lib/chat-limits";
 
 import { Button } from "@/components/ui/button";
 import {

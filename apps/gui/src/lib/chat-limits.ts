@@ -1,7 +1,8 @@
 import type { ChatKind, ChatMediaInput } from "./ipc-types";
 
-// 契约 §12 chat 侧纯校验规则：与 mock-chat/src-tauri/p2p-chat 三方同口径。
-// 从 mock-chat.ts 拆出（行数红线），仅数据与判定，无运行时依赖。
+// 契约 §12 chat 侧共享校验常量与纯函数：与后端 src-tauri/p2p-chat 同口径，
+// 生产视图与 mock 后端 import 同一份实现，保证两侧上限/格式不漂移。
+// 仅数据与判定，无运行时依赖。
 const PEER_ID_RE = /^[1-9A-HJ-NP-Za-km-z]{43,45}$/;
 const ADDR_RE = /^(?:\d{1,3}\.){3}\d{1,3}\/[ut]\d{1,5}$/;
 const BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/;

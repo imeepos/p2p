@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { GroupJson } from "@/lib/ipc-types";
 import { ipc } from "@/lib/ipc";
-import { MAX_GROUP_MEMBERS } from "@/lib/mock-chat-rules";
+import { MAX_GROUP_MEMBERS } from "@/lib/chat-limits";
 import { useGroupStore } from "@/stores/group-store";
 
 import { groupDisplayName } from "./group-names";
