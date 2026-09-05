@@ -54,7 +54,12 @@ cargo test --manifest-path apps/cli/Cargo.toml
 p2pctl node status  [--data-dir DIR] [--json]   # 查询运行状态（pid/peer/addr/log 行）
 p2pctl node start   [--data-dir DIR] [--json]   # 启动守护进程（读 gui-config.json）
 p2pctl node stop    [--data-dir DIR] [--json]   # 停止（幂等，重复 stop 退出码 0）
+p2pctl node log tail [--lines N] [--data-dir DIR] [--json]  # daemon.log 尾读（默认 200、上限 1000，文件缺失不算错）
 ```
+
+`node log tail` 读的是节点守护进程日志 `<data-dir>/daemon.log`（与 GUI 前端
+日志 frontend.log 分属两路，见 log 域说明）。`node start --json` 输出经写后
+flush 落盘，重定向到文件不会丢内容（脚本/CI 直接读重定向文件取 peerId/addr）。
 
 ### chat —— 聊天域（对齐 GUI 契约 §12）
 
@@ -90,8 +95,28 @@ p2pctl profile save [FILE] [--data-dir DIR]
 p2pctl peer dial "<PEER_ID>@<ADDR>" [--data-dir DIR]  # 登记地址并连接；ADDR 为 ip/u端口 或 ip/t端口
 p2pctl peer connect <PEER_ID> [--data-dir DIR]        # 按地址簿直连
 p2pctl peer disconnect <PEER_ID> [--data-dir DIR]     # 幂等挂断
-p2pctl peer ping <PEER_ID> [--timeout-ms MS]          # echo 协议测 RTT（rtt_ms= 行）
+p2pctl peer ping <PEER_ID> [--timeout-ms MS]          # echo 协议测 RTT（rtt_ms= 行；<1ms 以 0.1ms 精度并附 rtt_us）
+p2pctl peer list [--data-dir DIR] [--json]            # 地址簿 + 在线态（首行 total/connected，逐对端 peer=/addr= 行）
 ```
+
+`peer dial` 输出的 hops 为降级链逐跳报告：direct=按地址簿直连尝试；
+punch=经中继信令打洞；relay=中继电路兜底；hops=[] 表示复用池内已有
+连接（本次未发生新拨号，不代表无路径）。
+
+### discovery —— 发现域（观测只读）
+
+```bash
+p2pctl discovery list [--data-dir DIR] [--json]  # 地址缓存（邻居与登记地址）+ 来源计数（口径同 GUI 发现页）
+```
+
+### relay —— 中继域（观测只读）
+
+```bash
+p2pctl relay status [--data-dir DIR] [--json]  # 中继会话/重连水位 + 降级链逐跳统计 + 配置端点
+```
+
+两命令事实源为守护进程内观测注册表（订阅节点事件聚合，语义同 GUI
+邻居表），因此只反映本守护进程启动后的痕迹；节点未启动报错退出码 1。
 
 ### identity —— 身份域
 
@@ -105,10 +130,13 @@ p2pctl identity reset --confirm [--data-dir DIR]  # 危险操作：停节点 + �
 （GUI 把浏览器侧 error/unhandledrejection/console.error 以 JSONL 落盘于此）。
 
 ```bash
-p2pctl log tail  [--lines N] [--log-dir DIR] [--json]  # 末尾 N 行，默认 200、上限 1000（同 GUI）
-p2pctl log path  [--log-dir DIR] [--json]              # frontend.log 绝对路径
-p2pctl log clear [--log-dir DIR] [--json]              # 删 frontend.log 与 frontend.log.1，幂等
+p2pctl log tail  [--lines N] [--log-dir DIR] [--data-dir DIR] [--json]  # 末尾 N 行，默认 200、上限 1000（同 GUI）
+p2pctl log path  [--log-dir DIR] [--data-dir DIR] [--json]              # frontend.log 绝对路径
+p2pctl log clear [--log-dir DIR] [--data-dir DIR] [--json]              # 删 frontend.log 与 frontend.log.1，幂等
 ```
+
+`--data-dir` 是 `--log-dir` 的同义别名（F7 参数命名对齐：他域均用
+--data-dir），语义不变：读 `<DIR>/frontend.log`。
 
 注意：GUI 进程自身日志为同目录 `p2p-console.log`（tracing 落盘），节点守护进程日志为
 `<data-dir>/daemon.log`；两者不属于 frontend.log 语义，不在 `log` 域范围内。
@@ -207,6 +235,7 @@ bash scripts/ops/cli-gui-e2e.sh        # GC2：gui 域 × 真实 GUI 控制通�
 bash scripts/ops/cli-gui-data-e2e.sh   # N2：GUI×CLI 数据面互操作（末行 N2-E2E-OK）
 bash scripts/ops/cli-page-e2e.sh       # GC4：gui page/action × 真实 GUI 页面协议 + 前后截图证据（末行 GC4-E2E-OK）
 bash scripts/ops/cli-live-e2e.sh       # W1：CLI 写入 → GUI 实时感知 file-watch（末行 W1-E2E-OK）
+bash scripts/ops/cli-observe-e2e.sh    # PR2：观测对等六语义（重定向/log tail/peer list/discovery/relay/--data-dir 别名，末行 PR2-OBSERVE-OK）
 ```
 
 `cli-live-e2e.sh`（W1 实测）：隔离 HOME 启动真实 GUI（custom-protocol 特性内嵌
