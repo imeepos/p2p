@@ -23,7 +23,7 @@ const STATUS: NodeStatus = {
 };
 
 function emptySlice(): EventStateSlice {
-  return { events: [], peers: {}, status: STATUS };
+  return { events: [], peers: {}, status: STATUS, eventSeq: 0 };
 }
 
 describe("快速启停事件序列", () => {

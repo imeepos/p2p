@@ -15,6 +15,12 @@ export interface EventStateSlice {
   events: NodeEventJson[];
   peers: Record<string, PeerEntry>;
   status: NodeStatus | null;
+  /**
+   * 事件累计序号：单调递增，环形缓冲淘汰旧事件后增量计数仍精确。
+   * 可选仅为兼容既有第三方 fixture（省略按 0 起算）；store 初始态与
+   * reduceEvent 返回值恒携带该字段，消费方读到的永远是 number。
+   */
+  eventSeq?: number;
 }
 
 export const MAX_EVENTS = 1000;
@@ -101,5 +107,6 @@ export function reduceEvent(
     events: [event, ...state.events].slice(0, MAX_EVENTS),
     peers: peersAfterEvent(state.peers, event),
     status: statusAfterEvent(state.status, event),
+    eventSeq: (state.eventSeq ?? 0) + 1,
   };
 }

@@ -16,15 +16,31 @@ import { reduceEvent, type PeerEntry } from "./event-reducer";
 
 export type { PeerEntry };
 
+/** 引导生命周期：error 时界面必须给出显式错误态与重试入口，禁止静默骨架。 */
+export type BootstrapPhase = "idle" | "loading" | "ready" | "error";
+
+/** 周期刷新连续失败达该阈值即视为数据可能过期（5s 轮询下约 15s）。 */
+export const REFRESH_STALE_THRESHOLD = 3;
+
+function toErrorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export interface NodeStoreState {
   status: NodeStatus | null;
   metrics: MetricsJson | null;
   metricsHistory: MetricsPoint[];
   peers: Record<string, PeerEntry>;
   events: NodeEventJson[];
+  eventSeq: number;
   subscriptionLive: boolean;
+  bootstrapPhase: BootstrapPhase;
+  bootstrapError: string | null;
+  dataStale: boolean;
+  consecutiveRefreshFailures: number;
+  lastRefreshError: string | null;
   bootstrap: () => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: () => Promise<boolean>;
   startNode: (cfg: GuiConfig) => Promise<NodeStatus>;
   stopNode: () => Promise<NodeStatus>;
   dial: (target: string) => Promise<DialReport>;
@@ -33,41 +49,81 @@ export interface NodeStoreState {
   ping: (peerId: string, timeoutMs: number) => Promise<PingOutcome>;
 }
 
-let subscriptionStarted = false;
-
 export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   status: null,
   metrics: null,
   metricsHistory: [],
   peers: {},
   events: [],
+  eventSeq: 0,
   subscriptionLive: false,
+  bootstrapPhase: "idle",
+  bootstrapError: null,
+  dataStale: false,
+  consecutiveRefreshFailures: 0,
+  lastRefreshError: null,
 
   bootstrap: async () => {
-    if (subscriptionStarted) return;
-    subscriptionStarted = true;
-    const unlisten = await ipc.onNodeEvent((event) =>
-      set((s) => reduceEvent(s, event)),
-    );
-    void unlisten;
-    set({ subscriptionLive: true });
-    await get().refresh();
+    const phase = get().bootstrapPhase;
+    // loading 防并发进入，ready 幂等；error 允许再次执行——旧的一次性
+    // 幂等锁（模块级 subscriptionStarted）在订阅/刷新失败后整会话不再
+    // 重试，界面永挂骨架，是 P0 缺陷根源。
+    if (phase === "loading" || phase === "ready") return;
+    set({ bootstrapPhase: "loading", bootstrapError: null });
+    if (!get().subscriptionLive) {
+      try {
+        const unlisten = await ipc.onNodeEvent((event) =>
+          set((s) => reduceEvent(s, event)),
+        );
+        void unlisten;
+        set({ subscriptionLive: true });
+      } catch (error) {
+        console.error("[node-store] 事件订阅失败", error);
+        set({ bootstrapPhase: "error", bootstrapError: toErrorText(error) });
+        return;
+      }
+    }
+    const ok = await get().refresh();
+    if (ok) {
+      set({ bootstrapPhase: "ready" });
+    } else {
+      set({ bootstrapPhase: "error", bootstrapError: get().lastRefreshError });
+    }
   },
 
   refresh: async () => {
-    const [status, metrics] = await Promise.all([
-      ipc.nodeStatus(),
-      ipc.metricsGet(),
-    ]);
-    // 每次成功取数即追加趋势采样点（环形 120 点，契约 v2 窗口一致）。
-    set((s) => ({
-      status,
-      metrics,
-      metricsHistory: appendMetricsPoint(
-        s.metricsHistory,
-        metricsSnapshotPoint(metrics),
-      ),
-    }));
+    try {
+      const [status, metrics] = await Promise.all([
+        ipc.nodeStatus(),
+        ipc.metricsGet(),
+      ]);
+      // 每次成功取数即追加趋势采样点（环形 120 点，契约 v2 窗口一致）。
+      set((s) => ({
+        status,
+        metrics,
+        metricsHistory: appendMetricsPoint(
+          s.metricsHistory,
+          metricsSnapshotPoint(metrics),
+        ),
+        consecutiveRefreshFailures: 0,
+        dataStale: false,
+        lastRefreshError: null,
+      }));
+      return true;
+    } catch (error) {
+      // 不上抛：轮询定时器与引导各自消费返回值；连败达阈值置 dataStale
+      // 驱动「数据可能已过期」横幅，恢复成功后自动消失。
+      console.error("[node-store] 状态刷新失败", error);
+      set((s) => {
+        const consecutiveRefreshFailures = s.consecutiveRefreshFailures + 1;
+        return {
+          consecutiveRefreshFailures,
+          dataStale: consecutiveRefreshFailures >= REFRESH_STALE_THRESHOLD,
+          lastRefreshError: toErrorText(error),
+        };
+      });
+      return false;
+    }
   },
 
   startNode: async (cfg) => {

@@ -28,7 +28,7 @@ const STATUS: NodeStatus = {
 };
 
 function emptySlice(): EventStateSlice {
-  return { events: [], peers: {}, status: STATUS };
+  return { events: [], peers: {}, status: STATUS, eventSeq: 0 };
 }
 
 describe("reduceEvent", () => {
@@ -122,6 +122,16 @@ describe("reduceEvent", () => {
     }
     expect(s.events.length).toBe(MAX_EVENTS);
     expect(MAX_EVENTS).toBe(1000);
+  });
+
+  it("eventSeq 单调递增且不受环形缓冲淘汰影响（暂停计数依赖）", () => {
+    let s: EventStateSlice = { ...emptySlice(), status: null };
+    for (let i = 0; i < MAX_EVENTS + 50; i += 1) {
+      s = reduceEvent(s, { type: "node_stopped" });
+    }
+    // 缓冲只留 1000 条，序号必须仍是全量 1050，增量计数才不会停在错误小数字。
+    expect(s.events.length).toBe(MAX_EVENTS);
+    expect(s.eventSeq).toBe(MAX_EVENTS + 50);
   });
 
   it("未知类型外的状态事件不影响 peers 表", () => {
