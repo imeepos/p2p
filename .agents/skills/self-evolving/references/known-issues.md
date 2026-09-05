@@ -324,6 +324,11 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-04 勘误：日志「串址」实为同机多实例共享接口地址（IP 同、端口异）
 - 勘误对象：当日「QUIC 拨号端点只绑 0.0.0.0」分析中的「跨节点串址」论断。复核日志：DZvczj 与 EhUaawMPK 重叠的 3 个地址是 IP 相同、端口不同（/u58245 vs /u64802）——TransportAddr 含端口，二者并非同一地址；系同一物理机跑两个实例（lab 同机多节点部署形态），共享全部接口地址合法，且 macOS 多接口 + 隐私临时 v6 地址本就多达十余个。
 - 教训：判定「串址」必须比对含端口的完整 TransportAddr；共享 IP+异端口优先怀疑同机多实例，再怀疑污染。本轮 false alarm 源于只比对 IP 就下结论。
+
+## 2026-09-05 OPS1 内联多行 commit message 的反引号段被命令替换静默吃掉
+- 症状：git commit -m "<多行 message>"（run_code 里 JSON.stringify 内联传参）提交成功，但 message 中反引号包裹段（`cmd | tail`、`p2pctl --json | grep -q`）消失，正文留双空格；提交当场报 bash: cmd: command not found。
+- 原因：JSON.stringify 不转义反引号；bash 双引号串内反引号即命令替换，子命令失败输出空串。
+- 修法：多行 message 一律写临时文件再 git commit -F；提交后必须 git log -1 --format=%B 回读核对关键段（本次 amend 修复，diff 本体无损）。
 - 复盘挖出的真缺陷：mdns decode_txt 只取地址集第一个 IP（iter().next()），多接口主机的其余合法候选全被丢弃；地址簿只增不汰，macOS 临时 v6 轮换留下死地址助长拨号风暴。修法见 fix/mdns-all-addresses：解码全量展开，去重/链路本地过滤统一由地址簿入簿卫生把关。
 
 ## 2026-09-04 P1 原语轮
