@@ -8,6 +8,7 @@ mod friend_invites;
 mod friend_update;
 mod friends;
 mod messages;
+mod outbox_cmd;
 mod payload;
 mod serve;
 
@@ -19,6 +20,7 @@ use crate::error::{CliError, CliResult};
 
 use friends::FriendsCommand;
 use messages::{HistoryArgs, MediaCommand, SendArgs};
+use outbox_cmd::OutboxCommand;
 use serve::ServeArgs;
 
 /// chat 域注册：friends/history/send/media（契约 §12）+ serve（E2E/守护支撑）。
@@ -38,6 +40,11 @@ pub enum ChatCommand {
         #[command(subcommand)]
         command: MediaCommand,
     },
+    /// 行箱观测与手动补投：list / flush（对端恢复可达前后闭环积压）
+    Outbox {
+        #[command(subcommand)]
+        command: OutboxCommand,
+    },
     /// 常驻运行聊天节点：输出 peerId 与监听地址后等待信号（E2E/守护支撑）
     Serve(ServeArgs),
 }
@@ -48,6 +55,7 @@ pub async fn run(command: ChatCommand) -> CliResult<()> {
         ChatCommand::History(args) => messages::history(args).await,
         ChatCommand::Send(args) => messages::send(args).await,
         ChatCommand::Media { command } => messages::run_media(command).await,
+        ChatCommand::Outbox { command } => outbox_cmd::run(command).await,
         ChatCommand::Serve(args) => serve::run(args).await,
     }
 }

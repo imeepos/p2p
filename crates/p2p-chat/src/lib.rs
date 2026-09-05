@@ -19,6 +19,7 @@ mod invite_api;
 mod invite_handler;
 mod model;
 mod outbox;
+mod outbox_api;
 mod serve_cfg;
 mod store;
 mod store_friends;
@@ -47,6 +48,9 @@ pub use group::{
 };
 pub use invite::{FriendInvite, InviteDirection, InviteState, MAX_INVITES};
 pub use invite_api::InviteReport;
+pub use outbox_api::{
+    OutboxEntryReport, OutboxFlushPeerReport, OutboxFlushReport, OutboxPeerReport,
+};
 pub use serve_cfg::{load_serve_port, save_serve_port};
 pub use model::{
     sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatKind,
@@ -93,6 +97,7 @@ impl Chat {
             )));
         let group = group::Group::mount(core.clone(), &data_dir)?;
         outbox::spawn_outbox_task(core.clone(), group.core.clone());
+        outbox::spawn_outbox_sweeper(core.clone());
         invite_api::spawn_invite_heal(core.clone());
         Ok(Self { core, group })
     }

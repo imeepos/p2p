@@ -103,6 +103,17 @@ impl Store {
         FriendsBook::load(&self.friends_path)?.remove(&self.friends_path, peer_id)
     }
 
+    /// 含积压条目的对端清单（flush 泵与 outbox 命令的对端枚举源）。
+    pub(crate) fn outbox_peers(&self) -> Vec<String> {
+        match self.state.lock() {
+            Ok(state) => state.outbox.keys().cloned().collect(),
+            Err(_) => {
+                tracing::warn!("outbox 对端枚举时锁中毒，按空处理");
+                Vec::new()
+            }
+        }
+    }
+
     pub(crate) fn outbox_for(&self, peer: &str) -> Vec<ChatEnvelope> {
         match self.state.lock() {
             Ok(state) => state.outbox.get(peer).cloned().unwrap_or_default(),

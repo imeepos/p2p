@@ -2,6 +2,7 @@
 //! 群发送路径校验/信封构建在 group_send.rs（300 行红线再平衡）。
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use p2p::NodeEvent;
 use tokio::sync::broadcast;
@@ -13,6 +14,28 @@ use crate::group_wire::{G_KICK, G_LEAVE};
 use crate::model::{ChatError, ChatStatus};
 
 const FLUSH_BATCH_CAP: usize = 32;
+
+/// 启动补投首趟延迟：等监听与好友簿 rearm 就绪（对齐 invite heal 时序口径）。
+const SWEEP_START_DELAY: Duration = Duration::from_secs(2);
+/// 周期补投间隔：对端恢复可达后 pending 自动收敛的最坏感知时延。
+const SWEEP_INTERVAL: Duration = Duration::from_secs(30);
+
+/// 启动 + 周期补投泵（F3）：PeerConnected 泵只覆盖对端主动连入的窗口，
+/// 本泵补齐「双方都有积压/我方重启」场景——遍历含积压对端主动拨号 flush，
+/// 连接失败保持 pending 不计数（不可达窗口不消耗重试预算）。
+pub(crate) fn spawn_outbox_sweeper(core: Arc<ChatCore>) {
+    tokio::spawn(async move {
+        tokio::time::sleep(SWEEP_START_DELAY).await;
+        loop {
+            for peer in core.store.outbox_peers() {
+                if let Err(e) = flush_peer(&core, &peer).await {
+                    tracing::warn!(%peer, error = %e, "outbox 周期补投失败");
+                }
+            }
+            tokio::time::sleep(SWEEP_INTERVAL).await;
+        }
+    });
+}
 
 /// 死信阈值：条目硬失败（连接成功但流/协议失败）跨进程持久累计达 3 次即死信出队；
 /// 连接失败与 unknown_group 不计数——不可达窗口不消耗预算（design §6.2 改版）。
