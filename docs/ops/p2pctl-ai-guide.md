@@ -261,13 +261,18 @@ pid=80955
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | <PEER_ID> | 位置参数 string | 是 | —— |
-| --nickname | string | 否 | ""（空 = 沿用邀请内对端自称） |
+| --nickname | string | 否 | ""（空 = 回退 PeerId 缩略，如 `abcdEFGH...`，与 update --nickname 空串同口径） |
+| --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
 文本：
 ```
 已同意好友邀请：Alice（54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4）
 ```
-退出码：无待处理来邀 → 1（无待处理邀请）。
+--json：
+```
+{"ok":true}
+```
+退出码：无待处理来邀 → 1（无待处理邀请）；成功 → 0。
 
 ### p2pctl chat friends invites reject
 用途：拒绝来邀并通知对方（通知尽力而为，对端离线时由重连收敛）。前置：存在待处理来邀。
@@ -299,13 +304,14 @@ pid=80955
 ```
 退出码：无待同意邀请 → 0（幂等，ok=false）。
 ### p2pctl chat friends update
-用途：更新好友的分组/昵称/备注补丁（至少提供一项）；addrs 不可经此修改（走 add 的 addr 域）。前置：PEER_ID 在簿。
+用途：更新好友的分组/昵称/备注/可拨地址补丁（至少提供一项）。前置：PEER_ID 在簿。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | <PEER_ID> | 位置参数 string | 是 | —— |
 | --group | string | 否 | 无（trim 后 ≤32 字符；空串 = 移出分组） |
 | --nickname | string | 否 | 无（trim 后 ≤64 字符；空串回退 PeerId 缩略） |
 | --note | string | 否 | 无（空串 = 清空） |
+| --addr | string | 否 | 无（可重复；ip/u端口 或 ip/t端口，整组替换，非法地址拒绝） |
 | --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
 文本：
@@ -314,9 +320,9 @@ pid=80955
 ```
 --json：
 ```
-{"peerId":"11111111111111111111111111111111","group":"测试组","nickname":"Bobby","note":"hi"}
+{"peerId":"11111111111111111111111111111111","group":"测试组","nickname":"Bobby","note":"hi","addrs":["127.0.0.1/u41001"]}
 ```
-退出码：至少提供一项补丁，全缺 → 1；PEER_ID 不在簿 → 1。
+退出码：至少提供一项补丁，全缺 → 1；PEER_ID 不在簿 → 1；--addr 非法 → 1（不落盘）。
 
 ### p2pctl chat friends remove
 用途：移除好友，幂等。前置：无。
@@ -353,7 +359,7 @@ pid=80955
 ```
 
 ### p2pctl chat send
-用途：发送消息（--text 文本或 --file 附件，二选一）。前置：对端在线可达才真正送达；PEER_ID 不得是本机 chat 身份。
+用途：发送消息（--text 文本或 --file 附件，二选一）。前置：对端在线可达才真正送达；PEER_ID 不得是本机 chat 身份。离线投递语义（PR1）：对端不可达时消息排队（status=pending），对端恢复可达后由 serve 补投泵自动补投，也可 `chat outbox flush` 手动补投。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --peer | string | 是 | —— |
@@ -363,28 +369,18 @@ pid=80955
 | --mime | string | 否 | 按扩展名推断 |
 | --name | string | 否 | 取文件名 |
 | --reply-to | string | 否 | 无 |
-| --timeout-secs | int | 否 | 30 |
+| --timeout-secs | int | 否 | 30（送达后排空积压预算，上限 30） |
 | --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
-文本（对端不可达，超时后）：
+文本（对端离线，排队，秒级返回）：
 ```
-未送达 peer=54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4 id=425a11cd-4b71-4397-ba6e-4771e1414a0d status=Pending
+已排队 peer=54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4 id=425a11cd-4b71-4397-ba6e-4771e1414a0d status=Pending（对端离线，恢复可达后自动补投）
 ```
-stderr：
-```
-p2pctl: 运行失败: 消息未送达对端（status=Pending），已保留本机记录
-```
-失败形态二（快速失败，秒级返回不等待超时）：对端身份不符或不可路由时 status=Failed。
 --json：
 ```
-{"message":{"status":"failed","id":"0a4fdac8-410c-483c-9cf6-bb007fa4a814"},"delivered":false,"flushedOutbox":0}
+{"message":{"status":"pending","id":"425a11cd-4b71-4397-ba6e-4771e1414a0d"},"delivered":false,"flushedOutbox":0}
 ```
-stderr：
-```
-p2pctl: 运行失败: 消息未送达对端（status=Failed），已保留本机记录
-```
-两形态区分：status=Failed＝快速失败，典型成因是对端 peerId 填了守护身份而非 chat 身份、对端未起 chat serve、或地址簿 addr 失效；status=Pending＝等满超时未送达（对端离线/不可达）。正确拓扑与排障见附录A。
-退出码：超时未送达 → 1（status=Pending）；身份不符快速失败 → 1（status=Failed）；两者均保留本机记录，可经 history 复核；PEER_ID 为本机身份 → 1。
+退出码：delivered=true → 0；pending（对端离线已排队）→ 0 且 delivered=false（自动化以 delivered/status 判定投递结果）；failed → 1（快速真失败，典型成因是对端 peerId 填了守护身份而非 chat 身份、ACK 校验失败等；本机记录保留，可经 `chat outbox flush` 补救）；PEER_ID 为本机身份 → 1。
 
 ### p2pctl chat media file
 用途：查询附件落盘绝对路径。前置：无（消息 id 必须存在于本机 history）。
@@ -404,12 +400,47 @@ p2pctl: 运行失败: 未找到：消息不存在：abc
 ```
 退出码：消息不存在 → 1；存在 → 0（输出绝对路径行 / JSON absolutePath）。
 
+### p2pctl chat outbox list
+用途：按对端列出 1:1 行箱——积压（pending/failed 摘要）与本端发出且已确认（delivered）计数。前置：无（无积压且无已投记录的对端不列）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+共 1 个对端
+- peer=54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4 pending=1 failed=0 delivered=2 entries=[Pending[425a11cd-4b71-4397-ba6e-4771e1414a0d]]
+```
+--json：
+```
+[{"peerId":"54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4","pending":1,"failed":0,"delivered":2,"entries":[{"id":"425a11cd-4b71-4397-ba6e-4771e1414a0d","kind":"text","tsMs":1788563000000,"status":"pending"}]}]
+```
+退出码：空行箱输出 `[]`/提示，退出码 0。
+
+### p2pctl chat outbox flush
+用途：手动补投行箱积压（缺省全部含积压对端；--peer 指定单个），逐对端回报补投/剩余条数。前置：无。对端不可达时条目保持 pending（正常闭环，不算命令失败）；serve 启动与周期补投泵、对端连入窗口亦会自动补投。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --peer | string | 否 | 无（缺省全部含积压对端） |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+peer=54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4 补投 1 条 剩余 0 条
+合计补投 1 条，剩余 0 条（对端不可达时保持 pending 待自动补投）
+```
+--json：
+```
+{"peers":[{"peerId":"54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4","flushed":1,"remaining":0,"error":null}],"flushedTotal":1,"remainingTotal":0}
+```
+退出码：无积压 → 0（提示无需补投）；补投后仍有 remaining（对端不可达）→ 0（结果如实回报）；store IO 异常 → 0 但 error 字段/文本留观测；--peer 非法 → 1。
+
 ### p2pctl chat serve
 用途：常驻运行聊天节点，输出 peerId 与监听地址后等待信号（E2E/守护支撑）。前置：无；运行期间持有 <data-dir>/identity.lock，与同数据目录 chat send 互斥（见 §1.3）。输出的 peerId 是 chat 身份，与 node start 守护 peerId 不同根，聊天收发一律用本条输出的 peerId 与 listen 地址（配方见附录A）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --data-dir | path | 否 | ./p2p-data |
-| --quic-port | int | 否 | 随机 |
+| --quic-port | int | 否 | 端口记忆：首启随机并落盘 serve.json，重启沿用上次端口；显式指定优先并覆盖记忆（绑定失败回退随机并留 stderr 观测） |
 | --mdns | flag | 否 | off |
 | --json | flag | 否 | off |
 文本：
@@ -420,7 +451,7 @@ chat 节点就绪 peer=7D5SoJj1Cm1pN4xwrwVEeUCWgwq4hr9MaHcfcBUvrtyz listen=127.0
 ```
 {"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","listenAddrs":["127.0.0.1/u59286","127.0.0.1/t61793"],"dataDir":"<data-dir>"}
 ```
-注意：常驻命令，AI 应以人确认后使用，且用完发 SIGINT/SIGTERM 退出。
+注意：常驻命令，AI 应以人确认后使用，且用完发 SIGINT/SIGTERM 退出。启动时对含积压对端做首趟补投（约 2s 延迟），此后每 30s 周期补投（PR1/F3）。
 
 ### p2pctl config get
 用途：读取持久化配置；无文件输出 GUI 出厂默认值。前置：无。

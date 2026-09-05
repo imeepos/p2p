@@ -61,19 +61,26 @@ p2pctl node stop    [--data-dir DIR] [--json]   # 停止（幂等，重复 stop 
 ```bash
 p2pctl chat friends list                                  # 好友簿列表
 p2pctl chat friends add <PEER_ID> [--nickname N] [--addr A] [--note X]  # 发好友邀请（对方同意后互为好友）
-p2pctl chat friends invites list|accept|reject|cancel           # 邀请生命周期
+p2pctl chat friends invites list|accept|reject|cancel           # 邀请生命周期（写命令同支持 --json）
 p2pctl chat friends remove <PEER>                         # 幂等
+p2pctl chat friends update <PEER> [--group G] [--nickname N] [--note X] [--addr A ...]  # 补丁修改（--addr 可重复，整组替换）
 p2pctl chat history --peer <PEER> [--limit N] [--data-dir DIR] [--json]  # 消息历史（time desc）
-p2pctl chat send --peer <PEER> --text "..."               # 文本消息
-p2pctl chat send --peer <PEER> --file <PATH>              # 附件消息
+p2pctl chat send --peer <PEER> --text "..."               # 文本消息（离线排队 status=pending 退出 0）
+p2pctl chat send --peer <PEER> --file <PATH>              # 附件消息（mime 按扩展名嗅探）
+p2pctl chat outbox list [--data-dir DIR] [--json]         # 行箱按对端列积压与已投计数
+p2pctl chat outbox flush [--peer PEER] [--data-dir DIR]   # 手动补投积压（逐对端回报结果）
 p2pctl chat media file --message-id <ID> [--data-dir DIR] # 查附件落盘绝对路径
-p2pctl chat serve [--data-dir DIR]                        # 常驻聊天节点（E2E/守护支撑）
+p2pctl chat serve [--data-dir DIR] [--quic-port PORT]     # 常驻聊天节点（端口记忆：重启沿用上次端口）
 ```
 
 注意：聊天收发用 `chat serve` 输出的 **chat 身份** peerId（与 `node start` 守护
 peerId 不同根）；同数据目录 `chat serve` 与 `chat send` 经 `identity.lock` 互斥
-不可并存。两节点最小拓扑配方与 send 失败形态（status=Failed/Pending）见
-`docs/ops/p2pctl-ai-guide.md` 附录A。
+不可并存。对端离线时 `chat send` 排队（status=pending，退出码 0、
+delivered=false），对端恢复可达后由 serve 启动/周期补投泵自动补投，或经
+`chat outbox flush` 手动补投；对端换端口后好友簿旧地址由入站帧自学习回写，
+也可 `chat friends update --addr` 手工修正。两节点最小拓扑配方与失败形态见
+`docs/ops/p2pctl-ai-guide.md` 附录A。可达性闭环 E2E：
+`bash scripts/ops/cli-chat-reach-e2e.sh`（末行 PR1-REACH-OK，Not in make check）。
 
 ### config / profile —— 配置与资料域
 
