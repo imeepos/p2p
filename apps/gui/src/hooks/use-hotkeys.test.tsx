@@ -49,19 +49,26 @@ afterEach(() => {
   document.querySelectorAll('[role="dialog"], [role="alertdialog"]').forEach((el) => el.remove());
 });
 
-describe("useNumberRouteHotkeys", () => {
-  it("Cmd/Ctrl+1..9 跳转前九个注册路由，0 不跳页", () => {
+describe("useNumberRouteHotkeys（5.1 快捷键重映射）", () => {
+  it("Cmd/Ctrl+1..4 分别跳转聊天/通讯录/网络/设置", () => {
     renderProbe();
-    for (let digit = 1; digit <= 9; digit += 1) {
+    for (let digit = 1; digit <= 4; digit += 1) {
       pressDigitOn(window, String(digit), true);
       expect(currentPath()).toBe("path:" + MENU_ENTRIES[digit - 1].path);
     }
-    pressDigitOn(window, "0", true);
-    expect(currentPath()).toBe("path:" + MENU_ENTRIES[8].path);
   });
 
-  it("无修饰键的数字不跳页", () => {
+  it("Cmd/Ctrl+5..9 不注册，按下不改变当前路由", () => {
     renderProbe();
+    for (let digit = 5; digit <= 9; digit += 1) {
+      pressDigitOn(window, String(digit), true);
+      expect(currentPath()).toBe("path:/");
+    }
+  });
+
+  it("0 与无修饰键的数字不跳页", () => {
+    renderProbe();
+    pressDigitOn(window, "0", true);
     pressDigitOn(window, "1", false);
     expect(currentPath()).toBe("path:/");
   });

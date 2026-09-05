@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 
 import { MENU_ENTRIES } from "@/config/menu.def";
 
-/** 数字路由热键只认 1..9：0 不跳页，第 10 个起的注册路由无数字热键 */
+/** 数字路由热键上界保留 1..9：0 不跳页；5..9 按拍板基线不注册
+ * （保留给未来 rail 扩展），MENU_ENTRIES 收敛为 4 后经越界检查天然落空 */
 const MAX_NUMBER_HOTKEY = 9;
 
 const FOCUS_DIALOG_SELECTOR = '[role="dialog"], [role="alertdialog"]';
@@ -23,7 +24,8 @@ function isDialogActive(event: KeyboardEvent): boolean {
   return document.querySelector(OPEN_DIALOG_SELECTOR) !== null;
 }
 
-/** Cmd/Ctrl+1..9 切换 menu.def 注册的前九个路由 */
+/** Cmd/Ctrl+1..4 切换 rail 四入口（menu.def 注册序，5.1 重映射）；
+ * 对话框打开或焦点在对话框内时退避 */
 export function useNumberRouteHotkeys() {
   const navigate = useNavigate();
   useEffect(() => {

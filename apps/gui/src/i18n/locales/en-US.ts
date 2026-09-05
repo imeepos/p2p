@@ -693,7 +693,7 @@ const enUS: typeof zhCN = {
     hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..8 to switch pages; Esc to close",
     hints: {
       open: "Cmd/Ctrl+K opens the command palette",
-      navigate: "Cmd/Ctrl+1..9 switches to the first 9 pages",
+      navigate: "Cmd/Ctrl+1..4 switches between the rail entries",
       close: "Esc closes",
     },
   },

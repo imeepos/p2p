@@ -677,7 +677,7 @@ const zhCN = {
     hint: "Cmd/Ctrl+K 打开；Cmd/Ctrl+1..8 切换页面；Esc 关闭",
     hints: {
       open: "Cmd/Ctrl+K 打开命令面板",
-      navigate: "Cmd/Ctrl+1..9 切换前 9 个页面",
+      navigate: "Cmd/Ctrl+1..4 切换一级入口",
       close: "Esc 关闭",
     },
   },
