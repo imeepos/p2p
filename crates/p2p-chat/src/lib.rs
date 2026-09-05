@@ -18,6 +18,7 @@ mod invite_api;
 mod invite_handler;
 mod model;
 mod outbox;
+mod serve_cfg;
 mod store;
 mod store_friends;
 #[cfg(test)]
@@ -43,6 +44,7 @@ pub use group::{
 };
 pub use invite::{FriendInvite, InviteDirection, InviteState, MAX_INVITES};
 pub use invite_api::InviteReport;
+pub use serve_cfg::{load_serve_port, save_serve_port};
 pub use model::{
     sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatKind,
     ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
