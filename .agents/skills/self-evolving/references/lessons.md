@@ -252,3 +252,6 @@ _none yet — be the first._
 - 2026-09-05：RTL 的 getByText(函数谓词) 会命中多个元素（谓词跑在多个节点上），定位组件内文本用 data-testid 直读 textContent 最稳（UA 轮 use-hotkeys 探针四连败根因）。
 - 2026-09-05：cmdk 在 jsdom 需要 ResizeObserver 与 Element.prototype.scrollIntoView 两个最小桩，缺一即面板挂载崩；桩放各测试文件头部，不动共享 setup.ts（他人所有文件）。
 - 2026-09-05：行为断言写 toHaveBeenCalledWith(具体值) 而非 toHaveBeenCalled()，才能抓住类型系统放行的真缺陷——本次靠它抓到关闭回调吞参把 undefined 写回受控 open 状态。
+- 2026-09-05 给跨域共享类型（如 EventStateSlice）加必填字段会编译炸掉并行 PR 域的测试文件（它们不可改）：新增字段做成可选+缺省回退（reduceEvent 内 (state.eventSeq ?? 0)+1），本域测试显式补全，契约语义写进注释。
+- 2026-09-05 冷 worktree 跑 make check（含 cargo 全量冷编 + gui-tauri）>10 分钟，同步等待必撞工具超时：一开始就 run_in_background 落盘日志（make check > /tmp/x.log 2>&1; echo EXIT=$?），job_output 轮询。
+- 2026-09-05 门禁跑批期间不改任何文件是硬规则：先把所有源码改完再起 make check；中途补丁会让该次门禁失去证明力，只能重跑全量。

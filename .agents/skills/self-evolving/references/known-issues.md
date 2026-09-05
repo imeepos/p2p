@@ -732,3 +732,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：i18n 追加键后运行时渲染裸键名 common.errorBoundary.title，i18n-diff 却 PASS（zh=659 en=659）。原因：edit 锚点在文件里唯一命中，但命中段属于顶层 update 块的收尾，errorBoundary 被插进 update 而非 common；中英对称门禁只比对键集合差集，查不出落错块。修法：追加后用与 i18n-diff 同款 keysOf 脚本断言键路径存在（zh.common.errorBoundary 非 undefined）再跑组件测试。
 - 症状：cmdk 面板测试先报 ReferenceError: ResizeObserver is not defined，补桩后再报 TypeError: i.scrollIntoView is not a function。原因：jsdom 未实现这两者，cmdk 测量与选中滚动都要。修法：测试文件头部补 ResizeObserverStub 与 Element.prototype.scrollIntoView 空实现；桩放本测试文件内，不动共享 setup.ts（他人所有文件）。
 
+
+## 2026-09-05 make check 偶发红：crates/p2p tests/observe_addr.rs rendezvous 发现超时（UC monitor 会话实证）
+症状：全量 make check 在 test 阶段 FAILED——observed_addr_registered_and_dialable "timed out waiting for rendezvous PeerDiscovered"（30s 超时）。
+原因：网络型集成测试依赖真实 rendezvous 发现时序，负载/环境下偶发超时；同一树首跑 PASS、复跑 0.06s PASS，纯 flake。
+修法：先 rerun 单测确认（cargo test -p p2p --test observe_addr），复跑全量 make check 拿干净绿；GUI-only 分支遇 Rust 测试红先比对 diff 是否触及 Rust，再判 flake，勿慌改代码。
