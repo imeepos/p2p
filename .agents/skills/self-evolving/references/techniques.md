@@ -311,3 +311,8 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - (2026-09-04) 行数红线(300)会倒逼测试落点:向已有 257 行的测试文件追加会破线,提前 `wc -l` 目标文件再决定新建 `*-flow-*.test.tsx` 还是就地扩展。
 - (2026-09-04) 一次 commit message 要多段正文时,用多个 `-m '标题' -m '正文'` 参数,别在 bash 字符串里写 `\n`(会被字面量嵌入)。
 - (2026-09-04) RTL 断言 `expect(el).toBeNull()` 的 el 必须来自 `queryBy*`;`getBy*` 找不到直接抛错,失败信息会误导排查方向。
+
+- (2026-09-04 增补单轮) esbuild/vitest 不认 `const { a, type B } = await import(...)`:动态导入解构里不能写 inline type,类型一律静态 `import type`。
+- (2026-09-04 增补单轮) sonner toastError 有 3s 去重窗口,同文案第二条直接 dismiss 全部 toast:同文件多个用例断言同一失败文案时,第二条改断 store 状态,否则 findByText 超时假红。
+- (2026-09-04 增补单轮) fake-timer 下 mock 回放脚本的时间线要按步长累加算准(含 stop 步),advance 不足会『应答未到达』假红;vi.advanceTimersByTimeAsync 后再断言。
+- (2026-09-04 增补单轮) 行数红线对『会在本轮膨胀的文件』要预算:本轮 acp-connection.test.ts 两轮追加超 300,提交前统一 wc -l 白名单内所有改动文件兜底。
