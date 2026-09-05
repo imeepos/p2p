@@ -914,6 +914,20 @@ const enUS: typeof zhCN = {
       setConfigFailed: "Failed to set config option",
     },
   },
+  contacts: {
+    title: "Contacts",
+    section: {
+      friends: "Friends",
+      groups: "Groups",
+      agents: "Agents",
+    },
+    placeholder: {
+      description: "Friend, group and agent management will move here in a later release.",
+    },
+  },
+  network: {
+    title: "Network",
+  },
 };
 
 export default enUS;

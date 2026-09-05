@@ -894,6 +894,20 @@ const zhCN = {
       setConfigFailed: "配置下发失败",
     },
   },
+  contacts: {
+    title: "通讯录",
+    section: {
+      friends: "好友",
+      groups: "群聊",
+      agents: "Agent",
+    },
+    placeholder: {
+      description: "好友、群聊与 Agent 管理将在后续版本迁移至此。",
+    },
+  },
+  network: {
+    title: "网络",
+  },
 };
 
 export default zhCN;
