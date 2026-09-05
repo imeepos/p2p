@@ -2,11 +2,11 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import "@/i18n";
-import { DashboardTrendCard } from "./dashboard-trend-card";
+import { OverviewTrendCard } from "./overview-trend-card";
 
-describe("DashboardTrendCard 空态文案", () => {
+describe("OverviewTrendCard 空态文案", () => {
   it("运行中无采样用独立说明，不与卡片头描述逐字重复", () => {
-    render(<DashboardTrendCard history={[]} running />);
+    render(<OverviewTrendCard history={[]} running />);
     expect(screen.getByText("暂无趋势数据")).toBeInTheDocument();
     expect(
       screen.getByText("节点运行中但暂无有效采样，等待下一个采样点"),
@@ -20,7 +20,7 @@ describe("DashboardTrendCard 空态文案", () => {
   });
 
   it("未运行仍给启动引导说明", () => {
-    render(<DashboardTrendCard history={[]} running={false} />);
+    render(<OverviewTrendCard history={[]} running={false} />);
     expect(screen.getByText("启动节点后开始采样")).toBeInTheDocument();
   });
 });

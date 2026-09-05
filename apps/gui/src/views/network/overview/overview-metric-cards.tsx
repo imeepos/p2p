@@ -6,12 +6,12 @@ import { formatNumber } from "@/lib/format";
 import type { MetricsJson } from "@/lib/ipc-types";
 import { useNodeStore, selectPeerCount } from "@/stores/node-store";
 
-interface DashboardMetricCardsProps {
+interface OverviewMetricCardsProps {
   metrics: MetricsJson | null;
 }
 
 // 指标卡 x4：已发现节点数、活跃连接、中继会话、门禁拒绝。
-export function DashboardMetricCards({ metrics }: DashboardMetricCardsProps) {
+export function OverviewMetricCards({ metrics }: OverviewMetricCardsProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const peerCount = useNodeStore(selectPeerCount);

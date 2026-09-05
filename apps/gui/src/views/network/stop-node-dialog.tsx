@@ -51,7 +51,7 @@ export function StopNodeDialog({ open, onOpenChange }: StopNodeDialogProps) {
               toastSuccess(t("common.actions.stopSucceeded"));
             }}
             onError={(error) => {
-              console.error("[dashboard] 停止节点失败", error);
+              console.error("[network] 停止节点失败", error);
               toastError(t("common.actions.stopFailed"), {
                 description: errorText(error),
                 context: "node.stop",

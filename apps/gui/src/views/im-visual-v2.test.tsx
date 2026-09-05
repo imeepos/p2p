@@ -32,12 +32,12 @@ import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { UsersIcon } from "lucide-react";
 import React from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { DashboardTrendCard } from "./monitor/dashboard-trend-card";
-import { DashboardView } from "./monitor/dashboard-view";
-import { DegradeChainCard } from "./monitor/degrade-chain-card";
+import { OverviewTrendCard } from "./network/overview/overview-trend-card";
+import { OverviewView } from "./network/overview/overview-view";
+import { OverviewDialChainCard } from "./network/overview/overview-dial-chain-card";
 import { PeersTableCard } from "./network/peers/peers-table-card";
 import { PeersToolbar, type StatusFilter } from "./network/peers/peers-toolbar";
-import { RecentEventsCard } from "./monitor/recent-events-card";
+import { OverviewRecentEventsCard } from "./network/overview/overview-recent-events-card";
 import { Topbar } from "@/components/layout/topbar";
 import { StatCard } from "@/components/page/stat-card";
 import { MdnsCard } from "./network/discovery/mdns-card";
@@ -93,7 +93,7 @@ beforeEach(() => {
   });
 });
 
-describe("IM-V2 dashboard evidence", () => {
+describe("IM-V2 network overview evidence", () => {
   it("D1 顶栏停止按钮运行中为中性边框，无红色 destructive", () => {
     useNodeStore.setState(runningStatus());
     const { container } = render(
@@ -107,9 +107,9 @@ describe("IM-V2 dashboard evidence", () => {
     expect(stop!.className).toContain("border");
   });
 
-  it("D2 仪表盘两行状态/指标卡统一最小高度，且同为标签在上垂直栈", () => {
+  it("D2 概览两行状态/指标卡统一最小高度，且同为标签在上垂直栈", () => {
     const { container } = render(
-      <MemoryRouter><DashboardView /></MemoryRouter>,
+      <MemoryRouter><OverviewView /></MemoryRouter>,
     );
     const scoped = [...container.querySelectorAll("div")].find((d) =>
       d.className.includes("[&_[data-slot=card]]:min-h-28"),
@@ -126,7 +126,7 @@ describe("IM-V2 dashboard evidence", () => {
   });
 
   it("D3 空趋势占位收紧为 py-5 且带暂无数据语义", () => {
-    render(<DashboardTrendCard history={[]} running={false} />);
+    render(<OverviewTrendCard history={[]} running={false} />);
     const status = screen.getByRole("status");
     expect(status.textContent).toContain("暂无趋势数据");
     expect(status.className).toContain("py-5");
@@ -140,15 +140,18 @@ describe("IM-V2 dashboard evidence", () => {
       dialOkTotal: 0,
       dialFailTotal: 0,
     }));
-    render(<DashboardTrendCard history={zeros} running={false} />);
+    render(<OverviewTrendCard history={zeros} running={false} />);
     expect(screen.getByRole("status").textContent).toContain("暂无趋势数据");
     expect(screen.queryByRole("img")).toBeNull();
   });
 
   it("D4 底部成功率/最近事件卡最小高度与上方趋势卡节奏一致", () => {
-    const a = render(<DegradeChainCard metrics={null} loading />);
+    const a = render(<OverviewDialChainCard metrics={null} loading />);
     expect(a.container.querySelector("[data-slot=card]")!.className).toContain("min-h-56");
-    const b = render(<RecentEventsCard events={[]} loading />);
+    // 查看全部链接依赖路由上下文，渲染需包 MemoryRouter
+    const b = render(
+      <MemoryRouter><OverviewRecentEventsCard events={[]} loading /></MemoryRouter>,
+    );
     expect(b.container.querySelector("[data-slot=card]")!.className).toContain("min-h-56");
   });
 });

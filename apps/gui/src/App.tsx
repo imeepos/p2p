@@ -9,11 +9,11 @@ import type { ReactNode } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ChatRoutePage } from "@/routes/chat-route";
 import { ContactsPage } from "@/routes/contacts-page";
-import { DashboardPage } from "@/routes/dashboard-page";
 import { DiagnosticsPage } from "@/routes/diagnostics-page";
 import { DiscoveryPage } from "@/routes/discovery-page";
 import { EventsPage } from "@/routes/events-page";
 import { NetworkIndexRedirect } from "@/routes/network-index-redirect";
+import { NetworkOverviewPage } from "@/routes/network-overview-page";
 import { PeersPage } from "@/routes/peers-page";
 import { QueryRedirect } from "@/routes/redirects";
 import { RelayPage } from "@/routes/relay-page";
@@ -37,7 +37,7 @@ const routes = createRoutesFromChildren(
     <Route path="network">
       <Route index element={<NetworkIndexRedirect />} />
       <Route element={<NetworkPage />}>
-        <Route path="overview" element={<DashboardPage />} />
+        <Route path="overview" element={<NetworkOverviewPage />} />
         <Route path="peers" element={<PeersPage />} />
         <Route path="discovery" element={guarded(<DiscoveryPage />)} />
         <Route path="relay" element={guarded(<RelayPage />)} />

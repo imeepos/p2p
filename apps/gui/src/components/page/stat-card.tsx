@@ -25,6 +25,8 @@ interface StatCardProps {
   span?: CardSpan;
   loading?: boolean;
   mono?: boolean;
+  /** 卡片底部动作区（概览状态卡的启停按钮）；与 value 渲染互不影响。 */
+  footer?: ReactNode;
 }
 
 export function StatCard({
@@ -33,6 +35,7 @@ export function StatCard({
   span = 3,
   loading = false,
   mono = false,
+  footer,
 }: StatCardProps) {
   return (
     <div className={SPAN_CLASS[span]}>
@@ -45,7 +48,7 @@ export function StatCard({
             {loading ? <Skeleton className="h-5 w-28" /> : (value ?? "-")}
           </CardTitle>
         </CardHeader>
-        <CardContent className="px-4" />
+        <CardContent className="px-4">{footer}</CardContent>
       </Card>
     </div>
   );

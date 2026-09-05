@@ -57,13 +57,13 @@ function ChainBar({ row }: { row: ChainRowDef }) {
   );
 }
 
-interface DegradeChainCardProps {
+interface OverviewDialChainCardProps {
   metrics: MetricsJson | null;
   loading: boolean;
 }
 
-// 降级链成功率：direct/punch/relay 三行 ok/fail 比例条。
-export function DegradeChainCard({ metrics, loading }: DegradeChainCardProps) {
+// 拨号跳成功率：direct/punch/relay 三行 ok/fail 比例条（DialHop 聚合）。
+export function OverviewDialChainCard({ metrics, loading }: OverviewDialChainCardProps) {
   const { t } = useTranslation();
 
   return (

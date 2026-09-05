@@ -50,7 +50,7 @@ describe("app boot smoke", () => {
 // /network/*，群聊/ACP 整页形态经 /chat?kind=* 可达（七、并存策略），
 // 另含 /contacts 占位页。
 const routes: Array<[string, string | null]> = [
-  ["#/network/overview", "仪表盘"],
+  ["#/network/overview", "网络概览"],
   ["#/network/peers", null],
   ["#/network/discovery", null],
   ["#/network/relay", "中继地址配置"],

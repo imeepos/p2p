@@ -1,14 +1,16 @@
 import { PageHeader } from "@/components/page/page-header";
 import { useNodeStore } from "@/stores/node-store";
-import { DashboardMetricCards } from "./dashboard-metric-cards";
-import { DashboardQuickActions } from "./dashboard-quick-actions";
-import { DashboardStatusCards } from "./dashboard-status-cards";
-import { DashboardTrendCard } from "./dashboard-trend-card";
-import { DegradeChainCard } from "./degrade-chain-card";
-import { RecentEventsCard } from "./recent-events-card";
+import { OverviewDialChainCard } from "./overview-dial-chain-card";
+import { OverviewMetricCards } from "./overview-metric-cards";
+import { OverviewRecentEventsCard } from "./overview-recent-events-card";
+import { OverviewStatusCards } from "./overview-status-cards";
+import { OverviewTrendCard } from "./overview-trend-card";
+import { TroubleshootLinks } from "./troubleshoot-links";
 
-// 仪表盘：快速操作 + 状态卡 x4 + 指标卡 x4 + 趋势卡 + 降级链成功率 + 最近事件。
-export function DashboardView() {
+// 网络概览页（docs/design/app-shell-redesign.md 4.2）：吸收旧仪表盘全部
+// 信息卡，按「三秒看清 + 一跳排障」组织——节点状态卡（含启停）/ 四指标卡 /
+// 10 分钟趋势 / 拨号跳成功率 / 最近事件 5 条 / 排障入口行。
+export function OverviewView() {
   const status = useNodeStore((s) => s.status);
   const metrics = useNodeStore((s) => s.metrics);
   const metricsHistory = useNodeStore((s) => s.metricsHistory);
@@ -23,24 +25,24 @@ export function DashboardView() {
   return (
     <div className="col-span-12 grid grid-cols-12 gap-4">
       <PageHeader
-        titleKey="dashboard.title"
-        descriptionKey="dashboard.description"
+        titleKey="network.overview.title"
+        descriptionKey="network.overview.description"
       />
-      <DashboardQuickActions />
       <div className="col-span-12 grid grid-cols-12 gap-4 [&_[data-slot=card]]:h-full [&_[data-slot=card]]:min-h-28">
-        <DashboardStatusCards status={status} />
-        <DashboardMetricCards metrics={metrics} />
+        <OverviewStatusCards status={status} />
+        <OverviewMetricCards metrics={metrics} />
       </div>
-      <DashboardTrendCard
+      <OverviewTrendCard
         history={metricsHistory}
         running={status?.running ?? false}
       />
-      <DegradeChainCard metrics={metrics} loading={metrics === null} />
-      <RecentEventsCard
+      <OverviewDialChainCard metrics={metrics} loading={metrics === null} />
+      <OverviewRecentEventsCard
         events={events}
         loading={!subscriptionLive && bootstrapPhase !== "error"}
         linkFailed={linkFailed}
       />
+      <TroubleshootLinks />
     </div>
   );
 }
