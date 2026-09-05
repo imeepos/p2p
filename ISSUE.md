@@ -1,5 +1,27 @@
 # ISSUE
 
+## updater 密钥实为「空密码加密」而文档写无密码（2026-09-05 发布预检发现）
+
+- **信息不准**：docs/ops/updater-release.md 写本机密钥「无密码」，实际密钥头解码为 `rsign encrypted secret key`（空密码加密）。本地 `tauri build` 不设 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 时签名步尝试 TTY 提示，报 `Device not configured (os error 6)`。
+- **正确做法**：本地构建必须 `export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_SIGNING_PRIVATE_KEY_PATH")" && export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""`（两者都要）。文档待更正。
+
+## gui-client tag→release 路径从未成功过：GitHub secrets 缺失（2026-09-05 发布预检确认）
+
+- **信息缺失**：updater-release.md 的 GitHub secrets 复选框未勾（需仓库管理员）。实证：client-v0.1.4 tag 的 gui-client run 33946473330，gate job 全绿，四平台构建 job 全部 failure 于「Tauri 打包」步（与本地缺密钥报错同因），故 v0.1.4 有 tag 无 release；0.1.0–0.1.3 的 release 均无 .sig/.tar.gz/latest.json，应用内更新端点 releases/latest/download/latest.json 一直 404。
+- **影响**：secrets 登记前，任何 client-v* tag 都出不了 release。0.1.5 tag 推送被此阻塞。
+- **期望**：管理员登记 `TAURI_SIGNING_PRIVATE_KEY`（= 私钥文件全文）后重打 tag；`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 留空不建（密钥为空密码）。
+
+## ci.yml（ubuntu 全量门禁）在 main 存量红且本地 macOS 绿（2026-09-05 发布预检发现）
+
+- **症状**：main 最近 5+ 提交（313061a 起）ci.yml 全部 failure，「全量门禁」步 28 秒级早退（exit code 2，来不及编译任何东西）；同一提交本机 macOS `make check` RC=0。
+- **推断**：某个秒级子门禁在 Linux 上的平台假设（具体哪个待拿 CI 日志定位；已排除 /opt/homebrew 硬编码——check 脚本无此路径）。
+- **期望**：有仓库日志权限者拉 run 33960564342 日志定位；修复前 CI 红不作为 macOS 本地发版的否决项，但属门禁体系债务。
+
+## src-tauri 独立 workspace 不被根 fmt/clippy 门禁覆盖（2026-09-05 发现）
+
+- **症状**：根 Cargo.toml `exclude = ["apps/gui/src-tauri"]`，`scripts/check/fmt.sh`（cargo fmt --check）与 clippy 门禁只扫根 workspace——PR1 合并带入 chat.rs fmt 漂移与 group_contract clippy 警告，make check 仍全绿。
+- **期望**：fmt/clippy 门禁补跑 src-tauri workspace（或 CI 侧单列），盲区待收。
+
 ## AGENTS.md 远端名与实际不符（2026-09-04 T36 检查轮发现）
 
 - **信息不准**：AGENTS.md「收尾四步」一节写「远端名是 gitea 不是 origin」并示例 `git push gitea <分支>`；但本仓库实际只配置了 origin 远端（git@github.com:imeepos/p2p.git），不存在 gitea。账本 note（2026-09-04 12:30 CLI 对等波勘误）已明确「本仓库远端实为 origin（无 gitea），后续任务书统一用 origin」。
