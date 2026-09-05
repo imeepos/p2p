@@ -290,3 +290,10 @@ _none yet — be the first._
 
 
 AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只有 origin（github）。收尾四步推送前先 git remote -v 核对实际远端名再执行（2026-09-05）。
+- 2026-09-05：run_code 里 bash 命令写成 TS 模板字面量时，shell 的 ${var} 会被 JS 层先行插值直接抛 Unterminated template——长 shell 脚本一律「行数组 + join("\n")」拼串，变量用 $var 不带花括号，绝不让 ${ 出现在 code 字符串里。
+- 2026-09-05：git mv 后对「新路径」文件 write/edit 前必须先用 read 工具读新路径，旧路径读过不算（工具按路径记账）；perl -pi 批量改过的文件再 edit 同样要先重读，否则报 file changed since read。
+- 2026-09-05：并行会话在主树留 staged 半成品时 ff-only 合并三步走：git diff --name-only main <分支> 与 git status --porcelain 取交集 comm 校验为零重叠 + 核对 main==origin/main → 直接 merge --ff-only（git 不碰零重叠路径，外来 staged 态原样保留）→ 事后绝不跑全量测试（主树是别人工作区）。
+- 2026-09-05：主树 index 有他人 staged 内容时提交自己的文件，用 git commit -m ... -- <pathspec> 只提交指定路径，普通 git commit 会把别人的 staged 删除一起打包。
+- 2026-09-05：RTL 断言同名词在多卡片出现（如「中继」既是拨号链行名又是排障链接文案、「中继会话」既是指标卡标签又是趋势系列名）时全局 getByText 必撞多重匹配——用 getAllByText(label)[0].closest("[data-slot=card]") 再取卡内 card-title 的结构定位断值。
+- 2026-09-05：job_output 的 wait 有运行时 600s 墙钟上限，先超时的是等待不是任务——make check 级长任务 run_in_background 后用非阻塞 job_output 轮 job.status，tail 管道会在管道结束前不出文本属正常。
+- 2026-09-05：DSH 的 devloop_scan 绑定调用报 binding arguments must be lossless JSON（harness 序列化缺陷）时，改用 bash 跑同等只读命令替代，不要反复重试绑定。
