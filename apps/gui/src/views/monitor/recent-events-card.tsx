@@ -12,10 +12,16 @@ const RECENT_EVENT_COUNT = 10;
 interface RecentEventsCardProps {
   events: NodeEventJson[];
   loading: boolean;
+  /** 订阅引导失败：给显式错误文案，不永挂骨架。 */
+  linkFailed?: boolean;
 }
 
 // 最近事件卡：最新 10 条，类型徽标 + 相对时间（1s 跳动）。
-export function RecentEventsCard({ events, loading }: RecentEventsCardProps) {
+export function RecentEventsCard({
+  events,
+  loading,
+  linkFailed = false,
+}: RecentEventsCardProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const now = useTicker(1000);
@@ -30,7 +36,11 @@ export function RecentEventsCard({ events, loading }: RecentEventsCardProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-1 flex-col justify-center gap-1.5 px-4">
-          {loading ? (
+          {linkFailed ? (
+            <p className="text-destructive text-sm" role="alert">
+              {t("events.loadFailed")}
+            </p>
+          ) : loading ? (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-4/5" />

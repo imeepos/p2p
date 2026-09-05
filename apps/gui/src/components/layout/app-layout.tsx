@@ -12,6 +12,7 @@ import {
 } from "@/hooks/use-hotkeys";
 import { useNodeStore } from "@/stores/node-store";
 import { useUpdateStore } from "@/stores/update-store";
+import { DataLinkBanner } from "@/views/monitor/data-link-banner";
 import { UpdateNotice } from "@/views/update/update-notice";
 
 const REFRESH_INTERVAL_MS = 5000;
@@ -53,6 +54,7 @@ export function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+          <DataLinkBanner />
           <div
             className="grid min-h-0 flex-1 grid-cols-12 gap-4 p-6"
             aria-label={t("common.appName")}

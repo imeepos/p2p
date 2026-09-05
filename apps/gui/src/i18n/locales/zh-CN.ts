@@ -124,11 +124,20 @@ const zhCN = {
       cancelled: "已取消操作",
     },
     events: { empty: "暂无事件" },
+    dataLink: {
+      bootstrapFailed: "数据链路未就绪：事件订阅或初始刷新失败",
+      stale: "数据可能已过期：状态刷新连续失败",
+      retry: "重试",
+      retrying: "重试中…",
+      refreshNow: "立即刷新",
+      refreshing: "刷新中…",
+    },
     trend: {
       title: "10 分钟趋势",
       hint: "每 5 秒采样一个点，展示最近 120 点（10 分钟窗口）",
       empty: "暂无趋势数据",
       emptyHint: "启动节点后开始采样",
+      emptyRunningHint: "节点运行中但暂无有效采样，等待下一个采样点",
       connections: "活跃连接",
       relaySessions: "中继会话",
       now: "当前 {{count}}",
@@ -140,6 +149,13 @@ const zhCN = {
     empty: "暂无已知节点",
     emptyHint: "邻居通过 mDNS/rendezvous 自动发现，也可手动拨号接入",
     emptyAction: "拨号添加节点",
+    emptyStopped: {
+      title: "节点未运行",
+      description: "先启动节点，邻居才能被发现或拨号接入",
+    },
+    filters: {
+      reset: "清除筛选",
+    },
     count: "共 {{count}} 个节点",
     searchPlaceholder: "搜索 PeerId 或地址",
     moreAddrs: "还有 {{count}} 个地址",
@@ -158,6 +174,8 @@ const zhCN = {
     disconnectOk: "已挂断",
     disconnectIdle: "该节点当前无活跃连接",
     disconnectFail: "挂断失败：{{reason}}",
+    connectFailFallback: "拨号失败（未返回失败原因）",
+    pingFailFallback: "Ping 失败（未返回原因）",
     dial: {
       title: "手动拨号",
       targetLabel: "目标",
@@ -169,6 +187,7 @@ const zhCN = {
       succeeded: "拨号成功",
       failed: "拨号失败",
       failedReasonUnknown: "未返回失败跳详情",
+      nodeNotRunning: "节点未运行：请先启动节点，再手动拨号",
       elapsed: "耗时 {{ms}} ms",
     },
     detail: {
@@ -259,7 +278,12 @@ const zhCN = {
     description: "节点实时事件流",
     empty: "暂无事件",
     emptyFiltered: "没有匹配当前过滤条件的事件",
-    filter: { searchPlaceholder: "搜索事件内容", errorOnly: "仅错误" },
+    loadFailed: "事件订阅未就绪：引导失败，可重试",
+    filter: {
+      searchPlaceholder: "搜索事件内容",
+      errorOnly: "仅错误",
+      reset: "清除筛选",
+    },
     controls: {
       pause: "暂停滚动",
       resume: "恢复滚动",

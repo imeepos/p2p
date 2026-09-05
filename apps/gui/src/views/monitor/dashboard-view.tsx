@@ -14,6 +14,8 @@ export function DashboardView() {
   const metricsHistory = useNodeStore((s) => s.metricsHistory);
   const events = useNodeStore((s) => s.events);
   const subscriptionLive = useNodeStore((s) => s.subscriptionLive);
+  const bootstrapPhase = useNodeStore((s) => s.bootstrapPhase);
+  const linkFailed = !subscriptionLive && bootstrapPhase === "error";
 
   // 内层包裹只罩住两行状态/指标卡：[&_[data-slot=card]] 的选择器特异性
   // 高于卡片自身类，若罩全页会压掉底部卡的 min-h-40（D4），故收窄作用域。
@@ -34,7 +36,11 @@ export function DashboardView() {
         running={status?.running ?? false}
       />
       <DegradeChainCard metrics={metrics} loading={metrics === null} />
-      <RecentEventsCard events={events} loading={!subscriptionLive} />
+      <RecentEventsCard
+        events={events}
+        loading={!subscriptionLive && bootstrapPhase !== "error"}
+        linkFailed={linkFailed}
+      />
     </div>
   );
 }

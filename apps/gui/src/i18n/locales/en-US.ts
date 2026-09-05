@@ -128,11 +128,20 @@ const enUS: typeof zhCN = {
       cancelled: "Cancelled",
     },
     events: { empty: "No events yet" },
+    dataLink: {
+      bootstrapFailed: "Data link not ready: event subscription or initial refresh failed",
+      stale: "Data may be stale: status refresh keeps failing",
+      retry: "Retry",
+      retrying: "Retrying…",
+      refreshNow: "Refresh now",
+      refreshing: "Refreshing…",
+    },
     trend: {
       title: "10-minute trend",
       hint: "One sample every 5s, showing the last 120 points (10-minute window)",
       empty: "No trend data yet",
       emptyHint: "Sampling starts once the node is running",
+      emptyRunningHint: "Node is running but no valid samples yet; waiting for the next sample",
       connections: "Active connections",
       relaySessions: "Relay sessions",
       now: "now {{count}}",
@@ -145,6 +154,13 @@ const enUS: typeof zhCN = {
     emptyHint:
       "Peers are discovered via mDNS/rendezvous, or dial manually to connect",
     emptyAction: "Dial to add a peer",
+    emptyStopped: {
+      title: "Node is not running",
+      description: "Start the node first so neighbours can be discovered or dialed",
+    },
+    filters: {
+      reset: "Clear filters",
+    },
     count: "{{count}} peers in total",
     searchPlaceholder: "Search PeerId or address",
     moreAddrs: "+{{count}} more addresses",
@@ -163,6 +179,8 @@ const enUS: typeof zhCN = {
     disconnectOk: "Hung up",
     disconnectIdle: "No active connection to this peer",
     disconnectFail: "Hang up failed: {{reason}}",
+    connectFailFallback: "Dial failed (no failure reason returned)",
+    pingFailFallback: "Ping failed (no reason returned)",
     dial: {
       title: "Manual dial",
       targetLabel: "Target",
@@ -174,6 +192,7 @@ const enUS: typeof zhCN = {
       succeeded: "Dial succeeded",
       failed: "Dial failed",
       failedReasonUnknown: "No failed-hop detail returned",
+      nodeNotRunning: "Node is not running: start the node before dialing",
       elapsed: "took {{ms}} ms",
     },
     detail: {
@@ -267,7 +286,12 @@ const enUS: typeof zhCN = {
     description: "Live node event stream",
     empty: "No events yet",
     emptyFiltered: "No events match the current filters",
-    filter: { searchPlaceholder: "Search event text", errorOnly: "Errors only" },
+    loadFailed: "Event subscription not ready: bootstrap failed, retry available",
+    filter: {
+      searchPlaceholder: "Search event text",
+      errorOnly: "Errors only",
+      reset: "Clear filters",
+    },
     controls: {
       pause: "Pause scrolling",
       resume: "Resume scrolling",

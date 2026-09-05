@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { PageHeader } from "@/components/page/page-header";
 import type { Locale } from "@/i18n";
 import type { NodeEventJson } from "@/lib/ipc-types";
+import { useNodeStore } from "@/stores/node-store";
 import { useEventsController } from "./use-events-controller";
 import { EventsFilterBar } from "./events-filter-bar";
 import { EventsActionsBar } from "./events-actions-bar";
@@ -14,6 +15,9 @@ export function EventsView() {
   const { i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const controller = useEventsController();
+  const bootstrapPhase = useNodeStore((s) => s.bootstrapPhase);
+  const bootstrap = useNodeStore((s) => s.bootstrap);
+  const linkFailed = !controller.subscriptionLive && bootstrapPhase === "error";
   const [expanded, setExpanded] = useState<ReadonlySet<NodeEventJson>>(
     () => new Set(),
   );
@@ -56,9 +60,12 @@ export function EventsView() {
       />
 
       <EventsListCard
-        loading={!controller.subscriptionLive}
+        loading={!controller.subscriptionLive && bootstrapPhase !== "error"}
+        linkFailed={linkFailed}
+        onRetryLink={bootstrap}
         bufferEmpty={controller.events.length === 0}
         filtered={controller.filtered}
+        onResetFilters={controller.resetFilters}
         locale={locale}
         expanded={expanded}
         heightAt={heightAt}
