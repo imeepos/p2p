@@ -13,10 +13,12 @@ import {
   isBefore,
   mediaFile,
   mountChat,
+  mountConversationListFromStore,
   resetChatStore,
   seedConversation,
   seedSummaries,
 } from "@/test/chat-render-matrix-fixtures";
+import { useChatStore } from "@/stores/chat-store";
 
 const { mocks, toastSpies } = vi.hoisted(() => ({
   mocks: {
@@ -79,11 +81,13 @@ const MEDIA_ROWS: MediaRow[] = [
   { kind: "file", fileName: "archive.zip", mime: "application/zip", path: "/data/files/archive.zip", tag: null },
 ];
 
-beforeEach(() => {
+beforeEach(async () => {
   vi.clearAllMocks();
   resetChatStore();
   mocks.friends.mockResolvedValue([]);
   mocks.history.mockResolvedValue([]);
+  // 入站注入依赖 store 订阅（ChatPage 挂载面职责，本文件直挂右栏需自备）
+  await useChatStore.getState().subscribeEvents();
 });
 
 describe("渲染矩阵·me 发送成功", () => {
@@ -151,7 +155,7 @@ describe("渲染矩阵·me 发送失败", () => {
     await screen.findByText("发送失败"); // sonner 实渲染（本格是文件内首个 toastError，未被去重拦截）
     expect(within(bubbleArea()).queryByText("失败文本")).toBeNull();
     expect(screen.getByTestId("chat-input")).toBeTruthy();
-    expect(screen.getByRole("region", { name: "会话" })).toBeTruthy();
+    expect(screen.getByTestId("chat-conversation-header")).toBeTruthy();
   });
 
   it.each(MEDIA_ROWS)("$kind：占位回滚移除、错误可见、界面不白屏", async (row) => {
@@ -232,10 +236,11 @@ describe("渲染矩阵·补缺口", () => {
     }));
     entries.push({ peer: peerId("sum-text"), message: textMessage("s9", PEER, "纯文本摘要", { tsMs: 100 }) });
     seedSummaries(entries);
-    mountChat();
-    expect(conversationRow(entries[0].peer).textContent).toContain("photo.png");
-    expect(conversationRow(entries[1].peer).textContent).toContain("voice.mp3");
-    expect(conversationRow(entries[2].peer).textContent).toContain("movie.mp4");
+    mountConversationListFromStore();
+    // §2.2 预览规则：image/audio/video 仅类型词条；file 词条 + 文件名；text 原文
+    expect(conversationRow(entries[0].peer).textContent).toContain("[图片]");
+    expect(conversationRow(entries[1].peer).textContent).toContain("[语音]");
+    expect(conversationRow(entries[2].peer).textContent).toContain("[视频]");
     expect(conversationRow(entries[3].peer).textContent).toContain("report.pdf");
     expect(conversationRow(entries[4].peer).textContent).toContain("纯文本摘要");
     expect((conversationRow(entries[0].peer).textContent ?? "").match(/base64|data:/)).toBeNull();
@@ -248,8 +253,10 @@ describe("渲染矩阵·补缺口", () => {
     // 乱序页走真实 selectPeer → mergeMessages 排序路径
     mocks.friends.mockResolvedValue([friendJson(PEER, "矩阵好友")]);
     mocks.history.mockImplementation(async (peer: string) => (peer === PEER ? [newest, oldest, mid] : []));
+    await act(async () => {
+      await useChatStore.getState().selectPeer(PEER);
+    });
     mountChat();
-    fireEvent.click(await screen.findByText("矩阵好友"));
     await waitFor(() => expect(bubbleArea().querySelector("video")).toBeTruthy());
     const area = bubbleArea();
     const oldestP = within(area).getByText("最早文本");

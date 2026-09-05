@@ -3,7 +3,10 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import i18n from "@/i18n";
+import { useAcpStore } from "@/acp/acp-store";
 import { MENU_ENTRIES } from "@/config/menu.def";
+import { useChatStore } from "@/stores/chat-store";
+import { useGroupStore } from "@/stores/group-store";
 import { IconRail } from "./icon-rail";
 
 function renderRail(initial: string) {
@@ -54,5 +57,24 @@ describe("IconRail（1.1 rail 规格）", () => {
     );
     expect(active).toHaveLength(1);
     expect(active[0]?.getAttribute("href")).toBe("/network");
+  });
+});
+
+describe("rail 聊天未读合计角标（§2.3）", () => {
+  it("三来源未读求和呈现；归零后角标消失；≥100 显 99+", () => {
+    useChatStore.setState({ unreadByPeer: { p1: 2, p2: 3 } });
+    useGroupStore.setState({ unreadByGroup: { g1: 5 } });
+    useAcpStore.setState({ unreadByEndpoint: { e1: 90 } });
+    renderRail("/chat");
+    const badge = screen.getByTestId("rail-badge-/chat");
+    // 合计 100（2+3+5+90）≥100 → 显 99+
+    expect(badge.textContent).toBe("99+");
+    cleanup();
+
+    useChatStore.setState({ unreadByPeer: {} });
+    useGroupStore.setState({ unreadByGroup: {} });
+    useAcpStore.setState({ unreadByEndpoint: {} });
+    renderRail("/chat");
+    expect(screen.queryByTestId("rail-badge-/chat")).toBeNull();
   });
 });

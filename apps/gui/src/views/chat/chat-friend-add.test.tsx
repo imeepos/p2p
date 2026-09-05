@@ -42,7 +42,8 @@ vi.mock("@/lib/ipc", () => ({
 
 import "@/i18n";
 import { useChatStore } from "@/stores/chat-store";
-import { ChatView } from "./chat-view";
+import { ChatFriendAddDialog } from "@/components/chat/chat-friend-add-dialog";
+import { ChatInvitePanel } from "@/components/chat/chat-invite-panel";
 
 // 真实 base58（解码恰 32 字节），与后端 parse_peer_id 同口径的合法夹具
 const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
@@ -70,35 +71,21 @@ beforeEach(() => {
   });
 });
 
-async function openAddDialog(trigger: string) {
-  fireEvent.click(screen.getByTestId(trigger));
+// P1 起 /chat 列表不再承载好友管理入口（归 P2 通讯录），本文件直挂对话框
+// 组件覆盖表单校验/错误路径/旅程；入口可达性回归随 P2 迁移重建。
+async function openAddDialog(): Promise<void> {
+  render(
+    <>
+      <ChatInvitePanel />
+      <ChatFriendAddDialog open onOpenChange={() => {}} />
+    </>,
+  );
   await waitFor(() => expect(screen.getByTestId("friend-add-dialog")).toBeTruthy());
 }
 
-describe("ChatView 添加好友入口存在性", () => {
-  it("零好友空态：好友列表区常驻按钮与空态引导按钮同时可见可点", async () => {
-    render(<ChatView />);
-    await waitFor(() => expect(screen.getByTestId("chat-add-friend")).toBeTruthy());
-    await waitFor(() =>
-      expect(screen.getByTestId("chat-add-friend-empty")).toBeTruthy(),
-    );
-    await openAddDialog("chat-add-friend-empty");
-    expect(screen.getByTestId("friend-add-submit")).toBeTruthy();
-  });
-
-  it("常态（已有好友）：常驻按钮可打开表单", async () => {
-    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
-    render(<ChatView />);
-    await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
-    await openAddDialog("chat-add-friend");
-    expect(screen.getByTestId("friend-add-submit")).toBeTruthy();
-  });
-});
-
 describe("ChatView 添加好友校验与错误路径", () => {
   it("非法 PeerId：前端预校验拦截并红字提示，不触达后端", async () => {
-    render(<ChatView />);
-    await openAddDialog("chat-add-friend");
+    await openAddDialog();
     fireEvent.change(screen.getByLabelText("PeerId"), {
       target: { value: "!!!not-base58!!!" },
     });
@@ -115,9 +102,9 @@ describe("ChatView 添加好友校验与错误路径", () => {
     mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
     mocks.addFriend.mockRejectedValue(new Error(`该节点已是好友：${PEER}`));
     const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    render(<ChatView />);
-    await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
-    await openAddDialog("chat-add-friend");
+    // 好友簿就位（原由 ChatView 挂载时 loadFriends 填充）
+    useChatStore.setState({ friends: [friendOf(PEER, "小圆")], friendsLoaded: true });
+    await openAddDialog();
     fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: PEER } });
     fireEvent.click(screen.getByTestId("friend-add-submit"));
     await waitFor(() =>
@@ -127,15 +114,15 @@ describe("ChatView 添加好友校验与错误路径", () => {
     );
     expect((screen.getByLabelText("PeerId") as HTMLInputElement).value).toBe(PEER);
     expect(logSpy).toHaveBeenCalledWith("[chat] 添加好友失败", expect.any(Error));
-    expect(screen.getAllByText("小圆").length).toBe(1);
+    // 列表不出现重复条目：store 权威状态恰一条
+    expect(useChatStore.getState().friends.filter((f) => f.nickname === "小圆")).toHaveLength(1);
     logSpy.mockRestore();
   });
 
   it("后端拒绝（自加为好友）：不白屏、表单保留已填内容、失败留日志", async () => {
     mocks.addFriend.mockRejectedValue(new Error(`不能把自己加为好友：${PEER}`));
     const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    render(<ChatView />);
-    await openAddDialog("chat-add-friend");
+    await openAddDialog();
     fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: PEER } });
     fireEvent.change(screen.getByLabelText("昵称（可选）"), {
       target: { value: "自己" },
@@ -182,11 +169,7 @@ describe("ChatView 从零开始旅程", () => {
       delivered: true,
     });
 
-    render(<ChatView />);
-    // 零好友空态
-    await waitFor(() => expect(screen.getByText("暂无好友")).toBeTruthy());
-    // 空态引导一键直达表单
-    await openAddDialog("chat-add-friend-empty");
+    await openAddDialog();
     fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: PEER } });
     fireEvent.change(screen.getByLabelText("昵称（可选）"), {
       target: { value: "小圆" },

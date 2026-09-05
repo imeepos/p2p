@@ -1,6 +1,5 @@
 import type {
   ChatFriendJson,
-  ChatKind,
   ChatMessageJson,
   GroupChatState,
   GroupJson,

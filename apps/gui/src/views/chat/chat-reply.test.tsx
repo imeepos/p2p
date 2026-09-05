@@ -1,5 +1,6 @@
 // IM-T46B 回复消息 GUI：回复旅程 / 引用取消 / 缺失占位 / 五类型预览矩阵 /
-// 旧消息渲染回归 / 引用跳转高亮。走完整 ChatView（store + 事件注入）。
+// 旧消息渲染回归 / 引用跳转高亮。P1 起右栏抽为 FriendConversation，本文件
+// 直挂该组件（store 播种 + 事件注入），覆盖面不变。
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -45,15 +46,30 @@ vi.mock("@/lib/ipc", () => ({
 
 import "@/i18n";
 import { useChatStore } from "@/stores/chat-store";
-import { ChatView } from "./chat-view";
+import { FriendConversation } from "./friend-conversation";
 
 const PEER = peerId("reply-peer");
 
 async function mountWithHistory(history: ChatMessageJson[]): Promise<void> {
   mocks.friends.mockResolvedValue([friendJson(PEER, "引用好友")]);
   mocks.history.mockResolvedValue(history);
-  render(<ChatView />);
-  fireEvent.click(await screen.findByText("引用好友"));
+  useChatStore.setState({
+    friends: [friendJson(PEER, "引用好友")],
+    friendsLoaded: true,
+    selectedPeer: null,
+    messagesByPeer: {},
+    lastMessageByPeer: {},
+    historyLoading: {},
+    historyLoaded: {},
+    hasMore: {},
+  });
+  // 历史经真实 selectPeer → mock chatHistory 装载（与生产同路径）；
+  // 事件订阅与 ChatPage 挂载面同源（入站注入依赖它）。
+  await useChatStore.getState().subscribeEvents();
+  await act(async () => {
+    await useChatStore.getState().selectPeer(PEER);
+  });
+  render(<FriendConversation peer={PEER} />);
   await screen.findByTestId("chat-input");
 }
 
@@ -178,7 +194,7 @@ describe("回复消息 GUI", () => {
     expect(screen.getByTestId("chat-quote-missing").textContent).toContain("引用消息不在本地");
     // 不白屏：输入区与会话区壳仍在
     expect(screen.getByTestId("chat-input")).toBeTruthy();
-    expect(screen.getByRole("region", { name: "会话" })).toBeTruthy();
+    expect(screen.getByTestId("chat-conversation-header")).toBeTruthy();
   });
 
   it.each(REPLY_ROWS)("$kind：引用预览按类型显示 i18n 摘要", async (row) => {

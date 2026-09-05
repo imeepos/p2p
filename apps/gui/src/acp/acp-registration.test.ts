@@ -47,10 +47,10 @@ describe("menu registration guard", () => {
     }
   });
 
-  it("ACP 视图经 /chat?kind=agent 保持可达（/acp 重定向保留）", () => {
+  it("/acp 重定向保留，落点为统一会话页（P1 kind 聚焦）", () => {
     expect(routes().has("acp")).toBe(true);
     const chatRoute = readFileSync(join(process.cwd(), "src", "routes", "chat-route.tsx"), "utf8");
-    expect(chatRoute).toContain("AcpPage");
+    expect(chatRoute).toContain("ChatPage");
     expect(typeof AcpPage).toBe("function");
   });
 });

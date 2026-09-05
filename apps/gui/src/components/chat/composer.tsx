@@ -5,7 +5,8 @@ import { ImagePlus, Send, Smile, X } from "lucide-react";
 import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { fileToChatMedia, inferKind } from "@/lib/chat-media";
+import { fileToChatMedia, inferKind, resolveMime } from "@/lib/chat-media";
+import { guardMediaFile, MEDIA_GUARD_I18N_KEY } from "@/lib/chat-limits";
 import type { ChatKind, ChatMediaInput, ChatMessageJson, ChatSendReport } from "@/lib/ipc-types";
 import { useChatStore } from "@/stores/chat-store";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,10 @@ export interface ComposerTransport {
 }
 
 // 输入条：多行文本 + 表情面板 + 附件；回车发送，shift+enter 换行；
-// 空文本/超长禁用发送并提示；附件超限走 toastError（失败留信号）。
+// 空文本/超长禁用发送（§2.5 三律(1) 前置校验）；附件在读取前先走
+// guardMediaFile 本地拦截（mime 白名单 + ≤64MiB + 空载荷），稳定错误码经
+// i18n 渲染，不发无效请求；原始错误串只进提示详情。表单三律 (2)(3) 在
+// composer 显式不适用：无候选集下拉场景，也不提供历史值下拉。
 // 带引用时（replyTarget）文本与附件发送均透传 replyTo，成功后清预览。
 export function Composer({
   peer,
@@ -140,11 +144,22 @@ export function Composer({
 
   const pickFile = (file: File | undefined) => {
     if (!file) return;
+    // §2.5 前置拦截在读取 base64 之前：超限/空/白名单外文件不进发送管线
+    const kind = inferKind(file.name, file.type);
+    const guardCode = guardMediaFile(kind, resolveMime(file.name, file.type), file.size);
+    if (guardCode) {
+      const reason = `guard=${guardCode} name=${file.name} size=${file.size}`;
+      console.warn("[chat] 附件前置校验拦截", reason);
+      toastError(t(MEDIA_GUARD_I18N_KEY[guardCode]), {
+        description: reason,
+      });
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     void (async () => {
       setSending(true);
       try {
         const media = await fileToChatMedia(file);
-        const kind = inferKind(file.name, file.type);
         const report = await tx.sendMedia(peer, kind, media, replyTarget?.id);
         onReplyCancel();
         if (!transport) notifyFailedSendReport(report as ChatSendReport);

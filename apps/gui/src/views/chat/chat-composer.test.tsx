@@ -8,7 +8,7 @@ import type {
   NodeEventHandler,
 } from "@/lib/ipc-types";
 
-const { mocks } = vi.hoisted(() => ({
+const { mocks, toastSpies } = vi.hoisted(() => ({
   mocks: {
     friends: vi.fn<() => Promise<ChatFriendJson[]>>(),
     history: vi.fn<() => Promise<ChatMessageJson[]>>(),
@@ -16,7 +16,19 @@ const { mocks } = vi.hoisted(() => ({
     // 群/1:1 两个 store 各注册一个监听（真实 ipc 事件总线一对多）
     handlers: [] as NodeEventHandler[],
   },
+  toastSpies: { error: vi.fn() },
 }));
+
+vi.mock("@/components/feedback/toast", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/feedback/toast")>();
+  return {
+    ...actual,
+    toastError: (...args: Parameters<typeof actual.toastError>) => {
+      toastSpies.error(...args);
+      return actual.toastError(...args);
+    },
+  };
+});
 
 vi.mock("@/lib/ipc", () => ({
   ipc: {
@@ -32,7 +44,7 @@ vi.mock("@/lib/ipc", () => ({
 
 import "@/i18n";
 import { useChatStore } from "@/stores/chat-store";
-import { ChatView } from "./chat-view";
+import { FriendConversation } from "./friend-conversation";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -71,9 +83,23 @@ function emitStatus(messageId: string, status: ChatMessageJson["status"]): void 
 async function mountWithHistory(history: ChatMessageJson[]): Promise<void> {
   mocks.friends.mockResolvedValue([friend("friend-a", "小圆")]);
   mocks.history.mockResolvedValue(history);
-  render(<ChatView />);
-  await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
-  fireEvent.click(screen.getByText("小圆"));
+  useChatStore.setState({
+    friends: [friend("friend-a", "小圆")],
+    friendsLoaded: true,
+    selectedPeer: null,
+    messagesByPeer: {},
+    lastMessageByPeer: {},
+    historyLoading: {},
+    historyLoaded: {},
+    hasMore: {},
+  });
+  // 历史经真实 selectPeer → mock chatHistory 装载（与生产同路径）；
+  // 事件订阅与 ChatPage 挂载面同源（状态推进事件依赖它）。
+  await useChatStore.getState().subscribeEvents();
+  await act(async () => {
+    await useChatStore.getState().selectPeer(PEER_A);
+  });
+  render(<FriendConversation peer={PEER_A} />);
   await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
 }
 
@@ -131,7 +157,7 @@ describe("ChatView 发送与状态", () => {
       historyLoading: {},
       hasMore: { [PEER_A]: false },
     });
-    render(<ChatView />);
+    render(<FriendConversation peer={PEER_A} />);
     expect(screen.getByText("排队中")).toBeTruthy();
     expect(screen.getByText("等待对方上线")).toBeTruthy();
     expect(screen.getByText("失败了")).toBeTruthy();
@@ -150,7 +176,7 @@ describe("ChatView 发送与状态", () => {
       historyLoading: {},
       hasMore: { [PEER_A]: false },
     });
-    render(<ChatView />);
+    render(<FriendConversation peer={PEER_A} />);
     expect(screen.getByText("等待对方上线")).toBeTruthy();
 
     emitStatus("s1", "sent");
@@ -203,5 +229,39 @@ describe("ChatView 表情与附件", () => {
       expect(screen.getAllByText("photo.png").length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText("已送达").length).toBeGreaterThan(0);
+  });
+});
+
+describe("composer 前置校验（§2.5）", () => {
+  it("媒体超 64MiB：读取前本地拦截，不发无效请求，走稳定错误码 i18n 提示", async () => {
+    await mountWithHistory([]);
+    const file = new File(["x"], "big.png", { type: "image/png" });
+    Object.defineProperty(file, "size", { value: 64 * 1024 * 1024 + 1 });
+    const input = screen.getByTestId("chat-file-input") as HTMLInputElement;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() =>
+      expect(toastSpies.error).toHaveBeenCalledWith(
+        "附件超过单条消息 64 MiB 上限",
+        expect.objectContaining({ description: expect.stringContaining("guard=tooLarge") }),
+      ),
+    );
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(input.value).toBe("");
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("空文件：前置拦截为空载荷错误码，不发无效请求", async () => {
+    await mountWithHistory([]);
+    const file = new File([], "empty.bin", { type: "application/octet-stream" });
+    const input = screen.getByTestId("chat-file-input") as HTMLInputElement;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() =>
+      expect(toastSpies.error).toHaveBeenCalledWith("附件内容为空，无法发送", expect.anything()),
+    );
+    expect(mocks.send).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

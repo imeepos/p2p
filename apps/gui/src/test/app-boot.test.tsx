@@ -57,8 +57,9 @@ const routes: Array<[string, string | null]> = [
   ["#/network/events", null],
   ["#/network/diagnostics", null],
   ["#/chat", "暂无好友"],
-  ["#/chat?kind=group", "暂无群聊"],
-  ["#/chat?kind=agent", "ACP 控制台"],
+  // P1 统一会话页：mock 后端无群/无端点时 ?kind=* 落空态（拍板项 1）
+  ["#/chat?kind=group", "选择或发起会话"],
+  ["#/chat?kind=agent", "选择或发起会话"],
   ["#/contacts", "通讯录"],
   ["#/settings", "局域网发现（mDNS）"],
 ];

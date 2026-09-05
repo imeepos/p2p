@@ -1,3 +1,4 @@
+import type { I18nKey } from "@/i18n/types";
 import type { ChatKind, ChatMediaInput } from "./ipc-types";
 
 // 契约 §12 chat 侧共享校验常量与纯函数：与后端 src-tauri/p2p-chat 同口径，
@@ -143,6 +144,34 @@ export function validateGroupName(raw: string | null | undefined): string | null
   if (trimmed.length === 0) return null;
   if (Array.from(trimmed).length > MAX_GROUP_CHARS) {
     return `分组名超过 ${MAX_GROUP_CHARS} 字符上限`;
+  }
+  return null;
+}
+
+// ---- §2.5 composer 前置校验（稳定错误码 → i18n key，不发无效请求）----
+
+/** 稳定错误码：i18n key 后缀与后端 ChatMediaInput 校验语义一一对应 */
+export type MediaGuardCode = "empty" | "tooLarge" | "mimeRejected";
+
+export const MEDIA_GUARD_I18N_KEY: Record<MediaGuardCode, I18nKey> = {
+  empty: "chat.media.errors.empty",
+  tooLarge: "chat.media.errors.tooLarge",
+  mimeRejected: "chat.media.errors.mimeRejected",
+};
+
+/** composer 本地前置拦截（§2.5）：口径与后端 model::validate_media 一致——
+ *  空载荷 / 超 64MiB / image·audio·video 的 mime 白名单外一律拦截；
+ *  file kind 后端接受任意 mime，不在此拦。通过返回 null。 */
+export function guardMediaFile(
+  kind: ChatKind,
+  mime: string,
+  sizeBytes: number,
+): MediaGuardCode | null {
+  if (sizeBytes <= 0) return "empty";
+  if (sizeBytes > MAX_MEDIA_BYTES) return "tooLarge";
+  if (kind === "image" || kind === "audio" || kind === "video") {
+    const allowed = MIME_BY_KIND[kind];
+    if (!allowed.has(mime.toLowerCase())) return "mimeRejected";
   }
   return null;
 }

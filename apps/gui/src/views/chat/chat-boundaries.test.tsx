@@ -14,6 +14,9 @@ import {
   sendReport,
   textMessage,
 } from "@/test/chat-boundaries-fixtures";
+import { MemoryRouter } from "react-router-dom";
+import { ChatPage } from "@/views/chat/chat-page";
+import { FriendConversation } from "@/views/chat/friend-conversation";
 import "@/i18n";
 
 const { mocks } = vi.hoisted(() => ({
@@ -31,6 +34,11 @@ vi.mock("@/lib/ipc", () => ({
     chatFriendsList: mocks.friends,
     chatHistory: mocks.history,
     chatSend: mocks.send,
+    // ChatPage 聚合挂载面：群/邀请/节点状态存根（本文件不涉及其行为）
+    groupList: vi.fn().mockResolvedValue([]),
+    groupHistory: vi.fn().mockResolvedValue([]),
+    chatInvitesList: vi.fn().mockResolvedValue([]),
+    nodeStatus: vi.fn().mockResolvedValue({ peerId: "self-peer", running: true }),
     onNodeEvent: (handler: NodeEventHandler) => {
       mocks.handlers.push(handler);
       return Promise.resolve(() => {});
@@ -124,7 +132,7 @@ describe("GUI chat composer boundaries", () => {
       [new File(["x"], "sound.mp3", { type: "audio/mpeg" }), "audio"],
       [new File(["x"], "clip.mp4", { type: "video/mp4" }), "video"],
       [new File(["x"], "archive.unknown", { type: "application/octet-stream" }), "file"],
-      [new File([], "empty.bin", { type: "application/octet-stream" }), "file"],
+      // 零字节文件不再发送（§2.5 前置拦截 = 后端 size==0 同口径），拦截用例见 composer 测试
     ];
     for (const [file, kind] of cases) {
       fireEvent.change(input, { target: { files: [file] } });
@@ -169,10 +177,17 @@ describe("GUI chat composer boundaries", () => {
 describe("GUI chat event and history boundaries", () => {
   it("shows empty-state guidance and no composer when friend list is empty", async () => {
     mocks.friends.mockResolvedValue([]);
-    const { ChatView } = await import("./chat-view");
-    render(<ChatView />);
-    await waitFor(() => expect(screen.getByText("暂无好友")).toBeTruthy(), { timeout: WAIT_TIMEOUT });
-    expect(screen.getByText("暂无会话，选择好友开始聊天")).toBeTruthy();
+    render(
+      <MemoryRouter initialEntries={["/chat"]}>
+        <ChatPage />
+      </MemoryRouter>,
+    );
+    await waitFor(
+      () => expect(screen.getByText("暂无好友")).toBeTruthy(),
+      { timeout: WAIT_TIMEOUT },
+    );
+    // 右侧未选中空态（§2.1）：选择或发起会话
+    expect(screen.getByText("选择或发起会话")).toBeTruthy();
     expect(screen.queryByTestId("chat-input")).toBeNull();
   }, VIEW_TIMEOUT);
 
@@ -180,8 +195,7 @@ describe("GUI chat event and history boundaries", () => {
     const pending = mediaMessage("local-1", PEER, "image", chatMedia("photo.png", "image/png", 3));
     const sent = mediaMessage("real-1", PEER, "video", chatMedia("clip.mp4", "video/mp4", 4), { status: "delivered", tsMs: 3 });
     selectConversation([pending, sent]);
-    const { ChatView } = await import("./chat-view");
-    render(<ChatView />);
+    render(<FriendConversation peer={PEER} />);
     fireEvent.click(screen.getByRole("button", { name: "取消发送" }));
     expect(screen.queryByText("photo.png")).toBeNull();
     expect(screen.queryByRole("button", { name: "取消发送" })).toBeNull();
@@ -191,8 +205,7 @@ describe("GUI chat event and history boundaries", () => {
 
   it("deduplicates chat_message and applies out-of-order status visibly", async () => {
     selectConversation([textMessage("m1", PEER, "在途", { status: "pending" })]);
-    const { ChatView } = await import("./chat-view");
-    render(<ChatView />);
+    render(<FriendConversation peer={PEER} />);
     emit({ type: "chat_status", peer: PEER, messageId: "m1", status: "delivered" });
     emit({ type: "chat_status", peer: PEER, messageId: "m1", status: "pending" });
     emit({ type: "chat_message", peer: PEER, message: textMessage("m2", PEER, "重复入站", { sender: "them" }) });
@@ -216,8 +229,7 @@ describe("GUI chat event and history boundaries", () => {
     ]);
     // 清掉列表摘要，聚焦气泡正文 + 状态角标两处“失败”
     useChatStore.setState({ lastMessageByPeer: {} });
-    const { ChatView } = await import("./chat-view");
-    render(<ChatView />);
+    render(<FriendConversation peer={PEER} />);
     expect(screen.getByText("排队")).toBeTruthy();
     expect(screen.getAllByText("失败")).toHaveLength(2);
     expect(screen.getAllByTestId("message-status").length).toBe(2);
@@ -225,12 +237,14 @@ describe("GUI chat event and history boundaries", () => {
 
   it("keeps the conversation shell when history rejects or returns an empty page", async () => {
     mocks.history.mockRejectedValueOnce(new Error("非法游标"));
-    const { ChatView } = await import("./chat-view");
-    render(<ChatView />);
-    await waitFor(() => expect(screen.getByText("好友")).toBeTruthy(), { timeout: WAIT_TIMEOUT });
-    fireEvent.click(screen.getAllByText("好友")[1]!);
+    // 深链 ?peer= 直落选中会话（§2.1 路由化选中态），历史失败仍保住会话壳
+    render(
+      <MemoryRouter initialEntries={["/chat?peer=" + PEER]}>
+        <ChatPage />
+      </MemoryRouter>,
+    );
     await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 50), { timeout: WAIT_TIMEOUT });
-    expect(screen.getByRole("textbox")).toBeTruthy();
+    expect(screen.getByTestId("chat-input")).toBeTruthy();
     expect(screen.getByRole("region", { name: "会话" })).toBeTruthy();
     expect(screen.queryAllByTestId("message-status")).toHaveLength(0);
   }, VIEW_TIMEOUT);

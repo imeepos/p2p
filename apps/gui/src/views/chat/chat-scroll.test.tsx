@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -6,6 +7,7 @@ import type {
   ChatMessageJson,
   NodeEventHandler,
 } from "@/lib/ipc-types";
+import { ChatPage } from "./chat-page";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -14,6 +16,10 @@ const { mocks } = vi.hoisted(() => ({
       (peer: string, beforeId?: string | null, limit?: number) => Promise<ChatMessageJson[]>
     >(),
     send: vi.fn(),
+    groupList: vi.fn<() => Promise<never[]>>(),
+    groupHistory: vi.fn<() => Promise<never[]>>(),
+    invites: vi.fn<() => Promise<never[]>>(),
+    nodeStatus: vi.fn(),
     eventHandler: { current: null as NodeEventHandler | null },
   },
 }));
@@ -23,6 +29,10 @@ vi.mock("@/lib/ipc", () => ({
     chatFriendsList: mocks.friends,
     chatHistory: mocks.history,
     chatSend: mocks.send,
+    groupList: mocks.groupList,
+    groupHistory: mocks.groupHistory,
+    chatInvitesList: mocks.invites,
+    nodeStatus: mocks.nodeStatus,
     onNodeEvent: (handler: NodeEventHandler) => {
       mocks.eventHandler.current = handler;
       return Promise.resolve(() => {});
@@ -31,7 +41,7 @@ vi.mock("@/lib/ipc", () => ({
 }));
 
 import { useChatStore } from "@/stores/chat-store";
-import { ChatView } from "./chat-view";
+import "@/i18n";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
@@ -47,15 +57,20 @@ function friend(seed: string, nickname: string): ChatFriendJson {
   return { peerId: peerId(seed), nickname, addrs: [], note: null };
 }
 
-// IM-T52 回归：jsdom 无布局引擎，高度链的数值断言由无头 Chrome 度量；
-// 这里固化滚动体系的 DOM 结构契约，防止布局类回归（min-h 魔法数、嵌套滚动域）。
-describe("IM-T52 滚动体系结构契约", () => {
+// IM-T52 回归（P1 双栏结构）：jsdom 无布局引擎，高度链的数值断言由无头
+// Chrome 度量；这里固化滚动体系的 DOM 结构契约，防止布局类回归
+// （min-h 魔法数、嵌套滚动域、输入条漂移）。
+describe("IM-T52 滚动体系结构契约（P1 双栏）", () => {
   const a = friend("friend-a", "小圆");
   const b = friend("friend-b", "阿圆");
 
   beforeEach(() => {
     mocks.friends.mockReset().mockResolvedValue([a, b]);
     mocks.history.mockReset().mockResolvedValue([]);
+    mocks.groupList.mockReset().mockResolvedValue([]);
+    mocks.groupHistory.mockReset().mockResolvedValue([]);
+    mocks.invites.mockReset().mockResolvedValue([]);
+    mocks.nodeStatus.mockReset().mockResolvedValue({ peerId: "self", running: true });
     mocks.send.mockReset();
     useChatStore.setState({
       friends: [],
@@ -64,6 +79,7 @@ describe("IM-T52 滚动体系结构契约", () => {
       selectedPeer: null,
       messagesByPeer: {},
       lastMessageByPeer: {},
+      unreadByPeer: {},
       historyLoading: {},
       historyLoaded: {},
       hasMore: {},
@@ -71,42 +87,46 @@ describe("IM-T52 滚动体系结构契约", () => {
   });
 
   const rowButton = (peer: ChatFriendJson) =>
-    screen
-      .getAllByRole("button")
-      .filter((el) => el.textContent?.includes(peer.peerId.slice(0, 12)));
+    screen.getByTestId("conversation-row-friend-" + peer.peerId);
 
   async function renderChat() {
-    render(<ChatView />);
-    await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
+    render(
+      <MemoryRouter initialEntries={["/chat"]}>
+        <ChatPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("conversation-row-friend-" + a.peerId)).toBeTruthy(),
+    );
   }
 
-  it("聊天栅格精确填充：flex-1 + min-h-0，禁止 100vh 魔法数回归", async () => {
+  it("聊天页容器精确填充：flex-1 + min-h-0，禁止 100vh 魔法数回归", async () => {
     await renderChat();
-    const grid = screen.getByTestId("chat-grid");
-    expect(grid.className).toContain("flex-1");
-    expect(grid.className).toContain("min-h-0");
-    expect(grid.className).not.toContain("min-h-[calc");
-    expect(grid.className).not.toContain("100vh");
+    const page = screen.getByTestId("chat-page");
+    expect(page.className).toContain("flex-1");
+    expect(page.className).toContain("min-h-0");
+    expect(page.className).not.toContain("min-h-[calc");
+    expect(page.className).not.toContain("100vh");
   });
 
-  it("滚动域分离：好友列表与消息列表各自内滚且互不嵌套", async () => {
+  it("滚动域分离：会话列表与消息列表各自内滚且互不嵌套", async () => {
     await renderChat();
-    fireEvent.click(rowButton(a)[0]!);
+    fireEvent.click(rowButton(a));
     await waitFor(() => expect(screen.getByTestId("message-scroll")).toBeTruthy());
-    const friends = screen.getByTestId("friends-scroll");
+    const list = screen.getByTestId("conversation-items");
     const messages = screen.getByTestId("message-scroll");
-    for (const el of [friends, messages]) {
+    for (const el of [list, messages]) {
       expect(el.className).toContain("overflow-y-auto");
       expect(el.className).toContain("min-h-0");
       expect(el.className).toContain("scroll-slim");
     }
-    expect(friends.contains(messages)).toBe(false);
-    expect(messages.contains(friends)).toBe(false);
+    expect(list.contains(messages)).toBe(false);
+    expect(messages.contains(list)).toBe(false);
   });
 
   it("输入条钉在消息滚动域之外：DOM 序上位于消息列表之后", async () => {
     await renderChat();
-    fireEvent.click(rowButton(a)[0]!);
+    fireEvent.click(rowButton(a));
     await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
 
     const messages = screen.getByTestId("message-scroll");
@@ -120,23 +140,23 @@ describe("IM-T52 滚动体系结构契约", () => {
     expect(following & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("好友域滚动位置独立保持：切走再切回不丢", async () => {
+  it("列表滚动位置独立保持：切走再切回不丢", async () => {
     await renderChat();
-    fireEvent.click(rowButton(a)[0]!);
+    fireEvent.click(rowButton(a));
     await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
 
-    const friends = screen.getByTestId("friends-scroll");
-    friends.scrollTop = 120;
-    fireEvent.click(rowButton(b)[0]!);
+    const list = screen.getByTestId("conversation-items");
+    list.scrollTop = 120;
+    fireEvent.click(rowButton(b));
     await waitFor(() =>
       expect(mocks.history).toHaveBeenCalledWith(b.peerId, null, 50),
     );
-    expect(friends.scrollTop).toBe(120);
+    expect(list.scrollTop).toBe(120);
 
-    fireEvent.click(rowButton(a)[0]!);
+    fireEvent.click(rowButton(a));
     await waitFor(() =>
       expect(mocks.history).toHaveBeenCalledWith(a.peerId, null, 50),
     );
-    expect(friends.scrollTop).toBe(120);
+    expect(list.scrollTop).toBe(120);
   });
 });

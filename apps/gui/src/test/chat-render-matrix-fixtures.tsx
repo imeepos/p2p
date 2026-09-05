@@ -6,7 +6,9 @@ import { Toaster } from "sonner";
 import type { ChatMessageJson, NodeEventHandler } from "@/lib/ipc-types";
 import { friendJson, peerId } from "@/test/chat-boundaries-fixtures";
 import { useChatStore } from "@/stores/chat-store";
-import { ChatView } from "@/views/chat/chat-view";
+import { FriendConversation } from "@/views/chat/friend-conversation";
+import { ConversationList } from "@/components/chat/conversation-list";
+import { friendEntry, sortEntries, type PreviewLabels } from "@/lib/conversation-entry";
 
 export const MATRIX_PEER = peerId("matrix-peer");
 
@@ -64,16 +66,14 @@ export function isBefore(a: Element, b: Element): boolean {
   return (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 }
 
-// 会话列表行：按行内缩略 PeerId 定位，供摘要断言取整行文本。
+// 统一会话列表行（P1 条目模型）：按 testid 定位，供摘要断言取整行文本。
 export function conversationRow(peer: string): HTMLElement {
-  const row = screen
-    .getAllByRole("button")
-    .find((el) => el.textContent?.includes(peer.slice(0, 12)));
-  if (!row) throw new Error(`找不到会话行: ${peer}`);
+  const row = screen.queryByTestId("conversation-row-friend-" + peer);
+  if (!row) throw new Error("找不到会话行: " + peer);
   return row;
 }
 
-// 多好友最后消息摘要播种：selectedPeer 置空，聚焦会话列表 summaryOf 渲染。
+// 多好友最后消息摘要播种：selectedPeer 置空，聚焦会话列表预览渲染。
 export function seedSummaries(
   entries: Array<{ peer: string; message: ChatMessageJson }>,
 ): void {
@@ -93,13 +93,46 @@ export function bubbleArea(): HTMLElement {
   return screen.getByTestId("message-scroll");
 }
 
-// 挂载完整聊天页：sonner Toaster 同挂，失败路径可断言错误 toast 实渲染。
+// 挂载选中会话（P1 右栏）：sonner Toaster 同挂，失败路径可断言错误 toast 实渲染。
+// MATRIX_PEER 的会话须先 seedConversation（或 selectPeer）播种。
 export function mountChat(): void {
   render(
     <>
       <Toaster position="bottom-right" />
-      <ChatView />
+      <FriendConversation peer={MATRIX_PEER} />
     </>,
+  );
+}
+
+// 挂载统一会话列表（P1）：条目按生产同款 friendEntry 构建器从 store 聚合。
+// 独立于 mountChat：列表断言与右栏断言互不依赖。
+export function mountConversationListFromStore(): void {
+  const s = useChatStore.getState();
+  const labels: PreviewLabels = {
+    image: "[图片]",
+    audio: "[语音]",
+    video: "[视频]",
+    file: "[文件]",
+    self: "我",
+  };
+  const entries = sortEntries(
+    s.friends.map((friend, index) =>
+      friendEntry({
+        friend,
+        last: s.lastMessageByPeer[friend.peerId] ?? null,
+        unread: s.unreadByPeer[friend.peerId] ?? 0,
+        joinSeq: index,
+        labels,
+      }),
+    ),
+  );
+  render(
+    <ConversationList
+      entries={entries}
+      selectedId={null}
+      loading={false}
+      onSelect={() => {}}
+    />,
   );
 }
 
