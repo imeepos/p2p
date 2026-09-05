@@ -116,11 +116,9 @@ impl ChatCore {
             .new_stream(pid, proto)
             .await
             .map_err(|e| ChatError::StreamFailed(format!("开流失败：{e}")))?;
-        let wire_env = wire::WireEnvelope::from_outbound(
-            env,
-            self.node.local_peer_id(),
-            self.store.advertised_load(),
-        );
+        let from_addrs = self.store.advertised_load();
+        let wire_env =
+            wire::WireEnvelope::from_outbound(env, self.node.local_peer_id(), from_addrs);
         let bytes = serde_json::to_vec(&wire_env).map_err(ChatError::Json)?;
         wire::write_typed(&mut stream, wire::ENVELOPE, &bytes)
             .await

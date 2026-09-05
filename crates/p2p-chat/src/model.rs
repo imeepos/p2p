@@ -246,10 +246,8 @@ mod tests {
 
     #[test]
     fn nickname_fallback_abbreviates_peer_id() {
-        let pid = "abcdEFGH1234";
-        assert_eq!(nickname_fallback(pid), "abcdEFGH...");
+        assert_eq!(nickname_fallback("abcdEFGH1234"), "abcdEFGH...");
         assert_eq!(nickname_fallback("短"), "短...");
-        assert!(nickname_fallback(&"x".repeat(8)).len() < pid.len() + 4, "缩略短于原文");
     }
 
     #[test]

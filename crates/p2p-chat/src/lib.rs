@@ -29,9 +29,9 @@ mod store_invite;
 mod store_io;
 mod store_lock;
 mod wire;
+mod wire_invite;
 #[cfg(test)]
 mod wire_tests;
-mod wire_invite;
 
 pub use identity_lock::try_lock_identity;
 
@@ -48,14 +48,14 @@ pub use group::{
 };
 pub use invite::{FriendInvite, InviteDirection, InviteState, MAX_INVITES};
 pub use invite_api::InviteReport;
-pub use outbox_api::{
-    OutboxEntryReport, OutboxFlushPeerReport, OutboxFlushReport, OutboxPeerReport,
-};
-pub use serve_cfg::{load_serve_port, save_serve_port};
 pub use model::{
     sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatKind,
     ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
 };
+pub use outbox_api::{
+    OutboxEntryReport, OutboxFlushPeerReport, OutboxFlushReport, OutboxPeerReport,
+};
+pub use serve_cfg::{load_serve_port, save_serve_port};
 
 use core::ChatCore;
 

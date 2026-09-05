@@ -80,7 +80,11 @@ pub(crate) struct AckFrame {
 impl WireEnvelope {
     /// 发端声明地址取 serve 发布的 advertised（空则不携带）：一次性进程的
     /// 即弃监听地址禁止上 wire，防对端好友簿被污染。
-    pub(crate) fn from_outbound(env: &ChatEnvelope, local: PeerId, from_addrs: Vec<String>) -> Self {
+    pub(crate) fn from_outbound(
+        env: &ChatEnvelope,
+        local: PeerId,
+        from_addrs: Vec<String>,
+    ) -> Self {
         Self {
             id: env.id.clone(),
             peer: local.to_string(),
@@ -267,4 +271,3 @@ impl ChatHandler {
         Ok(())
     }
 }
-
