@@ -27,6 +27,9 @@ import { EmptyState } from "@/views/shared/empty-state";
 interface RendezvousCardProps {
   bootstrap: string[];
   onChange: (next: string[]) => Promise<boolean>;
+  /** 受控的添加弹框开关：发现结果空态的入口按钮跨卡联动打开 */
+  addOpen: boolean;
+  onAddOpenChange: (open: boolean) => void;
 }
 
 function RendezvousTable({
@@ -74,7 +77,12 @@ function RendezvousTable({
 
 // rendezvous 地址簿：增删走持久化配置；手动注册/查询未暴露给 GUI（裁决：
 // 底座能力为 pub(crate)，CLI 已覆盖），节点仍经 mDNS/rendezvous 自动发现。
-export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
+export function RendezvousCard({
+  bootstrap,
+  onChange,
+  addOpen,
+  onAddOpenChange,
+}: RendezvousCardProps) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const [saving, setSaving] = useState(false);
@@ -110,12 +118,19 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
       <CardContent className="flex flex-col gap-3">
         {bootstrap.length === 0 ? (
           <>
+            {/* 空态入口唯一：添加按钮只在此处出现，卡片其他位置不再重复渲染 */}
             <EmptyState
               icon={NetworkIcon}
               title={t("discovery.rendezvous.empty")}
               description={t("discovery.rendezvous.manualUnavailable")}
               action={
-                <AddAddressDialog existing={bootstrap} saving={saving} onAdd={addAddress} />
+                <AddAddressDialog
+                  existing={bootstrap}
+                  saving={saving}
+                  onAdd={addAddress}
+                  open={addOpen}
+                  onOpenChange={onAddOpenChange}
+                />
               }
             />
             <p className="text-muted-foreground text-xs">
@@ -131,11 +146,19 @@ export function RendezvousCard({ bootstrap, onChange }: RendezvousCardProps) {
           />
         )}
         {bootstrap.length > 0 ? (
-          <p className="text-muted-foreground text-xs">
-            {t("discovery.rendezvous.manualUnavailable")}
-          </p>
+          <>
+            <p className="text-muted-foreground text-xs">
+              {t("discovery.rendezvous.manualUnavailable")}
+            </p>
+            <AddAddressDialog
+              existing={bootstrap}
+              saving={saving}
+              onAdd={addAddress}
+              open={addOpen}
+              onOpenChange={onAddOpenChange}
+            />
+          </>
         ) : null}
-        <AddAddressDialog existing={bootstrap} saving={saving} onAdd={addAddress} />
       </CardContent>
     </Card>
   );

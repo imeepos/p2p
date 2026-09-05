@@ -76,13 +76,24 @@ interface AddAddressDialogProps {
   existing: string[];
   saving: boolean;
   onAdd: (addr: string) => Promise<boolean>;
+  /** 受控 open：传入时由父级控制开关（跨卡联动入口），缺省内部自管 */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 // 添加地址 Dialog：输入即校验（格式/重复内联红字），成功后关闭并清空。
-export function AddAddressDialog({ existing, saving, onAdd }: AddAddressDialogProps) {
+export function AddAddressDialog({
+  existing,
+  saving,
+  onAdd,
+  open: openProp,
+  onOpenChange,
+}: AddAddressDialogProps) {
   const { t } = useTranslation();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [innerOpen, setInnerOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const dialogOpen = openProp ?? innerOpen;
+  const setDialogOpen = onOpenChange ?? setInnerOpen;
 
   const trimmed = draft.trim();
   const draftError = trimmed.length === 0

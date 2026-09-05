@@ -216,10 +216,24 @@ describe("IM-V2 peers / discovery evidence", () => {
   });
 
   it("F1 mDNS 卡与 rendezvous 卡都带 h-full，同 grid 行底端对齐", () => {
-    const mdns = render(<MdnsCard config={guiConfig() as never} onSaved={() => {}} />);
+    const mdns = render(
+      <MdnsCard
+        config={guiConfig() as never}
+        draft={null}
+        running={false}
+        onDraftChange={() => {}}
+        onSave={async () => {}}
+        onDiscard={() => {}}
+      />,
+    );
     const rdv = render(
       <ConfirmProvider>
-        <RendezvousCard bootstrap={["/ip4/203.0.113.5/udp/3400"]} onChange={async () => true} />
+        <RendezvousCard
+          bootstrap={["/ip4/203.0.113.5/udp/3400"]}
+          onChange={async () => true}
+          addOpen={false}
+          onAddOpenChange={() => {}}
+        />
       </ConfirmProvider>,
     );
     for (const c of [mdns.container, rdv.container]) {
@@ -231,7 +245,12 @@ describe("IM-V2 peers / discovery evidence", () => {
   it("F2 rendezvous 地址删除按钮触控区 size-9（36px ≥ 32px）", () => {
     render(
       <ConfirmProvider>
-        <RendezvousCard bootstrap={["/ip4/203.0.113.5/udp/3400"]} onChange={async () => true} />
+        <RendezvousCard
+          bootstrap={["/ip4/203.0.113.5/udp/3400"]}
+          onChange={async () => true}
+          addOpen={false}
+          onAddOpenChange={() => {}}
+        />
       </ConfirmProvider>,
     );
     const del = screen.getByRole("button", { name: "删除" });

@@ -2,6 +2,8 @@ import { CopyIcon, RadarIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/components/ui/button";
+
 import {
   Card,
   CardContent,
@@ -9,7 +11,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -97,8 +98,20 @@ function PeerTable({
   );
 }
 
+interface DiscoveredTableCardProps {
+  /** mDNS 已启用（含未保存草稿开启）：空态的「开启 mDNS」入口随之禁用 */
+  mdnsActive: boolean;
+  onEnableMdns: () => void;
+  onAddAddress: () => void;
+}
+
 // 发现结果表：数据完全由 store 的 node-event 派生（peer_discovered/connected）。
-export function DiscoveredTableCard() {
+// 空态文案承诺「开启 mDNS 或添加引导地址」——两个入口按钮就地兑现承诺。
+export function DiscoveredTableCard({
+  mdnsActive,
+  onEnableMdns,
+  onAddAddress,
+}: DiscoveredTableCardProps) {
   const { t } = useTranslation();
   const peers = useNodeStore(selectPeerList);
   const events = useNodeStore((s) => s.events);
@@ -116,6 +129,26 @@ export function DiscoveredTableCard() {
             icon={RadarIcon}
             title={t("discovery.empty")}
             description={t("discovery.emptyHint")}
+            action={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={mdnsActive}
+                  onClick={onEnableMdns}
+                >
+                  {t("discovery.emptyActions.enableMdns")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onAddAddress}
+                >
+                  {t("discovery.emptyActions.addBootstrap")}
+                </Button>
+              </div>
+            }
           />
         ) : (
           <PeerTable peers={peers} firstSeen={firstSeen} />
