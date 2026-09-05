@@ -46,16 +46,21 @@ describe("app boot smoke", () => {
 // 路由就绪才出现的标记：锁"数据加载完成"而非骨架屏，
 // relay/settings 的崩溃恰好发生在配置就绪挂载表单卡那一刻
 // （原启动冒烟只踩默认路由，放过过 relay 页整树崩溃，2026-09-03 用户实测白屏）。
+// 外壳重设计 P0：旧 10 视图在新位置逐一冒烟——五排障面 + 仪表盘落
+// /network/*，群聊/ACP 整页形态经 /chat?kind=* 可达（七、并存策略），
+// 另含 /contacts 占位页。
 const routes: Array<[string, string | null]> = [
-  ["#/peers", null],
-  ["#/discovery", null],
-  ["#/relay", "中继地址配置"],
+  ["#/network/overview", "仪表盘"],
+  ["#/network/peers", null],
+  ["#/network/discovery", null],
+  ["#/network/relay", "中继地址配置"],
+  ["#/network/events", null],
+  ["#/network/diagnostics", null],
   ["#/chat", "暂无好友"],
-  ["#/group", "暂无群聊"],
-  ["#/acp", "ACP 控制台"],
-  ["#/events", null],
+  ["#/chat?kind=group", "暂无群聊"],
+  ["#/chat?kind=agent", "ACP 控制台"],
+  ["#/contacts", "通讯录"],
   ["#/settings", "局域网发现（mDNS）"],
-  ["#/diagnostics", null],
 ];
 
 describe.each(routes)("app boot route %s", (hash, marker) => {
