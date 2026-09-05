@@ -24,7 +24,9 @@ import {
   applyConfigOptions,
   applyUsage,
   emptyInteraction,
+  permissionExpired,
   rejectUnanswered,
+  resolvePermission,
   type InteractionState,
 } from "./interaction-model";
 import { applyUpdate, emptyTranscript, type TranscriptState } from "./transcript-model";
@@ -116,6 +118,30 @@ function handleSessionUpdate(params: unknown): void {
 }
 
 /** agent 侧请求：request_permission 登记进交互面；其余回 -32601 */
+const PERMISSION_SWEEP_INTERVAL_MS = 1_000;
+let permissionSweeperStarted = false;
+
+/** pending 权限超时判定下沉 store：按 receivedAt 惰性扫描，
+ *  不依赖权限面板挂载（后台会话到点同样自动拒绝） */
+function ensurePermissionSweeper(): void {
+  if (permissionSweeperStarted) return;
+  permissionSweeperStarted = true;
+  setInterval(() => sweepExpiredPermissions(), PERMISSION_SWEEP_INTERVAL_MS);
+}
+
+function sweepExpiredPermissions(): void {
+  const state = useAcpStore.getState();
+  const now = Date.now();
+  for (const [sessionId, inter] of Object.entries(state.interactions)) {
+    for (const req of inter.permissions) {
+      if (req.status !== "pending" || !permissionExpired(req, now)) continue;
+      console.warn("[acp] request_permission 超时未决，自动按拒绝应答 id=", req.requestId);
+      currentConnection()?.respond(req.requestId, cancelledOutcome());
+      mapInteraction(sessionId, (inner) => resolvePermission(inner, req.requestId, "rejected"));
+    }
+  }
+}
+
 function handleAgentRequest(
   method: string,
   params: unknown,
@@ -213,6 +239,7 @@ export function startConnection(endpoint: AcpEndpoint): void {
       if (phase === "online" && conn) void runHandshake(conn);
     },
   };
+  ensurePermissionSweeper();
   const connection = new AcpConnection(endpoint, resolveWsFactory(), events, DEFAULT_RECONNECT);
   conn = connection;
   connection.connect();

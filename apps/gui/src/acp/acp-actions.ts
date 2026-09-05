@@ -2,7 +2,6 @@
 // acp-store 只留状态与一行委托，避免单文件超限。失败路径一律 console.warn 留痕。
 import { cancelledOutcome, selectedOutcome } from "./protocol";
 import {
-  allowOptionId,
   applyConfigOptions,
   rejectUnanswered,
   resolvePermission,
@@ -191,7 +190,8 @@ export function runCancelPrompt(): void {
   rejectPendingPermissions(sessionId, true);
 }
 
-export function runRespondPermission(requestId: number, approve: boolean): void {
+/** 选项制应答：点哪档回哪档 selected outcome；optionId=null（通用拒绝）回 cancelled */
+export function runRespondPermission(requestId: number, optionId: string | null): void {
   const { activeSessionId, interactions } = get();
   if (!activeSessionId) return;
   const req = (interactions[activeSessionId]?.permissions ?? []).find(
@@ -200,14 +200,12 @@ export function runRespondPermission(requestId: number, approve: boolean): void 
   if (!req || req.status !== "pending") return;
   const conn = currentConnection();
   if (conn) {
-    // 批准选首个 allow_* 选项（镜像桥侧静态策略选取规则）；无 allow 选项不虚构，回 cancelled
-    const optionId = allowOptionId(req.options);
-    const outcome = approve && optionId ? selectedOutcome(optionId) : cancelledOutcome();
+    const outcome = optionId ? selectedOutcome(optionId) : cancelledOutcome();
     conn.respond(requestId, outcome);
   }
-  mapInteraction(activeSessionId, (s) =>
-    resolvePermission(s, requestId, approve ? "approved" : "rejected"),
-  );
+  const opt = req.options.find((o) => o.optionId === optionId);
+  const status = optionId && opt?.kind.startsWith("allow") ? "approved" : "rejected";
+  mapInteraction(activeSessionId, (s) => resolvePermission(s, requestId, status));
 }
 
 export async function runSetConfigOption(configId: string, value: string | boolean): Promise<void> {

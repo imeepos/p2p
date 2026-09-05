@@ -74,34 +74,35 @@ describe("AcpView request_permission", () => {
     { kind: "stop", reason: "end_turn" },
   ] as const;
 
-  it("批准：selected outcome 回桥，按钮消失显示已批准", async () => {
+  it("批准：点 allow 选项回 selected outcome，选项按钮消失显示已批准", async () => {
     mockAcpConsole.configure({ promptScript: [...PERMISSION_SCRIPT] });
     await renderConnected();
     await sendPrompt();
     const id = await permissionId();
     await screen.findByTestId("acp-permission-row-" + id);
-    fireEvent.click(screen.getByTestId("acp-permission-approve-" + id));
+    expect(screen.getByTestId("acp-permission-status-" + id).textContent).toContain("等待处理");
+    fireEvent.click(screen.getByTestId("acp-permission-option-" + id + "-allow-once"));
     await waitFor(() => {
       expect(screen.getByTestId("acp-permission-status-" + id).textContent).toContain("已批准");
     });
-    expect(screen.queryByTestId("acp-permission-approve-" + id)).toBeNull();
+    expect(screen.queryByTestId("acp-permission-option-" + id + "-allow-once")).toBeNull();
     expect(mockAcpConsole.responses.find((r) => r.id === id)?.result).toEqual({
       outcome: { outcome: "selected", optionId: "allow-once" },
     });
   });
 
-  it("拒绝：cancelled outcome 回桥并显示已拒绝", async () => {
+  it("拒绝：存在 reject 选项时点档回 selected reject-once", async () => {
     mockAcpConsole.configure({ promptScript: [...PERMISSION_SCRIPT] });
     await renderConnected();
     await sendPrompt();
     const id = await permissionId();
     await screen.findByTestId("acp-permission-row-" + id);
-    fireEvent.click(screen.getByTestId("acp-permission-reject-" + id));
+    fireEvent.click(screen.getByTestId("acp-permission-option-" + id + "-reject-once"));
     await waitFor(() => {
       expect(screen.getByTestId("acp-permission-status-" + id).textContent).toContain("已拒绝");
     });
     expect(mockAcpConsole.responses.find((r) => r.id === id)?.result).toEqual({
-      outcome: { outcome: "cancelled" },
+      outcome: { outcome: "selected", optionId: "reject-once" },
     });
   });
 

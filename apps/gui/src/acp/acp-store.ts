@@ -62,7 +62,7 @@ interface AcpConsoleState {
   sendPrompt: (text: string) => Promise<boolean>;
   cancelPrompt: () => void;
   toggleThought: (sessionId: string, turnId: number) => void;
-  respondPermission: (requestId: number, approve: boolean) => void;
+  respondPermission: (requestId: number, optionId: string | null) => void;
   setConfigOption: (configId: string, value: string | boolean) => Promise<void>;
   ingestDiscovery: (peers: DiscoveryPeer[]) => void;
   addManualPeer: (peer: string) => void;
@@ -127,7 +127,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
         [sessionId]: toggleThought(s.transcripts[sessionId] ?? emptyTranscript(), turnId),
       },
     })),
-  respondPermission: (requestId, approve) => runRespondPermission(requestId, approve),
+  respondPermission: (requestId, optionId) => runRespondPermission(requestId, optionId),
   setConfigOption: (configId, value) => runSetConfigOption(configId, value),
   ingestDiscovery: (peers) =>
     set((s) => ({ directory: upsertDiscovered(s.directory, peers) })),
