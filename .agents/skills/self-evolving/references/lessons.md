@@ -297,3 +297,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-05：RTL 断言同名词在多卡片出现（如「中继」既是拨号链行名又是排障链接文案、「中继会话」既是指标卡标签又是趋势系列名）时全局 getByText 必撞多重匹配——用 getAllByText(label)[0].closest("[data-slot=card]") 再取卡内 card-title 的结构定位断值。
 - 2026-09-05：job_output 的 wait 有运行时 600s 墙钟上限，先超时的是等待不是任务——make check 级长任务 run_in_background 后用非阻塞 job_output 轮 job.status，tail 管道会在管道结束前不出文本属正常。
 - 2026-09-05：DSH 的 devloop_scan 绑定调用报 binding arguments must be lossless JSON（harness 序列化缺陷）时，改用 bash 跑同等只读命令替代，不要反复重试绑定。
+- 2026-09-05：规格「迁移 X 配置面板」而 X 实为别的语义（permission-grading 是请求应答分级模型，不是配置面板）时，以章节正文描述的目标态 + 分期验收行为准（「权限档变更对后续会话生效」只可能指策略配置），「迁移」按词源照搬会做出验收不达标的残件；落地时在回报中显式列出待负责人复核的解释点。
+- 2026-09-05：mock 后端夹具要贴真实契约形状（peer 必须合法 base58-32）而不是沿用 mock 自身的宽松值（mock-peer）：表单前置校验与后端同口径后，宽松夹具会被前端正确拦截，测试红因是夹具不是实现；mock 白名单用 configure({ peers: [真实 base58] }) 对齐。
+- 2026-09-05：测试里从数组反查实体用「取末位元素」而不是「拿 length-1 当 id 查」——id 与数组下标是两套序列（mock 权限帧 id 从 100 起），混用必假红。

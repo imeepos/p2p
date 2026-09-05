@@ -766,3 +766,17 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：同一测试文件首用例 emit 事件生效，后续用例 emit 无效（unread 不涨、消息不上屏）。
 原因：store 的事件订阅是模块级单例（subscriptionStarted 幂等），首挂载注册一次；beforeEach 清空 handlers 数组后后续挂载不再重注册。
 修法：不清 handlers（重复注册的归并按消息 id 去重，幂等）；或用例内 waitFor(handlers.length > 0) 等订阅就绪再 emit。
+## 2026-09-05 P2 会话：macOS BSD sed -i 吞掉替换且可能留怪名备份文件
+症状：`sed -i 's|a|b|g' file` 静默不生效（GNU 语义在 macOS 不存在），链式 && 全绿假象。
+原因：BSD sed 的 -i 必须紧跟备份后缀（`-i ''`），脚本被当成了后缀参数。
+修法：跨平台脚本一律 `perl -pi -e` 或 python 原子重写；或 sed -i '' 明知在 macOS。替换后必须 grep 复核目标串已出现。
+---
+## 2026-09-05 P2 会话：run_code 外层模板串吞内层反引号插值
+症状：写入的文件内容出现被求值的插值串或解析器报 Expected ']'/'<eof>'。
+原因：run_code 的 code 是外层模板串，内容里的反引号与美元花括号会被先求值。
+修法：写文件内容时避免内层反引号（用串接），或显式转义；大段补丁改走 bash+python heredoc（引号用 <<'PY' 防插值）。
+---
+## 2026-09-05 P2 会话：eslint react-hooks/set-state-in-effect 与 immutability 门禁
+症状：make check 在 gui-check 挂：effect 内同步 setState（含 effect 内转手调 setState 的辅助函数）全被点名；渲染期调整块引用了后置声明的 setter 也报 immutability。
+修法：三型改造——(1) localStorage 等同步源回 useState 惰性初始化器；(2) 「props 变化重置表单」用渲染期哨兵比较（if (lastOpen !== open) { setLastOpen(open); ... }），且哨兵块必须声明在使用点之前；(3) 结论落外部系统（zustand/meta/存储）由订阅端选择器呈现，effect 只做外部写入不做 setState。
+---
