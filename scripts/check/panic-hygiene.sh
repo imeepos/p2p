@@ -6,7 +6,8 @@
 #   受保护 crate（PROTECTED，已清零范围）禁止出现在豁免清单，违者直接红
 # 测试钩子：CHECK_ROOT 覆盖仓库根（scripts/check/tests/panic-hygiene.sh 夹具驱动）
 # 局限：文本扫描——索引越界/算术溢出/字符串内花括号等不在覆盖范围
-set -uo pipefail
+set -u
+set -o pipefail
 
 ROOT="${CHECK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 EXEMPT_FILE="${PANIC_HYGIENE_EXEMPT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/panic-hygiene-exempt.txt}"

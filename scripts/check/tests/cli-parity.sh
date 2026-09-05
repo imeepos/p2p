@@ -3,7 +3,8 @@
 #   正场景：夹具 GUI 命令与映射表、假 p2pctl 全部对得上 → 末行 CLI-PARITY-OK；
 #   反场景：缺映射 / 映射命令不存在 / 豁免缺理由 / 陈旧行 四类失败都要红且非 0。
 # 夹具树放独立临时目录，守卫按自身位置解析 ROOT，无需真实仓库与真 p2pctl。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SRC="$ROOT/scripts/check"

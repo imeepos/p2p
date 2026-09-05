@@ -12,7 +12,8 @@
 #      恰 N 条、id 唯一、内容与发送序一致、CLI history == 磁盘、messages/
 #      目录无孤儿文件、未送达结构化信号（未送达）、无 panic。
 # 幂等：临时数据目录隔离，trap 清理（造数不过夜）。末行 N2-R2-OK。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CTL="${N2_CTL:-$ROOT/apps/cli/target/debug/p2pctl}"

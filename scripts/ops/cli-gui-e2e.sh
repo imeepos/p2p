@@ -8,7 +8,8 @@
 #   本实例端点、退出后还原备份（另一实例的可发现性不受损）。
 # 权限提示（R4）：screenshot/record 失败且错误含权限语义时，输出可读提示
 #   后再失败——失败可见，禁止跳过。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CTL="$ROOT/apps/cli/target/debug/p2pctl"

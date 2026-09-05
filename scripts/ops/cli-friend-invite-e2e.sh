@@ -7,7 +7,8 @@
 #      地址稳定是 accept 回投收敛的前提；
 #   3) 对端进程重启可清除半开连接残留（同 peerId 重连会被残留挡下，见 ISSUE.md）。
 # 末行输出 FRIEND-INVITE-CLI-E2E-OK。Not in make check（opt-in）。
-set -euo pipefail
+set -eu
+set -o pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
 cd "$(dirname "$0")/../.."
 BIN="$(pwd)/apps/cli/target/debug/p2pctl"

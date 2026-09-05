@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 全量测试：cargo test --workspace
-set -euo pipefail
+set -eu
+set -o pipefail
 
 export PATH="$HOME/.cargo/bin:$PATH"
 command -v cargo >/dev/null 2>&1 || {

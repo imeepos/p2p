@@ -5,7 +5,8 @@
 #   无参：只校验三处互相一致；带参：额外要求三处都等于该值（release.sh 复用）
 # 输出：成功 stdout 一行 PASS；失败 stderr 带 "version-check: FAIL" + 三处实际值，exit 1
 # 测试钩子：CHECK_ROOT 覆盖仓库根（scripts/check/tests/release-gates.sh 用临时夹具驱动）
-set -uo pipefail
+set -u
+set -o pipefail
 
 ROOT="${CHECK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 

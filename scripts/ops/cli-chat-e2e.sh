@@ -3,7 +3,8 @@
 # 全链路 -> B 端 history/media 断言 -> 离线发送必须显式失败 -> friend remove
 # 幂等断言。造数当次清理（不过夜）；连续执行两次必须绿（幂等）。
 # 末行输出 CL3-E2E-OK。Not in make check.
-set -euo pipefail
+set -eu
+set -o pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
 cd "$(dirname "${BASH_SOURCE[0]}")/../.."
 BIN="$(pwd)/apps/cli/target/debug/p2pctl"

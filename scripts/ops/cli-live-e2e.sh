@@ -9,7 +9,8 @@
 # 构建钩子：W1_CTL / W1_GUI_BIN 可覆写产物路径；产物缺失或无监听能力
 #   （二进制/前端产物不含 data-changed 标记）时现场重建，防旧产物假绿。
 # 末行 W1-E2E-OK；两次连跑均绿为验收口径（防抖与轮询无跨跑状态）。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CTL="${W1_CTL:-$ROOT/apps/cli/target/debug/p2pctl}"

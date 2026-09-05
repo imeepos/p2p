@@ -2,7 +2,8 @@
 # GUI 合并门禁：Rust 桥接 + 前端构建一次全跑（GUI 协调者合并前机械验收用）
 # 用法：bash scripts/check/gui-gate.sh [--skip-frontend|--skip-rust]
 # 说明：src-tauri 是独立 cargo 项目（根 workspace 已 exclude），故在此单独跑。
-set -uo pipefail
+set -u
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export PATH="$HOME/.cargo/bin:$PATH"

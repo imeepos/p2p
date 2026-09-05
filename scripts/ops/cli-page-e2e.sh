@@ -8,7 +8,8 @@
 #   一张非空 PNG，UI 证据）→ 清理造数与进程（造数不过夜）→ 末行 GC4-E2E-OK。
 # 幂等：可重复执行；已有 GUI 实例运行时备份 endpoint.json、以 pid 匹配本实例、
 #   退出后还原；合成好友（全零 PeerId）收尾必删，异常路径 best-effort 补删。
-set -euo pipefail
+set -eu
+set -o pipefail
 # cargo 不在默认 PATH（acceptance 链会导出；脚本自包含双保险）
 export PATH="$HOME/.cargo/bin:$PATH"
 

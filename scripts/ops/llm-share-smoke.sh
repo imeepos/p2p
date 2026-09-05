@@ -33,7 +33,8 @@
 # 用法：bash scripts/ops/llm-share-smoke.sh
 #   可覆盖：LLM_SMOKE_REMOTE（默认 imeepos@192.168.0.102）
 #           LLM_SMOKE_REMOTE_IP（默认 192.168.0.102）
-set -euo pipefail
+set -eu
+set -o pipefail
 export RUST_LOG="${RUST_LOG:-warn}"
 export PATH="/opt/homebrew/bin:${HOME}/.cargo/bin:${PATH}"
 

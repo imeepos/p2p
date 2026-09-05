@@ -10,7 +10,8 @@
 #   R2 双流并发写子脚本（cli-chat-concurrency-e2e.sh）→ 清理进程与造数
 #   （不过夜）→ 末行 N2-E2E-OK。
 # 测试钩子：N2_CTL / N2_GUI_BIN 可覆写产物路径（默认仓库内相对路径）。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CTL="${N2_CTL:-$ROOT/apps/cli/target/debug/p2pctl}"

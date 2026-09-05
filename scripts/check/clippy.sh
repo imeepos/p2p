@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # clippy 门禁：全 workspace 全 target，警告一律当错误（-D warnings）
-set -euo pipefail
+set -eu
+set -o pipefail
 
 export PATH="$HOME/.cargo/bin:$PATH"
 command -v cargo >/dev/null 2>&1 || {

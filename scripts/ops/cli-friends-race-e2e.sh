@@ -6,7 +6,8 @@
 #   合并无需文件锁）、无重复、无孤儿（peer 全落在预期集内）、磁盘日志头行
 #   合法且更新行恰 2N+1、两次独立冷读一致、双流无 panic。
 # 幂等：临时数据目录隔离，trap 清理（造数不过夜）。末行 FRIENDS-RACE-OK。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CTL="${RACE_CTL:-$ROOT/apps/cli/target/debug/p2pctl}"

@@ -2,7 +2,8 @@
 # 版本/发布门禁自测：临时夹具驱动 version.sh 与 release.sh 的成功/失败路径
 # 用法：bash scripts/check/tests/release-gates.sh
 # 断言：退出码 + 输出标记双条件；任何用例红则整体 exit 1（机械可判，不靠人眼）
-set -uo pipefail
+set -u
+set -o pipefail
 
 CHECK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d)"

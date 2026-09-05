@@ -3,7 +3,8 @@
 # 全程 --data-dir 临时目录隔离；起 A/B 双节点 → A dial/connect B → A ping B →
 # 双双 stop → status 断言未运行；trap 清理全部临时目录与进程（造数不过夜）。
 # 重复执行安全：每次新建独立临时目录，退出时清理。末行输出 CL2-E2E-OK。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CTL="$ROOT/apps/cli/target/debug/p2pctl"

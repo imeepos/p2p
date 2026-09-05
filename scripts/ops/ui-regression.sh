@@ -2,7 +2,8 @@
 # U1 UI 回归批产：页面语义协议 8 路由逐页回归（navigate+descriptor+动作断言+截图证据）。
 # CONFIRM_NEG=危险动作缺 confirm 被拒；EXEC_STRUCT=动作以非法参数真执行取结构化拒绝（零写入）。
 # 用法：[--keep <dir>]；幂等零持久写入，confirm=true 唯一豁免 events.clear（易失内存缓冲，幂等）。
-set -euo pipefail
+set -eu
+set -o pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"

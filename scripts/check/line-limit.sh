@@ -2,7 +2,8 @@
 # 行数红线：crates/ 下所有 .rs 文件 <= LINE_LIMIT（默认 300），超限列出文件与行数并 exit 1
 # 豁免清单：环境变量 LINE_LIMIT_EXEMPT，空格分隔的仓库根相对路径，例：
 #   LINE_LIMIT_EXEMPT="crates/p2p/src/legacy.rs" bash scripts/check/line-limit.sh
-set -euo pipefail
+set -eu
+set -o pipefail
 
 LINE_LIMIT="${LINE_LIMIT:-300}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

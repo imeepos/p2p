@@ -4,7 +4,8 @@
 # macOS 直接跑 cargo test（系统 WKWebView 无需额外系统库）；Linux（CI
 # ubuntu）缺 webkit2gtk-4.1 系统库时 tauri crate 无法编译，显式 SKIP 不
 # 假绿；GUI_TAURI_SKIP=1 提供显式逃生口（SKIP 同样可观测）。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/../../apps/gui/src-tauri"
 

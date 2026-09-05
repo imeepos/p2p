@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 格式检查：cargo fmt --check（只读，不改动文件）
-set -euo pipefail
+set -eu
+set -o pipefail
 
 export PATH="$HOME/.cargo/bin:$PATH"
 command -v cargo >/dev/null 2>&1 || {

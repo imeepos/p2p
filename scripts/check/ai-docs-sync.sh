@@ -11,7 +11,8 @@
 # 产物落点漂移与陈旧二进制假红假绿。bash scripts/check/ai-docs-sync.sh
 # --self-test 可离线自测两道防御。
 # 成功时末行输出 AI-DOCS-OK。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DOC="${ROOT}/docs/ops/p2pctl-ai-guide.md"

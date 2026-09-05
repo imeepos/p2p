@@ -5,7 +5,8 @@
 # 校验：semver / 三处版本一致且等于参数 / 工作树干净 / tag 本地+远端均不存在
 # 分层：本脚本不含 make check 与分支校验（那是 make release-check 的职责），见 docs/release-gates.md
 # 测试钩子：CHECK_ROOT 覆盖仓库根；RELEASE_SKIP_REMOTE=1 跳过远端 tag 查询（离线夹具用）
-set -uo pipefail
+set -u
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${CHECK_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"

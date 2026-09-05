@@ -13,7 +13,8 @@
 # 假红，误报 chat_friend_update 无此命令），二进制 mtime 早于 CLI 源路径域最后
 # 提交时间时同样强制重建。bash scripts/check/cli-parity.sh --self-test 可离线自测。
 # 成功时末行输出 CLI-PARITY-OK。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TSV="${ROOT}/scripts/check/cli-parity.tsv"

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # panic-hygiene 门禁自测：临时夹具驱动红/绿/豁免/保护路径（防门禁假绿）
 # 断言：退出码 + 输出标记双条件；任何用例红则整体 exit 1（机械可判，不靠人眼）
-set -uo pipefail
+set -u
+set -o pipefail
 
 CHECK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GATE="$CHECK_DIR/panic-hygiene.sh"

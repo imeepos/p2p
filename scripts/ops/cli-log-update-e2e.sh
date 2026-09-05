@@ -3,7 +3,8 @@
 # 全程临时目录隔离（--log-dir / --data-dir），不触真实外网（update 仅验白名单输出，
 # 不做在线 check）；起真实验证 metrics 控制通道往返后 stop；trap 清理（造数不过夜）。
 # 重复执行安全。末行输出 CL4-E2E-OK。
-set -euo pipefail
+set -eu
+set -o pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CTL="$ROOT/apps/cli/target/debug/p2pctl"
