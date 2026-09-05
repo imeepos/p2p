@@ -238,6 +238,13 @@ export class AcpConnection {
     await this.request("session/delete", { sessionId });
   }
 
+  /** 手动立即重试：清掉待发的自动重连定时器立刻拨号；attempts 计数语义不变 */
+  retryNow(): void {
+    if (this.userClosed) return;
+    this.clearReconnectTimer();
+    this.connect();
+  }
+
   /** 用户主动断开：不触发重连 */
   close(): void {
     this.userClosed = true;

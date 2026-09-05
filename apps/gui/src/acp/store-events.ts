@@ -30,8 +30,33 @@ import {
 import { applyUpdate, emptyTranscript, type TranscriptState } from "./transcript-model";
 import { resolveWsFactory } from "./ws-factory";
 import { useAcpStore } from "./acp-store";
+import i18n from "@/i18n";
+import { toastError } from "@/components/feedback/toast";
+import type { I18nKey } from "@/i18n/types";
 
 let conn: AcpConnection | null = null;
+
+/** lastError 码 -> 展示文案键：连接卡 Notices 与失败 toast 共用一份，避免双表漂移 */
+export const ACP_ERROR_KEYS: Record<string, I18nKey> = {
+  initializeFailed: "acp.errors.initializeFailed",
+  endpointIncomplete: "acp.errors.endpointIncomplete",
+  sessionNewFailed: "acp.errors.sessionNewFailed",
+  sessionResumeFailed: "acp.errors.sessionResumeFailed",
+  sessionCloseFailed: "acp.errors.sessionCloseFailed",
+  promptFailed: "acp.errors.promptFailed",
+  setConfigFailed: "acp.errors.setConfigFailed",
+};
+
+/** 动作失败的页面折射：sonner toast（与 chat 页一致）。
+ *  console.warn 留痕由各调用点自行保留，这里只管上墙。 */
+export function notifyActionFailure(code: string, error: unknown): void {
+  const key = ACP_ERROR_KEYS[code];
+  if (!key) return;
+  toastError(i18n.t(key), {
+    description: error instanceof Error ? error.message : String(error ?? ""),
+    context: "acp." + code,
+  });
+}
 
 export function currentConnection(): AcpConnection | null {
   return conn;
@@ -144,6 +169,7 @@ async function runHandshake(connection: AcpConnection): Promise<void> {
     useAcpStore.setState({ capabilities });
   } catch (error) {
     console.warn("[acp] initialize 失败", error);
+    notifyActionFailure("initializeFailed", error);
     useAcpStore.setState({ lastError: "initializeFailed" });
   }
   await useAcpStore.getState().refreshSessions();
@@ -162,7 +188,11 @@ function rejectPendingEverywhere(): void {
 export function wireAcpEvents(): AcpConnectionEvents {
   return {
     onPhase: (phase: AcpPhase) => {
-      useAcpStore.setState({ phase });
+      useAcpStore.setState((s) => ({
+        phase,
+        // 回在线或转 offline 终态后横幅即失效，清状态避免「第 x/y 次」常驻
+        reconnect: phase === "online" || phase === "offline" ? null : s.reconnect,
+      }));
       if (phase === "reconnecting" || phase === "offline") rejectPendingEverywhere();
     },
     onCloseInfo: (info: AcpCloseInfo) => useAcpStore.setState({ closeInfo: info }),

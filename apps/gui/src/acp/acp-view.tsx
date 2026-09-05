@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Bot } from "lucide-react";
 
 import { PageHeader } from "@/components/page/page-header";
 import { useAcpStore } from "@/acp/acp-store";
@@ -12,18 +13,22 @@ import { SessionSidebar } from "@/acp/components/session-sidebar";
 import { Transcript } from "@/acp/components/transcript";
 import { UsageBar } from "@/acp/components/usage-bar";
 import { EmptyState } from "@/views/shared/empty-state";
-import { Bot } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 function ReconnectBanner() {
   const { t } = useTranslation();
   const reconnect = useAcpStore((s) => s.reconnect);
+  const retryNow = useAcpStore((s) => s.retryNow);
   if (!reconnect) return null;
   return (
     <div
-      className="border-warning/40 bg-warning/10 rounded-md border px-3 py-2 text-sm"
+      className="border-warning/40 bg-warning/10 flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
       data-testid="acp-reconnect-banner"
     >
-      {t("acp.connection.reconnectNotice", { attempt: reconnect.attempt, max: reconnect.max })}
+      <span>{t("acp.connection.reconnectNotice", { attempt: reconnect.attempt, max: reconnect.max })}</span>
+      <Button variant="outline" size="sm" onClick={retryNow} data-testid="acp-reconnect-now">
+        {t("acp.reconnect.retryNow")}
+      </Button>
     </div>
   );
 }
