@@ -27,6 +27,11 @@
 原因：裸链不进 swarm，连接只被当作出站流用；对端 liveness probe 在该连接上开 ping 流，本端无人 mux.accept_stream，探活永不命中。
 修法：TransportLink::connect 起 spawn_link_responder 循环，accept 入站流并 dispatch 内置 PingHandler；未注册协议 debug 关流（crates/p2p/src/rendezvous.rs）。E4「句柄持有」与本次「入站应答」是同一坑的上下半场。
 
+
+## 2026-09-05 workspace_session_manage archiveSession 的 archivedSessionIds 是累计归档注册表上报
+症状：传单 sessionId 归档一个会话，响应 archivedSessionIds 返回数百个 id（含大量历史已归档会话），疑似误归档全部。
+真相：返回的是归档后注册表全量快照（第二次调用的清单=第一次清单+新 id 恰好佐证）；session_link_list 复核仅目标会话消失，历史会话与 P3 新会话均不受影响。
+修法/对策：归档后必须用 session_link_list 复核活跃清单再下结论；不要按响应里的清单长度判断误伤。
 ## 2026-09-04 harness bash workdir 参数失效导致错树假绿
 症状：run_code 的 bash 传了 workdir 指向 worktree，pwd 实际仍在会话主树；cargo test 测的是未修改的主树代码，全绿假象（本轮实录，修复前测试全绿但绿的是旧代码）。
 原因：该 harness 会话 bash 固定以会话 cwd 运行，workdir 参数被忽略。
