@@ -123,6 +123,8 @@ export async function runCloseSession(sessionId: string): Promise<void> {
     console.warn("[acp] session/delete 失败", error);
     notifyActionFailure("sessionCloseFailed", error);
     useAcpStore.setState({ lastError: "sessionCloseFailed" });
+    // agent 侧会话仍在：失败不移除本地条目，防侧栏复活幽灵
+    return;
   }
   useAcpStore.setState((s) => {
     const sessions = s.sessions.filter((e) => e.sessionId !== sessionId);

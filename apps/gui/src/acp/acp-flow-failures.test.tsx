@@ -206,6 +206,8 @@ describe("AcpView action failure visibility", () => {
     expect(await screen.findByText("恢复会话失败")).toBeTruthy();
     fireEvent.click(screen.getByTestId("acp-session-close-s-x"));
     expect(await screen.findByText("关闭会话失败")).toBeTruthy();
+    // 失败不得本地移除：agent 侧会话还在，删了会复活
+    expect(screen.getByTestId("acp-session-row-s-x")).toBeTruthy();
   });
 
   it("online 下配置下发失败弹 toast", async () => {

@@ -62,6 +62,11 @@ describe("AcpView connection", () => {
     expect(screen.queryByTestId("acp-reconnect-notice")).toBeNull();
   });
 
+  it("token 输入框密码型回显", () => {
+    render(<AcpView />);
+    expect((screen.getByTestId("acp-input-token") as HTMLInputElement).type).toBe("password");
+  });
+
   it("端点可保存并回填（手动添加）", async () => {
     render(<AcpView />);
     fireEvent.click(screen.getByTestId("acp-save-endpoint"));

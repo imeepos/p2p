@@ -42,11 +42,13 @@ function Field(props: {
   value: string;
   onChange: (v: string) => void;
   testid: string;
+  type?: "text" | "password";
 }) {
   return (
     <div className="flex flex-col gap-1">
       <Label>{props.label}</Label>
       <Input
+        type={props.type ?? "text"}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         data-testid={props.testid}
@@ -187,7 +189,7 @@ export function ConnectionCard() {
       <CardContent className="flex flex-col gap-3">
         <div className="grid gap-3 md:grid-cols-3">
           <Field label={t("acp.connection.wsUrl")} value={draft.wsUrl} onChange={patch("wsUrl")} testid="acp-input-ws-url" />
-          <Field label={t("acp.connection.token")} value={draft.token} onChange={patch("token")} testid="acp-input-token" />
+          <Field label={t("acp.connection.token")} value={draft.token} onChange={patch("token")} testid="acp-input-token" type="password" />
           <Field label={t("acp.connection.peer")} value={draft.peer} onChange={patch("peer")} testid="acp-input-peer" />
         </div>
         <Notices />
