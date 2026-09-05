@@ -212,6 +212,22 @@ _none yet — be the first._
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
+- 2026-09-05 PR1 轮：bash 后台启动 serve 的函数不能被 `VAR="$(fn)"` 命令替换
+  包裹——子 shell 里 PIDS+=("$!") 只改副本，父 shell 数组恒空，pop 时报 bad
+  array subscript；模式是函数内直接改父 shell 数组 + 就绪结果写全局变量带回，
+  纯读函数才允许命令替换。
+- 2026-09-05 PR1 轮：bash 生成脚本内容经 JS 模板字符串写入时，脚本里的
+  `${...}` 会被 JS 当插值吃掉（parse error Expected ident）；改用逐行数组
+  join("\n") 的普通字符串承载，或全部 `\${` 转义。
+- 2026-09-05 PR1 轮：本仓库 chat serve/一次性命令的身份锁要求数据目录已存在，
+  mktemp -d 下的子目录直接当 --data-dir 会报「身份被占用…No such file or
+  directory」（锁文件建不出来）；E2E 起节点前先 mkdir -p 各 data-dir。
+- 2026-09-05 PR1 轮：长测试（workspace 级集成测试单件 20-90s）严禁前台同步
+  等结果——600s 超时烧掉一轮；一律 run_in_background + 日志文件，期间做互不
+  依赖的下游工作，只在真正被阻塞时 job_output wait。
+- 2026-09-05 PR1 轮：同一个日志文件不能被两次后台运行复用（第一次残留与第二
+  次输出交错假象）；每轮独立文件名或先清空。cargo 增量重链接全部集成测试
+  二进制是分钟级操作，改 lib 后的验证优先 cargo test -p <crate> --lib 快筛。
 - 2026-09-05 OPS1：`set -euo pipefail` 不含字面子串 `set -o pipefail`——验收约定是 grep -L 字面审计时整批脚本会被误判缺 pipefail；拆成 set -eu 与 set -o pipefail 两行，语义等价且机械可审计。
 - 2026-09-04 N1：文档与实现的漂移是真实发生的（cli-guide.md §5 曾写 --peer-id/--name，
   实际 clap 参数是 --peer/--nickname）。凡"命令面/接口面"文档必须配机械同步门禁
