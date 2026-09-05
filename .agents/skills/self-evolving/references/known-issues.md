@@ -727,3 +727,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 原因：transition() 用 `let _ = self.tx.send(snap)`——watch 语义是 send 在无 Receiver 时返回 Err 且**不更新当前值**；生产 status 端点是纯 HTTP 轮询，天然零常驻订阅者。
 修法：快照型 watch 一律 send_replace（无条件推进当前值，通知可有可无）。判据：凡是「没人订阅也要能读」的 watch，禁用 send。
 
+## (2026-09-05) UA 命令面板/热键/兜底/toast 轮三则
+- 症状：顶栏入口打开面板时 onOpenChange 收到 undefined 而非 false。原因：内部条目的 onClose: () => void 直接接了 handleOpenChange (next: boolean) => void，TS 结构类型放行（参数少可赋给参数多），调用点 onClose() 无参即把 undefined 写回受控 open。修法：close = () => handleOpenChange(false) 显式传值，测试断言 toHaveBeenCalledWith(false)。
+- 症状：i18n 追加键后运行时渲染裸键名 common.errorBoundary.title，i18n-diff 却 PASS（zh=659 en=659）。原因：edit 锚点在文件里唯一命中，但命中段属于顶层 update 块的收尾，errorBoundary 被插进 update 而非 common；中英对称门禁只比对键集合差集，查不出落错块。修法：追加后用与 i18n-diff 同款 keysOf 脚本断言键路径存在（zh.common.errorBoundary 非 undefined）再跑组件测试。
+- 症状：cmdk 面板测试先报 ReferenceError: ResizeObserver is not defined，补桩后再报 TypeError: i.scrollIntoView is not a function。原因：jsdom 未实现这两者，cmdk 测量与选中滚动都要。修法：测试文件头部补 ResizeObserverStub 与 Element.prototype.scrollIntoView 空实现；桩放本测试文件内，不动共享 setup.ts（他人所有文件）。
+

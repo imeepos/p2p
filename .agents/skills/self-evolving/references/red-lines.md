@@ -50,3 +50,5 @@
 - (2026-09-04) 禁止在 fmt/check 失败未确认时采信任何 wc -l 行数——红线下读数必须
   以"解析成功 + fmt 成功"为前提。
 - (2026-09-05) 完成单张任务书 = 停止点：等待协调者下一张派单，禁止按设计文档里程碑表自行开工后续单——G1 会话交付后自判 G4 可执行即抢跑，造成双写险情与 40+ 分钟归属仲裁成本；任务书执行完只许收尾+汇报。
+- (2026-09-05 UA 轮) 禁止把受控组件的 onOpenChange 型回调直接当无参 closer 传给内部条目：TS 结构类型允许 () => void 接收 (next: boolean) => void 而吞掉参数，调用点无参即把 undefined 写回受控状态；必须显式包一层 () => handleOpenChange(false)，并以 toHaveBeenCalledWith(false) 行为断言兜底。
+- (2026-09-05 UA 轮) 禁止对结构化登记文件（i18n locale 等多顶层块对象）追加后不看键路径：edit 锚点唯一命中也可能落进相邻顶层块（本次 errorBoundary 被插进 update 块，common.errorBoundary 为 undefined 运行时渲染裸键名）；追加后必须脚本求值键路径机械复核——i18n-diff 只查中英键集合对称，查不出落错块。

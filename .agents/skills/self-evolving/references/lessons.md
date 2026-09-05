@@ -240,3 +240,6 @@ _none yet — be the first._
 - 2026-09-05：run_code 模板串里生成 JS/TS 代码时，行尾续行反斜杠与换行转义需要
   双重转义层级心算，很容易造出合法 TS 但非法目标语言的序列；写完立刻跑一次
   目标脚本冒烟（--help 级别即可），本次靠冒烟 30 秒内抓住语法错。
+- 2026-09-05：RTL 的 getByText(函数谓词) 会命中多个元素（谓词跑在多个节点上），定位组件内文本用 data-testid 直读 textContent 最稳（UA 轮 use-hotkeys 探针四连败根因）。
+- 2026-09-05：cmdk 在 jsdom 需要 ResizeObserver 与 Element.prototype.scrollIntoView 两个最小桩，缺一即面板挂载崩；桩放各测试文件头部，不动共享 setup.ts（他人所有文件）。
+- 2026-09-05：行为断言写 toHaveBeenCalledWith(具体值) 而非 toHaveBeenCalled()，才能抓住类型系统放行的真缺陷——本次靠它抓到关闭回调吞参把 undefined 写回受控 open 状态。
