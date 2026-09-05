@@ -26,6 +26,8 @@ pub struct Node {
     rendezvous: Option<Arc<RendezvousClient>>,
     /// 静态对端登记文件句柄（未配置为 None）。
     static_peers: Option<Arc<static_peers::StaticPeersFile>>,
+    /// 装配期观测重试耗尽（BASE1 显式可观察）：注册集已剔除 loopback。
+    observe_degraded: bool,
 }
 
 impl Node {
@@ -34,13 +36,22 @@ impl Node {
         observation_addr: Option<SocketAddr>,
         rendezvous: Option<Arc<RendezvousClient>>,
         static_peers: Option<Arc<static_peers::StaticPeersFile>>,
+        observe_degraded: bool,
     ) -> Self {
         Self {
             swarm,
             observation_addr,
             rendezvous,
             static_peers,
+            observe_degraded,
         }
+    }
+
+    /// 装配期观测重试耗尽状态（BASE1 显式可观察，禁止静默退化）：
+    /// true 表示观测目标已配置但重试耗尽，注册地址集已剔除 loopback，
+    /// 跨网发现/被拨能力受限（装配日志同步留 WARN）。
+    pub fn observe_degraded(&self) -> bool {
+        self.observe_degraded
     }
 
     /// 构建入口（design §4：Node::builder()）。

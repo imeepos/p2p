@@ -11,6 +11,7 @@ mod rendezvous;
 mod static_peers;
 
 use std::path::PathBuf;
+use std::time::Duration;
 
 pub use node::Node;
 pub use p2p_identity::PeerId;
@@ -40,6 +41,11 @@ pub struct NodeConfig {
     pub observation_port: Option<u16>,
     /// 观测口地址（ip:port），启动时学习自身公网映射地址；空则跳过观测。
     pub observation_addrs: Vec<String>,
+    /// 观测探测有界重试：总尝试次数（含首次，BASE1 注册退化重试）。
+    /// 单次 UDP 随机失败不得让注册地址集退化；耗尽显式告警并置降级状态。
+    pub observe_attempts: u32,
+    /// 观测探测首次失败后的退避间隔，之后逐次翻倍封顶 16x（次数/间隔可配）。
+    pub observe_interval: Duration,
     /// rendezvous 服务端公共策略：拒收全不可路由注册；公共 bootstrap 部署开启。
     pub rendezvous_public_only: bool,
     /// 静态对端登记文件（社交化发现 P1）：启动载入 + upsert 落盘；None = 不启用。
@@ -59,6 +65,8 @@ impl Default for NodeConfig {
             advertised_addrs: Vec::new(),
             observation_port: None,
             observation_addrs: Vec::new(),
+            observe_attempts: 3,
+            observe_interval: Duration::from_millis(500),
             rendezvous_public_only: false,
             static_peers_file: None,
         }
@@ -129,6 +137,18 @@ impl NodeBuilder {
     /// 观测口地址（ip:port），启动时学习自身公网映射地址并注册进 rendezvous。
     pub fn observation_addrs(mut self, addrs: Vec<String>) -> Self {
         self.0.observation_addrs = addrs;
+        self
+    }
+
+    /// 观测探测总尝试次数（含首次，至少 1；BASE1 注册退化重试）。
+    pub fn observe_attempts(mut self, attempts: u32) -> Self {
+        self.0.observe_attempts = attempts;
+        self
+    }
+
+    /// 观测探测首次失败后的退避间隔（之后逐次翻倍封顶 16x）。
+    pub fn observe_interval(mut self, interval: Duration) -> Self {
+        self.0.observe_interval = interval;
         self
     }
 

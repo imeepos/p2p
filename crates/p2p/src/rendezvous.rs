@@ -51,6 +51,10 @@ pub struct TransportLink {
     keypair: Arc<Keypair>,
     quic: QuicTransport,
     tcp: TcpTransport,
+    /// 连接复用缓存（BASE1）：查号与周期注册/查询循环共用一条到 bootstrap
+    /// 的连接——每查号新建连接既有握手开销，又会触发服务端同向重复入池
+    /// 的收敛裁决与半开残留竞态窗口。缓存连接失效（开流失败）即剔除重拨。
+    cached: tokio::sync::Mutex<Option<SecureConn>>,
 }
 
 impl TransportLink {
@@ -62,6 +66,7 @@ impl TransportLink {
             keypair,
             quic: QuicTransport::new()?,
             tcp: TcpTransport::new(),
+            cached: tokio::sync::Mutex::new(None),
         })
     }
 
@@ -94,6 +99,29 @@ impl TransportLink {
 #[async_trait]
 impl RendezvousLink for TransportLink {
     async fn connect(&self) -> Result<RendezvousConn, RendezvousError> {
+        // 连接复用：缓存连接仍可用（开流成功）即直接复用，不重拨
+        if let Some(conn) = self.cached.lock().await.as_ref() {
+            match open_rendezvous_stream(conn).await {
+                Ok(stream) => {
+                    tracing::debug!("rendezvous link reused cached bootstrap connection");
+                    return Ok(stream_to_conn_owned(stream, clone_secure_conn(conn)));
+                }
+                Err(e) => {
+                    tracing::debug!(error = %e, "cached bootstrap connection dead; redialing");
+                    *self.cached.lock().await = None;
+                }
+            }
+        }
+        let (rendezvous_conn, secure) = self.dial_fresh().await?;
+        *self.cached.lock().await = Some(secure);
+        Ok(rendezvous_conn)
+    }
+}
+
+impl TransportLink {
+    /// 全新盲拨（遍历 bootstrap 地址）：成功时返回（rendezvous 会话, 连接句柄），
+    /// 句柄由调用方入缓存以复用。
+    async fn dial_fresh(&self) -> Result<(RendezvousConn, SecureConn), RendezvousError> {
         let mut last: Option<RendezvousError> = None;
         for (idx, addr) in self.addrs.iter().enumerate() {
             let transport: &dyn Transport = match addr {
@@ -115,7 +143,8 @@ impl RendezvousLink for TransportLink {
                 Ok(stream) => {
                     self.blind_dial_failed_warned[idx].store(false, Ordering::Relaxed);
                     spawn_link_responder(&conn);
-                    return Ok(stream_to_conn_owned(stream, conn));
+                    let secure = clone_secure_conn(&conn);
+                    return Ok((stream_to_conn_owned(stream, conn), secure));
                 }
                 Err(e) => {
                     self.note_blind_dial_failure(idx, addr, &e);
@@ -124,6 +153,14 @@ impl RendezvousLink for TransportLink {
             }
         }
         Err(last.unwrap_or_else(|| RendezvousError::Link("no bootstrap addrs".into())))
+    }
+}
+
+/// SecureConn 不可 Clone，按字段克隆一份共享同一 mux 的句柄（缓存用）。
+fn clone_secure_conn(conn: &SecureConn) -> SecureConn {
+    SecureConn {
+        remote: conn.remote,
+        mux: Arc::clone(&conn.mux),
     }
 }
 

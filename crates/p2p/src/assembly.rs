@@ -5,7 +5,9 @@ use std::io;
 use std::path::Path;
 use std::sync::Arc;
 
-use p2p_discovery::{Discovery, MdnsConfig, MdnsDiscovery, RendezvousClient, RendezvousConfig};
+use p2p_discovery::{
+    Discovery, MdnsConfig, MdnsDiscovery, RendezvousClient, RendezvousConfig, RetryPolicy,
+};
 use p2p_identity::Keypair;
 use p2p_protocol::HandlerRegistry;
 use p2p_swarm::{Swarm, SwarmConfig};
@@ -38,13 +40,18 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
         reflector_addr = Some(local);
     }
     // 地址观测（design §7.2）：学习自身公网映射地址（先于注册与打洞宣告）
-    let observed = observe::observe_external_addrs(&cfg.observation_addrs).await;
+    // BASE1：有界重试+退避（次数/间隔可配），单次随机失败不再让注册退化
+    let observe_policy = RetryPolicy::new(cfg.observe_attempts, cfg.observe_interval);
+    let observed = observe::observe_external_addrs(&cfg.observation_addrs, observe_policy).await;
+    // 观测耗尽（配置了观测目标但重试耗尽仍无结果）即显式降级
+    let observation_exhausted = !cfg.observation_addrs.is_empty() && observed.is_empty();
     // 失败路径留观测信号（E5 复盘）：观测全失败意味着 rendezvous 注册将回退监听
     // 地址——loopback 对远端不可拨，跨网发现/被拨全部失效，必须让运维可见
     if !cfg.observation_addrs.is_empty() && observed.is_empty() {
         tracing::warn!(
             targets = ?cfg.observation_addrs,
-            "address observation failed on all targets; rendezvous registration falls back to listen addrs (loopback addrs are undialable from other machines)"
+            attempts = cfg.observe_attempts,
+            "address observation exhausted retries; registration restricted to routable listen addrs (loopback excluded, cross-net discovery degraded)"
         );
     }
 
@@ -69,7 +76,10 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     let listen_addrs = swarm.listen_addrs();
     let observed_addrs = observe::observed_transport_addrs(&observed, &listen_addrs);
     swarm.set_observed_addrs(observed_addrs);
-    let reg_addrs = observe::merge_observed_with_listen(observed.first().copied(), &listen_addrs);
+    let mut reg_addrs = observe::merge_observed_with_listen(observed.first().copied(), &listen_addrs);
+    if observation_exhausted {
+        reg_addrs = observe::prefer_routable_only(reg_addrs);
+    }
     // 注册集无一条可路由地址：跨网节点无法拨到本机（E5 复盘的泄漏前兆），启动即告警
     if !cfg.bootstrap.is_empty() && !reg_addrs.iter().any(TransportAddr::is_routable) {
         tracing::warn!(
@@ -96,6 +106,7 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
         reflector_addr,
         rendezvous,
         static_peers.map(Arc::new),
+        observation_exhausted,
     ))
 }
 

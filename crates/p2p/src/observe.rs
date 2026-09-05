@@ -11,6 +11,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 use tokio::net::UdpSocket;
 
+use p2p_discovery::{retry_bounded, RetryPolicy};
 use p2p_transport::TransportAddr;
 
 /// 观测协议魔法与版本（payload 前缀）。
@@ -73,24 +74,42 @@ pub async fn observe_external(observation_addr: SocketAddr) -> io::Result<Socket
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "bad observed addr"))
 }
 
-/// 逐个观测口尝试，取首个成功观测；全部失败返回空（调用方回退监听地址注册）。
-pub async fn observe_external_addrs(observation_addrs: &[String]) -> Vec<SocketAddr> {
+/// 逐个观测口尝试（每个口按策略有界重试+退避），取首个成功观测；
+/// 全部耗尽返回空并留显式告警（attempts/末次错误可追），调用方据此置
+/// 降级状态——单次随机失败不得让注册地址集退化（BASE1，ISSUE 2026-09-05）。
+pub async fn observe_external_addrs(
+    observation_addrs: &[String],
+    policy: RetryPolicy,
+) -> Vec<SocketAddr> {
     let mut learned = Vec::new();
     for s in observation_addrs {
         let Ok(addr) = s.parse::<SocketAddr>() else {
             tracing::warn!(entry = %s, "malformed observation addr ignored");
             continue;
         };
-        match observe_external(addr).await {
+        match retry_bounded(policy, || observe_external(addr)).await {
             Ok(observed) => {
                 tracing::info!(%observed, via = %addr, "external address observed");
                 learned.push(observed);
                 break;
             }
-            Err(e) => tracing::warn!(via = %addr, error = %e, "observation failed"),
+            Err(e) => tracing::warn!(
+                via = %addr,
+                attempts = e.attempts,
+                error = %e.last_error,
+                "observation exhausted retries"
+            ),
         }
     }
     learned
+}
+
+/// 观测耗尽后的注册地址优选（BASE1 禁止退化 loopback）：无条件剔除
+/// 不可路由地址。filter_loopback 的「全 loopback 集保留」规则服务于
+/// 同机部署（bootstrap 全 loopback 时维持可发现性）；观测目标已配置
+/// 即跨网意图，loopback 注册对远端不可拨且污染对端地址簿，必须拦截。
+pub(crate) fn prefer_routable_only(addrs: Vec<TransportAddr>) -> Vec<TransportAddr> {
+    addrs.into_iter().filter(|a| a.is_routable()).collect()
 }
 
 /// 观测 IP × 本端 QUIC/TCP 端口 = 跨网可拨地址（去重；观测在前）。
