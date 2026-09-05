@@ -56,7 +56,7 @@ vi.mock("@/stores/node-store", async (importOriginal) => {
 });
 
 import "@/i18n";
-import { ConfirmProvider, useConfirm } from "@/components/feedback/confirm-provider";
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { useChatStore } from "@/stores/chat-store";
 import { useGroupStore } from "@/stores/group-store";
 import { useAcpStore } from "@/acp/acp-store";
@@ -91,11 +91,6 @@ function renderTree(node: React.ReactElement) {
       <ConfirmProvider>{node}</ConfirmProvider>
     </MemoryRouter>,
   );
-}
-
-function confirmButtons() {
-  // confirm-provider 弹框：确认钮始终为 AlertDialogAction（destructive 时红底）
-  return screen.getAllByRole("dialog").length;
 }
 
 beforeEach(() => {

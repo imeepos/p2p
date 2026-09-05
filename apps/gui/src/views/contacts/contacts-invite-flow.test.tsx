@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ChatFriendJson, FriendInviteJson, NodeEventHandler } from "@/lib/ipc-types";
+import type { ChatFriendJson, FriendInviteJson } from "@/lib/ipc-types";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -26,9 +26,7 @@ vi.mock("@/lib/ipc", () => ({
     chatInviteReject: mocks.reject,
     chatInviteCancel: mocks.cancel,
     chatHistory: mocks.history,
-    onNodeEvent: (handler: NodeEventHandler) => {
-      return Promise.resolve(() => {});
-    },
+    onNodeEvent: () => Promise.resolve(() => {}),
   },
 }));
 
@@ -41,10 +39,6 @@ const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
 
 function friendOf(peerId: string, nickname: string): ChatFriendJson {
   return { peerId, nickname, addrs: [], note: null };
-}
-
-function inInvite(): FriendInviteJson {
-  return { peerId: PEER, nickname: "对方昵称", addrs: [], note: null, direction: "in", tsMs: 1, delivered: true };
 }
 
 beforeEach(() => {

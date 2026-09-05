@@ -34,6 +34,7 @@ vi.mock("@/lib/ipc", () => ({
 
 import "@/i18n";
 import i18n from "@/i18n";
+import type { I18nKey } from "@/i18n/types";
 import { MemoryRouter } from "react-router-dom";
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { useChatStore } from "@/stores/chat-store";
@@ -202,7 +203,7 @@ describe("表单错误 = 稳定错误码 + i18n key（快照断言）", () => {
     fireEvent.click(screen.getByTestId("contacts-endpoint-test"));
     const node = await screen.findByTestId("contacts-endpoint-error-" + code);
     // 稳定口径：i18n key 固定为 contacts.endpoint.errors.<code>，文案逐字一致
-    expect(node.textContent).toBe(i18n.t("contacts.endpoint.errors." + code));
+    expect(node.textContent).toBe(i18n.t(("contacts.endpoint.errors." + code) as I18nKey));
   });
 
   it("移动分组新组名校验错误码稳定（超长 → i18n 原文）", async () => {

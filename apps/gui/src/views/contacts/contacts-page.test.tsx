@@ -1,6 +1,6 @@
 // 验收 1（§3.1）：三区渲染——空态与行内操作断言；锚点条定位与当前节
 // 高亮断言；/contacts#* 深链定位断言（5.2 命令面板锚点契约）。
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, type RenderResult } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -70,7 +70,7 @@ export function groupOf(groupId: string, name: string, owner: string): GroupJson
   };
 }
 
-export function renderContacts(initialEntry = "/contacts") {
+export function renderContacts(initialEntry = "/contacts"): RenderResult {
   return render(
     <MemoryRouter initialEntries={[initialEntry]}>
       <ContactsPage />
