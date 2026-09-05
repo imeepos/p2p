@@ -1,5 +1,5 @@
 //! 单条入站流的生命周期（设计 §4.1/§5/§6/§7）：
-//! 握手 -> PeerId 归属（fail-closed 绕行，见 ISSUE.md）-> 策略授权 -> 资源门禁
+//! 握手 -> 流身份归属（底座随流下传互认 peer，无身份即 fail-closed）-> 策略授权 -> 资源门禁
 //! -> 分流：无票据 = fresh spawn（cwd 监狱 + 票据签发），携票据 = 续连接管。
 //! 安全改写点分模块：jail（cwd）/ mcp（剥离替换）/ permission + router（瀑布）/
 //! reattach（缓存）。桥自身只做编排，不解析 ACP 语义（两个安全改写点除外）。
@@ -10,26 +10,22 @@ use std::time::Duration;
 
 use acp_common::error::ErrorCode;
 use acp_common::{parse_client_hello, ClientHello, PeerPolicy, PolicyTable, Scope, ServerHello};
-use p2p::BoxedStream;
+use p2p::{BoxedStream, PeerId};
 
 use crate::audit::{AuditEvent, AuditSink};
 use crate::child::SlotBook;
 use crate::config::AgentConfig;
 use crate::conn;
 use crate::gate::{ConnGate, ConnGuard, GateLimits};
-use crate::peers::PeerBook;
 use crate::pump::{read_wire_line, wire_error, write_wire_line};
 
 /// 握手读超时：无超时则慢速流可在占坑后永久挂起。
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
-/// peer 归属等待：吸收流先于 PeerConnected 记账到达的竞态窗口。
-const PEER_RESOLVE_WAIT: Duration = Duration::from_secs(2);
 
 pub struct SessionDeps {
     pub config: AgentConfig,
     pub policy: Arc<StdRwLock<PolicyTable>>,
     pub gate: Arc<ConnGate>,
-    pub peers: Arc<PeerBook>,
     pub slots: Arc<SlotBook>,
     pub audit: Arc<dyn AuditSink>,
 }
@@ -39,7 +35,6 @@ impl SessionDeps {
     pub fn assemble(
         config: AgentConfig,
         audit: Arc<dyn AuditSink>,
-        peers: Arc<PeerBook>,
     ) -> Result<Arc<Self>, acp_common::PolicyStoreError> {
         let table = crate::policy::load(&config.policy_path())?;
         Ok(Arc::new(Self {
@@ -48,25 +43,29 @@ impl SessionDeps {
             slots: Arc::new(SlotBook::new()),
             config,
             audit,
-            peers,
         }))
     }
 }
 
-/// swarm 分发入口：整条流归本函数，返回即关流。
-pub async fn serve(deps: Arc<SessionDeps>, stream: BoxedStream) -> io::Result<()> {
-    run_session(deps, stream)
+/// swarm 分发入口：整条流归本函数，返回即关流。peer 为分发层随流下传的
+/// 握手互认身份；None（裸流入口）无归属依据，握手前即 fail-closed 拒绝。
+pub async fn serve(
+    deps: Arc<SessionDeps>,
+    stream: BoxedStream,
+    peer: Option<PeerId>,
+) -> io::Result<()> {
+    run_session(deps, stream, peer)
         .await
         .inspect_err(|err| tracing::debug!(error = %err, "acp session ended"))
 }
 
-async fn run_session(deps: Arc<SessionDeps>, mut stream: BoxedStream) -> io::Result<()> {
-    let hello = match handshake(&mut stream).await {
-        Ok(hello) => hello,
-        Err(code) => return deny(&mut stream, deps.audit.as_ref(), "unknown", code).await,
-    };
-    let peer = match deps.peers.resolve(PEER_RESOLVE_WAIT).await {
-        Some(peer) => peer,
+async fn run_session(
+    deps: Arc<SessionDeps>,
+    mut stream: BoxedStream,
+    peer: Option<PeerId>,
+) -> io::Result<()> {
+    let peer_id = match peer {
+        Some(peer) => peer.to_string(),
         None => {
             return deny(
                 &mut stream,
@@ -77,7 +76,10 @@ async fn run_session(deps: Arc<SessionDeps>, mut stream: BoxedStream) -> io::Res
             .await;
         }
     };
-    let peer_id = peer.to_string();
+    let hello = match handshake(&mut stream).await {
+        Ok(hello) => hello,
+        Err(code) => return deny(&mut stream, deps.audit.as_ref(), &peer_id, code).await,
+    };
     let grant = match authorize(&deps, &peer_id) {
         Ok(grant) => grant,
         Err(code) => return deny(&mut stream, deps.audit.as_ref(), &peer_id, code).await,

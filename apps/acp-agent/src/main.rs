@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use acp_agent::cli::Cli;
-use acp_agent::{AcpHandler, PeerBook, SessionDeps, TracingAudit};
+use acp_agent::{AcpHandler, SessionDeps, TracingAudit};
 use clap::Parser;
 
 #[tokio::main]
@@ -29,8 +29,7 @@ async fn run(cli: Cli) -> Result<(), String> {
         .build()
         .await
         .map_err(|err| format!("node build: {err}"))?;
-    let peers = PeerBook::spawn(node.events());
-    let deps = SessionDeps::assemble(config.clone(), Arc::new(TracingAudit), peers)
+    let deps = SessionDeps::assemble(config.clone(), Arc::new(TracingAudit))
         .map_err(|err| format!("policy load: {err}"))?;
     let handler = AcpHandler::new(deps.clone()).map_err(|err| format!("protocol id: {err}"))?;
     node.handle_protocol(Arc::new(handler));
