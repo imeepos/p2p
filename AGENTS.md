@@ -10,7 +10,7 @@
 - **短命分支**：任务完成当天即合并，不过夜；冲突一律在 feature 侧消化，进 main 的合并保持干净。
 - **合并前反向同步**：worktree 内先 `git merge main`（本地私有分支可 rebase），解冲突跑门禁，再回主树合并。
 - **中央登记文件 append-only**：menu.def.ts / App.tsx / i18n types+locale / fields.md 的注册类改动压成独立小提交，不埋进大 feature 提交。
-- **收尾四步（硬性，防代码丢失）**：① `git push gitea <分支>`（远端名是 gitea 不是 origin）→ ② 主树 `git merge --ff-only <分支>` → ③ `git worktree remove` → ④ `git branch -d` + `git push gitea --delete`。**执行前先核对 cwd 在主树（`pwd` + `git branch --show-current`）**：在 feature worktree 内执行②是 no-op 假成功（2026-08-28 实例），还会把本地 main 指针误推。
+- **收尾四步（硬性，防代码丢失）**：① `git push origin <分支>`（2026-09-05 用户拍板：本项目不用 gitea，远端一律 origin）→ ② 主树 `git merge --ff-only <分支>` → ③ `git worktree remove` → ④ `git branch -d` + `git push origin --delete`。**执行前先核对 cwd 在主树（`pwd` + `git branch --show-current`）**：在 feature worktree 内执行②是 no-op 假成功（2026-08-28 实例），还会把本地 main 指针误推。
 - **ff-merge 失败 ≠ commit 丢失**（commit 安全在分支 ref 上）：失败时严禁删 worktree，唯一动作是回 worktree `git rebase main` 后重试②。
 - 误闯并行会话的 worktree 并编辑其未提交文件是事故（2026-08-22 用户点名）；发现半成品先 `git worktree list` 判断归属。
 
@@ -23,7 +23,7 @@ worktree 只隔离文件，不隔离全局共享的流水资源（迁移号/路�
   不许进 baseline 豁免（历史撞号 000044/000095 为存量例外，已登记）。
 - 让号规则：已合并进 main 者优先，后来者让号；未进任何库的迁移直接改名即可；
   已进库的改名必须同步 `UPDATE schema_migrations`（见 edd0666 先例）。
-- **占号顺序（2026-09-01 双会话撞号实证）**：并行轮先 `git fetch gitea && git merge main`
+- **占号顺序（2026-09-01 双会话撞号实证）**：并行轮先 `git fetch origin && git merge main`
   反向同步**再**定迁移号，比"各自取最大号+1"可靠——后查号只能事后让号，先同步可直接避开。
 
 ## 提交纪律（revert 可行是硬约束）
