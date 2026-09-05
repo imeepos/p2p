@@ -369,6 +369,37 @@ const zhCN = {
       empty: "暂无待处理邀请",
     },
     noFriendsHint: "发送好友邀请，对方同意后即可开始私聊",
+    conversations: {
+      searchPlaceholder: "搜索会话",
+      empty: "选择或发起会话",
+      emptyHint: "从左侧列表选择会话；好友、群聊与 Agent 会话在此聚合",
+      noMatch: "无匹配会话",
+      back: "返回会话列表",
+      loading: "正在加载会话…",
+    },
+    preview: {
+      image: "[图片]",
+      audio: "[语音]",
+      video: "[视频]",
+      file: "[文件]",
+    },
+    unread: {
+      aria: "{{count}} 条未读",
+    },
+    media: {
+      errors: {
+        empty: "附件内容为空，无法发送",
+        tooLarge: "附件超过单条消息 64 MiB 上限",
+        mimeRejected: "附件类型不受支持，无法发送",
+      },
+    },
+    agentPane: {
+      connectAction: "连接",
+      disconnected: "已断开",
+      notFound: "未找到该 Agent 端点",
+      newSession: "新建会话",
+      connectFailed: "连接失败",
+    },
     peerOnline: "在线",
     peerOffline: "离线",
     noMessages: "暂无消息",

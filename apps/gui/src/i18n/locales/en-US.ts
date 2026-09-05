@@ -379,6 +379,37 @@ const enUS: typeof zhCN = {
       empty: "No pending invites",
     },
     noFriendsHint: "Send a friend invite to start chatting",
+    conversations: {
+      searchPlaceholder: "Search conversations",
+      empty: "Select or start a conversation",
+      emptyHint: "Pick a conversation from the list; friends, groups and agents aggregate here",
+      noMatch: "No matching conversations",
+      back: "Back to conversation list",
+      loading: "Loading conversations…",
+    },
+    preview: {
+      image: "[Image]",
+      audio: "[Audio]",
+      video: "[Video]",
+      file: "[File]",
+    },
+    unread: {
+      aria: "{{count}} unread",
+    },
+    media: {
+      errors: {
+        empty: "Attachment is empty and cannot be sent",
+        tooLarge: "Attachment exceeds the 64 MiB per-message limit",
+        mimeRejected: "Attachment type is not supported",
+      },
+    },
+    agentPane: {
+      connectAction: "Connect",
+      disconnected: "Disconnected",
+      notFound: "Agent endpoint not found",
+      newSession: "New session",
+      connectFailed: "Connect failed",
+    },
     peerOnline: "Online",
     peerOffline: "Offline",
     noMessages: "No messages yet",
