@@ -277,3 +277,9 @@ _none yet — be the first._
 - 2026-09-05 UD 会话：useConfirm 这类 context hook，测试 harness 里把
   <Provider> 包在组件返回 JSX 内没用——必须包住调用 hook 的组件本身
   （render 外层），否则 useConfirm() 在挂载时即 throw。
+
+- 2026-09-05：页面注册有三处并存清单（menu.def.ts / src-tauri control ROUTES / 前端 PAGE_REGISTRY），加页只改一处会静默漏——group 页曾三缺二；加页前先 grep 旧路由名全仓找齐清单，并同步数量守卫测试（page-registry.test 显式清单）。
+- 2026-09-05：协调链里的验证步骤同样禁止管道收尾（`git rebase main 2>&1 | tail -2; echo RC=$?` 的 RC 是 tail 的）：一律 `> 日志文件 2>&1; echo RC=$?` 再 tail 日志，本轮该坑以「merge 静默未生效、worktree 未删」形态三犯。
+- 2026-09-05：session_link_talk 对已完成会话可能返回 replied=true 且 reply 为空串——交付判定以仓库实况（worktree 状态/分支 tip/远端同步）为准，不采信回执形态。
+- 2026-09-05：GUI 走查脚本用 p2pctl gui navigate 时传路由名（dashboard 而非 /）；发布预检做 DOM 巡检可完全绕开截图权限缺陷，且比 ui-regression.sh 多覆盖 group/acp。
+EOF && echo APPENDED
