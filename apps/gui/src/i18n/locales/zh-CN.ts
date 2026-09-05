@@ -748,6 +748,16 @@ const zhCN = {
     },
     reattach: {
       banner: "已续连，补放 {{count}} 条错过的更新",
+      bannerNone: "已续连，无需要补放的更新",
+      dismiss: "关闭横幅",
+    },
+    feedback: {
+      connecting: "正在连接 agent，等待握手...",
+    },
+    reconnect: {
+      retryNow: "立即重试",
+      retryConnect: "重试连接",
+      offlineFallback: "连接已断开，自动重连未成功",
     },
     directory: {
       card: "连接目录",
