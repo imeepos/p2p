@@ -29,7 +29,7 @@ pub struct StateSnapshot {
     pub detail: Option<String>,
 }
 
-fn now_unix_ms() -> u64 {
+pub(crate) fn now_unix_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -92,6 +92,8 @@ impl StatusHub {
             "conn state transition"
         );
         out::event("state", &snap);
-        let _ = self.tx.send(snap);
+        // status 端点纯 HTTP 轮询，无常驻 watch 订阅者：send 在无订阅者时会
+        // 连同新值一起失败，快照将永远停在初值，必须 send_replace 无条件推进。
+        self.tx.send_replace(snap);
     }
 }
