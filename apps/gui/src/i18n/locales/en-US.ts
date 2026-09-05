@@ -673,6 +673,7 @@ const enUS: typeof zhCN = {
       wsUrl: "Local WS URL",
       token: "Token",
       peer: "Peer ID",
+      statusUrl: "Status URL (HTTP)",
       connect: "Connect",
       disconnect: "Disconnect",
       save: "Save endpoint",
@@ -777,6 +778,8 @@ const enUS: typeof zhCN = {
       banner: "Reattached, replayed {{count}} missed updates",
       bannerNone: "Reattached, no missed updates to replay",
       dismiss: "Dismiss banner",
+      sessionLost: "Previous session is gone: the reattach window expired. Restore it from the session sidebar or start a new one",
+      dismissLost: "Dismiss notice",
     },
     feedback: {
       connecting: "Connecting to agent, waiting for handshake...",
@@ -807,6 +810,7 @@ const enUS: typeof zhCN = {
       groupDiscovered: "Discovered (rendezvous / mDNS)",
       groupManual: "Manual / Saved",
       scopeHint: "Scope is a local label only; grant real access via the bridge-side p2pctl acp allow flow",
+      needStatusUrl: "Fill in the Status URL to pull discovered peers automatically (printed by the console on startup)",
     },
     composer: {
       placeholder: "Type a prompt...",
