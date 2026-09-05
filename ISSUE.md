@@ -54,3 +54,12 @@
   cli-chat-concurrency-e2e.sh、cli-friends-race-e2e.sh 仍按旧直加语义编排，
   邀请制下需改造（新增 cli-friend-invite-e2e.sh 已覆盖核心邀请流）。不在 make check，
   opt-in 执行前必须先迁移，避免假绿。
+
+## IM 群聊一次性命令拓扑演练缺陷（2026-09-05 负责人 p2pctl 三节点实跑发现）
+
+- **补投时机不稳定**：owner 一次性 `group send` 对离线成员产生 pending 条目后，紧邻的后续发送未触发补投（收端缺消息），隔数次命令后才送达——疑似一次性进程退出与 outbox flush 任务竞态（im-group-drill 实录：『离线补投』两次触发均未即时补投，数步后才到）。演练清单 §4 期望『重连即 flush』。
+- **sender 侧 acks 记账脱节**：goutbox 补投/重发成功后，发送端群历史条目的 acks 不更新（『第一条』实际已全员送达，A 端永远 pending/acks 缺 C）；goutbox 条目 status=failed 但内容实际已送达，双账本互斥。
+- **failed roster 条目不重试**：rename 的 roster 推送对某成员 connection lost 后条目滞留 goutbox status=failed，后续连接不补投；该成员停留旧 rev 直至下一次 roster bump 才收敛（高 rev 胜兜底了最终一致，中间窗口视图过期）。与演练清单『已知边界：roster/通知不丢失』不符。
+- **CLI --file 默认显示名取全路径**：`group send --file /x/y/shot.png` 的 media.name 为整条路径，sanitize 后成 `tmpim-group-drillshot.png`；应取 basename（help 文案写『默认取文件名』）。
+- **演练清单拓扑盲区**：D6 身份互斥使『三方 serve 常驻』与『B/C 自有一次性命令』不可同时成立；且 owner 纯一次性拓扑下成员→owner 的 G_LEAVE 无通路（成员簿无 owner 地址可拨、入站连接不触发 flush），演练清单 §5『重邀回归』在该拓扑下必撞『已在群中』假错误。清单需补混合拓扑操作序列（owner 操作与成员 serve 启停的交错步骤）。
+- **验证为正常的部分**：建群/入群 roster、文本与附件 fan-out（acked n/n、字节 sha 一致）、rename 高 rev 收敛、kick/leave/disband 状态迁移与拒发、解散不删数据、未全员送达退出码 1。
