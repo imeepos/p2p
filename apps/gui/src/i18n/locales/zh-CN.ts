@@ -735,6 +735,7 @@ const zhCN = {
     },
     permission: {
       card: "权限请求",
+      pending: "等待处理",
       countdown: "{{secs}} 秒内未处理将自动拒绝",
       approve: "批准一次",
       reject: "拒绝",
@@ -762,11 +763,13 @@ const zhCN = {
     },
     feedback: {
       connecting: "正在连接 agent，等待握手...",
+      connectedTo: "已连接 {{peer}}",
     },
     reconnect: {
       retryNow: "立即重试",
       retryConnect: "重试连接",
       offlineFallback: "连接已断开，自动重连未成功",
+      checkToken: "连接异常中断（1006）：请检查 token 是否正确",
     },
     directory: {
       card: "连接目录",

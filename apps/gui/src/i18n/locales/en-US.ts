@@ -752,6 +752,7 @@ const enUS: typeof zhCN = {
     },
     permission: {
       card: "Permission request",
+      pending: "Pending",
       countdown: "Auto-reject in {{secs}}s if unanswered",
       approve: "Allow once",
       reject: "Deny",
@@ -779,11 +780,13 @@ const enUS: typeof zhCN = {
     },
     feedback: {
       connecting: "Connecting to agent, waiting for handshake...",
+      connectedTo: "Connected to {{peer}}",
     },
     reconnect: {
       retryNow: "Retry now",
       retryConnect: "Retry connection",
       offlineFallback: "Connection lost; automatic reconnection did not succeed",
+      checkToken: "Abnormal close (1006): check whether your token is correct",
     },
     directory: {
       card: "Connection directory",
