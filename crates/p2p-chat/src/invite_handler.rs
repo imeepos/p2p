@@ -109,6 +109,8 @@ async fn on_invite(
                 tracing::warn!(peer = %peer_s, addr = %addr, error = %e, "自愈地址登记失败");
             }
         }
+        // F1 地址自学习：帧地址同步回写好友簿（节点簿是运行期缓存，好友簿才是持久真相）。
+        crate::addr_learn::learn_friend_addrs(core, &peer_s, &frame.addrs);
         spawn_reply(core, peer_s, ACCEPT, "", Vec::new());
         return Ok(());
     }

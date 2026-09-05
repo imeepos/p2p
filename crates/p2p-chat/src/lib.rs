@@ -1,6 +1,7 @@
 //! p2p-chat：IM 聊天核心（design §1-§6 + im-group-design）：1:1 与群聊收发，底座只读。
 //! 发送：校验 → 落 outbox → 连接 → 帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
 
+mod addr_learn;
 mod advertised;
 mod core;
 mod drain;
@@ -27,6 +28,8 @@ mod store_invite;
 mod store_io;
 mod store_lock;
 mod wire;
+#[cfg(test)]
+mod wire_tests;
 mod wire_invite;
 
 pub use identity_lock::try_lock_identity;

@@ -33,6 +33,8 @@ pub(crate) const ACK: u8 = 0x04;
 pub(crate) const CHUNK_LEN: usize = 1_048_575;
 
 /// 线上信封：peer = 发端自身 PeerId；status/path 为本地字段不跨网。
+/// fromAddrs 加法字段（F1 地址自学习）：发端声明地址，收端回写好友簿；
+/// serde(default) 保证旧对端缺字段可读，旧对端收新字段也忽略（双向兼容）。
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct WireEnvelope {
@@ -45,6 +47,8 @@ pub(crate) struct WireEnvelope {
     text: Option<String>,
     media: Option<WireMedia>,
     reply_to: Option<String>,
+    #[serde(default)]
+    pub(crate) from_addrs: Option<Vec<String>>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -74,7 +78,9 @@ pub(crate) struct AckFrame {
 }
 
 impl WireEnvelope {
-    pub(crate) fn from_outbound(env: &ChatEnvelope, local: PeerId) -> Self {
+    /// 发端声明地址取 serve 发布的 advertised（空则不携带）：一次性进程的
+    /// 即弃监听地址禁止上 wire，防对端好友簿被污染。
+    pub(crate) fn from_outbound(env: &ChatEnvelope, local: PeerId, from_addrs: Vec<String>) -> Self {
         Self {
             id: env.id.clone(),
             peer: local.to_string(),
@@ -88,6 +94,11 @@ impl WireEnvelope {
                 size: m.size,
             }),
             reply_to: env.reply_to.clone(),
+            from_addrs: if from_addrs.is_empty() {
+                None
+            } else {
+                Some(from_addrs)
+            },
         }
     }
 
@@ -216,10 +227,14 @@ impl ChatHandler {
         }
         let wire: WireEnvelope = serde_json::from_slice(payload)
             .map_err(|e| io::Error::other(format!("信封 JSON 非法：{e}")))?;
+        let learned = wire.from_addrs.clone().unwrap_or_default();
         let local = self.core.node.local_peer_id();
         let mut env = wire
             .into_inbound(local)
             .map_err(|e| io::Error::other(e.to_string()))?;
+        if !learned.is_empty() {
+            crate::addr_learn::learn_friend_addrs(&self.core, &env.peer, &learned);
+        }
         let dup = self.core.store.has_message(&env.peer, &env.id);
         if let Some(media) = env.media.as_ref() {
             let path = self
@@ -252,3 +267,4 @@ impl ChatHandler {
         Ok(())
     }
 }
+
