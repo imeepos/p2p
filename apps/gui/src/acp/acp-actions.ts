@@ -68,7 +68,12 @@ export function runDisconnect(): void {
   const sessionId = get().activeSessionId;
   if (sessionId) rejectPendingPermissions(sessionId, true);
   closeConnection();
-  useAcpStore.setState({ phase: "idle", promptPending: false, reconnect: null, reattachNotice: null });
+  useAcpStore.setState({
+    phase: "idle",
+    promptPendingBySession: {},
+    reconnect: null,
+    reattachNotice: null,
+  });
 }
 
 export async function runNewSession(): Promise<void> {
@@ -146,31 +151,41 @@ function dropSession(
   return next;
 }
 
-export async function runSendPrompt(text: string): Promise<void> {
-  const { activeSessionId, promptPending } = get();
+export async function runSendPrompt(text: string): Promise<boolean> {
+  const { activeSessionId } = get();
   const conn = currentConnection();
-  if (!activeSessionId || promptPending || !conn) return;
+  if (!activeSessionId || !conn) return false;
+  if (get().promptPendingBySession[activeSessionId]) return false;
   const trimmed = text.trim();
-  if (!trimmed) return;
+  if (!trimmed) return false;
   const sessionId = activeSessionId;
+  const settlePending = (pending: boolean) =>
+    useAcpStore.setState((s) => ({
+      promptPendingBySession: { ...s.promptPendingBySession, [sessionId]: pending },
+    }));
   mapTranscript(sessionId, (t) => applyUserPrompt(t, trimmed));
-  useAcpStore.setState({ promptPending: true });
+  settlePending(true);
   try {
     const result = (await conn.sessionPrompt(sessionId, trimmed)) as { stopReason?: string };
-    useAcpStore.setState({ promptPending: false });
+    settlePending(false);
     mapTranscript(sessionId, (t) => settleTranscript(t, result.stopReason ?? "end_turn"));
+    return true;
   } catch (error) {
     console.warn("[acp] prompt 失败", error);
     notifyActionFailure("promptFailed", error);
-    useAcpStore.setState({ promptPending: false, lastError: "promptFailed" });
+    settlePending(false);
+    useAcpStore.setState({ lastError: "promptFailed" });
     // 失败结算写约定值 "error"：气泡承载失败徽章（渲染归 P2），不再与正常结束同形
     mapTranscript(sessionId, (t) => settleTranscript(t, "error"));
+    return false;
   }
 }
 
 export function runCancelPrompt(): void {
   const sessionId = get().activeSessionId;
   if (!sessionId) return;
+  // 该会话没有进行中的回合不发取消，避免切会话后误杀
+  if (!get().promptPendingBySession[sessionId]) return;
   currentConnection()?.sessionCancel(sessionId);
   // ACP 约定：轮次取消时未决 request_permission 必须回 cancelled
   rejectPendingPermissions(sessionId, true);

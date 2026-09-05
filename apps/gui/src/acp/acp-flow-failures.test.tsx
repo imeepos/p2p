@@ -40,6 +40,8 @@ class ManualSocket implements WsLike {
 
 /** 打开即在线、但对一切请求回 JSON-RPC 错误的 socket：驱动全部动作失败路径 */
 class RejectingSocket implements WsLike {
+  /** 上行帧记录：取消守卫等线级断言用 */
+  static sent: string[] = [];
   onopen: (() => void) | null = null;
   onclose: ((ev: { code: number; reason: string }) => void) | null = null;
   onerror: ((ev: { message?: string }) => void) | null = null;
@@ -48,6 +50,7 @@ class RejectingSocket implements WsLike {
     window.setTimeout(() => this.onopen?.(), 0);
   }
   send(data: string): void {
+    RejectingSocket.sent.push(data);
     const msg = JSON.parse(data) as { id?: number };
     if (typeof msg.id !== "number") return;
     this.onmessage?.({
@@ -169,7 +172,9 @@ describe("AcpView action failure visibility", () => {
     fireEvent.change(screen.getByTestId("acp-composer-input"), { target: { value: "hi" } });
     fireEvent.click(screen.getByTestId("acp-composer-send"));
     expect(await screen.findByText("Prompt 发送失败")).toBeTruthy();
-    expect(useAcpStore.getState().promptPending).toBe(false);
+    expect(useAcpStore.getState().promptPendingBySession["s-manual"]).toBe(false);
+    // 草稿保留：失败后输入框不清空，可原样重发
+    expect((screen.getByTestId("acp-composer-input") as HTMLTextAreaElement).value).toBe("hi");
   });
 
   it("prompt 失败结算写 error stopReason（无流式气泡补错误占位轮）", async () => {
@@ -249,5 +254,25 @@ describe("AcpView reconnect retry", () => {
       expect(screen.getByTestId("acp-phase-badge").textContent).toContain("离线");
     });
     expect(screen.getByTestId("acp-offline-reason")).toBeTruthy();
+  });
+});
+
+describe("AcpView cancel guard per session", () => {
+  it("非回合会话不发 session/cancel，回合会话才发", async () => {
+    await renderWithRejectingSocket();
+    act(() => {
+      useAcpStore.setState({
+        activeSessionId: "s-2",
+        promptPendingBySession: { "s-1": true },
+      });
+    });
+    RejectingSocket.sent.length = 0;
+    useAcpStore.getState().cancelPrompt();
+    expect(RejectingSocket.sent.some((d) => d.includes("session/cancel"))).toBe(false);
+    act(() => {
+      useAcpStore.setState({ promptPendingBySession: { "s-1": true, "s-2": true } });
+    });
+    useAcpStore.getState().cancelPrompt();
+    expect(RejectingSocket.sent.some((d) => d.includes("session/cancel"))).toBe(true);
   });
 });

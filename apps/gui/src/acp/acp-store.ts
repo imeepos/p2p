@@ -43,7 +43,8 @@ interface AcpConsoleState {
   transcripts: Record<string, TranscriptState>;
   interactions: Record<string, InteractionState>;
   directory: DirectoryEntry[];
-  promptPending: boolean;
+  /** prompt 回合进行中，按会话归属记录（切会话不误显 Stop/误发取消） */
+  promptPendingBySession: Record<string, boolean>;
   lastError: string | null;
   setDraft: (patch: Partial<AcpEndpoint>) => void;
   saveDraft: () => void;
@@ -58,7 +59,7 @@ interface AcpConsoleState {
   refreshSessions: () => Promise<void>;
   resumeSession: (sessionId: string) => Promise<void>;
   closeSession: (sessionId: string) => Promise<void>;
-  sendPrompt: (text: string) => Promise<void>;
+  sendPrompt: (text: string) => Promise<boolean>;
   cancelPrompt: () => void;
   toggleThought: (sessionId: string, turnId: number) => void;
   respondPermission: (requestId: number, approve: boolean) => void;
@@ -86,7 +87,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   transcripts: {},
   interactions: {},
   directory: [],
-  promptPending: false,
+  promptPendingBySession: {},
   lastError: null,
 
   setDraft: (patch) => {
@@ -153,7 +154,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
       activeSessionId: null,
       transcripts: {},
       interactions: {},
-      promptPending: false,
+      promptPendingBySession: {},
       lastError: null,
     });
   },

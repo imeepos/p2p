@@ -169,7 +169,7 @@ describe("AcpView long-turn prompt", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(30_000);
       });
-      expect(useAcpStore.getState().promptPending).toBe(true);
+      expect(useAcpStore.getState().promptPendingBySession["s-001"]).toBe(true);
       // 第一块到达
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1_500);
@@ -186,10 +186,49 @@ describe("AcpView long-turn prompt", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(31_000);
       });
-      expect(useAcpStore.getState().promptPending).toBe(false);
+      expect(useAcpStore.getState().promptPendingBySession["s-001"]).toBe(false);
     } finally {
       vi.useRealTimers();
       mockAcpConsole.reset();
     }
+  });
+});
+
+describe("AcpView composer lock per session", () => {
+  it("turn 所在会话显示 Stop，切到其他会话恢复 Send", async () => {
+    await renderConnected();
+    await newSession();
+    fireEvent.click(screen.getByTestId("acp-session-new"));
+    await screen.findByTestId("acp-session-row-s-002");
+    act(() => {
+      useAcpStore.setState({ promptPendingBySession: { "s-001": true } });
+    });
+    // 活跃会话 s-002 无回合：Send 而非 Stop
+    expect(screen.queryByTestId("acp-composer-stop")).toBeNull();
+    expect(screen.getByTestId("acp-composer-send")).toBeTruthy();
+    // 切回 s-001：恢复 Stop
+    fireEvent.click(
+      screen.getByTestId("acp-session-row-s-001").querySelector("button")!,
+    );
+    await waitFor(() => {
+      expect(useAcpStore.getState().activeSessionId).toBe("s-001");
+    });
+    expect(screen.getByTestId("acp-composer-stop")).toBeTruthy();
+  });
+
+  it("Enter 发送、Shift+Enter 换行不发送", async () => {
+    await renderConnected();
+    await newSession();
+    const input = screen.getByTestId("acp-composer-input") as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "first" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await screen.findByText("Hello from the mock agent.");
+    await waitFor(() => {
+      expect(input.value).toBe("");
+    });
+    fireEvent.change(input, { target: { value: "draft" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(input.value).toBe("draft");
+    expect(useAcpStore.getState().promptPendingBySession["s-001"] ?? false).toBe(false);
   });
 });

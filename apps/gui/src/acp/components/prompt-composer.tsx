@@ -8,14 +8,18 @@ import { useAcpStore } from "@/acp/acp-store";
 export function PromptComposer() {
   const { t } = useTranslation();
   const [text, setText] = useState("");
-  const pending = useAcpStore((s) => s.promptPending);
+  const pending = useAcpStore((s) =>
+    s.activeSessionId ? (s.promptPendingBySession[s.activeSessionId] ?? false) : false,
+  );
   const sendPrompt = useAcpStore((s) => s.sendPrompt);
   const cancelPrompt = useAcpStore((s) => s.cancelPrompt);
 
   const submit = () => {
     if (pending || !text.trim()) return;
-    void sendPrompt(text);
-    setText("");
+    // 发送失败草稿保留（可原样重发），成功才清空
+    void sendPrompt(text).then((sent) => {
+      if (sent) setText("");
+    });
   };
 
   return (
@@ -23,6 +27,13 @@ export function PromptComposer() {
       <Textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter 发送、Shift+Enter 换行
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submit();
+          }
+        }}
         placeholder={t("acp.composer.placeholder")}
         data-testid="acp-composer-input"
         rows={2}
