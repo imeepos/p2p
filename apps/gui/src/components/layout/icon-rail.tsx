@@ -3,19 +3,22 @@ import { NavLink } from "react-router-dom";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MENU_ENTRIES } from "@/config/menu.def";
+import { useIncomingInviteCount } from "@/hooks/use-incoming-invites";
 import { useUnreadTotal } from "@/hooks/use-unread-total";
 import { formatUnreadCount } from "@/lib/conversation-entry";
 import { cn } from "@/lib/utils";
 
 // 窄图标栏（docs/design/app-shell-redesign.md 1.1）：常驻 w-14，仅图标 +
 // tooltip + 选中态高亮，不再提供折叠形态；注册序末项（设置）沉底。
-// 聊天入口附三来源未读合计角标（§2.3）。顶栏与底部状态栏不在 rail 职责内。
+// 聊天入口附三来源未读合计角标（§2.3）；通讯录入口附带处理好友邀请
+// 角标（§3.2）。顶栏与底部状态栏不在 rail 职责内。
 function RailLink({
   path,
   titleKey,
   icon: Icon,
   badge,
-}: (typeof MENU_ENTRIES)[number] & { badge?: number }) {
+  badgeLabel,
+}: (typeof MENU_ENTRIES)[number] & { badge?: number; badgeLabel?: string }) {
   const { t } = useTranslation();
   const label = t(titleKey);
   return (
@@ -35,7 +38,7 @@ function RailLink({
           {badge !== undefined && badge > 0 ? (
             <span
               data-testid={`rail-badge-${path}`}
-              aria-label={t("chat.unread.aria", { count: badge })}
+              aria-label={badgeLabel}
               className="bg-neutral-500 absolute -top-0.5 -right-0.5 inline-flex min-w-3.5 items-center justify-center rounded-full px-1 text-[9px] leading-3.5 font-medium text-white"
             >
               {formatUnreadCount(badge)}
@@ -49,19 +52,38 @@ function RailLink({
 }
 
 export function IconRail() {
+  const { t } = useTranslation();
   const top = MENU_ENTRIES.slice(0, -1);
   const bottom = MENU_ENTRIES[MENU_ENTRIES.length - 1];
   const unreadTotal = useUnreadTotal();
+  const incomingInvites = useIncomingInviteCount();
+  const badgeOf = (path: string): { count: number; label: string } | undefined => {
+    // §2.3 聊天未读合计角标；§3.2 通讯录待处理好友邀请角标
+    if (path === "/chat") {
+      return { count: unreadTotal, label: t("chat.unread.aria", { count: unreadTotal }) };
+    }
+    if (path === "/contacts") {
+      return {
+        count: incomingInvites,
+        label: t("contacts.inviteBadge.aria", { count: incomingInvites }),
+      };
+    }
+    return undefined;
+  };
   return (
     <aside className="bg-sidebar text-sidebar-foreground flex h-full w-14 flex-col border-r">
       <nav className="flex flex-1 flex-col items-center gap-1 p-2">
-        {top.map((entry) => (
-          <RailLink
-            key={entry.path}
-            {...entry}
-            badge={entry.path === "/chat" ? unreadTotal : undefined}
-          />
-        ))}
+        {top.map((entry) => {
+          const badge = badgeOf(entry.path);
+          return (
+            <RailLink
+              key={entry.path}
+              {...entry}
+              badge={badge?.count}
+              badgeLabel={badge?.label}
+            />
+          );
+        })}
         {/* 弹性空隙：高频入口（聊天/通讯录/网络）居上，低频设置沉底 */}
         <div className="flex-1" />
         {bottom ? <RailLink {...bottom} /> : null}

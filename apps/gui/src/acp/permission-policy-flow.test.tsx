@@ -11,10 +11,6 @@ const { setWsFactory } = await import("./ws-factory");
 
 const EP = { wsUrl: "ws://127.0.0.1:8787", token: "mock-token", peer: "mock-peer", endpointId: "ep-1" };
 
-function permissionFrameOf(requestId: number) {
-  return mockAcpConsole.permissionRequests.find((r) => r.id === requestId);
-}
-
 function responseOutcomeFor(requestId: number): { outcome: string; optionId?: string } | null {
   const hit = mockAcpConsole.responses.find((r) => r.id === requestId);
   const outcome = (hit?.result as { outcome?: { outcome?: string; optionId?: string } })?.outcome;

@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatFriendJson, FriendInviteJson, InviteReportJson, NodeEventHandler } from "@/lib/ipc-types";
@@ -43,7 +44,8 @@ vi.mock("@/lib/ipc", () => ({
 import "@/i18n";
 import { useChatStore } from "@/stores/chat-store";
 import { ChatFriendAddDialog } from "@/views/contacts/chat-friend-add-dialog";
-import { ChatInvitePanel } from "@/views/contacts/chat-invite-panel";
+import { FriendSection } from "@/views/contacts/friend-section";
+import { InviteInbox } from "@/views/contacts/invite-inbox";
 
 // 真实 base58（解码恰 32 字节），与后端 parse_peer_id 同口径的合法夹具
 const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
@@ -57,6 +59,9 @@ beforeEach(() => {
   mocks.addFriend.mockReset();
   mocks.history.mockReset().mockResolvedValue([]);
   mocks.send.mockReset();
+  mocks.accept.mockReset();
+  mocks.reject.mockReset();
+  mocks.cancel.mockReset().mockResolvedValue(true);
   useChatStore.setState({
     invites: [],
     friends: [],
@@ -75,10 +80,10 @@ beforeEach(() => {
 // 组件覆盖表单校验/错误路径/旅程；入口可达性回归随 P2 迁移重建。
 async function openAddDialog(): Promise<void> {
   render(
-    <>
-      <ChatInvitePanel />
+    <MemoryRouter>
+      <FriendSection />
       <ChatFriendAddDialog open onOpenChange={() => {}} />
-    </>,
+    </MemoryRouter>,
   );
   await waitFor(() => expect(screen.getByTestId("friend-add-dialog")).toBeTruthy());
 }
@@ -187,9 +192,9 @@ describe("ChatView 从零开始旅程", () => {
         delivered: true,
       },
     ]);
-    // 同意前好友簿空：挂起提示出现（聊天输入条不自动打开）
+    // 同意前好友簿空：好友区顶部出现「待对方同意」挂起条目（§3.2）
     await waitFor(() =>
-      expect(screen.getByTestId("chat-invite-out-" + PEER)).toBeTruthy(),
+      expect(screen.getByTestId("contacts-invite-out-" + PEER)).toBeTruthy(),
     );
   });
 });

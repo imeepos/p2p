@@ -111,3 +111,8 @@ export function policyOf(endpointId: string | null): EndpointPolicy {
 export function forgetEndpointMeta(endpointId: string): void {
   useEndpointMetaStore.getState().forget(endpointId);
 }
+
+/** 测试结论登记（use-endpoint-test 共用入口） */
+export function recordTestOutcome(endpointId: string, outcome: EndpointTestOutcome): void {
+  useEndpointMetaStore.getState().recordTest(endpointId, outcome);
+}
