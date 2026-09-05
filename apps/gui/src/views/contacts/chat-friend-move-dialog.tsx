@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { existingGroupNames } from "@/components/chat/chat-friend-group";
+import { existingGroupNames } from "@/views/contacts/chat-friend-group";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";

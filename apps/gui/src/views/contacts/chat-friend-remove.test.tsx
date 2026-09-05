@@ -31,7 +31,7 @@ vi.mock("@/lib/ipc", () => ({
 
 import "@/i18n";
 import { useChatStore } from "@/stores/chat-store";
-import { ChatFriendRemoveDialog } from "@/components/chat/chat-friend-remove-dialog";
+import { ChatFriendRemoveDialog } from "@/views/contacts/chat-friend-remove-dialog";
 
 // 真实 base58（解码恰 32 字节），与后端 parse_peer_id 同口径的合法夹具
 const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
