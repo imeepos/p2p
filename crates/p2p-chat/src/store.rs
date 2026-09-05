@@ -1,39 +1,43 @@
-//! 本地存储（design §4）：friends.json 原子写；outbox/messages 追加式 JSONL；
-//! 损坏行读取时跳过并 warn；状态变更重写同文件时原样保留未知行（含损坏行）。
-//! 文件级 helper（JSONL/原子写）见 store_io.rs；非测试代码禁 unwrap/expect/panic。
+//! 本地存储（design §4，Y1 起）：好友簿由 yrs Doc 承载（store_friends.rs，无锁
+//! CRDT 合并）；outbox/messages 追加式 JSONL；损坏行读取时跳过并 warn；状态变更
+//! 重写同文件时原样保留未知行（含损坏行）。文件级 helper 见 store_io.rs；
+//! 非测试代码禁 unwrap/expect/panic。
 
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
+
 use std::time::Duration;
 
+use crate::invite::FriendInvite;
 use crate::model::{sanitize_name, ChatEnvelope, ChatFriend, ChatStatus};
+use crate::store_friends::FriendsBook;
 use crate::store_io::{
-    append_line, atomic_write, dedup_last_by_id, load_friends, load_jsonl,
-    rewrite_jsonl_patch_status, rewrite_jsonl_retain,
+    append_line, dedup_last_by_id, load_invites, load_jsonl, rewrite_jsonl_patch_status,
+    rewrite_jsonl_retain,
 };
-use crate::store_lock::FileLock;
+
+pub(crate) const FRIENDS_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 fn poisoned() -> std::io::Error {
     std::io::Error::other("store 内部锁中毒")
 }
 
-/// 好友簿写锁等待上限：超时显式报错，拒绝静默覆盖。
-const FRIENDS_LOCK_TIMEOUT: Duration = Duration::from_secs(10);
-
 pub(crate) struct Store {
-    friends_path: PathBuf,
+    pub(crate) friends_path: PathBuf,
+    pub(crate) invites_path: PathBuf,
+    pub(crate) advertised_path: PathBuf,
     outbox_dir: PathBuf,
     messages_dir: PathBuf,
     media_dir: PathBuf,
-    lock_timeout: Duration,
-    state: Mutex<State>,
+    pub(crate) lock_timeout: Duration,
+    pub(crate) state: Mutex<State>,
 }
 
 #[derive(Default)]
-struct State {
-    friends: Vec<ChatFriend>,
+pub(crate) struct State {
+    pub(crate) invites: Vec<FriendInvite>,
     outbox: HashMap<String, Vec<ChatEnvelope>>,
     messages: HashMap<String, Vec<ChatEnvelope>>,
 }
@@ -41,13 +45,16 @@ struct State {
 impl Store {
     pub(crate) fn new(chat_dir: PathBuf) -> std::io::Result<Self> {
         let friends_path = chat_dir.join("friends.json");
+        let invites_path = chat_dir.join("invites.json");
+        let advertised_path = chat_dir.join(crate::advertised::ADVERTISED_FILE);
         let outbox_dir = chat_dir.join("outbox");
         let messages_dir = chat_dir.join("messages");
         let media_dir = chat_dir.join("media");
         fs::create_dir_all(&outbox_dir)?;
         fs::create_dir_all(&messages_dir)?;
         fs::create_dir_all(&media_dir)?;
-        let friends = load_friends(&friends_path);
+        FriendsBook::load(&friends_path)?;
+        let invites = load_invites(&invites_path);
         let mut outbox = HashMap::new();
         if let Ok(entries) = fs::read_dir(&outbox_dir) {
             for entry in entries.flatten() {
@@ -67,65 +74,33 @@ impl Store {
         }
         Ok(Self {
             friends_path,
+            invites_path,
+            advertised_path,
             outbox_dir,
             messages_dir,
             media_dir,
             lock_timeout: FRIENDS_LOCK_TIMEOUT,
             state: Mutex::new(State {
-                friends,
+                invites,
                 outbox,
                 messages: HashMap::new(),
             }),
         })
     }
 
+    /// 好友全量视图：每次直读磁盘 yrs 日志合并（跨进程写入即刻可见）。
     pub(crate) fn friends_list(&self) -> Result<Vec<ChatFriend>, std::io::Error> {
-        let state = self.state.lock().map_err(|_| poisoned())?;
-        Ok(state.friends.clone())
+        Ok(FriendsBook::load(&self.friends_path)?.list())
     }
 
-    /// 加好友：跨进程锁内「重读磁盘 → 合并 → 原子写」，合并结果回灌内存态，
-    /// 并发写者只增不丢（修复原 last-write-wins 静默丢写）。
+    /// 加/改好友： yrs 合并语义（update 追加，无文件锁），并发写只增不丢。
     pub(crate) fn upsert_friend(&self, friend: ChatFriend) -> Result<(), std::io::Error> {
-        let list = {
-            let _lock = FileLock::acquire(self.friends_lock_path(), self.lock_timeout)?;
-            let mut list = load_friends(&self.friends_path);
-            match list.iter_mut().find(|f| f.peer_id == friend.peer_id) {
-                Some(existing) => *existing = friend,
-                None => list.push(friend),
-            }
-            let bytes = serde_json::to_vec_pretty(&list).map_err(std::io::Error::other)?;
-            atomic_write(&self.friends_path, &bytes)?;
-            list
-        };
-        self.sync_friends_memory(list)
+        FriendsBook::load(&self.friends_path)?.upsert(&self.friends_path, friend)
     }
 
-    /// 移除好友：锁内以磁盘权威态为准；无变化不落盘，结果无论真假都回灌内存态。
+    /// 移除好友：yrs tombstone；不在簿返回 false 且零追加。
     pub(crate) fn remove_friend(&self, peer_id: &str) -> Result<bool, std::io::Error> {
-        let (removed, list) = {
-            let _lock = FileLock::acquire(self.friends_lock_path(), self.lock_timeout)?;
-            let list = load_friends(&self.friends_path);
-            let next: Vec<ChatFriend> = list
-                .iter()
-                .filter(|f| f.peer_id != peer_id)
-                .cloned()
-                .collect();
-            let removed = next.len() != list.len();
-            if removed {
-                let bytes = serde_json::to_vec_pretty(&next).map_err(std::io::Error::other)?;
-                atomic_write(&self.friends_path, &bytes)?;
-            }
-            (removed, next)
-        };
-        self.sync_friends_memory(list)?;
-        Ok(removed)
-    }
-
-    fn sync_friends_memory(&self, list: Vec<ChatFriend>) -> Result<(), std::io::Error> {
-        let mut state = self.state.lock().map_err(|_| poisoned())?;
-        state.friends = list;
-        Ok(())
+        FriendsBook::load(&self.friends_path)?.remove(&self.friends_path, peer_id)
     }
 
     pub(crate) fn outbox_for(&self, peer: &str) -> Vec<ChatEnvelope> {
@@ -255,10 +230,9 @@ impl Store {
         Ok(final_path)
     }
 
-    fn friends_lock_path(&self) -> PathBuf {
-        PathBuf::from(format!("{}.lock", self.friends_path.display()))
+    pub(crate) fn invites_lock_path(&self) -> PathBuf {
+        PathBuf::from(format!("{}.lock", self.invites_path.display()))
     }
-
     fn outbox_path(&self, peer: &str) -> PathBuf {
         self.outbox_dir.join(format!("{peer}.jsonl"))
     }

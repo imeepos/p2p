@@ -61,15 +61,32 @@ async fn legacy_friends_json_reads_back_ungrouped_and_updates() {
         .expect("update group");
     assert_eq!(updated.group.as_deref(), Some("家人"));
 
-    // 读路径复核：friends_list 与磁盘文件一致，组名落盘、其余字段原样
+    // 落盘复核：组名随 friends_list 读回一致（磁盘 yrs 日志合并视图）；
+    // friends.json 为 yrs 日志格式，迁移前旧文件已原样备份
     let list = a.chat.friends_list().expect("friends_list");
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].group.as_deref(), Some("家人"));
     assert_eq!(list[0].nickname, "b");
     let on_disk = std::fs::read_to_string(&path).unwrap();
+    let mut lines = on_disk.lines();
+    let header: serde_json::Value =
+        serde_json::from_str(lines.next().expect("格式头")).expect("格式头 JSON");
+    assert_eq!(header["p2p-friends"], "yrs-v1", "yrs 日志头行: {on_disk}");
+    let backup = std::fs::read_dir(path.parent().unwrap())
+        .unwrap()
+        .filter_map(Result::ok)
+        .find(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("friends.json.bak-yrs-")
+        })
+        .expect("旧 friends.json 已备份");
     assert!(
-        on_disk.contains("\"group\": \"家人\""),
-        "camelCase 落盘: {on_disk}"
+        std::fs::read_to_string(backup.path())
+            .unwrap()
+            .contains("peerId"),
+        "备份保留旧 JSON: {}",
+        std::fs::read_to_string(backup.path()).unwrap()
     );
     cleanup(&a);
 }

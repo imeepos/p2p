@@ -1,36 +1,22 @@
 // 可脚本化的本地 WS mock：dev（VITE_MOCK_IPC=1）与测试共用同一实现。
-// 行为按 2026-09-05 真机对拍实测对齐 acp-console（docs/notes/
-// 2026-09-05-acp-real-calibration.md）：错 token = HTTP 401 升级拒绝（客户端
-// 视角 error + 1006 空 reason）、未知 peer = 先 open 后 Close(4500)、agent 桥
-// 拒绝握手 = Close(4403, "denied:<code>")、对端死亡 = 无 Close 帧 1006；
-// 下行帧为二进制（Uint8Array），可多行合帧。会话状态存单例，跨重连存活。
-import { MockPromptPlayer, type MockPromptStep } from "./mock-acp-prompt";
-import type { InitializeResult, SessionSummary } from "./protocol";
+// 关断码与时序按 2026-09-05 真机对拍实测对齐（docs/notes/
+// 2026-09-05-acp-real-calibration.md）：错 token = HTTP 升级层 401 拒绝
+// （客户端视角 error + 1006 空 reason）、未知 peer = 先 open 后
+// Close(4500)、agent 桥拒绝握手 = Close(4403, "denied:<code>")、对端死亡 =
+// 无 Close 帧 1006；下行帧为二进制（Uint8Array）且行界带行尾换行，可多行
+// 合帧。reattach 补放通知与 request_permission 透传对齐
+// apps/acp-agent/README.md 桥约定。
+import type { ConfigOption } from "./protocol";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
+import {
+  MOCK_AGENT_INFO,
+  permissionRequestFrame,
+  stepToUpdate,
+  type MockPromptStep,
+} from "./mock-script";
+import { mockAcpConsole, type MockAcpConsole } from "./mock-console";
 
-export interface MockConsoleConfig {
-  token: string;
-  /** 可拨通且 agent 侧放行的 peer */
-  peers: string[];
-  /** 可拨通但 agent 桥拒绝握手（4403 denied）的 peer */
-  deniedPeers: string[];
-  promptScript: MockPromptStep[];
-  openDelayMs: number;
-  chunkDelayMs: number;
-}
-
-const DEFAULT_CONFIG: MockConsoleConfig = {
-  token: "mock-token",
-  peers: ["mock-peer"],
-  deniedPeers: [],
-  promptScript: [
-    { kind: "thought", text: "thinking through the request" },
-    { kind: "message", text: "Hello from the mock agent." },
-    { kind: "stop", reason: "end_turn" },
-  ],
-  openDelayMs: 10,
-  chunkDelayMs: 10,
-};
+export { mockAcpConsole, type DiscoverySink } from "./mock-console";
 
 interface WireMessage {
   jsonrpc?: string;
@@ -41,65 +27,14 @@ interface WireMessage {
   error?: { code: number; message: string };
 }
 
-const MOCK_AGENT_INFO: InitializeResult = {
-  protocolVersion: 1,
-  agentInfo: { name: "mock-agent", version: "0.1.0" },
-  agentCapabilities: {
-    loadSession: true,
-    promptCapabilities: { embeddedContext: false },
-  },
-};
-
-class MockAcpConsole {
-  config: MockConsoleConfig = { ...DEFAULT_CONFIG };
-  sessions = new Map<string, SessionSummary>();
-  live: MockSocket[] = [];
-  private sessionSeq = 0;
-
-  configure(patch: Partial<MockConsoleConfig>): void {
-    this.config = { ...this.config, ...patch };
-  }
-
-  reset(): void {
-    this.config = { ...DEFAULT_CONFIG, deniedPeers: [] };
-    this.sessions.clear();
-    this.live = [];
-    this.sessionSeq = 0;
-  }
-
-  nextSessionId(): string {
-    this.sessionSeq += 1;
-    return "s-" + String(this.sessionSeq).padStart(3, "0");
-  }
-
-  broadcast(method: string, params: unknown): void {
-    for (const socket of this.live) socket.serverPush(method, params);
-  }
-
-  /** 对端断流：真机实测 agent 死亡后 console 不发 Close 帧，客户端见 1006 空 reason
-   *  （优雅 EOF 路径才有 1000 "peer closed"，用 serverClose(1000, "peer closed") 显式模拟） */
-  dropAll(code = 1006, reason = ""): void {
-    for (const socket of [...this.live]) socket.serverClose(code, reason);
-  }
-
-  remove(socket: MockSocket): void {
-    this.live = this.live.filter((s) => s !== socket);
-  }
-}
-
-export const mockAcpConsole = new MockAcpConsole();
-
 export class MockSocket implements WsLike {
   onopen: (() => void) | null = null;
   onclose: ((ev: { code: number; reason: string }) => void) | null = null;
   onerror: ((ev: { message?: string }) => void) | null = null;
   onmessage: ((ev: { data: unknown }) => void) | null = null;
   private closed = false;
-  private player = new MockPromptPlayer(
-    (method, params) => this.box.broadcast(method, params),
-    (id, result) => this.reply(id, result),
-    () => this.box.config.chunkDelayMs,
-  );
+  private promptTimer: number | null = null;
+  private pendingPrompt: { id: number; sessionId: string } | null = null;
 
   constructor(private readonly url: string, private readonly box: MockAcpConsole) {
     window.setTimeout(() => this.open(), box.config.openDelayMs);
@@ -137,12 +72,7 @@ export class MockSocket implements WsLike {
       return;
     }
     for (const line of data.split("\n")) {
-      if (line.trim().length === 0) continue;
-      try {
-        this.handle(JSON.parse(line) as WireMessage);
-      } catch (error) {
-        console.warn("[mock-acp] 非 JSON 行，已丢弃", error);
-      }
+      if (line.trim().length > 0) this.handle(JSON.parse(line) as WireMessage);
     }
   }
 
@@ -153,7 +83,7 @@ export class MockSocket implements WsLike {
   /** console/agent 侧主动关断（区别于客户端 close 的对称入口） */
   serverClose(code: number, reason: string): void {
     if (this.closed) return;
-    this.player.stop();
+    this.cancelPromptPlayback();
     this.fireClose(code, reason);
   }
 
@@ -192,10 +122,15 @@ export class MockSocket implements WsLike {
   }
 
   private handle(msg: WireMessage): void {
-    if (typeof msg.method !== "string") return;
-    // 通知面（无 id）：session/cancel 即时结算进行中的 prompt
+    if (typeof msg.method !== "string") {
+      // 客户端应答帧：登记供断言（request_permission outcome 等）
+      if (typeof msg.id === "number") {
+        this.box.responses.push({ id: msg.id, result: msg.result, error: msg.error });
+      }
+      return;
+    }
     if (msg.method === "session/cancel") {
-      this.player.cancel("cancelled");
+      this.settlePrompt("cancelled");
       return;
     }
     if (typeof msg.id !== "number") return;
@@ -213,30 +148,24 @@ export class MockSocket implements WsLike {
       case "session/list":
         this.reply(msg.id, { sessions: [...this.box.sessions.values()] });
         return;
-      case "session/resume":
-        this.handleResume(msg.id, params);
+      case "session/resume": {
+        const resumeId = String(params.sessionId ?? "");
+        if (!this.box.sessions.has(resumeId)) {
+          this.replyError(msg.id, -32002, "session not found");
+          return;
+        }
+        this.reply(msg.id, { sessionId: resumeId });
         return;
+      }
       case "session/delete":
         this.handleCloseSession(msg.id, params);
+        return;
+      case "session/set_config_option":
+        this.handleSetConfigOption(msg.id, params);
         return;
       default:
         this.replyError(msg.id, -32601, "method not found: " + msg.method);
     }
-  }
-
-  private handleNew(id: number): void {
-    const sessionId = this.box.nextSessionId();
-    this.box.sessions.set(sessionId, { sessionId, title: "session " + sessionId });
-    this.reply(id, { sessionId });
-  }
-
-  private handleResume(id: number, params: Record<string, unknown>): void {
-    const sessionId = String(params.sessionId ?? "");
-    if (!this.box.sessions.has(sessionId)) {
-      this.replyError(id, -32002, "session not found");
-      return;
-    }
-    this.reply(id, { sessionId });
   }
 
   private handleCloseSession(id: number, params: Record<string, unknown>): void {
@@ -245,17 +174,92 @@ export class MockSocket implements WsLike {
     this.reply(id, {});
   }
 
+  private handleNew(id: number): void {
+    const sessionId = this.box.nextSessionId();
+    this.box.sessions.set(sessionId, { sessionId, title: "session " + sessionId });
+    this.reply(id, { sessionId, configOptions: this.currentConfigOptions() });
+  }
+
+  private currentConfigOptions(): ConfigOption[] {
+    return this.box.config.configOptions.map((o) => ({ ...o }));
+  }
+
+  private handleSetConfigOption(id: number, params: Record<string, unknown>): void {
+    const configId = String(params.configId ?? "");
+    const value = params.value;
+    const target = this.box.config.configOptions.find((o) => o.id === configId);
+    if (!target || typeof value !== "string") {
+      this.replyError(id, -32602, "unknown config option: " + configId);
+      return;
+    }
+    target.currentValue = value;
+    this.reply(id, { configOptions: this.currentConfigOptions() });
+  }
+
   private handlePrompt(id: number, params: Record<string, unknown>): void {
     const sessionId = String(params.sessionId ?? "");
     if (!this.box.sessions.has(sessionId)) {
       this.replyError(id, -32002, "session not found");
       return;
     }
-    if (this.player.busy) {
+    if (this.pendingPrompt) {
       this.replyError(id, -32001, "prompt already running");
       return;
     }
-    this.player.start(id, sessionId, this.box.config.promptScript);
+    this.pendingPrompt = { id, sessionId };
+    this.playScript(this.box.config.promptScript, 0);
+  }
+
+  private playScript(steps: MockPromptStep[], index: number): void {
+    if (this.closed) return;
+    if (!this.pendingPrompt || index >= steps.length) {
+      this.settlePrompt("end_turn");
+      return;
+    }
+    const step = steps[index];
+    this.promptTimer = window.setTimeout(() => {
+      this.applyStep(step);
+      this.playScript(steps, index + 1);
+    }, this.box.config.chunkDelayMs);
+  }
+
+  private applyStep(step: MockPromptStep): void {
+    const pending = this.pendingPrompt;
+    if (!pending) return;
+    if (step.kind === "stop") {
+      this.settlePrompt(step.reason);
+      return;
+    }
+    if (step.kind === "permission") {
+      this.emitPermission(pending.sessionId, step);
+      return;
+    }
+    const frame = stepToUpdate(step, pending.sessionId);
+    if (frame) this.box.broadcast(frame.method, frame.params);
+  }
+
+  private emitPermission(
+    sessionId: string,
+    step: Extract<MockPromptStep, { kind: "permission" }>,
+  ): void {
+    const id = this.box.permissionSeq;
+    this.box.permissionSeq += 1;
+    this.box.permissionRequests.push({ id, sessionId, toolKind: step.toolKind });
+    this.deliver(permissionRequestFrame(id, sessionId, step) as WireMessage);
+  }
+
+  private settlePrompt(reason: string): void {
+    const pending = this.pendingPrompt;
+    this.cancelPromptPlayback();
+    if (pending) this.reply(pending.id, { stopReason: reason });
+  }
+
+  private cancelPromptPlayback(): void {
+    if (this.promptTimer !== null) {
+      window.clearTimeout(this.promptTimer);
+      this.promptTimer = null;
+    }
+    this.pendingPrompt = null;
   }
 }
 

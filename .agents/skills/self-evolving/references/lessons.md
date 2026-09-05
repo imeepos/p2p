@@ -279,3 +279,41 @@ _none yet — be the first._
 - 2026-09-05 G2：测试文件同样受 300 行纪律（存量 310/314 不构成豁免）——mock 单例测试拆文件时事件收集器必须带 reset() 并在 beforeEach 调用，否则同文件用例间事件计数互相污染（本轮 3 个假红全源于此）；拆分是纯 test refactor 单独成提交。
 - 2026-09-04 AI 试运行：文档驱动操作撞上「两套身份」类系统时，把每次失败报错当拓扑探针用——Failed(快速) vs Pending(超时) 的差异本身就指明对端身份不符还是网络不通。
 - 2026-09-04 run_code：bash 惯用法写进 JS 模板串必须转义美元花括号（PIPESTATUS 被 JS 当插值求值直接 ReferenceError），含反引号的内容更要用数组 join + heredoc 落盘。
+- 2026-09-04 ACP6b：run_code 给 tools.write 传整文件内容时模板字符串可能炸出莫名 lexing error（Expected ',', got ';'），与内容里反引号/插值无关——单引号行数组 + join("\n") 是稳态（191 行中文协议文件一次通过）。
+- 2026-09-04 ACP6b：异步回放面的断言 helper（取 mock 权限请求 id、等能力卡出现）必须内部 waitFor，同步取值比帧到达早半拍直接空引用；helper 返回 Promise 让调用方 await，别为了调用简洁做同步版。
+- 2026-09-05：给被大量既有测试裸渲染的视图加 useNavigate，会把所有无 Router 包裹的旧测试一次性打崩（G3 一加 79 失败）；App 根是 HashRouter 时改 window.location.hash 跳转零测试改动，新路由测试也用 HashRouter + window.location.hash 驱动。
+- 2026-09-05：zustand 页面接第二个 store 订阅同一 ipc 事件总线后，既有测试的 onNodeEvent 替身若写「handler = current」单槽会顶掉前者、chat_message 断言全超时；替身必须改数组 push + 循环投递（真实事件总线一对多），且数组不许 beforeEach 清空——store 订阅有模块级 latch，清空后后续测试无人收事件。
+- 2026-09-05：eslint react-refresh/only-export-components 禁止 .tsx 组件文件同导出纯函数（G3 在 group-list.tsx 导出 orderedGroups 被红）；纯函数下沉同名 .ts。react-hooks v7 的 set-state-in-effect 禁 effect 内同步 setState——面板类组件用「open 才挂载」的父级条件渲染替代打开时重置状态。
+- 2026-09-05：vitest 的 vi.fn<T>() 泛型参数个数必须与 mockImplementation 实参个数一致（tsc TS2345）；带参 mock 声明写成 vi.fn<(groupId: string, memberId: string) => Promise<R>>()。
+- 2026-09-05：断言用 getAllByTestId(/^prefix-.+$/) 正则会把容器 testid（group-member-panel/group-member-list）一并匹配导致假红；正则按值域字符集收窄（base58 无 l/i 恰好排除 panel/list）或行级 testid 用独立前缀。
+- 2026-09-05：GUI 单群操作无契约命令时（v1 无 group_disband），用已有 owner-only 原语组合出操作面（逐个 groupKick 全员=解散入口）并在确认文案明示语义降级，交接报告单列遗留——比留死按钮更利于后续契约加法时切换。
+- 2026-09-04 G1：pub(crate) 类型不能 pub use 出 crate（E0365）——契约模型要跨 crate 消费就直接声明 pub，别先 pub(crate) 再 re-export。
+- 2026-09-04 G1：300 行红线 + rustfmt max_width=100 下，链式调用/多参签名按 fmt 后行数计预算（fmt 展开动辄 +30%）；跨模块 `impl 同crate类型` 是合规分文件手段，文件头注明"行数红线再平衡"。
+- 2026-09-04 G1：并行会话高频合入 main 时 ff-only 失败是常态——rebase → 重跑 clippy+line-limit+定向测试 → 立即重试，整套动作一分钟内连惯做完，拖久了又漂。
+- 2026-09-05：当 crates.io 依赖凭记忆写小版本号时，修复是先查 sparse index 真实版本列表——`yrs = "0.6"` 解析到 2021 年远古 API（PrelimMap/Transaction 单数形态），现代 yrs 是 0.27+（TransactionMut/ReadTxn trait 形态），API 完全对不上。
+- 2026-09-05：当 E2E 断言「脚本末行 == OK 标记」时，修复是 grep 标记而不是 tail -1——trap 清理函数在 OK 行之后还会输出 Terminated 等系统噪声，tail 会误报。
+- 2026-09-05：当分支合并期间 main 被并行会话连续推进导致 ff-only 反复失败时，修复是「fetch → merge main → 跑门禁 → push → 立刻重试 ff」紧凑循环，把竞态窗口压到秒级；ff 失败不删 worktree，commit 始终安全在分支 ref 上。
+- 2026-09-05：当接手任务发现验收脚本在 main 上本来就红（别的波次合并了新裁决没跑该脚本）时，修复是先在 main 复现确认存量、再按「断言语义不弱化」适配新语义并把适配写进提交正文，避免误判为自己改坏。
+- 2026-09-05 G4 重复派单：任务书对 worktree 的预设（「他人遗留零提交空 worktree」）必须实证再动手——mtime 新鲜度 + reflog + 存活进程三查在 90 秒内证伪预设（group.rs 实时编辑 + group_contract 编译指纹 + 90 秒前的 git reset），立即停手让位避免双写事故；归属不明先 session_link 逐会话问询核销。
+- 2026-09-05 G4 接管：git status 陈旧 stat 缓存会漏报整个脏文件集（33 文件 796 行漂移首次 status 只见 1 个 untracked，merge 写索引后才显形）；接管 worktree 先 git diff HEAD --stat 强制重哈希再信状态。
+- 2026-09-05 G4 审计：判定大 diff 是否纯 fmt——git show <c> -- <paths> 删除/新增两侧行去空白后 sort|uniq -c 比对 token 多集，逐对可配对即零语义（rustfmt 换行/尾逗号/match 臂加括号会让 -w 的 --stat 仍有行数差，别被吓住）。
+- 2026-09-05 G4 收尾：重复派单撞车时「以 main 合入状态为准」——授权接管的瞬间执行者可能恰好收尾完（本次 rebase 时 fmt/clippy 修复笔被 git 自动丢弃 "patch contents already upstream"），rebase 的自动去重就是最干净的冲突裁决。
+- 2026-09-05 fmt 口径漂移跨会话传播：某会话合 main 未跑 cargo fmt --all --check，rustfmt 版本口径差堵死下游 G4/G5 两道 fmt 门禁；合 main 前必跑 fmt --check，撞墙方用「零语义 style 提交」在 feature 侧代修是既定解（rebase 同字节补丁自动去重，零冲突）。
+
+## 2026-09-05 邀请制加好友会话
+- 工具链转义洋葱：write/edit 的内容经 harness 会吃一层反斜杠（\" 变 "、\\n 变真换行），
+  含转义序列的代码补丁一律改走 node fs 直写或 bash heredoc（chr 拼接最稳），失败 5+ 次的教训。
+- python 生成 bash 脚本时，脚本内禁止 ${、反引号、反斜杠序列（awk 切分替代 %% 切分，
+  python -c JSON 断言替代嵌套引号 grep），否则 JS/py/bash 三层转义无法对齐。
+- D6 身份互斥实证：serve 常驻 + 同 data-dir 一次性命令并行，同 peerId 第二次拨号必败
+  （对端半开残留）；CLI e2e 编排必须轮转持锁 + 固定 --quic-port 保地址稳定。
+- 竞态修复模式：挂起重投（PeerConnected 触发）与用户操作（同意/拒绝）竞态，
+  用持久化 delivered 标记 + 锁内复查双保险，单靠时序等待是假修复。
+- bottom-up 验收顺序正确性：crate 集成测试（6/6）先绿再写 CLI e2e，能把协议缺陷
+  与编排缺陷干净分离；本次编排错误三次险些误判为协议缺陷。
+- 2026-09-05 G6：接单先全仓 grep 任务关键词做存量盘点再动手——G6 的"补 group_disband"
+  大半已被 G4/G5 顺手实现（核心命令/src-tauri 接线/cli/parity/guide 全在），真缺口只剩
+  GUI 前端命令面与契约表行；先盘点避免了重复实现与跨会话双写，改动面从"五层"缩到实需。
+- 2026-09-05 G6：后台管道 `make check | tail` 会吞退出码（tail 恒 0，job 显示 completed
+  不代表 make 成功）；判长门禁过没过要核"是否走到了最后一个 target 并打出 OK 标记"
+  （Makefile 依赖链默认首错即停，末关 AI-DOCS-OK 在场即全绿）。

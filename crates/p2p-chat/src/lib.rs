@@ -1,49 +1,67 @@
-//! p2p-chat：IM 聊天核心 crate（design §1-§6；契约 gui-contract.md §12）。
-//!
-//! 好友簿 / 消息历史 / outbox 离线队列 / 线协议 /im/chat/1 收发；底座 p2p-* 只读。
-//! 发送：校验 → 落 outbox → 连接 → 开流帧序 → ACK → delivered；
-//! 入站：handler 读信封 → 收媒体 → 回 ACK → 落盘 → chat_message 事件。
+//! p2p-chat：IM 聊天核心（design §1-§6 + im-group-design）：1:1 与群聊收发，底座只读。
+//! 发送：校验 → 落 outbox → 连接 → 帧序 → ACK → delivered；入站回 ACK → 落盘 → 事件。
 
+mod advertised;
 mod core;
+mod drain;
+mod events;
 mod friend;
+mod group;
+mod group_core;
+mod group_model;
+mod group_store;
+mod group_wire;
 mod identity_lock;
+mod invite;
+mod invite_api;
+mod invite_handler;
 mod model;
 mod outbox;
 mod store;
+mod store_friends;
+#[cfg(test)]
+mod store_friends_tests;
+mod store_invite;
 mod store_io;
 mod store_lock;
 mod wire;
+mod wire_invite;
 
 pub use identity_lock::try_lock_identity;
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
 use p2p::Node;
 use tokio::sync::broadcast;
 
+pub use events::ChatEvent;
 pub use friend::{validate_group, ChatFriend, FriendPatch, MAX_GROUP_CHARS};
+pub use group::{
+    Group, GroupEvent, GroupInfo, GroupMessage, GroupSendReport, GroupState, GROUP_PROTOCOL,
+};
+pub use invite::{FriendInvite, InviteDirection, InviteState, MAX_INVITES};
+pub use invite_api::InviteReport;
 pub use model::{
-    sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatEvent, ChatKind,
+    sanitize_name, validate_media, validate_text, ChatEnvelope, ChatError, ChatKind,
     ChatMediaInput, ChatMediaMeta, ChatSendReport, ChatStatus, Sender, MAX_MESSAGE_SIZE,
 };
 
 use core::ChatCore;
 
-/// 线协议 ID（wire-protocol.md §8 登记）。
+/// 聊天线协议 ID（wire-protocol.md §8.1 登记）。
 pub const CHAT_PROTOCOL: &str = "/im/chat/1";
+/// 邀请线协议 ID（wire-protocol.md §8.3 登记）。
+pub const INVITE_PROTOCOL: &str = "/im/invite/1";
 
-/// 事件通道容量。
-const EVENT_CAPACITY: usize = 128;
+const EVENT_CAPACITY: usize = 128; // 1:1 与群各自独立事件通道
 
-/// 聊天门面：好友簿 / 发送 / 历史 / 媒体路径，内部持有核心与 outbox 任务。
 pub struct Chat {
-    core: Arc<ChatCore>,
+    pub(crate) core: Arc<ChatCore>,
+    pub group: Group, // 群门面：group_* 命令经此调用（与 1:1 API 命名空间分离）
 }
 
 impl Chat {
-    /// 装配：建存储、注册入站 handler、启动 outbox 任务、好友地址回填地址簿。
     pub fn new(node: Arc<Node>, data_dir: PathBuf) -> Result<Self, ChatError> {
         let store = store::Store::new(data_dir.join("chat"))?;
         let (tx, _) = broadcast::channel(EVENT_CAPACITY);
@@ -55,26 +73,47 @@ impl Chat {
             flush_tried: std::sync::Mutex::new(std::collections::HashMap::new()),
         });
         core.rearm_friend_addrs()?;
+        invite_api::rearm_invite_addrs(&core)?;
         let proto =
             p2p::ProtocolId::new(CHAT_PROTOCOL).map_err(|e| ChatError::Protocol(e.to_string()))?;
         core.node
             .handle_protocol(Arc::new(wire::ChatHandler::new(core.clone(), proto)));
-        outbox::spawn_outbox_task(core.clone());
-        Ok(Self { core })
+        let invite_proto = p2p::ProtocolId::new(INVITE_PROTOCOL)
+            .map_err(|e| ChatError::Protocol(e.to_string()))?;
+        core.node
+            .handle_protocol(Arc::new(invite_handler::InviteHandler::new(
+                core.clone(),
+                invite_proto,
+            )));
+        let group = group::Group::mount(core.clone(), &data_dir)?;
+        outbox::spawn_outbox_task(core.clone(), group.core.clone());
+        invite_api::spawn_invite_heal(core.clone());
+        Ok(Self { core, group })
     }
 
-    /// chat_message / chat_status 事件订阅。
+    /// chat_message / chat_status / chat_invite 事件订阅。
     pub fn events(&self) -> broadcast::Receiver<ChatEvent> {
         self.core.events.subscribe()
     }
 
+    pub fn group_events(&self) -> broadcast::Receiver<GroupEvent> {
+        self.group.events()
+    }
+
     /// 好友簿列表（无文件返回空数组）。
+    /// 发布本机对外声明地址（常驻进程启动时调用，供一次性命令的邀请帧复用，
+    /// 保证对端拿到的回拨地址是长期有效的服务地址）。
+    pub fn publish_advertised(&self) -> Result<(), ChatError> {
+        self.core
+            .store
+            .advertised_save(&self.core.node.listen_addrs())
+            .map_err(ChatError::Io)
+    }
     pub fn friends_list(&self) -> Result<Vec<ChatFriend>, ChatError> {
         Ok(self.core.store.friends_list()?)
     }
 
-    /// 加好友：校验 peerId（base58 且 ≠ 本机）/昵称（trim ≤64）/地址语法，
-    /// 通过后原子写好友簿并同步登记地址簿（可拨）。
+    /// 加好友：校验后原子写好友簿并登记地址簿（校验细则见 model / friend 模块）。
     pub fn friend_add(
         &self,
         peer_id: &str,
@@ -108,49 +147,6 @@ impl Chat {
     pub fn friend_remove(&self, peer_id: &str) -> Result<bool, ChatError> {
         let _ = model::parse_peer_id(peer_id)?;
         Ok(self.core.store.remove_friend(peer_id)?)
-    }
-
-    /// 更新好友资料补丁（IM-T43）：group/nickname/note 至少一项；addrs 不可经此修改；
-    /// peer 不在簿 Err。group 提供空串 = 移出分组（归一化 None，落盘无空串组名）。
-    pub fn friend_update(
-        &self,
-        peer_id: &str,
-        patch: &FriendPatch,
-    ) -> Result<ChatFriend, ChatError> {
-        let _ = model::parse_peer_id(peer_id)?;
-        if patch.is_empty() {
-            return Err(ChatError::InvalidUpdate(
-                "更新内容为空：group/nickname/note 至少提供一项".into(),
-            ));
-        }
-        let group = friend::validate_group(patch.group.as_deref())?;
-        let nickname = patch
-            .nickname
-            .as_deref()
-            .map(model::validate_nickname)
-            .transpose()?;
-        let note = match patch.note.as_deref() {
-            Some(n) if n.trim().is_empty() => Some(None),
-            Some(n) => Some(Some(n.to_string())),
-            None => None,
-        };
-        let mut friends = self.core.store.friends_list()?;
-        let slot = friends
-            .iter_mut()
-            .find(|f| f.peer_id == peer_id)
-            .ok_or_else(|| ChatError::NotFound(format!("好友不在簿：{peer_id}")))?;
-        if patch.group.is_some() {
-            slot.group = group;
-        }
-        if let Some(name) = nickname {
-            slot.nickname = name;
-        }
-        if let Some(value) = note {
-            slot.note = value;
-        }
-        let updated = slot.clone();
-        self.core.store.upsert_friend(updated.clone())?;
-        Ok(updated)
     }
 
     /// 历史分页：time desc；beforeId = 严格更早游标；limit 默认 50 上限 100。
@@ -188,8 +184,7 @@ impl Chat {
             .ok_or_else(|| ChatError::NotFound("消息非附件类型".into()))
     }
 
-    /// 发送：校验 → 信封 → 落 outbox/messages(pending) → 实时投递；
-    /// 对端未连接保持 pending，等待 PeerConnected 事件 flush。
+    /// 发送：校验 → 落 outbox/messages(pending) → 实时投递；未连接保持 pending 待 flush。
     pub async fn send(
         &self,
         peer: &str,
@@ -205,9 +200,7 @@ impl Chat {
         // 回复引用校验：提供时必须非空字符串；不校验被引用消息存在性（离线引用允许）。
         let reply_to = match reply_to.as_deref() {
             None => None,
-            Some(s) if s.trim().is_empty() => {
-                return Err(ChatError::InvalidReply(s.to_string()));
-            }
+            Some(s) if s.trim().is_empty() => return Err(ChatError::InvalidReply(s.to_string())),
             Some(s) => Some(s.to_string()),
         };
         let text = if kind == ChatKind::Text {
@@ -251,8 +244,7 @@ impl Chat {
         self.core.store.append_outbox(&env)?;
         self.core.store.append_message(&env)?;
         self.core.emit_status(peer, &env.id, ChatStatus::Pending);
-        // 持有 peer 投递锁：connect 触发的 PeerConnected 会让 outbox 任务并发 flush
-        // 同一条消息，串行化避免同连接并发开流（yamux 上游缺陷，见 core.rs 注释）。
+        // 持 peer 投递锁：串行化 send 与 outbox flush，避免同连接并发开流（yamux 上游缺陷）。
         let _guard = self.core.peer_guard(peer).await;
         let delivered = match self.core.deliver(&env).await {
             Ok(()) => {
@@ -275,23 +267,5 @@ impl Chat {
             message: env,
             delivered,
         })
-    }
-
-    /// 排空该 peer 的 outbox（CLI one-shot 收尾用，D5）：主动连接后 flush，budget 内尽力而为。
-    /// 返回本轮成功补投的条目数（按队列长度差计）。
-    pub async fn drain_peer(&self, peer: &str, budget: Duration) -> Result<usize, ChatError> {
-        let pid = model::parse_peer_id(peer)?;
-        let before = self.core.store.outbox_for(peer).len();
-        if before == 0 {
-            return Ok(0);
-        }
-        self.core
-            .node
-            .connect(pid)
-            .await
-            .map_err(|e| ChatError::ConnectFailed(format!("连接 {peer} 失败：{e}")))?;
-        let _ = tokio::time::timeout(budget, outbox::flush_peer(&self.core, peer)).await;
-        let after = self.core.store.outbox_for(peer).len();
-        Ok(before.saturating_sub(after))
     }
 }

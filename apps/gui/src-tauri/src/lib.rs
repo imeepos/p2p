@@ -11,6 +11,7 @@ pub mod config;
 pub mod control;
 pub mod events;
 pub mod frontend_log;
+pub mod group;
 pub mod history;
 pub mod profile;
 pub mod proto;
@@ -49,12 +50,26 @@ pub fn run() {
             update::update_check,
             update::update_open_release_page,
             chat::chat_friends_list,
-            chat::chat_friend_add,
+            chat::chat_friend_invite,
+            chat::chat_invites_list,
+            chat::chat_invite_accept,
+            chat::chat_invite_reject,
+            chat::chat_invite_cancel,
             chat::chat_friend_update,
             chat::chat_friend_remove,
             chat::chat_history,
             chat::chat_send,
             chat::chat_media_file,
+            group::group_create,
+            group::group_list,
+            group::group_invite,
+            group::group_kick,
+            group::group_leave,
+            group::group_rename,
+            group::group_disband,
+            group::group_send,
+            group::group_history,
+            group::group_media_file,
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -73,8 +88,8 @@ pub fn run() {
             let frontend_log = frontend_log::FrontendLog::new(&log_dir)
                 .map_err(|e| format!("初始化前端日志失败: {e}"))?;
             app.manage(frontend_log);
-            let checker = update::UpdateChecker::new()
-                .map_err(|e| format!("初始化更新检查器失败: {e}"))?;
+            let checker =
+                update::UpdateChecker::new().map_err(|e| format!("初始化更新检查器失败: {e}"))?;
             app.manage(checker);
             // GC1 控制通道：启动失败仅显式告警，不阻塞 GUI 主功能（R3）；
             // 句柄入 managed state，RunEvent::Exit 时收尾（停录屏/摘端点文件）。
@@ -111,7 +126,10 @@ pub fn run() {
 fn init_logging(log_dir: &std::path::Path) {
     let report = p2p_log::init(p2p_log::LogConfig {
         format: p2p_log::LogFormat::Text,
-        file: Some(p2p_log::FileOptions::with_default_caps(log_dir, "p2p-console.log")),
+        file: Some(p2p_log::FileOptions::with_default_caps(
+            log_dir,
+            "p2p-console.log",
+        )),
     });
     if let Some(path) = &report.file_path {
         eprintln!("p2p-console: 日志文件 {}", path.display());

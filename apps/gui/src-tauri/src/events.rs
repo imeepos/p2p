@@ -50,6 +50,28 @@ pub fn spawn_chat<R: Runtime>(app: AppHandle<R>, mut rx: broadcast::Receiver<p2p
     });
 }
 
+/// 启动群事件转发任务（契约 §7，G4）；通道关闭（群实例卸载且发送端清空）后退出。
+pub fn spawn_group<R: Runtime>(
+    app: AppHandle<R>,
+    mut rx: broadcast::Receiver<p2p_chat::GroupEvent>,
+) {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            match rx.recv().await {
+                Ok(event) => emit(&app, NodeEventJson::from(event)),
+                Err(broadcast::error::RecvError::Lagged(n)) => {
+                    warn!(dropped = n, "群事件通道积压，已丢弃部分事件");
+                    emit(&app, lag_event(n));
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    info!("群事件通道关闭，转发任务退出");
+                    break;
+                }
+            }
+        }
+    });
+}
+
 /// 统一出口：盖发射时刻毫秒戳（契约 §2 可选 tsMs）后单通道推送；失败留告警，不中断后续事件。
 pub fn emit<R: Runtime>(app: &AppHandle<R>, payload: NodeEventJson) {
     let stamped = payload.stamped(crate::util::now_ms());

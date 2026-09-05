@@ -1,5 +1,6 @@
 import type {
   ChatFriendJson,
+  FriendInviteJson,
   ChatMediaFile,
   ChatMessageJson,
   IpcBackend,
@@ -39,20 +40,32 @@ export interface MockChatDeps {
 export type MockChatBackend = Pick<
   IpcBackend,
   | "chatFriendsList"
-  | "chatFriendAdd"
+  | "chatFriendInvite"
+  | "chatInvitesList"
+  | "chatInviteAccept"
+  | "chatInviteReject"
+  | "chatInviteCancel"
   | "chatFriendRemove"
   | "chatFriendUpdate"
   | "chatHistory"
   | "chatSend"
   | "chatMediaFile"
->;
+> & {
+  // 测试引导直加入口（不属 IpcBackend 契约面）
+  chatFriendAdd(
+    peerId: string,
+    nickname: string,
+    addrs: string[],
+  ): Promise<ChatFriendJson>;
+};
 
 interface MockChatState {
   friends: Map<string, ChatFriendJson>;
+  invites: FriendInviteJson[]; // 邀请簿镜像（out+in）
   history: Map<string, ChatMessageJson[]>; // 每 peer 时间升序追加
 }
 
-const state: MockChatState = { friends: new Map(), history: new Map() };
+const state: MockChatState = { friends: new Map(), invites: [], history: new Map() };
 
 // 群成员资格的数据源：群聊后端经此判定成员是否在好友簿（im-group-design §1）。
 export function isMockFriend(peerId: string): boolean {
@@ -142,6 +155,7 @@ export function createMockChatBackend(deps: MockChatDeps): MockChatBackend {
       }));
     },
 
+    // 测试引导入口（直建好友簿，等价 crate friend_add）；用户路径走 chatFriendInvite。
     // 校验镜像契约 §12.1：peerId base58 且不等于本机、nickname trim ≤64、addr 逐条校验。
     async chatFriendAdd(peerId, nickname, addrs) {
       if (!isValidPeerId(peerId)) {
@@ -173,6 +187,90 @@ export function createMockChatBackend(deps: MockChatDeps): MockChatBackend {
       state.friends.set(peerId, friend);
       deps.addKnownPeer(peerId); // addr 同时登记地址簿可拨（契约 §12.1）
       return { ...friend, addrs: [...friend.addrs] };
+    },
+
+    // 邀请制加好友（契约 v9 §12.4）：mock 对端恒在线，INVITE 即时送达。
+    async chatFriendInvite(peerId, nickname, addrs) {
+      if (!isValidPeerId(peerId)) {
+        throw new Error(`peerId 非法（需 base58，43-45 字符）：${peerId}`);
+      }
+      if (peerId === deps.selfPeerId()) {
+        throw new Error(`不能把自己加为好友：${peerId}`);
+      }
+      const name = nickname.trim();
+      if (name.length > MAX_NICKNAME_CHARS) {
+        throw new Error(`nickname 超过 ${MAX_NICKNAME_CHARS} 字符上限`);
+      }
+      for (const addr of addrs) {
+        if (!isValidTransportAddr(addr)) {
+          throw new Error(
+            `好友地址语法非法（应为 ip/u端口 或 ip/t端口）：${addr}`,
+          );
+        }
+      }
+      if (state.friends.has(peerId)) {
+        throw new Error(`该节点已是好友：${peerId}`);
+      }
+      const invite: FriendInviteJson = {
+        peerId,
+        nickname: name,
+        addrs: [...addrs],
+        note: null,
+        direction: "out",
+        tsMs: Date.now(),
+        delivered: true,
+      };
+      state.invites = state.invites.filter(
+        (i) => !(i.peerId === peerId && i.direction === "out"),
+      );
+      state.invites.push(invite);
+      deps.addKnownPeer(peerId);
+      return { invite: { ...invite, addrs: [...invite.addrs] }, delivered: true };
+    },
+
+    async chatInvitesList() {
+      return state.invites.map((i) => ({ ...i, addrs: [...i.addrs] }));
+    },
+
+    async chatInviteAccept(peerId, nickname) {
+      const invite = state.invites.find(
+        (i) => i.peerId === peerId && i.direction === "in",
+      );
+      if (!invite) {
+        throw new Error(`无待处理邀请：${peerId}`);
+      }
+      if (state.friends.has(peerId)) {
+        throw new Error(`该节点已是好友：${peerId}`);
+      }
+      const name = nickname.trim() || invite.nickname;
+      const friend: ChatFriendJson = {
+        peerId,
+        nickname: name,
+        addrs: [...invite.addrs],
+        note: null,
+      };
+      state.friends.set(peerId, friend);
+      deps.addKnownPeer(peerId);
+      state.invites = state.invites.filter((i) => i.peerId !== peerId);
+      return { ...friend, addrs: [...friend.addrs] };
+    },
+
+    async chatInviteReject(peerId) {
+      const before = state.invites.length;
+      state.invites = state.invites.filter(
+        (i) => !(i.peerId === peerId && i.direction === "in"),
+      );
+      if (state.invites.length === before) {
+        throw new Error(`无待处理邀请：${peerId}`);
+      }
+    },
+
+    async chatInviteCancel(peerId) {
+      const before = state.invites.length;
+      state.invites = state.invites.filter(
+        (i) => !(i.peerId === peerId && i.direction === "out"),
+      );
+      return state.invites.length !== before;
     },
 
     // 幂等：不在簿返回 false；不删消息历史（契约 §12.1）。

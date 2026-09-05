@@ -584,3 +584,105 @@ chr(96)) 修复并断言计数，别用 sed 硬拼正则。
 - 原因：GUI 进程没有被授予 macOS 屏幕录制权限（TCC）；navigate/page 等控制通道命令不受影响。
 - 修法：系统设置 > 隐私与安全性 > 屏幕录制 给 p2p-console 授权后重跑；授权属 OS 级人工操作，AI/CLI 无法自助完成。
 
+- 症状：run_code 里 tools.write 报 `file has not been read`，尽管同名文件在主树刚读过。
+- 原因：fs-observation-policy 按**精确路径**判定，worktree 与主树是两条路径。
+- 修法：写前对目标 worktree 路径先 read 一次（limit 1 即可）；多文件批量改时把 read 排在程序最前。
+
+- 症状：测试共享夹具文件（如 acp-view-test-utils.tsx）重导出 mock 单例或 zustand store 后，`pnpm build`（tsc -b）报 TS4094/TS4023 匿名类/不可命名类型；vitest 却全绿。
+- 原因：*.test.* 被 tsc 排除出 emit，夹具文件名不带 .test. 就参与 d.ts 生成，而 mock 单例/zustand store 的推断类型含私有成员或未导出接口。
+- 修法：夹具只导出纯函数；测试文件各自动态 import 原模块取单例（vi.stubEnv 后 `await import` 的顺序语义还顺带保住了 mock 注入时机）。
+
+## 2026-09-04 make check 真网络测试与并行 cargo 任务同机抢跑 30s 超时假红
+症状：make check 在 crates/p2p observe_addr（observed_addr_registered_and_dialable）FAILED，耗时恰 30.02s=测试超时预算；同机另有 cargo clippy 与子进程集成测试在跑。
+原因：该测试是真 QUIC+rendezvous 拨号链路，对网络栈/负载敏感；并发重任务挤占后撞超时预算，与被验改动无关（本卡只动 apps 测试与文档）。
+修法：门禁红先看失败耗时形态（贴着预算超时=抖动嫌疑），隔离复跑单测定性（0.05s 过），全绿后再单独重跑 make check；make check 运行期不要并行任何 cargo 任务。
+
+## 2026-09-04 G1：cargo fmt 静默跳过解析失败文件，行数统计失真
+- 症状：wc -l 行数忽大忽小（同文件 299 ↔ 366），reformat 不可复现。
+- 原因：cargo fmt 遇任一文件解析失败会静默跳过全部格式化（管道 head/tail 又吞退出码），
+  手写长行在后续 fmt 成功时被展开，行数暴涨。
+- 修法：行数斗争中每次 fmt 后核对退出码/stderr 为空再 wc；解析错误未清零前行数测量不可信。
+
+## 2026-09-05 yrs 默认 ClientID::random（fastrand）在本机同时刻并发进程产出相同 ID
+症状：friends yrs 追加日志 E2E 偶发「全量 11 笔实得 10」，文件 11 行全部合法 JSON+base64、
+逐行 apply 无报错，但末行 update 应用后键集不变（条目静默消失）。
+原因：yrs 0.27 ClientID::random 走 fastrand::Rng::new()，本机同微秒窗口 spawn 的多个
+进程拿到相同种子 → 两个 Doc 同 clientID；同 ID 同 clock 的第二条 update 被当已知块
+静默忽略（yrs 语义：known info 被提取即丢弃）。
+修法：跨进程唯一 ID 不依赖 fastrand——uuid v4（OS 熵）派生 53bit clientID
+（Doc::with_client_id，0 置 1）；诊断手法：decode 后打 update.insertions(true) 的
+client/clock 区间，两行同 client 即实锤。
+
+## 2026-09-05 跨进程 O_APPEND 追加「行体与换行分两次 write」必撕裂
+症状：两进程并发追加同一日志文件时偶发出现行被拼接成一行（两个 JSON 文档同行），
+读取按行解析整行失败跳过 → 双双丢失。
+原因：write_all(line) 与 write_all(b"\n") 是两个 write() 调用，O_APPEND 只保证单次
+write 的末尾定位原子，两次调用之间另一进程可插入整行。
+修法：行+换行拼进同一缓冲一次 write_all（小行在本地文件系统上等效原子提交）；
+消息 JSONL 的 append_line 原实现同样隐患，但跨进程同文件并发写已被 D6 身份锁排除，未动。
+
+## 2026-09-05 TS 模板字符串里写 bash 脚本（run_code 生成文件）必炸：${var} 被当插值
+症状：run_code 里用模板字符串装 bash 内容，报 Expected ',' got '#' / Unterminated template / ReferenceError: xxx is not defined——TS 把 bash 的 ${VAR} 当插值求值。
+原因：模板字面量对 ${ 插值、对反引号终止，与 bash/Markdown 内容天然冲突；部分转义部分不转义必漏。
+修法：String.raw 模板 + 占位符替换（如 ¤{ 事前写入、replaceAll("¤{", () => "${")），且替换必须用函数形式（字符串替换里 $$ 会被吞成 $）；更省事的是把要嵌入的大段内容（如 Rust 源）放独立文件用 cat 拼接。
+
+## 2026-09-05 bash 远端后台拉起：cmd1 && cmd2 & echo pid > pidfile 的三重竞态
+症状：ssh 一行命令「cd dir && mkdir logs run && nohup ... & echo $! > run/pid」报 run/pid No such file；或进程起了但 pid 文件缺失成孤儿。
+原因：& 把整个 && 链后台化，echo 在前台立即执行，此时 cd/mkdir 还没跑。
+修法：显式分组 cd ... && { nohup ... & echo $! > run/pid; }；目录创建提前到独立命令；幂等启动前按 pidfile+端口精确清理孤儿（校验 /proc/pid/comm 再 kill，绝不 pkill 模式匹配）。
+
+## 2026-09-05 sed 替换串里的 & 是「整个匹配」占符，c 命令拼多行才是稳的
+症状：sed -i 's/old/new>&2/' 结果把 & 展开成 old 全文，行内容被复制一遍。
+修法：含 & 或多行的替换改用行号拼接组装（sed -n 1,Np 旧头 + cat 新块 + sed -n N+1,$p 旧尾 > tmp && mv），或 perl -pe 但注意 $var 会被 perl 插值。行号拼接前先 grep -n 定位，拼完必跑 bash -n。
+
+## 2026-09-05 Rust println 到重定向文件「日志为空但进程活着」假象
+症状：nohup bin > log 2>&1 后 log 空，进程却正常运行（端口已绑定）。
+原因：排查时混淆了「同路径两代进程」——上一代孤儿占着端口/日志，新一代启动即 AddrInUse 退出，其 die 输出进了被 rm 后未链接的旧 inode。
+修法： forensic 前先 ls /proc/<pid>/cwd 定位进程锚定目录、ss -lnup 比对端口持有人 pid，再决定读哪个文件；诊断信息走 stderr（无缓冲）不走 stdout。
+
+## 2026-09-05 TS 模板字符串里写 bash 脚本（run_code 生成文件）必炸：${var} 被当插值
+症状：run_code 里用模板字符串装 bash 内容，报 Expected ',' got '#' / Unterminated template / ReferenceError: xxx is not defined——TS 把 bash 的 ${VAR} 当插值求值。
+原因：模板字面量对 ${ 插值、对反引号终止，与 bash/Markdown 内容天然冲突；部分转义部分不转义必漏。
+修法：String.raw 模板 + 占位符替换（如 ¤{ 事前写入、replaceAll("¤{", () => "${")），且替换必须用函数形式（字符串替换里 $$ 会被吞成 $）；更省事的是把要嵌入的大段内容（如 Rust 源）放独立文件用 cat 拼接。
+
+## 2026-09-05 bash 远端后台拉起：cmd1 && cmd2 & echo pid > pidfile 的三重竞态
+症状：ssh 一行命令「cd dir && mkdir logs run && nohup ... & echo $! > run/pid」报 run/pid No such file；或进程起了但 pid 文件缺失成孤儿。
+原因：& 把整个 && 链后台化，echo 在前台立即执行，此时 cd/mkdir 还没跑。
+修法：显式分组 cd ... && { nohup ... & echo $! > run/pid; }；目录创建提前到独立命令；幂等启动前按 pidfile+端口精确清理孤儿（校验 /proc/pid/comm 再 kill，绝不 pkill 模式匹配）。
+
+## 2026-09-05 sed 替换串里的 & 是「整个匹配」占符，c 命令拼多行才是稳的
+症状：sed -i 's/old/new>&2/' 结果把 & 展开成 old 全文，行内容被复制一遍。
+修法：含 & 或多行的替换改用行号拼接组装（sed -n 1,Np 旧头 + cat 新块 + sed -n N+1,$p 旧尾 > tmp && mv），或 perl -pe 但注意 $var 会被 perl 插值。行号拼接前先 grep -n 定位，拼完必跑 bash -n。
+
+## 2026-09-05 Rust println 到重定向文件「日志为空但进程活着」假象
+症状：nohup bin > log 2>&1 后 log 空，进程却正常运行（端口已绑定）。
+原因：排查时混淆了「同路径两代进程」——上一代孤儿占着端口/日志，新一代启动即 AddrInUse 退出，其 die 输出进了被 rm 后未链接的旧 inode。
+修法：forensic 前先 ls /proc/<pid>/cwd 定位进程锚定目录、ss -lnup 比对端口持有人 pid，再决定读哪个文件；诊断信息走 stderr（无缓冲）不走 stdout。
+
+## 2026-09-05 TS 模板字符串里写 bash 脚本（run_code 生成文件）必炸：${var} 被当插值
+症状：run_code 里用模板字符串装 bash 内容，报 Expected ',' got '#' / Unterminated template / ReferenceError: xxx is not defined——TS 把 bash 的 ${VAR} 当插值求值。
+原因：模板字面量对 ${ 插值、对反引号终止，与 bash/Markdown 内容天然冲突；部分转义部分不转义必漏。
+修法：String.raw 模板 + 占位符替换（如 ¤{ 事前写入、replaceAll("¤{", () => "${")），且替换必须用函数形式（字符串替换里 $$ 会被吞成 $）；更省事的是把要嵌入的大段内容（如 Rust 源）放独立文件用 cat 拼接。
+
+## 2026-09-05 bash 远端后台拉起：cmd1 && cmd2 & echo pid > pidfile 的三重竞态
+症状：ssh 一行命令「cd dir && mkdir logs run && nohup ... & echo $! > run/pid」报 run/pid No such file；或进程起了但 pid 文件缺失成孤儿。
+原因：& 把整个 && 链后台化，echo 在前台立即执行，此时 cd/mkdir 还没跑。
+修法：显式分组 cd ... && { nohup ... & echo $! > run/pid; }；目录创建提前到独立命令；幂等启动前按 pidfile+端口精确清理孤儿（校验 /proc/pid/comm 再 kill，绝不 pkill 模式匹配）。
+
+## 2026-09-05 sed 替换串里的 & 是「整个匹配」占符，c 命令拼多行才是稳的
+症状：sed -i 's/old/new>&2/' 结果把 & 展开成 old 全文，行内容被复制一遍。
+修法：含 & 或多行的替换改用行号拼接组装（sed -n 1,Np 旧头 + cat 新块 + sed -n N+1,$p 旧尾 > tmp && mv），或 perl -pe 但注意 $var 会被 perl 插值。行号拼接前先 grep -n 定位，拼完必跑 bash -n。
+
+## 2026-09-05 Rust println 到重定向文件「日志为空但进程活着」假象
+症状：nohup bin > log 2>&1 后 log 空，进程却正常运行（端口已绑定）。
+原因：排查时混淆了「同路径两代进程」——上一代孤儿占着端口/日志，新一代启动即 AddrInUse 退出，其 die 输出进了被 rm 后未链接的旧 inode。
+修法：forensic 前先 ls /proc/<pid>/cwd 定位进程锚定目录、ss -lnup 比对端口持有人 pid，再决定读哪个文件；诊断信息走 stderr（无缓冲）不走 stdout。
+
+## 2026-09-05 git status 谎报「干净」（陈旧 stat 缓存）
+症状：接手他人 worktree，git status 只报 1 个 untracked，实际工作区相对 HEAD 有 33 文件 796 行漂移；跑 git merge（任何写索引操作）后漂移「突然」全部显形为 modified。
+原因：索引 stat 元数据（mtime/size）与工作文件巧合匹配时 git 跳过内容重哈希，陈旧缓存把脏树报成干净。
+修法：接管任何 worktree 先跑 git diff HEAD --stat（强制重哈希）核对真状态；处置未预期漂移前用 reflog + 文件 mtime + 存活进程三件套判归属，别急着删重建。
+## (2026-09-05) 长回合会话消息通道失效
+症状：对 running 会话 send/talk 显示 delivered，但消息长期不其入历史，session_link_collect 报「凭证无法识别：找不到该凭证对应的己方消息」。
+原因：会话深陷单一长命令（如全量 make check）时消息只入队不落史，talk 超时返回的 claimToken 对应的己方消息从未写入。
+对策：不依赖 collect 追僵尸会话；改用 git 产物观测（worktree/分支/提交）判断进度，等会话转 idle 后再 talk，一次性把累积问题合并成单条问询。

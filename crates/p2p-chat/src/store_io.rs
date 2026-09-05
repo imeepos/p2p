@@ -1,4 +1,5 @@
-//! JSONL / friends.json / 原子写的通用文件 helper（store.rs 拆分，行数红线）。
+//! JSONL / 原子写的通用文件 helper（store.rs 拆分，行数红线）。
+//! 好友簿 yrs 日志的文件操作在 store_friends.rs，不经本模块。
 
 use std::fs;
 use std::io::Write;
@@ -7,24 +8,30 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::de::DeserializeOwned;
 
-use crate::model::{ChatEnvelope, ChatFriend, ChatStatus};
+use crate::invite::FriendInvite;
+use crate::model::{ChatEnvelope, ChatStatus};
 
-/// friends.json 数组读取：损坏或缺失回退空簿并留 warn（不静默）。
-pub(crate) fn load_friends(path: &Path) -> Vec<ChatFriend> {
+/// 通用 JSON 数组文件读取：损坏或缺失回退空簿并留 warn（friends/invites 共用）。
+pub(crate) fn load_json_file<T: DeserializeOwned>(path: &Path, what: &str) -> Vec<T> {
     match fs::read_to_string(path) {
-        Ok(content) => match serde_json::from_str::<Vec<ChatFriend>>(&content) {
+        Ok(content) => match serde_json::from_str::<Vec<T>>(&content) {
             Ok(v) => v,
             Err(e) => {
-                tracing::warn!(path = %path.display(), error = %e, "friends.json 损坏，按空簿处理");
+                tracing::warn!(path = %path.display(), error = %e, what, "簿文件损坏，按空簿处理");
                 Vec::new()
             }
         },
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Vec::new(),
         Err(e) => {
-            tracing::warn!(path = %path.display(), error = %e, "friends.json 读取失败，按空簿处理");
+            tracing::warn!(path = %path.display(), error = %e, what, "簿文件读取失败，按空簿处理");
             Vec::new()
         }
     }
+}
+
+/// invites.json 数组读取：损坏或缺失回退空簿并留 warn（不静默）。
+pub(crate) fn load_invites(path: &Path) -> Vec<FriendInvite> {
+    load_json_file(path, "invites.json")
 }
 
 /// 读 JSONL：损坏行跳过并 warn（缺失文件 = 空）。

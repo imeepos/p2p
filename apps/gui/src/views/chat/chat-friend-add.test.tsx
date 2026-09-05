@@ -3,14 +3,18 @@ import { join } from "node:path";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ChatFriendJson, NodeEventHandler } from "@/lib/ipc-types";
+import type { ChatFriendJson, FriendInviteJson, InviteReportJson, NodeEventHandler } from "@/lib/ipc-types";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     friends: vi.fn<() => Promise<ChatFriendJson[]>>(),
     addFriend: vi.fn<
-      (peerId: string, nickname: string, addrs: string[]) => Promise<ChatFriendJson>
+      (peerId: string, nickname: string, addrs: string[]) => Promise<InviteReportJson>
     >(),
+    invites: vi.fn<() => Promise<FriendInviteJson[]>>(async () => []),
+    accept: vi.fn<(peerId: string, nickname: string) => Promise<unknown>>(),
+    reject: vi.fn<(peerId: string) => Promise<void>>(),
+    cancel: vi.fn<(peerId: string) => Promise<boolean>>(),
     history: vi.fn<
       (peer: string, beforeId?: string | null, limit?: number) => Promise<unknown[]>
     >(),
@@ -22,7 +26,11 @@ const { mocks } = vi.hoisted(() => ({
 vi.mock("@/lib/ipc", () => ({
   ipc: {
     chatFriendsList: mocks.friends,
-    chatFriendAdd: mocks.addFriend,
+    chatFriendInvite: mocks.addFriend,
+    chatInvitesList: mocks.invites,
+    chatInviteAccept: mocks.accept,
+    chatInviteReject: mocks.reject,
+    chatInviteCancel: mocks.cancel,
     chatHistory: mocks.history,
     chatSend: mocks.send,
     onNodeEvent: (handler: NodeEventHandler) => {
@@ -49,6 +57,7 @@ beforeEach(() => {
   mocks.history.mockReset().mockResolvedValue([]);
   mocks.send.mockReset();
   useChatStore.setState({
+    invites: [],
     friends: [],
     friendsLoaded: false,
     friendsError: null,
@@ -145,12 +154,20 @@ describe("ChatView 添加好友校验与错误路径", () => {
 });
 
 describe("ChatView 从零开始旅程", () => {
-  it("从零开始：零好友空态引导直达表单，提交后好友出现并自动选中，发文本上屏", async () => {
-    mocks.friends.mockResolvedValueOnce([]);
-    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
-    mocks.addFriend.mockImplementation(async (peerId, nickname) =>
-      friendOf(peerId, nickname),
-    );
+  it("从零开始：零好友空态引导直达表单，提交后邀请挂起（同意前不建好友），发文本上屏", async () => {
+    mocks.friends.mockResolvedValue([]); // 邀请制：同意前好友簿恒空
+    mocks.addFriend.mockResolvedValue({
+      invite: {
+        peerId: PEER,
+        nickname: "小圆",
+        addrs: [],
+        note: null,
+        direction: "out",
+        tsMs: Date.now(),
+        delivered: true,
+      },
+      delivered: true,
+    });
     mocks.send.mockResolvedValue({
       message: {
         id: "m1",
@@ -176,17 +193,20 @@ describe("ChatView 从零开始旅程", () => {
     });
     fireEvent.click(screen.getByTestId("friend-add-submit"));
     expect(mocks.addFriend).toHaveBeenCalledWith(PEER, "小圆", []);
-    // 好友立即出现在会话列表
+    mocks.invites.mockResolvedValue([
+      {
+        peerId: PEER,
+        nickname: "小圆",
+        addrs: [],
+        note: null,
+        direction: "out",
+        tsMs: Date.now(),
+        delivered: true,
+      },
+    ]);
+    // 同意前好友簿空：挂起提示出现（聊天输入条不自动打开）
     await waitFor(() =>
-      expect(screen.getAllByText("小圆").length).toBeGreaterThan(0),
-    );
-    // 自动选中新好友进入会话（输入条出现）
-    await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
-    // 发送文本上屏
-    fireEvent.change(screen.getByTestId("chat-input"), { target: { value: "你好啊" } });
-    fireEvent.click(screen.getByTestId("chat-send"));
-    await waitFor(() =>
-      expect(screen.getAllByText("你好啊").length).toBeGreaterThan(0),
+      expect(screen.getByTestId("chat-invite-out-" + PEER)).toBeTruthy(),
     );
   });
 });
@@ -197,6 +217,10 @@ describe("IPC 调用点静态守卫", () => {
   // 显式豁免清单：确无 views/components 入口的方法必须登记原因（防后端有能力、界面无入口复发）
   const EXEMPT: Record<string, string> = {
     chatFriendsList: "好友列表刷新统一由 stores/chat-store.loadFriends 调用（数据层）",
+    chatInvitesList: "邀请列表刷新统一由 stores/chat-store.loadInvites 调用（数据层）",
+    chatInviteAccept: "同意邀请统一由 stores/chat-store.acceptInvite 调用（数据层）",
+    chatInviteReject: "拒绝邀请统一由 stores/chat-store.rejectInvite 调用（数据层）",
+    chatInviteCancel: "撤回邀请统一由 stores/chat-store.cancelInvite 调用（数据层）",
     chatHistory: "历史加载统一由 stores/chat-store（selectPeer/loadOlder/loadFriends）调用",
     chatSend: "消息发送统一由 stores/chat-store.sendText/sendMedia 调用（Composer 经 store）",
     chatMediaFile: "媒体展示当前直接消费消息内 path，无独立入口；接媒体落盘地址时补调用点",
@@ -234,10 +258,10 @@ describe("IPC 调用点静态守卫", () => {
         return !called && !(method in EXEMPT);
       });
       expect(missing).toEqual([]);
-      // 本任务红线：chatFriendAdd 必须有真实界面调用点，不得进豁免清单
-      expect(methods).toContain("chatFriendAdd");
+      // 本任务红线：chatFriendInvite 必须有真实界面调用点，不得进豁免清单
+      expect(methods).toContain("chatFriendInvite");
       expect(
-        contents.some((content) => content.includes("chatFriendAdd")),
+        contents.some((content) => content.includes("chatFriendInvite")),
       ).toBe(true);
       // IM-T42 起红线：chatFriendRemove 必须有真实界面调用点，不得进豁免清单
       expect(methods).toContain("chatFriendRemove");

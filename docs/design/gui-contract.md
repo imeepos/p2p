@@ -216,12 +216,18 @@ GUI 列表按组分节展示、未分组虚拟组置底，CLI friends --group �
 | chat_history | peer: string, beforeId?: string | null, limit?: number | ChatMessageJson[] | 按 time desc 分页，limit 默认 50 上限 100；beforeId 游标=严格更早 |
 | chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput, replyTo?: string \| null | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB；replyTo 提供时须非空字符串（不校验被引用消息存在性，离线引用允许） |
 | chat_media_file | peer: string, messageId: string | { path: string; mime: string; name: string } | 返回附件落盘绝对路径（仅本端展示用）；消息非 media 或不存在 → Err |
+| chat_friend_invite
+| chat_invites_list | - | FriendInviteJson[] | 邀请列表（out 待对方同意 / in 待本机处理） |
+| chat_invite_accept | peerId: string, nickname: string | ChatFriendJson | 同意来邀：本侧立即建好友并回投 ACCEPT；nickname 空串 = 沿用邀请内对端自称；无来邀 → Err |
+| chat_invite_reject | peerId: string | void | 拒绝来邀并通知对方（尽力而为）；无来邀 → Err |
+| chat_invite_cancel | peerId: string | boolean | 撤回本机待同意邀请；无邀请幂等 false | | peerId: string, nickname: string, addrs: string[] | InviteReportJson | 发邀请：校验同 add；登记 out 邀请并尽力投递（delivered=送达/挂起）；重复邀请幂等刷新；已是好友 → Err |
 
 ### 12.2 事件（追加到 NodeEventJson 判别联合）
 
 ```ts
 | { type: "chat_message"; peer: string; message: ChatMessageJson }   // 入站新消息（已落盘）
 | { type: "chat_status"; peer: string; messageId: string; status: "pending"|"sent"|"delivered"|"failed" }
+| { type: "chat_invite"; peer: string; state: "incoming"|"accepted"|"rejected" }
 ```
 
 ### 12.3 数据类型
@@ -277,6 +283,37 @@ interface ChatSendReport {
 - 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase，Option 序列化 null）；
   B 侧 TS 类型与上表逐字一致；mock 与真实实现同签名。
 
+
+### 12.4 好友邀请（v9 加法，2026-09-05，邀请制加好友）
+
+加好友唯一用户路径 = 发邀请 → 对方同意 → 双向互为好友。直加接口移除（crate
+保留 friend_add_direct 仅供测试引导，不进命令面）。wire 协议 /im/invite/1
+登记见 wire-protocol.md §8.2；邀请簿本地 invites.json。
+
+### 12.4.1 命令表（追加）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| chat_friend_invite | peerId: string, nickname: string, addrs: string[] | InviteReportJson | 发邀请：校验同 add；登记 out 邀请并尽力投递（delivered=送达/挂起）；重复邀请幂等刷新；已是好友 → Err |
+| chat_invites_list | - | FriendInviteJson[] | 邀请列表（out 待对方同意 / in 待本机处理） |
+| chat_invite_accept | peerId: string, nickname: string | ChatFriendJson | 同意来邀：本侧立即建好友并回投 ACCEPT；nickname 空串 = 沿用邀请内对端自称；无来邀 → Err |
+| chat_invite_reject | peerId: string | void | 拒绝来邀并通知对方（尽力而为）；无来邀 → Err |
+| chat_invite_cancel | peerId: string | boolean | 撤回本机待同意邀请；无邀请幂等 false |
+
+### 12.5 数据类型（12.4 追加）
+
+```ts
+type InviteDirectionJson = "out" | "in";
+type InviteStateJson = "incoming" | "accepted" | "rejected";
+
+interface FriendInviteJson {
+  peerId: string; nickname: string; addrs: string[]; note?: string | null;
+  direction: InviteDirectionJson; tsMs: number; delivered: boolean;
+}
+
+interface InviteReportJson { invite: FriendInviteJson; delivered: boolean }
+```
+
 ## 13. 应用内下载安装更新（v8 加法，2026-09-04，G-U3）
 
 §9 的检查提醒保持不变；本节新增「程序内下载 + 进度条 + 下载成功自动安装 + 重启」闭环。
@@ -323,5 +360,87 @@ interface UpdateDownloadBackend {
 - 失败语义：下载/签名校验/安装失败一律可读中文并留 console 与日志，禁止静默吞；
   未打包二进制（pnpm tauri dev）不启用真实安装；浏览器 dev 走 mock（VITE_MOCK_IPC=1），
   mock 与真实实现同签名。
+
+## 14. IM 群聊（v9 加法，2026-09-04，契约来源 docs/design/im-group-design.md §5/§7）
+
+群 = 好友边沿上的多播：owner 为名单唯一权威（rev 单调递增，成员被动接收 roster 并落盘），
+消息按成员沿既有 1:1 链路 fan-out，离线走 goutbox 双队列（PeerConnected flush、批量上限
+32、二次死信出队 + 告警）；历史分页/附件/回复引用复用 §12 语义。硬边界：群 ≤32 人、
+单条 ≤64MiB、群名 trim 后 1..=64 字符、成员必须是好友簿在册节点；groupId = UUID
+（owner 生成）。命令参数无效一律 Err 可读中文。
+
+### 14.1 命令表（追加，全部 camelCase）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| group_create | name: string, memberIds: string[] | GroupJson | 校验（成员 ⊆ 好友簿、≤32、不含本机、群名 trim 1..=64）后本地建群并推 roster |
+| group_list | - | GroupJson[] | 全量含 left/kicked/disbanded（GUI 按 state 过滤/置底） |
+| group_invite | groupId: string, memberIds: string[] | GroupJson | owner-only；rev+1 推全体（含新成员） |
+| group_kick | groupId: string, memberId: string | GroupJson | owner-only；rev+1 推余员 + G_KICK |
+| group_leave | groupId: string | GroupJson | 本端 state=left；G_LEAVE 通知 owner |
+| group_rename | groupId: string, name: string | GroupJson | owner-only；rev+1 推 roster |
+| group_disband | groupId: string | GroupJson | owner-only；rev+1，对全体其他成员发 G_KICK(reason=disbanded)；本端 state=disbanded；非 active 重复解散显式 Err |
+| group_send | groupId, kind: ChatKind, text?, media?: ChatMediaInput, replyTo? | GroupSendReport | 校验→fan-out；见设计 §6 |
+| group_history | groupId: string, beforeId?: string, limit?: number | GroupMessageJson[] | 同 1:1 分页语义 |
+| group_media_file | groupId: string, messageId: string | { path, mime, name } | 同 1:1，目录为 media/<groupId>/ |
+
+### 14.2 事件（追加到 NodeEventJson 判别联合）
+
+```ts
+| { type: "chat_group_message"; groupId: string; message: GroupMessageJson }
+| { type: "chat_group_status"; groupId: string; messageId: string; acks: string[]; status: "pending"|"delivered"|"failed" }
+| { type: "chat_group_state"; group: GroupJson }   // roster 变更/踢出/解散/退群回执
+```
+
+### 14.3 数据类型
+
+```ts
+interface GroupJson {
+  groupId: string;        // UUID
+  name: string;           // trim 后 1..=64 字符
+  owner: string;          // PeerId
+  members: string[];      // PeerId[]，含 owner，≤32
+  rev: number;
+  state: "active" | "left" | "kicked" | "disbanded";
+  tsMs: number;
+}
+
+interface GroupMessageJson {
+  id: string;             // UUID（发端生成）
+  groupId: string;
+  senderId: string;       // 作者 PeerId；本端消息判定 senderId === 本机 PeerId
+                          //（GUI 经既有节点信息命令取本机 PeerId，渲染路径复用 1:1 气泡）
+  kind: ChatKind;
+  tsMs: number;
+  text?: string | null;
+  media?: ChatMediaJson | null;   // 复用 §12.3 ChatMediaJson
+  status: "pending" | "sent" | "delivered" | "failed";  // sent 不出现（设计 §4 状态机）
+  acks: string[];         // 已确认成员 PeerId（仅本端发出的消息非空）
+  replyTo?: string | null;
+}
+
+interface GroupSendReport {
+  message: GroupMessageJson;
+  acked: number;          // 本轮已确认成员数
+  recipients: number;     // 目标成员数（n-1）
+  delivered: boolean;     // acked === recipients
+}
+```
+
+- ChatKind / ChatMediaInput / ChatMediaJson 复用 §12.3；群媒体预览同 §12 asset
+  protocol 纪律（scope $APPDATA/chat/media/**/* 通配群子目录 media/<groupId>/）。
+- 持久化：dataDir/chat/ 增量且 1:1 文件零迁移——groups.json（全量群，四态
+  active/left/kicked/disbanded；退群/被踢/解散不删数据）、goutbox/<peer>.jsonl
+  （群 per-member 离线队列）、groups/<groupId>.jsonl（群历史）、media/<groupId>/。
+- 送达展示：GroupSendReport 的 acked/recipients/delivered 与 GroupMessageJson.acks
+  推导「已送达 |acks|/n」；sent 状态不用于群消息（枚举保留不占用）。
+- 实现登记（G6 升格，2026-09-05）：group_disband 已列入 §14.1 命令表（设计
+  §5 语义：owner 校验、rev+1、对全体其他成员发 G_KICK(reason=disbanded)、本端
+  state=disbanded；非 active 重复解散显式 Err）。G2 九命令面缺口闭环：ipc/mock/
+  store 与群管理面板均接真命令，逐个 groupKick 变通移除。
+- 验收对齐点：A 侧 serde 字段名与上表及事件逐字一致（tests/group_contract.rs
+  矩阵断言，Option 序列化 null、acks 缺省容忍旧记录）；B 侧 TS 类型与上表逐字一致
+  （ipc-types.ts / ipc.ts 九方法）；mock 与真实实现同签名（mock-group-roster）；
+  命令层 group_create/group_send 双回环真节点冒烟见 tests/group_command_smoke.rs。
 
 

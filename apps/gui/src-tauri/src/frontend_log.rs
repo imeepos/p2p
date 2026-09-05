@@ -128,9 +128,7 @@ pub async fn frontend_log_path(state: State<'_, FrontendLog>) -> Result<String, 
 /// frontend_log_clear：一键清理 frontend.log 与 frontend.log.1（幂等）。
 #[tauri::command]
 pub async fn frontend_log_clear(state: State<'_, FrontendLog>) -> Result<(), String> {
-    state
-        .clear()
-        .map_err(|e| format!("前端日志清理失败: {e}"))
+    state.clear().map_err(|e| format!("前端日志清理失败: {e}"))
 }
 
 #[cfg(test)]
@@ -168,7 +166,9 @@ mod tests {
     fn tail_caps_at_limit() {
         let dir = temp_dir("cap");
         let log = FrontendLog::new(&dir).unwrap();
-        let lines: Vec<String> = (0..MAX_TAIL_LINES as i32 + 5).map(|i| i.to_string()).collect();
+        let lines: Vec<String> = (0..MAX_TAIL_LINES as i32 + 5)
+            .map(|i| i.to_string())
+            .collect();
         log.append(&lines).unwrap();
         assert_eq!(log.tail(usize::MAX).unwrap().len(), MAX_TAIL_LINES);
         let _ = fs::remove_dir_all(&dir);

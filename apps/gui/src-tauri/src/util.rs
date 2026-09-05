@@ -32,6 +32,16 @@ pub fn to_asset_media(mut env: p2p_chat::ChatEnvelope) -> p2p_chat::ChatEnvelope
     env
 }
 
+/// GroupMessage 的媒体落盘路径 → asset URL（输出边界转换，crate 内仍存绝对路径）。
+pub fn to_asset_group_media(mut msg: p2p_chat::GroupMessage) -> p2p_chat::GroupMessage {
+    if let Some(media) = &mut msg.media {
+        if let Some(p) = &media.path {
+            media.path = Some(to_asset_url(p));
+        }
+    }
+    msg
+}
+
 /// encodeURIComponent 语义：除 `A-Za-z0-9-_.!~*'()` 外逐 UTF-8 字节 %XX 大写编码。
 fn encode_uri_component(s: &str) -> String {
     let mut out = String::with_capacity(s.len());

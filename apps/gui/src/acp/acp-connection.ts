@@ -8,6 +8,7 @@ import {
   initializeParams,
   promptParams,
   type AcpCloseInfo,
+  type ConfigOptionsResult,
   type AcpEndpoint,
   type AcpPhase,
   type InitializeResult,
@@ -38,6 +39,8 @@ export const DEFAULT_RECONNECT: ReconnectPolicy = {
 export interface AcpConnectionEvents {
   onPhase(phase: AcpPhase): void;
   onNotification(method: string, params: unknown): void;
+  /** agent 侧 JSON-RPC 请求（带 id，如 session/request_permission），须应答 */
+  onRequest(method: string, params: unknown, id: number): void;
   onCloseInfo(info: AcpCloseInfo): void;
   onReconnect(attempt: number, maxAttempts: number): void;
 }
@@ -141,12 +144,17 @@ export class AcpConnection {
       console.warn("[acp] 非 JSON WS 帧，已丢弃", error);
       return;
     }
-    if (typeof msg.id === "number") {
-      this.settle(msg);
+    if (typeof msg.method === "string") {
+      // 带 id 的 method 帧是 agent 侧请求（响应帧永不携带 method）
+      if (typeof msg.id === "number") {
+        this.events.onRequest(msg.method, msg.params ?? null, msg.id);
+        return;
+      }
+      this.events.onNotification(msg.method, msg.params ?? null);
       return;
     }
-    if (typeof msg.method === "string") {
-      this.events.onNotification(msg.method, msg.params ?? null);
+    if (typeof msg.id === "number") {
+      this.settle(msg);
     }
   }
 
@@ -180,8 +188,27 @@ export class AcpConnection {
     });
   }
 
+  /** 应答 agent 侧请求（request_permission 等）；未连接时留告警不静默丢 */
+  respond(id: number, result: unknown): void {
+    const ws = this.ws;
+    if (!ws) {
+      console.warn("[acp] 未连接，无法应答 agent 请求 id=", id);
+      return;
+    }
+    ws.send(JSON.stringify({ jsonrpc: "2.0", id, result }));
+  }
+
   async initialize(): Promise<InitializeResult> {
     return (await this.request("initialize", initializeParams())) as InitializeResult;
+  }
+
+  async setConfigOption(
+    sessionId: string,
+    configId: string,
+    value: string | boolean,
+  ): Promise<ConfigOptionsResult> {
+    const params = { sessionId, configId, value };
+    return (await this.request("session/set_config_option", params)) as ConfigOptionsResult;
   }
 
   async sessionNew(cwd?: string): Promise<SessionNewResult> {

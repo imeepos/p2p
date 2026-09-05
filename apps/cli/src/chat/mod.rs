@@ -4,6 +4,7 @@
 //! GUI 同一目录约定：聊天库固定在 <data-dir>/chat，指向同一目录即同一份好友与历史。
 
 pub mod context;
+mod friend_invites;
 mod friend_update;
 mod friends;
 mod messages;

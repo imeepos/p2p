@@ -124,6 +124,7 @@ cold_cli_writes() {
   run_guarded "$CTL" chat friends add "$p1" --nickname n2-cold-1 --json --data-dir "$DATA" >/dev/null
   run_guarded "$CTL" chat friends add "$p2" --nickname n2-cold-2 --json --data-dir "$DATA" >/dev/null
   run_guarded "$CTL" chat friends add "$p3" --nickname n2-cold-3 --json --data-dir "$DATA" >/dev/null
+  printf '%s\n' "$p1" "$p2" "$p3" > "$TMPH/friend-ids.txt"
   echo "CLI 冷写完成：config/profile 落盘 + 好友 3 笔"
 }
 
@@ -136,7 +137,21 @@ assert_cold_readback() {
   run_guarded "$CTL" profile get --data-dir "$DATA" --json > "$TMPH/cli-prof.json"
   assert_json_equal "$TMPH/cli-prof.json" "$TMPH/gui-prof.json" 1 "profile 冷读回（CLI 写 → GUI 读）"
   run_guarded "$CTL" chat friends list --json --data-dir "$DATA" > "$TMPH/cli-friends.json"
-  assert_json_equal "$TMPH/cli-friends.json" "$DATA/chat/friends.json" 0 "chat 好友簿（CLI 读 == 磁盘）"
+  python3 - "$TMPH/cli-friends.json" "$DATA/chat/friends.json" "$TMPH/friend-ids.txt" <<'PY'
+import base64, json, sys
+book = json.load(open(sys.argv[1]))
+ids = [f["peerId"] for f in book]
+want = [l.strip() for l in open(sys.argv[3]) if l.strip()]
+assert sorted(ids) == sorted(want), f"好友簿不一致: {ids} vs {want}"
+lines = open(sys.argv[2]).read().splitlines()
+header = json.loads(lines[0])
+assert header.get("p2p-friends") == "yrs-v1", f"日志头行异常: {lines[0]}"
+updates = [json.loads(l) for l in lines[1:] if l.strip()]
+for u in updates:
+    base64.b64decode(u["u"], validate=True)
+assert len(updates) == len(want), f"更新行 {len(updates)} ≠ 写入数 {len(want)}"
+print(f"chat 好友簿（CLI 读 == 磁盘 yrs 日志合并，{len(ids)} 笔，更新行完整）")
+PY
   echo "缺口：invoke 白名单无 chat 只读命令，GUI 侧 chat 视图一致性未覆盖（docs §9 登记）"
 }
 

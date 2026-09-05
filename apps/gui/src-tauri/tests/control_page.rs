@@ -39,7 +39,8 @@ impl TestEnv {
 
 fn setup(tag: &str) -> TestEnv {
     let n = SEQ.fetch_add(1, Ordering::SeqCst);
-    let base_dir = std::env::temp_dir().join(format!("gc3_page_{tag}_{}_{}", std::process::id(), n));
+    let base_dir =
+        std::env::temp_dir().join(format!("gc3_page_{tag}_{}_{}", std::process::id(), n));
     let _ = std::fs::remove_dir_all(&base_dir);
     std::fs::create_dir_all(&base_dir).expect("创建测试目录");
     let app = tauri::test::mock_app();
@@ -49,7 +50,8 @@ fn setup(tag: &str) -> TestEnv {
     let control = p2p_console::control::spawn_for_test(&handle, base_dir.clone(), frame)
         .expect("控制通道启动");
     let endpoint: Value = serde_json::from_str(
-        &std::fs::read_to_string(base_dir.join("control/endpoint.json")).expect("endpoint.json 可发现"),
+        &std::fs::read_to_string(base_dir.join("control/endpoint.json"))
+            .expect("endpoint.json 可发现"),
     )
     .expect("endpoint.json 合法 JSON");
     let addr = endpoint["http"].as_str().expect("http 字段").to_string();
@@ -57,11 +59,22 @@ fn setup(tag: &str) -> TestEnv {
         .expect("token 可发现")
         .trim()
         .to_string();
-    TestEnv { _app: app, control, addr, token }
+    TestEnv {
+        _app: app,
+        control,
+        addr,
+        token,
+    }
 }
 
 /// 裸 TCP HTTP 客户端（与 control_channel.rs 同款，本文件自包含）。
-fn call(env: &TestEnv, method: &str, path: &str, token: Option<&str>, body: Option<Value>) -> (u16, Value) {
+fn call(
+    env: &TestEnv,
+    method: &str,
+    path: &str,
+    token: Option<&str>,
+    body: Option<Value>,
+) -> (u16, Value) {
     let mut stream = TcpStream::connect(&env.addr).expect("连接控制通道");
     stream
         .set_read_timeout(Some(Duration::from_secs(30)))
@@ -112,7 +125,9 @@ fn simulate_reply(handle: &AppHandle<MockRuntime>, payload: Value) {
     let handle = handle.clone();
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(150));
-        handle.emit(PAGE_REPLY_EVENT, payload).expect("emit 页面回执");
+        handle
+            .emit(PAGE_REPLY_EVENT, payload)
+            .expect("emit 页面回执");
     });
 }
 
@@ -127,13 +142,37 @@ fn err_reply(request_id: &str, code: &str) -> Value {
 #[test]
 fn describe_returns_current_page_descriptor() {
     let env = setup("desc");
-    let (code, body) = call(&env, "POST", "/navigate", Some(&env.token), Some(json!({ "route": "chat" })));
+    let (code, body) = call(
+        &env,
+        "POST",
+        "/navigate",
+        Some(&env.token),
+        Some(json!({ "route": "chat" })),
+    );
     assert_eq!(code, 200, "{body}");
-    simulate_reply(&env.app_handle(), ok_reply("desc-1", json!({ "name": "chat", "description": "IM", "actions": [] })));
-    let (code, body) = call(&env, "GET", "/page/current?requestId=desc-1", Some(&env.token), None);
+    simulate_reply(
+        &env.app_handle(),
+        ok_reply(
+            "desc-1",
+            json!({ "name": "chat", "description": "IM", "actions": [] }),
+        ),
+    );
+    let (code, body) = call(
+        &env,
+        "GET",
+        "/page/current?requestId=desc-1",
+        Some(&env.token),
+        None,
+    );
     assert_eq!(code, 200, "{body}");
-    assert_eq!(body["data"]["schemaVersion"], 1, "必须带 schemaVersion: {body}");
-    assert_eq!(body["data"]["page"], "chat", "descriptor 跟随当前路由: {body}");
+    assert_eq!(
+        body["data"]["schemaVersion"], 1,
+        "必须带 schemaVersion: {body}"
+    );
+    assert_eq!(
+        body["data"]["page"], "chat",
+        "descriptor 跟随当前路由: {body}"
+    );
     assert_eq!(body["data"]["descriptor"]["name"], "chat", "{body}");
 }
 
@@ -154,7 +193,10 @@ fn action_executes_and_returns_reply() {
         })),
     );
     assert_eq!(code, 200, "{body}");
-    assert_eq!(body["data"]["requestId"], "act-1", "回包必须带关联 id: {body}");
+    assert_eq!(
+        body["data"]["requestId"], "act-1",
+        "回包必须带关联 id: {body}"
+    );
     assert_eq!(body["data"]["result"]["id"], "m1", "执行结果透传: {body}");
 }
 
@@ -170,7 +212,13 @@ fn action_timeout_structured_error() {
     );
     assert_eq!(code, 500, "超时必须结构化报错: {body}");
     assert_eq!(body["error"]["code"], "PAGE_TIMEOUT", "{body}");
-    assert!(body["error"]["message"].as_str().unwrap_or("").contains("act-slow"), "报错需含关联 id: {body}");
+    assert!(
+        body["error"]["message"]
+            .as_str()
+            .unwrap_or("")
+            .contains("act-slow"),
+        "报错需含关联 id: {body}"
+    );
 }
 
 #[test]
@@ -221,7 +269,9 @@ fn frontend_rejections_mapped_to_http_status() {
             "POST",
             "/page/action",
             Some(&env.token),
-            Some(json!({ "page": "chat", "action": "sendText", "args": {}, "requestId": request_id })),
+            Some(
+                json!({ "page": "chat", "action": "sendText", "args": {}, "requestId": request_id }),
+            ),
         );
         assert_eq!(code, status, "{code_name}: {body}");
         assert_eq!(body["error"]["code"], code_name, "{body}");
@@ -231,8 +281,17 @@ fn frontend_rejections_mapped_to_http_status() {
 #[test]
 fn describe_unregistered_page_maps_to_404() {
     let env = setup("unreg");
-    simulate_reply(&env.app_handle(), err_reply("desc-404", "PAGE_NOT_REGISTERED"));
-    let (code, body) = call(&env, "GET", "/page/current?requestId=desc-404", Some(&env.token), None);
+    simulate_reply(
+        &env.app_handle(),
+        err_reply("desc-404", "PAGE_NOT_REGISTERED"),
+    );
+    let (code, body) = call(
+        &env,
+        "GET",
+        "/page/current?requestId=desc-404",
+        Some(&env.token),
+        None,
+    );
     assert_eq!(code, 404, "{body}");
     assert_eq!(body["error"]["code"], "PAGE_NOT_REGISTERED", "{body}");
 }

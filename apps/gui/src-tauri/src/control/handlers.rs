@@ -44,7 +44,8 @@ pub fn screenshot<R: Runtime>(ctx: &ControlCtx<R>, body: &Value) -> Result<Value
     let png = capture::encode_png(&frame)
         .map_err(|e| ApiErr::new(500, "SAVE_FAILED", format!("PNG 编码失败: {e}")))?;
     capture::ensure_png(&png).map_err(|e| ApiErr::new(500, "SAVE_FAILED", e))?;
-    let bytes = capture::write_atomic(&path, &png).map_err(|e| ApiErr::new(500, "SAVE_FAILED", e))?;
+    let bytes =
+        capture::write_atomic(&path, &png).map_err(|e| ApiErr::new(500, "SAVE_FAILED", e))?;
     Ok(json!({
         "path": path.display().to_string(),
         "width": frame.width,
@@ -62,7 +63,11 @@ pub fn record_start<R: Runtime>(ctx: &ControlCtx<R>, body: &Value) -> Result<Val
         .clamp(200, 5000);
     let mut slot = record_slot(ctx)?;
     if slot.is_some() {
-        return Err(ApiErr::new(409, "RECORD_CONFLICT", "已有录屏进行中，先 POST /record/stop"));
+        return Err(ApiErr::new(
+            409,
+            "RECORD_CONFLICT",
+            "已有录屏进行中，先 POST /record/stop",
+        ));
     }
     let session = RecordSession::start(ctx.frame.clone(), path.clone(), interval)
         .map_err(|e| ApiErr::new(500, "RECORD_START_FAILED", e))?;
@@ -80,7 +85,10 @@ pub fn record_stop<R: Runtime>(ctx: &ControlCtx<R>) -> Result<Value, ApiErr> {
         return Err(ApiErr::new(
             500,
             "RECORD_EMPTY",
-            format!("录屏未产出有效文件: {}（frames={}）", stats.path, stats.frames),
+            format!(
+                "录屏未产出有效文件: {}（frames={}）",
+                stats.path, stats.frames
+            ),
         ));
     }
     Ok(json!({
@@ -104,7 +112,11 @@ pub fn navigate<R: Runtime>(ctx: &ControlCtx<R>, body: &Value) -> Result<Value, 
             format!("未知路由 \"{name}\"，可用: {}", ROUTES.join("/")),
         ));
     }
-    let hash = if route == "dashboard" { "#/".to_string() } else { format!("#/{route}") };
+    let hash = if route == "dashboard" {
+        "#/".to_string()
+    } else {
+        format!("#/{route}")
+    };
     match ctx.main_window() {
         Some(w) => {
             if let Err(e) = w.eval(format!("window.location.hash = '{hash}'")) {
@@ -135,19 +147,29 @@ pub fn invoke<R: Runtime>(ctx: &ControlCtx<R>, body: &Value) -> Result<Value, Ap
     let args = body.get("args").cloned().unwrap_or(Value::Null);
     let app = ctx.app.clone();
     let cmd = command.to_string();
-    let result = tauri::async_runtime::block_on(async move { invoke_allow::dispatch(&app, &cmd, &args).await })
+    let result =
+        tauri::async_runtime::block_on(
+            async move { invoke_allow::dispatch(&app, &cmd, &args).await },
+        )
         .map_err(|e| ApiErr::new(500, "INVOKE_FAILED", e))?;
     Ok(json!({ "result": result }))
 }
 
 fn out_path(body: &Value, field: &str) -> Result<PathBuf, ApiErr> {
-    let raw = body
-        .get(field)
-        .and_then(Value::as_str)
-        .ok_or_else(|| ApiErr::new(400, "INVALID_REQUEST", format!("缺少 {field} 字段（绝对路径）")))?;
+    let raw = body.get(field).and_then(Value::as_str).ok_or_else(|| {
+        ApiErr::new(
+            400,
+            "INVALID_REQUEST",
+            format!("缺少 {field} 字段（绝对路径）"),
+        )
+    })?;
     let path = PathBuf::from(raw);
     if !path.is_absolute() {
-        return Err(ApiErr::new(400, "INVALID_REQUEST", format!("{field} 必须是绝对路径: {raw}")));
+        return Err(ApiErr::new(
+            400,
+            "INVALID_REQUEST",
+            format!("{field} 必须是绝对路径: {raw}"),
+        ));
     }
     Ok(path)
 }

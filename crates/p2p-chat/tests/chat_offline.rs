@@ -86,7 +86,7 @@ async fn offline_pending_then_flush_on_peer_connected() {
 }
 
 /// (d) 好友簿：非法 peerId/自加/超长昵称/非法地址拒绝；add→upsert→remove
-/// 幂等；friends.json 原子落盘内容一致。
+/// 幂等；yrs 更新日志逐变更一行落盘（含未命中 remove 零追加）。
 #[tokio::test]
 async fn friends_add_remove_list_and_invalid_reject() {
     let a = spawn("fr-a").await;
@@ -134,19 +134,22 @@ async fn friends_add_remove_list_and_invalid_reject() {
     assert_eq!(list[0].nickname, "小 b2");
     assert_eq!(list[0].note, None);
 
-    // friends.json 原子落盘内容与内存一致
-    let raw = std::fs::read_to_string(a.dir.join("chat/friends.json")).expect("friends.json");
-    let parsed: Vec<p2p_chat::ChatFriend> = serde_json::from_str(&raw).expect("friends json");
-    assert_eq!(parsed.len(), 1);
-    assert_eq!(parsed[0].peer_id, peer_b);
+    // 好友簿 yrs 更新日志：格式头 + 每次实际变更一行 update（值未变零追加）
+    let book_path = a.dir.join("chat/friends.json");
+    let raw = std::fs::read_to_string(&book_path).expect("friends.json");
+    let mut lines = raw.lines();
+    let header: serde_json::Value =
+        serde_json::from_str(lines.next().expect("格式头存在")).expect("格式头为 JSON");
+    assert_eq!(header["p2p-friends"], "yrs-v1", "格式头: {raw}");
+    assert_eq!(lines.count(), 2, "两次 add（值有变化）各追加一行 update");
 
     // remove 幂等：在簿 → true；不在簿 → false；不删消息历史
     assert!(a.chat.friend_remove(&peer_b).expect("remove"));
     assert!(!a.chat.friend_remove(&peer_b).expect("remove again"));
     assert!(a.chat.friends_list().is_ok_and(|l| l.is_empty()));
-    // 好友簿空时 friends.json 仍存在且为 []
-    let raw = std::fs::read_to_string(a.dir.join("chat/friends.json")).expect("friends.json");
-    assert_eq!(raw.trim(), "[]");
+    // 好友簿空时 friends.json 仍存在：头行 + 3 行 update（未命中 remove 不追加）
+    let raw = std::fs::read_to_string(&book_path).expect("friends.json");
+    assert_eq!(raw.lines().count(), 4, "add+upsert+remove 各一行: {raw}");
 
     cleanup(&a);
     cleanup(&b);

@@ -52,7 +52,7 @@ function CommandError({ message }: { message: string | null }) {
 export function ChatFriendAddDialog({ open, onOpenChange }: ChatFriendAddDialogProps) {
   const { t } = useTranslation();
   const loadFriends = useChatStore((s) => s.loadFriends);
-  const selectPeer = useChatStore((s) => s.selectPeer);
+  const loadInvites = useChatStore((s) => s.loadInvites);
   const [peerId, setPeerId] = useState("");
   const [nickname, setNickname] = useState("");
   const [addrs, setAddrs] = useState<string[]>([]);
@@ -83,19 +83,14 @@ export function ChatFriendAddDialog({ open, onOpenChange }: ChatFriendAddDialogP
     setCommandError(null);
     setSubmitting(true);
     try {
-      const friend = await ipc.chatFriendAdd(
+      await ipc.chatFriendInvite(
         peerId.trim(),
         nickname.trim(),
         addrs.map((addr) => addr.trim()).filter((addr) => addr.length > 0),
       );
       markLocalWrite("chat");
       await loadFriends();
-      try {
-        await selectPeer(friend.peerId);
-      } catch (error) {
-        // 好友已入簿；仅历史加载失败，不回滚添加，留日志信号。
-        console.error("[chat] 新好友历史加载失败", error);
-      }
+      await loadInvites();
       handleOpenChange(false);
     } catch (error) {
       console.error("[chat] 添加好友失败", error);

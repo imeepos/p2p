@@ -29,7 +29,10 @@ fn releases_array(items: &[String]) -> String {
     format!("[{}]", items.join(","))
 }
 
-async fn check_current(current: &str, body: Result<String, String>) -> Result<UpdateCheckResult, String> {
+async fn check_current(
+    current: &str,
+    body: Result<String, String>,
+) -> Result<UpdateCheckResult, String> {
     run_check(&FixedSource(body), current, 1_700_000_000_000).await
 }
 
@@ -48,7 +51,10 @@ async fn update_available_maps_candidate_fields() {
         Some("https://github.com/imeepos/p2p/releases/tag/client-v0.2.0")
     );
     assert_eq!(r.release_name.as_deref(), Some("p2p-console client-v0.2.0"));
-    assert_eq!(r.release_notes_md.as_deref(), Some("- notes for client-v0.2.0"));
+    assert_eq!(
+        r.release_notes_md.as_deref(),
+        Some("- notes for client-v0.2.0")
+    );
     assert_eq!(r.published_at_ms, Some(1_788_250_530_000));
     assert_eq!(r.checked_at_ms, 1_700_000_000_000);
 }
@@ -124,9 +130,12 @@ fn numeric_segment_compare_pins_0_10_over_0_9() {
 
 #[tokio::test]
 async fn network_failure_is_readable_err() {
-    let err = check_current("0.1.0", Err("网络请求 GitHub Releases 失败: 连接超时".into()))
-        .await
-        .unwrap_err();
+    let err = check_current(
+        "0.1.0",
+        Err("网络请求 GitHub Releases 失败: 连接超时".into()),
+    )
+    .await
+    .unwrap_err();
     assert!(err.contains("网络"), "失败信息应可读中文: {err}");
 }
 
@@ -140,7 +149,9 @@ async fn invalid_json_is_err() {
 
 #[tokio::test]
 async fn non_array_json_is_err() {
-    let err = check_current("0.1.0", Ok("\"just a string\"".into())).await.unwrap_err();
+    let err = check_current("0.1.0", Ok("\"just a string\"".into()))
+        .await
+        .unwrap_err();
     assert!(err.contains("非法"));
 }
 
@@ -157,7 +168,9 @@ async fn bad_published_at_degrades_to_null() {
 "html_url":"https://github.com/imeepos/p2p/releases/tag/v0.2.0",
 "published_at":"not-a-time"}"#
         .to_string();
-    let r = check_current("0.1.0", Ok(releases_array(&[entry]))).await.unwrap();
+    let r = check_current("0.1.0", Ok(releases_array(&[entry])))
+        .await
+        .unwrap();
     assert!(r.has_update);
     assert_eq!(r.published_at_ms, None);
 }
@@ -187,7 +200,10 @@ fn update_check_result_serde_roundtrip_and_null() {
     ] {
         assert!(json.contains(&format!("\"{key}\"")), "缺字段 {key}: {json}");
     }
-    assert_eq!(serde_json::from_str::<UpdateCheckResult>(&json).unwrap(), full);
+    assert_eq!(
+        serde_json::from_str::<UpdateCheckResult>(&json).unwrap(),
+        full
+    );
 
     let none = UpdateCheckResult {
         latest_version: None,
@@ -198,13 +214,21 @@ fn update_check_result_serde_roundtrip_and_null() {
         ..full.clone()
     };
     let json_none = serde_json::to_string(&none).unwrap();
-    assert!(json_none.contains("\"latestVersion\":null"), "Option 应序列化为 null: {json_none}");
-    assert_eq!(serde_json::from_str::<UpdateCheckResult>(&json_none).unwrap(), none);
+    assert!(
+        json_none.contains("\"latestVersion\":null"),
+        "Option 应序列化为 null: {json_none}"
+    );
+    assert_eq!(
+        serde_json::from_str::<UpdateCheckResult>(&json_none).unwrap(),
+        none
+    );
 }
 
 #[test]
 fn release_url_whitelist() {
-    assert!(validate_release_url("https://github.com/imeepos/p2p/releases/tag/client-v0.2.0").is_ok());
+    assert!(
+        validate_release_url("https://github.com/imeepos/p2p/releases/tag/client-v0.2.0").is_ok()
+    );
     assert!(validate_release_url("https://GitHub.com/imeepos/p2p").is_ok());
     assert!(validate_release_url("http://github.com/imeepos/p2p").is_err());
     assert!(validate_release_url("https://api.github.com/repos/imeepos/p2p").is_err());

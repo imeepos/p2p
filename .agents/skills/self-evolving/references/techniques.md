@@ -293,3 +293,16 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 并行会话密集推进 main 时 ff-only 前置三查：git fetch 后核对（1）本地 main == origin/main；（2）merge-base --is-ancestor main <合并点>；（3）主树 status 干净。本轮 main 在会话中段从 895c3a4 前进到 544b1ae，三查全过才 ff。
 - worktree 新 checkout 跑 make check 前先补环境：apps/gui/node_modules 不进 git，gui-check 的 eslint 直接 command not found（环境假红非代码红，归因先看报错形态）；pnpm install 后 ls node_modules/.bin/eslint 确认再重跑。cargo 侧 worktree 首跑必全量编译，先后台预热 cargo build 再跑验收脚本。
 - 脚本双 bash 兼容验证法：/bin/bash -n + /opt/homebrew/bin/bash -n 各过一遍语法，--self-test 两边各跑一遍（验收链用哪个 bash 取决于调用方 PATH，不能只验一个）；变量展开一律花括号化（延续 90e062a 对 bash 5.3 多字节相邻展开的防御）。
+- 后台验收命令经管道收尾（`make check | tail`）时 job 退出码是 tail 的，假 exit 0 掩盖真失败：必须 `set -o pipefail` 并回读 `PIPESTATUS[0]`，或落日志文件后 `echo EXIT:$?`（2026-09-04 ACP6b make check 首跑假绿实证）。
+- Radix Select 组件测试前提三桩：`HTMLElement.prototype` 的 scrollIntoView/hasPointerCapture/releasePointerCapture 各 `Object.defineProperty(..., {configurable:true, value: vi.fn()})`；点选拿 pointerDown({button:0, pointerType:"mouse"}) 开面板再对 option pointerUp+click（权威先例 chat-friend-group.test.tsx 移动分组用例）。
+- 2026-09-04 run_code 源码载体对反引号字符敏感：不仅模板字符串，普通字符串字面量里出现反引号字符同样炸解析（报 Expected , got ; / Expression expected，定位不到真实行）。要写含反引号的内容（Markdown 代码标记、带转义引号的 Rust 字符串）一律用 String.fromCharCode(96) 拼接，或改走 bash heredoc 落盘。
+- 2026-09-05 查 crates.io 依赖真实版本列表（rsproxy sparse index）：3 字符 crate 路径是 `/index/3/<首字符>/<名字>`（如 curl -s https://rsproxy.cn/index/3/y/yrs | jq），2 字符是 /2/<名>，≥4 字符才是 /前2/次2/<名>——路径写错只会得到 NoSuchKey。yrs 用它确认 0.27.4 最新（"0.6" 是 2021 年化石）。
+- 2026-09-05 yrs 追加日志「应用成功却不可见」诊断：examples/ 下写临时探针（examples 可直接用 crate 的依赖 yrs），逐行 decode→apply 后打 map.iter 键集合，再打 update.insertions(true) 的 client/clock 区间——两行同 client 同 clock 即 clientID 撞车实锤。
+- 2026-09-05 并发追加压测抓现场：临时拷贝 E2E 脚本并把 trap cleanup 置空（sed 替换 cleanup 函数体）跑 N 轮，失败轮的临时数据目录原样保留供逐行 forensic；正常跑完的目录逐个 CLI 读回计数定位失败轮。
+
+- 2026-09-05 T23 两机冒烟测 rendezvous 发现：对端注册不可见时先看三方证据——borrower DISCOVER-DEBUG（query err vs empty）、bootstrap 侧 server link ended 频率、lender 自查询是否为空；query error + handshake timeout = 客户端连接被服务端单次服务耗尽，empty = 注册退化 loopback 被地址卫生过滤。两类修法不同：前者合并场景减少进程拨号，后者等/重试观测。
+- 2026-09-05 底座 rendezvous 服务端对同一连接近似「注册即耗尽」：第二进程的查询会挂 10s 握手超时（bootstrap 侧每 10s 一条 server link ended）。场景编排把多个断言合并进同一个借方进程最稳，跨进程的新身份首查询也可用，但绝不要在同 conn 上做第二次查询。
+- 2026-09-05 p2pctl llm-share offer publish 报「节点身份加载失败」是种子未存在：先让节点域生成身份（任何 load_or_generate_seed 的载体，如 harness identity 模式）再 publish；publish 失败 stderr 有清晰中文原因，别被空 stdout 骗。
+- 2026-09-05 mock 上游喂 SSE 必须是「data: {json}\n\n」事件原文（空行分帧），裸 JSON 块提取不出 usage → 收据 estimated=true（extract_usage 只认 data: 行前缀）；断流剧本要在 usage 帧前断，否则按实际 usage 结算不出 estimated 收据。
+- 2026-09-05 git bundle 给无 github 出网的机器供代码：bundle create f HEAD（打包机器当前 HEAD）→ 对端 git clone f dst；增量更新 git fetch f HEAD + reset --hard FETCH_HEAD。5.9MiB 包秒传，crates.io 可达即可构建。
+- 2026-09-05 facade 观测（OBS1 反射口）单次探测 2s 超时且装配期只试一次：跨机 UDP 随机丢包会让注册退化 loopback 地址（查询端 is_routable 过滤后为空）。载体进程在装配前对反射口做有界重试预检（OBS1 魔法 UDP 探测）可消掉这类整轮毒化。

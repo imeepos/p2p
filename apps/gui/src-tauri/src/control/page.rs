@@ -115,9 +115,13 @@ fn status_of(code: &str) -> u16 {
 }
 
 fn str_field<'a>(body: &'a Value, name: &str) -> Result<&'a str, ApiErr> {
-    body.get(name)
-        .and_then(Value::as_str)
-        .ok_or_else(|| ApiErr::new(400, "INVALID_REQUEST", format!("缺少 {name} 字段（字符串）")))
+    body.get(name).and_then(Value::as_str).ok_or_else(|| {
+        ApiErr::new(
+            400,
+            "INVALID_REQUEST",
+            format!("缺少 {name} 字段（字符串）"),
+        )
+    })
 }
 
 fn register_pending<R: Runtime>(

@@ -27,7 +27,11 @@ pub struct RecordSession {
 }
 
 impl RecordSession {
-    pub fn start(frame: Arc<dyn FrameSource>, path: PathBuf, interval_ms: u64) -> Result<Self, String> {
+    pub fn start(
+        frame: Arc<dyn FrameSource>,
+        path: PathBuf,
+        interval_ms: u64,
+    ) -> Result<Self, String> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("创建录屏输出目录失败: {e}"))?;
         }
@@ -40,7 +44,11 @@ impl RecordSession {
                 move || sample_loop(stop, frame, sample_path, interval_ms)
             })
             .map_err(|e| format!("录屏线程启动失败: {e}"))?;
-        Ok(Self { stop, worker: Some(worker), path })
+        Ok(Self {
+            stop,
+            worker: Some(worker),
+            path,
+        })
     }
 
     /// 收尾：置停止位等采样线程编码落盘；join 失败记零产出统计（可观测）。
@@ -50,9 +58,19 @@ impl RecordSession {
         match self.worker.take() {
             Some(handle) => handle.join().unwrap_or_else(|_| {
                 tracing::error!("control: 录屏线程 panic，按零产出统计");
-                RecordStats { path, frames: 0, bytes: 0, truncated: true }
+                RecordStats {
+                    path,
+                    frames: 0,
+                    bytes: 0,
+                    truncated: true,
+                }
             }),
-            None => RecordStats { path, frames: 0, bytes: 0, truncated: true },
+            None => RecordStats {
+                path,
+                frames: 0,
+                bytes: 0,
+                truncated: true,
+            },
         }
     }
 }
@@ -74,7 +92,12 @@ fn sample_loop(
         match frame.capture() {
             Ok(f) => frames.push(f),
             Err(e) => {
-                tracing::warn!("control: 录屏采样失败 {} {}（已采 {} 帧）", e.code, e.message, frames.len());
+                tracing::warn!(
+                    "control: 录屏采样失败 {} {}（已采 {} 帧）",
+                    e.code,
+                    e.message,
+                    frames.len()
+                );
                 break;
             }
         }
@@ -82,10 +105,16 @@ fn sample_loop(
     }
     if frames.is_empty() {
         tracing::error!("control: 录屏零帧（采样即失败），不落空文件");
-        return RecordStats { path: path.display().to_string(), frames: 0, bytes: 0, truncated: true };
+        return RecordStats {
+            path: path.display().to_string(),
+            frames: 0,
+            bytes: 0,
+            truncated: true,
+        };
     }
     let downscaled: Vec<Frame> = frames.iter().map(|f| downscale(f, MAX_SIDE)).collect();
-    let written = encode_gif(&downscaled, interval_ms).and_then(|bytes| write_atomic(&path, &bytes));
+    let written =
+        encode_gif(&downscaled, interval_ms).and_then(|bytes| write_atomic(&path, &bytes));
     match written {
         Ok(bytes) => RecordStats {
             path: path.display().to_string(),
@@ -114,14 +143,12 @@ fn encode_gif(frames: &[Frame], interval_ms: u64) -> Result<Vec<u8>, String> {
     let delay = (interval_ms / 10).max(1) as u16;
     for frame in frames {
         let mut rgba = frame.rgba.clone();
-        let mut gframe = gif::Frame::from_rgba_speed(
-            frame.width as u16,
-            frame.height as u16,
-            &mut rgba,
-            30,
-        );
+        let mut gframe =
+            gif::Frame::from_rgba_speed(frame.width as u16, frame.height as u16, &mut rgba, 30);
         gframe.delay = delay;
-        encoder.write_frame(&gframe).map_err(|e| format!("GIF 写帧失败: {e}"))?;
+        encoder
+            .write_frame(&gframe)
+            .map_err(|e| format!("GIF 写帧失败: {e}"))?;
     }
     drop(encoder);
     Ok(out)
@@ -147,5 +174,9 @@ fn downscale(frame: &Frame, max_side: u32) -> Frame {
             out[dst..dst + 4].copy_from_slice(&frame.rgba[src..src + 4]);
         }
     }
-    Frame { width: nw, height: nh, rgba: out }
+    Frame {
+        width: nw,
+        height: nh,
+        rgba: out,
+    }
 }

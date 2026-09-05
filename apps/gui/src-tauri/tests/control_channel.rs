@@ -46,7 +46,8 @@ fn setup(tag: &str) -> TestEnv {
     let control = p2p_console::control::spawn_for_test(&handle, base_dir.clone(), frame)
         .expect("控制通道启动");
     let endpoint: Value = serde_json::from_str(
-        &std::fs::read_to_string(base_dir.join("control/endpoint.json")).expect("endpoint.json 可发现"),
+        &std::fs::read_to_string(base_dir.join("control/endpoint.json"))
+            .expect("endpoint.json 可发现"),
     )
     .expect("endpoint.json 合法 JSON");
     let addr = endpoint["http"].as_str().expect("http 字段").to_string();
@@ -54,11 +55,23 @@ fn setup(tag: &str) -> TestEnv {
         .expect("token 可发现")
         .trim()
         .to_string();
-    TestEnv { _app: app, control, base_dir, addr, token }
+    TestEnv {
+        _app: app,
+        control,
+        base_dir,
+        addr,
+        token,
+    }
 }
 
 /// 裸 TCP HTTP 客户端：零额外依赖，验证真实 HTTP 行为。
-fn call(env: &TestEnv, method: &str, path: &str, token: Option<&str>, body: Option<Value>) -> (u16, Value) {
+fn call(
+    env: &TestEnv,
+    method: &str,
+    path: &str,
+    token: Option<&str>,
+    body: Option<Value>,
+) -> (u16, Value) {
     let mut stream = TcpStream::connect(&env.addr).expect("连接控制通道");
     stream
         .set_read_timeout(Some(Duration::from_secs(30)))
@@ -88,9 +101,8 @@ fn call(env: &TestEnv, method: &str, path: &str, token: Option<&str>, body: Opti
     let json = if body.is_empty() {
         Value::Null
     } else {
-        serde_json::from_slice(body).unwrap_or_else(|e| {
-            panic!("响应体非法 JSON: {e}: {}", String::from_utf8_lossy(body))
-        })
+        serde_json::from_slice(body)
+            .unwrap_or_else(|e| panic!("响应体非法 JSON: {e}: {}", String::from_utf8_lossy(body)))
     };
     (status, json)
 }
@@ -156,9 +168,7 @@ fn screenshot_writes_nonempty_png() {
     let bytes = std::fs::read(&out).expect("PNG 文件必须存在");
     assert!(!bytes.is_empty(), "禁止空文件");
     assert_eq!(&bytes[..8], b"\x89PNG\r\n\x1a\n", "必须是 PNG magic");
-    let be32 = |o: usize| {
-        u32::from_be_bytes([bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]])
-    };
+    let be32 = |o: usize| u32::from_be_bytes([bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]]);
     assert!(be32(16) > 0 && be32(20) > 0, "IHDR 尺寸必须为正");
     assert_eq!(
         body["data"]["bytes"].as_u64(),
@@ -179,7 +189,13 @@ fn screenshot_rejects_bad_requests_without_file() {
     );
     assert_eq!(code, 400, "相对路径必须拒绝: {body}");
     assert_eq!(body["error"]["code"], "INVALID_REQUEST");
-    let (code, body) = call(&env, "POST", "/screenshot", Some(&env.token), Some(json!({})));
+    let (code, body) = call(
+        &env,
+        "POST",
+        "/screenshot",
+        Some(&env.token),
+        Some(json!({})),
+    );
     assert_eq!(code, 400, "缺 path 必须拒绝: {body}");
     let out = PathBuf::from("/gc1-forbidden-subdir/x.png");
     let (code, body) = call(
@@ -216,10 +232,16 @@ fn record_start_stop_produces_gif() {
     assert_eq!(code, 409, "重复 start 必须 409: {body}");
     assert_eq!(body["error"]["code"], "RECORD_CONFLICT");
     let (_, health) = call(&env, "GET", "/health", Some(&env.token), None);
-    assert_eq!(health["data"]["recording"], true, "录屏中 health 应如实反映");
+    assert_eq!(
+        health["data"]["recording"], true,
+        "录屏中 health 应如实反映"
+    );
     let (code, body) = call(&env, "POST", "/record/stop", Some(&env.token), None);
     assert_eq!(code, 200, "record stop 应成功: {body}");
-    assert!(body["data"]["frames"].as_u64().unwrap_or(0) >= 1, "至少 1 帧: {body}");
+    assert!(
+        body["data"]["frames"].as_u64().unwrap_or(0) >= 1,
+        "至少 1 帧: {body}"
+    );
     let bytes = std::fs::read(&out).expect("GIF 文件必须存在");
     assert!(bytes.len() > 6 && &bytes[..3] == b"GIF", "必须是 GIF magic");
     assert_eq!(
@@ -245,7 +267,10 @@ fn navigate_switches_route_and_rejects_unknown() {
     assert_eq!(code, 200, "{body}");
     assert_eq!(body["data"]["path"], "#/settings", "{body}");
     let (_, health) = call(&env, "GET", "/health", Some(&env.token), None);
-    assert_eq!(health["data"]["route"], "settings", "navigate 后 health 必须反映新路由");
+    assert_eq!(
+        health["data"]["route"], "settings",
+        "navigate 后 health 必须反映新路由"
+    );
     let (code, body) = call(
         &env,
         "POST",
@@ -278,7 +303,10 @@ fn invoke_whitelist_forward_and_reject() {
         Some(json!({ "command": "node_status" })),
     );
     assert_eq!(code, 200, "白名单命令应转发成功: {body}");
-    assert!(body["data"]["result"].is_object(), "node_status 返回对象: {body}");
+    assert!(
+        body["data"]["result"].is_object(),
+        "node_status 返回对象: {body}"
+    );
     let (code, body) = call(
         &env,
         "POST",
@@ -309,17 +337,29 @@ fn token_file_0600_and_endpoint_discoverable() {
             .expect("token 文件存在")
             .permissions()
             .mode();
-        assert_eq!(mode & 0o777, 0o600, "token 文件权限必须 600，实际 {:o}", mode);
+        assert_eq!(
+            mode & 0o777,
+            0o600,
+            "token 文件权限必须 600，实际 {:o}",
+            mode
+        );
     }
     let endpoint: Value = serde_json::from_str(
-        &std::fs::read_to_string(env.base_dir.join("control/endpoint.json")).expect("endpoint 存在"),
+        &std::fs::read_to_string(env.base_dir.join("control/endpoint.json"))
+            .expect("endpoint 存在"),
     )
     .expect("endpoint JSON");
     assert!(
-        endpoint["http"].as_str().unwrap_or("").starts_with("127.0.0.1:"),
+        endpoint["http"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("127.0.0.1:"),
         "只允许回环绑定: {endpoint}"
     );
-    assert_eq!(endpoint["pid"].as_u64(), Some(u64::from(std::process::id())));
+    assert_eq!(
+        endpoint["pid"].as_u64(),
+        Some(u64::from(std::process::id()))
+    );
     assert!(endpoint["version"].is_string(), "{endpoint}");
     assert_eq!(endpoint["tokenFile"], "control/token", "{endpoint}");
 }

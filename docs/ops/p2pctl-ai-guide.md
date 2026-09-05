@@ -220,26 +220,84 @@ pid=80955
 ```
 
 ### p2pctl chat friends add
-用途：添加好友（幂等 upsert，已在簿则为更新并 created=false）。前置：无；PEER_ID 不得是本机 chat 身份。
+用途：发送好友邀请（邀请制：对方同意前不建好友；delivered 判送达/挂起；重复邀请幂等刷新）。前置：无；PEER_ID 不得是本机 chat 身份、不得已是好友。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | <PEER_ID> | 位置参数 string | 是 | —— |
 | --nickname | string | 否 | "" |
 | --addr | string（可重复） | 否 | 无 |
 | --note | string | 否 | 无 |
-| --group | string | 否 | 无（trim 后 ≤32 字符，空串 = 不分组） |
 | --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
 文本：
 ```
-已添加好友 Alice（54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4）
+已发送好友邀请 Alice（54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4）：已送达，等待对方同意
 ```
 --json：
 ```
-{"created":true,"friend":{"peerId":"HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj","nickname":"Bob","addrs":[],"note":null}}
+{"invite":{"peerId":"54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4","nickname":"Alice","addrs":[],"note":null,"direction":"out","tsMs":1788563000000,"delivered":true},"delivered":true}
 ```
-退出码：PEER_ID 非 32 字节 base58 → 1（PeerId 非法）；PEER_ID 为本机 chat 身份 → 1（不能与自己通信）。
+退出码：PEER_ID 非 32 字节 base58 → 1（PeerId 非法）；PEER_ID 为本机 chat 身份 → 1（不能与自己通信）；已是好友 → 1（已是好友）。
 
+### p2pctl chat friends invites list
+用途：列出邀请（direction out=本机待对方同意 / in=对方待本机处理；delivered 标记送达状态）。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+共 1 条邀请
+- Alice 54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4（待本机处理，已送达）
+```
+--json：
+```
+[{"peerId":"54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4","nickname":"Alice","addrs":["127.0.0.1/u41001"],"note":null,"direction":"in","tsMs":1788563000000,"delivered":true}]
+```
+退出码：无邀请时输出空数组/提示，退出码 0。
+
+### p2pctl chat friends invites accept
+用途：同意来邀——本机立即建立好友（双向关系本侧），并回投 ACCEPT 让对方建簿。前置：存在该 PEER_ID 的待处理来邀（in）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string | 是 | —— |
+| --nickname | string | 否 | ""（空 = 沿用邀请内对端自称） |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已同意好友邀请：Alice（54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4）
+```
+退出码：无待处理来邀 → 1（无待处理邀请）。
+
+### p2pctl chat friends invites reject
+用途：拒绝来邀并通知对方（通知尽力而为，对端离线时由重连收敛）。前置：存在待处理来邀。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已拒绝好友邀请: 54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4
+```
+退出码：无待处理来邀 → 1。
+
+### p2pctl chat friends invites cancel
+用途：撤回本机待同意邀请（out）；不在簿幂等返回 ok=false。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已撤回好友邀请: 54wweGDKHFKfCwsEYR37yCJeJQQ5ykD9KvcPGJLmiDy4
+```
+--json：
+```
+{"ok":true}
+```
+退出码：无待同意邀请 → 0（幂等，ok=false）。
 ### p2pctl chat friends update
 用途：更新好友的分组/昵称/备注补丁（至少提供一项）；addrs 不可经此修改（走 add 的 addr 域）。前置：PEER_ID 在簿。
 | 参数 | 类型 | 必填 | 默认 |
@@ -969,6 +1027,107 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 ```
 --json：同字段 camelCase（verdict/reason/reqId/period/lender/borrower/model/input/output/estimated/ts）。
 退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1。
+### p2pctl group create
+用途：建群。校验成员 ⊆ 好友簿、≤32、不含本机；群名 trim 后 1..=64 字符。建群后对每个初始成员推 roster（成员离线经 goutbox 补投，命令不失败）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --name | string | 是 | —— |
+| --member | string（可重复） | 否 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：成员不在好友簿 / 群超员 / 群名非法 → 1。
+
+### p2pctl group list
+用途：列出全部群（含 left/kicked/disbanded，GUI 按 state 过滤置底）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+
+### p2pctl group invite
+用途：邀请成员（owner-only）。受邀者须 ⊆ 好友簿且不在群；群 <32；rev+1 推全体（含新成员）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --member | string（可重复） | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：非 owner / 受邀者不在好友簿或已在群 / 超员 → 1。
+
+### p2pctl group kick
+用途：移除成员（owner-only）。rev+1 推余员，并向被移者发 G_KICK(reason=kicked)。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --member | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：非 owner / 成员不在群 / 不能移除群主 → 1。
+
+### p2pctl group leave
+用途：退群。本端 state=left（历史保留），并向 owner 发 G_LEAVE（owner 离线经 goutbox 补投）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：owner 调用 → 1（群主不能退群，请改用 disband）；群已非 active → 1。
+
+### p2pctl group rename
+用途：改名（owner-only）。群名 trim 后 1..=64 字符；rev+1 推 roster。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --name | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：非 owner / 群名非法 → 1。
+
+### p2pctl group disband
+用途：解散（owner-only）。rev+1，对全体在册成员发 G_KICK(reason=disbanded)；本端 state=disbanded。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：非 owner / 群已非 active（含重复解散）→ 1。
+
+### p2pctl group send
+用途：发群消息（--text 文本或 --file 附件，二选一）。fan-out 至全体其他成员；未全员送达按退出码 1 失败（报告仍输出，成员离线经 goutbox 补投）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --text | string | 与 --file 二选一 | —— |
+| --file | path | 与 --text 二选一 | —— |
+| --kind | text/image/audio/video/file | 否 | file（mime 按扩展名推断） |
+| --mime | string | 否 | 按扩展名推断 |
+| --name | string | 否 | 取文件名 |
+| --reply-to | string | 否 | 无 |
+| --timeout-secs | int | 否 | 30 |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：未知群/群非 active/校验非法 → 1；超时未全员送达 → 1（acked/recipients 可判部分送达）。
+
+### p2pctl group history
+用途：读群历史（time desc；limit 缺省 50 上限 100；beforeId 严格更早游标）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --before-id | string | 否 | —— |
+| --limit | int | 否 | 50 |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+
+### p2pctl group media file
+用途：查询群附件落盘绝对路径（media/<groupId>/，仅本端展示）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --message | string | 是 | —— |
+| --json | flag | 否 | off |  |  |  |
+| --data-dir | path | 否 | ./p2p-data |  |  |  |
+退出码：消息不存在或非附件类型 → 1。
+
 <!-- AI-DOCS-SYNC:END -->
 
 ## 附录A. 两节点聊天 E2E 最小拓扑（chat serve 双身份模型）

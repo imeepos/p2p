@@ -1,5 +1,4 @@
 //! 聊天核心：实时投递、outbox flush、发送状态机与事件（design §6）。
-
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -12,15 +11,16 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{broadcast, Mutex as AsyncMutex};
 
+use crate::events::ChatEvent;
 use crate::model::{
-    parse_peer_id, sanitize_name, ChatEnvelope, ChatError, ChatEvent, ChatMediaMeta, ChatStatus,
+    parse_peer_id, sanitize_name, ChatEnvelope, ChatError, ChatMediaMeta, ChatStatus,
 };
 use crate::store::Store;
 use crate::wire::{self, MediaBegin, MEDIA_BEGIN, MEDIA_CHUNK};
 use crate::CHAT_PROTOCOL;
 
 /// 单次投递内 ACK 等待上限：死连接上 read_ack 无界等待是演练 D1 卡死的直接面。
-const ACK_TIMEOUT: Duration = Duration::from_secs(10);
+pub(crate) const ACK_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub(crate) struct ChatCore {
     pub(crate) node: Arc<Node>,

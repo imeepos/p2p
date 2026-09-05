@@ -13,12 +13,18 @@ pub(crate) const FILE_NAME: &str = "gui-config.json";
 
 /// 出厂内置云端 bootstrap（契约 v2：rendezvous，QUIC 语法）。
 pub(crate) fn default_bootstrap() -> Vec<String> {
-    vec!["43.240.223.138/u3400".into(), "121.196.193.177/u3400".into()]
+    vec![
+        "43.240.223.138/u3400".into(),
+        "121.196.193.177/u3400".into(),
+    ]
 }
 
 /// 出厂内置云端中继（契约 v2：relay，QUIC 语法）。
 pub(crate) fn default_relay_addrs() -> Vec<String> {
-    vec!["43.240.223.138/u3403".into(), "121.196.193.177/u3403".into()]
+    vec![
+        "43.240.223.138/u3403".into(),
+        "121.196.193.177/u3403".into(),
+    ]
 }
 
 /// 出厂内置观测反射口（socket 语法）。
@@ -113,8 +119,7 @@ impl ConfigStore {
             }
         }
         let tmp = path.with_extension("json.tmp");
-        let text =
-            serde_json::to_string_pretty(cfg).map_err(|e| format!("配置序列化失败: {e}"))?;
+        let text = serde_json::to_string_pretty(cfg).map_err(|e| format!("配置序列化失败: {e}"))?;
         if let Err(e) = fs::write(&tmp, text) {
             let _ = fs::remove_file(&tmp);
             warn!(error = %e, path = %tmp.display(), "写入临时配置失败");
@@ -149,7 +154,10 @@ mod tests {
         assert_eq!(cfg.quic_port, 0);
         assert_eq!(cfg.tcp_port, 0);
         assert!(cfg.enable_mdns);
-        assert_eq!(cfg.data_dir, dir.join("app").join("p2p-data").to_string_lossy());
+        assert_eq!(
+            cfg.data_dir,
+            dir.join("app").join("p2p-data").to_string_lossy()
+        );
         assert_eq!(
             cfg.bootstrap,
             vec!["43.240.223.138/u3400", "121.196.193.177/u3400"]

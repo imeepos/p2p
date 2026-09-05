@@ -23,9 +23,23 @@ frontend_log_clear	mapped	log clear
 update_check	mapped	update check	
 update_open_release_page	mapped	update open	CLI 语义差异：不开浏览器，校验白名单后输出 release 页 URL（映射说明，非豁免）
 chat_friends_list	mapped	chat friends list	
-chat_friend_add	mapped	chat friends add	
+chat_friend_invite	mapped	chat friends add	
 chat_friend_remove	mapped	chat friends remove	
+chat_invites_list	mapped	chat friends invites list	
+chat_invite_accept	mapped	chat friends invites accept	
+chat_invite_reject	mapped	chat friends invites reject	
+chat_invite_cancel	mapped	chat friends invites cancel	
 chat_friend_update	mapped	chat friends update	
 chat_history	mapped	chat history	
 chat_send	mapped	chat send	
 chat_media_file	mapped	chat media file	
+group_create	mapped	group create	
+group_list	mapped	group list	
+group_invite	mapped	group invite	
+group_kick	mapped	group kick	
+group_leave	mapped	group leave	
+group_rename	mapped	group rename	
+group_disband	mapped	group disband	
+group_send	mapped	group send	
+group_history	mapped	group history	
+group_media_file	mapped	group media file	

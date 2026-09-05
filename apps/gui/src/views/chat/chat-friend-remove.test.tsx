@@ -6,6 +6,10 @@ import type { ChatFriendJson, NodeEventHandler } from "@/lib/ipc-types";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     friends: vi.fn<() => Promise<ChatFriendJson[]>>(),
+    invites: vi.fn(async () => []),
+    acceptInvite: vi.fn(async () => null),
+    rejectInvite: vi.fn(async () => undefined),
+    cancelInvite: vi.fn(async () => true),
     addFriend: vi.fn<
       (peerId: string, nickname: string, addrs: string[]) => Promise<ChatFriendJson>
     >(),
@@ -21,7 +25,11 @@ const { mocks } = vi.hoisted(() => ({
 vi.mock("@/lib/ipc", () => ({
   ipc: {
     chatFriendsList: mocks.friends,
-    chatFriendAdd: mocks.addFriend,
+    chatFriendInvite: mocks.addFriend,
+    chatInvitesList: mocks.invites,
+    chatInviteAccept: mocks.acceptInvite,
+    chatInviteReject: mocks.rejectInvite,
+    chatInviteCancel: mocks.cancelInvite,
     chatFriendRemove: mocks.removeFriend,
     chatHistory: mocks.history,
     chatSend: mocks.send,
@@ -91,10 +99,10 @@ describe("ChatView 移除好友旅程", () => {
     render(<ChatView />);
     await waitFor(() => expect(screen.getByText("暂无好友")).toBeTruthy());
 
-    // 添加好友：好友出现并自动选中
+    // 添加好友（邀请语义：同意前好友簿由 mock 数据面呈现）
     await addFriendViaDialog(PEER, "小圆");
     expect(mocks.addFriend).toHaveBeenCalledWith(PEER, "小圆", []);
-    await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("小圆")).toBeTruthy());
 
     // 移除：确认框确认后命令恰好一次，列表即时更新
     await openRemoveDialog();
@@ -112,7 +120,6 @@ describe("ChatView 移除好友旅程", () => {
     // 同一 PeerId 再次添加成功（回加幂等）
     await addFriendViaDialog(PEER, "小圆");
     expect(mocks.addFriend).toHaveBeenNthCalledWith(2, PEER, "小圆", []);
-    await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
     await waitFor(() =>
       expect(screen.getAllByText("小圆").length).toBeGreaterThan(0),
     );

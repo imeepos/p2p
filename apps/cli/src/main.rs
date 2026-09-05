@@ -2,6 +2,7 @@
 
 mod acp;
 mod chat;
+mod group;
 mod cli;
 mod config;
 mod control;
@@ -42,6 +43,7 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
     match cli.command {
         cli::Command::Node { command } => node::run(command).await,
         cli::Command::Chat { command } => chat::run(command).await,
+        cli::Command::Group { command } => group::run(command).await,
         cli::Command::Config { command } => config::run(command).await,
         cli::Command::Profile { command } => profile::run(command).await,
         cli::Command::Peer { command } => peer::run(command).await,

@@ -21,7 +21,8 @@ const { mocks } = vi.hoisted(() => ({
     friends: vi.fn<() => Promise<ChatFriendJson[]>>(),
     history: vi.fn<() => Promise<ChatMessageJson[]>>(),
     send: vi.fn<() => Promise<ChatSendReport>>(),
-    handler: { current: null as NodeEventHandler | null },
+    // 群/1:1 两个 store 各注册一个监听（真实 ipc 事件总线一对多）
+    handlers: [] as NodeEventHandler[],
   },
 }));
 
@@ -31,7 +32,7 @@ vi.mock("@/lib/ipc", () => ({
     chatHistory: mocks.history,
     chatSend: mocks.send,
     onNodeEvent: (handler: NodeEventHandler) => {
-      mocks.handler.current = handler;
+      mocks.handlers.push(handler);
       return Promise.resolve(() => {});
     },
   },
@@ -63,7 +64,9 @@ function selectConversation(messages: ChatMessageJson[]): void {
 }
 
 function emit(event: Parameters<NodeEventHandler>[0]): void {
-  act(() => mocks.handler.current?.(event));
+  act(() => {
+    for (const handler of mocks.handlers) handler(event);
+  });
 }
 
 async function mountComposer(): Promise<void> {

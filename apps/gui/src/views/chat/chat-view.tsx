@@ -9,6 +9,7 @@ import { ChatFriendAddDialog } from "@/components/chat/chat-friend-add-dialog";
 import { ChatFriendMoveDialog } from "@/components/chat/chat-friend-move-dialog";
 import { ChatFriendRemoveDialog } from "@/components/chat/chat-friend-remove-dialog";
 import { ConversationList } from "@/components/chat/conversation-list";
+import { ChatInvitePanel } from "@/components/chat/chat-invite-panel";
 import { PeerStatusDot } from "@/components/chat/peer-status";
 import type { ChatFriendJson, ChatMessageJson } from "@/lib/ipc-types";
 import { Composer } from "@/components/chat/composer";
@@ -16,6 +17,7 @@ import { MessageList } from "@/components/chat/message-list";
 import { NodeStoppedCard } from "@/components/chat/node-stopped-card";
 import { useRetrySend } from "@/components/chat/use-retry-send";
 import { useChatStore } from "@/stores/chat-store";
+import { useGroupStore } from "@/stores/group-store";
 import { useNodeStore, usePeerOnline } from "@/stores/node-store";
 import { EmptyState } from "@/views/shared/empty-state";
 
@@ -33,10 +35,16 @@ export function ChatView() {
   const historyLoading = selectedPeer ? historyLoadingAll[selectedPeer] ?? false : false;
   const hasMore = selectedPeer ? hasMoreAll[selectedPeer] ?? false : false;
   const loadFriends = useChatStore((s) => s.loadFriends);
+  const loadInvites = useChatStore((s) => s.loadInvites);
   const selectPeer = useChatStore((s) => s.selectPeer);
   const loadOlder = useChatStore((s) => s.loadOlder);
   const cancelPending = useChatStore((s) => s.cancelPending);
   const subscribeEvents = useChatStore((s) => s.subscribeEvents);
+  // 群会话混排（G3）：群列表来自 group-store，点击行跳群聊页并带 ?g= 预选
+  const groups = useGroupStore((s) => s.groups);
+  const selectedGroupId = useGroupStore((s) => s.selectedGroupId);
+  const loadGroups = useGroupStore((s) => s.loadGroups);
+  const subscribeGroupEvents = useGroupStore((s) => s.subscribeEvents);
   const [addFriendOpen, setAddFriendOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<ChatFriendJson | null>(null);
   // 移动分组目标（IM-T43）：行内「移动到分组」入口，对话框承载输入与 IPC 调用
@@ -47,8 +55,11 @@ export function ChatView() {
 
   useEffect(() => {
     void loadFriends();
+    void loadInvites();
     void subscribeEvents();
-  }, [loadFriends, subscribeEvents]);
+    void loadGroups();
+    void subscribeGroupEvents();
+  }, [loadFriends, loadInvites, subscribeEvents, loadGroups, subscribeGroupEvents]);
 
   const selectedFriend = friends.find((f) => f.peerId === selectedPeer);
   const selectedOnline = usePeerOnline(selectedPeer ?? "");
@@ -87,6 +98,7 @@ export function ChatView() {
             data-testid="friends-scroll"
             className="scroll-slim flex min-h-0 flex-1 flex-col overflow-y-auto"
           >
+            <ChatInvitePanel />
             <ConversationList
               friends={friends}
               lastMessages={lastMessages}
@@ -109,6 +121,13 @@ export function ChatView() {
                 await loadFriends();
                 const err = useChatStore.getState().friendsError;
                 if (err) throw new Error(err);
+              }}
+              groups={groups}
+              selectedGroupId={selectedGroupId}
+              onSelectGroup={(groupId) => {
+                // App 根为 HashRouter：直接改 hash 即路由跳转；
+                // 不经 useNavigate 以免测试树无 Router 上下文时崩溃。
+                window.location.hash = `/group?g=${groupId}`;
               }}
             />
           </div>

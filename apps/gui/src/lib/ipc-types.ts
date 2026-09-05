@@ -84,6 +84,7 @@ export type NodeEventJson =
   // 契约 v7 §12.2 加法：入站新消息（已落盘）与本地发送状态推进。
   | { type: "chat_message"; peer: string; message: ChatMessageJson; tsMs?: number }
   | { type: "chat_status"; peer: string; messageId: string; status: ChatMessageStatus; tsMs?: number }
+  | { type: "chat_invite"; peer: string; state: InviteStateJson; tsMs?: number }
   // IM 群聊加法（docs/design/im-group-design.md §7）：入站群消息 / 送达 acks 推进 /
   // roster 变更回执（建群、邀请、移除、退群、解散、改名）。
   | { type: "chat_group_message"; groupId: string; message: GroupMessageJson; tsMs?: number }
@@ -148,6 +149,25 @@ export interface ChatFriendJson {
   addrs: string[]; // ip/u端口 = QUIC，ip/t端口 = TCP（对齐 §6 语法）
   note?: string | null;
   group?: string | null; // 分组名（IM-T43）；null/缺省 = 未分组；空串归一化 null，不落盘
+}
+
+// 邀请制加好友（契约 v9 §12.4）：out=本机待对方同意 / in=对方待本机处理。
+export type InviteDirectionJson = "out" | "in";
+export type InviteStateJson = "incoming" | "accepted" | "rejected";
+
+export interface FriendInviteJson {
+  peerId: string;
+  nickname: string;
+  addrs: string[];
+  note?: string | null;
+  direction: InviteDirectionJson;
+  tsMs: number;
+  delivered: boolean;
+}
+
+export interface InviteReportJson {
+  invite: FriendInviteJson;
+  delivered: boolean;
 }
 
 export interface ChatMediaInput {
@@ -242,11 +262,18 @@ export interface IpcBackend {
   updateCheck(): Promise<UpdateCheckResult>;
   updateOpenReleasePage(url: string): Promise<void>;
   chatFriendsList(): Promise<ChatFriendJson[]>;
-  chatFriendAdd(
+  chatFriendInvite(
     peerId: string,
     nickname: string,
     addrs: string[],
+  ): Promise<InviteReportJson>;
+  chatInvitesList(): Promise<FriendInviteJson[]>;
+  chatInviteAccept(
+    peerId: string,
+    nickname: string,
   ): Promise<ChatFriendJson>;
+  chatInviteReject(peerId: string): Promise<void>;
+  chatInviteCancel(peerId: string): Promise<boolean>;
   chatFriendRemove(peerId: string): Promise<boolean>;
   // IM-T43：好友资料补丁（group/nickname/note 至少一项；addrs 不可经此修改）；
   // 空串 group = 移出分组；peer 不在簿或越界组名 → 可读 Err。
@@ -274,6 +301,7 @@ export interface IpcBackend {
   groupKick(groupId: string, memberId: string): Promise<GroupJson>;
   groupLeave(groupId: string): Promise<GroupJson>;
   groupRename(groupId: string, name: string): Promise<GroupJson>;
+  groupDisband(groupId: string): Promise<GroupJson>;
   groupSend(
     groupId: string,
     kind: ChatKind,

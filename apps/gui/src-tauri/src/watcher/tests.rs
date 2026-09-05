@@ -11,7 +11,8 @@ use super::{spawn_inner, EventBatch};
 
 /// 独立临时目录：测试间互不污染。
 fn temp_dir(tag: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("p2p-console-watcher-{tag}-{}", std::process::id()));
+    let dir =
+        std::env::temp_dir().join(format!("p2p-console-watcher-{tag}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).expect("创建临时目录");
     dir
@@ -19,7 +20,10 @@ fn temp_dir(tag: &str) -> PathBuf {
 
 /// 测试专用启动：app=None 直接消费 rx；句柄必须由调用方持有到断言结束
 /// （debouncer Drop 即停转发线程并断开通道）。
-fn start_test(dir: &PathBuf, debounce: Duration) -> (super::WatchHandle, mpsc::Receiver<EventBatch>) {
+fn start_test(
+    dir: &PathBuf,
+    debounce: Duration,
+) -> (super::WatchHandle, mpsc::Receiver<EventBatch>) {
     match spawn_inner::<tauri::Wry>(dir, debounce, None) {
         Ok((handle, Some(rx))) => (handle, rx),
         Ok((_handle, None)) => unreachable!("app=None 必返回 rx"),
@@ -62,8 +66,15 @@ fn init_failure_on_missing_dir_is_structured() {
         Ok(_) => panic!("目录不存在必须结构化报错"),
     };
     assert_eq!(err.stage, "watch", "失败阶段须可定位");
-    assert_eq!(err.path.as_deref(), Some(missing.as_path()), "失败路径须可定位");
-    assert!(err.to_string().contains("watcher 初始化失败"), "错误须可读: {err}");
+    assert_eq!(
+        err.path.as_deref(),
+        Some(missing.as_path()),
+        "失败路径须可定位"
+    );
+    assert!(
+        err.to_string().contains("watcher 初始化失败"),
+        "错误须可读: {err}"
+    );
 }
 
 #[test]
@@ -95,7 +106,10 @@ fn rapid_same_file_writes_coalesce_via_debounce() {
         match rx.try_recv() {
             Ok(batch) => {
                 let more = collect_domains(batch_paths(batch));
-                assert!(!more.contains(&DataDomain::Config), "防抖后不得重复推送: {more:?}");
+                assert!(
+                    !more.contains(&DataDomain::Config),
+                    "防抖后不得重复推送: {more:?}"
+                );
             }
             Err(TryRecvError::Empty) => std::thread::sleep(Duration::from_millis(100)),
             Err(TryRecvError::Disconnected) => panic!("监听通道关闭"),
@@ -113,7 +127,10 @@ fn chat_dir_lazily_watched_when_created_late() {
     std::thread::sleep(Duration::from_millis(600));
     fs::write(friends_path(&dir), "[]").expect("写好友簿");
     let seen = recv_domains_until(&rx, &[DataDomain::Chat]);
-    assert!(seen.contains(&DataDomain::Chat), "懒挂载后 chat 域事件须送达: {seen:?}");
+    assert!(
+        seen.contains(&DataDomain::Chat),
+        "懒挂载后 chat 域事件须送达: {seen:?}"
+    );
 }
 
 #[test]

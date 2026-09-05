@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use p2p::Node;
-use p2p_chat::{Chat, ChatEvent};
+use p2p_chat::{Chat, ChatEvent, GroupEvent};
 use tokio::sync::{broadcast, Mutex};
 use tracing::warn;
 
@@ -26,15 +26,25 @@ impl ChatSlot {
     }
 
     /// 节点启动后装配（data_dir = app_data_dir，crate 内部 join "chat"）；
-    /// 返回 chat 事件接收端（命令层转发）。失败留告警并回抛中文 Err。
-    pub async fn install(&self, node: Arc<Node>) -> Result<broadcast::Receiver<ChatEvent>, String> {
+    /// 返回（1:1 事件, 群事件）接收端（命令层转发）。失败留告警并回抛中文 Err。
+    pub async fn install(
+        &self,
+        node: Arc<Node>,
+    ) -> Result<
+        (
+            broadcast::Receiver<ChatEvent>,
+            broadcast::Receiver<GroupEvent>,
+        ),
+        String,
+    > {
         let chat = Chat::new(node, self.app_data_dir.clone()).map_err(|e| {
             warn!(error = %e, "聊天模块装配失败");
             format!("聊天模块装配失败: {e}")
         })?;
         let rx = chat.events();
+        let group_rx = chat.group.events();
         *self.slot.lock().await = Some(Arc::new(chat));
-        Ok(rx)
+        Ok((rx, group_rx))
     }
 
     /// 节点停止时卸载（Arc 释放；outbox 任务随节点事件通道关闭自然退出）。

@@ -5,6 +5,7 @@ use clap::Parser;
 use crate::acp;
 use crate::chat;
 use crate::config;
+use crate::group;
 use crate::gui;
 use crate::identity;
 use crate::llm_share;
@@ -38,6 +39,11 @@ pub enum Command {
     Chat {
         #[command(subcommand)]
         command: chat::ChatCommand,
+    },
+    /// 群聊域：create/list/invite/kick/leave/rename/disband/send/history/media（G4）
+    Group {
+        #[command(subcommand)]
+        command: group::GroupCommand,
     },
     /// 配置域：读取/保存
     Config {

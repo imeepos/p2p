@@ -38,7 +38,9 @@ impl MetricsPoint {
             t_ms,
             active_connections: snapshot.active_connections,
             relay_sessions_active: snapshot.relay_sessions_active,
-            dial_ok_total: snapshot.dial_direct_ok + snapshot.dial_punch_ok + snapshot.dial_relay_ok,
+            dial_ok_total: snapshot.dial_direct_ok
+                + snapshot.dial_punch_ok
+                + snapshot.dial_relay_ok,
             dial_fail_total: snapshot.dial_direct_fail
                 + snapshot.dial_punch_fail
                 + snapshot.dial_relay_fail,
