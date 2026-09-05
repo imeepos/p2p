@@ -22,7 +22,7 @@ pub use chunked::{
     read_chunked, write_chunked, CHUNK_DATA_SIZE, FRAME_CHUNK, FRAME_END, FRAME_SINGLE,
     MAX_MESSAGE_SIZE,
 };
-pub use handshake::{dispatch_inbound, open_with_protocol};
+pub use handshake::{dispatch_inbound, dispatch_inbound_with_peer, open_with_protocol};
 pub use request_response::RequestResponseClient;
 pub use stream_factory::{LoopbackHub, StreamFactory};
 
@@ -98,9 +98,23 @@ pub fn flatten_io(err: io::Error) -> ProtocolError {
 
 /// 业务接入点：注册协议 ID，收到对应流即被回调（design §9）。
 /// handler 拥有该流直到返回，返回即关流。
+///
+/// 入站流的对端身份由分发层随流下传（libp2p 同类痛点通行解：trait 加参）：
+/// 分发层已从安全握手互认 PeerId（SecureConn.remote），handler 无需再靠
+/// 「在线集推断」绕行归属。swarm 分发统一走 [Self::handle_inbound]；
+/// 旧接缝 [Self::handle] 保留给无身份上下文的裸流场景（盲拨应答等）。
 #[async_trait::async_trait]
 pub trait ProtocolHandler: Send + Sync {
     fn protocol(&self) -> ProtocolId;
+
+    /// 已知对端身份的入站分发入口（swarm serve 路径唯一入口）。
+    /// 默认桥接旧签名：未升级 handler 行为不变，需要真实身份时覆写本方法。
+    async fn handle_inbound(&self, peer: PeerId, stream: BoxedStream) -> io::Result<()> {
+        let _ = peer;
+        self.handle(stream).await
+    }
+
+    /// 裸流入站（无对端身份上下文）：盲拨应答、纯回环测试等场景。
     async fn handle(&self, stream: BoxedStream) -> io::Result<()>;
 }
 

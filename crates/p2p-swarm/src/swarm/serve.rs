@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use p2p_identity::PeerId;
 use p2p_mux::BoxedStream;
-use p2p_protocol::{dispatch_inbound, ProtocolError};
+use p2p_protocol::{dispatch_inbound_with_peer, ProtocolError};
 use tokio::sync::{broadcast, watch};
 
 use super::lifecycle::{LifecycleHandle, LifecycleMsg};
@@ -114,7 +114,8 @@ async fn dispatch_stream(
 ) {
     let _guard = guard;
     let snapshot = registry.lock().expect("registry lock").clone();
-    match dispatch_inbound(stream, &snapshot).await {
+    // peer 取自安全握手互认（SecureConn.remote），随流下传给 handler（design §6）
+    match dispatch_inbound_with_peer(stream, Some(peer), &snapshot).await {
         Ok(()) => {}
         Err(ProtocolError::Io(err)) => {
             tracing::debug!(%peer, error = %err, "inbound stream closed");
