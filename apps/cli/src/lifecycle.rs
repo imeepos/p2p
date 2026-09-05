@@ -170,6 +170,9 @@ pub async fn stop_report(data_dir: &str) -> CliResult<Report> {
 }
 
 fn spawn_daemon(paths: &Paths) -> CliResult<std::process::Child> {
+    // spawn 前冲刷父进程 stdio：本命令的 stdout 可能已重定向到文件，
+    // 缓冲残留叠加子进程拉起会让脚本拿到 0 字节文件（F9 回归面）。
+    crate::output::flush_stdio();
     let exe = std::env::current_exe()
         .map_err(|e| CliError::Runtime(format!("定位 p2pctl 可执行文件失败: {e}")))?;
     let log = std::fs::OpenOptions::new()
