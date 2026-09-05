@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useAcpStore } from "@/acp/acp-store";
+import { useConfirm } from "@/components/feedback/confirm-provider";
 import { EmptyState } from "@/views/shared/empty-state";
 
 function SessionRow(props: {
@@ -21,10 +22,24 @@ function SessionRow(props: {
   onClose: (sessionId: string) => void;
 }) {
   const { t } = useTranslation();
+  const confirm = useConfirm();
+  const handleClose = () => {
+    // 破坏性操作确认纪律（P2）：关闭会话先过全站确认弹框，取消则不关
+    void confirm({
+      title: t("acp.sessions.closeConfirmTitle"),
+      description: t("acp.sessions.closeConfirmDescription", { title: props.title }),
+      confirmText: t("acp.sessions.closeConfirmAction"),
+      cancelText: t("acp.cancel"),
+      destructive: true,
+    }).then((ok) => {
+      if (ok) props.onClose(props.sessionId);
+    });
+  };
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 rounded-md border px-2 py-1.5",
+        // gap-3 拉开 resume 与 close 的防误触间距（P2）
+        "flex items-center justify-between gap-3 rounded-md border px-2 py-1.5",
         props.active && "border-primary/40 bg-primary/5",
       )}
       data-testid={"acp-session-row-" + props.sessionId}
@@ -43,9 +58,9 @@ function SessionRow(props: {
       <Button
         size="icon"
         variant="ghost"
-        className="size-7"
+        className="size-7 shrink-0"
         disabled={!props.online}
-        onClick={() => props.onClose(props.sessionId)}
+        onClick={handleClose}
         aria-label={t("acp.sessions.close")}
         data-testid={"acp-session-close-" + props.sessionId}
       >

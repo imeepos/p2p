@@ -232,6 +232,8 @@ describe("AcpView connection directory", () => {
     fireEvent.click(screen.getByTestId("acp-directory-fill-peer-manual-1"));
     expect((screen.getByTestId("acp-input-peer") as HTMLInputElement).value).toBe("peer-manual-1");
     fireEvent.click(screen.getByTestId("acp-directory-remove-peer-manual-1"));
+    await screen.findByText("移除目录条目？");
+    fireEvent.click(screen.getByText("移除"));
     await waitFor(() => {
       expect(screen.queryByTestId("acp-directory-row-peer-manual-1")).toBeNull();
     });

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { I18nKey } from "@/i18n/types";
 import { useAcpStore } from "@/acp/acp-store";
+import { useConfirm } from "@/components/feedback/confirm-provider";
 import { ACP_ERROR_KEYS } from "@/acp/store-events";
 import type { AcpEndpoint, AcpPhase } from "@/acp/protocol";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
@@ -134,6 +135,19 @@ function SavedEndpointChips() {
   const saved = useAcpStore((s) => s.saved);
   const setDraft = useAcpStore((s) => s.setDraft);
   const removeSaved = useAcpStore((s) => s.removeSaved);
+  const confirm = useConfirm();
+  const removeEndpoint = (peer: string) => {
+    // 破坏性操作确认纪律（P2）：移除已保存端点先过确认弹框
+    void confirm({
+      title: t("acp.connection.removeConfirmTitle"),
+      description: t("acp.connection.removeConfirmDescription", { peer }),
+      confirmText: t("acp.connection.removeConfirmAction"),
+      cancelText: t("acp.cancel"),
+      destructive: true,
+    }).then((ok) => {
+      if (ok) removeSaved(peer);
+    });
+  };
   if (saved.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -141,7 +155,7 @@ function SavedEndpointChips() {
       {saved.map((endpoint) => (
         <span
           key={endpoint.peer + endpoint.wsUrl}
-          className="bg-muted flex items-center gap-1 rounded-md px-2 py-0.5 text-xs"
+          className="bg-muted flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs"
         >
           <button
             type="button"
@@ -152,8 +166,9 @@ function SavedEndpointChips() {
           </button>
           <button
             type="button"
+            className="ml-0.5"
             aria-label={t("acp.connection.remove")}
-            onClick={() => removeSaved(endpoint.peer)}
+            onClick={() => removeEndpoint(endpoint.peer)}
             data-testid={"acp-endpoint-remove-" + endpoint.peer}
           >
             ×

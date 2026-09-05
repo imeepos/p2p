@@ -4,9 +4,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useAcpStore } from "@/acp/acp-store";
 import type { DirectoryEntry } from "@/acp/directory-model";
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { ConnectionDirectory } from "./connection-directory";
 
 await import("@/i18n");
+
+// DirectoryRow 依赖全站确认弹框 context（移除条目确认纪律），独立渲染需自持 Provider
+function renderDirectory() {
+  return render(
+    <ConfirmProvider>
+      <ConnectionDirectory />
+    </ConfirmProvider>,
+  );
+}
 
 function entry(over: Partial<DirectoryEntry>): DirectoryEntry {
   return {
@@ -37,7 +47,7 @@ describe("ConnectionDirectory 信息架构", () => {
         entry({ peer: "m-1", source: "manual" }),
       ],
     });
-    render(<ConnectionDirectory />);
+    renderDirectory();
     const discovered = screen.getByTestId("acp-directory-group-discovered");
     const manual = screen.getByTestId("acp-directory-group-manual");
     const dRow = screen.getByTestId("acp-directory-row-d-1");
@@ -52,7 +62,7 @@ describe("ConnectionDirectory 信息架构", () => {
 
   it("目录空态展示出现引导（rendezvous / mDNS / 手动添加）", () => {
     useAcpStore.setState({ directory: [] });
-    render(<ConnectionDirectory />);
+    renderDirectory();
     expect(screen.getByText("暂无节点，发现或手动添加后出现在这里")).toBeTruthy();
     expect(screen.getByText(/rendezvous/)).toBeTruthy();
     expect(screen.getByText(/mDNS/)).toBeTruthy();
@@ -60,14 +70,14 @@ describe("ConnectionDirectory 信息架构", () => {
 
   it("条目一键回填连接表单（draft.peer 写回）", () => {
     useAcpStore.setState({ directory: [entry({ peer: "m-9" })] });
-    render(<ConnectionDirectory />);
+    renderDirectory();
     fireEvent.click(screen.getByTestId("acp-directory-fill-m-9"));
     expect(useAcpStore.getState().draft.peer).toBe("m-9");
   });
 
   it("scope 只读：下拉已删、徽章 title 与旁注指向 p2pctl acp allow（P2-ADD 需求9）", () => {
     useAcpStore.setState({ directory: [entry({ peer: "m-1" })] });
-    render(<ConnectionDirectory />);
+    renderDirectory();
     expect(screen.queryByTestId("acp-directory-scope-m-1")).toBeNull();
     const badge = screen.getByTestId("acp-directory-scope-badge-m-1");
     expect(badge.querySelector("span[title]")?.getAttribute("title")).toContain("p2pctl acp allow");
@@ -75,7 +85,7 @@ describe("ConnectionDirectory 信息架构", () => {
   });
 
   it("手动添加输入框带 aria-label（可访问名）", () => {
-    render(<ConnectionDirectory />);
+    renderDirectory();
     expect(screen.getByTestId("acp-directory-input").getAttribute("aria-label")).toBe(
       "手动添加 Peer ID",
     );
@@ -85,7 +95,7 @@ describe("ConnectionDirectory 信息架构", () => {
     useAcpStore.setState({
       directory: [entry({ peer: "d-mdns", source: "discovered", via: "mdns", name: "edge" })],
     });
-    render(<ConnectionDirectory />);
+    renderDirectory();
     expect(screen.getByTestId("acp-directory-via-d-mdns").textContent).toBe("mdns");
     const row = screen.getByTestId("acp-directory-row-d-mdns");
     expect(row.textContent).toContain("edge");
@@ -119,7 +129,7 @@ describe("ConnectionDirectory 信息架构", () => {
         entry({ peer: "peer-x", source: "discovered", addrs: ["/ip4/10.0.0.8/tcp/4001"] }),
       ],
     });
-    render(<ConnectionDirectory />);
+    renderDirectory();
     await waitFor(() => {
       expect(useAcpStore.getState().directory[0].addrs).toEqual([
         "/ip4/10.0.0.8/tcp/4001",
@@ -145,7 +155,7 @@ describe("ConnectionDirectory 信息架构", () => {
       },
       directory: [],
     });
-    render(<ConnectionDirectory />);
+    renderDirectory();
     await waitFor(() => {
       expect(vi.mocked(fetch).mock.calls.length).toBeGreaterThan(0);
     });

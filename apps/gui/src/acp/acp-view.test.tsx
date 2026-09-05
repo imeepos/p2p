@@ -107,10 +107,12 @@ describe("AcpView transcript", () => {
 });
 
 describe("AcpView sessions", () => {
-  it("会话侧栏生命周期：新建出现、关闭移除", async () => {
+  it("会话侧栏生命周期：新建出现、确认弹框后关闭移除", async () => {
     await renderConnected();
     await newSession();
     fireEvent.click(screen.getByTestId("acp-session-close-s-001"));
+    expect(await screen.findByText("关闭该会话？")).toBeTruthy();
+    fireEvent.click(screen.getByText("关闭会话"));
     await waitFor(() => {
       expect(screen.queryByTestId("acp-session-row-s-001")).toBeNull();
     });

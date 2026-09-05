@@ -106,6 +106,8 @@ describe("AcpView session focus fallback", () => {
     await screen.findByTestId("acp-session-row-s-002");
     expect(useAcpStore.getState().activeSessionId).toBe("s-002");
     fireEvent.click(screen.getByTestId("acp-session-close-s-002"));
+    await screen.findByText("关闭该会话？");
+    fireEvent.click(screen.getByText("关闭会话"));
     await waitFor(() => {
       expect(screen.queryByTestId("acp-session-row-s-002")).toBeNull();
     });
@@ -119,6 +121,8 @@ describe("AcpView session focus fallback", () => {
     await renderConnected();
     await newSession();
     fireEvent.click(screen.getByTestId("acp-session-close-s-001"));
+    await screen.findByText("关闭该会话？");
+    fireEvent.click(screen.getByText("关闭会话"));
     await waitFor(() => {
       expect(useAcpStore.getState().activeSessionId).toBeNull();
     });

@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import type { I18nKey } from "@/i18n/types";
 import { useAcpStore } from "@/acp/acp-store";
+import { useConfirm } from "@/components/feedback/confirm-provider";
 import { groupBySource, type AcpScope, type DirectoryEntry } from "@/acp/directory-model";
 import { useDiscoveryPoll } from "@/acp/use-discovery-poll";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
@@ -42,7 +43,20 @@ function DirectoryRow({ entry }: { entry: DirectoryEntry }) {
   const { t } = useTranslation();
   const setDraft = useAcpStore((s) => s.setDraft);
   const remove = useAcpStore((s) => s.removeDirectoryEntry);
+  const confirm = useConfirm();
   const scopeHint = t("acp.directory.scopeHint");
+  const handleRemove = () => {
+    // 破坏性操作确认纪律（P2）：移除目录条目先过确认弹框
+    void confirm({
+      title: t("acp.directory.removeConfirmTitle"),
+      description: t("acp.directory.removeConfirmDescription", { peer: entry.peer }),
+      confirmText: t("acp.directory.removeConfirmAction"),
+      cancelText: t("acp.cancel"),
+      destructive: true,
+    }).then((ok) => {
+      if (ok) remove(entry.peer);
+    });
+  };
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5"
       data-testid={"acp-directory-row-" + entry.peer}>
@@ -55,7 +69,7 @@ function DirectoryRow({ entry }: { entry: DirectoryEntry }) {
           <p className="text-muted-foreground truncate text-xs">{entry.addrs[0]}</p>
         ) : null}
       </button>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         <SourceBadge source={entry.source} />
         {entry.via ? (
           <span
@@ -71,8 +85,8 @@ function DirectoryRow({ entry }: { entry: DirectoryEntry }) {
             {t(SCOPE_KEY[entry.scope])}
           </StatusBadge>
         </span>
-        <Button size="icon" variant="ghost" className="size-7"
-          onClick={() => remove(entry.peer)}
+        <Button size="icon" variant="ghost" className="size-7 shrink-0"
+          onClick={handleRemove}
           aria-label={t("acp.directory.remove")}
           data-testid={"acp-directory-remove-" + entry.peer}>
           ×
