@@ -59,7 +59,8 @@ fn fallback_name(path: &Path) -> String {
         .unwrap_or_else(|| "attachment".into())
 }
 
-/// 按扩展名推断 MIME；未知扩展名回退 application/octet-stream（file 类型合法）。
+/// 按扩展名推断 MIME（PR1/F12：补文本/文档/压缩等常见类型）；
+/// 未知扩展名回退 application/octet-stream（file 类型合法）。
 fn guess_mime(name: &str) -> String {
     let ext = name.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
     let mime = match ext.as_str() {
@@ -67,6 +68,7 @@ fn guess_mime(name: &str) -> String {
         "jpg" | "jpeg" => "image/jpeg",
         "gif" => "image/gif",
         "webp" => "image/webp",
+        "svg" => "image/svg+xml",
         "mp3" => "audio/mpeg",
         "wav" => "audio/wav",
         "ogg" => "audio/ogg",
@@ -74,6 +76,16 @@ fn guess_mime(name: &str) -> String {
         "mp4" => "video/mp4",
         "webm" => "video/webm",
         "mov" => "video/quicktime",
+        "txt" => "text/plain",
+        "md" => "text/markdown",
+        "csv" => "text/csv",
+        "html" | "htm" => "text/html",
+        "css" => "text/css",
+        "json" => "application/json",
+        "pdf" => "application/pdf",
+        "zip" => "application/zip",
+        "gz" => "application/gzip",
+        "tar" => "application/x-tar",
         _ => "application/octet-stream",
     };
     mime.to_string()
@@ -141,5 +153,16 @@ mod tests {
     fn mime_guess_falls_back_to_octet_stream() {
         assert_eq!(guess_mime("a.MOV"), "video/quicktime");
         assert_eq!(guess_mime("noext"), "application/octet-stream");
+    }
+
+    #[test]
+    fn mime_guess_covers_common_text_and_doc_types() {
+        assert_eq!(guess_mime("note.txt"), "text/plain");
+        assert_eq!(guess_mime("README.md"), "text/markdown");
+        assert_eq!(guess_mime("data.csv"), "text/csv");
+        assert_eq!(guess_mime("index.html"), "text/html");
+        assert_eq!(guess_mime("cfg.json"), "application/json");
+        assert_eq!(guess_mime("spec.pdf"), "application/pdf");
+        assert_eq!(guess_mime("pack.zip"), "application/zip");
     }
 }
