@@ -16,11 +16,28 @@
 // 退出码：0 成功；2 CDP 连接失败；3 页面评估失败；4 参数非法。
 import { writeFileSync } from 'node:fs';
 
+const USAGE = [
+  '用法: node scripts/ops/headless-metrics.mjs [URL] [--port N] [--out FILE] [--screenshot FILE] [--wait MS]',
+  '',
+  '无头 Chrome CDP 页面度量（验收滚动/分组指标的正式入库工具）。',
+  '  URL       缺省 http://localhost:5173/#/chat',
+  '  --port    CDP 调试端口，缺省 9222',
+  '  --out     完整指标 JSON 落盘路径（缺省打到 stdout）',
+  '  --screenshot  页面 PNG 截图路径（可选）',
+  '  --wait    页面 load 后等待 SPA 渲染的毫秒数，缺省 1500',
+  '',
+  '前置：先起带调试端口的 Chrome，如',
+  "  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --headless=new --remote-debugging-port=9222 --user-data-dir=/tmp/dsh-cdp about:blank",
+  '',
+  '退出码：0 成功；2 CDP 连接/运行失败；3 页面评估失败；4 参数非法。',
+].join('\n');
+
 function parseArgs(argv) {
   const opts = { url: 'http://localhost:5173/#/chat', port: 9222, out: null, screenshot: null, wait: 1500 };
   const rest = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
+    if (a === '--help' || a === '-h') { console.log(USAGE); process.exit(0); }
     if (a === '--port') opts.port = Number(argv[++i]);
     else if (a === '--out') opts.out = argv[++i];
     else if (a === '--screenshot') opts.screenshot = argv[++i];
