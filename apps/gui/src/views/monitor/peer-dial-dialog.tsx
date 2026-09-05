@@ -11,6 +11,7 @@ import {
 import type { DialReport } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
 import { parseDialTarget } from "@/lib/dial-target";
+import { FORM_VALIDATION_MARK } from "@/views/shared/form-flow";
 import { DialDialogFooter } from "./dial-dialog-footer";
 import { DialResultPanel } from "./dial-result-panel";
 import { DialTargetField } from "./dial-target-field";
@@ -24,6 +25,7 @@ interface PeerDialDialogProps {
 export function PeerDialDialog({ open, onOpenChange }: PeerDialDialogProps) {
   const { t } = useTranslation();
   const dial = useNodeStore((s) => s.dial);
+  const running = useNodeStore((s) => s.status?.running ?? false);
   const [target, setTarget] = useState("");
   const [report, setReport] = useState<DialReport | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
@@ -40,6 +42,11 @@ export function PeerDialDialog({ open, onOpenChange }: PeerDialDialogProps) {
   };
 
   const submit = async () => {
+    // 提交前校验节点运行中：未运行给明确业务提示，不让原始错误冒出来。
+    if (!running) {
+      setCommandError(t("peers.dial.nodeNotRunning"));
+      throw new Error(FORM_VALIDATION_MARK);
+    }
     const parsed = parseDialTarget(target);
     if (!parsed) throw new Error(t("peers.dial.invalidFormat"));
     const result = await dial(`${parsed.peerId}@${parsed.addr}`);

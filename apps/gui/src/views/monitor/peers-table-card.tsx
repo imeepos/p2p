@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { EmptyState } from "@/views/shared/empty-state";
 import { peerStatusKind, type PeerStatusKind } from "./peer-status";
 import { PeerTableRow } from "./peer-table-row";
+import { StartNodeButton } from "./start-node-button";
 
 type SortKey = "lastSeen" | "status";
 type SortDir = "asc" | "desc";
@@ -92,9 +93,13 @@ function SortableHead({
   );
 }
 
-interface PeersTableCardProps {
+export interface PeersTableCardProps {
   peers: PeerEntry[];
   bufferEmpty: boolean;
+  nodeReady: boolean;
+  nodeRunning: boolean;
+  onStartNode: () => Promise<void>;
+  onResetFilters: () => void;
   locale: Locale;
   now: number;
   onPing: (peer: PeerEntry) => () => Promise<PingOutcome>;
@@ -104,10 +109,15 @@ interface PeersTableCardProps {
   onOpenDial: () => void;
 }
 
-// 节点主表卡片：可排序（状态/最后活跃）、粘性表头、空态区分缓冲与过滤。
+// 节点主表卡片：可排序（状态/最后活跃）、粘性表头；空态区分缓冲、过滤，
+// 并按节点运行状态分支——未运行给启动引导而非注定失败的拨号入口。
 export function PeersTableCard({
   peers,
   bufferEmpty,
+  nodeReady,
+  nodeRunning,
+  onStartNode,
+  onResetFilters,
   locale,
   now,
   onPing,
@@ -137,14 +147,34 @@ export function PeersTableCard({
       {peers.length === 0 ? (
         <EmptyState
           icon={bufferEmpty ? UsersIcon : SearchXIcon}
-          title={bufferEmpty ? t("peers.empty") : t("common.table.empty")}
-          description={bufferEmpty ? t("peers.emptyHint") : undefined}
+          title={
+            bufferEmpty
+              ? nodeReady && !nodeRunning
+                ? t("peers.emptyStopped.title")
+                : t("peers.empty")
+              : t("common.table.empty")
+          }
+          description={
+            bufferEmpty
+              ? nodeReady && !nodeRunning
+                ? t("peers.emptyStopped.description")
+                : t("peers.emptyHint")
+              : undefined
+          }
           action={
             bufferEmpty ? (
-              <Button type="button" size="sm" onClick={onOpenDial}>
-                {t("peers.emptyAction")}
+              !nodeReady ? undefined : nodeRunning ? (
+                <Button type="button" size="sm" onClick={onOpenDial}>
+                  {t("peers.emptyAction")}
+                </Button>
+              ) : (
+                <StartNodeButton action={onStartNode} />
+              )
+            ) : (
+              <Button size="sm" variant="outline" onClick={onResetFilters}>
+                {t("peers.filters.reset")}
               </Button>
-            ) : undefined
+            )
           }
         />
       ) : (

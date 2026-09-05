@@ -2,12 +2,10 @@ import { useTranslation } from "react-i18next";
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { AsyncButton } from "@/components/feedback/async-button";
-import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { useNodeStore } from "@/stores/node-store";
-import { errorText } from "@/views/shared/form-flow";
 import { StopNodeDialog } from "./stop-node-dialog";
+import { StartNodeButton } from "./start-node-button";
 
 // 顶部快速操作：启动直接执行；停止走二次确认弹框；拨号入口跳节点页。
 export function DashboardQuickActions() {
@@ -26,22 +24,7 @@ export function DashboardQuickActions() {
 
   return (
     <div className="col-span-12 flex flex-wrap items-center gap-2">
-      <AsyncButton
-        size="sm"
-        disabled={!ready || running}
-        action={onStart}
-        loadingLabel={t("common.state.starting")}
-        onSuccess={() => toastSuccess(t("common.actions.startSucceeded"))}
-        onError={(error) => {
-          console.error("[dashboard] 启动节点失败", error);
-          toastError(t("common.actions.startFailed"), {
-            description: errorText(error),
-            context: "node.start",
-          });
-        }}
-      >
-        {t("common.actions.start")}
-      </AsyncButton>
+      <StartNodeButton disabled={!ready || running} action={onStart} />
       <Button
         size="sm"
         variant="outline"

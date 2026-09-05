@@ -197,6 +197,10 @@ describe("IM-V2 peers / discovery evidence", () => {
       <PeersTableCard
         peers={[]}
         bufferEmpty
+        nodeReady
+        nodeRunning
+        onStartNode={async () => {}}
+        onResetFilters={() => {}}
         locale="zh-CN"
         now={0}
         onPing={noop}

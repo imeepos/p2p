@@ -4,7 +4,7 @@ import { AsyncButton } from "@/components/feedback/async-button";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import type { DialReport } from "@/lib/ipc-types";
-import { errorText } from "@/views/shared/form-flow";
+import { errorText, isFlowMark, FORM_VALIDATION_MARK } from "@/views/shared/form-flow";
 
 interface DialDialogFooterProps {
   canSubmit: boolean;
@@ -46,6 +46,8 @@ export function DialDialogFooter({
           });
         }}
         onError={(error) => {
+          // 业务校验类中断（如节点未运行）已内联展示，不再重复 toast。
+          if (isFlowMark(error, FORM_VALIDATION_MARK)) return;
           console.error("[peers] 手动拨号命令失败", error);
           onCommandError(errorText(error));
           toastError(t("peers.dial.failed"), {

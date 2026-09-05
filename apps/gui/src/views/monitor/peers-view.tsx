@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/page/page-header";
@@ -33,11 +33,26 @@ export function PeersView() {
   const ping = useNodeStore((s) => s.ping);
   const connect = useNodeStore((s) => s.connect);
   const disconnect = useNodeStore((s) => s.disconnect);
+  const status = useNodeStore((s) => s.status);
+  const startNode = useNodeStore((s) => s.startNode);
   const [searchParams, setSearchParams] = useSearchParams();
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [detailId, setDetailId] = useState<string | null>(null);
   const now = useTicker(5000);
+
+  // 空态按节点运行状态分支：未运行给启动引导，而不是只给注定失败的拨号入口。
+  const nodeReady = status !== null;
+  const nodeRunning = status?.running ?? false;
+  const onStartNode = useCallback(async () => {
+    const current = useNodeStore.getState().status;
+    if (!current) throw new Error("node status not loaded");
+    await startNode(current.config);
+  }, [startNode]);
+  const resetFilters = useCallback(() => {
+    setQuery("");
+    setStatusFilter("all");
+  }, []);
 
   const dialOpen = searchParams.get("dial") === "1";
   const setDialOpen = (open: boolean) => {
@@ -71,6 +86,10 @@ export function PeersView() {
       <PeersTableCard
         peers={filtered}
         bufferEmpty={peers.length === 0}
+        nodeReady={nodeReady}
+        nodeRunning={nodeRunning}
+        onStartNode={onStartNode}
+        onResetFilters={resetFilters}
         locale={locale}
         now={now}
         onPing={onPing}
