@@ -203,12 +203,25 @@ const zhCN = {
     description: "mDNS 局域网发现与 rendezvous 地址簿",
     empty: "暂无发现记录",
     emptyHint: "开启 mDNS 或添加引导地址后，发现的邻居会出现在这里",
+    emptyActions: {
+      enableMdns: "开启 mDNS",
+      addBootstrap: "添加引导地址",
+    },
     loadFailed: "配置加载失败，请重试",
     mdns: {
       title: "mDNS 局域网发现",
-      hint: "开关回读持久化配置，切换即保存，下次启动生效",
+      hint: "切换后需点「保存」写入配置；节点重启后才生效",
       runningDetail: "正在局域网内广播本节点，同一链路的邻居可自动发现并直连。",
       stoppedDetail: "已关闭局域网广播：邻居发现依赖 rendezvous 引导地址。",
+      enabledBadge: "已启用（下次启动生效）",
+      disabledBadge: "已关闭",
+      enabledRunningDetail:
+        "已启用：重启节点后开始局域网广播，当前运行的节点尚未广播。",
+      enabledNextStartDetail: "已启用：节点下次启动后开始局域网广播。",
+      draftNotice: "开关已修改，尚未保存",
+      discard: "放弃",
+      save: "保存",
+      saving: "保存中…",
       saved: "mDNS 配置已保存",
       saveFailed: "mDNS 配置保存失败",
     },
@@ -537,10 +550,16 @@ const zhCN = {
     advertise: {
       hint: "对外宣告地址与观测反射口",
       advertisedAddrs: "宣告地址",
+      advertisedAddrsGuide:
+        "用途：告诉其他节点可以从哪些地址拨入本节点。典型场景：本机在 NAT 或防火墙后且已配置公网端口映射时，把公网地址填在这里，邻居才能跨网连进来。语法：ip/u端口（QUIC）或 ip/t端口（TCP）。",
       observationPort: "观测端口",
       observationPortPlaceholder: "可选，未设置",
       observationPortHint: "留空表示不启用观测反射口",
+      observationPortGuide:
+        "用途：在本机开一个 UDP 反射端口，邻居经它探测双方公网出口地址，辅助 NAT 打洞。典型场景：双方都在 NAT 后、直连失败率高时开启。填 1-65535 的端口。",
       observationAddrs: "观测地址",
+      observationAddrsGuide:
+        "用途：对外公布的观测反射端点，邻居经它做地址探测以完成打洞。语法与宣告地址不同：这里用 ip:端口（冒号分隔，如 121.196.193.177:3402），宣告地址用 ip/u端口。",
     },
     appearance: { hint: "主题与语言即时生效，不属于节点配置" },
     identity: {
@@ -587,6 +606,7 @@ const zhCN = {
       saveAndRestarting: "保存并重启中…",
       saved: "配置已保存",
       saveFailed: "保存失败",
+      invalidSummary: "有 {{count}} 处配置未通过校验，请修正标红的字段后重试",
       dirty: "有未保存的修改",
       clean: "配置已与磁盘一致",
       runningNotice: "节点运行中：修改保存后需重启节点才能生效。",
@@ -597,6 +617,12 @@ const zhCN = {
       restartConfirmYes: "保存并重启",
       restartDone: "节点已用新配置重启",
       restartFailed: "保存并重启失败",
+    },
+    unsavedGuard: {
+      title: "放弃未保存的修改？",
+      description: "当前页面有未保存的修改，离开后将丢失这些修改。",
+      discard: "放弃修改",
+      stay: "留在本页",
     },
   },
   update: {
@@ -660,7 +686,16 @@ const zhCN = {
     description: "前端错误缓冲、日志文件路径与持久化尾部——Agent 感知通道的人工视图。",
     refresh: "刷新",
     clearAll: "一键清理诊断数据",
+    clearConfirm: {
+      title: "清理诊断数据？",
+      description:
+        "将清空前端错误缓冲，并删除持久化日志文件（frontend.log 及轮转文件）。此操作不可恢复。",
+      confirm: "清理",
+    },
     cleared: "诊断数据已清理",
+    loadPathFailed: "读取日志文件路径失败",
+    loadTailFailed: "读取日志尾部失败",
+    clearFailed: "清理诊断数据失败",
     env: {
       title: "运行环境",
       description: "IPC 模式与前端错误日志位置（外部直接读文件即可掌握前端报错）。",

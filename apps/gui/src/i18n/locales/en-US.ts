@@ -209,14 +209,28 @@ const enUS: typeof zhCN = {
     empty: "No discovery records",
     emptyHint:
       "Once mDNS is on or a bootstrap address is added, discovered peers appear here",
+    emptyActions: {
+      enableMdns: "Enable mDNS",
+      addBootstrap: "Add bootstrap address",
+    },
     loadFailed: "Failed to load config, please retry",
     mdns: {
       title: "mDNS LAN discovery",
-      hint: "Switch reads the persisted config; toggling saves instantly, effective on next start",
+      hint: "Toggle then save to write the config; takes effect after the node restarts",
       runningDetail:
         "Broadcasting this node on the LAN: peers on the same link can discover and dial it directly.",
       stoppedDetail:
         "LAN broadcast is off: peer discovery relies on rendezvous bootstrap addresses.",
+      enabledBadge: "Enabled (takes effect on next start)",
+      disabledBadge: "Off",
+      enabledRunningDetail:
+        "Enabled: broadcasting starts after the node restarts; the currently running node is not advertising yet.",
+      enabledNextStartDetail:
+        "Enabled: broadcasting starts the next time the node starts.",
+      draftNotice: "Switch changed, not saved yet",
+      discard: "Discard",
+      save: "Save",
+      saving: "Saving…",
       saved: "mDNS config saved",
       saveFailed: "Failed to save mDNS config",
     },
@@ -549,10 +563,16 @@ const enUS: typeof zhCN = {
     advertise: {
       hint: "Advertised addresses and observation reflection port",
       advertisedAddrs: "Advertised addresses",
+      advertisedAddrsGuide:
+        "Purpose: tell other peers which addresses can dial into this node. Typical case: the machine sits behind NAT or a firewall with a public port mapping — put the public address here so peers can reach you across networks. Syntax: ip/uport (QUIC) or ip/tport (TCP).",
       observationPort: "Observation port",
       observationPortPlaceholder: "Optional, unset",
       observationPortHint: "Leave empty to disable the observation port",
+      observationPortGuide:
+        "Purpose: open a UDP reflection port on this machine so peers can probe public exit addresses, helping NAT hole punching. Typical case: both sides are behind NAT and direct dials keep failing. Enter a port from 1-65535.",
       observationAddrs: "Observation addresses",
+      observationAddrsGuide:
+        "Purpose: publicly announced observation endpoints that peers probe to complete hole punching. Note the syntax differs from advertised addresses: use ip:port with a colon (e.g. 121.196.193.177:3402), while advertised addresses use ip/uport.",
     },
     appearance: { hint: "Theme and language apply instantly; not part of node config" },
     identity: {
@@ -599,6 +619,8 @@ const enUS: typeof zhCN = {
       saveAndRestarting: "Saving & restarting…",
       saved: "Config saved",
       saveFailed: "Save failed",
+      invalidSummary:
+        "{{count}} field(s) failed validation. Fix the highlighted fields and retry.",
       dirty: "You have unsaved changes",
       clean: "Config matches disk",
       runningNotice:
@@ -610,6 +632,13 @@ const enUS: typeof zhCN = {
       restartConfirmYes: "Save & restart",
       restartDone: "Node restarted with the new config",
       restartFailed: "Save & restart failed",
+    },
+    unsavedGuard: {
+      title: "Discard unsaved changes?",
+      description:
+        "This page has unsaved changes; leaving now will discard them.",
+      discard: "Discard changes",
+      stay: "Stay on this page",
     },
   },
   update: {
@@ -674,7 +703,16 @@ const enUS: typeof zhCN = {
       "Frontend error buffer, log file path and persisted tail — human view of the agent perception channel.",
     refresh: "Refresh",
     clearAll: "Clear diagnostics",
+    clearConfirm: {
+      title: "Clear diagnostics data?",
+      description:
+        "This clears the frontend error buffer and deletes the persisted log files (frontend.log and rotated files). This cannot be undone.",
+      confirm: "Clear",
+    },
     cleared: "Diagnostics cleared",
+    loadPathFailed: "Failed to read the log file path",
+    loadTailFailed: "Failed to read the log tail",
+    clearFailed: "Failed to clear diagnostics data",
     env: {
       title: "Runtime",
       description:
