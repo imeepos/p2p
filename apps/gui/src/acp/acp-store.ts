@@ -47,7 +47,10 @@ interface AcpConsoleState {
   directory: DirectoryEntry[];
   /** prompt 回合进行中，按会话归属记录（切会话不误显 Stop/误发取消） */
   promptPendingBySession: Record<string, boolean>;
+  /** 每会话未发送草稿：切会话互不污染，杜绝把话发给另一个 agent（P1 草稿隔离） */
+  promptDrafts: Record<string, string>;
   lastError: string | null;
+  setPromptDraft: (sessionId: string, text: string) => void;
   setDraft: (patch: Partial<AcpEndpoint>) => void;
   saveDraft: () => void;
   removeSaved: (peer: string) => void;
@@ -93,7 +96,12 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   interactions: {},
   directory: [],
   promptPendingBySession: {},
+  promptDrafts: {},
   lastError: null,
+
+  setPromptDraft: (sessionId, text) => {
+    set((s) => ({ promptDrafts: { ...s.promptDrafts, [sessionId]: text } }));
+  },
 
   setDraft: (patch) => {
     const draft = { ...get().draft, ...patch };
@@ -162,6 +170,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
       transcripts: {},
       interactions: {},
       promptPendingBySession: {},
+      promptDrafts: {},
       lastError: null,
     });
   },

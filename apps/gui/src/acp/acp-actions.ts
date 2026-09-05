@@ -21,6 +21,16 @@ function get() {
   return useAcpStore.getState();
 }
 
+/** 发送成功清空该会话草稿；失败保留（composer 可原样重发） */
+function clearPromptDraft(sessionId: string): void {
+  useAcpStore.setState((s) => {
+    if (!(sessionId in s.promptDrafts)) return s;
+    const next = { ...s.promptDrafts };
+    delete next[sessionId];
+    return { promptDrafts: next };
+  });
+}
+
 /** 未决权限收尾：respond=true 时按 ACP 约定回 cancelled（轮次取消场景） */
 export function rejectPendingPermissions(sessionId: string, respond: boolean): void {
   const list = get().interactions[sessionId]?.permissions ?? [];
@@ -140,6 +150,10 @@ export async function runCloseSession(sessionId: string): Promise<void> {
         Object.entries(s.transcripts).filter(([id]) => id !== sessionId),
       ),
       interactions: dropSession(s.interactions, sessionId),
+      // 会话没了草稿即无归属，随删防串会话（P1 草稿隔离）
+      promptDrafts: Object.fromEntries(
+        Object.entries(s.promptDrafts).filter(([id]) => id !== sessionId),
+      ),
     };
   });
 }
@@ -171,6 +185,7 @@ export async function runSendPrompt(text: string): Promise<boolean> {
   try {
     const result = (await conn.sessionPrompt(sessionId, trimmed)) as { stopReason?: string };
     settlePending(false);
+    clearPromptDraft(sessionId);
     mapTranscript(sessionId, (t) => settleTranscript(t, result.stopReason ?? "end_turn"));
     return true;
   } catch (error) {
