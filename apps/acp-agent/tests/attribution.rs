@@ -49,9 +49,10 @@ async fn concurrent_operators_attribute_to_own_stream_identity() {
 
     let granted_id = granted.local_peer_id().to_string();
     let stranger_id = stranger.local_peer_id().to_string();
-    wait_audit(&audit, |ev| {
-        matches!(ev, AuditEvent::ConnEstablished { peer, .. } if *peer == granted_id)
-    })
+    wait_audit(
+        &audit,
+        |ev| matches!(ev, AuditEvent::ConnEstablished { peer, .. } if *peer == granted_id),
+    )
     .await;
     wait_audit(&audit, |ev| {
         matches!(ev, AuditEvent::ConnDenied { peer, code } if *peer == stranger_id && code == "peer-not-allowed")

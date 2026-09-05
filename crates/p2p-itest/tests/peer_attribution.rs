@@ -55,13 +55,17 @@ async fn node(tag: &str) -> Node {
 fn seed(server: &Node, server_peer: PeerId, client: &Node) {
     for addr in server.listen_addrs() {
         if addr.contains("/u") {
-            client.add_peer_address(server_peer, &addr).expect("seed addr");
+            client
+                .add_peer_address(server_peer, &addr)
+                .expect("seed addr");
         }
     }
 }
 
 async fn echo_marker(stream: &mut BoxedStream, marker: &str) -> String {
-    write_frame(stream, marker.as_bytes()).await.expect("write marker");
+    write_frame(stream, marker.as_bytes())
+        .await
+        .expect("write marker");
     let frame = read_frame(stream).await.expect("echo frame");
     String::from_utf8(frame).expect("utf8 echo")
 }
@@ -92,8 +96,10 @@ async fn concurrent_streams_attribute_each_to_its_own_peer() {
         .await
         .expect("stream from b");
 
-    let (echo_a, echo_b) =
-        tokio::join!(echo_marker(&mut sa, "from-a"), echo_marker(&mut sb, "from-b"));
+    let (echo_a, echo_b) = tokio::join!(
+        echo_marker(&mut sa, "from-a"),
+        echo_marker(&mut sb, "from-b")
+    );
     assert_eq!(echo_a, "from-a", "echo must come back on its own stream");
     assert_eq!(echo_b, "from-b", "echo must come back on its own stream");
 
