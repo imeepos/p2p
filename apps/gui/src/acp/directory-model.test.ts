@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   addManual,
+  groupBySource,
   removeEntry,
   setEntryScope,
   upsertDiscovered,
@@ -44,5 +45,13 @@ describe("directory model", () => {
     expect(entries.find((e) => e.peer === "a")?.scope).toBe("workspace");
     entries = removeEntry(entries, "a");
     expect(entries.map((e) => e.peer)).toEqual(["b"]);
+  });
+
+  it("groupBySource 按来源分两组且组内保持原顺序", () => {
+    const entries = upsertDiscovered([], [{ peer: "d-1" }, { peer: "d-2" }]);
+    const mixed = addManual(entries, "m-1");
+    const groups = groupBySource(mixed);
+    expect(groups.discovered.map((e) => e.peer)).toEqual(["d-1", "d-2"]);
+    expect(groups.manual.map((e) => e.peer)).toEqual(["m-1"]);
   });
 });
