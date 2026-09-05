@@ -9,10 +9,23 @@ declare global {
   }
 }
 
+// P0 路由迁移别名：五排障面与仪表盘挂到 /network/* 子路由后，页面组件
+// 未变（P0 只挂载不搬迁），health.route 与 /page/* 协议沿用原注册键，
+// PAGE_REGISTRY 键集保持稳定（重定向层不改变页面语义）。
+const ROUTE_ALIASES: Readonly<Record<string, string>> = {
+  "network/overview": "dashboard",
+  "network/peers": "peers",
+  "network/discovery": "discovery",
+  "network/relay": "relay",
+  "network/events": "events",
+  "network/diagnostics": "diagnostics",
+};
+
 // "#/chat" -> "chat"；"" / "#" / "#/" -> "dashboard"（menu.def.ts 的 index 路由）。
 export function normalizeRoute(hash: string): string {
   const path = hash.replace(/^#\/?/, "").split("?")[0];
-  return path === "" ? "dashboard" : path;
+  if (path === "") return "dashboard";
+  return ROUTE_ALIASES[path] ?? path;
 }
 
 export function installControlBridge(): void {

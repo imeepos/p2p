@@ -47,9 +47,10 @@ describe("menu registration guard", () => {
     }
   });
 
-  it("ACP 控制台已登记且路由挂载点存在", () => {
-    expect(MENU_ENTRIES.some((e) => e.path === "/acp")).toBe(true);
+  it("ACP 视图经 /chat?kind=agent 保持可达（/acp 重定向保留）", () => {
     expect(routes().has("acp")).toBe(true);
+    const chatRoute = readFileSync(join(process.cwd(), "src", "routes", "chat-route.tsx"), "utf8");
+    expect(chatRoute).toContain("AcpPage");
     expect(typeof AcpPage).toBe("function");
   });
 });

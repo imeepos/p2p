@@ -19,6 +19,15 @@ describe("normalizeRoute", () => {
     expect(normalizeRoute("#/peers?x=1")).toBe("peers");
     expect(normalizeRoute("#settings")).toBe("settings");
   });
+
+  it("/network/* 子路由按迁移别名归一化为原页面注册键", () => {
+    expect(normalizeRoute("#/network/overview")).toBe("dashboard");
+    expect(normalizeRoute("#/network/peers?x=1")).toBe("peers");
+    expect(normalizeRoute("#/network/discovery")).toBe("discovery");
+    expect(normalizeRoute("#/network/relay")).toBe("relay");
+    expect(normalizeRoute("#/network/events")).toBe("events");
+    expect(normalizeRoute("#/network/diagnostics")).toBe("diagnostics");
+  });
 });
 
 describe("installControlBridge", () => {

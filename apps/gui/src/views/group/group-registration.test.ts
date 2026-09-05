@@ -47,9 +47,10 @@ describe("群聊中央登记守卫", () => {
     }
   });
 
-  it("群聊已登记且路由挂载点存在", () => {
-    expect(MENU_ENTRIES.some((e) => e.path === "/group")).toBe(true);
+  it("群聊视图经 /chat?kind=group 保持可达（/group 重定向保留）", () => {
     expect(appRoutePaths().has("group")).toBe(true);
+    const chatRoute = readFileSync(join(process.cwd(), "src", "routes", "chat-route.tsx"), "utf8");
+    expect(chatRoute).toContain("GroupPage");
     expect(typeof GroupPage).toBe("function");
   });
 });
