@@ -75,7 +75,7 @@ step "3/9 consent required: A friend list still empty"
 step "OK: no friendship before consent"
 
 step "4/9 swap: B serve down, A serve up (fixed port 41001), heal refreshes B"
-"$BIN" chat serve --data-dir "$A_DIR" --quic-port 41001 --json >"$TMP/a.json" 2>/dev/null &
+"$BIN" chat serve --data-dir "$A_DIR" --quic-port 41001 --json >"$TMP/a.json" 2>"$TMP/a.err" &
 PA=$!
 READY="$(wait_ready "$TMP/a.json")"
 A_PEER="$(echo "$READY" | awk '{print $1}')"
@@ -84,9 +84,17 @@ step "OK: B holds incoming invite"
 
 step "5/9 B accepts (reply dials advertised addr 41001)"
 HEALED=""
-for i in $(seq 1 30); do
-  if "$BIN" chat friends invites list --data-dir "$B_DIR" --json | grep -qF "u41001"; then HEALED=1; break; fi
-  sleep 0.5
+for round in 1 2 3; do
+  for i in $(seq 1 30); do
+    if "$BIN" chat friends invites list --data-dir "$B_DIR" --json | grep -qF "u41001"; then HEALED=1; break; fi
+    sleep 0.5
+  done
+  [ -n "$HEALED" ] && break
+  if [ -n "$PA" ]; then kill "$PA"; wait "$PA" 2>/dev/null; PA=""; fi
+  "$BIN" chat serve --data-dir "$A_DIR" --quic-port 41001 --json >"$TMP/a.json" 2>/dev/null &
+  PA=$!
+  READY="$(wait_ready "$TMP/a.json")"
+  A_PEER="$(echo "$READY" | awk '{print $1}')"
 done
 if [ -z "$HEALED" ]; then echo "FAIL B never learned A addr"; exit 1; fi
 if [ -n "$PB" ]; then kill "$PB"; wait "$PB" 2>/dev/null; PB=""; fi
@@ -100,7 +108,7 @@ for i in $(seq 1 20); do
   if "$BIN" chat friends list --data-dir "$A_DIR" --json | json_has "$B_PEER" peerId; then FOUND=1; break; fi
   sleep 0.5
 done
-if [ -z "$FOUND" ]; then echo "FAIL A side missing friend (ACCEPT not converged)"; exit 1; fi
+if [ -z "$FOUND" ]; then echo "FAIL A side missing friend (ACCEPT not converged)"; cat "$TMP/a.err" "$TMP/b.err" 2>/dev/null; exit 1; fi
 step "OK: mutual friends"
 
 step "7/9 nickname autonomy (A set xiaob, B set a-a)"

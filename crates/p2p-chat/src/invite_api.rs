@@ -174,9 +174,9 @@ pub(crate) fn spawn_invite_heal(core: Arc<ChatCore>) {
         };
         for peer in peers {
             // 拨号就绪时序不稳（底座启动竞态），退避重试三次尽力收敛。
-            for attempt in 0..3u32 {
+            for attempt in 0..5u32 {
                 if attempt > 0 {
-                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
                 }
                 match deliver_frame(&core, &peer, INVITE, &invite_frame(&core, &peer), false).await
                 {
