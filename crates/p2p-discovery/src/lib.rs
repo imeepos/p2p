@@ -53,9 +53,11 @@ pub trait AddrCache: Send + Sync {
 pub mod cache;
 pub mod mdns;
 pub mod rendezvous;
+pub mod retry;
 
 pub use cache::MemCache;
 pub use mdns::{MdnsConfig, MdnsDiscovery};
 pub use rendezvous::{
     RendezvousClient, RendezvousConfig, RendezvousError, RendezvousLink, RendezvousRegistry,
 };
+pub use retry::{retry_bounded, RetryExhausted, RetryPolicy};
