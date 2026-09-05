@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Bot } from "lucide-react";
+import { Bot, X } from "lucide-react";
+
 
 import { PageHeader } from "@/components/page/page-header";
 import { useAcpStore } from "@/acp/acp-store";
@@ -33,17 +35,36 @@ function ReconnectBanner() {
   );
 }
 
-/** 续连横幅：dsh/bridge/reattach 通知折射（apps/acp-agent/README.md 桥约定） */
+const REATTACH_AUTO_DISMISS_MS = 8_000;
+
+/** 续连横幅：dsh/bridge/reattach 通知折射（apps/acp-agent/README.md 桥约定）。
+ *  约 8 秒自动消失，也可手动关闭；补放 0 条（仅续连成功）与 N 条文案区分。 */
 function ReattachBanner() {
   const { t } = useTranslation();
   const reattach = useAcpStore((s) => s.reattachNotice);
+  const dismiss = useAcpStore((s) => s.dismissReattachNotice);
+  useEffect(() => {
+    if (!reattach) return;
+    const timer = setTimeout(dismiss, REATTACH_AUTO_DISMISS_MS);
+    return () => clearTimeout(timer);
+  }, [reattach, dismiss]);
   if (!reattach) return null;
+  const bannerKey = reattach.replayed > 0 ? "acp.reattach.banner" : "acp.reattach.bannerNone";
   return (
     <div
-      className="border-success/40 bg-success/10 rounded-md border px-3 py-2 text-sm"
+      className="border-success/40 bg-success/10 flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
       data-testid="acp-reattach-banner"
     >
-      {t("acp.reattach.banner", { count: reattach.replayed })}
+      <span>{t(bannerKey, { count: reattach.replayed })}</span>
+      <button
+        type="button"
+        aria-label={t("acp.reattach.dismiss")}
+        onClick={dismiss}
+        data-testid="acp-reattach-dismiss"
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="size-4" aria-hidden />
+      </button>
     </div>
   );
 }

@@ -52,6 +52,8 @@ interface AcpConsoleState {
   disconnect: () => void;
   /** 断线重连横幅的立即重试入口（不打断自动重连计数） */
   retryNow: () => void;
+  /** 续连补放横幅手动关闭 */
+  dismissReattachNotice: () => void;
   newSession: () => Promise<void>;
   refreshSessions: () => Promise<void>;
   resumeSession: (sessionId: string) => Promise<void>;
@@ -110,6 +112,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   connect: () => startConnect(),
   disconnect: () => runDisconnect(),
   retryNow: () => runRetryNow(),
+  dismissReattachNotice: () => set({ reattachNotice: null }),
   newSession: () => runNewSession(),
   refreshSessions: () => runRefreshSessions(),
   resumeSession: (sessionId) => runResumeSession(sessionId),
