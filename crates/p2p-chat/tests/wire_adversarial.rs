@@ -243,7 +243,7 @@ async fn bad_ack_variants_fail_delivery_and_mark_failed() {
         let fx = fx(&format!("ack{i}")).await;
         fx.b.handle_protocol(Arc::new(BadPeer(not_ack_frame)));
         fx.chat
-            .friend_add_direct(&fx.peer_b, "b", fx.b.listen_addrs(), None)
+            .friend_add(&fx.peer_b, "b", fx.b.listen_addrs(), None)
             .expect("登记 B 地址");
         let report = fx
             .chat

@@ -73,7 +73,7 @@ async fn large_backlog_converges_over_repeated_flushes() {
     a.node.shutdown();
     let a2 = spawn_at("cap40-a2", &dir).await;
     a2.chat
-        .friend_add_direct(&b_peer, "b", b.node.listen_addrs(), None)
+        .friend_add(&b_peer, "b", b.node.listen_addrs(), None)
         .expect("re-add");
 
     let _ = a2

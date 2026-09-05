@@ -11,12 +11,14 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use crate::invite::FriendInvite;
-use crate::model::{sanitize_name, ChatEnvelope, ChatStatus};
+use crate::model::{sanitize_name, ChatEnvelope, ChatFriend, ChatStatus};
 use crate::store_friends::FriendsBook;
 use crate::store_io::{
     append_line, dedup_last_by_id, load_invites, load_jsonl, rewrite_jsonl_patch_status,
     rewrite_jsonl_retain,
 };
+
+pub(crate) const FRIENDS_LOCK_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 fn poisoned() -> std::io::Error {
     std::io::Error::other("store 内部锁中毒")
@@ -30,7 +32,7 @@ pub(crate) struct Store {
     messages_dir: PathBuf,
     media_dir: PathBuf,
     pub(crate) lock_timeout: Duration,
-    state: Mutex<State>,
+    pub(crate) state: Mutex<State>,
 }
 
 #[derive(Default)]
@@ -228,7 +230,9 @@ impl Store {
         Ok(final_path)
     }
 
-<<<<<<< HEAD
+    pub(crate) fn invites_lock_path(&self) -> PathBuf {
+        PathBuf::from(format!("{}.lock", self.invites_path.display()))
+    }
     fn outbox_path(&self, peer: &str) -> PathBuf {
         self.outbox_dir.join(format!("{peer}.jsonl"))
     }

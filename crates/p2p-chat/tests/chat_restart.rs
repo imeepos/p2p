@@ -56,10 +56,10 @@ async fn restart_recovers_outbox_and_flushes() {
 
     // 双方地址簿互相刷新为重启后的真实监听地址（端口已变，旧地址不可拨）
     a2.chat
-        .friend_add_direct(&peer_b, "b", b2.node.listen_addrs(), None)
+        .friend_add(&peer_b, "b", b2.node.listen_addrs(), None)
         .expect("a2 刷新 b2 地址");
     b2.chat
-        .friend_add_direct(&peer_a, "a", a2.node.listen_addrs(), None)
+        .friend_add(&peer_a, "a", a2.node.listen_addrs(), None)
         .expect("b2 刷新 a2 地址");
 
     // 触发连接：B2 拨 A2

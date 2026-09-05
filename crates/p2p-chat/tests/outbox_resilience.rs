@@ -88,7 +88,7 @@ async fn fabricated_failed_outbox_entries_do_not_poison_new_sends() {
     a.node.shutdown();
     let a2 = spawn_at("poison-a2", &dir).await;
     a2.chat
-        .friend_add_direct(&b_peer, "b", b.node.listen_addrs(), None)
+        .friend_add(&b_peer, "b", b.node.listen_addrs(), None)
         .expect("re-add friend");
 
     // 新发送必须不被毒化条目阻塞。
@@ -168,10 +168,10 @@ async fn drain_peer_delivers_offline_queue_after_peer_returns() {
     // B 回归（新端口），A 刷新地址簿后 drain。
     let b2 = spawn_at("drain-b2", &b.dir).await;
     b2.chat
-        .friend_add_direct(&a_peer, "a", a.node.listen_addrs(), None)
+        .friend_add(&a_peer, "a", a.node.listen_addrs(), None)
         .expect("b2 re-add a");
     a.chat
-        .friend_add_direct(&b_peer, "b", b2.node.listen_addrs(), None)
+        .friend_add(&b_peer, "b", b2.node.listen_addrs(), None)
         .expect("a refresh b addrs");
 
     let drained = a

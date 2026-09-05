@@ -32,10 +32,10 @@ pub(crate) fn spawn_outbox_task(core: Arc<ChatCore>, group: Arc<GroupCore>) {
                         tracing::warn!(%peer, error = %e, "outbox flush 失败");
                     }
                     if let Err(e) = flush_group_peer(&group, &peer_s).await {
-                        tracing::warn!(%peer, error = %e, "goutbox flush 失败");
+                        tracing::warn!(%peer, error = %e, "群 outbox flush 失败");
                     }
-                    // 挂起邀请重投：邀请制加好友对离线对端的收敛路径（invite_api）。
                     crate::invite_api::flush_invites_peer(&core, &peer_s).await;
+                    // 邀请重投（邀请制收敛路径）
                 }
                 Ok(_) => {}
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,

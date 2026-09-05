@@ -33,14 +33,14 @@ async fn peer_id_rejects_invalid_length_and_self() {
     let dir = temp_dir("peer");
     let (node, chat) = chat_at(&dir).await;
     let invalid = chat
-        .friend_add_direct("not base58!", "x", Vec::new(), None)
+        .friend_add("not base58!", "x", Vec::new(), None)
         .expect_err("invalid PeerId must fail");
     assert!(
         invalid.to_string().contains("PeerId"),
         "invalid peer error is explicit: {invalid}"
     );
     let wrong = chat
-        .friend_add_direct("hello", "x", Vec::new(), None)
+        .friend_add("hello", "x", Vec::new(), None)
         .expect_err("wrong-length PeerId must fail");
     assert!(
         wrong.to_string().contains("非法"),
@@ -48,7 +48,7 @@ async fn peer_id_rejects_invalid_length_and_self() {
     );
     let self_id = node.local_peer_id().to_string();
     let self_err = chat
-        .friend_add_direct(&self_id, "x", Vec::new(), None)
+        .friend_add(&self_id, "x", Vec::new(), None)
         .expect_err("self PeerId must fail");
     assert!(
         self_err.to_string().contains("自己"),
@@ -193,7 +193,7 @@ async fn atomic_write_failure_returns_io_signal() {
     let (node, chat) = chat_at(&dir).await;
     let other = p2p_identity::Keypair::generate().peer_id().to_string();
     let err = chat
-        .friend_add_direct(&other, "atomic", Vec::new(), None)
+        .friend_add(&other, "atomic", Vec::new(), None)
         .expect_err("directory target makes atomic write fail");
     assert!(
         err.to_string().contains("IO") || err.to_string().contains("目录"),

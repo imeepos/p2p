@@ -155,7 +155,7 @@ export function createMockChatBackend(deps: MockChatDeps): MockChatBackend {
       }));
     },
 
-    // 测试引导入口（直建好友簿，等价 crate friend_add_direct）；用户路径走 chatFriendInvite。
+    // 测试引导入口（直建好友簿，等价 crate friend_add）；用户路径走 chatFriendInvite。
     // 校验镜像契约 §12.1：peerId base58 且不等于本机、nickname trim ≤64、addr 逐条校验。
     async chatFriendAdd(peerId, nickname, addrs) {
       if (!isValidPeerId(peerId)) {

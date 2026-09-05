@@ -39,13 +39,13 @@ async fn nickname_boundaries_trim_count_and_empty_value() {
     let chat = Chat::new(node.clone(), dir.clone()).expect("chat store builds");
     let peer = p2p_identity::Keypair::generate().peer_id().to_string();
     assert_eq!(
-        chat.friend_add_direct(&peer, "  名字  ", vec![], None)
+        chat.friend_add(&peer, "  名字  ", vec![], None)
             .expect("trim nickname")
             .nickname,
         "名字"
     );
     assert_eq!(
-        chat.friend_add_direct(&peer, &"名".repeat(64), vec![], None)
+        chat.friend_add(&peer, &"名".repeat(64), vec![], None)
             .expect("64 chars")
             .nickname
             .chars()
@@ -53,12 +53,12 @@ async fn nickname_boundaries_trim_count_and_empty_value() {
         64
     );
     assert!(
-        chat.friend_add_direct(&peer, &"名".repeat(65), vec![], None)
+        chat.friend_add(&peer, &"名".repeat(65), vec![], None)
             .is_err(),
         "65 chars must fail"
     );
     assert_eq!(
-        chat.friend_add_direct(&peer, "", vec![], None)
+        chat.friend_add(&peer, "", vec![], None)
             .expect("empty nickname allowed")
             .nickname,
         ""
