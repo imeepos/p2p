@@ -761,7 +761,8 @@ p2pctl: 运行失败: 重置身份是危险操作，必须显式传入 --confirm
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --json | flag | 否 | off |
-| --log-dir | path | 否 | GUI 日志目录（--data-dir 为同义别名） |
+| --log-dir | path | 否 | GUI 日志目录 |
+| --data-dir | path | 否 | 无（同 --log-dir 的别名；同时给出时优先于 --log-dir） |
 | --lines | int | 否 | 200（上限 1000） |
 文本：逐行原样输出日志 JSONL 行。
 ```
@@ -777,7 +778,8 @@ p2pctl: 运行失败: 重置身份是危险操作，必须显式传入 --confirm
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --json | flag | 否 | off |
-| --log-dir | path | 否 | GUI 日志目录（--data-dir 为同义别名） |
+| --log-dir | path | 否 | GUI 日志目录 |
+| --data-dir | path | 否 | 无（同 --log-dir 的别名；同时给出时优先于 --log-dir） |
 文本：
 ```
 /Users/imeepos/Library/Logs/com.p2p.console/frontend.log
@@ -789,7 +791,8 @@ p2pctl: 运行失败: 重置身份是危险操作，必须显式传入 --confirm
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | --json | flag | 否 | off |
-| --log-dir | path | 否 | GUI 日志目录（--data-dir 为同义别名） |
+| --log-dir | path | 否 | GUI 日志目录 |
+| --data-dir | path | 否 | 无（同 --log-dir 的别名；同时给出时优先于 --log-dir） |
 文本：
 ```
 已清理前端日志 current=true rotated=false path=<log-dir>/frontend.log

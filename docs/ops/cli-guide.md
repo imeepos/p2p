@@ -136,7 +136,8 @@ p2pctl log clear [--log-dir DIR] [--data-dir DIR] [--json]              # 删 fr
 ```
 
 `--data-dir` 是 `--log-dir` 的同义别名（F7 参数命名对齐：他域均用
---data-dir），语义不变：读 `<DIR>/frontend.log`。
+--data-dir），语义不变：读 `<DIR>/frontend.log`；两者同时给出时
+`--data-dir` 优先。
 
 注意：GUI 进程自身日志为同目录 `p2p-console.log`（tracing 落盘），节点守护进程日志为
 `<data-dir>/daemon.log`；两者不属于 frontend.log 语义，不在 `log` 域范围内。
