@@ -120,14 +120,20 @@ export async function runCloseSession(sessionId: string): Promise<void> {
     notifyActionFailure("sessionCloseFailed", error);
     useAcpStore.setState({ lastError: "sessionCloseFailed" });
   }
-  useAcpStore.setState((s) => ({
-    sessions: s.sessions.filter((e) => e.sessionId !== sessionId),
-    activeSessionId: s.activeSessionId === sessionId ? null : s.activeSessionId,
-    transcripts: Object.fromEntries(
-      Object.entries(s.transcripts).filter(([id]) => id !== sessionId),
-    ),
-    interactions: dropSession(s.interactions, sessionId),
-  }));
+  useAcpStore.setState((s) => {
+    const sessions = s.sessions.filter((e) => e.sessionId !== sessionId);
+    // 焦点回退：关掉的是当前会话时自动落到列表下一个，无会话才回空态
+    const nextActive =
+      s.activeSessionId === sessionId ? (sessions[0]?.sessionId ?? null) : s.activeSessionId;
+    return {
+      sessions,
+      activeSessionId: nextActive,
+      transcripts: Object.fromEntries(
+        Object.entries(s.transcripts).filter(([id]) => id !== sessionId),
+      ),
+      interactions: dropSession(s.interactions, sessionId),
+    };
+  });
 }
 
 function dropSession(

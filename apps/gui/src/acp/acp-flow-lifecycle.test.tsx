@@ -8,7 +8,7 @@ vi.stubEnv("VITE_MOCK_IPC", "1");
 const { AcpView } = await import("./acp-view");
 const { mockAcpConsole } = await import("./mock-acp-ws");
 const { useAcpStore } = await import("./acp-store");
-const { renderConnected, resetFixtures } = await import("./acp-view-test-utils");
+const { renderConnected, newSession, resetFixtures } = await import("./acp-view-test-utils");
 const { setWsFactory } = await import("./ws-factory");
 await import("@/i18n");
 
@@ -95,5 +95,33 @@ describe("AcpView connecting indicator", () => {
     await waitFor(() => {
       expect(screen.queryByTestId("acp-connecting-indicator")).toBeNull();
     });
+  });
+});
+
+describe("AcpView session focus fallback", () => {
+  it("关闭当前会话后焦点自动落到列表下一个", async () => {
+    await renderConnected();
+    await newSession();
+    fireEvent.click(screen.getByTestId("acp-session-new"));
+    await screen.findByTestId("acp-session-row-s-002");
+    expect(useAcpStore.getState().activeSessionId).toBe("s-002");
+    fireEvent.click(screen.getByTestId("acp-session-close-s-002"));
+    await waitFor(() => {
+      expect(screen.queryByTestId("acp-session-row-s-002")).toBeNull();
+    });
+    expect(useAcpStore.getState().activeSessionId).toBe("s-001");
+    // 主列仍处于会话模式（composer 在墙），未闪回空态
+    expect(screen.getByTestId("acp-composer-input")).toBeTruthy();
+    expect(screen.queryByTestId("acp-main-empty")).toBeNull();
+  });
+
+  it("关闭最后一个会话回空态", async () => {
+    await renderConnected();
+    await newSession();
+    fireEvent.click(screen.getByTestId("acp-session-close-s-001"));
+    await waitFor(() => {
+      expect(useAcpStore.getState().activeSessionId).toBeNull();
+    });
+    expect(screen.getByTestId("acp-main-empty")).toBeTruthy();
   });
 });
