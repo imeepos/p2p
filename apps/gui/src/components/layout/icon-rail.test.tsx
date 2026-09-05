@@ -78,3 +78,24 @@ describe("rail 聊天未读合计角标（§2.3）", () => {
     expect(screen.queryByTestId("rail-badge-/chat")).toBeNull();
   });
 });
+
+describe("rail 通讯录待处理邀请角标（§3.2）", () => {
+  it("in 向邀请计数呈现角标；out 向不计；归零后消失", () => {
+    useChatStore.setState({
+      invites: [
+        { peerId: "p-in", nickname: "甲", addrs: [], note: null, direction: "in", tsMs: 1, delivered: true },
+        { peerId: "p-in2", nickname: "乙", addrs: [], note: null, direction: "in", tsMs: 2, delivered: true },
+        { peerId: "p-out", nickname: "丙", addrs: [], note: null, direction: "out", tsMs: 3, delivered: true },
+      ],
+    });
+    renderRail("/chat");
+    const badge = screen.getByTestId("rail-badge-/contacts");
+    expect(badge.textContent).toBe("2");
+    expect(badge.getAttribute("aria-label")).toBe(i18n.t("contacts.inviteBadge.aria", { count: 2 }));
+    cleanup();
+
+    useChatStore.setState({ invites: [] });
+    renderRail("/chat");
+    expect(screen.queryByTestId("rail-badge-/contacts")).toBeNull();
+  });
+});
