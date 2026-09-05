@@ -10,9 +10,7 @@ use tokio::sync::broadcast;
 
 use crate::core::ChatCore;
 use crate::group_model::GroupResult;
-use crate::group_store::{
-    validate_group_name, GoutboxFrame, GroupStore, MAX_GROUP_MEMBERS,
-};
+use crate::group_store::{validate_group_name, GoutboxFrame, GroupStore, MAX_GROUP_MEMBERS};
 use crate::group_wire::GroupHandler;
 pub use crate::group_wire::GROUP_PROTOCOL;
 use crate::model::{now_ms, parse_peer_id, ChatError};
@@ -177,7 +175,6 @@ impl Group {
         self.bump_push(&mut group).await?;
         Ok(group)
     }
-
 }
 /// roster（design §3.2）：members 全量含 owner；rev 单调递增且仅 owner。
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
