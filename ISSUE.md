@@ -34,6 +34,7 @@
 - **信息缺失**：crates/p2p-protocol 的 `ProtocolHandler::handle(&self, stream)` 只回调流，不传远端 PeerId；而 crates/p2p-swarm 的 serve.rs 在 dispatch 时明明持有 `peer`（喂给了 liveness/事件，唯独没进 handler）。设计（acp-over-p2p-design.md §4.1 ①）要求桥按「传输层互认 PeerId」查策略表，目前上层 app 无法直接拿到。
 - **ACP2 的绕行**：apps/acp-agent/src/peers.rs 以 Node 事件（PeerConnected/PeerDisconnected）维护在线集，恰一 peer 在线才归属，空集短等、多 peer 歧义一律 fail-closed 拒绝并审计；单操作者场景正确，多操作者并发控制台会被误拒（有日志）。
 - **期望修法**：底座把 peer 随流下传（trait 加参或 BoxedStream 携带元数据），acp-agent 删 peers.rs 直连真实身份；涉及 crates/**，非 ACP2 文件域，留待底座卡。
+- **2026-09-05 解决后记（底座卡）**：已解。底座按 trait 加参路线落地（`ProtocolHandler::handle_inbound` 为 swarm 分发唯一入口，默认桥接旧签名，代码 c3b260f、契约留档 p2p-base-design.md §5.5 见 236b299）；acp-agent 删 peers.rs 绕行，归属直采流身份（01993e2），fail-closed 不回退——裸流入口（无身份上下文）握手前即拒并审计 unknown。回归：双对端并发归属跨 crate 用例（42b7820）+ acp 双操作者并发/裸流用例全绿，acp-agent 与 p2p-itest 全套零回归。
 
 
 ## 主树 git merge-base --is-ancestor 无锁挂起（2026-09-05 E10 收编轮发现）
