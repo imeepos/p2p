@@ -93,7 +93,8 @@ pub async fn chat_invite_cancel(
 }
 
 /// chat_friend_update（IM-T43）：分组/昵称/备注补丁；空补丁与越界组名由 crate 校验拒绝；
-/// addrs 不可经此修改；peer 不在簿 Err。group 空串 = 移出分组（crate 内归一化 None）。
+/// GUI 契约 §12.1 不暴露 addrs 修改（PR1 起仅 CLI update --addr 提供），恒传 None；
+/// peer 不在簿 Err。group 空串 = 移出分组（crate 内归一化 None）。
 #[tauri::command]
 pub async fn chat_friend_update(
     state: State<'_, AppState>,
@@ -107,6 +108,7 @@ pub async fn chat_friend_update(
         group,
         nickname,
         note,
+        addrs: None,
     };
     chat.friend_update(&peer_id, &patch)
         .map_err(|e| e.to_string())
