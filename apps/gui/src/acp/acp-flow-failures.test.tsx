@@ -172,6 +172,26 @@ describe("AcpView action failure visibility", () => {
     expect(useAcpStore.getState().promptPending).toBe(false);
   });
 
+  it("prompt 失败结算写 error stopReason（无流式气泡补错误占位轮）", async () => {
+    await renderWithRejectingSocket();
+    act(() => {
+      useAcpStore.setState({ activeSessionId: "s-manual" });
+    });
+    fireEvent.change(screen.getByTestId("acp-composer-input"), { target: { value: "hi" } });
+    fireEvent.click(screen.getByTestId("acp-composer-send"));
+    // toast 可见性由上条用例覆盖（sonner 3s 去重窗口会吞第二条同名 toast）
+    await waitFor(() => {
+      expect(useAcpStore.getState().lastError).toBe("promptFailed");
+    });
+    await waitFor(() => {
+      const turns = useAcpStore.getState().transcripts["s-manual"].turns;
+      const last = turns[turns.length - 1];
+      expect(last.kind).toBe("assistant");
+      expect((last as { stopReason?: string | null }).stopReason).toBe("error");
+      expect((last as { streaming?: boolean }).streaming).toBe(false);
+    });
+  });
+
   it("online 下恢复与关闭会话失败弹 toast", async () => {
     await renderWithRejectingSocket();
     act(() => {

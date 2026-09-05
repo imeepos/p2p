@@ -163,7 +163,8 @@ export async function runSendPrompt(text: string): Promise<void> {
     console.warn("[acp] prompt 失败", error);
     notifyActionFailure("promptFailed", error);
     useAcpStore.setState({ promptPending: false, lastError: "promptFailed" });
-    mapTranscript(sessionId, (t) => settleTranscript(t, null));
+    // 失败结算写约定值 "error"：气泡承载失败徽章（渲染归 P2），不再与正常结束同形
+    mapTranscript(sessionId, (t) => settleTranscript(t, "error"));
   }
 }
 

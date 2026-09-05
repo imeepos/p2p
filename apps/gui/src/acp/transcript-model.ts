@@ -166,20 +166,36 @@ function appendChunk(
   return next;
 }
 
+/** 错误结算约定值：气泡失败徽章据此渲染（transcript.tsx isErrorStop） */
+export const ERROR_STOP_REASON = "error";
+
 export function settleTranscript(
   state: TranscriptState,
   stopReason: string | null,
 ): TranscriptState {
   const next = clone(state);
-  if (next.openAssistantId !== null) {
-    const turn = next.turns.find((t) => t.id === next.openAssistantId);
+  const open = next.openAssistantId;
+  next.openAssistantId = null;
+  next.openThoughtId = null;
+  if (open !== null) {
+    const turn = next.turns.find((t) => t.id === open);
     if (turn && turn.kind === "assistant") {
       turn.streaming = false;
       turn.stopReason = stopReason;
+      return next;
     }
   }
-  next.openAssistantId = null;
-  next.openThoughtId = null;
+  // 失败结算必须有落点：无流式气泡（如发后即失败）补错误占位轮承载徽章
+  if (stopReason === ERROR_STOP_REASON) {
+    next.turns.push({
+      kind: "assistant",
+      id: next.nextId,
+      text: "",
+      streaming: false,
+      stopReason: ERROR_STOP_REASON,
+    });
+    next.nextId += 1;
+  }
   return next;
 }
 
