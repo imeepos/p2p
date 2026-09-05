@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-05T03:25:05.196Z",
+  "updatedAt": "2026-09-05T04:03:07.008Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -337,8 +337,9 @@
       "status": "doing",
       "branch": "fix/base-seams",
       "ownerSession": "session-23f166c0-eb64-498f-bec3-c0112b56ef4c",
-      "scope": "crates/p2p-discovery、crates/p2p-protocol、crates/p2p-swarm 三仓 + 因 trait 签名变化的下游最小机械适配（apps/acp-agent、apps/acp-console、crates/p2p-chat 仅编译必需接线，不改行为逻辑，逐条列明）；不碰 docs/ops（D1 在途）、E10 三 crate、scripts/**；单文件 ≤300 行",
-      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\"; cd /Users/imeepos/ext512/p2p && cargo test -p p2p-discovery -p p2p-protocol -p p2p-swarm 2>&1 | grep -E \"multi_query|peer_passthrough|register_retry\" | grep -qi \"ok\" && cargo test -p p2p-discovery -p p2p-protocol -p p2p-swarm >/dev/null 2>&1 && cargo clippy -p p2p-discovery -p p2p-protocol -p p2p-swarm --all-targets -- -D warnings >/dev/null 2>&1 && make check >/dev/null 2>&1 && echo BASE1-ACC-GREEN'"
+      "scope": "crates/p2p-discovery、crates/p2p-protocol、crates/p2p-swarm 三仓 + crates/p2p facade 五文件（lib/observe/assembly/node/rendezvous，2026-09-05 协调裁决放行：债3 目标明写 facade 装配期、债1 复用落点在 TransportLink，替代路径改动更大）+ 因 trait 签名变化的下游最小机械适配；不碰 docs/ops（D1 在途）、E10 三 crate、scripts/**；单文件 ≤300 行",
+      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\"; cd /Users/imeepos/ext512/p2p && cargo test -p p2p-discovery -p p2p-protocol -p p2p-swarm 2>&1 | grep -E \"multi_query|peer_passthrough|register_retry\" | grep -qi \"ok\" && cargo test -p p2p-discovery -p p2p-protocol -p p2p-swarm >/dev/null 2>&1 && cargo clippy -p p2p-discovery -p p2p-protocol -p p2p-swarm --all-targets -- -D warnings >/dev/null 2>&1 && make check >/dev/null 2>&1 && echo BASE1-ACC-GREEN'",
+      "note": " [2026-09-05 协调裁决] scope 矛盾修正：goal 明写 facade 装配期注册，facade 五文件纳入本卡；债2 选型 handle_inbound 默认桥接（20+ 既有 handler 零改动）获肯定；债1 根因实证（swarm 池收敛规则误用于同向重拨、半开残留 ~30s 窗口、PeerId 排序二值复现）质量高，要求保留进收官汇报。"
     }
   ],
   "notes": "\n[2026-09-05 折叠] CLI-C1..C4（p2pctl 脚手架/命令域/聊天域/文档-parity）全部 done 后折叠，提交见 git log --grep 'CLI-C'，验收命令留存于 coordination.md 历史。"
