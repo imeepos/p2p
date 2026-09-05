@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-05T04:03:07.008Z",
+  "updatedAt": "2026-09-05T05:04:56.679Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -324,9 +324,11 @@
       "id": "ACP-P3",
       "priority": "P0",
       "status": "done",
+      "branch": "feat/acp-p3-bridge",
+      "ownerSession": "session-33f2d145-a1a8-436c-9ee0-f16a882c5d4c",
       "title": "ACP-P3 跨端打通：续连票据可达 + 发现数据源（console+GUI）",
       "goal": "设计 §5 续连补放与 §8 连接目录两根主梁生产不可达：a) console 本地 status 契约按 peer 暴露最新可用续连票据（Bearer 沿用，失效如实反映）；b) GUI 自动重连先取票据带 reattach 字段重拨，取不到按 fresh；c) 续连成功折射补放计数，窗口过期引导走会话 resume；d) 连接目录从 console GET /discovery 拉真实发现清单（轮询或事件），映射 name/source/address 含 owner 声明名，console 不可达时空态不误报；e) 回环/契约/组件测试覆盖断流重连补放、窗口过期 fresh、发现映射三链路",
-      "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p && export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" && cargo test -p acp-console >/tmp/acc-p3.log 2>&1 && grep -qE \"test result: ok\" /tmp/acc-p3.log && cd apps/gui && pnpm exec vitest run src/acp >>/tmp/acc-p3.log 2>&1 && pnpm --filter @p2p/gui typecheck >>/tmp/acc-p3.log 2>&1 && echo P3-ACC-GREEN || { echo P3-ACC-FAIL; tail -20 /tmp/acc-p3.log; exit 1; }'",
+      "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p && export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" && (cd apps/acp-console && cargo test) >/tmp/acc-p3.log 2>&1 && grep -qE \"test result: ok\" /tmp/acc-p3.log && cd apps/gui && pnpm exec vitest run src/acp >>/tmp/acc-p3.log 2>&1 && pnpm --filter @p2p/gui typecheck >>/tmp/acc-p3.log 2>&1 && echo P3-ACC-GREEN || { echo P3-ACC-FAIL; tail -20 /tmp/acc-p3.log; exit 1; }'",
       "note": " [2026-09-05 负责人主树复核] 六提交(2fa6b34/f950539/502eede/56688c6/fc2d8a9/b9c712a)均在 main 祖先链；主树机械验收：cargo test acp-console 27 用例全绿、vitest src/acp 21 文件 158 用例全绿、typecheck=0、lint 0 错误、i18n PASS(zh=652/en=652)；实质抽查：console /reattach 端点、GUI 重连携票据、/discovery 轮询接线、两份 README 契约补录均在。顺带修复 status watch 零订阅者丢更新(生产假死)与票据根因(console 落盘自生成 uuid 桥不认)。验收 D 真机双模式以 stub 落地 acp-reattach-loop.test.tsx，真机两机联调仍在后续卡。"
     },
     {
@@ -334,12 +336,21 @@
       "goal": "底座接缝修复三合一（ISSUE 已登记三债，Phase 1 多节点/多操作者硬前置；实践依据=libp2p 社区 inbound PeerId 传递为已知痛点，通行解法 trait 加参或流封装元数据）：(1) rendezvous 服务端同一连接支持多次查号服务，消除第二进程查号 10s 握手超时与 bootstrap 侧周期性 server link ended 噪音；(2) ProtocolHandler 入站流确定性携带真实远端 PeerId（trait 加参或元数据流封装），上层不再依赖在线集推断的 fail-closed 绕行；(3) facade 装配期注册有界重试+退避与地址优选，禁止退化 loopback，失败显式可观察。交付含三组新增测试（命名含 multi_query/peer_passthrough/register_retry 语义）覆盖并发查号、PeerId 断言、注册失败注入重试；既有测试零回退",
       "title": "底座接缝修复：rendezvous 多查号/PeerId 随流下传/注册退化重试",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "fix/base-seams",
       "ownerSession": "session-23f166c0-eb64-498f-bec3-c0112b56ef4c",
       "scope": "crates/p2p-discovery、crates/p2p-protocol、crates/p2p-swarm 三仓 + crates/p2p facade 五文件（lib/observe/assembly/node/rendezvous，2026-09-05 协调裁决放行：债3 目标明写 facade 装配期、债1 复用落点在 TransportLink，替代路径改动更大）+ 因 trait 签名变化的下游最小机械适配；不碰 docs/ops（D1 在途）、E10 三 crate、scripts/**；单文件 ≤300 行",
       "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\"; cd /Users/imeepos/ext512/p2p && cargo test -p p2p-discovery -p p2p-protocol -p p2p-swarm 2>&1 | grep -E \"multi_query|peer_passthrough|register_retry\" | grep -qi \"ok\" && cargo test -p p2p-discovery -p p2p-protocol -p p2p-swarm >/dev/null 2>&1 && cargo clippy -p p2p-discovery -p p2p-protocol -p p2p-swarm --all-targets -- -D warnings >/dev/null 2>&1 && make check >/dev/null 2>&1 && echo BASE1-ACC-GREEN'",
-      "note": " [2026-09-05 协调裁决] scope 矛盾修正：goal 明写 facade 装配期注册，facade 五文件纳入本卡；债2 选型 handle_inbound 默认桥接（20+ 既有 handler 零改动）获肯定；债1 根因实证（swarm 池收敛规则误用于同向重拨、半开残留 ~30s 窗口、PeerId 排序二值复现）质量高，要求保留进收官汇报。"
+      "note": " [2026-09-05 协调裁决] scope 矛盾修正：goal 明写 facade 装配期注册，facade 五文件纳入本卡；债2 选型 handle_inbound 默认桥接（20+ 既有 handler 零改动）获肯定；债1 根因实证（swarm 池收敛规则误用于同向重拨、半开残留 ~30s 窗口、PeerId 排序二值复现）质量高，要求保留进收官汇报。 [2026-09-05 协调复核 session-e9722e1a] 执行会话自主收官（8 commit 链：3316221/a6a5036/c3b260f/3dbdf26/401571c/9bd3cc6/b7b9a4e/7b24800，反向同步 f67bb33 后 ff 进 main，worktree/分支已清，origin 同步）。协调主树权威复核绿（BASE1-ACC-GREEN）：三组命名测试命中 + 三仓全测试 + clippy 三仓 + make check 全链。三债关闭确认：债1 池收敛语义修正+连接复用（压测 29/30→0 失败）；债2 handle_inbound 兼容演进（20+ handler 零改动，acp-agent peers.rs 绕行未越权重构，留 ACP 线后续卡）；债3 RetryPolicy+显式耗尽+禁 loopback 退化。"
+    },
+    {
+      "id": "OPS1",
+      "priority": "P1",
+      "status": "doing",
+      "title": "OPS1 验收基建沉淀：p2pctl 新鲜度校验 + 无头度量脚本入库 + 验收 pipefail 规范",
+      "goal": "cli-parity 能拦截陈旧二进制（构造旧 binary 必红）；scripts/ops/headless-metrics 入库可对 mock 页面产出 JSON 指标；全部验收脚本 pipefail 化",
+      "acceptanceCommand": "cd /Users/imeepos/ext512/p2p && export PATH=\"$HOME/.cargo/bin:$PATH\" && bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK && test -f scripts/ops/headless-metrics.mjs && node scripts/ops/headless-metrics.mjs --help >/dev/null 2>&1; test -f scripts/ops/headless-metrics.mjs && grep -q 'set -o pipefail' scripts/check/cli-parity.sh && make check",
+      "note": "2026-09-05 立卡：T43/T53 验收期间三次事故暴露（cli-parity 不查 p2pctl 二进制新鲜度产假红/CDP 度量脚本三次内联重写且嵌套转义翻车/验收临时命令管道吞退出码产假绿），沉淀为仓库资产与机械拦截。"
     }
   ],
   "notes": "\n[2026-09-05 折叠] CLI-C1..C4（p2pctl 脚手架/命令域/聊天域/文档-parity）全部 done 后折叠，提交见 git log --grep 'CLI-C'，验收命令留存于 coordination.md 历史。"
