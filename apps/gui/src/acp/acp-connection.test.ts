@@ -2,7 +2,13 @@
 // 关闭码分类与自动重连迁移（不依赖 jsdom 外的网络）。
 import { describe, expect, it, vi } from "vitest";
 
-import { AcpConnection, type AcpConnectionEvents, type ReconnectPolicy } from "./acp-connection";
+import {
+  AcpConnection,
+  type AcpConnectionEvents,
+  type ReconnectPolicy,
+  type ReattachResolver,
+} from "./acp-connection";
+import type { ReattachAnswer } from "./console-client";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
 
 class FakeSocket implements WsLike {
@@ -29,7 +35,7 @@ class FakeSocket implements WsLike {
   }
 }
 
-function harness(policy?: ReconnectPolicy) {
+function harness(policy?: ReconnectPolicy, resolveReattach?: ReattachResolver) {
   const sockets: FakeSocket[] = [];
   const factory: WebSocketFactory = (url) => {
     const socket = new FakeSocket(url);
@@ -41,20 +47,27 @@ function harness(policy?: ReconnectPolicy) {
   const requests: Array<{ method: string; params: unknown; id: number }> = [];
   const closes: Array<{ kind: string; code: number }> = [];
   const reconnects: number[] = [];
+  const reattachAnswers: ReattachAnswer[] = [];
   const events: AcpConnectionEvents = {
     onPhase: (p) => phases.push(p),
     onNotification: (method, params) => notifications.push({ method, params }),
     onRequest: (method, params, id) => requests.push({ method, params, id }),
     onCloseInfo: (info) => closes.push({ kind: info.kind, code: info.code }),
     onReconnect: (attempt) => reconnects.push(attempt),
+    onReattachQuery: (answer) => reattachAnswers.push(answer),
   };
   const conn = new AcpConnection(
     { wsUrl: "ws://127.0.0.1:1", token: "tok", peer: "peer-x" },
     factory,
     events,
     policy,
+    resolveReattach,
   );
-  return { conn, sockets, phases, notifications, requests, closes, reconnects };
+  return { conn, sockets, phases, notifications, requests, closes, reconnects, reattachAnswers };
+}
+
+function staticResolver(answer: Partial<ReattachAnswer>): ReattachResolver {
+  return async () => ({ ticket: null, expiresAtUnixMs: null, reason: "missing", ...answer });
 }
 
 const FAST_POLICY: ReconnectPolicy = { maxAttempts: 2, baseDelayMs: 5, maxDelayMs: 10 };
@@ -294,5 +307,76 @@ describe("AcpConnection", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("自动重连先查 console 票据：命中则握手行携 reattach（目标一）", async () => {
+    const h = harness(FAST_POLICY, staticResolver({ ticket: "tk-9", reason: "ok" }));
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    h.sockets[0].serverClose(1000, "agent-stream-dropped");
+    await vi.waitFor(() => {
+      expect(h.sockets.length).toBe(2);
+    });
+    expect(h.sockets[1].url).toContain("reattach=tk-9");
+    expect(h.reattachAnswers).toEqual([
+      { ticket: "tk-9", expiresAtUnixMs: null, reason: "ok" },
+    ]);
+  });
+
+  it("票据查询不到/已失效按 fresh 拨号，不携 reattach（目标一）", async () => {
+    for (const answer of [
+      { ticket: null, expiresAtUnixMs: null, reason: "expired" as const },
+      { ticket: null, expiresAtUnixMs: null, reason: "missing" as const },
+    ]) {
+      const h = harness(FAST_POLICY, staticResolver(answer));
+      h.conn.connect();
+      h.sockets[0].serverOpen();
+      h.sockets[0].serverClose(1000, "dropped");
+      await vi.waitFor(() => {
+        expect(h.sockets.length).toBe(2);
+      });
+      expect(h.sockets[1].url).not.toContain("reattach=");
+      h.sockets[1].serverOpen();
+      expect(last(h.phases)).toBe("online");
+    }
+  });
+
+  it("窗口过期 fresh 重连通过 onReattachQuery 上报 expired（驱动原会话失效引导）", async () => {
+    const h = harness(FAST_POLICY, staticResolver({ reason: "expired" }));
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    h.sockets[0].serverClose(1000, "dropped");
+    await vi.waitFor(() => {
+      expect(h.reattachAnswers).toHaveLength(1);
+    });
+    expect(h.reattachAnswers[0].reason).toBe("expired");
+    h.sockets[1].serverOpen();
+    expect(last(h.phases)).toBe("online");
+  });
+
+  it("票据查询异常不中断重连，按 fresh 兜底（目标一）", async () => {
+    const boom: ReattachResolver = async () => {
+      throw new Error("console down");
+    };
+    const h = harness(FAST_POLICY, boom);
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    h.sockets[0].serverClose(1000, "dropped");
+    await vi.waitFor(() => {
+      expect(h.sockets.length).toBe(2);
+    });
+    expect(h.sockets[1].url).not.toContain("reattach=");
+    h.sockets[1].serverOpen();
+    expect(last(h.phases)).toBe("online");
+  });
+
+  it("手动 retryNow 恒 fresh：不查票据、不携 reattach（目标一语义护栏）", async () => {
+    const h = harness(FAST_POLICY, staticResolver({ ticket: "tk-keep", reason: "ok" }));
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    h.conn.retryNow();
+    expect(h.sockets).toHaveLength(2);
+    expect(h.sockets[1].url).not.toContain("reattach=");
+    expect(h.reattachAnswers).toHaveLength(0);
   });
 });

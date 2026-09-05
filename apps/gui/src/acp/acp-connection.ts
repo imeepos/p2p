@@ -18,11 +18,16 @@ import {
   type SessionSummary,
 } from "./protocol";
 import { decodeFrame, NdjsonAssembler } from "./ndjson";
+import type { ReattachAnswer } from "./console-client";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const BASE_RECONNECT_DELAY_MS = 1_000;
 const MAX_RECONNECT_DELAY_MS = 15_000;
+
+/** console /reattach 查询口（console-client 注入；测试注假实现）。
+ *  返回 unavailable/missing/expired 时自动重连按 fresh 拨号。 */
+export type ReattachResolver = (peer: string) => Promise<ReattachAnswer>;
 
 export interface ReconnectPolicy {
   maxAttempts: number;
@@ -43,6 +48,8 @@ export interface AcpConnectionEvents {
   onRequest(method: string, params: unknown, id: number): void;
   onCloseInfo(info: AcpCloseInfo): void;
   onReconnect(attempt: number, maxAttempts: number): void;
+  /** 自动重连前的票据查询结果（reason=expired 时 store 给出原会话失效引导） */
+  onReattachQuery?(answer: ReattachAnswer): void;
 }
 
 interface PendingRequest {
@@ -76,13 +83,29 @@ export class AcpConnection {
     private readonly factory: WebSocketFactory,
     private readonly events: AcpConnectionEvents,
     private readonly policy: ReconnectPolicy = DEFAULT_RECONNECT,
+    private readonly resolveReattach?: ReattachResolver,
   ) {}
+
+  /** 本次拨号携带的续连票据：undefined = 未决（回落端点静态字段，手动/首连语义）；
+   *  null = 自动重连查询明确无票据（fresh，不回落）；string = 窗口内票据 */
+  private pendingReattach: string | null | undefined = undefined;
 
   connect(): void {
     this.userClosed = false;
     this.clearReconnectTimer();
+    this.pendingReattach = undefined;
+    this.dial();
+  }
+
+  /** 实际拨号：pendingReattach 由自动重连路径先行设置（手动连接走端点静态字段） */
+  private dial(): void {
     this.events.onPhase("connecting");
-    const ws = this.factory(buildWsUrl(this.endpoint));
+    const ws = this.factory(
+      buildWsUrl({
+        ...this.endpoint,
+        reattach: this.pendingReattach ?? this.endpoint.reattach,
+      }),
+    );
     this.ws = ws;
     ws.onopen = () => {
       this.attempts = 0;
@@ -128,7 +151,27 @@ export class AcpConnection {
       this.policy.baseDelayMs * 2 ** (this.attempts - 1),
       this.policy.maxDelayMs,
     );
-    this.reconnectTimer = setTimeout(() => this.connect(), delay);
+    this.reconnectTimer = setTimeout(() => void this.reconnectWithTicket(), delay);
+  }
+
+  /** 自动重连拨号：先向 console 查询该 peer 续连票据（设计 §5），
+   *  窗口内携票据重连；查询不到/已失效/未配 statusUrl 均按 fresh 拨号 */
+  private async reconnectWithTicket(): Promise<void> {
+    let answer: ReattachAnswer;
+    if (this.resolveReattach) {
+      try {
+        answer = await this.resolveReattach(this.endpoint.peer);
+      } catch (error) {
+        console.warn("[acp] 续连票据查询异常，按 fresh 重连", error);
+        answer = { ticket: null, expiresAtUnixMs: null, reason: "unavailable" };
+      }
+    } else {
+      answer = { ticket: null, expiresAtUnixMs: null, reason: "unavailable" };
+    }
+    if (this.userClosed) return;
+    this.pendingReattach = answer.ticket ?? null;
+    this.events.onReattachQuery?.(answer);
+    this.dial();
   }
 
   /** 帧解码按到达序串行（Blob 路径异步）；行界重组后逐行分发 */
@@ -255,11 +298,12 @@ export class AcpConnection {
     await this.request("session/delete", { sessionId });
   }
 
-  /** 手动立即重试：清掉待发的自动重连定时器立刻拨号；attempts 计数语义不变 */
+  /** 手动立即重试：清掉待发的自动重连定时器立刻拨号；语义恒 fresh（不查票据） */
   retryNow(): void {
     if (this.userClosed) return;
     this.clearReconnectTimer();
-    this.connect();
+    this.pendingReattach = undefined;
+    this.dial();
   }
 
   /** 用户主动断开：不触发重连 */

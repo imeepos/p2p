@@ -35,6 +35,31 @@ function ReconnectBanner() {
   );
 }
 
+/** 原会话失效引导：续连窗口过期走 fresh 重连后出现；指引用户走侧栏既有 resume 流程 */
+function SessionLostNotice() {
+  const { t } = useTranslation();
+  const show = useAcpStore((s) => s.sessionLostNotice);
+  const dismiss = useAcpStore((s) => s.dismissSessionLostNotice);
+  if (!show) return null;
+  return (
+    <div
+      className="border-warning/40 bg-warning/10 flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+      data-testid="acp-session-lost-notice"
+    >
+      <span>{t("acp.reattach.sessionLost")}</span>
+      <button
+        type="button"
+        aria-label={t("acp.reattach.dismissLost")}
+        onClick={dismiss}
+        data-testid="acp-session-lost-dismiss"
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="size-4" aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 const REATTACH_AUTO_DISMISS_MS = 8_000;
 
 /** 续连横幅：dsh/bridge/reattach 通知折射（apps/acp-agent/README.md 桥约定）。
@@ -112,6 +137,7 @@ function MainColumn() {
       {phase === "online" ? <OnlineStatusBar /> : null}
       <ReconnectBanner />
       <ReattachBanner />
+      <SessionLostNotice />
       {phase === "connecting" ? (
         <ConnectingIndicator />
       ) : activeSessionId === null ? (

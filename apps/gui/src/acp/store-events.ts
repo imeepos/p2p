@@ -30,6 +30,7 @@ import {
   type InteractionState,
 } from "./interaction-model";
 import { applyUpdate, emptyTranscript, type TranscriptState } from "./transcript-model";
+import { queryReattachTicket, type ReattachAnswer } from "./console-client";
 import { resolveWsFactory } from "./ws-factory";
 import { useAcpStore } from "./acp-store";
 import i18n from "@/i18n";
@@ -224,12 +225,23 @@ export function wireAcpEvents(): AcpConnectionEvents {
     onCloseInfo: (info: AcpCloseInfo) => useAcpStore.setState({ closeInfo: info }),
     onReconnect: (attempt: number, max: number) =>
       useAcpStore.setState({ reconnect: { attempt, max } }),
+    onReattachQuery: (answer: ReattachAnswer) => {
+      if (answer.ticket) {
+        useAcpStore.setState({ sessionLostNotice: false });
+        return;
+      }
+      if (answer.reason === "expired") {
+        // 续连窗口已过：桥按 fresh 收新连接，原 in-flight 会话不可续，引导走侧栏恢复
+        useAcpStore.setState({ sessionLostNotice: true });
+      }
+    },
     onNotification: handleNotification,
     onRequest: (method, params, id) => handleAgentRequest(method, params, id, conn),
   };
 }
 
-/** 拨号并接线；每次进入 online（含自动重连）都重跑 initialize 重协商能力 */
+/** 拨号并接线；每次进入 online（含自动重连）都重跑 initialize 重协商能力。
+ *  配了 statusUrl 时注入 /reattach 查询口（自动重连携票据，设计 §5） */
 export function startConnection(endpoint: AcpEndpoint): void {
   const base = wireAcpEvents();
   const events: AcpConnectionEvents = {
@@ -240,7 +252,16 @@ export function startConnection(endpoint: AcpEndpoint): void {
     },
   };
   ensurePermissionSweeper();
-  const connection = new AcpConnection(endpoint, resolveWsFactory(), events, DEFAULT_RECONNECT);
+  const resolveReattach = endpoint.statusUrl
+    ? (peer: string) => queryReattachTicket(endpoint.statusUrl as string, endpoint.token, peer)
+    : undefined;
+  const connection = new AcpConnection(
+    endpoint,
+    resolveWsFactory(),
+    events,
+    DEFAULT_RECONNECT,
+    resolveReattach,
+  );
   conn = connection;
   connection.connect();
 }

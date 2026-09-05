@@ -25,6 +25,9 @@ export interface AcpEndpoint {
   peer: string;
   /** 续连票据（可选；断线窗口内重连时透传给桥） */
   reattach?: string;
+  /** console status HTTP 地址（http://127.0.0.1:<status_port>，stdout ready 行的 status）。
+   *  缺省时自动重连退化为 fresh 拨号、发现清单不轮询（apps/acp-console/README.md） */
+  statusUrl?: string;
 }
 
 export interface AcpContentBlock {

@@ -51,6 +51,7 @@ export function startConnect(): void {
     closeInfo: null,
     reconnect: null,
     reattachNotice: null,
+    sessionLostNotice: false,
     capabilities: null,
     lastError: null,
     activePeer: draft.peer,
@@ -72,6 +73,7 @@ export function runDisconnect(): void {
     promptPendingBySession: {},
     reconnect: null,
     reattachNotice: null,
+    sessionLostNotice: false,
   });
 }
 
