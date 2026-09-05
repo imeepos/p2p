@@ -24,6 +24,7 @@ import {
 import { useProfileStore } from "@/stores/profile-store";
 import { errorText } from "@/views/shared/form-flow";
 import { LoadFailedNotice } from "@/views/shared/load-state";
+import { useUnsavedGuard } from "@/views/shared/unsaved-guard";
 
 const AVATAR_INPUT_ACCEPT = "image/png,image/jpeg,image/webp";
 
@@ -70,6 +71,12 @@ export function ProfileCard() {
     (draft.name !== profile.name ||
       draft.description !== profile.description ||
       draft.avatar !== profile.avatar);
+
+  // 资料草稿脏状态注册路由守卫：离开设置页时统一弹确认，放弃则丢弃草稿
+  useUnsavedGuard("settings-profile", {
+    hasUnsaved: () => dirty,
+    discard: () => setDraft(null),
+  });
 
   const retryLoad = useCallback(() => load(), [load]);
 

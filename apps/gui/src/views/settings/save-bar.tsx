@@ -12,6 +12,7 @@ interface SettingsSaveBarProps {
   dirty: boolean;
   loaded: boolean;
   running: boolean;
+  invalidCount: number;
   onSubmit: () => Promise<void>;
   onSaveAndRestart: () => Promise<void>;
   onReportSaveError: (error: unknown) => void;
@@ -19,11 +20,13 @@ interface SettingsSaveBarProps {
 }
 
 // 底部保存条：脏状态提示 + 保存按钮；节点运行中显示重启生效提示与组合按钮。
-// 校验失败/用户取消以流标记中断，跳过错误上报（校验错误已内联展示）。
+// 校验失败以流标记中断错误 toast（内联红字已标出字段），同时保存条以
+// invalidCount 显示醒目汇总——不允许「点了没反应」的静默失败观感。
 export function SettingsSaveBar({
   dirty,
   loaded,
   running,
+  invalidCount,
   onSubmit,
   onSaveAndRestart,
   onReportSaveError,
@@ -60,9 +63,19 @@ export function SettingsSaveBar({
       ) : null}
       <div className="bg-background/95 col-span-12 sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t py-3 backdrop-blur">
         {/* IM-V2 S6：提示与保存同行（justify-between），对比度提至 AA */}
-        <p className="text-xs text-gray-600 dark:text-gray-300">
-          {dirty ? t("settings.saveBar.dirty") : t("settings.saveBar.clean")}
-        </p>
+        {invalidCount > 0 ? (
+          <p
+            role="alert"
+            className="text-destructive flex items-center gap-1.5 text-xs font-medium"
+          >
+            <TriangleAlertIcon className="size-4 shrink-0" aria-hidden />
+            {t("settings.saveBar.invalidSummary", { count: invalidCount })}
+          </p>
+        ) : (
+          <p className="text-xs text-gray-600 dark:text-gray-300">
+            {dirty ? t("settings.saveBar.dirty") : t("settings.saveBar.clean")}
+          </p>
+        )}
         <AsyncButton
           type="button"
           disabled={!dirty || !loaded}

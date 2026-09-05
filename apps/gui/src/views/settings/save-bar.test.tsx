@@ -26,6 +26,7 @@ function renderBar(overrides: {
       dirty
       loaded
       running={overrides.running ?? false}
+      invalidCount={0}
       onSubmit={overrides.onSubmit ?? vi.fn(() => Promise.resolve())}
       onSaveAndRestart={overrides.onSaveAndRestart ?? vi.fn(() => Promise.resolve())}
       onReportSaveError={overrides.onReportSaveError ?? vi.fn()}

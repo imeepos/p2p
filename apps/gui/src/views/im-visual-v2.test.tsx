@@ -318,6 +318,7 @@ describe("IM-V2 settings evidence", () => {
         dirty={false}
         loaded
         running={false}
+        invalidCount={0}
         onSubmit={async () => {}}
         onSaveAndRestart={async () => {}}
         onReportSaveError={() => {}}

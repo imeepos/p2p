@@ -13,6 +13,7 @@ import {
   FORM_VALIDATION_MARK,
   errorText,
 } from "@/views/shared/form-flow";
+import { focusFirstInvalidField } from "./focus-first-error";
 import { toFormValues, toGuiConfig, type SettingsFormValues } from "./config-schema";
 
 function reportSaveFailure(t: TFunction, error: unknown): void {
@@ -32,7 +33,11 @@ function reportRestartFailure(t: TFunction, error: unknown): void {
 }
 
 // 设置页保存流：保存后回读重置（往返闭环）；组合按钮走确认->保存->stop->start。
-export function useSettingsSave(form: UseFormReturn<SettingsFormValues>) {
+// 校验失败回调 onInvalid：滚动聚焦第一个错误字段并上报错误数（保存条可见反馈）。
+export function useSettingsSave(
+  form: UseFormReturn<SettingsFormValues>,
+  onInvalid?: (invalidCount: number) => void,
+) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const stopNode = useNodeStore((s) => s.stopNode);
@@ -56,10 +61,13 @@ export function useSettingsSave(form: UseFormReturn<SettingsFormValues>) {
           await saveAndReload(values);
           resolve();
         },
-        () => reject(new Error(FORM_VALIDATION_MARK)),
+        (errors) => {
+          onInvalid?.(focusFirstInvalidField(errors));
+          reject(new Error(FORM_VALIDATION_MARK));
+        },
       )();
     });
-  }, [form, saveAndReload]);
+  }, [form, saveAndReload, onInvalid]);
 
   const saveAndRestart = useCallback(async () => {
     const ok = await confirm({
@@ -69,7 +77,10 @@ export function useSettingsSave(form: UseFormReturn<SettingsFormValues>) {
       cancelText: t("common.actions.cancel"),
     });
     if (!ok) throw new Error(ACTION_CANCELLED_MARK);
-    if (!(await form.trigger())) throw new Error(FORM_VALIDATION_MARK);
+    if (!(await form.trigger())) {
+      onInvalid?.(focusFirstInvalidField(form.formState.errors));
+      throw new Error(FORM_VALIDATION_MARK);
+    }
     const values = toGuiConfig(form.getValues());
     await ipc.configSave(values);
     markLocalWrite("config");
@@ -77,7 +88,7 @@ export function useSettingsSave(form: UseFormReturn<SettingsFormValues>) {
     await startNode(values);
     form.reset(toFormValues(await ipc.configGet()));
     toastSuccess(t("settings.saveBar.restartDone"));
-  }, [confirm, form, startNode, stopNode, t]);
+  }, [confirm, form, startNode, stopNode, t, onInvalid]);
 
   return {
     submitSave,

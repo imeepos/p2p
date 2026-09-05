@@ -32,6 +32,7 @@ import {
   isFlowMark,
   errorText,
 } from "@/views/shared/form-flow";
+import { useUnsavedGuard } from "@/views/shared/unsaved-guard";
 
 interface RelayFormValues {
   relayAddrs: AddressRow[];
@@ -59,6 +60,12 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
     form.reset({ relayAddrs: toRows(relayAddrs) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serialized]);
+
+  // 地址列表脏状态注册路由守卫：离开中继页时统一弹确认，放弃则还原为磁盘值
+  useUnsavedGuard("relay-addrs", {
+    hasUnsaved: () => form.formState.isDirty,
+    discard: () => form.reset({ relayAddrs: toRows(relayAddrs) }),
+  });
 
   const submit = (): Promise<void> =>
     new Promise((resolve, reject) => {
