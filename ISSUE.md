@@ -18,16 +18,19 @@
 - **症状**：main 最近 5+ 提交（313061a 起）ci.yml 全部 failure，「全量门禁」步 28 秒级早退（exit code 2，来不及编译任何东西）；同一提交本机 macOS `make check` RC=0。
 - **推断**：某个秒级子门禁在 Linux 上的平台假设（具体哪个待拿 CI 日志定位；已排除 /opt/homebrew 硬编码——check 脚本无此路径）。
 - **期望**：有仓库日志权限者拉 run 33960564342 日志定位；修复前 CI 红不作为 macOS 本地发版的否决项，但属门禁体系债务。
+- **2026-09-05 后记（定因分层，两种失败模式）**：①28 秒级早退（run 313061a..069b852，exit 2）：gate-tests 的 cli-parity 自测 OPS1 场景里 mtime 取值在 GNU stat 下拿到脏值，整数比较崩——已由 ff19e2f 修复（GNU 优先 + 数字清洗），其后 run 全部进入完整编译阶段；②约 8 分钟失败（ff19e2f 起全部 run）：经本机 gh 凭据拉 job 101347971776 全量日志实证——clippy 在 ubuntu 绿（17:41:47 PASS），cargo test 跑到 p2p-cli lib 测试时 file_config_targets_platform_log_dir 断言目录末段 == "p2p-cli"（macOS 形态），linux XDG 形态末段是 logs，恒红 exit 101 → make exit 2；已由 test(p2p-cli) 提交修复（断言改对 p2p_log::default_log_dir，双平台语义一致）。另：该 job 自 9c205b5 创建（09-03）以来从未绿过，非 313061a 引入的回归；修后 run 与 gui-tauri-check ubuntu SKIP 口径见 fix/ci-platform-gates 分支 PR run。
 
 ## src-tauri 独立 workspace 不被根 fmt/clippy 门禁覆盖（2026-09-05 发现）
 
 - **症状**：根 Cargo.toml `exclude = ["apps/gui/src-tauri"]`，`scripts/check/fmt.sh`（cargo fmt --check）与 clippy 门禁只扫根 workspace——PR1 合并带入 chat.rs fmt 漂移与 group_contract clippy 警告，make check 仍全绿。
 - **期望**：fmt/clippy 门禁补跑 src-tauri workspace（或 CI 侧单列），盲区待收。
+- **2026-09-05 后记（已收口）**：fmt.sh/clippy.sh 扩展 src-tauri 段——fmt 纯语法解析双平台真跑；clippy 复用 gui-tauri.sh 的 SKIP 口径（非 macOS 且缺 webkit2gtk-4.1 显式 SKIP，GUI_TAURI_SKIP=1 逃生口），回归见 gate-tests 新增 scripts/check/tests/src-tauri-gate.sh（夹具植入必红/清除回绿/SKIP 断言）。扩展即暴露存量违规：chat.rs 系格式漂移 + group_contract/watcher 五处 clippy 警告，已按门禁扩展与存量修复分提交清零；干净树植入漂移 rc=1、还原 rc=0 双向实测通过。
 
 ## AGENTS.md 远端名与实际不符（2026-09-04 T36 检查轮发现）
 
 - **信息不准**：AGENTS.md「收尾四步」一节写「远端名是 gitea 不是 origin」并示例 `git push gitea <分支>`；但本仓库实际只配置了 origin 远端（git@github.com:imeepos/p2p.git），不存在 gitea。账本 note（2026-09-04 12:30 CLI 对等波勘误）已明确「本仓库远端实为 origin（无 gitea），后续任务书统一用 origin」。
 - **正确做法**：推送/删远端分支一律用 `git push origin ...`；AGENTS.md 待同步更正。
+- **2026-09-05 后记（已解决）**：AGENTS.md 收尾四步与占号顺序的远端名已由提交 316e44b（chore(docs): AGENTS.md 远端名 gitea 改 origin）同步更正，本条目关闭。
 
 ## 底座 facade 契约缺口：ProtocolHandler 拿不到入站流 PeerId（2026-09-05 ACP2 发现）
 
