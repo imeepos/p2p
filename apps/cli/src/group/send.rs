@@ -6,7 +6,6 @@
 use std::time::Duration;
 
 use clap::{Args, Subcommand};
-use serde::Serialize;
 
 use crate::error::{CliError, CliResult};
 use crate::node::DEFAULT_DATA_DIR;
@@ -157,16 +156,6 @@ fn payload(
             ))
         }
     }
-}
-
-/// 群消息/报告输出行（文本模式摘要）。
-#[derive(Serialize)]
-struct SendLine<'a> {
-    id: &'a str,
-    acked: usize,
-    recipients: usize,
-    delivered: bool,
-    status: String,
 }
 
 pub async fn send(args: SendArgs) -> CliResult<()> {
