@@ -24,12 +24,14 @@ use tauri::{AppHandle, Listener, Manager, Runtime, WebviewWindow};
 use crate::control::capture::FrameSource;
 
 /// navigate 合法路由名（与 App.tsx / menu.def.ts 对齐，"/" 记作 dashboard）。
-pub const ROUTES: [&str; 8] = [
+pub const ROUTES: [&str; 10] = [
     "dashboard",
     "peers",
     "discovery",
     "relay",
     "chat",
+    "group",
+    "acp",
     "events",
     "settings",
     "diagnostics",
