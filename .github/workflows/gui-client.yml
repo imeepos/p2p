@@ -113,22 +113,33 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # 诊断 updater 签名输入（2026-09-05 四平台同挂打包步，免拉日志定位）：
-      # 只输出存在性/长度/尾空白，绝不输出密钥内容。
-      - name: 诊断 updater 签名输入
+      # 只输出存在性/形态，绝不输出密钥内容。判定结果编码进条件步骤的失败名，
+      # jobs API 的 steps[].name/conclusion 免认证可读。
+      - name: 诊断读取签名输入
+        id: sigdiag
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "diag: TAURI_SIGNING_PRIVATE_KEY 为空——secret 未配置/名字不符/作用域不可见（候选①）"
-          else
-            echo "diag: key 长度=${#TAURI_SIGNING_PRIVATE_KEY}（末尾换行=$([ "${TAURI_SIGNING_PRIVATE_KEY%%$'\n'}" != "$TAURI_SIGNING_PRIVATE_KEY" ] && echo yes || echo no)）"
-          fi
+          key=no; pwd_state=unset
+          [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] && key=yes
           if [ -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD+x}" ]; then
-            echo "diag: PASSWORD 变量存在（值是否非空=$([ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ] && echo 非空 || echo 空)）"
-          else
-            echo "diag: PASSWORD 变量不存在（等价空串）"
+            [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ] && pwd_state=nonempty || pwd_state=empty
           fi
+          echo "key_present=$key" >> "$GITHUB_OUTPUT"
+          echo "pwd_state=$pwd_state" >> "$GITHUB_OUTPUT"
+
+      - name: "①候选命中：TAURI_SIGNING_PRIVATE_KEY 为空——secret 未配置/名字不符/作用域不可见"
+        if: steps.sigdiag.outputs.key_present == 'no'
+        run: |
+          echo "打包必挂（无私钥无法产签名增量包）。核对 repo Settings/Secrets 的确切名称与作用域。"
+          exit 1
+
+      - name: "②候选命中：PASSWORD secret 有非空值——密钥为空密码加密时不应设置（值不匹配即解密失败）"
+        if: steps.sigdiag.outputs.pwd_state == 'nonempty'
+        run: |
+          echo "本仓库密钥为空密码加密（rsign encrypted，空口令）。删除该 secret 或改为与密钥一致的口令。"
+          exit 1
 
       - name: Tauri 打包
         working-directory: apps/gui
