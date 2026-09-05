@@ -31,8 +31,16 @@ git_commit_epoch() {  # <root> <src-dir>...：源目录域最后一次提交时�
     for d in "$@"; do rel+=("${d#"${root}"/}"); done
     git -C "${root}" log -1 --format=%ct -- "${rel[@]}" 2>/dev/null || true
 }
-ctl_mtime_epoch() {  # <file>：macOS/GNU 双格式取 mtime（epoch 秒）；取不到输出 0（按陈旧处理）
-    stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo 0
+ctl_mtime_epoch() {  # <file>：GNU/BSD 双格式取 mtime（epoch 秒）；取不到或输出非数字一律 0（按陈旧处理）
+    # GNU stat 的 -f 是「文件系统状态」（BSD 才是格式化取 mtime），次序必须 GNU 先；
+    # 且 GNU -f %m 在部分版本 exit 0 输出非数字，整数比较会静默判「新鲜」放过拦截——
+    # 输出统一过数字清洗，脏值归 0 走陈旧分支（2026-09-05 CI ubuntu 自测实证）。
+    local m
+    m="$(stat -c %Y "$1" 2>/dev/null)" \
+        || m="$(stat -f %m "$1" 2>/dev/null)" \
+        || m=0
+    case "${m}" in (*[!0-9]*|'') m=0;; esac
+    echo "${m}"
 }
 p2pctl_stale() {  # <ctl> <root> <src-dir>...：缺失 / 任一源 .rs 更新 / 早于源路径域最后提交 → 重建(0)
     local ctl="$1" root="$2" dir last_commit
