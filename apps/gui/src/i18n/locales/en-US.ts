@@ -679,6 +679,7 @@ const enUS: typeof zhCN = {
   acp: {
     title: "ACP Console",
     description: "Drive remote agents over the local WS: connect, sessions, streaming chat",
+    cancel: "Cancel",
     connection: {
       card: "Connection",
       wsUrl: "Local WS URL",
@@ -694,6 +695,9 @@ const enUS: typeof zhCN = {
       closeDenied: "Denied: token mismatch",
       closeDialFailed: "Dial failed: peer unreachable or not allowed",
       closeAbnormal: "Connection dropped unexpectedly",
+      removeConfirmTitle: "Remove saved endpoint?",
+      removeConfirmDescription: "You will need to re-enter the endpoint details to connect to {{peer}} again.",
+      removeConfirmAction: "Remove",
       phase: {
         idle: "Idle",
         connecting: "Connecting",
@@ -723,6 +727,9 @@ const enUS: typeof zhCN = {
       emptyHint: "Connect, then create or click a session to resume",
       resume: "Resume session",
       close: "Close session",
+      closeConfirmTitle: "Close this session?",
+      closeConfirmDescription: "The agent-side session \"{{title}}\" will be closed and removed locally; pending permissions are denied.",
+      closeConfirmAction: "Close session",
     },
     transcript: {
       empty: "No messages",
@@ -770,6 +777,10 @@ const enUS: typeof zhCN = {
       reject: "Deny",
       approved: "Allowed",
       rejected: "Denied",
+      arrivedToast: "Permission request pending (session {{session}})",
+      confirmAlwaysTitle: "Always allow?",
+      confirmAlwaysDescription: "\"{{name}}\" will keep allowing similar actions in this session without asking again.",
+      confirmAlwaysConfirm: "Always allow",
     },
     config: {
       card: "Session config",
@@ -816,6 +827,9 @@ const enUS: typeof zhCN = {
         owner: "Owner",
       },
       remove: "Remove",
+      removeConfirmTitle: "Remove directory entry?",
+      removeConfirmDescription: "Removes the local directory record ({{peer}}) only; bridge-side grants are unaffected.",
+      removeConfirmAction: "Remove",
       fill: "Fill into connection form",
       invalidPeer: "Peer ID must not be empty",
       groupDiscovered: "Discovered (rendezvous / mDNS)",

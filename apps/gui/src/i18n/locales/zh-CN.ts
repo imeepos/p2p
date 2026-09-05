@@ -662,6 +662,7 @@ const zhCN = {
     acp: {
     title: "ACP 控制台",
     description: "经本地 WS 驱动远端 agent：连接、会话与流式对话",
+    cancel: "取消",
     connection: {
       card: "连接",
       wsUrl: "本地 WS 地址",
@@ -677,6 +678,9 @@ const zhCN = {
       closeDenied: "鉴权被拒绝：token 不匹配",
       closeDialFailed: "拨号失败：peer 不可达或未授权",
       closeAbnormal: "连接异常断开",
+      removeConfirmTitle: "移除已保存端点？",
+      removeConfirmDescription: "移除 {{peer}} 后需重新填写端点信息才能再次连接。",
+      removeConfirmAction: "移除",
       phase: {
         idle: "未连接",
         connecting: "连接中",
@@ -706,6 +710,9 @@ const zhCN = {
       emptyHint: "连接后新建或点击会话恢复",
       resume: "恢复会话",
       close: "关闭会话",
+      closeConfirmTitle: "关闭该会话？",
+      closeConfirmDescription: "将关闭 agent 侧会话「{{title}}」并移除本地记录，未决权限按拒绝处理。",
+      closeConfirmAction: "关闭会话",
     },
     transcript: {
       empty: "暂无消息",
@@ -753,6 +760,10 @@ const zhCN = {
       reject: "拒绝",
       approved: "已批准",
       rejected: "已拒绝",
+      arrivedToast: "权限请求待处理（会话 {{session}}）",
+      confirmAlwaysTitle: "确认始终允许？",
+      confirmAlwaysDescription: "「{{name}}」后续对本会话同类操作将不再逐次询问，请确认后再继续。",
+      confirmAlwaysConfirm: "始终允许",
     },
     config: {
       card: "会话配置",
@@ -799,6 +810,9 @@ const zhCN = {
         owner: "所有者",
       },
       remove: "移除",
+      removeConfirmTitle: "移除目录条目？",
+      removeConfirmDescription: "仅移除本地目录记录（{{peer}}），不影响桥侧真实授权。",
+      removeConfirmAction: "移除",
       fill: "填入连接表单",
       invalidPeer: "Peer ID 不能为空",
       groupDiscovered: "发现（rendezvous / mDNS）",
