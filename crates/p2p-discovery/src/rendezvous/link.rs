@@ -47,11 +47,7 @@ impl RendezvousConn {
     }
 
     pub async fn recv_msg<M: prost::Message + Default>(&mut self) -> Result<M, RendezvousError> {
-        let bytes = self
-            .read
-            .next()
-            .await
-            .ok_or(RendezvousError::Closed)??;
+        let bytes = self.read.next().await.ok_or(RendezvousError::Closed)??;
         M::decode(bytes.as_slice()).map_err(|e| RendezvousError::Protocol(e.to_string()))
     }
 

@@ -76,7 +76,8 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     let listen_addrs = swarm.listen_addrs();
     let observed_addrs = observe::observed_transport_addrs(&observed, &listen_addrs);
     swarm.set_observed_addrs(observed_addrs);
-    let mut reg_addrs = observe::merge_observed_with_listen(observed.first().copied(), &listen_addrs);
+    let mut reg_addrs =
+        observe::merge_observed_with_listen(observed.first().copied(), &listen_addrs);
     if observation_exhausted {
         reg_addrs = observe::prefer_routable_only(reg_addrs);
     }

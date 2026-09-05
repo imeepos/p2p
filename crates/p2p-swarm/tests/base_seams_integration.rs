@@ -56,7 +56,11 @@ impl ProtocolHandler for EchoCapture {
     }
 }
 
-async fn spawn_server() -> (Arc<Swarm>, PeerId, tokio::sync::mpsc::UnboundedReceiver<PeerId>) {
+async fn spawn_server() -> (
+    Arc<Swarm>,
+    PeerId,
+    tokio::sync::mpsc::UnboundedReceiver<PeerId>,
+) {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let mut registry = HandlerRegistry::default();
     registry.register(Arc::new(EchoCapture { peers: tx }));
@@ -81,7 +85,9 @@ async fn roundtrip(client: &Swarm, server_peer: PeerId, payload: &[u8]) {
     let mut stream = open_with_protocol(raw, &protocol_id())
         .await
         .expect("protocol handshake");
-    write_frame(&mut stream, payload).await.expect("write frame");
+    write_frame(&mut stream, payload)
+        .await
+        .expect("write frame");
     let resp = tokio::time::timeout(Duration::from_secs(10), read_frame(&mut stream))
         .await
         .expect("echo within timeout")

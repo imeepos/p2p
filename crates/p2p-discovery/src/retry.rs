@@ -52,7 +52,10 @@ impl std::error::Error for RetryExhausted {}
 
 /// 有界重试：op 失败按策略退避重试，任一次成功即返回；耗尽返回
 /// [RetryExhausted]（attempts = 实际尝试次数）。
-pub async fn retry_bounded<T, E, F, Fut>(policy: RetryPolicy, mut op: F) -> Result<T, RetryExhausted>
+pub async fn retry_bounded<T, E, F, Fut>(
+    policy: RetryPolicy,
+    mut op: F,
+) -> Result<T, RetryExhausted>
 where
     E: fmt::Display,
     F: FnMut() -> Fut,
@@ -96,7 +99,10 @@ mod tests {
             }
         })
         .await;
-        assert_eq!(result.expect("must recover within budget"), "203.0.113.7:4000");
+        assert_eq!(
+            result.expect("must recover within budget"),
+            "203.0.113.7:4000"
+        );
         assert_eq!(fails.get(), 2, "two transient failures retried");
     }
 
@@ -124,6 +130,10 @@ mod tests {
         assert_eq!(policy.delay_after(1), Duration::from_secs(1));
         assert_eq!(policy.delay_after(2), Duration::from_secs(2));
         assert_eq!(policy.delay_after(3), Duration::from_secs(4));
-        assert_eq!(policy.delay_after(9), Duration::from_secs(16), "capped at 16x");
+        assert_eq!(
+            policy.delay_after(9),
+            Duration::from_secs(16),
+            "capped at 16x"
+        );
     }
 }
