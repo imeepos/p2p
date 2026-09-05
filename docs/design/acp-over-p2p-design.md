@@ -102,6 +102,11 @@ out-of-process 子代理的同一哲学：隔离即设计。
   │ ◄─ session/update 通知流(语义更新) ────────────│ ← 子进程 stdout
 ```
 
+> 身份来源补记（2026-09-05）：底座已按 p2p-base-design.md §5.5 契约随流下传
+> 握手互认 PeerId（`ProtocolHandler::handle_inbound`），上表「PeerId ∈ 策略表?」
+> 的查询键即该参数。早期实现以连接事件在线集推断归属的绕行（ISSUE 2026-09-05
+> 底座契约缺口）废止；策略表查不到的 peer 一律 fail-closed 拒绝并审计，语义不回退。
+
 ### 4.2 拍板项
 
 1. **分块重组而非语义分帧**：ndjson 行任意长，桥按 ≤ 1 MiB 切帧、对端拼行；
