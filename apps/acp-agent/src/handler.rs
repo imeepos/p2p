@@ -4,7 +4,7 @@ use std::io::{self};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use p2p::{BoxedStream, ProtocolHandler, ProtocolId};
+use p2p::{BoxedStream, PeerId, ProtocolHandler, ProtocolId};
 
 use crate::session::{serve, SessionDeps};
 
@@ -28,7 +28,11 @@ impl ProtocolHandler for AcpHandler {
         self.protocol_id.clone()
     }
 
+    async fn handle_inbound(&self, peer: PeerId, stream: BoxedStream) -> io::Result<()> {
+        serve(self.deps.clone(), stream, Some(peer)).await
+    }
+
     async fn handle(&self, stream: BoxedStream) -> io::Result<()> {
-        serve(self.deps.clone(), stream).await
+        serve(self.deps.clone(), stream, None).await
     }
 }

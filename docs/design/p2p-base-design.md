@@ -93,7 +93,7 @@ node.gate(|peer_id, addr| allowlist.contains(&peer_id));
   → 安全握手: QUIC=TLS1.3(证书携带身份公钥, 类 libp2p-tls) / TCP=Noise XX
   → 双方互认 PeerId（握手即带身份，无明文阶段）
   → 复用层: QUIC 原生多流; TCP 挂 yamux
-  → 每条流开头: varint(len) + 协议ID(UTF-8)  →  路由到 handler
+  → 每条流开头: varint(len) + 协议ID(UTF-8)  →  路由到 handler（随流下传互认 PeerId，§5.5）
   → 之后: varint(len) + payload（业务透传，底座不解析）
 ```
 
@@ -117,6 +117,18 @@ node.gate(|peer_id, addr| allowlist.contains(&peer_id));
 | `/p2p-base/rendezvous/1` | 注册/刷新/查询节点地址（带 TTL） |
 | `/p2p-base/relay/1` | 中继申请、打洞协调信令 |
 | `/p2p-base/circuit/1` | 加密中继数据桥接 |
+
+### 5.5 入站分发身份契约（2026-09-05 契约补记）
+
+swarm 分发入站流时，随流下传安全握手互认的远端 PeerId（`SecureConn.remote`）：
+
+- `ProtocolHandler::handle_inbound(peer, stream)` 是带身份分发的唯一入口，
+  handler 覆写即确定性拿到真实对端身份，编译期杜绝「拿到流但拿不到身份」。
+- 裸流入口 `ProtocolHandler::handle(stream)` 只保留给无身份上下文场景
+  （盲拨应答、纯回环测试）；需要身份归属的业务不得经此路径自行推断。
+- 路线裁决：trait 加参而非流类型携带元数据——既有全部 handler 零改动迁移
+  （默认实现桥接旧签名），身份在签名上显式可见；libp2p 同类痛点的通行解。
+- 上层归属的唯一身份来源是分发层下传参数，禁止以连接事件在线集推断流归属。
 
 ## 6. 身份与安全
 
@@ -174,7 +186,7 @@ node.gate(|peer_id, addr| allowlist.contains(&peer_id));
 
 | 扩展点 | 机制 |
 |---|---|
-| 新业务协议 | 实现 `ProtocolHandler` trait 并注册协议 ID，收流即回调 |
+| 新业务协议 | 实现 `ProtocolHandler` trait 并注册协议 ID，收流即回调；需要身份归属的覆写 `handle_inbound`（§5.5） |
 | 自定义发现 | 实现 `Discovery` trait（mDNS/rendezvous 均是该 trait 的内置实现） |
 | 自定义传输 | 实现 `Transport` trait（dial/listen 抽象） |
 | 事件 | 统一事件总线（发现/连接/流/错误），业务订阅 |
