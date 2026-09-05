@@ -2,7 +2,7 @@
 //! 白名单过滤、chat 目录懒挂载与降级路径（真实 notify，短防抖窗口）。
 
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError, TryRecvError};
 use std::time::{Duration, Instant};
 
@@ -20,10 +20,7 @@ fn temp_dir(tag: &str) -> PathBuf {
 
 /// 测试专用启动：app=None 直接消费 rx；句柄必须由调用方持有到断言结束
 /// （debouncer Drop 即停转发线程并断开通道）。
-fn start_test(
-    dir: &PathBuf,
-    debounce: Duration,
-) -> (super::WatchHandle, mpsc::Receiver<EventBatch>) {
+fn start_test(dir: &Path, debounce: Duration) -> (super::WatchHandle, mpsc::Receiver<EventBatch>) {
     match spawn_inner::<tauri::Wry>(dir, debounce, None) {
         Ok((handle, Some(rx))) => (handle, rx),
         Ok((_handle, None)) => unreachable!("app=None 必返回 rx"),

@@ -40,7 +40,7 @@ fn sample_message() -> GroupMessage {
 
 #[test]
 fn group_info_json_field_names_match_contract() {
-    let encoded = serde_json::to_value(&sample_group(GroupState::Active)).expect("序列化群");
+    let encoded = serde_json::to_value(sample_group(GroupState::Active)).expect("序列化群");
     assert_eq!(
         encoded,
         json!({
@@ -52,15 +52,15 @@ fn group_info_json_field_names_match_contract() {
     );
     // 四态序列化逐字对齐
     assert_eq!(
-        serde_json::to_value(&sample_group(GroupState::Left)).expect("left")["state"],
+        serde_json::to_value(sample_group(GroupState::Left)).expect("left")["state"],
         json!("left")
     );
     assert_eq!(
-        serde_json::to_value(&sample_group(GroupState::Kicked)).expect("kicked")["state"],
+        serde_json::to_value(sample_group(GroupState::Kicked)).expect("kicked")["state"],
         json!("kicked")
     );
     assert_eq!(
-        serde_json::to_value(&sample_group(GroupState::Disbanded)).expect("disbanded")["state"],
+        serde_json::to_value(sample_group(GroupState::Disbanded)).expect("disbanded")["state"],
         json!("disbanded")
     );
 }
