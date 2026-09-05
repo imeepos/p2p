@@ -28,6 +28,11 @@ export function UsageBar() {
       </div>
       <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
         <div
+          role="progressbar"
+          aria-label={t("acp.usage.title")}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={percent}
           className={cn(
             "h-full rounded-full",
             critical ? "bg-destructive" : warn ? "bg-warning" : "bg-success",

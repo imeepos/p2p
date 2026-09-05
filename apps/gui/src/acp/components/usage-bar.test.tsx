@@ -31,10 +31,16 @@ describe("UsageBar 阈值分级", () => {
     expect(screen.queryByTestId("acp-usage-hint")).toBeNull();
   });
 
-  it("超过 80% 切警示色并显示文字提示", () => {
+  it("超过 80% 切警示色并显示文字提示，进度条带 role/aria-valuenow（P2-ADD 需求12）", () => {
     seed(170000, 200000);
     render(<UsageBar />);
-    expect((screen.getByTestId("acp-usage-fill") as HTMLElement).className).toContain("bg-warning");
+    const fill = screen.getByTestId("acp-usage-fill");
+    expect(fill.className).toContain("bg-warning");
+    expect(fill.getAttribute("role")).toBe("progressbar");
+    expect(fill.getAttribute("aria-valuenow")).toBe("85");
+    expect(fill.getAttribute("aria-valuemin")).toBe("0");
+    expect(fill.getAttribute("aria-valuemax")).toBe("100");
+    expect(fill.getAttribute("aria-label")).toBe("上下文占用");
     const hint = screen.getByTestId("acp-usage-hint");
     expect(hint.textContent).toContain("80%");
     expect(hint.className).toContain("text-warning");
