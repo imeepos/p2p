@@ -8,7 +8,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import type { DialHopJson, DialHopKind } from "@/lib/ipc-types";
-import { HOP_KEY } from "@/views/monitor/hop-labels";
+import { HOP_KEY } from "@/views/network/hop-labels";
 import { cn } from "@/lib/utils";
 
 const HOP_ICON: Record<DialHopKind, typeof ArrowLeftRightIcon> = {

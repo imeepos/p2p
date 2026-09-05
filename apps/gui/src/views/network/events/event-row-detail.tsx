@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import type { Locale } from "@/i18n";
 import type { NodeEventJson } from "@/lib/ipc-types";
-import { eventTimeMs } from "./event-clock";
+import { eventTimeMs } from "@/views/network/event-clock";
 
 interface EventRowDetailProps {
   event: NodeEventJson;

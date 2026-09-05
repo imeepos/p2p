@@ -10,7 +10,7 @@ import { PeerDetailSheet } from "./peer-detail-sheet";
 import { PeersTableCard } from "./peers-table-card";
 import { PeersToolbar, type StatusFilter } from "./peers-toolbar";
 import { peerStatusKind } from "./peer-status";
-import { useTicker } from "./use-ticker";
+import { useTicker } from "@/views/network/use-ticker";
 
 const PING_TIMEOUT_MS = 8000;
 

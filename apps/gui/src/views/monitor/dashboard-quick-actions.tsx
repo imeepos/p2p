@@ -4,8 +4,8 @@ import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { useNodeStore } from "@/stores/node-store";
-import { StopNodeDialog } from "./stop-node-dialog";
-import { StartNodeButton } from "./start-node-button";
+import { StopNodeDialog } from "@/views/network/stop-node-dialog";
+import { StartNodeButton } from "@/views/network/start-node-button";
 
 // 顶部快速操作：启动直接执行；停止走二次确认弹框；拨号入口跳节点页。
 export function DashboardQuickActions() {

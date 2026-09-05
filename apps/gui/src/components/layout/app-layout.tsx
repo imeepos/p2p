@@ -12,7 +12,7 @@ import {
 } from "@/hooks/use-hotkeys";
 import { useNodeStore } from "@/stores/node-store";
 import { useUpdateStore } from "@/stores/update-store";
-import { DataLinkBanner } from "@/views/monitor/data-link-banner";
+import { DataLinkBanner } from "@/views/network/data-link-banner";
 import { UpdateNotice } from "@/views/update/update-notice";
 
 const REFRESH_INTERVAL_MS = 5000;

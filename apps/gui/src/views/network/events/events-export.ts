@@ -1,5 +1,5 @@
 import type { NodeEventJson } from "@/lib/ipc-types";
-import { eventTimeMs } from "./event-clock";
+import { eventTimeMs } from "@/views/network/event-clock";
 
 // 导出 JSON：附带兜底后的 tsMs，浏览器侧触发文件下载。
 export function exportEventsJson(events: NodeEventJson[]): void {

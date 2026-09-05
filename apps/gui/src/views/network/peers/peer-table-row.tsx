@@ -8,7 +8,7 @@ import type { I18nKey } from "@/i18n/types";
 import type { DialReport, PingOutcome } from "@/lib/ipc-types";
 import { cn } from "@/lib/utils";
 import type { PeerEntry } from "@/stores/node-store";
-import { formatRelative } from "./event-clock";
+import { formatRelative } from "@/views/network/event-clock";
 import {
   peerSourceKind,
   peerStatusKind,

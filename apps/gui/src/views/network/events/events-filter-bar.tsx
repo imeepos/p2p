@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   ALL_EVENT_TYPES,
   EVENT_TYPE_KEY,
-} from "./event-meta";
+} from "@/views/network/event-meta";
 import type { NodeEventType } from "@/lib/ipc-types";
 
 interface EventsFilterBarProps {

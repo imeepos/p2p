@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Locale } from "@/i18n";
 import type { NodeEventJson } from "@/lib/ipc-types";
 import { RecentEventLine } from "./recent-event-line";
-import { useTicker } from "./use-ticker";
+import { useTicker } from "@/views/network/use-ticker";
 
 const RECENT_EVENT_COUNT = 10;
 

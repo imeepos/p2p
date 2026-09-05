@@ -1,12 +1,12 @@
 import { useTranslation } from "react-i18next";
 
-import { HOP_KEY } from "./hop-labels";
+import { HOP_KEY } from "@/views/network/hop-labels";
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n";
 import type { DialHopKind, NodeEventJson } from "@/lib/ipc-types";
-import { eventTimeMs, formatRelative } from "./event-clock";
-import { EVENT_TYPE_KEY, eventBadgeVariant, eventSummary } from "./event-meta";
-import { toLooseT } from "./loose-t";
+import { eventTimeMs, formatRelative } from "@/views/network/event-clock";
+import { EVENT_TYPE_KEY, eventBadgeVariant, eventSummary } from "@/views/network/event-meta";
+import { toLooseT } from "@/views/network/loose-t";
 
 interface RecentEventLineProps {
   event: NodeEventJson;

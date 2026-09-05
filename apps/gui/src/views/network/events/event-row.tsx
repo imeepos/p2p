@@ -1,20 +1,20 @@
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import { HOP_KEY } from "./hop-labels";
+import { HOP_KEY } from "@/views/network/hop-labels";
 import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n";
 import { formatTime } from "@/lib/format";
 import type { NodeEventJson } from "@/lib/ipc-types";
 import { cn } from "@/lib/utils";
-import { eventTimeMs } from "./event-clock";
+import { eventTimeMs } from "@/views/network/event-clock";
 import {
   EVENT_TYPE_KEY,
   eventBadgeVariant,
   eventSummary,
   isNodeEventError,
-} from "./event-meta";
-import { toLooseT } from "./loose-t";
+} from "@/views/network/event-meta";
+import { toLooseT } from "@/views/network/loose-t";
 import { EventRowDetail } from "./event-row-detail";
 
 export const EVENT_ROW_HEIGHT = 40;

@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { EmptyState } from "@/views/shared/empty-state";
 import { peerStatusKind, type PeerStatusKind } from "./peer-status";
 import { PeerTableRow } from "./peer-table-row";
-import { StartNodeButton } from "./start-node-button";
+import { StartNodeButton } from "@/views/network/start-node-button";
 
 type SortKey = "lastSeen" | "status";
 type SortDir = "asc" | "desc";

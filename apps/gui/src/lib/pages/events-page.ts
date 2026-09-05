@@ -2,7 +2,7 @@
 // exportEventsJson）。clear 清空缓冲不可恢复，为危险动作，registry 强制
 // args.confirm===true；过滤条件属视图本地态，不进注册表。
 import { useNodeStore } from "@/stores/node-store";
-import { exportEventsJson } from "@/views/monitor/events-export";
+import { exportEventsJson } from "@/views/network/events/events-export";
 import type { PageDescriptor, PageEntry } from "../page-registry";
 
 const LATEST_ROWS = 10;

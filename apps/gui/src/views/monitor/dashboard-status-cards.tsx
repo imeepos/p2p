@@ -7,7 +7,7 @@ import { formatUptime } from "@/lib/format";
 import type { NodeStatus } from "@/lib/ipc-types";
 import { StatusBadge } from "@/views/shared/status-badge";
 import { PEER_ID_PREFIX_LEN } from "@/views/shared/peer-id-cell";
-import { useTicker } from "./use-ticker";
+import { useTicker } from "@/views/network/use-ticker";
 
 function PeerIdValue({ peerId }: { peerId: string }) {
   return (

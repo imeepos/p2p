@@ -1,6 +1,6 @@
 import { describeNodeEvent } from "@/lib/event-text";
 import type { NodeEventJson, NodeEventType } from "@/lib/ipc-types";
-import { isNodeEventError } from "./event-meta";
+import { isNodeEventError } from "@/views/network/event-meta";
 
 export interface EventsFilterOptions {
   query: string;

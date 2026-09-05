@@ -8,7 +8,7 @@ const nodeState = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/ipc", () => ({ ipc: {} }));
-vi.mock("@/views/monitor/events-export", () => ({ exportEventsJson: exportMock }));
+vi.mock("@/views/network/events/events-export", () => ({ exportEventsJson: exportMock }));
 vi.mock("@/stores/node-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/stores/node-store")>();
   return {

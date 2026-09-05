@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { NodeEventJson, NodeEventType } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
-import { ALL_EVENT_TYPES } from "./event-meta";
+import { ALL_EVENT_TYPES } from "@/views/network/event-meta";
 import { filterEvents } from "./events-filter";
 import { useEventsCommands } from "./use-events-commands";
 

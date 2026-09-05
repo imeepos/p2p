@@ -33,7 +33,7 @@ import {
   hasAnyUnsaved,
 } from "./use-unsaved-guard";
 import { ProfileCard } from "@/views/settings/profile-card";
-import { RelayConfigCard } from "@/views/relay/relay-config-card";
+import { RelayConfigCard } from "@/views/network/relay/relay-config-card";
 import { SettingsView } from "@/views/settings/settings-view";
 
 // 需求 1 注册侧：三个编辑面（设置表单 / 节点资料草稿 / 中继地址列表）
