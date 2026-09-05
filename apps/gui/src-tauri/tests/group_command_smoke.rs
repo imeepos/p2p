@@ -6,10 +6,10 @@
 
 use std::path::{Path, PathBuf};
 
-use p2p_chat::{ChatKind, ChatStatus};
+use p2p_chat::{ChatKind, ChatStatus, GroupState};
 use p2p_console::chat::chat_friend_add;
 use p2p_console::commands;
-use p2p_console::group::{group_create, group_history, group_list, group_send};
+use p2p_console::group::{group_create, group_disband, group_history, group_list, group_send};
 use p2p_console::state::AppState;
 use p2p_console::types::GuiConfig;
 use tauri::Manager;
@@ -134,6 +134,70 @@ async fn group_create_and_send_loopback_delivery() {
         "入站 replyTo 保留"
     );
     assert!(hist[0].acks.is_empty(), "收到的消息 acks 恒空（§4）");
+
+    commands::node_stop(handle_a.clone(), state_a.clone())
+        .await
+        .expect("停止 A");
+    commands::node_stop(handle_b.clone(), state_b.clone())
+        .await
+        .expect("停止 B");
+    let _ = (app_a, app_b);
+}
+
+/// 解散回环（G6）：A 命令层解散 → 返回 state=disbanded 且 rev 推进 → B 经
+/// G_KICK(disbanded) 命令层列表置位；重复解散显式 Err（owner/active 守卫）。
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn group_disband_loopback_member_receipt() {
+    let dir = cmd_dir("disband");
+    let _guard = DirGuard(dir.clone());
+    let (app_a, handle_a, peer_a, _) = start_node(&dir.join("a")).await;
+    let (app_b, handle_b, peer_b, addrs_b) = start_node(&dir.join("b")).await;
+    let state_a = handle_a.state::<AppState>();
+    let state_b = handle_b.state::<AppState>();
+
+    chat_friend_add(state_a.clone(), peer_b.clone(), "B".into(), addrs_b)
+        .await
+        .expect("A 登记 B");
+    let group = group_create(state_a.clone(), "解散群".into(), vec![peer_b.clone()])
+        .await
+        .expect("建群");
+
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+    let roster_b = loop {
+        let list = group_list(state_b.clone()).await.expect("B 读群列表");
+        if !list.is_empty() {
+            break list;
+        }
+        assert!(tokio::time::Instant::now() < deadline, "roster 未到 B");
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    };
+    assert_eq!(roster_b[0].state, GroupState::Active, "B 初始 active");
+
+    let disbanded = group_disband(state_a.clone(), group.group_id.clone())
+        .await
+        .expect("解散");
+    assert_eq!(disbanded.owner, peer_a, "owner=发起人");
+    assert_eq!(disbanded.state, GroupState::Disbanded, "本端置 disbanded");
+    assert_eq!(disbanded.rev, 1, "解散 rev 推进");
+
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let list = group_list(state_b.clone()).await.expect("B 读群列表");
+        if list[0].state == GroupState::Disbanded {
+            assert_eq!(list[0].group_id, group.group_id, "同群");
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "G_KICK 未达 B: {list:?}"
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+
+    let err = group_disband(state_a.clone(), group.group_id.clone())
+        .await
+        .expect_err("重复解散必须拒绝");
+    assert!(err.contains("不可解散"), "err: {err}");
 
     commands::node_stop(handle_a.clone(), state_a.clone())
         .await
