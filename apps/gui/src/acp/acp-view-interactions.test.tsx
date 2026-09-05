@@ -216,7 +216,7 @@ describe("AcpView reattach banner", () => {
 });
 
 describe("AcpView connection directory", () => {
-  it("手动 PeerId 添加、scope 徽章与迁移、回填表单、移除", async () => {
+  it("手动 PeerId 添加、scope 只读徽章（不可切换）、回填表单、移除", async () => {
     render(<AcpView />);
     fireEvent.change(screen.getByTestId("acp-directory-input"), {
       target: { value: "peer-manual-1" },
@@ -225,10 +225,9 @@ describe("AcpView connection directory", () => {
     const row = screen.getByTestId("acp-directory-row-peer-manual-1");
     expect(row.textContent).toContain("手动");
     expect(screen.getByTestId("acp-directory-scope-badge-peer-manual-1").textContent).toContain("沙箱");
-    await pickOption("acp-directory-scope-peer-manual-1", "工作区");
-    await waitFor(() => {
-      expect(screen.getByTestId("acp-directory-scope-badge-peer-manual-1").textContent).toContain("工作区");
-    });
+    // P2-ADD：scope 为只读展示（真实授权走桥侧 p2pctl acp allow），切换下拉已删除
+    expect(screen.queryByTestId("acp-directory-scope-peer-manual-1")).toBeNull();
+    expect(screen.getByTestId("acp-directory-scope-hint").textContent).toContain("p2pctl acp allow");
     fireEvent.click(screen.getByTestId("acp-directory-fill-peer-manual-1"));
     expect((screen.getByTestId("acp-input-peer") as HTMLInputElement).value).toBe("peer-manual-1");
     fireEvent.click(screen.getByTestId("acp-directory-remove-peer-manual-1"));

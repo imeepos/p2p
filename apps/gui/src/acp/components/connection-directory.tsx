@@ -9,16 +9,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { I18nKey } from "@/i18n/types";
 import { useAcpStore } from "@/acp/acp-store";
-import { DIRECTORY_SCOPES, groupBySource, type AcpScope, type DirectoryEntry } from "@/acp/directory-model";
+import { groupBySource, type AcpScope, type DirectoryEntry } from "@/acp/directory-model";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 import { EmptyState } from "@/views/shared/empty-state";
 import { Users } from "lucide-react";
@@ -47,8 +40,8 @@ function SourceBadge({ source }: { source: DirectoryEntry["source"] }) {
 function DirectoryRow({ entry }: { entry: DirectoryEntry }) {
   const { t } = useTranslation();
   const setDraft = useAcpStore((s) => s.setDraft);
-  const setScope = useAcpStore((s) => s.setDirectoryScope);
   const remove = useAcpStore((s) => s.removeDirectoryEntry);
+  const scopeHint = t("acp.directory.scopeHint");
   return (
     <div className="flex items-center justify-between gap-2 rounded-md border px-2 py-1.5"
       data-testid={"acp-directory-row-" + entry.peer}>
@@ -63,23 +56,12 @@ function DirectoryRow({ entry }: { entry: DirectoryEntry }) {
       </button>
       <div className="flex items-center gap-1.5">
         <SourceBadge source={entry.source} />
+        {/* scope 只读：真实授权权威在桥策略表，GUI 侧不提供切换假操纵杆 */}
         <span data-testid={"acp-directory-scope-badge-" + entry.peer}>
-          <StatusBadge tone={SCOPE_TONE[entry.scope]}>{t(SCOPE_KEY[entry.scope])}</StatusBadge>
+          <StatusBadge tone={SCOPE_TONE[entry.scope]} title={scopeHint}>
+            {t(SCOPE_KEY[entry.scope])}
+          </StatusBadge>
         </span>
-        <Select value={entry.scope} onValueChange={(v) => setScope(entry.peer, v as AcpScope)}>
-          <SelectTrigger size="sm" className="w-24"
-            data-testid={"acp-directory-scope-" + entry.peer}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DIRECTORY_SCOPES.map((scope) => (
-              <SelectItem key={scope} value={scope}
-                data-testid={"acp-directory-scope-choice-" + entry.peer + "-" + scope}>
-                {t(SCOPE_KEY[scope])}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Button size="icon" variant="ghost" className="size-7"
           onClick={() => remove(entry.peer)}
           aria-label={t("acp.directory.remove")}
@@ -145,6 +127,7 @@ export function ConnectionDirectory() {
               }
             }}
             placeholder={t("acp.directory.addPlaceholder")}
+            aria-label={t("acp.directory.addPlaceholder")}
             data-testid="acp-directory-input" />
           <Button variant="outline" onClick={submit} data-testid="acp-directory-add">
             {t("acp.directory.add")}
@@ -173,6 +156,9 @@ export function ConnectionDirectory() {
               title={t("acp.directory.groupManual")}
               entries={grouped.manual}
             />
+            <p className="text-muted-foreground px-2 text-xs" data-testid="acp-directory-scope-hint">
+              {t("acp.directory.scopeHint")}
+            </p>
           </div>
         )}
       </CardContent>

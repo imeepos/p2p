@@ -51,4 +51,20 @@ describe("ConnectionDirectory 信息架构", () => {
     fireEvent.click(screen.getByTestId("acp-directory-fill-m-9"));
     expect(useAcpStore.getState().draft.peer).toBe("m-9");
   });
+
+  it("scope 只读：下拉已删、徽章 title 与旁注指向 p2pctl acp allow（P2-ADD 需求9）", () => {
+    useAcpStore.setState({ directory: [entry({ peer: "m-1" })] });
+    render(<ConnectionDirectory />);
+    expect(screen.queryByTestId("acp-directory-scope-m-1")).toBeNull();
+    const badge = screen.getByTestId("acp-directory-scope-badge-m-1");
+    expect(badge.querySelector("span[title]")?.getAttribute("title")).toContain("p2pctl acp allow");
+    expect(screen.getByTestId("acp-directory-scope-hint").textContent).toContain("p2pctl acp allow");
+  });
+
+  it("手动添加输入框带 aria-label（可访问名）", () => {
+    render(<ConnectionDirectory />);
+    expect(screen.getByTestId("acp-directory-input").getAttribute("aria-label")).toBe(
+      "手动添加 Peer ID",
+    );
+  });
 });
