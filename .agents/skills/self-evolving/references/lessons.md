@@ -299,3 +299,21 @@ _none yet — be the first._
 - 2026-09-05 G4 审计：判定大 diff 是否纯 fmt——git show <c> -- <paths> 删除/新增两侧行去空白后 sort|uniq -c 比对 token 多集，逐对可配对即零语义（rustfmt 换行/尾逗号/match 臂加括号会让 -w 的 --stat 仍有行数差，别被吓住）。
 - 2026-09-05 G4 收尾：重复派单撞车时「以 main 合入状态为准」——授权接管的瞬间执行者可能恰好收尾完（本次 rebase 时 fmt/clippy 修复笔被 git 自动丢弃 "patch contents already upstream"），rebase 的自动去重就是最干净的冲突裁决。
 - 2026-09-05 fmt 口径漂移跨会话传播：某会话合 main 未跑 cargo fmt --all --check，rustfmt 版本口径差堵死下游 G4/G5 两道 fmt 门禁；合 main 前必跑 fmt --check，撞墙方用「零语义 style 提交」在 feature 侧代修是既定解（rebase 同字节补丁自动去重，零冲突）。
+
+## 2026-09-05 邀请制加好友会话
+- 工具链转义洋葱：write/edit 的内容经 harness 会吃一层反斜杠（\" 变 "、\\n 变真换行），
+  含转义序列的代码补丁一律改走 node fs 直写或 bash heredoc（chr 拼接最稳），失败 5+ 次的教训。
+- python 生成 bash 脚本时，脚本内禁止 ${、反引号、反斜杠序列（awk 切分替代 %% 切分，
+  python -c JSON 断言替代嵌套引号 grep），否则 JS/py/bash 三层转义无法对齐。
+- D6 身份互斥实证：serve 常驻 + 同 data-dir 一次性命令并行，同 peerId 第二次拨号必败
+  （对端半开残留）；CLI e2e 编排必须轮转持锁 + 固定 --quic-port 保地址稳定。
+- 竞态修复模式：挂起重投（PeerConnected 触发）与用户操作（同意/拒绝）竞态，
+  用持久化 delivered 标记 + 锁内复查双保险，单靠时序等待是假修复。
+- bottom-up 验收顺序正确性：crate 集成测试（6/6）先绿再写 CLI e2e，能把协议缺陷
+  与编排缺陷干净分离；本次编排错误三次险些误判为协议缺陷。
+- 2026-09-05 G6：接单先全仓 grep 任务关键词做存量盘点再动手——G6 的"补 group_disband"
+  大半已被 G4/G5 顺手实现（核心命令/src-tauri 接线/cli/parity/guide 全在），真缺口只剩
+  GUI 前端命令面与契约表行；先盘点避免了重复实现与跨会话双写，改动面从"五层"缩到实需。
+- 2026-09-05 G6：后台管道 `make check | tail` 会吞退出码（tail 恒 0，job 显示 completed
+  不代表 make 成功）；判长门禁过没过要核"是否走到了最后一个 target 并打出 OK 标记"
+  （Makefile 依赖链默认首错即停，末关 AI-DOCS-OK 在场即全绿）。
