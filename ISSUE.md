@@ -36,6 +36,14 @@
 
 ---
 
+## AGENTS.md 收尾四步引用的 gitea 远端在本机主克隆不存在（2026-09-05 ACP-P1/P2 收尾实测）
+
+- **现象**：AGENTS.md 收尾四步写「git push gitea 分支（远端名是 gitea 不是 origin）」，但 /Users/imeepos/ext512/p2p 主克隆 git remote -v 只有 origin（github.com:imeepos/p2p.git），无 gitea 配置；并行会话按四步执行 push gitea 时无从落地（本地 ff-merge 与 worktree/分支清理均已完成，无代码损失）。
+- **现役吸收**：负责人收尾改推 git push origin main 保代码安全（main 已与 origin/main 同步）。
+- **期望**：明确 gitea 实例地址（疑似 102 服务器）并在主克隆补配 remote，或修订 AGENTS.md 收尾四步的远端名口径。
+
+---
+
 ## tests/smoke.rs 固定端口并行假红（T44 口径未覆盖，2026-09-05 G4 验收实测）
 - **现象**：two_nodes_discover_ping_and_observe_dialhop 0.04s 即 FAILED：节点 b 启动 Address already in use (os error 48)——同机多会话并行跑各自节点测试时固定端口相撞；单跑即复绿。
 - **现役吸收**：gui-tauri 门禁撞红先单测复跑鉴别环境散；尽量避免多会话同时跑 make check。
