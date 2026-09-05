@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { toastError, toastSuccess } from "@/components/feedback/toast";
+import { useConfirm } from "@/components/feedback/confirm-provider";
 import { PageHeader } from "@/components/page/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,32 +17,56 @@ import {
 import { clearErrorBufferAndQueue, getRecentErrors } from "@/lib/error-report";
 import { diag } from "@/lib/ipc";
 import { copyText } from "@/views/shared/clipboard";
+import { errorText } from "@/views/shared/form-flow";
 
 const TAIL_LINES = 50;
 const AUTO_REFRESH_MS = 5000;
 
 // 诊断页（G-H 观测）：前端错误缓冲 + 日志文件路径 + 持久化尾部，感知通道的人工视图。
+// IPC 失败以 i18n 标题 + 错误详情 toast 呈现（原始错误串进详情，不当正文直出）。
 export function DiagnosticsView() {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const [logPath, setLogPath] = useState<string | null>(null);
   const [tail, setTail] = useState<string[]>([]);
   const [version, setVersion] = useState(0);
 
   // load 只做异步取数（.then 内 setState），供 effect 与定时器直接调用。
   const load = useCallback(() => {
-    diag.logPath().then(setLogPath).catch((err) => toastError(String(err)));
     diag
-      .logTail(TAIL_LINES)
-      .then(setTail)
-      .catch((err) => toastError(String(err)));
-  }, []);
+      .logPath()
+      .then(setLogPath)
+      .catch((err) => {
+        console.error("[diagnostics] log_path 读取失败", err);
+        toastError(t("diagnostics.loadPathFailed"), {
+          description: errorText(err),
+          context: "diagnostics.log_path",
+        });
+      });
+    diag.logTail(TAIL_LINES).then(setTail).catch((err) => {
+      console.error("[diagnostics] log_tail 读取失败", err);
+      toastError(t("diagnostics.loadTailFailed"), {
+        description: errorText(err),
+        context: "diagnostics.log_tail",
+      });
+    });
+  }, [t]);
 
   const refresh = useCallback(() => {
     setVersion((v) => v + 1);
     load();
   }, [load]);
 
+  // 一键清理：清错误缓冲 + 删持久化日志文件，删除动作先过确认弹框。
   const clearAll = useCallback(async () => {
+    const ok = await confirm({
+      title: t("diagnostics.clearConfirm.title"),
+      description: t("diagnostics.clearConfirm.description"),
+      confirmText: t("diagnostics.clearConfirm.confirm"),
+      cancelText: t("common.actions.cancel"),
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       clearErrorBufferAndQueue();
       await diag.logClear();
@@ -49,9 +74,13 @@ export function DiagnosticsView() {
       setVersion((v) => v + 1);
       toastSuccess(t("diagnostics.cleared"));
     } catch (err) {
-      toastError(String(err));
+      console.error("[diagnostics] 清理诊断数据失败", err);
+      toastError(t("diagnostics.clearFailed"), {
+        description: errorText(err),
+        context: "diagnostics.log_clear",
+      });
     }
-  }, []);
+  }, [confirm, t]);
 
   useEffect(() => {
     load();
