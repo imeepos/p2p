@@ -2,7 +2,7 @@
 
 状态：v1（2026-09-05，设计会话制定，按已拍板决策展开，本文即施工规格）；既有壳规划见 [gui-plan.md](gui-plan.md)，菜单登记见 `apps/gui/src/config/menu.def.ts`。
 
-拍板基线（不再开放讨论）：左侧收敛为窄图标栏（icon rail），一级入口 4 个——聊天、通讯录、网络、设置（沉底）；单聊/群聊/agent 会话统一为「聊天」一种心智，聊天是唯一主入口；旧路由全部保留重定向；快捷键重映射到 4 入口；命令面板仍可达全部子页/tab。
+拍板基线（不再开放讨论）：左侧收敛为窄图标栏（icon rail），一级入口 4 个——聊天、通讯录、网络、设置（沉底）；单聊/群聊/agent 会话统一为「聊天」一种心智，聊天是唯一主入口；旧路由全部保留重定向；快捷键重映射到 4 入口；命令面板仍可达全部子页/tab；表单三律（前置校验同口径、禁自由文本、历史值下拉）已拍板，落点见 2.5 与 3.4。
 
 事实基线（现状代码，施工对照用）：现壳为 10 个平级文字菜单（`MENU_ENTRIES`，路径 `/` `/peers` `/discovery` `/relay` `/chat` `/group` `/acp` `/events` `/settings` `/diagnostics`）；hash router（`createHashRouter`）；快捷键 Cmd/Ctrl+1..9 按注册序跳前九个路由、Cmd/Ctrl+K 命令面板；窗口最小 960x600，断点 md 768 / lg 1024 / xl 1280；侧栏 w-60（折叠 w-14）、顶栏 h-14、底部状态栏 h-8；全代码库当前无未读（unread）状态。
 
@@ -89,6 +89,20 @@
 - 匹配范围（对 `ConversationEntry`）：`title` 与 `subtitle` 不区分大小写子串；`peerId`/`groupId` 前缀匹配；agent 额外匹配 wsUrl host。不做命中高亮。
 - 过滤只影响显示不动排序；清空恢复。无结果显示「无匹配会话」空态。
 
+### 2.5 表单规范（三律总则）
+
+表单三律（已拍板，全应用表单适用；聊天页落点在本节，通讯录落点见 3.4）：
+
+1. **前置校验**：有约束的字段必须有前置校验，口径与后端一致（同格式/同上限/同错误语义），错误码稳定并经 i18n 渲染（原始错误串只进提示详情，不当正文直出）。
+2. **禁自由文本**：能用下拉/选择器的场景禁止自由文本输入——候选集来自既有数据（分组、endpoint、好友等），仅「新建 X」路径允许输入。
+3. **历史值下拉**：有历史值的输入提供历史值下拉——聚焦时列出该字段历史提交值（去重、最近在前）。
+
+聊天页表单面 = composer（文本/媒体）与失败重发，落点：
+
+- 空文本禁发（Enter 仅在有内容时发送，沿用现 composer 行为）；媒体发送前置校验 mime 白名单与 ≤64MiB 上限，口径与后端 `ChatMediaInput` 一致，超限本地前置拦截并 i18n 提示，不发无效请求。
+- composer 无下拉/历史值场景，三律 (2)(3) 显式不适用（防施工者误加）。
+- 验收归 P1（见六）。
+
 ## 三、通讯录页详设（/contacts）
 
 ### 3.1 三区布局
@@ -129,6 +143,21 @@
 3. **权限策略**：迁移 `permission-grading` 配置面板——按操作分级（自动允许/每次询问/拒绝）的默认档与例外规则；变更即时生效于后续会话。
 4. **会话**：该 endpoint 的历史会话列表，点击跳 `/chat?agent=` 并载入对应 transcript。
 5. **危险区**：停用（保留配置、断开且不可发起）/ 删除（AlertDialog 二次确认，含「将同时移除本地会话记录索引」影响说明）。
+
+### 3.4 表单规范
+
+三律定义见 2.5。通讯录各表单落点与现状标记：
+
+| 表单 | 三律落点 | 现状 |
+|---|---|---|
+| 加好友（PeerId/备注/分组） | (1) PeerId base58 格式、备注 trim ≤64 与后端同口径，错误码稳定经 i18n | 已完备，保持不退化 |
+| 创建群（群名） | (1) 群名 trim 1..=64 与后端同口径 | 已完备，保持不退化 |
+| 移动分组 | (2) 已存在分组必须下拉选择（候选 = 现 `orderedGroups` 清单），仅「新建分组」路径才出现文本输入 | **需改造**（现为自由文本） |
+| agent endpoint（wsUrl/token/peer/别名） | (1) wsUrl 做 URL 格式校验，口径稳定经 i18n；(3) wsUrl 聚焦下拉列出历史保存值（saved endpoints 去重、最近在前） | **需改造**（补历史值下拉与稳定错误码） |
+| 资料编辑（昵称等） | (1) 昵称 trim ≤64 同口径 | 已完备，保持不退化 |
+| 设置项 | (1) 各配置字段校验口径不变 | 已完备，保持不退化 |
+
+改造项验收归 P2：移动分组表单显「选择分组」下拉 + 「新建分组…」入口（选中才展开输入框）断言；endpoint 表单历史值下拉断言；表单错误路径全部走稳定错误码 + i18n key 断言。
 
 ## 四、网络页详设（/network）
 
@@ -213,8 +242,8 @@ tab 记忆：当前 tab 会话级保持，重进 `/network` 无子路由时落 o
 每期通用门禁：`pnpm -C apps/gui build` 零错误 + 定向 vitest 绿 + 期末 `make check` 全绿。各期影响面与验收要点草案：
 
 - **P0**：影响 `app-layout.tsx`、`menu.def.ts`（独立小提交）、`App.tsx`、`use-hotkeys.ts`、`command-palette.tsx`、i18n。验收：5.3 重定向表每行一条路由断言（含带 query 透传）；rail 恰 4 入口且设置在底；Cmd/Ctrl+1..4 四跳断言；面板 13 导航项逐一可达断言；旧 10 视图内容均可在新位置打开（沿用现启动冒烟机制）。
-- **P1**：影响 `views/chat/**`、`components/chat/conversation-list.tsx`（重写）、`stores/chat-store.ts`（unread/聚合）、`stores/group-store.ts`、`acp/acp-store.ts`（会话摘要与最后交互时间）、i18n。验收：三来源条目同列混排渲染测试；预览规则 5 种 kind 断言；未读加一/选中清零/rail 合计角标断言；搜索过滤（标题/备注/ID 前缀）断言；`?peer=`/`?group=`/`?agent=` 深链选中断言；<768 单栏互斥切换断言（jsdom 视口模拟）。
-- **P2**：影响 `views/contacts/**`（新）、迁移 `chat-friend-add-dialog` 等 4 个对话框、`acp/config-panel.tsx`、`permission-panel.tsx`、`capabilities-card.tsx`、i18n。验收：三区空态与行操作断言；加好友 out/in 邀请全流程测试（沿用现 chat-friend-add 测试迁移）；创建群→邀请→入群流程断言；endpoint 添加→测试连接→保存→发起会话断言；详情抽屉五块渲染与权限档变更生效断言。
+- **P1**：影响 `views/chat/**`、`components/chat/conversation-list.tsx`（重写）、`stores/chat-store.ts`（unread/聚合）、`stores/group-store.ts`、`acp/acp-store.ts`（会话摘要与最后交互时间）、i18n。验收：三来源条目同列混排渲染测试；预览规则 5 种 kind 断言；未读加一/选中清零/rail 合计角标断言；搜索过滤（标题/备注/ID 前缀）断言；`?peer=`/`?group=`/`?agent=` 深链选中断言；<768 单栏互斥切换断言（jsdom 视口模拟）；composer 前置校验断言（空文本禁发、媒体 mime/≤64MiB 本地拦截且 i18n 提示，2.5）。
+- **P2**：影响 `views/contacts/**`（新）、迁移 `chat-friend-add-dialog` 等 4 个对话框、`acp/config-panel.tsx`、`permission-panel.tsx`、`capabilities-card.tsx`、i18n。验收：三区空态与行操作断言；加好友 out/in 邀请全流程测试（沿用现 chat-friend-add 测试迁移）；创建群→邀请→入群流程断言；endpoint 添加→测试连接→保存→发起会话断言；详情抽屉五块渲染与权限档变更生效断言；表单三律改造项断言（移动分组下拉 + 新建分组路径、endpoint 历史值下拉、错误码 i18n 快照，3.4）。
 - **P3**：影响 `views/network/**`（新容器）、五视图 `git mv` 迁移、`views/dashboard` 退役、i18n。验收：6 tab 切换与子路由直达断言；概览页四组信息卡 + 5 条最近事件断言（复用现 dashboard 测试改造）；「查看全部」跳转断言；`grep -r views/dashboard` 为空确认无残留引用。
 
 预估工作量比：P0 ≈ P1 > P2 > P3。每期完成即合并（短命分支纪律），不等四期齐。
