@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import type { I18nKey } from "@/i18n/types";
 import { useAcpStore } from "@/acp/acp-store";
-import { DIRECTORY_SCOPES, type AcpScope, type DirectoryEntry } from "@/acp/directory-model";
+import { DIRECTORY_SCOPES, groupBySource, type AcpScope, type DirectoryEntry } from "@/acp/directory-model";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 import { EmptyState } from "@/views/shared/empty-state";
 import { Users } from "lucide-react";
@@ -91,7 +91,22 @@ function DirectoryRow({ entry }: { entry: DirectoryEntry }) {
   );
 }
 
-/** 连接目录：发现清单（console discovery 契约）+ 手动 PeerId 添加 + scope 徽章。
+/** 信息架构分组：发现（rendezvous/mDNS）与手动/保存两组；组空不渲染，行序保持 store 顺序 */
+function DirectoryGroup(props: { testId: string; title: string; entries: DirectoryEntry[] }) {
+  if (props.entries.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-1" data-testid={props.testId}>
+      <h4 className="text-muted-foreground px-2 text-xs font-medium">
+        {props.title}（{props.entries.length}）
+      </h4>
+      {props.entries.map((entry) => (
+        <DirectoryRow key={entry.peer} entry={entry} />
+      ))}
+    </section>
+  );
+}
+
+/** 连接目录：发现清单（console discovery 契约）与手动 PeerId 分两组呈现 + scope 徽章。
  *  条目点击回填连接表单；scope 改动仅 GUI 侧记录（授权权威在桥策略表）。 */
 export function ConnectionDirectory() {
   const { t } = useTranslation();
@@ -99,6 +114,7 @@ export function ConnectionDirectory() {
   const [invalid, setInvalid] = useState(false);
   const directory = useAcpStore((s) => s.directory);
   const addManualPeer = useAcpStore((s) => s.addManualPeer);
+  const grouped = groupBySource(directory);
 
   const submit = () => {
     if (!peer.trim()) {
@@ -140,9 +156,24 @@ export function ConnectionDirectory() {
           </p>
         ) : null}
         {directory.length === 0 ? (
-          <EmptyState icon={Users} title={t("acp.directory.empty")} />
+          <EmptyState
+            icon={Users}
+            title={t("acp.directory.empty")}
+            description={t("acp.directory.emptyHint")}
+          />
         ) : (
-          directory.map((entry) => <DirectoryRow key={entry.peer} entry={entry} />)
+          <div className="flex flex-col gap-3">
+            <DirectoryGroup
+              testId="acp-directory-group-discovered"
+              title={t("acp.directory.groupDiscovered")}
+              entries={grouped.discovered}
+            />
+            <DirectoryGroup
+              testId="acp-directory-group-manual"
+              title={t("acp.directory.groupManual")}
+              entries={grouped.manual}
+            />
+          </div>
         )}
       </CardContent>
     </Card>

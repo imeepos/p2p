@@ -69,3 +69,17 @@ export function setEntryScope(
 ): DirectoryEntry[] {
   return entries.map((e) => (e.peer === peer ? { ...e, scope } : e));
 }
+
+/** 目录信息架构：按来源分组呈现（发现 = rendezvous/mDNS；手动/保存 = 本地录入） */
+export interface DirectoryGroups {
+  discovered: DirectoryEntry[];
+  manual: DirectoryEntry[];
+}
+
+export function groupBySource(entries: DirectoryEntry[]): DirectoryGroups {
+  const groups: DirectoryGroups = { discovered: [], manual: [] };
+  for (const entry of entries) {
+    groups[entry.source].push(entry);
+  }
+  return groups;
+}

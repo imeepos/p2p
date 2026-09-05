@@ -324,3 +324,18 @@ _none yet — be the first._
 - 2026-09-05 G6：后台管道 `make check | tail` 会吞退出码（tail 恒 0，job 显示 completed
   不代表 make 成功）；判长门禁过没过要核"是否走到了最后一个 target 并打出 OK 标记"
   （Makefile 依赖链默认首错即停，末关 AI-DOCS-OK 在场即全绿）。
+
+- [ACP-P2 页面打磨轮] run_code 内嵌 tools.bash 每次调用必须带 description 字段，漏传直接 bindingFailure（本轮浪费 2 次调用）；bash 的 workdir 不传时默认落主树工作区——并行 worktree 轮里在 worktree 内验收务必显式传 workdir，否则 grep/测试会静默读到主树旧代码（本轮 E 项清单因此重跑 2 次）。
+
+- 2026-09-05 R2 群聊打磨轮：任务书里的文件路径先验存在再动手——任务书写
+  crates/p2p-itest/tests/smoke.rs，实际文件在 apps/gui/src-tauri/tests/smoke.rs
+  （缺陷源 ISSUE.md 自身写「src-tauri 测试域」）；read 报 not found 后第一动作是
+  glob 全仓找同名文件，不是按任务书路径硬改。
+- 2026-09-05 R2：apps/cli、apps/gui/src-tauri 是独立 cargo 项目（Cargo.toml 声明
+  空 [workspace] 脱离根 workspace），根目录 cargo test -p <pkg> 报 did not match
+  any packages——必须进目录跑 cargo test；同理根 fmt/clippy 门禁不覆盖它们，
+  在独立项目里跑 cargo fmt 会把存量格式漂移一并改掉，须 git checkout --
+  无关文件保住提交原子性。
+- 2026-09-05 R2：接手验收先跑一次现状测试，把「存量红」与「自己引入的红」
+  分开——本轮 apps/cli tests 在 main 上就编译红（8d33eb9 改 InviteReport 类型
+  没同步测试 fixture），独立 fix 提交解锁验收，不混进本轮 feature 提交。

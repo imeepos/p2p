@@ -80,11 +80,16 @@ fn node_config(dir: &Path, quic: u16, tcp: u16) -> GuiConfig {
     }
 }
 
+/// 端口被占判别：free_port 探测与真实 bind 间存在 TOCTOU 窗口，同机多会话
+/// 并行跑各自测试时端口可被抢（ISSUE G4：Address already in use 假红）。
+fn is_addr_in_use(err: &str) -> bool {
+    err.contains("Address already in use") || err.contains("os error 48")
+}
+
 /// 起一个节点：独立 mock App + AppState，返回（App, 状态, 事件订阅）。
+/// 每次尝试现取 free_port 端口对；撞端口换端口重试至多 3 次，其余错误立即 panic。
 async fn start_node(
     tag: &str,
-    quic: u16,
-    tcp: u16,
 ) -> (
     App<MockRuntime>,
     NodeStatus,
@@ -93,20 +98,31 @@ async fn start_node(
 ) {
     let dir = smoke_dir(tag);
     std::fs::create_dir_all(&dir).expect("创建冒烟数据目录");
-    let app = tauri::test::mock_app();
-    let handle = app.handle().clone();
-    handle.manage(AppState::new(dir.clone()));
-    let log = capture_events(&handle);
-    let state: State<'_, AppState> = handle.state();
-    let status = commands::node_start(handle.clone(), state, node_config(&dir, quic, tcp))
-        .await
-        .unwrap_or_else(|e| panic!("节点 {tag} 启动失败: {e}"));
-    let rx = handle
-        .state::<AppState>()
-        .subscribe_events()
-        .await
-        .expect("订阅节点事件");
-    (app, status, rx, log)
+    let mut last_err = String::new();
+    for _ in 0..3 {
+        let app = tauri::test::mock_app();
+        let handle = app.handle().clone();
+        handle.manage(AppState::new(dir.clone()));
+        let log = capture_events(&handle);
+        let state: State<'_, AppState> = handle.state();
+        let cfg = node_config(&dir, free_port(), free_port());
+        match commands::node_start(handle.clone(), state, cfg).await {
+            Ok(status) => {
+                let rx = handle
+                    .state::<AppState>()
+                    .subscribe_events()
+                    .await
+                    .expect("订阅节点事件");
+                return (app, status, rx, log);
+            }
+            Err(e) if is_addr_in_use(&e) => {
+                eprintln!("[smoke] 节点 {tag} 端口被占，换端口重试: {e}");
+                last_err = e;
+            }
+            Err(e) => panic!("节点 {tag} 启动失败: {e}"),
+        }
+    }
+    panic!("节点 {tag} 连续 3 次端口冲突: {last_err}");
 }
 
 /// 在超时内等第一条满足谓词的事件；超时返回 None，通道关闭立即返回 None。
@@ -152,8 +168,8 @@ async fn two_nodes_discover_ping_and_observe_dialhop() {
         assert_eq!(loaded, cfg, "config_get 应与 config_save 逐字段一致");
     }
 
-    let (app_a, status_a, mut rx_a, log_a) = start_node("a", free_port(), free_port()).await;
-    let (app_b, status_b, mut rx_b, log_b) = start_node("b", free_port(), free_port()).await;
+    let (app_a, status_a, mut rx_a, log_a) = start_node("a").await;
+    let (app_b, status_b, mut rx_b, log_b) = start_node("b").await;
     let peer_b = status_b.peer_id.clone().expect("节点 B 启动后必有 PeerId");
     let peer_a = status_a.peer_id.clone().expect("节点 A 启动后必有 PeerId");
 

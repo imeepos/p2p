@@ -189,3 +189,24 @@ export function toggleThought(state: TranscriptState, id: number): TranscriptSta
   if (turn && turn.kind === "thought") turn.open = !turn.open;
   return next;
 }
+
+/** 工具入参/结果折叠阈值：超过约 6 行（或超长单行）默认收起，可展开 */
+export const TOOL_IO_COLLAPSE_LINES = 6;
+
+const TOOL_IO_MAX_CHARS = 400;
+
+export interface ToolIoView {
+  /** 内容超阈值需要折叠；短文本不渲染展开开关 */
+  collapsible: boolean;
+  /** 折叠态预览：前 6 行且不超过 400 字符 */
+  preview: string;
+}
+
+export function toolIoView(text: string): ToolIoView {
+  const collapsible =
+    text.split("\n").length > TOOL_IO_COLLAPSE_LINES || text.length > TOOL_IO_MAX_CHARS;
+  if (!collapsible) return { collapsible: false, preview: text };
+  let preview = text.split("\n", TOOL_IO_COLLAPSE_LINES).join("\n");
+  if (preview.length > TOOL_IO_MAX_CHARS) preview = preview.slice(0, TOOL_IO_MAX_CHARS);
+  return { collapsible: true, preview };
+}
