@@ -369,3 +369,4 @@ _none yet — be the first._
   HTTP 暴露→GUI 携回），断裂点可能在离需求描述最远的一跳——本轮需求书写的是「GUI 不带票据」，
   实际 console 落盘的 ticket 就是错的（自生成 conn 而非桥签发票据），只改 GUI 等于白改。
 
+- 2026-09-05：协调轮误判「会话未动工」——看到无 worktree、无分支就催办，实际对方早已走完收尾四步（分支删净正是完工的样子）。无 worktree/分支在「没开始」与「已收尾」两态长得一模一样，判定前必须先 git log --grep 或 merge-base 查产物在不在 main 祖先链；「dispatch 超时 ≠ 任务死亡 接管前先查产物」的完整读法：查产物查 main 日志，不是查 worktree。
