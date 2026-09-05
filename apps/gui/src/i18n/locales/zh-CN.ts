@@ -907,6 +907,20 @@ const zhCN = {
   },
   network: {
     title: "网络",
+    tabs: {
+      overview: "概览",
+      peers: "节点",
+      discovery: "发现",
+      relay: "中继",
+      events: "事件",
+      diagnostics: "诊断",
+    },
+    overview: {
+      title: "网络概览",
+      description: "节点状态、指标与最近事件一屏总览",
+      viewAll: "查看全部",
+      troubleshootTitle: "排障入口",
+    },
   },
 };
 

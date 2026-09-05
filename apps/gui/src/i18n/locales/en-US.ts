@@ -927,6 +927,20 @@ const enUS: typeof zhCN = {
   },
   network: {
     title: "Network",
+    tabs: {
+      overview: "Overview",
+      peers: "Peers",
+      discovery: "Discovery",
+      relay: "Relay",
+      events: "Events",
+      diagnostics: "Diagnostics",
+    },
+    overview: {
+      title: "Network Overview",
+      description: "Node status, metrics and recent events at a glance",
+      viewAll: "View all",
+      troubleshootTitle: "Troubleshooting",
+    },
   },
 };
 
