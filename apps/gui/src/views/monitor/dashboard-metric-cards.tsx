@@ -21,7 +21,12 @@ export function DashboardMetricCards({ metrics }: DashboardMetricCardsProps) {
       <StatCard
         span={3}
         label={t("dashboard.cards.peers")}
-        value={formatNumber(peerCount, locale)}
+        // 与其余指标卡同口径：首次取数未到一律骨架，避免把「还没数据」
+        // 渲染成 0 被误读为「没有节点」。
+        loading={metrics === null}
+        value={
+          metrics === null ? undefined : formatNumber(peerCount, locale)
+        }
       />
       <StatCard
         span={3}

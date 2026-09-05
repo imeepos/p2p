@@ -63,7 +63,7 @@ export function DashboardTrendCard({ history, running }: DashboardTrendCardProps
               <span className="text-xs">
                 {t(
                   running
-                    ? "dashboard.trend.hint"
+                    ? "dashboard.trend.emptyRunningHint"
                     : "dashboard.trend.emptyHint",
                 )}
               </span>
