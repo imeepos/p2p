@@ -5,11 +5,13 @@
 - **信息不准**：docs/ops/updater-release.md 写本机密钥「无密码」，实际密钥头解码为 `rsign encrypted secret key`（空密码加密）。本地 `tauri build` 不设 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 时签名步尝试 TTY 提示，报 `Device not configured (os error 6)`。
 - **正确做法**：本地构建必须 `export TAURI_SIGNING_PRIVATE_KEY="$(cat "$TAURI_SIGNING_PRIVATE_KEY_PATH")" && export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""`（两者都要）。文档待更正。
 
-## gui-client tag→release 路径从未成功过：GitHub secrets 缺失（2026-09-05 发布预检确认）
+## gui-client tag→release 签名路径从未成功过（2026-09-05 发布预检确认，定因待日志）
 
-- **信息缺失**：updater-release.md 的 GitHub secrets 复选框未勾（需仓库管理员）。实证：client-v0.1.4 tag 的 gui-client run 33946473330，gate job 全绿，四平台构建 job 全部 failure 于「Tauri 打包」步（与本地缺密钥报错同因），故 v0.1.4 有 tag 无 release；0.1.0–0.1.3 的 release 均无 .sig/.tar.gz/latest.json，应用内更新端点 releases/latest/download/latest.json 一直 404。
-- **影响**：secrets 登记前，任何 client-v* tag 都出不了 release。0.1.5 tag 推送被此阻塞。
-- **期望**：管理员登记 `TAURI_SIGNING_PRIVATE_KEY`（= 私钥文件全文）后重打 tag；`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` 留空不建（密钥为空密码）。
+- **实证**：签名要求随 83bac1b（2026-09-04 13:42 UTC）落地，晚于 v0.1.3 发布（12:41 UTC）——0.1.0–0.1.3 走的是无签名老流水线，其 release 无 .sig/.tar.gz/latest.json 属预期。首个带签名要求的 tag（client-v0.1.4）run 33946473330：gate 全绿，四平台构建全部 failure 于「Tauri 打包」步，无 release。
+- **候选定因**（无法免认证拉日志，待仓库权限者确认）：① `TAURI_SIGNING_PRIVATE_KEY` secret 未配/名不匹配；② 密钥为空密码加密而 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secret 被设了非空值（GitHub secrets 存不了空串，密钥为空密码时该 secret 不应存在）；③ 密钥内容粘贴带入换行/空白差异。本地等价复现：不设 PASSWORD 时报 `incorrect updater private key password: Device not configured`。
+- **影响**：该步失败则任何 client-v* tag 都出不了 release。
+- **期望**：拉 run 33946473330 「Tauri 打包」步日志核对真实报错；按 ①②③ 对应修正后重跑。
+- **2026-09-05 后记**：client-v0.1.5 tag 已推（0722 后），run 结果将直接验证上述候选——成功则出带 .sig 的 release，失败则注解/日志给出定因。
 
 ## ci.yml（ubuntu 全量门禁）在 main 存量红且本地 macOS 绿（2026-09-05 发布预检发现）
 
