@@ -322,6 +322,16 @@ failed: early eof（客户端侧超时中止）。
 - 修法：别名一律用独立参数声明（两个字段 + 取值函数 `data_dir.or(log_dir)` 定优先级），--help 各占一行即可双向比对；文档参数表同步加行。判据：给参数加别名前先看消费它的机械守卫怎么解析 help。
 
 ## 2026-09-05 PR2：run_code 里用 JS 模板串包 bash heredoc 被 `${...}` 插值炸掉
+## 2026-09-05 P0壳：bash 管道吞门禁退出码，&& 链假绿
+- 症状：'pnpm lint | tail -4 && pnpm test' 整链 exit 0，但输出里有 "✖ 1 problem (1 error)"——管道无 pipefail 时退出码取 tail 的 0。
+- 原因：bash 管道退出码=最后一个命令；门禁输出习惯性接 tail 截尾。
+- 修法：门禁命令要截尾就单跑（tail 之外无 &&）；或命令前缀 'set -o pipefail'；判绿必须输出文本（如 grep -c error）与 exit 双重确认。
+
+## 2026-09-05 P0壳：edit/write 的 read-before-edit 按精确路径校验，主树读过 ≠ worktree 同路径可写
+- 症状：主树 read 过 menu.def.ts / acp-registration.test.ts，到 worktree 写同一路径报 "file has not been read"，Promise.all 里连带打断同批编辑。
+- 原因：文件观察策略按字面路径记录已读状态，worktree 路径是另一条记录。
+- 修法：写 worktree 文件前一律先 read 该 worktree 路径（内容与主树一致也要读）；多 worktree 并行时按「哪个树要写就在哪个树读」执行。
+
 - 症状：写脚本含 `${BASH_SOURCE[0]}`/`${TMPDIR:-/tmp}` 时 run_code 直接解析报错（Unexpected token），或静默错值。
 - 原因：JS 模板串先于 bash 解释 `${`，`${TMPDIR:-/tmp}` 的 `:-` 直接是 JS 语法错误。
 - 修法：bash/脚本内容用行数组 join("\n") 传 tools.write；行内有单双引号混排时优先 heredoc 但转义 `\${`；写完 bash -n 或 grep 自验再跑。

@@ -55,3 +55,7 @@
 - 2026-09-05 禁止对共享 append-only 知识库文件（self-evolving references 等）盲目
   git restore/checkout --：文件里可能叠着并行会话未提交的追加。restore 前必须
   git diff 逐块辨认归属；只能丢弃能说清是自己写的 hunks，外来内容先抢救另存。
+- 2026-09-05 禁止以管道后（cmd | tail）的 exit code 判门禁绿红：无 pipefail 时退出码
+  恒为管道末命令的，lint/test 失败会被 && 链静默放行（本次 eslint 1 error 假绿实锤）；
+  判绿必须看输出文本或去掉管道单跑。
+
