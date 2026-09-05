@@ -372,3 +372,11 @@ _none yet — be the first._
   实际 console 落盘的 ticket 就是错的（自生成 conn 而非桥签发票据），只改 GUI 等于白改。
 
 - 2026-09-05：协调轮误判「会话未动工」——看到无 worktree、无分支就催办，实际对方早已走完收尾四步（分支删净正是完工的样子）。无 worktree/分支在「没开始」与「已收尾」两态长得一模一样，判定前必须先 git log --grep 或 merge-base 查产物在不在 main 祖先链；「dispatch 超时 ≠ 任务死亡 接管前先查产物」的完整读法：查产物查 main 日志，不是查 worktree。
+- 2026-09-05 ACP-P3 收尾轮：透过 bash 工具嵌 python heredoc 时，外层 TS 模板字符串先吃掉 \n——python 里要字面反斜杠 n 必须写 \\n，否则 SyntaxError 白跑一轮（EOL while scanning string literal）。
+- 2026-09-05 ACP-P3 收尾轮：改共享账本前先 git status 看脏 + 语义 diff 对 HEAD——本轮工作树里 D1/OPS1 是协调会话的既有未提交编辑，若不核对就会误报成自己改丢/改多了东西。
+- 2026-09-05 ACP-P3 收尾轮：任务卡写死的 worktree 路径可能已合并删除——先 git worktree list 再定位代码实际所在（本次 ACP worktree 已并入 main f864159，测试在主树）。
+- 2026-09-05：run_code 里给 write/write 传含反引号的 markdown 内容别用模板串裸嵌（` 转义链一断就 Expected ',', got ';'）；用行数组 join("\n") 或 bash heredoc(quoted delimiter) 落盘，长文档一律如此。
+- 2026-09-05：试用/派发类任务的清理路径开工前先设计：pkill 按数据目录前缀匹配 + 逐个 node stop，收尾打印"残留进程: N"留证据；本轮 /tmp/persona-trial 清零，且发现同机其他 checkout（p2p-invite）6 个泄漏 serve，巡检应覆盖多 checkout。
+- 2026-09-05：管道后 echo exit=$? 测的是管道尾（head 等）不是目标命令，本轮自己又踩（正是 OPS1 主题）；要拿真实退出码就把 stdout 落文件再单独跑 grep，或 set -o pipefail。
+- 2026-09-05：发现"输出丢失"类缺陷靠字节级断言（cat -A / 文件 0 字节 + exit 0 + 副作用已发生），肉眼看终端永远看不出重定向差异；node start --json 丢输出就是这么抓到的。
+- 2026-09-05：给并行子会话派任务书一次写全五件套：需求逐条/文件域互斥清单/验收命令(退出码语义)/合并序(注册表冲突消化方)/停等纪律；本轮 PR1-PR3 三会话并行靠这个把 cli.rs 冲突风险前置消解。
