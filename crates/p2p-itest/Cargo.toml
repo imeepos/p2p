@@ -14,6 +14,11 @@ tokio.workspace = true
 tokio-util = { workspace = true, features = ["codec"] }
 
 [dev-dependencies]
+# share 波 E2E（share_link_wave）：owner 侧真桥（agent 桥/台账/admin HTTP）与
+# guest 侧真链接解析均走 apps 库面；apps 为独立 cargo 项目，路径依赖跨 workspace
+acp-agent = { path = "../../apps/acp-agent" }
+acp-common = { path = "../../apps/acp-common" }
+acp-console = { path = "../../apps/acp-console" }
 llm-share-ledger = { path = "../llm-share-ledger" }
 llm-share-offer = { path = "../llm-share-offer" }
 llm-share-proxy = { path = "../llm-share-proxy" }
@@ -30,3 +35,4 @@ repair-bridge = { path = "../repair-bridge" }
 repair-helper = { path = "../repair-helper" }
 repair-enforce = { path = "../repair-enforce" }
 serde_json.workspace = true
+uuid.workspace = true
