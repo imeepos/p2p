@@ -3378,6 +3378,8 @@ dependencies = [
  "chrono",
  "getrandom 0.2.17",
  "gif",
+ "llm-share-ledger",
+ "llm-share-offer",
  "notify-debouncer-mini",
  "objc2",
  "objc2-app-kit",
@@ -3386,6 +3388,7 @@ dependencies = [
  "p2p",
  "p2p-chat",
  "p2p-cli",
+ "p2p-identity",
  "p2p-log",
  "p2p-swarm",
  "png 0.17.16",
@@ -3401,6 +3404,7 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+ "uuid",
 ]
 
 [[package]]

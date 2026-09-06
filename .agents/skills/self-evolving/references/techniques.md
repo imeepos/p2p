@@ -380,3 +380,5 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 ## pnpm 在本机 shell 里前台挂起 → 一律走 run_in_background 作业（2026-09-06 LSG3）
 - 症状：bash 里前台跑 pnpm（连 --version 都算）零输出，约 60s 被 SIGTERM；~/.vite-plus/bin/pnpm（corepack shim）同样挂。
 - 修法：pnpm 一律 run_in_background 作业 + 输出重定向 /tmp 日志再 grep；日志文件比 job_output 流式读取可靠（流式读一次即消费，丢输出）。
+- 2026-09-06 本机 bash 工具里 node/pnpm 静默挂起（exit=null 无输出）：PATH 首位是 ~/.vite-plus/bin，其 node 是 vp 启动器会挂起；export PATH=$HOME/.nvm/versions/node/<版本>/bin:$PATH 后恢复。新 worktree 无 node_modules，nvm pnpm install --frozen-lockfile 走共享 store 秒级。
+- 2026-09-06 vitest 全量在高负载机器上假超时（acp/app-boot 5s testTimeout/40s hookTimeout 成批红）：先对失败文件单跑隔离复判——真红隔离下仍稳定红，假红秒绿；隔离复跑再决定是否改码，避免误诊。

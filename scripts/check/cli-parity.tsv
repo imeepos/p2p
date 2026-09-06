@@ -48,6 +48,12 @@ chat_group_invites_list	mapped	group invites list
 chat_group_invite_accept	mapped	group invites accept	
 chat_group_invite_reject	mapped	group invites reject	
 acp_console_status	exempt		GUI 壳专属伴生进程托管快照（契约 §15 v10）：acp-console 由 GUI 启动 spawn 的本地子进程，CLI 无常驻进程面可对等，提供对等子命令无意义（同 frontend_log_append 豁免先例）
-# CLI 单侧命令登记（无 GUI 对应命令，守卫只校验 GUI→CLI 行，故以注释登记防漂移）：
-# llm-share borrow	借方一次性调用入口（F11/PR6）	CLI 单侧能力，不进映射表（同 gui 域先例）
-# llm-share offer publish/show / allow/allowlist/deny / ledger list/balance / receipt verify	出借方管理面（T21）	CLI 单侧能力，不进映射表
+llm_share_offer_publish	mapped	llm-share offer publish	
+llm_share_offer_show	mapped	llm-share offer show	
+llm_share_allow_list	mapped	llm-share allowlist	
+llm_share_allow	mapped	llm-share allow	
+llm_share_deny	mapped	llm-share deny	
+llm_share_borrow	mapped	llm-share borrow	
+llm_share_ledger_list	mapped	llm-share ledger list	
+llm_share_ledger_balance	mapped	llm-share ledger balance	
+llm_share_receipt_verify	mapped	llm-share receipt verify	
