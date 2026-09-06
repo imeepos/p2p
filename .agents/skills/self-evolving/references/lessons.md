@@ -304,3 +304,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06：测试里 yield_now 大自旋等待定时器驱动的服务端事件是调度假设（多核热队列下全程不 park，50k 次纯 CPU 微秒级烧完，300ms 墙钟根本没流逝）——改小步 sleep 加截止时间判红的轮询，事件发生即刻过、不发生显式红，双平台语义一致。
 - 2026-09-06：pipefail 脚本里 printf 管道喂带提前 exit 的 awk 有 EPIPE 竞态：awk exit 关读端，printf 没在 awk 退前写完缓冲就炸——macOS 恒赢（假稳）、CI 慢机可输；改 here-string 喂 awk 无此失效面。
 - 2026-09-06：本地 make check 绿之后又改了东西再推送，必须重跑门禁（哪怕只加一个函数）——本次 wait_until 签名漂移被自己扩展的 CI fmt 门禁当场抓获，白烧一轮 12 分钟 CI。
+- 2026-09-05 底座 peer 流下传卡：接任务卡先 `git log --oneline -- <条目涉及文件>` 对账再动手——登记/任务书会滞后于代码现状（c3b260f 已把 trait 加参与 swarm 喂流落地，实际只剩文档留档与应用迁移；不看历史会重复设计或误判契约未定）。
+- 2026-09-05 底座 peer 流下传卡：新写 Rust 文件进长门禁前先 cargo fmt --check 预检（根与独立 [workspace] 子包各跑一次，acp-agent 不被根 fmt 覆盖）——漂移是小 style 提交，白跑一轮 make check 是十几分钟。
+- 2026-09-05 底座 peer 流下传卡：后台 make check 的输出经 `| tail` 缓冲会让中途 job_output peek 全程拿不到进度；改 `make check > /tmp/x.log 2>&1; echo EXIT=$?` 落盘，中途可 tail 日志看阶段，退出码以落盘 echo 为准。
+- 2026-09-05 发布链路卡：「无密码」不等于「空密码加密」——rsign 密钥空口令加密时，tauri 签名必须显式导出空串 PASSWORD 变量，非交互 shell 才不会去开 /dev/tty（Device not configured, os error 6）；文档口径差一个词就是一次四平台发布失败。
+- 2026-09-05 发布链路卡：自检红绿矩阵里唯一期望 rc=0 的绿场景是 harness 自身的照妖镜——本次 eval "export $*" cmd 把命令词当 export 的 NAME 参数，八个红场景全是假阳性 rc=1，绿场景如实变红才暴露 harness bug；写自检先让它证明绿路径真能绿。

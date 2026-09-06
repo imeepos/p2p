@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use acp_agent::{AcpHandler, AgentConfig, CaptureAudit, PeerBook, SessionDeps};
+use acp_agent::{AcpHandler, AgentConfig, CaptureAudit, SessionDeps};
 use acp_common::{
     frames, AskRoute, ClientHello, LineReassembler, PeerPolicy, PolicyTable, Scope, ServerHello,
 };
@@ -73,8 +73,7 @@ pub async fn build_server_full(cfg: &AgentConfig) -> (Node, Arc<CaptureAudit>, A
         .await
         .expect("server node");
     let audit = Arc::new(CaptureAudit::new());
-    let peers = PeerBook::spawn(node.events());
-    let deps = SessionDeps::assemble(cfg.clone(), audit.clone(), peers).expect("deps");
+    let deps = SessionDeps::assemble(cfg.clone(), audit.clone()).expect("deps");
     node.handle_protocol(Arc::new(AcpHandler::new(deps.clone()).expect("handler")));
     (node, audit, deps)
 }
