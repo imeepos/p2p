@@ -86,7 +86,11 @@ async fn list(args: ListArgs) -> CliResult<()> {
             p2p_chat::InviteDirection::Out => "待对方同意",
             p2p_chat::InviteDirection::In => "待本机处理",
         };
-        let state = if i.delivered { "已送达" } else { "未送达" };
+        let state = if i.delivered {
+            "已送达"
+        } else {
+            "未送达"
+        };
         text.push_str(&format!(
             "
 - {} {}（{dir}，{state}）",
@@ -112,7 +116,10 @@ async fn accept(args: AcceptArgs) -> CliResult<()> {
 
 async fn reject(args: RejectArgs) -> CliResult<()> {
     let ctx = context::open(&args.data_dir).await?;
-    ctx.chat.invite_reject(&args.peer_id).await.map_err(runtime_err)?;
+    ctx.chat
+        .invite_reject(&args.peer_id)
+        .await
+        .map_err(runtime_err)?;
     emit(
         args.json,
         &InviteOpReport { ok: true },
@@ -122,7 +129,11 @@ async fn reject(args: RejectArgs) -> CliResult<()> {
 
 async fn cancel(args: RejectArgs) -> CliResult<()> {
     let ctx = context::open(&args.data_dir).await?;
-    let cancelled = ctx.chat.invite_cancel(&args.peer_id).await.map_err(runtime_err)?;
+    let cancelled = ctx
+        .chat
+        .invite_cancel(&args.peer_id)
+        .await
+        .map_err(runtime_err)?;
     let text = if cancelled {
         format!("已撤回好友邀请: {}", args.peer_id)
     } else {

@@ -34,8 +34,8 @@ pub struct PeerListReport {
 pub async fn run(args: ListArgs) -> CliResult<()> {
     let paths = Paths::new(&args.data_dir);
     let data = control::call(&paths, json!({ "op": "peerList" })).await?;
-    let report: PeerListReport =
-        serde_json::from_value(data).map_err(|e| crate::error::CliError::Runtime(format!("地址簿解析失败: {e}")))?;
+    let report: PeerListReport = serde_json::from_value(data)
+        .map_err(|e| crate::error::CliError::Runtime(format!("地址簿解析失败: {e}")))?;
     let text = render(&report);
     output::emit(args.json, &report, &text)
 }
@@ -45,7 +45,10 @@ fn render(report: &PeerListReport) -> String {
     if report.peers.is_empty() {
         return "地址簿为空（total=0 connected=0）".into();
     }
-    let mut lines = vec![format!("total={} connected={}", report.total, report.connected)];
+    let mut lines = vec![format!(
+        "total={} connected={}",
+        report.total, report.connected
+    )];
     for peer in &report.peers {
         lines.push(format!(
             "peer={} connected={} source={} lastSeenMs={} firstSeenMs={}",
