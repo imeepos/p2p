@@ -35,6 +35,7 @@ const BADGE_VARIANT: Record<NodeEventType, BadgeVariant> = {
   chat_group_message: "default",
   chat_group_status: "secondary",
   chat_group_state: "secondary",
+  chat_group_invite: "secondary",
 };
 
 export const ALL_EVENT_TYPES: readonly NodeEventType[] = Object.keys(
@@ -58,6 +59,7 @@ export const EVENT_TYPE_KEY: Record<NodeEventType, I18nKey> = {
   chat_group_message: "events.types.chat_group_message",
   chat_group_status: "events.types.chat_group_status",
   chat_group_state: "events.types.chat_group_state",
+  chat_group_invite: "events.types.chat_group_invite",
 };
 
 export function isNodeEventError(event: NodeEventJson): boolean {
@@ -169,6 +171,11 @@ export function eventSummary(
       return {
         key: "events.summary.chatGroupState",
         values: { name: event.group.name },
+      };
+    case "chat_group_invite":
+      return {
+        key: "events.summary.chatGroupInvite",
+        values: { name: event.invite.groupName, state: event.invite.state },
       };
   }
 }

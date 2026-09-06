@@ -58,6 +58,7 @@ export function useConversationEntries(): ConversationEntry[] {
       video: t("chat.preview.video"),
       file: t("chat.preview.file"),
       self: t("chat.conversations.self"),
+      groupInvite: t("chat.preview.groupInvite"),
     };
     const nickOf = (peerId: string) =>
       groupFriends.find((f) => f.peerId === peerId)?.nickname ?? "";

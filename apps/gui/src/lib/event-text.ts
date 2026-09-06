@@ -42,5 +42,10 @@ export function describeNodeEvent(event: NodeEventJson): string {
       );
     case "chat_group_state":
       return "chat_group_state " + short(event.group.groupId) + " rev=" + event.group.rev;
+    case "chat_group_invite":
+      return (
+        "chat_group_invite " + short(event.invite.groupId) + " " +
+        event.invite.state
+      );
   }
 }

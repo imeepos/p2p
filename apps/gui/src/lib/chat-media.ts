@@ -3,7 +3,10 @@ import type { ChatKind, ChatMediaInput } from "@/lib/ipc-types";
 // 设计 §5 附件规则：单条 ≤64MiB；kind 校验与 MIME 白名单与 mock/real 后端一致。
 export const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
 
-const MIME_BY_KIND: Record<Exclude<ChatKind, "text" | "file">, readonly string[]> = {
+const MIME_BY_KIND: Record<
+  Exclude<ChatKind, "text" | "file" | "groupInvite">,
+  readonly string[]
+> = {
   image: ["image/png", "image/jpeg", "image/gif", "image/webp"],
   audio: ["audio/mpeg", "audio/wav", "audio/ogg", "audio/m4a", "audio/mp4"],
   video: ["video/mp4", "video/webm", "video/mov", "video/quicktime"],
