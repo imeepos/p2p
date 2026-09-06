@@ -36,12 +36,12 @@ function renderPaletteWithLocation(onOpenChange: (open: boolean) => void) {
 
 afterEach(() => cleanup());
 
-describe("面板导航注册表（5.2：13 项 = 4 rail + 6 网络 tab + 3 通讯录锚点）", () => {
-  it("注册表恰好 13 项且构成符合拍板基线", () => {
-    expect(PALETTE_NAV_ENTRIES).toHaveLength(13);
+describe("面板导航注册表（5.2：14 项 = 4 rail + 1 消息中心 + 6 网络 tab + 3 通讯录锚点）", () => {
+  it("注册表恰好 14 项且构成符合拍板基线", () => {
+    expect(PALETTE_NAV_ENTRIES).toHaveLength(14);
     expect(
       PALETTE_NAV_ENTRIES.filter((entry) => !entry.path.includes("/network/") && !entry.path.includes("#")),
-    ).toHaveLength(4);
+    ).toHaveLength(5);
     expect(
       PALETTE_NAV_ENTRIES.filter((entry) => entry.path.startsWith("/network/")),
     ).toHaveLength(6);
@@ -50,7 +50,7 @@ describe("面板导航注册表（5.2：13 项 = 4 rail + 6 网络 tab + 3 通�
     ).toHaveLength(3);
   });
 
-  it("13 个导航项逐一可达且点击后关闭面板", async () => {
+  it("14 个导航项逐一可达且点击后关闭面板", async () => {
     for (const entry of PALETTE_NAV_ENTRIES) {
       const onOpenChange = vi.fn();
       renderPaletteWithLocation(onOpenChange);
