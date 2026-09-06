@@ -635,6 +635,8 @@ const zhCN = {
       effectivePort: "当前实际生效端口：{{port}}",
       mdns: "局域网发现（mDNS）",
       mdnsHint: "开启后通过组播发现同一局域网内的节点",
+      lanOnly: "仅监听局域网发现",
+      lanOnlyHint: "开启后节点仅在局域网内被发现与连接，不响应公网侧的发现请求",
     },
     defaults: {
       restore: "恢复出厂默认",
@@ -718,6 +720,12 @@ const zhCN = {
       description: "当前页面有未保存的修改，离开后将丢失这些修改。",
       discard: "放弃修改",
       stay: "留在本页",
+    },
+    llmShare: {
+      entry: "LLM 共享",
+      entryDescription:
+        "发布算力出借声明、管理借方白名单与双边账本（allowlist 无条目即不可用）",
+      entryAction: "打开",
     },
   },
   update: {
