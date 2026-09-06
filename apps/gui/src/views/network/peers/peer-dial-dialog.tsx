@@ -58,25 +58,27 @@ export function PeerDialDialog({ open, onOpenChange, initialTarget }: PeerDialDi
   const dial = useNodeStore((s) => s.dial);
   const running = useNodeStore((s) => s.status?.running ?? false);
   const discovered = useNodeStore(selectPeerList);
+  // 三段状态先声明：URL 契约播种（下方渲染期迁移块）与手工编辑共用。
+  const [segments, setSegments] = useState<DialSegments>(() =>
+    open && initialTarget ? splitDialTarget(initialTarget) : EMPTY_SEGMENTS,
+  );
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
   const [report, setReport] = useState<DialReport | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
 
-  // URL 契约预填：挂载即开（open 首渲染即 true）时初值直达；后续关闭再开
-  // 走渲染期状态迁移播种（不落 effect）。不可解析目标原串落入 PeerId 段，
-  // 由用户修正（不静默丢弃）。
+  // URL 契约预填：挂载即开（open 首渲染即 true）时初值直达（上方惰性初值）；
+  // 后续关闭再开走渲染期状态迁移播种（不落 effect）。不可解析目标原串落入
+  // PeerId 段，由用户修正（不静默丢弃）。
   const [seededOpen, setSeededOpen] = useState(open);
   if (open !== seededOpen) {
     setSeededOpen(open);
     if (open) {
+      setSegments(initialTarget ? splitDialTarget(initialTarget) : EMPTY_SEGMENTS);
       setSyntaxError(null);
       setReport(null);
       setCommandError(null);
     }
   }
-  const [segments, setSegments] = useState<DialSegments>(() =>
-    open && initialTarget ? splitDialTarget(initialTarget) : EMPTY_SEGMENTS,
-  );
 
   const portInvalid = segments.port.length > 0 && !isValidDialPort(segments.port);
   const canSubmit =
