@@ -52,6 +52,12 @@ pub struct Cli {
     /// MCP 定义文件路径（JSON object：名称 -> 服务定义）
     #[arg(long)]
     pub mcp_definitions_path: Option<String>,
+    /// 本地 admin HTTP 监听端口（0=随机）
+    #[arg(long)]
+    pub admin_port: Option<u16>,
+    /// 关闭本地 admin HTTP
+    #[arg(long)]
+    pub admin_disabled: bool,
 }
 
 pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
@@ -100,6 +106,12 @@ pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
     }
     if let Some(v) = &cli.mcp_definitions_path {
         cfg.mcp_definitions_path = Some(v.clone());
+    }
+    if let Some(v) = cli.admin_port {
+        cfg.admin_port = v;
+    }
+    if cli.admin_disabled {
+        cfg.admin_disabled = true;
     }
     cfg.load_mcp_definitions()?;
     cfg.validate()?;

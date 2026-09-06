@@ -18,6 +18,7 @@ use crate::config::AgentConfig;
 use crate::conn;
 use crate::gate::{ConnGate, ConnGuard, GateLimits};
 use crate::pump::{read_wire_line, wire_error, write_wire_line};
+use crate::share::{RedeemOutcome, ShareService};
 
 /// 握手读超时：无超时则慢速流可在占坑后永久挂起。
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -25,20 +26,34 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 pub struct SessionDeps {
     pub config: AgentConfig,
     pub policy: Arc<StdRwLock<PolicyTable>>,
+    pub shares: Arc<ShareService>,
     pub gate: Arc<ConnGate>,
     pub slots: Arc<SlotBook>,
     pub audit: Arc<dyn AuditSink>,
 }
 
+/// 装配期存储错误：策略表与分享台账任一损坏都拒启（禁止静默回退）。
+#[derive(Debug, thiserror::Error)]
+pub enum AssembleError {
+    #[error("policy load: {0}")]
+    Policy(#[from] acp_common::PolicyStoreError),
+    #[error("share ledger load: {0}")]
+    Shares(#[from] acp_common::ShareStoreError),
+}
+
 impl SessionDeps {
-    /// 装配：从配置路径加载策略表（缺失=空表默认拒绝；损坏=拒启）。
+    /// 装配：从配置路径加载策略表与分享台账（缺失=空表/空账，默认拒绝；
+    /// 损坏=拒启）。
     pub fn assemble(
         config: AgentConfig,
         audit: Arc<dyn AuditSink>,
-    ) -> Result<Arc<Self>, acp_common::PolicyStoreError> {
+    ) -> Result<Arc<Self>, AssembleError> {
         let table = crate::policy::load(&config.policy_path())?;
+        let policy = Arc::new(StdRwLock::new(table));
+        let shares = ShareService::open(&config, policy.clone(), audit.clone())?;
         Ok(Arc::new(Self {
-            policy: Arc::new(StdRwLock::new(table)),
+            policy,
+            shares: Arc::new(shares),
             gate: Arc::new(ConnGate::new()),
             slots: Arc::new(SlotBook::new()),
             config,
@@ -80,7 +95,7 @@ async fn run_session(
         Ok(hello) => hello,
         Err(code) => return deny(&mut stream, deps.audit.as_ref(), &peer_id, code).await,
     };
-    let grant = match authorize(&deps, &peer_id) {
+    let grant = match authorize(&deps, &peer_id, hello.token.as_deref()) {
         Ok(grant) => grant,
         Err(code) => return deny(&mut stream, deps.audit.as_ref(), &peer_id, code).await,
     };
@@ -118,12 +133,33 @@ async fn handshake(stream: &mut BoxedStream) -> Result<ClientHello, ErrorCode> {
     parse_client_hello(text).map_err(|_| ErrorCode::HandshakeMalformed)
 }
 
-fn authorize(deps: &SessionDeps, peer: &str) -> Result<PeerPolicy, ErrorCode> {
+/// 授权两级瀑布（设计 §4，零协议变更）：① 策略表命中走既有路径（token 忽略，
+/// 行为与今天完全一致）；② 未命中且带 token → 分享台账兑换（激活写策略表或按
+/// 状态拒绝，码进 denied 帧、五条事件进审计）；③ 其余 fail-closed 不回退。
+fn authorize(deps: &SessionDeps, peer: &str, token: Option<&str>) -> Result<PeerPolicy, ErrorCode> {
     let table = deps
         .policy
         .read()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    table.authorize(peer).cloned()
+    if let Some(grant) = table.lookup(peer) {
+        return Ok(grant.clone());
+    }
+    drop(table);
+    let Some(token) = token.filter(|t| !t.is_empty()) else {
+        return Err(ErrorCode::PeerNotAllowed);
+    };
+    match deps
+        .shares
+        .redeem(peer, token, acp_common::share::unix_now())
+    {
+        RedeemOutcome::Activated(grant) => Ok(grant),
+        RedeemOutcome::NotMatched => Err(ErrorCode::PeerNotAllowed),
+        RedeemOutcome::Denied { kind, .. } => Err(kind.error_code()),
+        RedeemOutcome::Storage(err) => {
+            tracing::error!(peer, error = %err, "share redeem persistence failed; denying (fail-closed)");
+            Err(ErrorCode::PeerNotAllowed)
+        }
+    }
 }
 
 fn admit(deps: &SessionDeps, peer: &str) -> Result<ConnGuard, (ErrorCode, &'static str)> {

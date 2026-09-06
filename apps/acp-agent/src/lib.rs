@@ -16,9 +16,11 @@ pub mod pump;
 pub mod reattach;
 pub(crate) mod router;
 pub mod session;
+pub mod share;
 pub mod subprocess;
 
 pub use audit::{AuditEvent, AuditSink, CaptureAudit, TracingAudit};
 pub use config::{AgentConfig, ConfigError};
 pub use handler::AcpHandler;
 pub use session::SessionDeps;
+pub use share::{LinkContext, RedeemOutcome, ShareService};
