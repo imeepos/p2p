@@ -212,6 +212,9 @@ _none yet — be the first._
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
+- 2026-09-06：接派单任务的第一道工序应是按协调方验收命令的原样 PATH 在基线上空跑一遍验收（本次暴露 `cargo test -p apps独立workspace包` 根目录解析失败、apps/cli 基线 test/clippy 红、bash 5.3 全角字符 bug 三处，全与本次改动无关）；收尾才发现基线红 = 被迫代修别人的域。
+- 2026-09-06：cargo fmt 会格式化整个 crate（含 fmt 门禁未覆盖的独立 workspace 的存量漂移文件）——跑之前 git status 建基线快照，收尾 diff 超出自己文件域就是越界信号，漂移要么回退要么按提交纪律拆独立 style 提交。
+
 - 2026-09-05 P0壳：设计文档内部有张力时（5.3 要求 /group /acp 重定向 vs 七、
   迁移策略要求群聊/ACP「P1 前保持整页形态挂新壳」），以可机械验收的清单为
   权威反推实现（重定向到 /chat?kind=*，kind 分支挂整页视图），两头约束同时

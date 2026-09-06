@@ -327,6 +327,12 @@ failed: early eof（客户端侧超时中止）。
 - 原因：bash 管道退出码=最后一个命令；门禁输出习惯性接 tail 截尾。
 - 修法：门禁命令要截尾就单跑（tail 之外无 &&）；或命令前缀 'set -o pipefail'；判绿必须输出文本（如 grep -c error）与 exit 双重确认。
 
+## 2026-09-06 homebrew bash 5.3：`$VAR` 后紧跟全角字符在 set -u 下报 unbound variable（假错）
+- 症状：`bash scripts/check/gui-dist-scan.sh <缺目录>` 在 PATH 首位含 /opt/homebrew/bin 时报 `line 15: DIST\uFFFD: unbound variable`（变量名尾部粘 0xEF），夹具期望的「产物目录不存在」提示消失；/bin/bash 3.2 一切正常。
+- 原因：bash 5.3 解析 `...不存在：$DIST（先跑...` 时把紧随变量的全角括号（0xEF 开头字节）并入变量名做展开；set -u 即炸。
+- 修法：变量一律写 `${DIST}` 显式定界（已修 scripts/check/gui-dist-scan.sh 单处）；排查同类问题用 `/opt/homebrew/bin/bash` 与 `/bin/bash` 双版本对照 + `cat -v` 看报错字节。
+
+
 ## 2026-09-05 P0壳：edit/write 的 read-before-edit 按精确路径校验，主树读过 ≠ worktree 同路径可写
 - 症状：主树 read 过 menu.def.ts / acp-registration.test.ts，到 worktree 写同一路径报 "file has not been read"，Promise.all 里连带打断同批编辑。
 - 原因：文件观察策略按字面路径记录已读状态，worktree 路径是另一条记录。
