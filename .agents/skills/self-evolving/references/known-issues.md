@@ -888,3 +888,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：vitest 全量红在 hardcoded-copy.test.ts，offenders 指向 views/settings/config-schema.ts 行尾 `// serde default：缺省 false` 注释，而非任何真实文案。
 - 原因：扫描器 stripComments 不剥离行尾 // 注释（只处理块注释），views 下 .ts 文件行内 CJK 一律命中 CJK 正则。
 - 修法：views/**/.ts 行尾注释用英文（或把注释放到 const 上方独立行也躲不过，直接英文最稳）；改后扫描绿。
+
+## 2026-09-07 UX-H：vite dev 冷启挂死（0% CPU 零输出不监听）三因叠加
+- 症状：vite 启动零输出、端口不监听、进程 0% CPU 挂着；换前台 `( nohup … & )` detach 单命令模式即秒过（ready 8.6s）。
+- 原因：① lsof 见 vite 进程 ESTABLISHED 到 localhost:7890——HTTP(S)_PROXY 环境变量把启动期请求导进代理挂死；② run_in_background bash job 的文件写与端口对宿主不可见（日志文件始终不被截断，读到的全是旧内容）；③ gui-agent DEBUG_PORT 9223 全机器共用，并行会话互抢，抢到别人的 Chrome 就页面加载超时。
+- 修法：启动套 `env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY NO_PROXY='*'`；dev server 放前台单命令内 detach（启动+探活+走查+清理一条命令闭环）；gui-agent 复制副本 `sed 's/9223/9229/'` 用专用端口。

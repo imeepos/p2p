@@ -377,3 +377,6 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-06 查 UI 依赖真实行为直接读 unpkg 的未压缩 dist（unpkg.com/pkg@ver/dist/index.js）+ web_fetch 取段分析，比本地 grep 压缩产物/搜二手 changelog 快且准。
 - 2026-09-06 本机 bash 工具里 node/pnpm 静默挂起（exit=null 无输出）：PATH 首位是 ~/.vite-plus/bin，其 node 是 vp 启动器会挂起；export PATH=$HOME/.nvm/versions/node/<版本>/bin:$PATH 后恢复。新 worktree 无 node_modules，nvm pnpm install --frozen-lockfile 走共享 store 秒级。
 - 2026-09-06 vitest 全量在高负载机器上假超时（acp/app-boot 5s testTimeout/40s hookTimeout 成批红）：先对失败文件单跑隔离复判——真红隔离下仍稳定红，假红秒绿；隔离复跑再决定是否改码，避免误诊。
+- 2026-09-07 vitest4 已删 `--reporter=basic`（会当自定义 reporter 模块加载报 ERR_LOAD_URL）；抓失败清单用默认 reporter 输出重定向后 grep FAIL 行。
+- 2026-09-07 管道吞退出码假绿：`cmd | tail -8; echo $?` 取到的是 tail 的 0；验收判定一律 `cmd > log 2>&1; rc=$?` 直取命令退出码。
+- 2026-09-07 gui-agent 走查 SPA：页面内 mock 状态不跨调用存活，每个场景在单次 eval 内闭环（导航+操作+断言一次跑完）；启动竞态会吞掉早期的 location.hash 赋值——轮询循环里反复 set hash 自愈，失败分支回传 bodySnippet 便于诊断。
