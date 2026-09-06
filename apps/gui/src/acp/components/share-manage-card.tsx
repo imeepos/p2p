@@ -37,10 +37,11 @@ const STATUS_KEY: Record<ShareStatus, I18nKey> = {
   revoked: "acp.share.manage.status.revoked",
 };
 
-function ShareRow({ entry }: { entry: ShareEntry }) {
+type ShareRowModel = ShareEntry & { status: ShareStatus };
+
+function ShareRow({ entry, onRevoked }: { entry: ShareRowModel; onRevoked: () => void }) {
   const { t, i18n } = useTranslation();
   const confirm = useConfirm();
-  const status = shareStatus(entry, Math.floor(Date.now() / 1000));
   const expiresText = entry.expires_at_unix
     ? t("acp.share.manage.expiresAt", {
         time: formatDateTime(entry.expires_at_unix * 1000, i18n.language as Locale),
@@ -59,6 +60,7 @@ function ShareRow({ entry }: { entry: ShareEntry }) {
       const { draft } = useAcpStore.getState();
       try {
         await revokeShare(draft.adminUrl ?? "", draft.adminToken ?? "", entry.share_id);
+        onRevoked();
       } catch (error) {
         toastError(t("acp.share.manage.revokeFailed"), {
           description: error instanceof Error ? error.message : String(error),
@@ -84,7 +86,7 @@ function ShareRow({ entry }: { entry: ShareEntry }) {
           {t(entry.scope === "workspace" ? "acp.share.scopeWorkspace" : "acp.share.scopeSandbox")}
         </StatusBadge>
         <span data-testid={"acp-share-status-" + entry.share_id}>
-          <StatusBadge tone={STATUS_TONE[status]}>{t(STATUS_KEY[status])}</StatusBadge>
+          <StatusBadge tone={STATUS_TONE[entry.status]}>{t(STATUS_KEY[entry.status])}</StatusBadge>
         </span>
         <span className="text-muted-foreground text-xs">
           {t("acp.share.manage.activations", { used: entry.activations, max: entry.max_activations })}
@@ -114,26 +116,35 @@ export function ShareManageCard() {
   // effect 依赖只取原始值：endpoint 对象每渲染都是新引用，直接依赖会自旋
   const endpointUrl = endpoint?.url ?? null;
   const endpointToken = endpoint?.token ?? "";
-  const [rows, setRows] = useState<ShareEntry[] | null>(null);
+  const [rows, setRows] = useState<ShareRowModel[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-
-  const reload = useCallback(async () => {
-    if (!endpointUrl) return;
-    try {
-      const list = await listShares(endpointUrl, endpointToken);
-      setRows(list);
-      setLoadError(false);
-    } catch (error) {
-      console.warn("[acp] share list load failed", error);
-      setRows(null);
-      setLoadError(true);
-    }
-  }, [endpointUrl, endpointToken]);
+  const [tick, setTick] = useState(0);
+  const bump = useCallback(() => setTick((n) => n + 1), []);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    if (!endpointUrl) return;
+    let dead = false;
+    const load = async () => {
+      try {
+        const list = await listShares(endpointUrl, endpointToken);
+        if (dead) return;
+        // 状态徽章在取数时刻推导一次（渲染期不调用 Date.now 保持纯函数）
+        const nowUnix = Math.floor(Date.now() / 1000);
+        setRows(list.map((e) => ({ ...e, status: shareStatus(e, nowUnix) })));
+        setLoadError(false);
+      } catch (error) {
+        console.warn("[acp] share list load failed", error);
+        if (dead) return;
+        setRows(null);
+        setLoadError(true);
+      }
+    };
+    void load();
+    return () => {
+      dead = true;
+    };
+  }, [endpointUrl, endpointToken, tick]);
 
   return (
     <Card data-testid="acp-share-manage-card">
@@ -143,7 +154,7 @@ export function ShareManageCard() {
           <Button
             size="icon"
             variant="ghost"
-            onClick={() => void reload()}
+            onClick={bump}
             aria-label={t("acp.share.manage.refresh")}
             data-testid="acp-share-manage-refresh"
           >
@@ -169,7 +180,7 @@ export function ShareManageCard() {
             <p className="text-destructive text-sm" data-testid="acp-share-manage-error">
               {t("acp.share.manage.loadFailed")}
             </p>
-            <Button size="sm" variant="outline" onClick={() => void reload()} data-testid="acp-share-manage-reload">
+            <Button size="sm" variant="outline" onClick={bump} data-testid="acp-share-manage-reload">
               {t("acp.share.manage.reload")}
             </Button>
           </div>
@@ -178,10 +189,12 @@ export function ShareManageCard() {
             {t("acp.share.manage.empty")}
           </p>
         ) : (
-          rows.map((entry) => <ShareRow key={entry.share_id} entry={entry} />)
+          rows.map((entry) => (
+            <ShareRow key={entry.share_id} entry={entry} onRevoked={bump} />
+          ))
         )}
       </CardContent>
-      <ShareCreateDialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) void reload(); }} />
+      <ShareCreateDialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) bump(); }} />
     </Card>
   );
 }
