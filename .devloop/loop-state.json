@@ -562,12 +562,14 @@
       "goal": "分享链接 GUI 全量（acp-share-design.md §8）：owner 聊天页「分享 ACP」弹层（scope/有效期档位/激活次数/备注）→ admin POST /shares → 链接展示+复制+发送到当前聊天；ACP 页分享管理卡（列表/状态徽章/撤销）+ admin 端点登记（endpoint-storage 加法）；guest ACP 页「用链接加入」→ console /connect-share；transcript 渲染层识别 dsh-acp-share:// 链接为加入卡片（不改 IM 线协议/ChatEnvelope）；i18n 全量注册",
       "title": "AS3 分享链接 GUI（聊天页分享+管理卡+链接加入）",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/acp-share-gui",
       "ownerSession": "session-49705b42-7219-4e71-b212-053bc94a95e6",
       "scope": "apps/gui/src/**；中央登记文件仅登记类小提交；禁碰全部 Rust 包/.devloop/docs/design；feat/im-card-gui 在途同碰 apps/gui，冲突 feature 侧消化",
       "acceptanceCommand": "bash -c 'cd /Users/imeepos/ext512/p2p/apps/gui && pnpm test -- --run src/acp src/views/chat && pnpm build && pnpm check:i18n && cd ../.. && make check'",
-      "note": "2026-09-06 协调派单（设计 0f437ad 已上 main）。GUI 按 §5/§7 冻结契约+mock 先行，不依赖两端合入；worker 不自行合并 main"
+      "note": "2026-09-06 协调派单（设计 0f437ad 已上 main）。GUI 按 §5/§7 冻结契约+mock 先行，不依赖两端合入；worker 不自行合并 main | 2026-09-06 协调验收：pnpm test src/acp src/views/chat + build + check:i18n + make check 一次通过 exit 0（/tmp/as3-acc.log）。与主线经验文件冲突按 append-only union 收敛（6c05f13）。",
+      "mergedMain": "6c05f13",
+      "acceptedAt": "2026-09-06T04:24:00-07:00"
     },
     {
       "id": "AS4",
