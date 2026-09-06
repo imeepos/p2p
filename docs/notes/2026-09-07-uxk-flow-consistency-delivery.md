@@ -30,10 +30,15 @@
 
 | 门禁 | 结果 |
 |---|---|
-| vitest 全量 | 170 文件 1026 用例全绿（基线 1008 + 本卡新增 18 + 并行波增量） |
+| vitest 全量 | 176 文件 1039 用例全绿（基线 1008 + 本卡新增 18 + 并行波 UX-I/UX-J 增量） |
 | lint | eslint 0 告警 0 错误 |
-| tsc | tsconfig.app --noEmit 零错 |
-| check:i18n | PASS（zh=1052 en=1052，键集恒等） |
+| tsc | tsconfig --build 零错 |
+| check:i18n | PASS（zh=1059 en=1059，键集恒等） |
+
+二次反向同步备注：协调者将 main 推进到 e9ccde8（UX-I F16/F20）后再次
+merge main：i18n locale 双侧末尾块冲突，解法为 uxk 与 uxiEvents 两块
+并列保留（zh=en 键集恒等 1059）；合并后四门禁复跑全绿。首轮门禁数字
+（1026 用例 / zh=1052）为合并 UX-I 之前的记录。
 
 ## 逐 finding 实测证据（mock dev 实测：VITE_MOCK_IPC=1、vite dev :5187、CDP 专属端口 9245、每场景单 target 闭环）
 
