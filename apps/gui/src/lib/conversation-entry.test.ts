@@ -213,11 +213,12 @@ describe("agentEntry 字段对齐（§2.2）", () => {
     expect(off.sendState).toBe("error");
   });
 
-  it("预览取最后文本截 40 字；无文本显连接态", () => {
+  it("预览取最后文本截 40 字；无文本不回退拼接连接态（F07）", () => {
     const long = "y".repeat(AGENT_PREVIEW_MAX_CHARS + 5);
     const e = agentEntry({ ...base, lastText: long });
     expect(e.lastPreview).toBe("y".repeat(AGENT_PREVIEW_MAX_CHARS) + "…");
-    expect(agentEntry(base).lastPreview).toBe("在线");
+    // 连接态只由 subtitle/徽标单维度呈现，预览不重复同一文案
+    expect(agentEntry(base).lastPreview).toBeNull();
   });
 
   it("回合进行中 sendState=pending", () => {
