@@ -19,8 +19,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
+      # 组件必须装到 rust-toolchain.toml 锁定的工具链上（组件若经 action
+      # 的 components 输入安装会挂在 stable 上，与锁定版错位）：run 步的
+      # cwd 即仓库根，rustup 按 .toml 解析活动工具链，单一事实源在文件里
+      - run: rustup component add clippy rustfmt
       # Tauri v2 Linux 依赖（清单与 gui-client.yml ubuntu 打包腿一致，已实证）：
       # 装上后 gui-tauri.sh/clippy.sh 的「缺 webkit2gtk-4.1 即 SKIP」声明式
       # 口径自动解除——src-tauri 的 fmt/clippy/test 在 ubuntu 真跑，收口盲区
