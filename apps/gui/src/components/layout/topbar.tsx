@@ -195,7 +195,7 @@ function CommandPaletteButton() {
       onClick={requestOpenCommandPalette}
     >
       <SearchIcon className="size-4" />
-      <kbd className="border-border bg-muted text-muted-foreground pointer-events-none inline-flex h-5 items-center rounded border px-1.5 font-mono text-[10px] font-medium">
+      <kbd className="border-border bg-background text-muted-foreground pointer-events-none inline-flex h-5 items-center rounded border px-1.5 font-mono text-[10px] font-medium">
         {commandShortcutLabel()}
       </kbd>
     </Button>
