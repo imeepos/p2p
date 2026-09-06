@@ -1,0 +1,136 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import "@/i18n";
+import i18n from "@/i18n";
+
+import { makeLlmShareMockPair } from "./mock-backend";
+import { OfferPanel } from "./offer-panel";
+import type { LlmOfferStatus, LlmShareBackend } from "./types";
+
+const t = i18n.t.bind(i18n);
+
+function rejectAll(): LlmShareBackend {
+  const fail = () => Promise.reject(new Error("boom"));
+  return {
+    offerPublish: fail,
+    offerShow: fail,
+    allowList: fail,
+    allow: fail,
+    deny: fail,
+    borrow: fail,
+    ledgerList: fail,
+    ledgerBalance: fail,
+    receiptVerify: fail,
+  };
+}
+
+function submitPublish() {
+  const button = screen.getByRole("button", { name: t("llmShare.offer.publish") });
+  const form = button.closest("form");
+  if (!form) throw new Error("test precondition broken: publish form missing");
+  fireEvent.submit(form);
+}
+
+function fillValidForm() {
+  fireEvent.change(screen.getByLabelText(t("llmShare.offer.formModels")), {
+    target: { value: "gpt-4o,deepseek-v3" },
+  });
+  fireEvent.change(screen.getByLabelText(t("llmShare.offer.formSpare")), {
+    target: { value: "gpt-4o=1500000\ndeepseek-v3=999999999" },
+  });
+  fireEvent.change(screen.getByLabelText(t("llmShare.offer.formPeriodEnds")), {
+    target: { value: "2026-09-30" },
+  });
+}
+
+afterEach(() => cleanup());
+
+describe("LLM3 offer 面板（契约 §16.1 必填集 / §16.2-5 五态两级）", () => {
+  it("空表单提交被必填集拦截且不触达后端（契约显性化）", async () => {
+    const { mock, backend } = makeLlmShareMockPair();
+    const spy = vi.spyOn(backend, "offerPublish");
+    render(<OfferPanel backend={backend} />);
+    submitPublish();
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts.map((a) => a.textContent).join(" ")).toContain(
+      t("llmShare.offer.errModelsRequired"),
+    );
+    expect(spy).not.toHaveBeenCalled();
+    expect(mock.allowList()).toBeTruthy();
+  });
+
+  it("spare 覆盖不全与期缺日期分别给字段级错误", async () => {
+    const { backend } = makeLlmShareMockPair();
+    render(<OfferPanel backend={backend} />);
+    fireEvent.change(screen.getByLabelText(t("llmShare.offer.formModels")), {
+      target: { value: "gpt-4o,m2" },
+    });
+    fireEvent.change(screen.getByLabelText(t("llmShare.offer.formSpare")), {
+      target: { value: "gpt-4o=10" },
+    });
+    submitPublish();
+    const first = await screen.findAllByRole("alert");
+    expect(first.map((a) => a.textContent).join(" ")).toContain(
+      t("llmShare.offer.errSpareCoverage"),
+    );
+    fireEvent.change(screen.getByLabelText(t("llmShare.offer.formSpare")), {
+      target: { value: "gpt-4o=10\nm2=0" },
+    });
+    submitPublish();
+    const second = await screen.findAllByRole("alert");
+    expect(second.map((a) => a.textContent).join(" ")).toContain(
+      t("llmShare.offer.errPositiveInt"),
+    );
+  });
+
+  it("发布成功渲染 live 态与五字段", async () => {
+    const { backend } = makeLlmShareMockPair({ now: () => 1788549300 });
+    render(<OfferPanel backend={backend} />);
+    fillValidForm();
+    submitPublish();
+    const status = await screen.findByTestId("offer-status");
+    expect(status.getAttribute("data-status")).toBe("live");
+    expect(status.textContent).toContain("gpt-4o");
+    expect(status.textContent).toContain("2026-09-30");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it.each<LlmOfferStatus>(["expired", "not_yet_valid"])(
+    "常态中性态 %s：无警示 role，不渲染失败样式",
+    async (status) => {
+      const { mock, backend } = makeLlmShareMockPair({ forceOfferStatus: status });
+      mock.offerPublish({ models: ["gpt-4o"], spare: { "gpt-4o": 5 }, periodEnds: "2026-09-30" });
+      const view = render(<OfferPanel backend={backend} />);
+      await vi.waitFor(() => {
+        expect(view.container.querySelector('[data-testid="offer-status"]')).not.toBeNull();
+      });
+      const card = view.container.querySelector('[data-testid="offer-status"]');
+      expect(card?.getAttribute("data-status")).toBe(status);
+      expect(screen.queryByRole("alert")).toBeNull();
+    },
+  );
+
+  it.each<LlmOfferStatus>(["peer_mismatch", "bad_signature"])(
+    "醒目警示态 %s：danger 徽章 + role=alert 安全提示",
+    async (status) => {
+      const { mock, backend } = makeLlmShareMockPair({ forceOfferStatus: status });
+      mock.offerPublish({ models: ["gpt-4o"], spare: { "gpt-4o": 5 }, periodEnds: "2026-09-30" });
+      const view = render(<OfferPanel backend={backend} />);
+      await vi.waitFor(() => {
+        expect(view.container.querySelector('[data-testid="offer-status"]')).not.toBeNull();
+      });
+      const card = view.container.querySelector('[data-testid="offer-status"]');
+      expect(card?.getAttribute("data-status")).toBe(status);
+      expect(card?.className).toContain("border-destructive");
+      expect(screen.getByRole("alert")).toHaveTextContent(t("llmShare.offer.securityWarning"));
+    },
+  );
+
+  it("发布失败路径显式可观测（错误原样露出不吞）", async () => {
+    render(<OfferPanel backend={rejectAll()} />);
+    fillValidForm();
+    submitPublish();
+    expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+  });
+});
