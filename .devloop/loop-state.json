@@ -576,12 +576,14 @@
       "goal": "分享链接集成收官（acp-share-design.md §7/§10）：新增 share 全链路 e2e（agent+console 真回环：p2pctl 创建→console 按链接导入→兑换激活→对话操作→撤销后拒绝+审计断言）；docs/ops/acp-guide.md 增补分享章节（管理面/审计事件清单/端口与配置项全表）；README ACP 段补分享链接一句",
       "title": "AS4 分享链接集成 E2E 与文档收官（待 AS1+AS2 合入）",
       "priority": "P1",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/acp-share-e2e",
       "ownerSession": "session-3f031980-2942-4a1f-b100-3d0178488e37",
       "scope": "crates/p2p-itest/**、apps/acp-agent/tests 新增 e2e 文件、docs/ops/acp-guide.md、README.md",
       "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-as4-target; cd /Users/imeepos/ext512/p2p && cargo test -p p2p-itest --test share_link_wave && cd apps/acp-agent && cargo test && cd ../.. && grep -q \"分享\" docs/ops/acp-guide.md && make check'",
-      "note": "待 AS1+AS2 机械验收合入后由协调会话派专属新会话 | 2026-09-06 已派专属会话"
+      "note": "待 AS1+AS2 机械验收合入后由协调会话派专属新会话 | 2026-09-06 已派专属会话 | 2026-09-06 协调验收：share_link_wave 真两节点 E2E + acp-agent 全测 + 文档断言 + make check 一次通过 exit 0（/tmp/as4-acc.log）。SHARE 波四卡全 done，波次收官。",
+      "mergedMain": "24def7b",
+      "acceptedAt": "2026-09-06T05:41:00-07:00"
     },
     {
       "id": "DOC1",
