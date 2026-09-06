@@ -796,3 +796,28 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：ui-regression.sh 新增 run_redirect 后，脚本在 assert_screenshot 的 `local route="$1" shot="$SHOT_DIR/$route.png"` 行报 `route: unbound variable`；旧 8 路由调用方（run_page 有局部 route）从不触发，新调用方一进来就崩。
 - 原因：macOS /bin/bash 3.2 把 local 的各参数当普通命令词先整体展开再赋值，$route 落到动态作用域（调用方局部/全局），set -u 下调用方没有该名即崩；bash 5 不复现（ubuntu CI 绿、真机红）。
 - 修法：同语句内后参依赖前参的一律拆成两条 local（或分号分隔两条命令）；新增 Helper 函数时审计所有 `local x=$1 y=…$x…` 形态。
+
+## 2026-09-06 GUI 新增 IpcBackend chat 方法必撞「IPC 调用点静态守卫」（IMC3）
+症状：全量套件红在 views/contacts/chat-friend-add.test.tsx「IPC 调用点静态守卫」，报新方法（chatGroupInvitesList 等 4 枚）无 views/components 调用点。
+原因：该守卫静态枚举 IpcBackend 的 chat* 方法并要求 views/components 有非测试调用点，store 数据层调用必须进 EXEMPT 豁免清单（防后端有能力、界面无入口复发）。
+修法：新增契约方法时同步在 EXEMPT 登记一行「统一由 stores/xxx 调用（数据层）」，或真实在视图层接线；属于守卫/登记类改动，压登记提交。
+
+## 2026-09-06 read 工具整文件回写会静默截断大文件（IMC3 实录，792→341 行）
+症状：对 792 行 known-issues.md 做全文 read 后原样 join 回写，落盘只剩 341 行；lessons.md 同理 313→216，合并进 main 才被 diff 行数暴露。
+原因：read 返回的 lines 数组在大文件上有输出预算截断，不代表全文；用它的返回值整体回写等于用截断视图覆盖全文件。
+修法：大文件只做 bash cat >> 追加或 edit 工具定点替换，禁止「read 全文→write 全文」回写回路；写后必须 wc -l 对账。
+
+## 2026-09-06 独立 workspace 的 -p 包名从仓库根解析失败（AS2 实录）
+症状：验收命令 `cargo test -p acp-console` 在仓库根执行报 "package ID specification ... did not match any packages"，exit 101。
+原因：根 workspace 成员只有 crates/*，apps/acp-console 等按先例是独立 [workspace]（根 Cargo.toml 不动）；cargo -p 只在当前 manifest 的 workspace 成员里解析。
+修法：cargo 段在 apps/<pkg>/ 下执行，make check 在仓库根执行；给协调会话的验收口径要写明两条命令各自的 cwd，不能假设一条 cwd 通吃。
+
+## 2026-09-06 新 worktree 跑 make check 假红在 gate-tests（AS2 实录）
+症状：feature worktree 里 make check 红在 mock-ipc-guards 自测：vite "Command not found"、gui-dist-scan 夹具报 unbound variable；同命令在主树全绿。
+原因：node_modules 不入 git，新 worktree 天然缺 pnpm 依赖；gui 门禁自测依赖真实 vite 构建红路径，缺依赖时失败形态不是「缺依赖」而是夹具内部错误，迷惑性强。
+修法：worktree 首次跑 GUI 相关门禁前先 `pnpm install --frozen-lockfile`；判定「门禁红是不是我引入的」先在主树跑同一脚本做基线。
+
+## 2026-09-06 worktree pnpm 版本错配 → make check 假红（AS2 实录，接上条）
+症状：新 worktree pnpm install 后 mock-ipc-guards 自测仍红，vite 案例报 [ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY]。
+原因：export PATH="/opt/homebrew/bin:$PATH" 把 homebrew 独立 pnpm（v10.33）提到最前装依赖；项目 packageManager/默认 pnpm 是 corepack 的 v11.24。版本错配使 11.24 判定 node_modules 需清空重装，无 TTY 即中止。
+修法：worktree 装依赖先 pnpm --version 对齐项目 pin，再用 CI=true pnpm install --frozen-lockfile 自动确认目录重建；错配状态下 gate-tests 的失败形态会漂移（本例先见 vite not found、再见 purge 中止），别按表象逐个修。

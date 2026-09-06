@@ -250,6 +250,7 @@ mod tests {
             media: None,
             status: p2p_chat::ChatStatus::Delivered,
             reply_to: None,
+            card: None,
         };
         let line = fmt_envelope(&env);
         assert!(line.contains("对方"));

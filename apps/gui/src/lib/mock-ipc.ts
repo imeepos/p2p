@@ -20,6 +20,10 @@ import { createMockChatBackend, isMockFriend } from "./mock-chat";
 import { forceMockMessageStatus, injectMockIncoming } from "./mock-chat-inject";
 import { createMockGroupChatBackend } from "./mock-group-chat";
 import { injectMockGroupIncoming, seedMockGroup } from "./mock-group-inject";
+import {
+  createMockGroupInviteBackend,
+  injectMockGroupInviteIncoming,
+} from "./mock-group-invite";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -216,6 +220,13 @@ const mockGroup = createMockGroupChatBackend({
   isFriend: isMockFriend,
 });
 
+// IMC3 入群邀请命令面 mock（冻结契约）：复用节点态与 1:1 卡片消息注入。
+const mockGroupInvite = createMockGroupInviteBackend({
+  emit,
+  selfPeerId: () => state.peerId,
+  selfNickname: () => state.profile.name,
+});
+
 // IM-T50 dev 注入入口：mock 模式下控制台/演示脚本可经 window.__MOCK_CHAT__
 // 驱动 them 气泡注入与状态推进（全状态矩阵演示与集成测试共用一套接口）。
 (window as unknown as Record<string, unknown>).__MOCK_CHAT__ = {
@@ -229,6 +240,17 @@ const mockGroup = createMockGroupChatBackend({
   seed: seedMockGroup,
 };
 
+// IMC3 dev 注入入口：in 向待处理入群邀请（消息中心/卡片演示共用）。
+(window as unknown as Record<string, unknown>).__MOCK_GROUP_INVITE__ = {
+  inject: (groupId: string, peerId: string, note: string | null) =>
+    injectMockGroupInviteIncoming(
+      { emit, selfPeerId: () => state.peerId, selfNickname: () => state.profile.name },
+      groupId,
+      peerId,
+      note,
+    ),
+};
+
 export const mockBackend: IpcBackend & {
   chatFriendAdd(
     peerId: string,
@@ -238,6 +260,7 @@ export const mockBackend: IpcBackend & {
 } = {
   ...mockChat,
   ...mockGroup,
+  ...mockGroupInvite,
 
   async nodeStart(cfg) {
     if (state.running) throw new Error("节点已在运行");

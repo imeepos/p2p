@@ -104,10 +104,17 @@ impl crate::group_core::GroupCore {
             next.rev = roster.rev;
             next.state = GroupState::Active;
             next.ts_ms = roster.ts_ms;
-            return self.commit(next).map_err(|e| e.to_string());
+            let applied = self.commit(next);
+            if applied.is_ok() {
+                crate::ginvite_flow::on_roster_applied(&self.chat, roster);
+            }
+            return applied.map_err(|e| e.to_string());
         }
-        self.commit(GroupInfo::from_roster(roster))
-            .map_err(|e| e.to_string())
+        let applied = self.commit(GroupInfo::from_roster(roster));
+        if applied.is_ok() {
+            crate::ginvite_flow::on_roster_applied(&self.chat, roster);
+        }
+        applied.map_err(|e| e.to_string())
     }
 
     /// G_KICK 应用（design §5，幂等）：state 置位，历史保留；未知群告警忽略。

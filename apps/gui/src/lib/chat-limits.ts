@@ -29,7 +29,7 @@ export function isValidTransportAddr(value: string): boolean {
 
 // 设计 §5 MIME 白名单：kind 与 mime 不匹配一律 Err，不猜不降级。
 const MIME_BY_KIND: Record<
-  Exclude<ChatKind, "text" | "file">,
+  Exclude<ChatKind, "text" | "file" | "groupInvite">,
   ReadonlySet<string>
 > = {
   image: new Set(["image/png", "image/jpeg", "image/gif", "image/webp"]),

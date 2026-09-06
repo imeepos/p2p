@@ -9,6 +9,7 @@ use p2p::ProtocolId;
 use tokio::sync::broadcast;
 
 use crate::core::ChatCore;
+pub use crate::ginvite_wire::GINVITE_PROTOCOL;
 use crate::group_model::GroupResult;
 use crate::group_store::{validate_group_name, GoutboxFrame, GroupStore, MAX_GROUP_MEMBERS};
 use crate::group_wire::GroupHandler;
@@ -33,6 +34,8 @@ impl Group {
         core.chat
             .node
             .handle_protocol(Arc::new(GroupHandler::new(core.clone(), proto)));
+        crate::ginvite_handler::register(&core)?;
+        crate::ginvite_flow::spawn_heal(core.chat.clone());
         Ok(Self { core })
     }
 
