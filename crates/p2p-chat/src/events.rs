@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::ginvite::GroupInvite;
 use crate::invite::InviteState;
 use crate::model::{ChatEnvelope, ChatStatus};
 
@@ -23,6 +24,10 @@ pub enum ChatEvent {
     /// rejected = 对方拒绝。state 序列化为小写（契约 §12.2）。
     #[serde(rename = "chat_invite")]
     ChatInvite { peer: String, state: InviteState },
+    /// 入群邀请（同意制，IMC1）事件：载荷 = 邀请条目（含 direction/state）。
+    /// pending = 收到/刷新邀请或发起/重发；accepted = 收敛完成；rejected = 拒绝。
+    #[serde(rename = "chat_group_invite")]
+    GroupInvite { invite: GroupInvite },
 }
 
 #[cfg(test)]
@@ -39,5 +44,29 @@ mod tests {
         assert_eq!(value["type"], "chat_invite");
         assert_eq!(value["peer"], "p");
         assert_eq!(value["state"], "incoming");
+    }
+
+    #[test]
+    fn chat_group_invite_event_wraps_full_entry() {
+        let ev = ChatEvent::GroupInvite {
+            invite: crate::ginvite::GroupInvite {
+                id: "i1".into(),
+                group_id: "g1".into(),
+                group_name: "群".into(),
+                owner: "o".into(),
+                inviter: "o".into(),
+                invitee: "e".into(),
+                note: None,
+                direction: crate::ginvite::GroupInviteDirection::In,
+                state: crate::ginvite::GroupInviteState::Pending,
+                ts_ms: 5,
+                delivered: false,
+            },
+        };
+        let value = serde_json::to_value(ev).expect("serialize");
+        assert_eq!(value["type"], "chat_group_invite", "事件 tag 逐字一致");
+        assert_eq!(value["invite"]["groupId"], "g1", "载荷 = 邀请条目");
+        assert_eq!(value["invite"]["direction"], "in");
+        assert_eq!(value["invite"]["state"], "pending");
     }
 }

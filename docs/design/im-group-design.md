@@ -225,3 +225,53 @@ friend_update 的长 doc 注释下沉 friend.rs（代码零变更）腾出 ≥4 
 
 @提及、已读回执、消息撤回/编辑、多管理员/所有权转移、邀请确认流、新成员历史回填、
 群头像、跨端同步、大群（>32）、媒体协同分发。
+
+## 11. 同意制入群邀请（IMC1 加法，2026-09-06）
+
+§10 中「邀请确认流」非目标自本节起失效：直加 `group_invite`（§5 既有，owner 直接
+推 roster）保留，另加**同意制**邀请——受邀者明确同意前群 roster 不变。线协议
+`/im/ginvite/1`（wire-protocol.md §8.4 登记）与冻结的 /im/chat/1、/im/group/1、
+/im/invite/1 并存路由，既有协议帧零改动（纯加法）。
+
+### 11.1 命令面（Group 门面加法，group_ 前缀）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| group_invite_member | groupId, inviteeId, inviterNickname, note? | GroupInviteReport | owner-only；校验群 active、受邀者为好友、不在群、群未满员；out 簿 pending + 邀请帧尽力投递 + 自动发 1:1 卡片消息；重复邀请幂等刷新（条目 id 稳定，state 回 pending） |
+| group_invite_accept | inviteId | GroupInviteJson | 受邀者；决策落盘后回送 GACCEPT；roster 含本机后本机置 accepted |
+| group_invite_reject | inviteId, reason? | GroupInviteJson | 受邀者；本机立即置 rejected（事件）并回送 GREJECT |
+| group_invites_list | - | GroupInviteJson[] | in + out 合一，tsMs 倒序 |
+
+```ts
+interface GroupInviteReport { invite: GroupInviteJson; delivered: boolean }
+interface GroupInviteJson {
+  id: string; groupId: string; groupName: string;
+  owner: string; inviter: string; invitee: string;
+  note: string | null; direction: "in" | "out";
+  state: "pending" | "accepted" | "rejected";
+  tsMs: number; delivered: boolean;
+}
+```
+
+事件（chat 通道判别联合加法）：`{ type: "chat_group_invite"; invite: GroupInviteJson }`，
+每次状态迁移发事件（收到/刷新邀请、accepted、rejected）。
+
+### 11.2 卡片消息（1:1 kind 加法）
+
+ChatKind 加法变体 `groupinvite`（serde 小写，旧端未知 kind 显式拒收不静默误解）；
+ChatEnvelope 加法字段 `card`（缺省 null，旧记录兼容）：
+`{ groupId, groupName, inviterNickname, note }`。该 kind 不接受附件（MIME 白名单
+空集）、不参与文本长度校验；公开 send() 显式拒绝（卡片仅随 group_invite_member
+发出）；卡片历史按 1:1 既有分页回放。受邀者离线时卡片走 1:1 既有 outbox 投递。
+
+### 11.3 收敛与离线
+
+- owner 收 GACCEPT：复用 §5 邀请入群路径（rev+1 推全体含新成员）后 out 置 accepted；
+  收 GREJECT 置 rejected；重复/迟到帧幂等（已拒绝条目的迟到同意忽略）。
+- owner 离线：受邀者决策帧挂起（delivered=false），PeerConnected 重投 + 启动自愈
+  （退避三次）+ 周期重投（outbox sweeper 节拍，同 §8.3 好友邀请重投纪律）；
+  受邀者离线：GINVITE 挂起重投。
+- 受邀者 accepted 的唯一判定 = 收到含自己在列的 roster（roster 为权威收敛机制，§3.2）。
+- 存储增量：chat/group_invites.json（上限 256，upsert，原子写 + 文件锁，同 invites
+  纪律）；条目形状见 §11.1。已知缺口：GREJECT 重投不携带原 reason（条目字段冻结，
+  不存理由，仅首次投递携带）。

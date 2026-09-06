@@ -128,6 +128,13 @@ pub enum NodeEventJson {
         #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
         ts_ms: Option<u64>,
     },
+    /// 入群邀请（同意制，IMC1 §11：收到/刷新/accepted/rejected 迁移）。
+    #[serde(rename = "chat_group_invite")]
+    ChatGroupInvite {
+        invite: p2p_chat::GroupInvite,
+        #[serde(rename = "tsMs", skip_serializing_if = "Option::is_none")]
+        ts_ms: Option<u64>,
+    },
     /// 发送状态迁移（契约 v7 §12.2）。
     #[serde(rename = "chat_status")]
     ChatStatus {
@@ -168,6 +175,7 @@ impl NodeEventJson {
             | Self::ChatGroupMessage { ts_ms, .. }
             | Self::ChatGroupStatus { ts_ms, .. }
             | Self::ChatGroupState { ts_ms, .. }
+            | Self::ChatGroupInvite { ts_ms, .. }
             | Self::ChatInvite { ts_ms, .. } => *ts_ms = ts,
         }
         self
@@ -249,6 +257,10 @@ impl From<p2p_chat::ChatEvent> for NodeEventJson {
             p2p_chat::ChatEvent::ChatInvite { peer, state } => Self::ChatInvite {
                 peer,
                 state,
+                ts_ms: None,
+            },
+            p2p_chat::ChatEvent::GroupInvite { invite } => Self::ChatGroupInvite {
+                invite,
                 ts_ms: None,
             },
         }

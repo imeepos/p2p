@@ -12,7 +12,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 DIST="${1:-$ROOT/apps/gui/dist}"
 
 if [ ! -d "$DIST" ]; then
-  echo "gui-dist-scan: FAIL 产物目录不存在：$DIST（先跑 pnpm build）" >&2
+  echo "gui-dist-scan: FAIL 产物目录不存在：${DIST}（先跑 pnpm build）" >&2
   exit 1
 fi
 

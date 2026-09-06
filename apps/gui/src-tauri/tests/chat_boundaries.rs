@@ -25,6 +25,7 @@ fn envelope() -> ChatEnvelope {
         }),
         status: ChatStatus::Pending,
         reply_to: None,
+        card: None,
     }
 }
 

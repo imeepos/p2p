@@ -358,3 +358,5 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-05 发布链路：base64 报错 "Invalid symbol N, offset M" 定因法——拿 M 对照本地正确值长度，M==长度即锁定「尾部多一个字符」，N 是杂字符 ASCII；本地 tauri signer sign + 构造同形态脏值可逐字复现 CI 报错，免全量 build。
 - 2026-09-05 发布链路：写 GitHub Actions secret 免 gh 装——python3 pynacl SealedBox 加密原文件后 PUT /repos/{o}/{r}/actions/secrets/{name}，204 后 GET secrets 看 updated_at 变动；验证构建修复用 workflow_dispatch（release job 只挂 tag ref，自然 skipped，零发布副作用）。
 - 2026-09-05 DSH：run_code 里长含反引号/markdown 的文本会被 JS 模板串截断、bash 变量在模板串里会被 JS 插值——多行内容用行数组 push 后 join，bash 变量写成转义形式。
+- 2026-09-06 IMC1 卡：agent 里用 run_code 写大文件（Rust 源码等含括号/换行的内容）时，content 先赋给 const 变量再传 tools.write，别把长内容内联进调用——两次踩坑：闭合序列写重（多一层反引号闭括号）、多行字符串裸换行破坏 JS 语法；const 先行还能顺手 .split("\n").length 回读行数对账红线。
+- 2026-09-06 IMC1 卡：cargo/长命令接管道（| tail / | grep）会把真实退出码换成 tail/grep 的——验收判断一律命令分号接 echo exit=$? 落盘或输出首行，别信管道尾命令的 rc。

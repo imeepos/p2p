@@ -91,6 +91,7 @@ mod tests {
             group: Some("同事".into()),
             nickname: "b".into(),
             note: None,
+            addrs: Vec::new(),
         };
         let v = serde_json::to_value(&report).unwrap();
         assert_eq!(v["group"], serde_json::json!("同事"));
