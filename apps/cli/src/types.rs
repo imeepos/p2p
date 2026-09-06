@@ -46,6 +46,9 @@ pub struct GuiConfig {
     pub observation_port: Option<u16>,
     #[serde(default = "default_observation_addrs")]
     pub observation_addrs: Vec<String>,
+    /// 仅局域网模式（F8）：true 时启动不连任何公共设施，仅局域网发现与直连。
+    #[serde(default)]
+    pub lan_only: bool,
 }
 
 fn default_true() -> bool {
@@ -64,6 +67,7 @@ impl Default for GuiConfig {
             advertised_addrs: Vec::new(),
             observation_port: None,
             observation_addrs: default_observation_addrs(),
+            lan_only: false,
         }
     }
 }
@@ -195,5 +199,24 @@ mod tests {
         let json = serde_json::to_value(GuiConfig::default()).unwrap();
         assert!(json.get("quicPort").is_some());
         assert!(json.get("relayAddrs").is_some());
+    }
+
+    #[test]
+    fn config_lan_only_defaults_false_and_roundtrips() {
+        let cfg: GuiConfig = serde_json::from_str("{}").unwrap();
+        assert!(!cfg.lan_only, "缺省 lan-only 必须 false：零行为变化");
+        let cfg: GuiConfig = serde_json::from_str("{\"lanOnly\":true}").unwrap();
+        assert!(cfg.lan_only);
+        let json = serde_json::to_value(&cfg).unwrap();
+        assert_eq!(
+            json["lanOnly"],
+            serde_json::json!(true),
+            "camelCase 往返保真"
+        );
+        let back: GuiConfig = serde_json::from_value(
+            serde_json::to_value(GuiConfig::default()).unwrap_or(serde_json::Value::Null),
+        )
+        .unwrap();
+        assert!(!back.lan_only, "旧配置文件（无 lanOnly 字段）读取不受影响");
     }
 }

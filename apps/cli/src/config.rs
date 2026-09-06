@@ -96,6 +96,7 @@ fn render(cfg: &GuiConfig) -> String {
         format!("advertisedAddrs={}", list(&cfg.advertised_addrs)),
         format!("observationPort={}", opt(&cfg.observation_port)),
         format!("observationAddrs={}", list(&cfg.observation_addrs)),
+        format!("lanOnly={}", cfg.lan_only),
     ]
     .join("\n")
 }
@@ -120,8 +121,19 @@ mod tests {
             "enableMdns=true",
             "bootstrap=",
             "relayAddrs=",
+            "lanOnly=false",
         ] {
             assert!(text.contains(key), "缺 {key}: {text}");
         }
+    }
+
+    #[test]
+    fn text_render_echoes_lan_only_switch() {
+        let mut cfg = GuiConfig::default();
+        cfg.lan_only = true;
+        assert!(
+            render(&cfg).contains("lanOnly=true"),
+            "config get 必须回显 lan-only 开关"
+        );
     }
 }

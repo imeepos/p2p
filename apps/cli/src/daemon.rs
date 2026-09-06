@@ -10,35 +10,36 @@ use serde_json::{json, Value};
 use tokio::net::UnixListener;
 
 use crate::error::{CliError, CliResult};
+use crate::notice::{factory_fallback, notice_for_config};
 use crate::observe::{self, PeerRegistry};
 use crate::ops;
 use crate::paths::{remove_file_if_exists, Paths};
 use crate::store;
 use crate::types::{default_bootstrap, default_observation_addrs, default_relay_addrs, GuiConfig};
 
-/// 空列表回落出厂默认：serde 只兜字段缺失，显式 [] 在装配时兜底（GUI 同规则）。
-fn with_factory_fallback(list: &[String], factory: fn() -> Vec<String>) -> Vec<String> {
-    if list.is_empty() {
-        factory()
-    } else {
-        list.to_vec()
-    }
-}
-
-/// GuiConfig → Node 装配（与 GUI build_node 同构）。
+/// GuiConfig → Node 装配（与 GUI build_node 同构）。lan-only 时公网三类
+/// 不接线（工厂默认也不回落），仅局域网发现与直连（F8 生效面）。
 async fn build_node(cfg: &GuiConfig) -> Result<Node, String> {
-    let mut builder = p2p::Node::builder()
+    let builder = p2p::Node::builder()
         .quic_port(cfg.quic_port)
         .tcp_port(cfg.tcp_port)
-        .bootstrap(with_factory_fallback(&cfg.bootstrap, default_bootstrap))
         .mdns(cfg.enable_mdns)
         .data_dir(PathBuf::from(&cfg.data_dir))
-        .relay_addrs(with_factory_fallback(&cfg.relay_addrs, default_relay_addrs))
+        .lan_only(cfg.lan_only);
+    if cfg.lan_only {
+        return builder
+            .build()
+            .await
+            .map_err(|e| format!("节点启动失败: {e}"));
+    }
+    let mut builder = builder
+        .bootstrap(factory_fallback(&cfg.bootstrap, default_bootstrap))
+        .relay_addrs(factory_fallback(&cfg.relay_addrs, default_relay_addrs))
         .advertised_addrs(cfg.advertised_addrs.clone());
     if let Some(port) = cfg.observation_port {
         builder = builder.observation_responder(port);
     }
-    builder = builder.observation_addrs(with_factory_fallback(
+    builder = builder.observation_addrs(factory_fallback(
         &cfg.observation_addrs,
         default_observation_addrs,
     ));
@@ -66,6 +67,13 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
         .map_err(|e| CliError::Runtime(format!("创建数据目录失败: {e}")))?;
     init_log(&paths);
     let config = store::load_config(&paths);
+    // F8：外联声明落 daemon.log（可观测）；声明与实连同一份 config，不漂移
+    eprintln!(
+        "p2pctl-daemon: {}",
+        notice_for_config(&config)
+            .text()
+            .replace('\n', "\np2pctl-daemon: ")
+    );
     let node = build_node(&config)
         .await
         .map_err(CliError::Runtime)
@@ -110,6 +118,7 @@ fn write_runtime_files(paths: &Paths, ctx: &Ctx) -> CliResult<()> {
         "pid": std::process::id(),
         "peerId": ctx.node.local_peer_id().to_string(),
         "listenAddrs": ctx.node.listen_addrs(),
+        "lanOnly": ctx.config.lan_only,
         "startedAtMs": ctx.started_at_ms,
         "dataDir": paths.root.to_string_lossy(),
         "logPath": ctx.log_path.to_string_lossy(),
