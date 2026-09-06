@@ -31,6 +31,7 @@
 | [ops/im-chat-drill.md](ops/im-chat-drill.md) | IM 聊天真机演练清单：双 GUI 实例加好友、五类消息、离线 flush、历史分页、回复引用（含校准项与验收记录模板） |
 | [ops/repair-runner-integration.md](ops/repair-runner-integration.md) | 远程支持单 runner 接入说明：repair-bridge ⇄ repair-helper stdio 桥，DSH 为接入首例 |
 | [ops/repair-p0b-drill.md](ops/repair-p0b-drill.md) | P0b 真机演练清单：3 类问题诊断+修复各 1 例（人工里程碑，不入账本） |
+| [protocol/README.md](protocol/README.md) | 对外协议接入文档五件套：定位与术语表、最小接入 quickstart、线格式字节级规范（含已验证字节示例）、节点发现与连接生命周期、内置协议全表与版本演进；面向不读源码的第三方兼容实现者 |
 
 ## 约定
 
