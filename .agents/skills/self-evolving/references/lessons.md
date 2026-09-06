@@ -311,3 +311,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-05 发布链路卡：自检红绿矩阵里唯一期望 rc=0 的绿场景是 harness 自身的照妖镜——本次 eval "export $*" cmd 把命令词当 export 的 NAME 参数，八个红场景全是假阳性 rc=1，绿场景如实变红才暴露 harness bug；写自检先让它证明绿路径真能绿。
 - 2026-09-05 UI 审计修复轮：ui-regression 的 start_gui 会复用「健康外部实例」但探针不区分构建版本——验证新外壳时若装机的旧壳 app 在跑，group/acp 重定向行假红、截图走的是别人家 TCC 授权；对准新产物验证前先确认 endpoint.json 指向的是刚构建的调试二进制。
 - 2026-09-05 UI 审计修复轮：给既有 bash 大脚本加新「调用形态」前，先在目标机器 /bin/bash（常是 3.2）下复跑一遍最小入口；老脚本的历史绿只代表老调用路径。
+- 2026-09-06 IMC1 卡：同一邀请在 owner/受邀者是两本独立台账，条目 id 各自生成互不相等——accept/reject 只能用本机 group_invites_list 里的 id，拿对端条目 id 必 NotFound；跨端关联靠 groupId+对端 PeerId，不靠 id。
+- 2026-09-06 IMC1 卡：根 workspace members=crates/*，apps/cli 既不入 workspace 也不被 make check test（ai-docs-sync 只 build 不 test）——cli 测试腐坏无门禁拦（存量 FriendUpdateReport 测试缺 addrs 字段烂了很久），动 cli 域时手动 cargo test --manifest-path 补一次。
+- 2026-09-06 IMC1 卡：验收链跑期间改源码=结果作废：cargo test 段跑的是改前二进制、fmt-check 在链尾才炸，白等 6 分钟；源码定稿后先 cargo fmt --check 再挂链，链跑期间冻结一切文件写入（含 docs/.md）。
