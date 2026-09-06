@@ -815,3 +815,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：新 worktree pnpm install 后 mock-ipc-guards 自测仍红，vite 案例报 [ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY]。
 原因：export PATH="/opt/homebrew/bin:$PATH" 把 homebrew 独立 pnpm（v10.33）提到最前装依赖；项目 packageManager/默认 pnpm 是 corepack 的 v11.24。版本错配使 11.24 判定 node_modules 需清空重装，无 TTY 即中止。
 修法：worktree 装依赖先 pnpm --version 对齐项目 pin，再用 CI=true pnpm install --frozen-lockfile 自动确认目录重建；错配状态下 gate-tests 的失败形态会漂移（本例先见 vite not found、再见 purge 中止），别按表象逐个修。
+
+## 2026-09-06 p2p-chat group_invite_member 返回条目的 delivered 恒 false，真实信号只在 report.delivered（IMC2）
+症状：消费层把门面返回的 invite 条目直接出参，B 在线时仍显示未送达；测试断言 entry.delivered 恒失败但 ACK 实际已到（条目 1-8ms 内即“失败”）。
+原因：ginvite_api.rs group_invite_member 的 deliver_frame 成功后只 patch store 里那份副本（|i| i.delivered = true），返回的内存 entry 是 patch 前的 clone 未回读刷新；GroupInviteReport 顶层的 delivered bool 才是权威信号。
+修法：消费层（IMC2 src-tauri ginvite.rs）出参前 invite.delivered = report.delivered 对齐契约语义；CLI 直接发 report 不受影响。crates 冻结期在 IPC 边界修复，crate 侧后续可回读刷新。
