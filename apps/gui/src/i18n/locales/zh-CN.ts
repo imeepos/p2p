@@ -762,6 +762,8 @@ const zhCN = {
       token: "Token",
       peer: "Peer ID",
       statusUrl: "Status 地址（HTTP）",
+      adminUrl: "管理端点地址（admin HTTP）",
+      adminToken: "管理 Token",
       connect: "连接",
       disconnect: "断开",
       save: "保存端点",

@@ -782,6 +782,8 @@ const enUS: typeof zhCN = {
       token: "Token",
       peer: "Peer ID",
       statusUrl: "Status URL (HTTP)",
+      adminUrl: "Admin endpoint URL (admin HTTP)",
+      adminToken: "Admin token",
       connect: "Connect",
       disconnect: "Disconnect",
       save: "Save endpoint",
