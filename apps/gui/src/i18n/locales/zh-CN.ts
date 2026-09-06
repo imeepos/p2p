@@ -1267,6 +1267,16 @@ const zhCN = {
       retry: "重试",
     },
   },
+  // UX-F（F02/F12/F19）：网络族表格人话化与快捷动作
+  peerName: {
+    column: {
+      peer: "节点",
+    },
+    table: {
+      actions: "快捷操作",
+    },
+    identityKept: "已停止，身份保留",
+  },
 };
 
 export default zhCN;

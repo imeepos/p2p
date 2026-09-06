@@ -1287,6 +1287,16 @@ const enUS: typeof zhCN = {
       retry: "Retry",
     },
   },
+  // UX-F (F02/F12/F19): human-readable peer naming and quick actions
+  peerName: {
+    column: {
+      peer: "Peer",
+    },
+    table: {
+      actions: "Actions",
+    },
+    identityKept: "Stopped, identity kept",
+  },
 };
 
 export default enUS;
