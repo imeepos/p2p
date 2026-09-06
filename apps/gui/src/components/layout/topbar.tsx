@@ -8,6 +8,7 @@ import {
 import { useTranslation } from "react-i18next";
 
 import { requestOpenCommandPalette } from "@/components/command-palette/palette-bus";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { commandShortcutLabel } from "@/components/command-palette/shortcut";
 import { AsyncButton } from "@/components/feedback/async-button";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
@@ -211,6 +212,7 @@ export function Topbar() {
         {t("common.appName")}
       </span>
       <div className="flex items-center gap-2">
+        <NotificationBell />
         <CommandPaletteButton />
         <NodeStatusPill />
         <StartStopButton />

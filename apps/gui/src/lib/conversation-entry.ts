@@ -61,6 +61,8 @@ export interface PreviewLabels {
   file: string;
   /** 群预览里本端发送者显「我」 */
   self: string;
+  /** IMC3：入群邀请卡片消息预览词条；缺省回退 null */
+  groupInvite?: string;
 }
 
 /** 文本预览截断上限：单行心智，超长截断加省略号（行内另有 CSS truncate） */
@@ -93,6 +95,7 @@ export function previewOfMessage(
   if (message.kind === "image") return labels.image;
   if (message.kind === "audio") return labels.audio;
   if (message.kind === "video") return labels.video;
+  if (message.kind === "groupInvite") return labels.groupInvite ?? null;
   const name = message.media?.name ?? "";
   return truncateChars((labels.file + " " + name).trimEnd(), PREVIEW_MAX_CHARS);
 }

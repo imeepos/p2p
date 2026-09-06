@@ -17,15 +17,14 @@ import type {
   ChatSendReport,
 } from "@/lib/ipc-types";
 import { reduceChatMessage } from "./chat-events";
+import { createGroupInviteSlice, errorOf, type GroupInviteSlice } from "./chat-group-invite-slice";
 
 const HISTORY_SIZE = 50;
 let subscriptionStarted = false;
 
-function errorOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
-export interface ChatStoreState {
+// IMC3：群邀请切片经组合并入（切片实现在本文件外，行数红线）。
+// errorOf 由切片模块导出共用，避免双份定义。
+export interface ChatStoreState extends GroupInviteSlice {
   invites: FriendInviteJson[];
   friends: ChatFriendJson[];
   friendsLoaded: boolean;
@@ -67,6 +66,7 @@ export interface ChatStoreState {
 }
 
 export const useChatStore = create<ChatStoreState>()((set, get) => ({
+  ...createGroupInviteSlice(set, get),
   invites: [],
   friends: [],
   friendsLoaded: false,
@@ -278,6 +278,9 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         // 邀请生命周期：刷新邀请簿与好友簿（accepted 双向建簿）
         void get().loadInvites();
         void get().loadFriends();
+      } else if (event.type === "chat_group_invite") {
+        // IMC3：入群邀请生命周期，切片内幂等 upsert（终态不回退）
+        get().upsertGroupInvite(event.invite);
       } else if (event.type === "chat_status") {
         set((s) => {
           const list = s.messagesByPeer[event.peer] ?? [];
