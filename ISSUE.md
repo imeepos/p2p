@@ -172,3 +172,28 @@
 - **机理**：scripts/check/cli-parity.sh 以「固定 target 目录」按需重建共享工件（p2pctl 及其导出的 shell_union 数据源）；多协调线并发跑全量门禁时，A 线重建换文件、B 线一致性测试读到半新半旧数据即瞬时失配。b51cd5c 已修「陈旧二进制」假红，未覆盖「并发重建」态。
 - **期望修法**：共享工件门禁入口加 flock 互斥或改 per-run mktemp -d 隔离 target；或约定同一物理机同一时刻只允许一个全量门禁（协调者间错峰）。判别特征：一致性比对类测试 0.0x 秒挂 + ps 见他线门禁 + 单跑复绿 = 竞态假红，勿立代码修复单。
 - **附带发现**：.worktrees/acp-agent-sec 存在周五遗留的 cargo test reattach_full_chain --nocapture 挂进程（写 /tmp/acp-re2.log），已滞留多日，属 ACP4 线遗留，请归属线自查清理。
+
+**2026-09-06 澄清（UX 波协调会话核宿主实现）**：dsh-workspace 模型层 archiveSession 为幂等 append 单 id
+（`archivedSessionIds: [...state.archivedSessionIds, sessionId]`），响应中的 archivedSessionIds 是
+「registry-global archive set」全局投影（工具层文档原话：install the returned complete archive set），
+并非本次批量归档。单会话归档可安全使用；读响应时把长清单理解为全量已归档集即可，不是误归档。
+
+## DSH edit 工具绑定间歇性误报 missing required property description（2026-09-06 UX 波协调会话发现）
+
+- **症状**：同一 run_code 内 tools.edit 连续两次报 `invalid arguments: missing required property "description"`
+  （补传 description 仍报，疑似绑定层剥离未声明字段后宿主侧仍校验它）；同会话稍早一次不带 description 的
+  edit 调用却成功。触发面与参数内容相关（失败两笔的 new_string 含行内反引号，成功笔无），未定因。
+- **绕行**：edit 失败时改走 write 临时文件 + bash python/cat 追加，一次成功。
+- **期望**：绑定层与宿主侧对 edit 参数 schema 对齐；或文档明示 description 为必填。
+
+## UX1 收尾发现已合并 worktree 内 tracked 文件成批删除标记，肇事方未定（2026-09-06 UX 波协调会话）
+
+- **现象**：UX1（feat/ux-auto-start）验收合并完成后、清理前，其 worktree 出现大量 tracked 文件
+  unstaged 删除标记：根 Cargo.toml/Makefile/.gitea/workflows/ci.yml/杂项 cat、crates/llm-share-ledger、
+  llm-share-offer、llm-share-proxy 全套源文件。UX1 会话被查证否认（附完整命令时间线）；
+  PR6 worktree（llm-share 域，10 dirty）全为正常新增无删除痕迹；主树 status 干净；磁盘 249Gi 空闲。
+- **处置**：该 worktree 属一次性副本，内容已全量 ff 合并（a9a74d7）并推 origin，git worktree remove
+  --force 弃置，本地/远端分支已删，零代码损失。
+- **悬置**：删因未定（波及面仅该副本）。嫌疑方向：某会话的跨 worktree 清理命令路径打错。
+- **防线**：协调者清理 worktree 前必须核对 merge+push 完成；验收时增加「worktree 意外 dirty」巡检项；
+  各会话禁止对非本单 worktree 路径执行任何删除/清理类命令。
