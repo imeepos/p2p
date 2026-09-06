@@ -103,7 +103,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 【工具认知】
 - 可执行文件：apps/cli/target/debug/p2pctl（先 export PATH=$HOME/.cargo/bin:$PATH 再 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在；cargo 不在 PATH 会报 command not found）。
-- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 48 个叶子命令。
+- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 75 个叶子命令（以 ai-docs-sync 每次实测汇总行为准）。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
 - 退出码：0 成功；1 运行失败（stderr 前缀 "p2pctl: 运行失败: "）；2 用法错误。失败时先读 stderr 再决定下一步，不要盲目重试。
@@ -1237,26 +1237,39 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 ```
 --json：同字段 camelCase（verdict/reason/reqId/period/lender/borrower/model/input/output/estimated/ts）。
 退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1；缺省 --pubkey 且本机身份未初始化 → 1（含 identity init 指引）。
-
 ### p2pctl llm-share borrow
-用途：借方一次性调用（F11/PR6）：连接/验签选路/预检/代理流式调用/收据入账。
-真实调用出借方额度（写类副作用），执行前必须向人复述 LENDER 与模型/参数并获确认。
-前置：本机身份已初始化；网络可达出借方（--addr 直连或经 rendezvous 查号）。
+用途：借方一次性调用（F11）：连接出借方 → 拉取声明 Ed25519 验签选路（OfferBook TTL/模型过滤，纯函数选路）→ 三闸前置预检 → 经代理流式调用（OpenAI chat completions 语义）→ 收据客户端强制验签+落盘前复验 → 借方账本幂等入账（单笔收据文件可被 receipt verify 直读）。前置：本机身份已初始化（缺失退出 1）；本方须在出借方 allowlist（未授权为结构化拒绝：上游零调用、流水零产生）。
 | 参数 | 类型 | 必填 | 默认 |
 |---|---|---|---|
 | <LENDER> | 位置参数 string（出借方 PeerId，base58 32 字节） | 是 | —— |
-| --model | string | 否 | 出借方声明内唯一模型（多个时列出可选项报错） |
-| --prompt | string | 否 | -（与 --messages 二选一） |
-| --messages | string（OpenAI messages 数组 JSON） | 否 | -（与 --prompt 二选一） |
+| --model | string | 否 | 声明内唯一模型；多模型未指定 → 1 并列出可选项 |
+| --prompt | string（单条用户消息，与 --messages 二选一） | 二选一 | 无（都缺 → 1） |
+| --messages | string（OpenAI messages 数组 JSON，与 --prompt 二选一） | 二选一 | 无 |
 | --max-tokens | int | 否 | 出借方声明上限，未声明 256 |
-| --addr | string（ip/u端口 或 ip/t端口） | 否 | 经 rendezvous 查号 |
-| --timeout-secs | int | 否 | 90 |
-| --discover-secs | int | 否 | 10 |
-| --req-id | string（幂等键，失败重试复用同值防双记账） | 否 | 生成 UUID v4 |
+| --addr | string（直连地址，如 127.0.0.1/u52063） | 否 | 经 rendezvous 查号 |
+| --timeout-secs | int（代理调用全程超时秒） | 否 | 90 |
+| --discover-secs | int（rendezvous 查号等待秒） | 否 | 10 |
+| --req-id | string（幂等键；失败重试复用同值防双记账） | 否 | UUID v4 |
 | --json | flag | 否 | off |
 | --data-dir | path | 否 | ./p2p-data |
-输出：调用报告与收据入账结果（真实消耗额度，示例略）；缺 <LENDER> 为用法错误退出 2。
-退出码：用法错误 2；选路/预检/调用/入账失败 1。
+文本：
+```
+status=done
+lender=52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd
+model=gpt-4o
+req_id=0198c0de-0000-7000-8000-000000000001
+period=2026-09
+input=1234
+output=567
+estimated=false
+dispute_window_secs=24h
+sse_frames=9
+ledger_file=./p2p-data/llm-share/ledger.json
+receipt_file=./p2p-data/llm-share/receipt-0198c0de-0000-7000-8000-000000000001.json
+appended=true
+```
+--json：同字段 camelCase（status/lender/model/reqId/period/code/message/input/output/estimated/disputeWindowSecs/sseFrames/ledgerFile/receiptFile/appended + sse 原文数组）。status 三态：done / stream_broken（estimated=true、disputeWindowSecs=72h，非命令错误照常 0 退出）/ rejected（code 保持 wire snake_case 语义，如 NotAllowlisted）。
+退出码：结构化拒绝 rejected → 1（报告先输出，上游零调用、账本零产生）；本机身份缺失/连接或查号失败/参数互斥缺失 → 1；done 与 stream_broken → 0；req_id 重放 → 0 且 appended=false（返回原收据不双记账）。
 ### p2pctl group create
 用途：建群。校验成员 ⊆ 好友簿、≤32、不含本机；群名 trim 后 1..=64 字符。建群后对每个初始成员推 roster（成员离线经 goutbox 补投，命令不失败）。
 | 参数 | 类型 | 必填 | 默认 |

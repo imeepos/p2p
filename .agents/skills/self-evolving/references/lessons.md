@@ -212,6 +212,10 @@ _none yet — be the first._
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
+- 2026-09-06 UX1 轮：zustand store 新增锁存/闸门字段（如 autoStartRequested）必须
+  同步进所有测试夹具的 reset/prime 基线——夹具只重置旧字段时，上一用例消耗掉的
+  闸门会跨用例残留，表现为下一用例「动作静默不触发」的假红；新增状态字段与夹具
+  字段清单要同一 PR 内同步核对。
 - 2026-09-06：接派单任务的第一道工序应是按协调方验收命令的原样 PATH 在基线上空跑一遍验收（本次暴露 `cargo test -p apps独立workspace包` 根目录解析失败、apps/cli 基线 test/clippy 红、bash 5.3 全角字符 bug 三处，全与本次改动无关）；收尾才发现基线红 = 被迫代修别人的域。
 - 2026-09-06：cargo fmt 会格式化整个 crate（含 fmt 门禁未覆盖的独立 workspace 的存量漂移文件）——跑之前 git status 建基线快照，收尾 diff 超出自己文件域就是越界信号，漂移要么回退要么按提交纪律拆独立 style 提交。
 
@@ -353,3 +357,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 组件级测试断言别断言 store 内部（draft.peer），断言用户可见面（触发器文案/渲染节点）——store 是实现细节，form 是组件局部态。
 - 2026-09-06 UX 波协调：run_code 里 bash stdout 超 ~30KB 会被截尾，大 JSON 经 stdout 回传再喂 devloop_ledger 必报非法 JSON——大文件就地 python 校验+原子写（tmp+rename），不走工具参数回传。
 - 2026-09-06 UX 波协调：验收检查器的输出过滤（grep ok/FAIL）会把 FAIL 明细行滤掉造成误判「空越界」——先看原始输出再下结论；显示层与判定层要分开。
+
+- 2026-09-06 本仓库 fmt 门禁是双段（根 workspace 与 apps/cli 各自 cargo fmt）：只 fmt apps/cli 会漏根 workspace 的 crates（crates/p2p、crates/p2p-cli），pre-push 快速门禁当场拦推；跨 workspace 成员改动的收尾动作必须是两段都 cargo fmt --check。
+- 2026-09-06 派单文里的会话短 id（session-7af45e36）不能直接喂 session_link_send——报「不在同一工作区」误导排查方向；先 session_link_list 拿完整 id（session-7af45e36-f764-...）再投递。
+- 2026-09-06 run_code 里给 edit/write 传含 markdown ``` 围栏的多行文档内容会撞 JS 反引号模板字面量（围栏提前终止字符串，报 Expected , got ident 这类迷惑语法错）；文档 patch 一律 write 一个 python 脚本（三引号 + 转义围栏）再 bash 执行，替换点用 count==1 断言。
+- 2026-09-06 中央登记的「注释行先例」只豁免 cli-parity 守卫，ai-docs-sync 的反向断言（实测命令 vs 文档条目）独立生效：上一卡新增 p2pctl 子命令只登记 tsv 不补 ai-guide 条目，守卫照样红。接手他卡遗留的守卫红先跑一遍守卫脚本读 fail 明细，不要默认是自己的改动引入。
