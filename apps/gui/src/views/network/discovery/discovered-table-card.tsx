@@ -1,6 +1,7 @@
 import { CopyIcon, RadarIcon } from "lucide-react";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 
@@ -25,7 +26,7 @@ import type { NodeEventJson } from "@/lib/ipc-types";
 import { selectPeerList, useNodeStore, type PeerEntry } from "@/stores/node-store";
 import { copyText } from "@/views/shared/clipboard";
 import { EmptyState } from "@/views/shared/empty-state";
-import { PeerIdCell } from "@/views/shared/peer-id-cell";
+import { PeerNameCell } from "@/views/shared/peer-name-cell";
 
 // 契约 v1 修订：事件可携带可选 tsMs；缺省时兜底用 store 记录的本地接收时间。
 function readEventTsMs(event: NodeEventJson): number | null {
@@ -44,6 +45,17 @@ function deriveFirstSeen(events: NodeEventJson[]): Map<string, number | null> {
   return firstSeen;
 }
 
+// F12 快捷动作链接：拨号目标对齐契约 §6「<peerId>@<addr>」，无地址回退裸
+// PeerId；目标页 ?dial=/?add= 预填由 UX-E 会话消费，这里只产出链接。
+function dialHref(peer: PeerEntry): string {
+  const target = peer.addrs[0] ? peer.peerId + "@" + peer.addrs[0] : peer.peerId;
+  return "/network/peers?dial=" + encodeURIComponent(target);
+}
+
+function addFriendHref(peerId: string): string {
+  return "/contacts?add=" + encodeURIComponent(peerId);
+}
+
 function PeerTable({
   peers,
   firstSeen,
@@ -58,23 +70,41 @@ function PeerTable({
     <Table containerClassName="max-h-80 overflow-y-auto">
       <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card">
         <TableRow>
-          <TableHead>{t("common.labels.peerId")}</TableHead>
+          <TableHead>{t("peerName.column.peer")}</TableHead>
           <TableHead>{t("common.labels.address")}</TableHead>
           <TableHead>{t("discovery.table.firstSeen")}</TableHead>
+          <TableHead className="w-36">{t("peerName.table.actions")}</TableHead>
           <TableHead className="w-12" aria-label={t("common.actions.copy")} />
         </TableRow>
       </TableHeader>
       <TableBody>
         {peers.map((peer) => (
           <TableRow key={peer.peerId}>
-            <TableCell className="max-w-48 font-mono text-xs">
-              <PeerIdCell peerId={peer.peerId} />
+            <TableCell className="max-w-48">
+              <PeerNameCell peerId={peer.peerId} />
             </TableCell>
             <TableCell className="font-mono text-xs">
               {peer.addrs.join(", ") || t("common.labels.none")}
             </TableCell>
             <TableCell className="text-xs">
               {formatTime(firstSeen.get(peer.peerId) ?? peer.lastSeenMs, locale)}
+            </TableCell>
+            <TableCell>
+              <span className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to={dialHref(peer)} data-testid={"discovery-dial-" + peer.peerId}>
+                    {t("common.actions.dial")}
+                  </Link>
+                </Button>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link
+                    to={addFriendHref(peer.peerId)}
+                    data-testid={"discovery-add-friend-" + peer.peerId}
+                  >
+                    {t("chat.addFriend.action")}
+                  </Link>
+                </Button>
+              </span>
             </TableCell>
             <TableCell>
               <Button

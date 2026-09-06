@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import type { Locale } from "@/i18n";
 import { formatTime } from "@/lib/format";
 import type { NodeEventJson } from "@/lib/ipc-types";
+import { usePeerNameLabel } from "@/lib/peer-name";
 import { cn } from "@/lib/utils";
 import { eventTimeMs } from "@/views/network/event-clock";
 import {
@@ -36,11 +37,16 @@ export function EventRow({
 }: EventRowProps) {
   const { t } = useTranslation();
   const tt = toLooseT(t);
-  const summary = eventSummary(event, {
-    hopLabel: (kind) => tt(HOP_KEY[kind]),
-    okLabel: tt("events.outcome.ok"),
-    failLabel: tt("events.outcome.fail"),
-  });
+  const peerLabel = usePeerNameLabel();
+  const summary = eventSummary(
+    event,
+    {
+      hopLabel: (kind) => tt(HOP_KEY[kind]),
+      okLabel: tt("events.outcome.ok"),
+      failLabel: tt("events.outcome.fail"),
+    },
+    { peerLabel },
+  );
   const Chevron = expanded ? ChevronDownIcon : ChevronRightIcon;
 
   return (

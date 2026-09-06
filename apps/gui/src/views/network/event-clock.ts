@@ -1,6 +1,9 @@
-import type { Locale } from "@/i18n";
 import type { NodeEventJson } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
+
+// F18：相对时间统一走 lib/relative-time（未来时刻钳「刚刚」下限），
+// 原调用方 import 路径不变。
+export { formatRelative } from "@/lib/relative-time";
 
 const receivedAt = new WeakMap<NodeEventJson, number>();
 let armed = false;
@@ -33,34 +36,4 @@ export function eventTimeMs(event: NodeEventJson): number {
   if (known !== undefined) return known;
   stamp(event, Date.now());
   return receivedAt.get(event) as number;
-}
-
-const DIVISOR: Partial<Record<Intl.RelativeTimeFormatUnit, number>> = {
-  second: 1,
-  minute: 60,
-  hour: 3600,
-  day: 86400,
-};
-
-const LIMITS: Array<{ limit: number; unit: Intl.RelativeTimeFormatUnit }> = [
-  { limit: 60, unit: "second" },
-  { limit: 3600, unit: "minute" },
-  { limit: 86400, unit: "hour" },
-  { limit: Number.POSITIVE_INFINITY, unit: "day" },
-];
-
-export function formatRelative(
-  epochMs: number,
-  locale: Locale,
-  now = Date.now(),
-): string {
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  const diffSec = Math.round((epochMs - now) / 1000);
-  const absSec = Math.abs(diffSec);
-  for (const { limit, unit } of LIMITS) {
-    if (absSec < limit) {
-      return rtf.format(Math.round(diffSec / (DIVISOR[unit] ?? 1)), unit);
-    }
-  }
-  return rtf.format(diffSec, "day");
 }

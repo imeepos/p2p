@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FriendInviteJson, GroupInviteJson } from "@/lib/ipc-types";
@@ -178,6 +178,25 @@ describe("消息中心两组列表", () => {
     await waitFor(() =>
       expect(mocks.chatInviteAccept).toHaveBeenCalledWith(PEER_IN, ""),
     );
+  });
+
+  it("邀请卡：人可读名为标题，PeerId 缩略（前 6 后 4）+ 复制（F21）", async () => {
+    renderPage();
+    const rowOut = await screen.findByTestId("messages-friend-row-" + PEER_OUT);
+    expect(rowOut.textContent).toContain("小圆");
+    expect(rowOut.textContent).toContain("peer-o…bbbb");
+    expect(rowOut.textContent).not.toContain(PEER_OUT);
+    expect(
+      within(rowOut).getByRole("button", { name: "复制" }),
+    ).toBeTruthy();
+    const rowIn = await screen.findByTestId("messages-friend-row-" + PEER_IN);
+    expect(
+      within(rowIn).getByRole("button", { name: "复制" }),
+    ).toBeTruthy();
+    const groupRow = screen.getByTestId("messages-group-row-gi-1");
+    expect(
+      within(groupRow).getByRole("button", { name: "复制" }),
+    ).toBeTruthy();
   });
 
   it("群行点击跳群会话、好友行点击跳好友聊天", async () => {

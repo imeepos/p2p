@@ -893,3 +893,13 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：命令 fn 定义在模块的子模块（如 llm_share/commands.rs），mod.rs 只显式 pub use 函数名，generate_handler![llm_share::xxx] 报 E0433 cannot find __cmd__xxx / __tauri_command_name_xxx in llm_share。
 - 原因：#[tauri::command] 生成的隐藏项（__cmd__*）落在定义处模块，generate_handler 按注册路径的模块根解析；显式具名 re-export 漏掉隐藏项。
 - 修法：mod 里改 pub use commands::*;（glob 连带隐藏项，已加注释说明），或按 console 先例把命令直接定义在模块根。
+
+## 2026-09-06 UX-F：worktree 里 symlink 主树 node_modules 跑 vitest 假随机红
+- 症状：新 worktree 无 node_modules，图省事 symlink 主树 apps/gui/node_modules 后，vitest 报 "Timeout waiting for worker to respond" 或部分测试文件随机报 "Invalid Chai property: toBeInTheDocument"（同文件重跑结果漂移）。
+- 原因：symlink 让 vite/jsdom 缓存与模块实例身份分裂（同一物理目录被两条 root 路径共享），forks worker 启动与 jest-dom matcher 注册撞竞态。
+- 修法：worktree 里老老实实 `pnpm install --frozen-lockfile --prefer-offline`（全局 store 温热，秒级完成），直接调 `./node_modules/.bin/vitest`；期间 `pnpm exec` 在未安装 worktree 会静默挂起等 stdin，绕开。
+
+## 2026-09-06 UX-F：eslint react-hooks v7 新规禁「useRef 记上一个 prop」惯性写法
+- 症状：F19 用 `if (peerId) ref.current = peerId` 在 render 记最后运行期身份，eslint 12 连报 react-hooks/refs；换 useEffect+setState 又报 set-state-in-effect。
+- 原因：react-hooks v7 把 ref 的 render 期读写与 effect 内同步 setState 都定为 error（级联渲染）。
+- 修法：用官方「render 期条件调整 state」模式：`const [prev,setPrev]=useState(x); if (x!==prev) setPrev(x);`——React 文档背书、两规则都不命中；注意该模式 state 每挂载重置，跨挂载要保持的值不能靠它。
