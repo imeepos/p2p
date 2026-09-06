@@ -52,7 +52,11 @@ impl PeerRegistry {
     pub fn observe(&self, event: &NodeEvent) {
         let mut peers = self.peers.lock().expect("registry lock");
         match event {
-            NodeEvent::PeerDiscovered { peer, addrs, source } => {
+            NodeEvent::PeerDiscovered {
+                peer,
+                addrs,
+                source,
+            } => {
                 // manual 是本端自身登记，不刷新 lastSeen（非对端存活证据）。
                 let fresh = *source != AddrSource::Manual;
                 let entry = peers.entry(peer.to_string()).or_insert_with(|| PeerEntry {
@@ -86,7 +90,12 @@ impl PeerRegistry {
 
     /// 地址簿快照：peerId 字典序，输出稳定可 grep。
     pub fn snapshot(&self) -> Vec<PeerEntry> {
-        self.peers.lock().expect("registry lock").values().cloned().collect()
+        self.peers
+            .lock()
+            .expect("registry lock")
+            .values()
+            .cloned()
+            .collect()
     }
 
     /// 来源计数（汇总行事实源）。
@@ -215,6 +224,9 @@ mod tests {
             });
         }
         let stats = reg.stats();
-        assert_eq!((stats.total, stats.mdns, stats.rendezvous, stats.manual), (3, 1, 1, 1));
+        assert_eq!(
+            (stats.total, stats.mdns, stats.rendezvous, stats.manual),
+            (3, 1, 1, 1)
+        );
     }
 }

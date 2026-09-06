@@ -170,3 +170,13 @@
   没有任何 dispatch 墙钟/接管条目（用户当日已把「接管前先查产物」固化进 AGENTS.md，references 侧是空白，已补）；worktree add 中断三态脏局面也无登记（已补）。
 - 重来一次会怎么做？
   派发前把任务切成「无构建的纯编辑」+「后台构建验证」两段；worktree add 独立成步给足超时；前端动作盘点（读 8 个 view + store）这类只读侦察在派发前自己做完、以清单形式喂给子代理，能省它一半探索时间。
+
+## 2026-09-06 AS1 分享链接后端（feat/acp-share-agent 会话反思）
+
+- 哪个坑浪费了最多时间？
+  收尾才发现两类与本次改动无关的基线阻塞：验收命令 `cargo test -p acp-*` 在根 workspace 解析不到 apps 独立 workspace（exit 101，需 --manifest-path 或 cd）；apps/cli 存在基线 test 编译红（friend_update 缺字段）与 clippy 1.98 新告警。若开工第一件事就按验收 PATH 空跑一遍验收命令，这些都能在写码前定性。
+- skill 有没有提前警告我？
+  没有条目覆盖「验收命令基线空跑」与「cargo fmt 在 fmt 门禁不覆盖的独立 workspace 会全 crate 重排存量漂移」——本次被 fmt 波及 10 个 chat/cli 文件，靠 git status 兜住后按纪律拆成独立 style 提交。
+- 重来一次会怎么做？
+  开工序固定为：worktree → 按协调方 PATH 原样空跑验收命令拿基线 → 读设计 → 动手；每次跑 cargo fmt/clippy/test 前 git status 建立基线快照，收尾 diff 只允许出现自己域内的文件。
+

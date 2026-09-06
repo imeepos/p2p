@@ -108,8 +108,11 @@ mod tests {
 
     #[test]
     fn json_report_is_camel_case_parseable() {
-        let value = serde_json::to_value(&report()).unwrap();
+        let value = serde_json::to_value(report()).unwrap();
         assert_eq!(value["relaySessionsActive"], serde_json::json!(2));
-        assert_eq!(value["relayAddrs"][0], serde_json::json!("43.240.223.138/u3403"));
+        assert_eq!(
+            value["relayAddrs"][0],
+            serde_json::json!("43.240.223.138/u3403")
+        );
     }
 }

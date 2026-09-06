@@ -89,3 +89,57 @@ export async function fetchDiscoveryPeers(
   return out;
 }
 
+/** POST /connect-share 结果（§7）：失败折化为 ok=false + denied 码/原因 */
+export interface ConnectShareOutcome {
+  ok: boolean;
+  peer: string | null;
+  scope: string | null;
+  code: string | null;
+  reason: string | null;
+}
+
+const DENIED_UNAVAILABLE: ConnectShareOutcome = {
+  ok: false,
+  peer: null,
+  scope: null,
+  code: null,
+  reason: "unavailable",
+};
+
+function outcomeOf(body: Record<string, unknown> | null): ConnectShareOutcome {
+  const ok = body === null ? false : body.ok !== false;
+  return {
+    ok,
+    peer: asString(body?.peer),
+    scope: asString(body?.scope),
+    code: asString(body?.code),
+    reason: asString(body?.reason),
+  };
+}
+
+/** 按分享链接直拨（§7 GUI 入口）：解析与拨号都在 console，GUI 只投递链接原文。
+ *  2xx 视为受理成功（ok 默认 true）；非 2xx 取 body 的 code/reason 作为 denied 面。 */
+export async function connectShare(
+  statusUrl: string,
+  token: string,
+  link: string,
+): Promise<ConnectShareOutcome> {
+  const url = statusUrl.replace(/\/+$/, "") + "/connect-share";
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { ...bearerHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify({ link }),
+    });
+  } catch (error) {
+    console.warn("[acp] console connect-share 不可达", url, error);
+    return DENIED_UNAVAILABLE;
+  }
+  const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!res.ok) {
+    console.warn("[acp] connect-share denied", res.status, body?.code, body?.reason);
+    return { ...outcomeOf(body), ok: false };
+  }
+  return outcomeOf(body);
+}

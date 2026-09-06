@@ -32,6 +32,11 @@ export interface AcpEndpoint {
   /** console status HTTP 地址（http://127.0.0.1:<status_port>，stdout ready 行的 status）。
    *  缺省时自动重连退化为 fresh 拨号、发现清单不轮询（apps/acp-console/README.md） */
   statusUrl?: string;
+  /** agent 本地管理 HTTP 地址（http://127.0.0.1:<admin_port>，§5；分享创建/管理用）。
+   *  加法扩展：缺省时分享相关入口显式引导登记，不猜默认端口 */
+  adminUrl?: string;
+  /** admin 面 Bearer token（落盘于 <data-dir>/acp-admin-token，只存本地） */
+  adminToken?: string;
 }
 
 export interface AcpContentBlock {

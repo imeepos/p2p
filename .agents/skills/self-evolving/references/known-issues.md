@@ -327,6 +327,12 @@ failed: early eof（客户端侧超时中止）。
 - 原因：bash 管道退出码=最后一个命令；门禁输出习惯性接 tail 截尾。
 - 修法：门禁命令要截尾就单跑（tail 之外无 &&）；或命令前缀 'set -o pipefail'；判绿必须输出文本（如 grep -c error）与 exit 双重确认。
 
+## 2026-09-06 homebrew bash 5.3：`$VAR` 后紧跟全角字符在 set -u 下报 unbound variable（假错）
+- 症状：`bash scripts/check/gui-dist-scan.sh <缺目录>` 在 PATH 首位含 /opt/homebrew/bin 时报 `line 15: DIST\uFFFD: unbound variable`（变量名尾部粘 0xEF），夹具期望的「产物目录不存在」提示消失；/bin/bash 3.2 一切正常。
+- 原因：bash 5.3 解析 `...不存在：$DIST（先跑...` 时把紧随变量的全角括号（0xEF 开头字节）并入变量名做展开；set -u 即炸。
+- 修法：变量一律写 `${DIST}` 显式定界（已修 scripts/check/gui-dist-scan.sh 单处）；排查同类问题用 `/opt/homebrew/bin/bash` 与 `/bin/bash` 双版本对照 + `cat -v` 看报错字节。
+
+
 ## 2026-09-05 P0壳：edit/write 的 read-before-edit 按精确路径校验，主树读过 ≠ worktree 同路径可写
 - 症状：主树 read 过 menu.def.ts / acp-registration.test.ts，到 worktree 写同一路径报 "file has not been read"，Promise.all 里连带打断同批编辑。
 - 原因：文件观察策略按字面路径记录已读状态，worktree 路径是另一条记录。
@@ -801,6 +807,26 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 原因：read 返回的 lines 数组在大文件上有输出预算截断，不代表全文；用它的返回值整体回写等于用截断视图覆盖全文件。
 修法：大文件只做 bash cat >> 追加或 edit 工具定点替换，禁止「read 全文→write 全文」回写回路；写后必须 wc -l 对账。
 
+
+## 2026-09-06 /g 正则 exec 跨调用 lastIndex 串位返回 null
+症状：findShareLinkInText 第二次调用对"链接嵌句中"返回 null，单测时过时不过。
+原因：/g 标志的 exec 保留 lastIndex，跨输入继续扫描——新字符串从头匹配的预期落空。
+修法：提取用 String.match（无状态）；或每次 new RegExp。单测必须覆盖"同函数连续多次调用"。
+
+## 2026-09-06 i18n 扁平键与代码拼接点号键不匹配，t() 静默回键名
+症状：Radix Select 的 option 文本渲染成 "acp.share.ttl.1h" 原始键；同组件其他键正常，极具迷惑性。
+原因：locale 登记扁平键 ttl1h，代码按前缀拼出 ttl.1h；i18next 查不到回显键名，不报错。
+修法：动态键统一用 Record 映射表（TTL_LABEL_KEY 同 SCOPE_KEY 先例），禁止运行时拼键路径；测试断言 option 文本而非键名。
+
+## 2026-09-06 react-hooks/set-state-in-effect + purity 双闸拦 effect 取数
+症状：useEffect 里调用组件域 reload 被 eslint 报 "Avoid calling setState() directly within an effect"；render 期 Date.now() 报 purity。
+原因：新 react-hooks 规则能静态追踪组件域 useCallback 内的 setState；渲染期调 impure 函数同禁。
+修法：沿 use-discovery-poll 房法——async 取数函数定义在 effect 体内（void load()），setState 只出现在 await 之后的回调位；Date.now 移到取数时刻（状态徽章在 load 时推导成模型）；刷新按钮改 tick 计数触发 effect 重跑。
+
+## 2026-09-06 useEffect 依赖每次渲染新建的派生对象导致无限自旋
+症状：vitest worker 100% CPU 数分钟无输出假死；管理卡挂载即死循环。
+原因：派生候选对象每渲染新引用，useCallback 依赖随之每轮换新，effect 每轮重跑，setRows 再触发渲染成闭环。
+修法：effect/useCallback 依赖一律取原始值（url/token 字符串），派生对象只留渲染用。定位：ps 看 forks.js 进程 CPU 100% + 日志停在 RUN 标题行。
 ## 2026-09-06 独立 workspace 的 -p 包名从仓库根解析失败（AS2 实录）
 症状：验收命令 `cargo test -p acp-console` 在仓库根执行报 "package ID specification ... did not match any packages"，exit 101。
 原因：根 workspace 成员只有 crates/*，apps/acp-console 等按先例是独立 [workspace]（根 Cargo.toml 不动）；cargo -p 只在当前 manifest 的 workspace 成员里解析。

@@ -8,9 +8,7 @@ pub mod send;
 
 use clap::Subcommand;
 
-use ops::{
-    CreateArgs, DisbandArgs, InviteArgs, KickArgs, LeaveArgs, ListArgs, RenameArgs,
-};
+use ops::{CreateArgs, DisbandArgs, InviteArgs, KickArgs, LeaveArgs, ListArgs, RenameArgs};
 
 /// group 域注册：create/list/invite/kick/leave/rename/disband + send/history/media。
 #[derive(Subcommand)]

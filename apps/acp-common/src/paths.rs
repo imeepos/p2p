@@ -4,6 +4,8 @@
 use std::path::PathBuf;
 
 pub const POLICY_FILE: &str = "acp-policy.json";
+pub const SHARES_FILE: &str = "acp-shares.json";
+pub const ADMIN_TOKEN_FILE: &str = "acp-admin-token";
 pub const LOG_DIR: &str = "acp-logs";
 
 /// 一个桥数据目录实例的全部派生路径。
@@ -21,6 +23,16 @@ impl AcpPaths {
 
     pub fn policy(&self) -> PathBuf {
         self.root.join(POLICY_FILE)
+    }
+
+    /// 分享台账文件（acp-share 设计 §3）。
+    pub fn shares(&self) -> PathBuf {
+        self.root.join(SHARES_FILE)
+    }
+
+    /// 本地 admin HTTP Bearer token 文件（acp-share 设计 §5，0600）。
+    pub fn admin_token(&self) -> PathBuf {
+        self.root.join(ADMIN_TOKEN_FILE)
     }
 
     /// 子进程 stderr 滚动日志目录（设计 §4.2-5）。
@@ -41,6 +53,8 @@ mod tests {
     fn derive_paths_from_root() {
         let p = AcpPaths::new("/tmp/acp-x");
         assert_eq!(p.policy(), PathBuf::from("/tmp/acp-x/acp-policy.json"));
+        assert_eq!(p.shares(), PathBuf::from("/tmp/acp-x/acp-shares.json"));
+        assert_eq!(p.admin_token(), PathBuf::from("/tmp/acp-x/acp-admin-token"));
         assert_eq!(p.log_dir(), PathBuf::from("/tmp/acp-x/acp-logs"));
     }
 
