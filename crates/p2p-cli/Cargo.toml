@@ -30,3 +30,11 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 llm-share-ledger = { path = "../llm-share-ledger" }
 llm-share-offer = { path = "../llm-share-offer" }
+
+# borrow 借方入口（F11/PR6）：三闸代理客户端 + req_id 幂等键生成。
+llm-share-proxy = { path = "../llm-share-proxy" }
+uuid = { workspace = true }
+
+[dev-dependencies]
+# borrow 三场景进程内测试：mock 上游 SSE 流构造。
+futures = { workspace = true }

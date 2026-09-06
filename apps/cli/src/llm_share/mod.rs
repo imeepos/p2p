@@ -4,6 +4,7 @@
 //! 数据在 <data-dir>/llm-share/；声明签发与净差本机视角经节点身份种子（0600 标准）。
 
 mod allow;
+mod borrow;
 mod ledger;
 mod offer;
 mod receipt;
@@ -34,6 +35,8 @@ pub enum LlmShareCommand {
         #[command(subcommand)]
         command: ledger::LedgerCommand,
     },
+    /// 借方一次性调用（F11/PR6）：连接/验签选路/预检/代理流式调用/收据入账
+    Borrow(borrow::BorrowArgs),
     /// 收据离线验签（PASS/FAIL）
     Receipt {
         #[command(subcommand)]
@@ -47,6 +50,7 @@ pub async fn run(command: LlmShareCommand) -> CliResult<()> {
         LlmShareCommand::Allowlist(args) => allow::list_cmd(args),
         LlmShareCommand::Deny(args) => allow::deny_cmd(args),
         LlmShareCommand::Offer { command } => offer::run(command),
+        LlmShareCommand::Borrow(args) => borrow::borrow_cmd(args).await,
         LlmShareCommand::Ledger { command } => ledger::run(command),
         LlmShareCommand::Receipt { command } => receipt::run(command),
     }

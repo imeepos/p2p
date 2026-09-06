@@ -6,6 +6,9 @@
 //! （p2p-identity::load_seed，0600 标准），本模块不新增任何密钥落盘。
 
 pub mod allowlist;
+pub mod borrow;
+pub mod borrow_dial;
+pub mod borrow_report;
 pub mod ledger;
 pub mod offer;
 pub mod receipt;

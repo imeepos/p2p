@@ -54,6 +54,40 @@ pub fn save(path: &Path, file: &LedgerFile) -> Result<(), String> {
     write_json_atomic(path, file, "流水账本")
 }
 
+/// 入账报告（record 输出）：appended=false 即 req_id 已在账（幂等重放只记一笔）。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordReport {
+    pub req_id: String,
+    pub appended: bool,
+    pub entries: usize,
+    pub file: String,
+}
+
+/// 收据入账（borrow 运行面唯一写入口）：按 req_id 幂等去重后原子落盘，
+/// 保持 §5.1 wire 形态，receipt verify / ledger 命令直接可读。
+pub fn record(data_dir: &str, receipt: &Receipt) -> Result<RecordReport, String> {
+    let file = path(data_dir);
+    let mut ledger = load_or_empty(&file)?;
+    if ledger.receipts.iter().any(|r| r.req_id == receipt.req_id) {
+        return Ok(RecordReport {
+            req_id: receipt.req_id.clone(),
+            appended: false,
+            entries: ledger.receipts.len(),
+            file: file.display().to_string(),
+        });
+    }
+    ledger.append(receipt.clone());
+    let entries = ledger.receipts.len();
+    save(&file, &ledger)?;
+    Ok(RecordReport {
+        req_id: receipt.req_id.clone(),
+        appended: true,
+        entries,
+        file: file.display().to_string(),
+    })
+}
+
 /// 流水明细视图（camelCase 输出契约；tokens = input + output）。
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

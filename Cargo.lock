@@ -1401,8 +1401,10 @@ dependencies = [
  "bs58",
  "bytes",
  "clap",
+ "futures",
  "llm-share-ledger",
  "llm-share-offer",
+ "llm-share-proxy",
  "p2p",
  "p2p-identity",
  "p2p-log",
@@ -1415,6 +1417,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
