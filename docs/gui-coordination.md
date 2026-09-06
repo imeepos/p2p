@@ -86,3 +86,17 @@ G-U2 遵守 locale 先行独立小提交规则；两单收尾回报前必须 mer
 - 2026-09-03 14:42 G-U2 验收合并（6dbd483）：W7 波收官。7 提交含 locale 先行独立小提交与反向同步 merge（mock-ipc 冲突 feature 侧消化）；协调者疑点排除——dialog/input forwardRef 改动系 main 侧 4af2efe 经 merge 流入，非 G-U2 越界。复验全绿：范围 22 文件均在所有权内、vitest 95/95、i18n 345=345、四验收命令 + make check、收尾四步清理毕。W7 交付：启动/4h 轮询检查、三态提醒（toast+详情对话框+设置关于卡）、跳过版本持久化、GitHub Releases 引导下载。待办：下个 client-v 标签发布时真机验证提醒闭环。
 - 2026-09-03 16:55 client-v0.1.1 发布收官（协调者执行，用户指令"立即发布"）：版本四触点 0.1.1（1e03808 走 worktree 分支纪律）；首标签 gate 假红（about-update-card 断言写死 v0.1.0，bump 即炸）——gcff 会话同期在主树修复（e377022 改读 __APP_VERSION__）并捎带 relay 页 FactoryDefaultsNotice 崩溃修复（6c3c257）；协调者冷签出模拟复现→验证修复（98/98）→重打标签至 038d1f2 强推，run 33740680356 success，/releases/latest 指向 v0.1.1 四平台产物齐，update_check 数据面语义核对通过（0.1.0 应判 hasUpdate）。留档教训：about-update-card 版本展示与测试断言同源 __APP_VERSION__，禁止字面量。
 - 2026-09-03 16:58 【治理待办，待用户确认后派单】①gui-client.yml gate 仅覆盖 PR 与 tag，直接 push main 无门禁——建议补 main push 触发；②gcff 会话多次在主树直接 commit/add 半成品（8102a1b 换行规范化、relay 测试先 add 后提交），与 worktree 纪律冲突且两次干扰发布操作，需重申协调表规则 1。
+
+## UX 易用性波（2026-09-06 派单，项目负责人协调 session-b9f9d3f5）
+
+用户指令：参考 AG-UI 能复用就复用；简化使用流程和表单；打开软件默认开启节点、不要二次点击。协调者冻结契约 v10（gui-contract §15 acp-console 托管）后并行派五单；i18n locale 各自键块 append-only、locale 先行独立小提交；各单只跑本域门禁，make check 由协调者合并时统一复验（防并发假红）。会话均为本轮新建专属会话，完成后由协调者验收合并并归档。
+
+| 单 | 分支 | worktree | 范围（文件所有权） | 验收（机械命令） | 状态 |
+|---|---|---|---|---|---|
+| UX1 启动即在线 | feat/ux-auto-start | ux-auto-start | stores/node-store.ts、components/layout/app-layout.tsx、新增自动启动 hook、i18n node.autoStart.*；不动 acp/contacts/chat/src-tauri | 定向 vitest + pnpm lint/build/test/check:i18n | doing |
+| UX2 acp-console 托管 | feat/ux-console-sidecar | ux-console-sidecar | apps/gui/src-tauri/**（新增 console 托管模块 + 契约 v10 命令/事件）、scripts/gui-smoke.sh 如需；cli-parity 守卫保持绿 | src-tauri 内 fmt+test+clippy -D warnings | doing |
+| UX3 agent 一步直达 | feat/ux-agent-direct | ux-agent-direct | acp/acp-store.ts、acp/console-client.ts、lib/ipc*.ts、lib/mock-ipc.ts、views/contacts/endpoint-*、views/chat/agent-conversation.tsx、i18n contacts.endpoint.*/chat.agentPane.*/acp.console.* | 定向 vitest + pnpm lint/build/test/check:i18n | doing |
+| UX4 会话流 AG-UI 对齐 | feat/ux-agui-transcript | ux-agui-transcript | acp/transcript-model.ts、acp/components/transcript.tsx、acp/components/prompt-composer.tsx、acp/protocol.ts 类型加法、i18n acp.transcript.* | 定向 vitest + pnpm lint/build/test/check:i18n | doing |
+| UX5 chat IME 守卫（原 UI-DEBT1） | feat/ux-ime-guard | ux-ime-guard | components/chat/composer.tsx 等 chat 域 + 共享组合态钩子 + 群历史滚动跳位补偿；i18n 如需 chat.* | 定向 vitest + pnpm lint/build/test/check:i18n | doing |
+
+- 2026-09-06 21:45 契约 v10 冻结（§15 acp_console_status + acp-console 事件，协调者执笔落 main）；五单经 session_link 新建专属会话并行派发。UX3 依赖 §15 命令面，对 mock 先行开发；UX1 语义红线：一次/应用生命周期、手动 stop 本轮不复活、失败显式态+重试。
