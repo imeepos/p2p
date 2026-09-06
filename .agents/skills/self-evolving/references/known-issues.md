@@ -810,3 +810,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：feature worktree 里 make check 红在 mock-ipc-guards 自测：vite "Command not found"、gui-dist-scan 夹具报 unbound variable；同命令在主树全绿。
 原因：node_modules 不入 git，新 worktree 天然缺 pnpm 依赖；gui 门禁自测依赖真实 vite 构建红路径，缺依赖时失败形态不是「缺依赖」而是夹具内部错误，迷惑性强。
 修法：worktree 首次跑 GUI 相关门禁前先 `pnpm install --frozen-lockfile`；判定「门禁红是不是我引入的」先在主树跑同一脚本做基线。
+
+## 2026-09-06 worktree pnpm 版本错配 → make check 假红（AS2 实录，接上条）
+症状：新 worktree pnpm install 后 mock-ipc-guards 自测仍红，vite 案例报 [ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY]。
+原因：export PATH="/opt/homebrew/bin:$PATH" 把 homebrew 独立 pnpm（v10.33）提到最前装依赖；项目 packageManager/默认 pnpm 是 corepack 的 v11.24。版本错配使 11.24 判定 node_modules 需清空重装，无 TTY 即中止。
+修法：worktree 装依赖先 pnpm --version 对齐项目 pin，再用 CI=true pnpm install --frozen-lockfile 自动确认目录重建；错配状态下 gate-tests 的失败形态会漂移（本例先见 vite not found、再见 purge 中止），别按表象逐个修。
