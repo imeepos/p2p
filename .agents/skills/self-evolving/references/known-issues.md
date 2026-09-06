@@ -912,3 +912,7 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 ## 2026-09-07 UX-E：vitest worker 偶发启动超时（forks/threads 双池都中）
 - 症状：vitest run 报 "Timeout waiting for worker to respond / Failed to start worker"，0 用例执行；同命令隔几分钟重跑即过；高负载机器（并行会话多 vitest）更频发。
 - 修法：先 pkill 本 worktree 残留 vitest 僵尸（上次超时遗留），再重跑；稳定化用 --no-file-parallelism（fork 数降到 1，语义不变只慢）；别急着怀疑自己的测试代码。
+
+## 2026-09-07 UX-I：Radix AlertDialog 确认按钮吞合成 click，弹窗挂载瞬间点也吞
+- 症状：CDP/JS 对 AlertDialog「确认」按钮 .click() 或完整 MouseEvent 序列偶发无效，弹窗不关、onConfirm 不执行；同坐标隔 ~700ms 再点即成功。elementFromPoint 命中按钮本身、无遮罩，纯挂载时序问题。
+- 修法：弹窗 [role=alertdialog] 出现后 settle ≥700ms 再取坐标点击（clickPrev 坐标链），并留二次点击兜底；别的 root 内普通按钮（chip/行）.click() 始终可靠，勿一刀切归因「合成事件不可用」。

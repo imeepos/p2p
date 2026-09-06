@@ -2,6 +2,9 @@
 
 <!-- 排查技巧、工具命令、调试手法。格式：什么场景 → 怎么用。 -->
 
+- 2026-09-07 UX-I SPA 多步走查的 gui-agent flow 姿势：副本加 `flow` 命令吃 JSON 步单（eval/shot/clickPrev 三种步型），eval 返回 {x,y} 时记录、clickPrev 用 CDP Input.dispatchMouseEvent 原生点击上一坐标——多步状态一次 Chrome 会话闭环，天然满足「mock 状态不跨 CLI 调用」约束；截图步随状态走，证据落 /tmp。
+- 2026-09-07 UX-I mock dev「空缓冲」造法：gui auto-start 会自动起节点且手动 stop 在 auto-start 落定前点无效；先等「停止节点」按钮可用（= 已启动）再 stop（此后 manualStopRequested 守卫防重启），再走 事件页→清空→确认 全 UI 路径，才能稳定拿到全 0 计数+「暂无事件」空态。
+
 - 2026-09-05 传输层错误取证走 source 链 Debug 遍历：quinn 的 ReadError/WriteError/ConnectionError 经 io::Error 包装后 Display 只剩 "connection lost"，Reason 全灭；在错误落地处 `let mut s = e.source(); while let Some(x)=s { println!("{x:?}"); s=x.source(); }` 遍历打印，即可看到 `ConnectionLost(ApplicationClosed(ApplicationClose{reason:b"hangup"}))` 级别的真因（BASE1 由此一击定位池收敛误杀）。伴随信号：服务端零告警 + 客户端秒败 = 连接被对端/中间层主动关，先查 close 归因再查网络。
 - 2026-09-05 失败按「进程级二值」分布时，查每进程不变量而非每连接随机性：PeerId 排序、endpoint/句柄复用、静态 tie-break 规则都是候选。同型对照实验（fresh endpoint vs shared endpoint × 快速连发 vs 加间隔）一次就能把变量空间切成两半——BASE1 用 3 组 30 连发矩阵把「网络抖动」假设排除、锁定收敛规则误用。
 - 2026-09-04 预跑 ai-docs-sync 门禁免 worktree 全量 cargo 重建：`sed -e 's|^DOC=.*|DOC="<worktree文档路径>"|' -e 's|^CTL=.*|CTL="<主树新鲜二进制>"|' scripts/check/ai-docs-sync.sh > /tmp/sync-wt.sh && bash /tmp/sync-wt.sh`——拷贝后 ROOT 推导失效，但二进制不陈旧就不进重建分支，45 条目/139 项参数比对/示例抽验照跑；合并回主树后再跑真脚本终验。
