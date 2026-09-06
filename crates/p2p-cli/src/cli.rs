@@ -70,6 +70,9 @@ pub struct NodeArgs {
     /// 关闭 mDNS 局域网发现（跨网实验只需 rendezvous 时使用）。
     #[arg(long)]
     pub no_mdns: bool,
+    /// 仅局域网模式（F8）：不拨公共 bootstrap、不连 relay、不上报观测，仅局域网发现与直连。
+    #[arg(long)]
+    pub lan_only: bool,
 }
 
 #[derive(Debug, clap::Args, Clone)]

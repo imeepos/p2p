@@ -12,6 +12,7 @@ pub mod logging;
 pub mod metrics_cmd;
 pub mod metrics_log;
 pub mod node;
+pub mod notice;
 pub mod ping;
 pub mod relay_serve;
 
