@@ -283,6 +283,7 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-05 ACP3：并行会话会 prune/打断彼此的 worktree——worktree add 用 run_in_background 跑（前台 ~60s 超时会杀掉 801 文件的 checkout 留半成品，本日两次实证），建成后立即 git worktree lock --reason 自保；每次操作后 git -C <wt> rev-parse --show-toplevel 核对没回落主树（输出主树路径=管理区被清的事故信号）。
 - 2026-09-05 ACP3：run_code 的 tools.write 内容经 JSON+JS 双层转义，Rust 转义序列写 \n 实际落盘真实换行（模板串里单反斜杠就是换行），字符串字面量当场编译红——写完必须 grep 查字符串内断行；修复用 python3 精确 replace（py 里 \\n 才是字面反斜杠 n），比 edit 锚点匹配可靠。
 - 2026-09-05 ACP3：长流双向泵（WS⇄yamux）挂死自愈配方——spawn 双任务 + select 首侧结束 abort 另一侧（join 双侧都 pending 就永不结束）+ 写 16KiB 块/5s 超时重 kick + 读 30s 超时重 kick + PeerDisconnected 事件竞速兜底；yamux 批量窗口更新（<半窗不发）遇 echo 停等流量会饿死写侧（known-issues 同日条）。
+- 2026-09-06 UX1：后台跑验收链的证据采集用 (pnpm lint && pnpm test && pnpm build && pnpm check:i18n) 2>&1 | tee /tmp/xxx.log 再从落盘文件 grep 摘要——job_output 长输出会丢中段（提示 dropped from memory），且多并行会话共享同一 spill 目录、日志交错难归属；落本地的完整日志才可作验收证据逐条引用。
 - 2026-09-05 P0壳：等待外部前置（文档合入 main、CI 完成）用后台轮询器 + 热身并行：
   'deadline=$((SECONDS+1800)); while ...; do git cat-file -e main:<path> && exit 0; sleep 20; done; exit 124'
   挂 run_in_background，期间读代码/装依赖/建基线零空转；轮询器三态退出码（本地找到 0 /
