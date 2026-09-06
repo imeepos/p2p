@@ -2,6 +2,17 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-07 UX-K：Radix Tabs 用 fireEvent.click 不切换，且非激活 Content 以 hidden 空壳留在 DOM
+- 症状：弹窗内 Tabs 点触发器后 aria-selected 仍 false；断言「内容存在」却通过（getByTestId 命中 hidden 空壳），下游子元素断言才失败，误导排查方向。
+- 原因：@radix-ui/react-tabs 1.1.x 触发器在 onMouseDown 里 onValueChange（click 不是激活事件）；TabsContent 非激活时不卸载而是 hidden+不渲染 children。
+- 修法：测试里 fireEvent.mouseDown(trigger) + fireEvent.click(trigger)；断言激活态用 aria-selected 或检查 children 而非仅容器存在性。
+
+## 2026-09-07 UX-K：locale 追加键时编辑锚点取「块尾三行」命中了同构的另一块，整块被复制进对象
+- 症状：esbuild 报文件末尾 Unterminated string literal，行号离真实出错处十万八千里；vitest 该文件 0 用例直接 Failed Suites。
+- 原因：edit old_string 只取了 `fallback…},
+};` 这类高频同构尾巴，命中上一个命名空间的收尾而非目标位置，替换文本又整块重申了该命名空间 → 对象字面量中途再开同名键。
+- 修法：结构化文件（locale/大对象）追加整块时，old_string 必须带足够上文的唯一多行片段（含块 opener）；改完立刻跑一次 tsc 或单文件 vitest，文件级 transform 失败要去看真实文件尾部而不是相信报错行号。
+
 ## 2026-09-05 连接池「双向同时拨号」收敛规则误用于同向重拨，重连被死连接残留挡下（BASE1/T23）
 症状：第二借方进程经 bootstrap 查号挂满 10s 握手超时，每轮重试再挂；服务端周期性 server link ended 噪音；同 PeerId 新进程重连一律失败（ISSUE 半开残留）。复现呈**进程级二值**（同一份代码有的进程全挂、有的全过）。
 原因：池收敛规则「恒保留较小 PeerId 一端拨出的连接」本为双向同时拨号竞态设计（两端结论一致），却被 admit 到同向重复入池——对端重连时池内旧条目尚未被回收（QUIC 空闲超时窗口最长约 30s，半开更久），新连接被判 RejectedExisting 并 close(hangup)。是否触发取决于两端 PeerId 排序，故按进程二值。
