@@ -375,3 +375,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-06 DSH bash 每次调用都是全新 shell，默认工作目录 = 会话工作区（主树）：在 worktree 干活时每条命令必须显式绝对路径 cd；相对跳转会落回主树跑错代码（实例：基线测试跑在主树全绿，误判 worktree 健康后才开始改）。
 - 2026-09-06 跨 worktree 共享依赖别软链 node_modules：pnpm 的相对符号链接经 vite 解析会断（UNRESOLVED_IMPORT），直接在 worktree pnpm install——共享 store 硬链接，426 包全量仅 2.4s。
 - 2026-09-06 查 UI 依赖真实行为直接读 unpkg 的未压缩 dist（unpkg.com/pkg@ver/dist/index.js）+ web_fetch 取段分析，比本地 grep 压缩产物/搜二手 changelog 快且准。
+
+
+## pnpm 在本机 shell 里前台挂起 → 一律走 run_in_background 作业（2026-09-06 LSG3）
+- 症状：bash 里前台跑 pnpm（连 --version 都算）零输出，约 60s 被 SIGTERM；~/.vite-plus/bin/pnpm（corepack shim）同样挂。
+- 修法：pnpm 一律 run_in_background 作业 + 输出重定向 /tmp 日志再 grep；日志文件比 job_output 流式读取可靠（流式读一次即消费，丢输出）。

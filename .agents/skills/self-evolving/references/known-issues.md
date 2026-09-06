@@ -883,3 +883,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：bash 工具连报 `spawn bash ENOENT`、glob 报目录 os error 2，且后台命令中途冒 node `uv_cwd ENOENT`（process.cwd failed），像是运行时坏了。
 - 原因：workdir（worktree）被并行会话执行收尾 `git worktree remove` 删掉，所有以它为 cwd 的 spawn 全部 ENOENT；与代码无关。
 - 修法：先用只读工具（glob/read）确认目录是否存在；存在性一旦排除，立即 `git reflog` 查 main 最近提交是否被并行会话推进（ff 合并/账本翻转/远端删除三件套），按「他收尾我核验」处理，不重跑重做。
+
+
+## TS 类字段名与同名方法互相覆盖：mock.allow is not a function（2026-09-06 LSG3）
+- 症状：LlmShareMock 里 private readonly allow = new Map() 与 allow() 方法同名；类字段在构造期覆盖原型方法，运行时 "mock.allow is not a function"，测试大面积红。
+- 修法：状态容器字段改名 allowEntries。教训：类字段命名先查同名方法；Map/集合字段加 Entries 后缀。
