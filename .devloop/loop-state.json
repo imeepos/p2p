@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-06T09:50:01Z",
+  "updatedAt": "2026-09-06T09:50:54Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -585,7 +585,7 @@
       "branch": "feat/protocol-integration-docs",
       "ownerSession": "session-d90476e0-1351-430f-9e91-7587bc274acd",
       "scope": "docs/protocol/** 新增 + docs/README.md 索引行；其余只读（crates/**、apps/**、docs/design/**、docs/coordination.md、.devloop/**、scripts/**）",
-      "acceptanceCommand": "python3 -c \"import pathlib,sys\nbad=[]\nfor n in [\"README\",\"quickstart\",\"wire-format\",\"node-lifecycle\",\"builtin-and-versioning\"]:\n    p=pathlib.Path(\"docs/protocol\")/(n+\".md\")\n    if not p.exists(): bad.append(\"missing \"+str(p)); continue\n    t=p.read_text(encoding=\"utf-8\")\n    if len(t.splitlines())>300: bad.append(\"over300 \"+str(p))\n    for ch in t:\n        o=ord(ch)\n        if 0x1F000<=o<=0x1FAFF or 0x2600<=o<=0x27BF or 0xFE00<=o<=0xFE0F: bad.append(\"emoji \"+str(p)); break\nprint(\"DOC1-FAIL\",*bad) if bad else print(\"DOC1-FILES-OK\")\nsys.exit(1) if bad else sys.exit(0)\" && bash scripts/check/line-limit.sh >/dev/null && echo DOC1-LINELIMIT-PASS",
+      "acceptanceCommand": "python3 -c \"import pathlib,sys\nbad=[]\nfor n in ['README','quickstart','wire-format','node-lifecycle','builtin-and-versioning']:\n    p=pathlib.Path('docs/protocol')/(n+'.md')\n    if not p.exists(): bad.append('missing '+str(p)); continue\n    txt=p.read_text(encoding='utf-8')\n    if len(txt.splitlines())>300: bad.append('over300 '+str(p))\n    for ch in txt:\n        o=ord(ch)\n        if 0x1F000<=o<=0x1FAFF or 0x2600<=o<=0x27BF or 0xFE00<=o<=0xFE0F: bad.append('emoji '+str(p)); break\nprint('DOC1-FAIL',*bad) if bad else print('DOC1-FILES-OK')\nsys.exit(1) if bad else sys.exit(0)\" && bash scripts/check/line-limit.sh >/dev/null && echo DOC1-LINELIMIT-PASS",
       "note": " [2026-09-06 协调 session-642401b5] DOC 波开轮，专属新会话派单（任务书含需求+机械验收，无源码）。合并前协调者另验：常量抽检 8/8 出处命中、字节示例独立解码自洽、git diff 域合规（仅 docs/protocol/** 与 docs/README.md）、分支 make check 全绿。"
     },
     {
@@ -597,7 +597,7 @@
       "branch": "feat/gui-protocol-docs",
       "ownerSession": "session-ffc31e23-2356-40c6-b43d-4a2442c3a3c9（空置待派）",
       "scope": "apps/gui/src/**；禁碰 apps/gui/src-tauri/**、crates/**、apps/gui/src/config/menu.def.ts、docs/coordination.md、.devloop/**",
-      "acceptanceCommand": "pnpm -C apps/gui build && pnpm -C apps/gui lint && pnpm -C apps/gui test && pnpm -C apps/gui check:i18n && ! git grep -n \"/docs\" -- apps/gui/src/config/menu.def.ts && echo DOC2-ACC-PASS",
+      "acceptanceCommand": "pnpm -C apps/gui build && pnpm -C apps/gui lint && pnpm -C apps/gui test && pnpm -C apps/gui check:i18n && ! git grep -n '/docs' -- apps/gui/src/config/menu.def.ts && echo DOC2-ACC-PASS",
       "note": " [2026-09-06 协调 session-642401b5] 排队中：依赖 SHARE 波 AS3 合入腾出 apps/gui/src/** 域后才派任务书；DOC1 合并后该卡 rebase 拿真实文档再验收。"
     }
   ],
