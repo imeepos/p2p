@@ -352,3 +352,5 @@ run_code 里用 TS 模板字面量写 bash 内容时，bash 的 ${VAR} 会被 JS
 vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 开始前，红路径探测秒级返回——「必红」回归放 gate-tests 成本极低，别因怕慢而放弃真实红路径探测、只测夹具。
 - 2026-09-05：GUI 门禁先本地全量三连（eslint src 全目录 + pnpm build + vitest run 全量）再 make check——gui-check 的 eslint 含 react-hooks 编译器规则，vitest 全绿不代表 lint 绿，三连绿后 make check 一次过的概率大幅上升。
 - 2026-09-05：逐码断言表单错误：CASES 表 {field, value, code} it.each 循环，断言 testid 为前缀-error-加码 且文本 === i18n.t(key)——「稳定错误码 + i18n」验收从此机械可验。
+- 2026-09-06：免认证 CI 排查三板斧（repo 公开时）：runs API 拿时长分布区分秒级早退与编译后失败；check-runs annotations 拿 exit code（内容仅此而已）；本机 gh hosts.yml 有 token 时 jobs/{id}/logs 跟 302 到 blob 直接拿全量日志（403 只挡无凭据请求）——本会话靠它把 ubuntu 红因从猜测变实证。
+- 2026-09-06：GH runner 上 pkg-config 存在性可作声明式 SKIP 信号（缺 webkit2gtk-4.1 即 SKIP），且 pkg-config 本身缺失时取反仍为真——SKIP 口径对工具缺失也稳健。
