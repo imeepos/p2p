@@ -1,5 +1,7 @@
 // 工具时间线子组件（自 transcript.tsx 拆分，守 300 行红线）。
 // AG-UI TOOL_CALL_* ↔ ACP tool_call(_update)，同 id 原地迁移见 transcript-model.ts。
+// 四态呈现约定：pending 静默灰点 / in_progress 警示脉冲（进行时视觉）/
+// completed 成功 / failed 红系整行高亮。
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -61,9 +63,41 @@ function ToolIoBlock(props: { text: string; testId: string; muted?: boolean }) {
   );
 }
 
+/** 结果块：结算后（completed/failed）整块可折叠、默认展开；运行态仅按长度折叠 */
+function ToolResultSection({ turn }: { turn: ToolTurnModel }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(true);
+  const testId = "acp-tool-result-" + turn.toolCallId;
+  return (
+    <div className="flex flex-col items-start gap-0.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground h-6 px-2 text-xs"
+        aria-expanded={open}
+        aria-controls={testId + "-body"}
+        data-testid={testId + "-toggle"}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {open ? t("acp.tools.collapse") : t("acp.tools.expand")}
+      </Button>
+      <div id={testId + "-body"} data-testid={testId}>
+        {open ? (
+          <ToolIoBlock
+            text={turn.outputText}
+            testId={"acp-tool-output-" + turn.toolCallId}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 /** 工具时间线节点：名称/四态徽章/入参/结果（设计 §8 工具行）；失败态红系整行高亮 */
 export function ToolTurn({ turn }: { turn: ToolTurnModel }) {
   const { t } = useTranslation();
+  const settled = turn.status === "completed" || turn.status === "failed";
   return (
     <div
       className={cn("ml-2 flex flex-col gap-1 border-l pl-3",
@@ -71,6 +105,7 @@ export function ToolTurn({ turn }: { turn: ToolTurnModel }) {
           ? "border-l-destructive bg-destructive/5 rounded-r-md py-1"
           : "border-l-border/60",
       )}
+      data-status={turn.status}
       data-testid={"acp-turn-tool-" + turn.toolCallId}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -81,6 +116,7 @@ export function ToolTurn({ turn }: { turn: ToolTurnModel }) {
             turn.status === "in_progress" && "bg-warning animate-pulse",
             turn.status === "pending" && "bg-muted-foreground/40",
           )}
+          data-testid={"acp-tool-dot-" + turn.toolCallId}
         />
         <span className="text-sm font-medium">{turn.title}</span>
         {turn.toolKind ? (
@@ -101,9 +137,13 @@ export function ToolTurn({ turn }: { turn: ToolTurnModel }) {
           testId={"acp-tool-input-" + turn.toolCallId} />
       ) : null}
       {turn.outputText ? (
-        <ToolIoBlock
-          text={turn.outputText}
-          testId={"acp-tool-output-" + turn.toolCallId} />
+        settled ? (
+          <ToolResultSection turn={turn} />
+        ) : (
+          <ToolIoBlock
+            text={turn.outputText}
+            testId={"acp-tool-output-" + turn.toolCallId} />
+        )
       ) : null}
     </div>
   );

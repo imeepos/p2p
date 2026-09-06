@@ -41,6 +41,45 @@ beforeEach(() => {
   useAcpStore.getState().resetConsoleState();
 });
 
+describe("ToolTurn 四态区分（AG-UI TOOL_CALL_* 映射）", () => {
+  const statuses = ["pending", "in_progress", "completed", "failed"] as const;
+  it("四态 data-status 可区分；in_progress 行带进行时脉冲视觉", () => {
+    seed(
+      statuses.map((status, i) =>
+        toolTurn({ status, toolCallId: "call-" + status, id: i + 1 }),
+      ),
+    );
+    render(<Transcript sessionId={SID} />);
+    for (const status of statuses) {
+      expect(
+        screen.getByTestId("acp-turn-tool-call-" + status).getAttribute("data-status"),
+      ).toBe(status);
+      expect(
+        screen.getByTestId("acp-tool-status-call-" + status).textContent,
+      ).toBeTruthy();
+    }
+    expect(screen.getByTestId("acp-tool-dot-call-in_progress").className).toContain("animate-pulse");
+    expect(screen.getByTestId("acp-tool-dot-call-pending").className).not.toContain("animate-pulse");
+  });
+});
+
+describe("ToolResultSection 完成结果折叠（UX4 R3）", () => {
+  it("completed 结果默认展开可收起；运行态不渲染结果折叠开关", () => {
+    seed([
+      toolTurn({ outputText: "ok" }),
+      toolTurn({ status: "in_progress", toolCallId: "call-run", id: 2, outputText: "partial" }),
+    ]);
+    render(<Transcript sessionId={SID} />);
+    const toggle = screen.getByTestId("acp-tool-result-call-1-toggle");
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("acp-tool-output-call-1").textContent).toContain("ok");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByTestId("acp-tool-result-call-1").textContent).not.toContain("ok");
+    expect(screen.queryByTestId("acp-tool-result-call-run-toggle")).toBeNull();
+  });
+});
+
 describe("ToolTurn 折叠与失败态", () => {
   it("超过约 6 行的入参/结果默认折叠，展开后全文可见且 aria-expanded 翻转", () => {
     const longOutput = Array.from({ length: 10 }, (_, i) => "line-" + i).join("\n");
