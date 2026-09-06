@@ -443,4 +443,45 @@ interface GroupSendReport {
   （ipc-types.ts / ipc.ts 九方法）；mock 与真实实现同签名（mock-group-roster）；
   命令层 group_create/group_send 双回环真节点冒烟见 tests/group_command_smoke.rs。
 
+## 15. acp-console 托管（v10 加法，2026-09-06，UX 易用性波）
+
+GUI 壳托管 acp-console 伴生进程生命周期，用户零手工启动。语义与验收对齐点：
+
+- 进程定位顺序（三步都找不到即进入 unavailable 态并留 lastError，不阻断 GUI
+  主功能，对齐 GC1 控制通道 R3 降级先例）：
+  1. 环境变量 ACP_CONSOLE_BIN（可执行文件绝对路径）；
+  2. 应用可执行文件同目录的 acp-console（打包 sidecar 布局）；
+  3. 开发回退：src-tauri 同级 cargo target 的 debug/release 目录。
+- 监督：异常退出自动重启（指数退避；连续失败 5 次转 failed 停止重试并留
+  lastError）；GUI 退出（RunEvent::Exit）收尾终止子进程。
+- 就绪解析：acp-console stdout 的 JSON ready 行（字段与语义见
+  apps/acp-console/README.md 就绪发布节）；缺省字段容忍，解析失败计 restart
+  观测并显式留痕。
+
+命令（§1 表加法）：
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| acp_console_status | - | AcpConsoleStatus | 托管状态快照（含就绪连接面）；v10 加法新增 |
+
+事件通道 acp-console（独立于 node-event）：payload 即 AcpConsoleStatus，
+phase 变更即发射，可携带可选 tsMs（§2 同款约定）。
+
+```ts
+interface AcpConsoleStatus {
+  phase: "starting" | "ready" | "restarting" | "failed" | "unavailable" | "stopped";
+  wsUrl?: string;      // ready 后：ws://127.0.0.1:<port>
+  token?: string;      // ready 后：console WS 鉴权 token
+  statusUrl?: string;  // ready 后：console status HTTP 地址
+  adminUrl?: string;   // ready 后：agent admin HTTP 地址（ready 行携带才填）
+  restarts: number;    // 已自动重启次数
+  lastError?: string;  // 最近一次失败原因（可读中文）
+}
+```
+
+- 验收对齐点：A 侧 stub ready 行子进程用例（解析/重启/退避/failed/Exit 收尾）
+  + 命令 serde roundtrip；B 侧 mock 与真实实现同签名（mock-ipc 补
+  acp_console_status 与 acp-console 事件）；generate_handler 注册独立小提交；
+  cli-parity 守卫保持绿（本命令无 CLI 对等映射，按既有登记机制处理）。
+
 
