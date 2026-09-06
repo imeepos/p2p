@@ -234,6 +234,41 @@ p2pctl gui action <页面> <动作> [K=V...] [--navigate] [--gui-data-dir DIR] [
   授权记录可能失效，需在 系统设置 > 隐私与安全性 > 屏幕录制 重新授权后重试。
 - 该域为 CLI 单侧能力（GUI 命令面未新增 Tauri 命令），不进 §6 映射表。
 
+### llm-share —— LLM 额度共享域（T21 出借方管理面 / F11 借方调用入口）
+
+出借方管理面：allowlist 授予/查看/移除、能力声明 publish/show、双边流水
+list/balance、收据离线验签 verify（详见 `docs/ops/p2pctl-ai-guide.md` llm-share
+节与 `idle-token-sharing-plan.md` §4-§6）。数据在 `<data-dir>/llm-share/`。
+
+借方一次性调用入口（borrow，F11/PR6）：
+
+```bash
+p2pctl llm-share borrow <出借方 PeerId> --prompt "你好" --addr 192.168.0.102/u35420
+p2pctl llm-share borrow <PeerId> --model gpt-4o --messages '[{"role":"user","content":"hi"}]' \
+    --max-tokens 256 --timeout-secs 90 --req-id <uuid> --json
+```
+
+- 参数：出借方 PeerId 必填；`--model` 缺省取声明内唯一模型（多模型显式报错列出
+  可选项）；`--prompt` 与 `--messages`（OpenAI messages 数组 JSON）二选一；
+  `--max-tokens` 缺省取出借方声明上限，未声明 256，超出显式报错；`--addr` 直连
+  地址（ip/u端口 或 ip/t端口），缺省经 rendezvous 查号（bootstrap 取节点配置）；
+  `--req-id` 幂等键，缺省生成 UUID v4，失败重试必须复用同值（出借方按 req_id
+  去重，防双记账）。
+- 流程：连接出借方 → /llm-share/offer/1 拉取声明并验签（Ed25519 + TTL）→
+  选路（产品纯函数 select_offers，TTL/模型/闲量过滤）→ 预检（出借方三闸前置
+  裁决：未授权等结构化拒绝在进入上游前透出，上游零调用、流水零产生）→
+  /llm-share/proxy/1 流式调用 → 收据 Ed25519 验签 → 借方账本入账
+  （`<data-dir>/llm-share/ledger.json`，另落单笔
+  `receipt-<req_id>.json` 供 `llm-share receipt verify` 直接消费）。
+- 失败路径全部结构化显式（退出码 1）：`status=rejected` 附 snake_case 拒绝码
+  （not_allowlisted / model_not_served / freeze_insufficient / duplicate_req_id
+  等）；上游断流按 A6 语义输出 `status=stream_broken` + `estimated=true` 收据
+  （72h 争议窗）且验签必须通过；发现/连接失败以 DISCOVER-FAIL / CONNECT-FAIL
+  报错退出。上游 SSE 事件原文按行透出（OpenAI 流式语义）。
+- 借方拨号进程内自建（facade Node，身份取节点数据目录 key.seed，须与出借方
+  allowlist 登记一致），不依赖 daemon 常驻。
+- 该域为 CLI 单侧能力（GUI 命令面未新增 Tauri 命令），不进 §6 映射表。
+
 ## 6. GUI 命令映射表
 
 权威机器可读版本：`scripts/check/cli-parity.tsv`（守卫消费，勿手工漂移）。人读版：
