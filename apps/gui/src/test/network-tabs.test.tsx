@@ -83,7 +83,8 @@ describe("network tab 条与子路由", () => {
     window.location.hash = "#/network";
     await waitForHash("#/network/overview");
     await vi.waitFor(() => {
-      expect(host.textContent).toContain("网络概览");
+      // F22：页头与 tab 同名「概览」
+      expect(host.textContent).toContain("概览");
     }, { timeout: WAIT_TIMEOUT });
   });
 });

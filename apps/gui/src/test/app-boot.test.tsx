@@ -46,11 +46,11 @@ describe("app boot smoke", () => {
 // 路由就绪才出现的标记：锁"数据加载完成"而非骨架屏，
 // relay/settings 的崩溃恰好发生在配置就绪挂载表单卡那一刻
 // （原启动冒烟只踩默认路由，放过过 relay 页整树崩溃，2026-09-03 用户实测白屏）。
-// 外壳重设计 P0：旧 10 视图在新位置逐一冒烟——五排障面 + 仪表盘落
-// /network/*，群聊/ACP 整页形态经 /chat?kind=* 可达（七、并存策略），
-// 另含 /contacts 占位页。
+// 外壳重设计 P0：旧 10 视图在新位置逐一冒烟——五排障面 + 网络总览（F22
+// 统一命名「概览」）落 /network/*，群聊/ACP 整页形态经 /chat?kind=* 可达
+// （七、并存策略），另含 /contacts 占位页。
 const routes: Array<[string, string | null]> = [
-  ["#/network/overview", "网络概览"],
+  ["#/network/overview", "概览"],
   ["#/network/peers", null],
   ["#/network/discovery", null],
   ["#/network/relay", "中继地址配置"],
