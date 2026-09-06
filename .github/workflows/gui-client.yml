@@ -201,6 +201,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # checkout 必须在下载产物之前：checkout 的 git clean 会把未跟踪的
+      # artifacts/ 当垃圾删除，make-latest-json 随即 ENOENT（client-v0.1.6
+      # 发布失败根因，2026-09-06 定因）
+      - uses: actions/checkout@v4
+
       - name: 下载全部产物
         uses: actions/download-artifact@v4
         with:
@@ -208,7 +213,6 @@ jobs:
 
       # 生成 updater 清单（契约 v8 加法）：客户端经 releases/latest/download/latest.json
       # 发现更新；脚本对四平台签名产物做存在性与配对校验，缺一即发布失败
-      - uses: actions/checkout@v4
       - name: 生成 latest.json 更新清单
         run: node apps/gui/scripts/release/make-latest-json.mjs --artifacts artifacts --tag "$GITHUB_REF_NAME" --repo imeepos/p2p
 
