@@ -117,3 +117,15 @@ G-U2 遵守 locale 先行独立小提交规则；两单收尾回报前必须 mer
   喂回全量覆写截断（认领，已打捞补录 7d40169）——共享经验文件 append-only 铁律生效。
 - 契约后续议题：§15 AcpConsoleStatus 增 peer 字段（UX3 落地口径已背书）。
 - 五专属会话全部验收后归档；清理四步全部执行（worktree/本地分支/远端分支三清）。
+
+
+## LSG 波（2026-09-06 派单，项目负责人协调 session-b9f9d3f5，PR 轨 7af45e36 语义跨轨会签）
+
+契约 v11（§16 llm-share GUI 面+§3 lanOnly）双确认冻结落 main（659c693）。合并序 LSG1→LSG2→LSG3；
+i18n 键块 settings.*（LSG2）/llmShare.*（LSG3）分治；make check 由协调者串行复验。
+
+| 单 | 分支 | worktree | 范围 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| LSG1 命令面（Rust） | feat/lsg-commands | lsg-commands | src-tauri llm_share 模块+cli-parity live 迁移 | src-tauri fmt/test/clippy+cli-parity+ai-docs-sync | doing |
+| LSG2 IPC+设置 | feat/lsg-ipc-settings | lsg-ipc-settings | lib/**八命令映射+mock 拆文件+设置页 lanOnly/入口卡 | 四门禁 | doing |
+| LSG3 四面板 | feat/lsg-panels | lsg-panels | views/llm-share/**+App.tsx+palette+i18n llmShare.* | 四门禁 | doing |
