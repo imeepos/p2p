@@ -15,6 +15,8 @@ import { AdvertiseCard } from "./advertise-card";
 import {
   EMPTY_SETTINGS,
   settingsResolver,
+  toFormValues,
+  toGuiConfig,
   type SettingsFormValues,
 } from "./config-schema";
 import { NetworkCard } from "./network-card";
@@ -181,5 +183,40 @@ describe("settings defaults display", () => {
       "placeholder",
       "可选，未设置",
     );
+  });
+});
+
+describe("settings lanOnly 开关（契约 v11 §16.5）", () => {
+  it("开关切换写入表单并置脏，说明文案为仅监听局域网发现语义", async () => {
+    const formRef: FormRef = { current: null };
+    render(
+      <Harness values={values()} formRef={formRef}>
+        <NetworkCard />
+      </Harness>,
+    );
+    expect(screen.getByText("仅监听局域网发现")).toBeInTheDocument();
+    expect(formRef.current?.getValues("lanOnly")).toBe(false);
+    fireEvent.click(screen.getByLabelText("仅监听局域网发现"));
+    await waitFor(() =>
+      expect(screen.getByTestId("form-dirty")).toHaveTextContent("dirty"),
+    );
+    expect(formRef.current?.getValues("lanOnly")).toBe(true);
+  });
+
+  it("lanOnly 读改存转换往返：缺省字段归一 false，显式值原样保留", () => {
+    const config = {
+      quicPort: 0,
+      tcpPort: 0,
+      enableMdns: true,
+      dataDir: "",
+      bootstrap: [],
+      relayAddrs: [],
+      advertisedAddrs: [],
+      observationPort: null,
+      observationAddrs: [],
+    };
+    expect(toFormValues(config).lanOnly).toBe(false);
+    expect(toGuiConfig({ ...values(), lanOnly: true }).lanOnly).toBe(true);
+    expect(toGuiConfig(values()).lanOnly).toBe(false);
   });
 });

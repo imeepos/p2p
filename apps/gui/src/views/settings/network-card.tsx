@@ -82,6 +82,7 @@ export function NetworkCard() {
   const { t } = useTranslation();
   const { setValue } = useFormContext<SettingsFormValues>();
   const enableMdns = useWatch({ name: "enableMdns" });
+  const lanOnly = useWatch({ name: "lanOnly" });
   const status = useNodeStore((s) => s.status);
   const listenAddrs = status?.running ? status.listenAddrs : [];
 
@@ -118,6 +119,23 @@ export function NetworkCard() {
             checked={enableMdns}
             onCheckedChange={(next) =>
               setValue("enableMdns", next, { shouldDirty: true })
+            }
+          />
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* 契约 v11 §16.5：lanOnly=仅监听局域网发现（serde 缺省 false） */}
+            <Label htmlFor="settings-lan-only">{t("settings.network.lanOnly")}</Label>
+            <p className="text-muted-foreground max-w-sm text-xs leading-5">
+              {t("settings.network.lanOnlyHint")}
+            </p>
+          </div>
+          <Switch
+            id="settings-lan-only"
+            className="shrink-0"
+            checked={lanOnly}
+            onCheckedChange={(next) =>
+              setValue("lanOnly", next, { shouldDirty: true })
             }
           />
         </div>

@@ -19,6 +19,13 @@ import type {
   GroupInviteJson,
   GuiConfig,
   IpcBackend,
+  LlmAllowEntry,
+  LlmAllowlistView,
+  LlmBalanceGroup,
+  LlmBorrowReport,
+  LlmLedgerEntry,
+  LlmOfferView,
+  LlmReceiptVerifyResult,
   MetricsJson,
   MetricsPoint,
   NodeEventJson,
@@ -144,6 +151,32 @@ const tauriBackend: IpcBackend = {
     }),
   groupMediaFile: (groupId, messageId) =>
     invoke<ChatMediaFile>("group_media_file", { groupId, messageId }),
+  // 契约 v11 §16：llm-share 命令面；可选参数统一传 null（serde Option 反序列化 None）。
+  llmShareOfferPublish: (offer) =>
+    invoke<LlmOfferView>("llm_share_offer_publish", { offer }),
+  llmShareOfferShow: () => invoke<LlmOfferView>("llm_share_offer_show"),
+  llmShareAllowList: () =>
+    invoke<{ entries: LlmAllowEntry[] }>("llm_share_allow_list"),
+  llmShareAllow: (peerId, models, note) =>
+    invoke<LlmAllowlistView>("llm_share_allow", {
+      peerId,
+      models: models ?? null,
+      note: note ?? null,
+    }),
+  llmShareDeny: (peerId) =>
+    invoke<LlmAllowlistView>("llm_share_deny", { peerId }),
+  llmShareBorrow: (req) => invoke<LlmBorrowReport>("llm_share_borrow", { req }),
+  llmShareLedgerList: (filter) =>
+    invoke<LlmLedgerEntry[]>("llm_share_ledger_list", {
+      filter: filter ?? null,
+    }),
+  llmShareLedgerBalance: () =>
+    invoke<LlmBalanceGroup[]>("llm_share_ledger_balance"),
+  llmShareReceiptVerify: (reqId, lenderPubkey) =>
+    invoke<LlmReceiptVerifyResult>("llm_share_receipt_verify", {
+      reqId,
+      lenderPubkey: lenderPubkey ?? null,
+    }),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {
