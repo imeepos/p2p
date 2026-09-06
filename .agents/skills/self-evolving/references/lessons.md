@@ -357,3 +357,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 组件级测试断言别断言 store 内部（draft.peer），断言用户可见面（触发器文案/渲染节点）——store 是实现细节，form 是组件局部态。
 - 2026-09-06 UX 波协调：run_code 里 bash stdout 超 ~30KB 会被截尾，大 JSON 经 stdout 回传再喂 devloop_ledger 必报非法 JSON——大文件就地 python 校验+原子写（tmp+rename），不走工具参数回传。
 - 2026-09-06 UX 波协调：验收检查器的输出过滤（grep ok/FAIL）会把 FAIL 明细行滤掉造成误判「空越界」——先看原始输出再下结论；显示层与判定层要分开。
+
+- 2026-09-06 本仓库 fmt 门禁是双段（根 workspace 与 apps/cli 各自 cargo fmt）：只 fmt apps/cli 会漏根 workspace 的 crates（crates/p2p、crates/p2p-cli），pre-push 快速门禁当场拦推；跨 workspace 成员改动的收尾动作必须是两段都 cargo fmt --check。
+- 2026-09-06 派单文里的会话短 id（session-7af45e36）不能直接喂 session_link_send——报「不在同一工作区」误导排查方向；先 session_link_list 拿完整 id（session-7af45e36-f764-...）再投递。
+- 2026-09-06 run_code 里给 edit/write 传含 markdown ``` 围栏的多行文档内容会撞 JS 反引号模板字面量（围栏提前终止字符串，报 Expected , got ident 这类迷惑语法错）；文档 patch 一律 write 一个 python 脚本（三引号 + 转义围栏）再 bash 执行，替换点用 count==1 断言。
+- 2026-09-06 中央登记的「注释行先例」只豁免 cli-parity 守卫，ai-docs-sync 的反向断言（实测命令 vs 文档条目）独立生效：上一卡新增 p2pctl 子命令只登记 tsv 不补 ai-guide 条目，守卫照样红。接手他卡遗留的守卫红先跑一遍守卫脚本读 fail 明细，不要默认是自己的改动引入。
