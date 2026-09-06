@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { EntityMultiSelect, shortPeerId, type PickerOption } from "@/components/picker";
 import { MAX_GROUP_MEMBERS } from "@/lib/chat-limits";
 import { useGroupStore } from "@/stores/group-store";
 
@@ -12,14 +13,15 @@ interface GroupInvitePickerProps {
   onDone: () => void;
 }
 
-// 邀请好友勾选面（设计 §5 邀请）：好友簿减在群成员为候选；
+// 邀请好友选择面（F23 统一多选选择器）：好友簿减在群成员为候选；
+// 即时搜索 + 已选区置顶 + 已选计数；触及群成员上限用现有文案口径就地提示。
 // 前置校验与 mock/后端同口径（非空、≤32），后端拒绝原文展示不吞。
 export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
   const { t } = useTranslation();
   const friends = useGroupStore((s) => s.friends);
   const ensureFriends = useGroupStore((s) => s.ensureFriends);
   const invite = useGroupStore((s) => s.invite);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string[]>([]);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -28,24 +30,20 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
   }, [ensureFriends]);
 
   const candidates = friends.filter((f) => !group.members.includes(f.peerId));
-  const overCap = group.members.length + selected.size > MAX_GROUP_MEMBERS;
-  const canSubmit = selected.size > 0 && !overCap && !submitting;
-
-  const toggle = (peerId: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(peerId)) next.delete(peerId);
-      else next.add(peerId);
-      return next;
-    });
-  };
+  const options: PickerOption[] = candidates.map((friend) => ({
+    value: friend.peerId,
+    label: groupDisplayName(friend.peerId, friends),
+    hint: shortPeerId(friend.peerId),
+  }));
+  const overCap = group.members.length + selected.length > MAX_GROUP_MEMBERS;
+  const canSubmit = selected.length > 0 && !overCap && !submitting;
 
   const submit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
     setCommandError(null);
     try {
-      await invite(group.groupId, [...selected]);
+      await invite(group.groupId, selected);
       onDone();
     } catch (error) {
       console.error("[group] 邀请成员失败", error);
@@ -59,38 +57,25 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
     <div className="flex flex-col gap-2 rounded-md border p-2" data-testid="group-invite-picker">
       <p className="text-xs font-medium">{t("group.manage.inviteTitle")}</p>
       {candidates.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("group.manage.inviteEmpty")}</p>
+        <p className="text-muted-foreground text-xs">{t("group.manage.inviteEmpty")}</p>
       ) : (
-        <div className="scroll-slim flex max-h-40 flex-col overflow-y-auto">
-          {candidates.map((friend) => (
-            <label
-              key={friend.peerId}
-              className="hover:bg-accent flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm"
-            >
-              <input
-                type="checkbox"
-                className="size-4"
-                checked={selected.has(friend.peerId)}
-                onChange={() => toggle(friend.peerId)}
-                data-testid={`group-invite-${friend.peerId}`}
-              />
-              <span className="truncate">{groupDisplayName(friend.peerId, friends)}</span>
-            </label>
-          ))}
-        </div>
+        <EntityMultiSelect
+          options={options}
+          selected={selected}
+          onChange={setSelected}
+          warning={
+            overCap
+              ? t("group.manage.inviteOverCap", {
+                  count: group.members.length + selected.length,
+                  max: MAX_GROUP_MEMBERS,
+                })
+              : null
+          }
+          warningTestId="group-invite-overcap"
+          testId="group-invite"
+        />
       )}
       <div className="flex items-center gap-2">
-        <span className="text-muted-foreground text-xs">
-          {t("group.manage.inviteSelected", { count: selected.size })}
-        </span>
-        {overCap ? (
-          <span className="text-destructive text-xs" data-testid="group-invite-overcap">
-            {t("group.manage.inviteOverCap", {
-              count: group.members.length + selected.size,
-              max: MAX_GROUP_MEMBERS,
-            })}
-          </span>
-        ) : null}
         <Button
           type="button"
           size="sm"

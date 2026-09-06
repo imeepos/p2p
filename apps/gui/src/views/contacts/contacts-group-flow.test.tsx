@@ -147,7 +147,7 @@ describe("创建群 → 邀请 → 入群流程（P2 验收 3）", () => {
     await waitFor(() => expect(screen.getByTestId("contact-group-g-1")).toBeTruthy());
     fireEvent.click(screen.getByTestId("contact-group-invite-g-1"));
     await waitFor(() => expect(screen.getByTestId("group-invite-picker")).toBeTruthy());
-    fireEvent.click(screen.getByTestId("group-invite-" + PEER_B));
+    fireEvent.click(await screen.findByRole("option", { name: /小圆/ }));
     fireEvent.click(screen.getByTestId("group-invite-submit"));
     await waitFor(() => expect(mocks.groupInvite).toHaveBeenCalledWith("g-1", [PEER_B]));
     await waitFor(() => expect(screen.getByTestId("contact-group-g-1").textContent).toContain("2 名成员"));
@@ -172,12 +172,12 @@ describe("创建群 → 邀请 → 入群流程（P2 验收 3）", () => {
     fireEvent.click(screen.getByTestId("contact-group-invite-g-1"));
     await waitFor(() => expect(screen.getByTestId("group-invite-picker")).toBeTruthy());
     // 31 + 1 = 32 恰好不越界
-    fireEvent.click(screen.getByTestId("group-invite-extra0"));
+    fireEvent.click(await screen.findByRole("option", { name: /好友0/ }));
     await waitFor(() =>
       expect(screen.queryByTestId("group-invite-overcap")).toBeNull(),
     );
     // 再选 1 人 → 33 > 32：提示出现且提交被禁（不发无效请求）
-    fireEvent.click(screen.getByTestId("group-invite-extra1"));
+    fireEvent.click(await screen.findByRole("option", { name: /好友1/ }));
     await waitFor(() => expect(screen.getByTestId("group-invite-overcap")).toBeTruthy());
     expect(
       (screen.getByTestId("group-invite-submit") as HTMLButtonElement).disabled,
@@ -195,7 +195,7 @@ describe("创建群 → 邀请 → 入群流程（P2 验收 3）", () => {
     await waitFor(() => expect(screen.getByTestId("contact-group-g-1")).toBeTruthy());
     fireEvent.click(screen.getByTestId("contact-group-invite-g-1"));
     await waitFor(() => expect(screen.getByTestId("group-invite-picker")).toBeTruthy());
-    fireEvent.click(screen.getByTestId("group-invite-" + PEER_B));
+    fireEvent.click(await screen.findByRole("option", { name: /小圆/ }));
     fireEvent.click(screen.getByTestId("group-invite-submit"));
     await waitFor(() =>
       expect(screen.getByTestId("group-invite-error").textContent).toContain("成员数超上限"),

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n";
 import { formatUptime } from "@/lib/format";
 import type { NodeStatus } from "@/lib/ipc-types";
+import { cn } from "@/lib/utils";
 import { useNodeStore } from "@/stores/node-store";
 import { StartNodeButton } from "@/views/network/start-node-button";
 import { StopNodeDialog } from "@/views/network/stop-node-dialog";
@@ -79,6 +80,16 @@ export function OverviewStatusCards({ status }: { status: NodeStatus | null }) {
   const loading = status === null;
   const running = status?.running ?? false;
   const peerId = status?.peerId ?? null;
+  // F19：停止后后端 status.peerId 置 null，但身份种子仍在——记住最后一个
+  // 运行期身份，停止态置灰保留展示并注明语义，不再落「未知」。
+  // render 期条件回填是 React 官方「props 变化调整 state」模式：
+  // 仅在身份实际变化时 setState，停止(null)不触发，保留即无闪烁。
+  const [lastIdentity, setLastIdentity] = useState<string | null>(peerId);
+  if (peerId !== null && peerId !== lastIdentity) {
+    setLastIdentity(peerId);
+  }
+  const identity = peerId ?? lastIdentity;
+  const identityRetained = peerId === null && identity !== null;
   const uptimeSecs =
     running && status?.startedAtMs
       ? Math.max(0, Math.floor((now - status.startedAtMs) / 1000))
@@ -102,7 +113,26 @@ export function OverviewStatusCards({ status }: { status: NodeStatus | null }) {
         label={t("dashboard.cards.peerId")}
         loading={loading}
         mono
-        value={peerId ? <PeerIdValue peerId={peerId} /> : t("common.state.unknown")}
+        value={
+          identity ? (
+            <span
+              className={cn(
+                "flex flex-col gap-0.5",
+                identityRetained && "opacity-60",
+              )}
+              data-testid="dashboard-identity"
+            >
+              <PeerIdValue peerId={identity} />
+              {identityRetained ? (
+                <span className="text-muted-foreground text-xs font-normal">
+                  {t("peerName.identityKept")}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            t("common.state.unknown")
+          )
+        }
       />
       <StatCard
         span={3}

@@ -5,6 +5,7 @@ import {
   SunIcon,
   SunMoonIcon,
 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { requestOpenCommandPalette } from "@/components/command-palette/palette-bus";
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { I18nKey } from "@/i18n/types";
 import { changeLocale, SUPPORTED_LOCALES, type Locale } from "@/i18n";
+import { StopNodeDialog } from "@/views/network/stop-node-dialog";
 import { errorText } from "@/views/shared/form-flow";
 import { cn } from "@/lib/utils";
 import { ipc } from "@/lib/ipc";
@@ -55,54 +57,49 @@ function NodeStatusPill() {
   );
 }
 
+// F04：停止与概览状态卡同走 StopNodeDialog 二次确认，危险语义与文案一致；
+// 启动非危险操作保持一步直达。停止失败/成功反馈由弹窗内 AsyncButton 承担。
 function StartStopButton() {
   const { t } = useTranslation();
   const running = useNodeStore((s) => s.status?.running ?? false);
   const startNode = useNodeStore((s) => s.startNode);
-  const stopNode = useNodeStore((s) => s.stopNode);
+  const [stopOpen, setStopOpen] = useState(false);
 
-  const action = async () => {
-    if (running) {
-      await stopNode();
-    } else {
-      await startNode(await ipc.configGet());
-    }
+  const start = async () => {
+    await startNode(await ipc.configGet());
   };
 
-  // 运行中停止操作走中性边框（IM-V2 D1）：红色 destructive 只保留在
-  // 二次确认弹框内，页面常驻按钮不再出现红色系。
   return (
-    <AsyncButton
-      size="sm"
-      variant={running ? "outline" : "default"}
-      action={action}
-      loadingLabel={
-        running ? t("common.state.stopping") : t("common.state.starting")
-      }
-      onSuccess={() =>
-        toastSuccess(
-          t(
-            running
-              ? "common.actions.stopSucceeded"
-              : "common.actions.startSucceeded",
-          ),
-        )
-      }
-      onError={(error) => {
-        console.error("[topbar] 节点启停失败", error);
-        toastError(
-          running
-            ? t("common.actions.stopFailed")
-            : t("common.actions.startFailed"),
-          {
-            description: errorText(error),
-            context: running ? "node.stop" : "node.start",
-          },
-        );
-      }}
-    >
-      {running ? t("common.actions.stop") : t("common.actions.start")}
-    </AsyncButton>
+    <>
+      {running ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setStopOpen(true)}
+          data-testid="topbar-stop-node"
+        >
+          {t("common.actions.stop")}
+        </Button>
+      ) : (
+        <AsyncButton
+          size="sm"
+          variant="default"
+          action={start}
+          loadingLabel={t("common.state.starting")}
+          onSuccess={() => toastSuccess(t("common.actions.startSucceeded"))}
+          onError={(error) => {
+            console.error("[topbar] 节点启动失败", error);
+            toastError(t("common.actions.startFailed"), {
+              description: errorText(error),
+              context: "node.start",
+            });
+          }}
+        >
+          {t("common.actions.start")}
+        </AsyncButton>
+      )}
+      <StopNodeDialog open={stopOpen} onOpenChange={setStopOpen} />
+    </>
   );
 }
 

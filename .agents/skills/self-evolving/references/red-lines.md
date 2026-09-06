@@ -66,3 +66,5 @@
 - 禁止用 "cmd; echo EXIT=$?" 链只看整链 exit（echo 恒 0 假绿）——必须 grep 日志里的 EXIT= 值（2026-09-06 LSG3，两轮假绿实证）。
 - 并行波同机跑全量 vitest 必有超时类假红（acp/boot/i18n-scan 轮换挂）：先隔离复跑红文件证明文件本身绿，再择负载窗口重跑全量；回报里写清每轮挂了什么，合并复验由协调者兜底（2026-09-06 LSG3）。
 - worktree 缺 node_modules 时 pnpm install 可能挂死（零输出）；lockfile 同基线时 ln -s 主树 node_modules 秒级可用，先 rm 半成品克隆再链（2026-09-06 LSG3）。
+- 2026-09-07 UX-E：渲染期状态迁移播种（open!==seededOpen）引用的 setter 必须在该块之前声明——把 useState 惰性初值留在块后会 TDZ 直接崩掉整个路由（本次走查当场抓到）；迁移块与惰性初值要成对审读。
+- 2026-09-07 UX-E：多选选择器验证"连点同一首个选项"= 选中再取消（净零），断言已选计数必须点不同项；react-hooks 编译规则禁止渲染期造组件/渲染后改局部变量，测试 harness 提为顶层组件经 DOM 断言。

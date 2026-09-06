@@ -149,9 +149,9 @@ describe("GroupMemberPanel 邀请与移除", () => {
     await waitFor(() =>
       expect(screen.getByTestId("group-invite-picker")).toBeTruthy(),
     );
-    // 候选含 CAROL；在群成员不可勾选
-    fireEvent.click(screen.getByTestId("group-invite-" + CAROL));
-    expect(screen.queryByTestId("group-invite-" + ALICE)).toBeNull();
+    // 候选含 CAROL（昵称「小卡」）；在群成员不在候选列表
+    fireEvent.click(await screen.findByRole("option", { name: /小卡/ }));
+    expect(screen.queryByRole("option", { name: /小爱/ })).toBeNull();
 
     fireEvent.click(screen.getByTestId("group-invite-submit"));
     await waitFor(() => expect(mocks.groupInvite).toHaveBeenCalled());
@@ -161,6 +161,20 @@ describe("GroupMemberPanel 邀请与移除", () => {
       expect(screen.queryByTestId("group-invite-picker")).toBeNull(),
     );
     expect(screen.getByTestId("group-member-" + CAROL)).toBeTruthy();
+  });
+
+  it("邀请候选即时搜索过滤（F23）", async () => {
+    renderView("?g=" + GROUP_ID);
+    await openPanel();
+    fireEvent.click(screen.getByTestId("group-invite-open"));
+    await waitFor(() =>
+      expect(screen.getByTestId("group-invite-picker")).toBeTruthy(),
+    );
+    fireEvent.change(screen.getByTestId("group-invite-search"), {
+      target: { value: "小卡" },
+    });
+    expect(await screen.findByRole("option", { name: /小卡/ })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: /小爱/ })).toBeNull();
   });
 
   it("移除：确认流后调 groupKick；不能移除自己/群主入口", async () => {

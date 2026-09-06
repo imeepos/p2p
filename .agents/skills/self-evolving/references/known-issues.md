@@ -892,3 +892,27 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：vitest 全量红在 hardcoded-copy.test.ts，offenders 指向 views/settings/config-schema.ts 行尾 `// serde default：缺省 false` 注释，而非任何真实文案。
 - 原因：扫描器 stripComments 不剥离行尾 // 注释（只处理块注释），views 下 .ts 文件行内 CJK 一律命中 CJK 正则。
 - 修法：views/**/.ts 行尾注释用英文（或把注释放到 const 上方独立行也躲不过，直接英文最稳）；改后扫描绿。
+
+## tauri generate_handler 找不到子模块命令的 __cmd__ 项（2026-09-06 LSG1 实证）
+- 症状：命令 fn 定义在模块的子模块（如 llm_share/commands.rs），mod.rs 只显式 pub use 函数名，generate_handler![llm_share::xxx] 报 E0433 cannot find __cmd__xxx / __tauri_command_name_xxx in llm_share。
+- 原因：#[tauri::command] 生成的隐藏项（__cmd__*）落在定义处模块，generate_handler 按注册路径的模块根解析；显式具名 re-export 漏掉隐藏项。
+- 修法：mod 里改 pub use commands::*;（glob 连带隐藏项，已加注释说明），或按 console 先例把命令直接定义在模块根。
+
+## 2026-09-06 UX-F：worktree 里 symlink 主树 node_modules 跑 vitest 假随机红
+- 症状：新 worktree 无 node_modules，图省事 symlink 主树 apps/gui/node_modules 后，vitest 报 "Timeout waiting for worker to respond" 或部分测试文件随机报 "Invalid Chai property: toBeInTheDocument"（同文件重跑结果漂移）。
+- 原因：symlink 让 vite/jsdom 缓存与模块实例身份分裂（同一物理目录被两条 root 路径共享），forks worker 启动与 jest-dom matcher 注册撞竞态。
+- 修法：worktree 里老老实实 `pnpm install --frozen-lockfile --prefer-offline`（全局 store 温热，秒级完成），直接调 `./node_modules/.bin/vitest`；期间 `pnpm exec` 在未安装 worktree 会静默挂起等 stdin，绕开。
+
+## 2026-09-06 UX-F：eslint react-hooks v7 新规禁「useRef 记上一个 prop」惯性写法
+- 症状：F19 用 `if (peerId) ref.current = peerId` 在 render 记最后运行期身份，eslint 12 连报 react-hooks/refs；换 useEffect+setState 又报 set-state-in-effect。
+- 原因：react-hooks v7 把 ref 的 render 期读写与 effect 内同步 setState 都定为 error（级联渲染）。
+- 修法：用官方「render 期条件调整 state」模式：`const [prev,setPrev]=useState(x); if (x!==prev) setPrev(x);`——React 文档背书、两规则都不命中；注意该模式 state 每挂载重置，跨挂载要保持的值不能靠它。
+
+## 2026-09-07 UX-H：vite dev 冷启挂死（0% CPU 零输出不监听）三因叠加
+- 症状：vite 启动零输出、端口不监听、进程 0% CPU 挂着；换前台 `( nohup … & )` detach 单命令模式即秒过（ready 8.6s）。
+- 原因：① lsof 见 vite 进程 ESTABLISHED 到 localhost:7890——HTTP(S)_PROXY 环境变量把启动期请求导进代理挂死；② run_in_background bash job 的文件写与端口对宿主不可见（日志文件始终不被截断，读到的全是旧内容）；③ gui-agent DEBUG_PORT 9223 全机器共用，并行会话互抢，抢到别人的 Chrome 就页面加载超时。
+- 修法：启动套 `env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY NO_PROXY='*'`；dev server 放前台单命令内 detach（启动+探活+走查+清理一条命令闭环）；gui-agent 复制副本 `sed 's/9223/9229/'` 用专用端口。
+
+## 2026-09-07 UX-E：vitest worker 偶发启动超时（forks/threads 双池都中）
+- 症状：vitest run 报 "Timeout waiting for worker to respond / Failed to start worker"，0 用例执行；同命令隔几分钟重跑即过；高负载机器（并行会话多 vitest）更频发。
+- 修法：先 pkill 本 worktree 残留 vitest 僵尸（上次超时遗留），再重跑；稳定化用 --no-file-parallelism（fork 数降到 1，语义不变只慢）；别急着怀疑自己的测试代码。

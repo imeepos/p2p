@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDownIcon, ChevronRightIcon, UserPlusIcon } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/views/shared/empty-state";
@@ -22,7 +23,17 @@ export function FriendSection() {
   const friendsError = useChatStore((s) => s.friendsError);
   const loadFriends = useChatStore((s) => s.loadFriends);
   const cancelInvite = useChatStore((s) => s.cancelInvite);
-  const [addOpen, setAddOpen] = useState(false);
+  // 跨卡 URL 契约：#/contacts?add=<peerId> 挂载即开添加好友弹窗并预填；
+  // 弹窗关闭时清掉参数，避免重挂载重复弹出。
+  const [searchParams, setSearchParams] = useSearchParams();
+  const addParam = searchParams.get("add");
+  const [addOpen, setAddOpen] = useState(() => addParam !== null);
+  const [addSeed] = useState(() => addParam ?? "");
+
+  const handleAddOpenChange = (open: boolean) => {
+    setAddOpen(open);
+    if (!open && searchParams.get("add") !== null) setSearchParams({});
+  };
   const [moveTarget, setMoveTarget] = useState<ChatFriendJson | null>(null);
   const [removeTarget, setRemoveTarget] = useState<ChatFriendJson | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsedGroups());
@@ -131,7 +142,11 @@ export function FriendSection() {
         })
       )}
 
-      <ChatFriendAddDialog open={addOpen} onOpenChange={setAddOpen} />
+      <ChatFriendAddDialog
+        open={addOpen}
+        onOpenChange={handleAddOpenChange}
+        initialPeerId={addSeed}
+      />
       <ChatFriendMoveDialog friend={moveTarget} onOpenChange={(open) => !open && setMoveTarget(null)} />
       <ChatFriendRemoveDialog friend={removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)} />
     </section>

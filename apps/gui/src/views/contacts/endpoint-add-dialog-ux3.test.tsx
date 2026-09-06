@@ -55,13 +55,9 @@ function renderDialog() {
 }
 
 async function pickTarget(name: string): Promise<void> {
-  fireEvent.pointerDown(screen.getByTestId("contacts-endpoint-target"), {
-    button: 0,
-    ctrlKey: false,
-    pointerType: "mouse",
-  });
-  const option = await screen.findByRole("option", { name });
-  fireEvent.pointerUp(option, { button: 0, pointerType: "mouse" });
+  // F25：目标选择器为统一关联选择器（点击展开），选择即回填 peer
+  fireEvent.click(screen.getByTestId("contacts-endpoint-target"));
+  const option = await screen.findByRole("option", { name: new RegExp(name) });
   fireEvent.click(option, { button: 0, pointerType: "mouse" });
 }
 
@@ -88,11 +84,15 @@ beforeEach(() => {
 });
 
 describe("endpoint 添加表单收敛（UX3）", () => {
-  it("主字段为目标下拉：候选来自发现面，选择即回填；无自由文本输入框", async () => {
+  it("WS 地址主字段默认展开；目标选择器辅助填充：候选来自发现面，选择即回填", async () => {
     renderDialog();
     await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
+    // F25 主字段：wsUrl 展开可见（无需展开高级区）
+    expect((screen.getByTestId("contacts-endpoint-wsurl") as HTMLInputElement).value).toBe(
+      "ws://127.0.0.1:8787",
+    );
     await pickTarget("本机助手");
-    // 选中即回填（触发器呈现候选名）；主字段是 Radix 触发器（非可自由输入的文本框）
+    // 选中即回填（触发器呈现候选名）；选择器是触发器（非可自由输入的文本框）
     expect(screen.getByTestId("contacts-endpoint-target").textContent).toContain("本机助手");
     expect(screen.getByTestId("contacts-endpoint-target").tagName).not.toBe("INPUT");
   });

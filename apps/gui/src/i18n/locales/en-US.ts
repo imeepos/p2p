@@ -545,6 +545,20 @@ const enUS: typeof zhCN = {
       confirming: "Removing…",
       failed: "Remove failed: ",
     },
+    // UX-H first mile (F01/F17/F28): empty-state CTAs, pending invite rows, char counter
+    empty: {
+      pendingTitle: "No conversation to open yet",
+      hintListEmpty:
+        "The conversation list is empty; add a friend and start chatting once they accept",
+      hintAgentOnly:
+        "Only the local agent is in the list for now; add a friend and start chatting once they accept",
+      hintInviting:
+        "Invitation sent, waiting for approval; you can start chatting once it is accepted",
+      addFriendCta: "Add friend",
+      goContactsCta: "Open contacts",
+    },
+    pendingInviteBadge: "Waiting for approval",
+    charCount: "{{count}}/{{max}}",
   },
   group: {
     title: "Groups",
@@ -1419,6 +1433,51 @@ const enUS: typeof zhCN = {
       reasonLabel: "Reason",
       estimatedFlag: "Estimated",
     },
+  },
+  picker: {
+    searchPlaceholder: "Search name or PeerId",
+    triggerPlaceholder: "Select a peer",
+    loading: "Loading peers…",
+    empty: "No matching peers",
+    loadFailed: "Failed to load peer list",
+    retry: "Retry",
+    clear: "Clear selection",
+    selectedCount: "{{count}} selected",
+    removeOne: "Remove {{label}}",
+    friendPickLabel: "Pick from discovery / peer list",
+    endpointAuxLabel: "Pick from discovery (auxiliary fill)",
+    dial: {
+      bringInLabel: "Bring in from discovery results",
+      peerLabel: "PeerId",
+      addrLabel: "Address",
+      portLabel: "Port",
+      transport: "Transport",
+      transportQuic: "QUIC",
+      transportTcp: "TCP",
+      portInvalid: "Port must be an integer between 1 and 65535",
+    },
+  },
+  // UX-F (F02/F12/F19): human-readable peer naming and quick actions
+  peerName: {
+    column: {
+      peer: "Peer",
+    },
+    table: {
+      actions: "Actions",
+    },
+    identityKept: "Stopped, identity kept",
+  },
+  // UX-G F06: human-readable ACP connect failure copy (reason + next step),
+  // internal codes live only in the copyable detail
+  uxgAcp: {
+    endpointIncomplete: "Missing token or peer ID: fill them in on the connection card (token is under advanced settings), then reconnect",
+    initializeFailed: "Agent handshake failed: check the agent address and token and make sure the agent is running, then retry",
+    sessionNewFailed: "Failed to create a session: the agent may have restarted, reconnect and try again",
+    sessionResumeFailed: "Failed to resume the session: it may have expired, create a new session to continue",
+    sessionCloseFailed: "Failed to close the session: it is kept on the agent side, retry later",
+    promptFailed: "Failed to send the message: the connection may be gone, reconnect and resend",
+    setConfigFailed: "Failed to apply the config option: make sure the session is online and retry",
+    fallback: "Connection failed: please retry; if it keeps failing, copy the details for troubleshooting",
   },
 };
 

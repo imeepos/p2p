@@ -183,7 +183,7 @@ export function PeersTableCard({
             <Table containerClassName="max-h-96 overflow-y-auto">
               <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-card">
                 <TableRow>
-                  <TableHead>{t("common.labels.peerId")}</TableHead>
+                  <TableHead>{t("peerName.column.peer")}</TableHead>
                   <TableHead>{t("common.labels.address")}</TableHead>
                   <TableHead>{t("common.labels.source")}</TableHead>
                   <SortableHead

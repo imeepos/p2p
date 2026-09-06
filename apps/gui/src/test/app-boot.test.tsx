@@ -57,9 +57,10 @@ const routes: Array<[string, string | null]> = [
   ["#/network/events", null],
   ["#/network/diagnostics", null],
   ["#/chat", "暂无好友"],
-  // P1 统一会话页：mock 后端无群/无端点时 ?kind=* 落空态（拍板项 1）
-  ["#/chat?kind=group", "选择或发起会话"],
-  ["#/chat?kind=agent", "选择或发起会话"],
+  // P1 统一会话页：mock 后端无群/无端点时 ?kind=* 落空态（拍板项 1）；
+  // UX 审计 F01（20260907）：空态改为首公里双 CTA 文案
+  ["#/chat?kind=group", "还没有可聊的会话"],
+  ["#/chat?kind=agent", "还没有可聊的会话"],
   ["#/contacts", "通讯录"],
   // DOC2：协议文档页真实挂载冒烟（marker = docs.title zh chrome）
   ["#/docs", "协议文档"],

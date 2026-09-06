@@ -533,6 +533,17 @@ const zhCN = {
       confirming: "移除中…",
       failed: "移除失败：",
     },
+    // UX-H 首公里（F01/F17/F28）：空态双 CTA、等待邀请占位、字数计数
+    empty: {
+      pendingTitle: "还没有可聊的会话",
+      hintListEmpty: "会话列表还是空的；添加好友，对方同意后即可开始私聊",
+      hintAgentOnly: "会话列表目前只有本机 Agent；添加好友，对方同意后即可开始私聊",
+      hintInviting: "邀请已发出，等待对方同意；同意后即可开始私聊",
+      addFriendCta: "添加好友",
+      goContactsCta: "去通讯录",
+    },
+    pendingInviteBadge: "等待对方同意",
+    charCount: "{{count}}/{{max}}",
   },
   group: {
     title: "群聊",
@@ -1398,6 +1409,50 @@ const zhCN = {
       reasonLabel: "原因",
       estimatedFlag: "估算",
     },
+  },
+  picker: {
+    searchPlaceholder: "搜索名称或 PeerId",
+    triggerPlaceholder: "选择节点",
+    loading: "正在加载节点…",
+    empty: "没有匹配的节点",
+    loadFailed: "节点清单加载失败",
+    retry: "重试",
+    clear: "清除选择",
+    selectedCount: "已选 {{count}} 项",
+    removeOne: "移除 {{label}}",
+    friendPickLabel: "从发现清单/节点表选择",
+    endpointAuxLabel: "从发现清单选择节点（辅助填充）",
+    dial: {
+      bringInLabel: "从发现结果带入",
+      peerLabel: "PeerId",
+      addrLabel: "地址",
+      portLabel: "端口",
+      transport: "传输",
+      transportQuic: "QUIC",
+      transportTcp: "TCP",
+      portInvalid: "端口需为 1-65535 的整数",
+    },
+  },
+  // UX-F（F02/F12/F19）：网络族表格人话化与快捷动作
+  peerName: {
+    column: {
+      peer: "节点",
+    },
+    table: {
+      actions: "快捷操作",
+    },
+    identityKept: "已停止，身份保留",
+  },
+  // UX-G F06：ACP 连接失败人话映射（原因 + 下一步动作），错误码走可复制详情
+  uxgAcp: {
+    endpointIncomplete: "缺少 Token 或 Peer ID：请在连接卡里补全（Token 在高级设置），保存后重新连接",
+    initializeFailed: "agent 握手失败：请确认 agent 地址与 Token 正确且 agent 已启动，再重试连接",
+    sessionNewFailed: "新建会话失败：agent 可能刚重启，请重新连接后再新建会话",
+    sessionResumeFailed: "恢复会话失败：原会话可能已过期，请新建会话继续",
+    sessionCloseFailed: "关闭会话失败：agent 侧会话仍保留，可稍后重试",
+    promptFailed: "消息发送失败：连接可能已中断，请重新连接后重发",
+    setConfigFailed: "配置下发失败：请确认会话在线后重试",
+    fallback: "连接失败：请重试；持续失败可复制详情排查",
   },
 };
 

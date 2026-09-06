@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { EntityCombobox, shortPeerId, type PickerOption } from "@/components/picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,7 +13,7 @@ import {
 import type { AcpEndpoint } from "@/acp/protocol";
 import type { I18nKey } from "@/i18n/types";
 
-import type { EndpointFormErrors } from "./endpoint-rules";
+import type { EndpointFormErrors, EndpointTargetOption } from "./endpoint-rules";
 
 export function EndpointFieldError({
   code,
@@ -30,7 +31,7 @@ export function EndpointFieldError({
   );
 }
 
-interface AdvancedFieldsProps {
+interface WsUrlFieldProps {
   form: AcpEndpoint;
   fieldErrors: EndpointFormErrors | null;
   patch: (field: keyof AcpEndpoint) => (value: string) => void;
@@ -39,48 +40,94 @@ interface AdvancedFieldsProps {
   historyEmptyLabel: string;
 }
 
-/** 「高级」折叠区字段（UX3 收敛：wsUrl/token/peer/分享管理全部挂进折叠，
- *  默认以本机 acp-console 值预填；折叠仅视觉收纳，字段保持挂载以留存档草稿） */
-export function AdvancedFields({
+/** WS 地址主字段（F25）：默认展开可见；wsUrl 历史值下拉并行保留 */
+export function WsUrlField({
   form,
   fieldErrors,
   patch,
   testing,
   history,
   historyEmptyLabel,
-}: AdvancedFieldsProps) {
+}: WsUrlFieldProps) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor="contacts-endpoint-wsurl">{t("contacts.endpoint.wsUrlLabel")}</Label>
+      <div className="flex gap-2">
+        <Input
+          id="contacts-endpoint-wsurl"
+          className="font-mono text-xs"
+          value={form.wsUrl}
+          onChange={(e) => patch("wsUrl")(e.target.value)}
+          autoComplete="off"
+          data-testid="contacts-endpoint-wsurl"
+        />
+        {history.length > 0 ? (
+          <Select value="" onValueChange={(v) => v && patch("wsUrl")(v)} disabled={testing}>
+            <SelectTrigger className="w-28" data-testid="contacts-endpoint-history">
+              <SelectValue placeholder={historyEmptyLabel} />
+            </SelectTrigger>
+            <SelectContent>
+              {history.map((url) => (
+                <SelectItem key={url} value={url} data-testid={"contacts-endpoint-history-" + url}>
+                  {url}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
+      <EndpointFieldError code={fieldErrors?.wsUrl} />
+    </div>
+  );
+}
+
+interface TargetPickerProps {
+  form: AcpEndpoint;
+  candidates: EndpointTargetOption[];
+  fieldErrors: EndpointFormErrors | null;
+  patch: (field: keyof AcpEndpoint) => (value: string) => void;
+}
+
+/** 目标节点选择（F25 降级为辅助填充）：统一关联选择器，选中即回填 peer；
+ *  peer 自由文本输入仍保留在「高级」折叠内作兜底。 */
+export function EndpointTargetPicker({ form, candidates, fieldErrors, patch }: TargetPickerProps) {
+  const { t } = useTranslation();
+  const options: PickerOption[] = candidates.map((option) => ({
+    value: option.peer,
+    label: option.label,
+    hint: shortPeerId(option.peer),
+  }));
+  return (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor="contacts-endpoint-target">{t("picker.endpointAuxLabel")}</Label>
+      <EntityCombobox
+        id="contacts-endpoint-target"
+        options={options}
+        value={options.some((option) => option.value === form.peer) ? form.peer : null}
+        onChange={(value) => {
+          if (value) patch("peer")(value);
+        }}
+        testId="contacts-endpoint-target"
+      />
+      <EndpointFieldError code={fieldErrors?.peer} testidPrefix="contacts-endpoint-target-error" />
+    </div>
+  );
+}
+
+interface AdvancedFieldsProps {
+  form: AcpEndpoint;
+  fieldErrors: EndpointFormErrors | null;
+  patch: (field: keyof AcpEndpoint) => (value: string) => void;
+}
+
+/** 「高级」折叠区字段：token/peer 兜底/分享管理；折叠仅视觉收纳，
+ *  字段保持挂载以留存档草稿（wsUrl 已上移为主字段，不再驻留折叠）。 */
+export function AdvancedFields({ form, fieldErrors, patch }: AdvancedFieldsProps) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-3">
       <p className="text-muted-foreground text-xs">{t("contacts.endpoint.advancedHint")}</p>
-      <div className="flex flex-col gap-1">
-        <Label htmlFor="contacts-endpoint-wsurl">{t("contacts.endpoint.wsUrlLabel")}</Label>
-        <div className="flex gap-2">
-          <Input
-            id="contacts-endpoint-wsurl"
-            className="font-mono text-xs"
-            value={form.wsUrl}
-            onChange={(e) => patch("wsUrl")(e.target.value)}
-            autoComplete="off"
-            data-testid="contacts-endpoint-wsurl"
-          />
-          {history.length > 0 ? (
-            <Select value="" onValueChange={(v) => v && patch("wsUrl")(v)} disabled={testing}>
-              <SelectTrigger className="w-28" data-testid="contacts-endpoint-history">
-                <SelectValue placeholder={historyEmptyLabel} />
-              </SelectTrigger>
-              <SelectContent>
-                {history.map((url) => (
-                  <SelectItem key={url} value={url} data-testid={"contacts-endpoint-history-" + url}>
-                    {url}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
-        </div>
-        <EndpointFieldError code={fieldErrors?.wsUrl} />
-      </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="contacts-endpoint-token">{t("contacts.endpoint.tokenLabel")}</Label>
         <Input

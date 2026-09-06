@@ -54,9 +54,14 @@ export function PeersView() {
     setStatusFilter("all");
   }, []);
 
-  const dialOpen = searchParams.get("dial") === "1";
+  // 跨卡 URL 契约：#/network/peers?dial=<目标> 挂载即开拨号弹窗并预填三段；
+  // ?dial=1 保持兼容（仅打开）。关闭即清参，避免重挂载重复弹出。
+  const dialParam = searchParams.get("dial");
+  const dialOpen = dialParam !== null;
+  const dialTarget = dialParam !== null && dialParam !== "1" ? dialParam : null;
   const setDialOpen = (open: boolean) => {
-    setSearchParams(open ? { dial: "1" } : {});
+    if (open) setSearchParams(dialTarget ? { dial: dialTarget } : { dial: "1" });
+    else setSearchParams({});
   };
 
   const filtered = peers.filter(
@@ -99,7 +104,7 @@ export function PeersView() {
         onOpenDial={() => setDialOpen(true)}
       />
 
-      <PeerDialDialog open={dialOpen} onOpenChange={setDialOpen} />
+      <PeerDialDialog open={dialOpen} onOpenChange={setDialOpen} initialTarget={dialTarget} />
       <PeerDetailSheet
         peer={detailPeer}
         onOpenChange={(open) => {

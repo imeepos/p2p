@@ -382,3 +382,11 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 修法：pnpm 一律 run_in_background 作业 + 输出重定向 /tmp 日志再 grep；日志文件比 job_output 流式读取可靠（流式读一次即消费，丢输出）。
 - 2026-09-06 本机 bash 工具里 node/pnpm 静默挂起（exit=null 无输出）：PATH 首位是 ~/.vite-plus/bin，其 node 是 vp 启动器会挂起；export PATH=$HOME/.nvm/versions/node/<版本>/bin:$PATH 后恢复。新 worktree 无 node_modules，nvm pnpm install --frozen-lockfile 走共享 store 秒级。
 - 2026-09-06 vitest 全量在高负载机器上假超时（acp/app-boot 5s testTimeout/40s hookTimeout 成批红）：先对失败文件单跑隔离复判——真红隔离下仍稳定红，假红秒绿；隔离复跑再决定是否改码，避免误诊。
+- 2026-09-06 LSG1：并行会话共用 /tmp 时，后台任务日志名必须带独一标记（如 /tmp/xx-$$.log 或会话前缀），否则互相截断误读（实证：/tmp/lsg-test.log 被兄弟会话 vitest 输出覆写）；后台 cargo 任务超 600s 墙钟前先转 run_in_background。
+- 2026-09-06 UX-F：mock dev 页面走查在「每次 cli 调用=全新 Chrome+全新 mock 状态」约束下，用单会话 CDP 驱动脚本（spawn 一次 Chrome，hash 导航保持 JS 态存活）一次跑完全流程并按步截图；页面内经 `await import('/src/lib/ipc.ts')` 拿到与 app 同实例的模块（vite dev 同 URL 同实例），直接调 mock 测试引导入口（如 chatFriendAdd）+ zustand store 的 getState().loadFriends()，比爬表单可靠。React 受控按钮 element.click() 打不开 radix 弹框时，取 `el[Object.keys(el).find(k=>k.startsWith('__reactProps$'))].onClick({})` 直调处理器；先 querySelectorAll('[data-slot=card]') 按卡片文本定位再找按钮，防同名按钮撞车（顶栏与状态卡都有「停止节点」）。
+- 2026-09-06 UX-F：DSH run_code 里 tools.bash/edit 等全部调用都必须带 description 字段，漏了直接参数校验失败且同一程序里已完成步骤的输出全部丢弃；长链 git 命令（reset --soft 后接 reset）在 15s 默认超时下可能半途而废留混合状态——每段独立调用、逐段核 exit code、超时给足。
+- 2026-09-07 vitest4 已删 `--reporter=basic`（会当自定义 reporter 模块加载报 ERR_LOAD_URL）；抓失败清单用默认 reporter 输出重定向后 grep FAIL 行。
+- 2026-09-07 管道吞退出码假绿：`cmd | tail -8; echo $?` 取到的是 tail 的 0；验收判定一律 `cmd > log 2>&1; rc=$?` 直取命令退出码。
+- 2026-09-07 gui-agent 走查 SPA：页面内 mock 状态不跨调用存活，每个场景在单次 eval 内闭环（导航+操作+断言一次跑完）；启动竞态会吞掉早期的 location.hash 赋值——轮询循环里反复 set hash 自愈，失败分支回传 bodySnippet 便于诊断。
+- 2026-09-07 UX-E 多步 SPA 走查用自写单会话 CDP 驱动（gui-agent 每次调用都是新 Chrome，多步交互必须合并进一次会话）：CDP /json/new?url= 建的 tab 停在 about:blank 不导航，必须显式 Page.navigate + 轮询 readyState；boot 判据 = readyState complete && mock 注入存在 && root innerHTML>1000；React 受控输入用原生 value setter + dispatch input 事件；blur 类校验显式 dispatchEvent focusout(bubbles)。每次改源码都会触发 HMR full reload 打断走查——走查前确保源码已冻结。
+- 2026-09-07 UX-E vite 6 没有 --cacheDir CLI：隔离缓存用 --config /tmp/xxx.mjs wrapper（import 官方 vite.config 后展开覆盖 cacheDir），零仓库污染。
