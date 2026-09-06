@@ -1287,6 +1287,29 @@ const enUS: typeof zhCN = {
       retry: "Retry",
     },
   },
+  picker: {
+    searchPlaceholder: "Search name or PeerId",
+    triggerPlaceholder: "Select a peer",
+    loading: "Loading peers…",
+    empty: "No matching peers",
+    loadFailed: "Failed to load peer list",
+    retry: "Retry",
+    clear: "Clear selection",
+    selectedCount: "{{count}} selected",
+    removeOne: "Remove {{label}}",
+    friendPickLabel: "Pick from discovery / peer list",
+    endpointAuxLabel: "Pick from discovery (auxiliary fill)",
+    dial: {
+      bringInLabel: "Bring in from discovery results",
+      peerLabel: "PeerId",
+      addrLabel: "Address",
+      portLabel: "Port",
+      transport: "Transport",
+      transportQuic: "QUIC",
+      transportTcp: "TCP",
+      portInvalid: "Port must be an integer between 1 and 65535",
+    },
+  },
 };
 
 export default enUS;

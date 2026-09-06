@@ -1267,6 +1267,29 @@ const zhCN = {
       retry: "重试",
     },
   },
+  picker: {
+    searchPlaceholder: "搜索名称或 PeerId",
+    triggerPlaceholder: "选择节点",
+    loading: "正在加载节点…",
+    empty: "没有匹配的节点",
+    loadFailed: "节点清单加载失败",
+    retry: "重试",
+    clear: "清除选择",
+    selectedCount: "已选 {{count}} 项",
+    removeOne: "移除 {{label}}",
+    friendPickLabel: "从发现清单/节点表选择",
+    endpointAuxLabel: "从发现清单选择节点（辅助填充）",
+    dial: {
+      bringInLabel: "从发现结果带入",
+      peerLabel: "PeerId",
+      addrLabel: "地址",
+      portLabel: "端口",
+      transport: "传输",
+      transportQuic: "QUIC",
+      transportTcp: "TCP",
+      portInvalid: "端口需为 1-65535 的整数",
+    },
+  },
 };
 
 export default zhCN;
