@@ -637,6 +637,9 @@ const enUS: typeof zhCN = {
       effectivePort: "Currently effective port: {{port}}",
       mdns: "LAN discovery (mDNS)",
       mdnsHint: "Discover peers on the same LAN via multicast",
+      lanOnly: "LAN-only discovery",
+      lanOnlyHint:
+        "When enabled the node is discoverable and reachable only within the local network",
     },
     defaults: {
       restore: "Restore factory defaults",
@@ -723,6 +726,12 @@ const enUS: typeof zhCN = {
         "This page has unsaved changes; leaving now will discard them.",
       discard: "Discard changes",
       stay: "Stay on this page",
+    },
+    llmShare: {
+      entry: "LLM Share",
+      entryDescription:
+        "Publish compute offers, manage the borrower allowlist and the dual-side ledger (no allowlist entry means no access)",
+      entryAction: "Open",
     },
   },
   update: {

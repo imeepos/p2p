@@ -110,3 +110,73 @@ describe("ipc chat 命令映射（契约 v7 §12，真实桥接）", () => {
     });
   });
 });
+
+describe("ipc llm-share 命令映射（契约 v11 §16，真实桥接）", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    invokeMock.mockClear();
+  });
+
+  it("llm_share_* 封装逐字映射命令名与 camelCase 参数，可选参缺省传 null", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_MOCK_IPC", "0");
+    const { ipc } = await import("./ipc");
+
+    const offer = { models: ["gpt-4o"], spare: { "gpt-4o": 1 }, periodEnds: "2026-09-30" };
+    await ipc.llmShareOfferPublish(offer);
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_offer_publish", { offer });
+
+    await ipc.llmShareOfferShow();
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_offer_show");
+
+    await ipc.llmShareAllowList();
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_allow_list");
+
+    await ipc.llmShareAllow("p1", ["gpt-4o"], "note");
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_allow", {
+      peerId: "p1",
+      models: ["gpt-4o"],
+      note: "note",
+    });
+    await ipc.llmShareAllow("p1");
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_allow", {
+      peerId: "p1",
+      models: null,
+      note: null,
+    });
+
+    await ipc.llmShareDeny("p1");
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_deny", { peerId: "p1" });
+
+    const req = {
+      model: "gpt-4o",
+      messages: [{ role: "user" as const, content: "hi" }],
+      maxTokens: 1024,
+      targetPeer: "p1",
+    };
+    await ipc.llmShareBorrow(req);
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_borrow", { req });
+
+    await ipc.llmShareLedgerList({ lender: "p1" });
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_ledger_list", {
+      filter: { lender: "p1" },
+    });
+    await ipc.llmShareLedgerList();
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_ledger_list", { filter: null });
+
+    await ipc.llmShareLedgerBalance();
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_ledger_balance");
+
+    await ipc.llmShareReceiptVerify("req-1", "pubkey");
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_receipt_verify", {
+      reqId: "req-1",
+      lenderPubkey: "pubkey",
+    });
+    await ipc.llmShareReceiptVerify("req-1");
+    expect(invokeMock).toHaveBeenCalledWith("llm_share_receipt_verify", {
+      reqId: "req-1",
+      lenderPubkey: null,
+    });
+  });
+});
+

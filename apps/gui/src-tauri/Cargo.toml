@@ -25,6 +25,10 @@ p2p-cli = { path = "../../../crates/p2p-cli" }
 p2p-swarm = { path = "../../../crates/p2p-swarm" }
 # IM 聊天门面（契约 v7 §12，T32 消费面）
 p2p-chat = { path = "../../../crates/p2p-chat" }
+# llm-share 命令面（契约 §16，LSG1）：p2p-cli llm_share 逻辑层消费 +
+# LlmOfferView 速率限额视图类型复用
+llm-share-offer = { path = "../../../crates/llm-share-offer" }
+p2p-identity = { path = "../../../crates/p2p-identity" }
 # 统一日志设施（E7-L1）：替换自带 tracing_subscriber 初始化
 p2p-log = { path = "../../../crates/p2p-log" }
 bs58 = "0.5"
@@ -62,6 +66,12 @@ getrandom = "0.2"
 # notify 统一经 notify_debouncer_mini 的 re-export 使用，禁止直连依赖：
 # 两处版本漂移会让 Watcher trait 不匹配（notify 7/8 双版本编译错误）。
 notify-debouncer-mini = "0.5"
+# borrow reqId 缺省生成（契约 §16.1：IPC 层生成 UUID v4）
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+# 收据 stub 签名（receipt verify / ledger 冒烟用 §5.1 wire 类型）
+llm-share-ledger = { path = "../../../crates/llm-share-ledger" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 # WKWebView takeSnapshot 截图：与 wry 同版 objc2 生态（0.3.x 配 objc2 0.6），不引新增大依赖

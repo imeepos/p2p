@@ -375,3 +375,5 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-06 DSH bash 每次调用都是全新 shell，默认工作目录 = 会话工作区（主树）：在 worktree 干活时每条命令必须显式绝对路径 cd；相对跳转会落回主树跑错代码（实例：基线测试跑在主树全绿，误判 worktree 健康后才开始改）。
 - 2026-09-06 跨 worktree 共享依赖别软链 node_modules：pnpm 的相对符号链接经 vite 解析会断（UNRESOLVED_IMPORT），直接在 worktree pnpm install——共享 store 硬链接，426 包全量仅 2.4s。
 - 2026-09-06 查 UI 依赖真实行为直接读 unpkg 的未压缩 dist（unpkg.com/pkg@ver/dist/index.js）+ web_fetch 取段分析，比本地 grep 压缩产物/搜二手 changelog 快且准。
+- 2026-09-06 本机 bash 工具里 node/pnpm 静默挂起（exit=null 无输出）：PATH 首位是 ~/.vite-plus/bin，其 node 是 vp 启动器会挂起；export PATH=$HOME/.nvm/versions/node/<版本>/bin:$PATH 后恢复。新 worktree 无 node_modules，nvm pnpm install --frozen-lockfile 走共享 store 秒级。
+- 2026-09-06 vitest 全量在高负载机器上假超时（acp/app-boot 5s testTimeout/40s hookTimeout 成批红）：先对失败文件单跑隔离复判——真红隔离下仍稳定红，假红秒绿；隔离复跑再决定是否改码，避免误诊。
