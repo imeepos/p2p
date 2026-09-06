@@ -18,6 +18,8 @@ import { nicknameCharCount } from "@/views/contacts/chat-friend-rules";
 // 好友邀请列表（IMC3 需求 2）：方向/状态徽章/时间/备注；in 向待处理行内
 // 同意（沿用通讯录既有备注昵称口径：trim 后按字符数 ≤64）/拒绝；行点击跳
 // 好友聊天；操作失败原文上浮。状态语义对齐 invite-inbox：列表本身即待处理集。
+// F08：out 向待处理行补「撤回」，与通讯录同卡同源（同 store action
+// cancelInvite + 同 i18n 标签 contacts.friends.cancelInvite），失败原文上浮。
 export function FriendInviteSection() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
@@ -25,10 +27,25 @@ export function FriendInviteSection() {
   const invites = useChatStore((s) => s.invites);
   const acceptInvite = useChatStore((s) => s.acceptInvite);
   const rejectInvite = useChatStore((s) => s.rejectInvite);
+  const cancelInvite = useChatStore((s) => s.cancelInvite);
   const [nicknames, setNicknames] = useState<Record<string, string>>({});
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
   const rows = [...invites].sort((a, b) => b.tsMs - a.tsMs);
+
+  const withdraw = async (invite: FriendInviteJson) => {
+    setRowErrors((prev) => ({ ...prev, [invite.peerId]: "" }));
+    try {
+      await cancelInvite(invite.peerId);
+    } catch (err) {
+      console.error("[messages] 好友邀请行内撤回失败", invite.peerId, err);
+      const detail = err instanceof Error ? err.message : String(err);
+      setRowErrors((prev) => ({
+        ...prev,
+        [invite.peerId]: t("uxk.messages.withdrawFailed") + detail,
+      }));
+    }
+  };
 
   const accept = async (invite: FriendInviteJson) => {
     const nickname = (nicknames[invite.peerId] ?? "").trim();
@@ -131,7 +148,21 @@ export function FriendInviteSection() {
                         {t("messages.action.reject")}
                       </Button>
                     </>
-                  ) : null}
+                  ) : (
+                    // F08：发出的邀请卡与通讯录同卡同源补撤回
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void withdraw(invite);
+                      }}
+                      data-testid={"messages-friend-withdraw-" + invite.peerId}
+                    >
+                      {t("contacts.friends.cancelInvite")}
+                    </Button>
+                  )}
                   <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs font-medium">
                     {t("messages.state.pending")}
                   </span>

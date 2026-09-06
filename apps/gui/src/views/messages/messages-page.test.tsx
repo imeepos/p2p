@@ -16,6 +16,7 @@ const { mocks } = vi.hoisted(() => ({
     chatGroupInviteReject: vi.fn(),
     chatInviteAccept: vi.fn(),
     chatInviteReject: vi.fn(),
+    chatInviteCancel: vi.fn(),
     chatFriendsList: vi.fn(),
     chatHistory: vi.fn(),
   },
@@ -29,6 +30,7 @@ vi.mock("@/lib/ipc", () => ({
     chatGroupInviteReject: mocks.chatGroupInviteReject,
     chatInviteAccept: mocks.chatInviteAccept,
     chatInviteReject: mocks.chatInviteReject,
+    chatInviteCancel: mocks.chatInviteCancel,
     chatFriendsList: mocks.chatFriendsList,
     chatHistory: mocks.chatHistory,
   },
@@ -134,7 +136,7 @@ describe("消息中心两组列表", () => {
     expect(screen.queryByTestId("messages-group-accept-gi-2")).toBeNull();
   });
 
-  it("好友列表：in 向行内备注昵称输入与同意/拒绝，out 向无操作", async () => {
+  it("好友列表：in 向行内备注昵称输入与同意/拒绝，out 向无同意入口", async () => {
     renderPage();
     const rowIn = await screen.findByTestId("messages-friend-row-" + PEER_IN);
     expect(rowIn.textContent).toContain("收到的");
@@ -143,6 +145,25 @@ describe("消息中心两组列表", () => {
     const rowOut = screen.getByTestId("messages-friend-row-" + PEER_OUT);
     expect(rowOut.textContent).toContain("发出的");
     expect(screen.queryByTestId("messages-friend-accept-" + PEER_OUT)).toBeNull();
+  });
+
+  it("F08：发出的邀请卡有「撤回」，与通讯录同标签同 store action", async () => {
+    mocks.chatInviteCancel.mockResolvedValue(undefined);
+    renderPage();
+    fireEvent.click(await screen.findByTestId("messages-friend-withdraw-" + PEER_OUT));
+    await waitFor(() => expect(mocks.chatInviteCancel).toHaveBeenCalledWith(PEER_OUT));
+    expect(mocks.chatInviteAccept).not.toHaveBeenCalled();
+  });
+
+  it("F08：撤回失败原文上浮 role=alert", async () => {
+    mocks.chatInviteCancel.mockRejectedValue(new Error("邀请已被处理"));
+    const logSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    renderPage();
+    fireEvent.click(await screen.findByTestId("messages-friend-withdraw-" + PEER_OUT));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("撤回失败：");
+    expect(alert.textContent).toContain("邀请已被处理");
+    logSpy.mockRestore();
   });
 
   it("空态：两组列表各自空文案", async () => {
