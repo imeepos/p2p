@@ -37,7 +37,7 @@ export function OverviewRecentEventsCard({
           </CardTitle>
           <Link
             to="/network/events"
-            className="text-muted-foreground hover:text-foreground text-xs transition-colors"
+            className="-m-2 p-2 text-muted-foreground hover:text-foreground text-xs transition-colors"
           >
             {t("network.overview.viewAll")}
           </Link>
