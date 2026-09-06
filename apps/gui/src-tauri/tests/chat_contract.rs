@@ -22,6 +22,7 @@ fn sample_envelope(media: Option<ChatMediaMeta>) -> ChatEnvelope {
         media,
         status: ChatStatus::Pending,
         reply_to: None,
+        card: None,
     }
 }
 
@@ -86,8 +87,9 @@ fn chat_message_json_text_field_names_match_contract() {
             "media": null,
             "status": "pending",
             "replyTo": null,
+            "card": null,
         }),
-        "ChatMessageJson 字段名/空 Option 须逐字对齐 §12.3"
+        "ChatMessageJson 字段名/空 Option 须逐字对齐 §12.3（card 为 IMC1 加法字段）"
     );
     let decoded: ChatEnvelope = serde_json::from_value(encoded).expect("反序列化消息");
     assert_eq!(decoded, env, "ChatMessageJson roundtrip 不保真");
@@ -170,6 +172,7 @@ fn chat_send_report_roundtrips() {
                 "media": null,
                 "status": "pending",
                 "replyTo": null,
+                "card": null,
             },
             "delivered": true,
         }),

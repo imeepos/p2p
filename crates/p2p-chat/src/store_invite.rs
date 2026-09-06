@@ -94,8 +94,8 @@ impl Store {
     }
 }
 
-/// FileLock::acquire 的短别名（锁超时取 store 统一配置）。
-fn lock_exclusive(
+/// FileLock::acquire 的短别名（锁超时取 store 统一配置；group_invites 共用）。
+pub(crate) fn lock_exclusive(
     store: &Store,
     path: std::path::PathBuf,
 ) -> Result<crate::store_lock::FileLock, std::io::Error> {

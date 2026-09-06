@@ -23,6 +23,8 @@ pub struct ConsoleConfig {
     pub status_port: u16,
     /// 断流后续连窗口（C；默认设计 §5 的 90 s，ACP4 续连依赖此语义）。
     pub reattach_window: Duration,
+    /// 分享链接直拨（设计 acp-share §7）：非空则启动后按链接拨号激活。
+    pub share_link: Option<crate::share::ShareLink>,
 }
 
 impl Default for ConsoleConfig {
@@ -36,6 +38,7 @@ impl Default for ConsoleConfig {
             ws_port: 0,
             status_port: 0,
             reattach_window: Duration::from_secs(REATTACH_WINDOW_DEFAULT_SECS),
+            share_link: None,
         }
     }
 }

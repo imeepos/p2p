@@ -310,6 +310,39 @@ im-group-design.md §3），与冻结的 /im/chat/1 并存路由。一流一事�
 - 自愈：对端重启换址后，本机重发 INVITE（帧携带最新 listen_addrs）→ 对端
   已识好友分支先登记新地址再回投 ACCEPT，双向建簿最终一致。
 
+### 8.4 业务协议登记：/im/ginvite/1（同意制入群邀请）
+
+出处 crates/p2p-chat/src/ginvite_wire.rs（实现与登记同提交）。§8.3 好友邀请的帧纪律
+移植到入群场景：一条出站流 = 一次邀请动作（send-once）：连接 → 开流 → 写动作帧 →
+读 ACK → 关流。帧封装复用 §2；payload 首字节为类型头，其余为 JSON；peer 字段 =
+发端自身 PeerId：
+
+| 类型头 | 值 | 载荷 |
+|---|---|---|
+| GINVITE | 0x01 | 邀请帧 JSON：{id, peer, groupId, groupName, owner, inviterNickname, note?, reason: null}（owner = 群主，发起 owner-only 故恒等于 peer） |
+| GACCEPT | 0x02 | 同意帧 JSON：同结构（reason: null） |
+| GREJECT | 0x03 | 拒绝帧 JSON：同结构（reason 可带拒绝理由） |
+| ACK | 0x04 | 复用 §8.1 AckFrame：{id, ok, reason?} |
+
+- 邀请簿本地 group_invites.json（dataDir/chat/，与 invites.json 同文件锁与原子写
+  纪律）；条目 {id, groupId, groupName, owner, inviter, invitee, note?, direction:
+  "in"|"out", state: "pending"|"accepted"|"rejected", tsMs, delivered}；上限 256，
+  重复邀请 upsert 刷新（同方向+同群+同对端视为同条，state 回 pending、delivered
+  复位、条目 id 稳定）。
+- 状态机：owner 发起 → out 条目 pending（chat_group_invite 事件）；受邀者收
+  GINVITE → in 条目 pending（事件）；受邀者同意 → 回 GACCEPT，收到含自己在列的
+  roster 后本机置 accepted（事件）；受邀者拒绝 → 本机立即置 rejected（事件）并回
+  GREJECT。owner 收 GACCEPT → 复用 /im/group/1 邀请入群路径（roster rev+1 推全体
+  含新成员）后置 accepted（事件）；收 GREJECT → 置 rejected（事件）。
+- 离线语义：owner 离线时受邀者的 GACCEPT/GREJECT 挂起（delivered=false），重连
+  重投 + 启动自愈 + 周期重投（outbox sweeper 节拍，同 §8.3 重投纪律）；受邀者
+  离线时 GINVITE 挂起重投，1:1 卡片消息（/im/chat/1 信封 kind=groupinvite，card:
+  {groupId, groupName, inviterNickname, note?}）走既有 1:1 离线投递（outbox）。
+- 幂等：重复 GINVITE 刷新 in 条目并重发事件；GACCEPT 对已在群受邀者幂等回 ACK；
+  GREJECT 无匹配条目幂等回 ACK；已拒绝条目收到迟到 GACCEPT 忽略（决策不可逆）。
+- 纵深防御：GINVITE 帧 owner ≠ 发端 peer 拒收；GACCEPT 要求本机为该群 owner 且
+  存在匹配 out 条目（缺失仅告警回 ACK）；群非 active 时同意帧告警忽略。
+
 ## 9. 常量速查表
 
 | 常量 | 值 | 出处 |

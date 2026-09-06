@@ -13,10 +13,21 @@ GUI 渲染与续连逻辑分别在 ACP6a/6b 与 ACP4。
 cargo run -p acp-console -- \
   --bootstrap 192.168.1.10/u7001 \        # 可选，可多次
   --peer <base58PeerId>@/ip4/10.0.0.8/tcp/4001 \  # 可选，可多次
+  --peer <base58PeerId>@/ip4/10.0.0.8/tcp/4001 \  # 可选，可多次
+  --share-link "dsh-acp-share://v1?peer=...&addr=...&token=..." \  # 可选
   --ws-port 0 --status-port 0              # 0 = 随机端口
 ```
 
 启动成功即向 stdout 打一行就绪事件（见下），GUI/CLI 从 stdout 读端口与 token。
+
+### 分享链接直拨（--share-link，设计 docs/design/acp-share-design.md §7）
+
+--share-link 给出 dsh-acp-share://v1 链接时，启动即按链接直拨：解析 → 登记
+peer 地址候选（与 --peer PEER@ADDR 同机制，discovery 来源标注 share）→ 拨号 →
+握手 token=链接 token → ready 后该 peer 与普通 endpoint 无异（本地 WS 哑泵、
+status/discovery 可见、reattach 票据照常落盘）。链接解析失败启动即退出
+（fail-fast），不回显链接原文。激活连接为一次性：观察到握手结果即收拢，
+此后该 peer 凭 agent 侧策略表正常连接（首连已激活，同一链接重复导入幂等）。
 
 ## stdout JSON 行契约（CLI 可读）
 
@@ -27,6 +38,7 @@ cargo run -p acp-console -- \
 | `ready` | `{ws, status, token, peer}` | 就绪。ws/status 为 `127.0.0.1:port`；token 为本进程鉴权 token；peer 为自身 PeerId |
 | `state` | `{phase, peer?, conn?, since_unix_ms, detail?}` | 连接状态机每次迁移 |
 | `discovery` | `{peers: [{peer, addrs, source}]}` | 发现清单每次变更，全量快照 |
+| `share-connect` | `{peer, ok, conn?, reason?}` | 分享链接直拨结果（成功/失败均打，禁止静默） |
 
 ## 本地 WS 契约（GUI 波依赖）
 
@@ -56,6 +68,22 @@ GET http://127.0.0.1:<status_port>/reattach?peer=<base58>  Authorization: Bearer
 
 - `/status` → 连接状态机快照 JSON：`{phase, peer?, conn?, since_unix_ms, detail?}`。
 - `/discovery` → `{"peers":[{peer, addrs, source}]}`，与 stdout discovery 行同形状。
+- `POST /connect-share`，body `{"link":"dsh-acp-share://v1?..."}`（设计 acp-share
+  §7，guest GUI 入口）：按链接直拨并同步等待握手结果。
+
+  ```json
+  {"ok":true,"peer":"<base58>","conn":"<uuid>"}
+  {"ok":false,"peer":"<base58>","reason":"denied:share-revoked"}
+  ```
+
+  - 成功与拨号/握手失败均 **200** 回 JSON 结果；`reason` 携带 denied 码或失败
+    原因（`connect-timeout` / `local ws connect failed` / 拨号错误串），与 stdout
+    `share-connect` 行、`/status` detail 同一词汇；
+  - 坏入参（非 JSON / 缺 `link` / 非 share 链接）→ **400**
+    `{"error":"bad-request"|"bad-link","reason":...}`；
+  - 无 token / 错 token → **401**（与其他端点同）；结果同步进 `/status` 状态面；
+  - 同一链接重复导入幂等：首连激活后，后续导入按策略表照常连接；
+  - 坏入参错误文案固定措辞，不回显链接原文（token 原文不进日志/响应）。
 - `/reattach` → 该 peer 当前可用的续连票据（设计 §5，GUI 自动重连携回桥）：
 
   ```json

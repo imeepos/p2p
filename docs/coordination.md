@@ -285,9 +285,10 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 
 | 任务单 | 负责会话 | 分支 | 范围 | 验收 |
 |---|---|---|---|---|
-| IMC1 同意制入群邀请与卡片消息 kind | session-3dc1ece7（专属新会话） | feat/im-card-backend | crates/p2p-chat/** + crates/p2p-itest/** + docs/design/wire-protocol.md + docs/design/im-group-design.md | cargo test -p p2p-chat + clippy -p p2p-chat --all-targets -- -D warnings + cargo test -p p2p-itest --test group_invite_consent + make check 全绿 |
-| IMC3 GUI 入群卡片/确认弹框/消息中心 | session-f4cdafc5（专属新会话） | feat/im-card-gui | apps/gui/src/**（卡片渲染/弹框/消息中心路由+顶栏铃铛入口/chat-store 群邀请切片/i18n zh+en） | vitest src/views + components/chat + stores + build + check:i18n + make check 全绿 |
-| IMC2 IPC 与 CLI parity | 待派（IMC1 合入后） | feat/im-card-ipc | apps/gui/src-tauri/** + apps/cli/** + scripts/check/cli-parity.tsv + docs/ops/cli-guide.md 与 p2pctl-ai-guide.md 对应段 | src-tauri cargo test + cargo test -p p2p-cli + cli-parity OK + make check 全绿 |
+| IMC1 同意制入群邀请与卡片消息 kind | session-3dc1ece7 ✓ 已合入 main（09bad3d：/im/ginvite/1+邀请簿+门面+卡片消息 kind+双节点 itest），协调验收进行中 | feat/im-card-backend | crates/p2p-chat/** + crates/p2p-itest/** + docs/design/wire-protocol.md + docs/design/im-group-design.md | cargo test -p p2p-chat + clippy -p p2p-chat --all-targets -- -D warnings + cargo test -p p2p-itest --test group_invite_consent + make check 全绿 |
+| IMC3 GUI 入群卡片/确认弹框/消息中心 | session-f4cdafc5 ✓ 已验收收官（6bf8e52/7a4e2a9/944d3cc/96006e7，协调者主树复核 IMC3_ACC_EXIT=0：vitest 139 文件 825 用例+make check 全链），现场已清 | feat/im-card-gui | apps/gui/src/**（卡片渲染/弹框/消息中心路由+顶栏铃铛入口/chat-store 群邀请切片/i18n zh+en） | vitest src/views + components/chat + stores + build + check:i18n + make check 全绿 |
+| IMC2 IPC 与 CLI parity | session-6a9d9e06（专属新会话，IMC1 合入后已派） | feat/im-card-ipc | apps/gui/src-tauri/** + apps/cli/** + scripts/check/cli-parity.tsv + docs/ops/cli-guide.md
+- 2026-09-06 IMC 推进（项目负责人）：IMC3 验收收官合入 main（主树权威复核 IMC3_ACC_EXIT=0：vitest 139 文件 825 用例全绿+make check 全链），现场自清；IMC1 合入 main（09bad3d，含反向同步），主树权威验收后台运行中；IMC2 已派（前置满足）。与 DOC/SHARE 波并发，域互斥确认（IMC2 的 src-tauri/cli 与 AS3 的 apps/gui/src 无交集）。 与 p2pctl-ai-guide.md 对应段 | src-tauri cargo test + cargo test -p p2p-cli + cli-parity OK + make check 全绿 |
 
 ## DOC 协议接入文档波（2026-09-06 派单，项目负责人协调）
 
