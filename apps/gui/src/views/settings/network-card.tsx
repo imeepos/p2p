@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useNodeStore } from "@/stores/node-store";
+import type { I18nKey } from "@/i18n/types";
 import type { SettingsFormValues } from "./config-schema";
-import { ErrorText } from "@/views/shared/error-text";
 
 // 从监听地址提取实际生效端口：QUIC 记 /端口 或 /u端口，TCP 固定 /t端口。
 function effectivePort(listenAddrs: string[], tcp: boolean): number | null {
@@ -33,16 +33,20 @@ interface PortFieldProps {
 }
 
 // 端口输入：0（随机）不裸显，输入框置空并展示随机端口语义；节点运行中
-// 就近展示当前实际生效端口。
+// 就近展示当前实际生效端口。校验失败就地 role=alert 提示，口径同
+// dial-target-field 的 F14 实现：失焦触发，已有错误随输入复验即改即消。
 function PortField({ name, htmlId, label, effective }: PortFieldProps) {
   const { t } = useTranslation();
   const {
     control,
     setValue,
+    trigger,
     formState: { errors },
   } = useFormContext<SettingsFormValues>();
   const value = useWatch({ control, name });
   const isRandom = value === 0 || value == null;
+  const errorCode = errors[name]?.message;
+  const errorId = `${htmlId}-error`;
 
   return (
     <div className="flex flex-col gap-1">
@@ -55,14 +59,27 @@ function PortField({ name, htmlId, label, effective }: PortFieldProps) {
         max={65535}
         placeholder={t("settings.network.randomPortPlaceholder")}
         value={isRandom ? "" : String(value)}
+        aria-invalid={errorCode != null ? true : undefined}
+        aria-describedby={errorCode != null ? errorId : undefined}
         onChange={(event) => {
           const parsed = Number(event.target.value);
           const next =
             event.target.value === "" || Number.isNaN(parsed) ? 0 : parsed;
           setValue(name, next, { shouldDirty: true });
+          if (errors[name] != null) void trigger(name);
         }}
+        onBlur={() => void trigger(name)}
       />
-      <ErrorText code={errors[name]?.message} />
+      {errorCode != null ? (
+        <p
+          id={errorId}
+          role="alert"
+          className="text-destructive text-xs"
+          data-testid={errorId}
+        >
+          {t(`common.validation.${errorCode}` as I18nKey)}
+        </p>
+      ) : null}
       {isRandom ? (
         <p className="text-muted-foreground text-xs">
           {t("settings.network.randomPortHint")}

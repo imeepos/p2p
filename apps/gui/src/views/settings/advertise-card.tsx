@@ -10,12 +10,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { I18nKey } from "@/i18n/types";
 import type { SettingsFormValues } from "./config-schema";
 import { FactoryDefaultsNotice } from "@/views/shared/factory-defaults-notice";
 import {
   AddressListEditor,
 } from "@/views/shared/address-list-editor";
-import { ErrorText } from "@/views/shared/error-text";
 
 // 宣告与观测卡：advertisedAddrs 列表 + 可空观测端口 + observationAddrs 列表。
 // advertisedAddrs 无出厂默认，不提供恢复入口。bootstrap/relay 的编辑入口在
@@ -25,8 +25,12 @@ export function AdvertiseCard() {
   const {
     control,
     register,
+    trigger,
     formState: { errors },
   } = useFormContext<SettingsFormValues>();
+  // F14 口径（同 network-card PortField）：失焦触发校验，已有错误随输入复验。
+  const obsErrorCode = errors.observationPort?.message;
+  const obsErrorId = "settings-observation-port-error";
 
   return (
     <Card className="col-span-12 lg:col-span-6">
@@ -53,9 +57,27 @@ export function AdvertiseCard() {
             min={1}
             max={65535}
             placeholder={t("settings.advertise.observationPortPlaceholder")}
-            {...register("observationPort", { valueAsNumber: true })}
+            aria-invalid={obsErrorCode != null ? true : undefined}
+            aria-describedby={obsErrorCode != null ? obsErrorId : undefined}
+            {...register("observationPort", {
+              valueAsNumber: true,
+              onBlur: () => void trigger("observationPort"),
+              onChange: () => {
+                if (errors.observationPort != null)
+                  void trigger("observationPort");
+              },
+            })}
           />
-          <ErrorText code={errors.observationPort?.message} />
+          {obsErrorCode != null ? (
+            <p
+              id={obsErrorId}
+              role="alert"
+              className="text-destructive text-xs"
+              data-testid={obsErrorId}
+            >
+              {t(`common.validation.${obsErrorCode}` as I18nKey)}
+            </p>
+          ) : null}
           <p className="text-muted-foreground text-xs">
             {t("settings.advertise.observationPortHint")}
           </p>
