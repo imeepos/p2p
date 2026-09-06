@@ -333,4 +333,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06：apps/cli 包名是 p2pctl 且自带 [workspace]（根 workspace 成员只有 crates/*）：cargo test -p p2p-cli 跑的是 crates/p2p-cli 小库，p2pctl 单测门禁不覆盖，交付 CLI 改动后手动 cargo test --manifest-path apps/cli/Cargo.toml 验证。
 - 2026-09-06：tauri mock-runtime 测试助手里 State 生命周期挂在 Manager 上，不能随函数返回值带出；照 group_command_smoke 模式返回 (App, AppHandle, 数据)，用例体内 handle.state() 自取。
 - 2026-09-06：断言恒 false 的字段先读实现判断它改的是 store 还是内存副本；用钓鱼定位——在失败路径直调底层门面打印真实返回值，一次钉死黑盒差异（本次 1-8ms 即据此排除拨号超时假设）。
-见下方 IMC 轮新增条目（追加于文件尾）
+- 2026-09-06 IMC 轮：巡检他会话 worktree 一律走 git worktree list 实况，禁止按猜测路径探测（p2p-imc3 探空实为 p2p-imc3-gui，险些误判未开工）。
+- 2026-09-06 IMC 轮：长任务会话「脏文件静止」不等于死亡——按 worktree 在位→文件写入→宿主进程（ps 找 cargo/make check）三级证据链依次定性；IMC1 验收长跑 50 分钟零写入但进程活跃。
+- 2026-09-06 IMC 轮：共享账本/协调表编辑禁多层转义内联脚本（bash 套 python 套 JSON 必炸语法），用 write 落脚本文件再执行；改前先读回、改后回读校验（轮 44 教训复验）。
+- 2026-09-06 IMC 轮：自己验收作业运行期间，主树禁止任何写操作（含 ff 同步远端）；编辑共享文档前必须重新 read（并行波次随时插提交，本轮 coordination.md 两次变化）。
+- 2026-09-06 IMC 轮：磁盘余量是验收前置检查项——/tmp 历史波次 acc target 残留 66Gi 致 100% 满，验收作业只进 stderr 静默失败；清理前先 ps 确认无进程引用，在途波次 target 保留。
