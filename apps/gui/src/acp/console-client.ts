@@ -1,6 +1,8 @@
 // console 本地 status HTTP 客户端（apps/acp-console/README.md status 端点契约）：
 // /reattach 续连票据查询与 /discovery 发现清单拉取。Bearer 鉴权；响应一律容错
 // 解析——console 不可达/坏形响应折化为明确的 unavailable/空清单，绝不抛出打断重连。
+import type { AcpConsoleStatus } from "@/lib/ipc-types";
+import type { AcpEndpoint } from "./protocol";
 import type { DiscoveryPeer } from "./directory-model";
 
 /** /reattach reason 面（README 契约） */
@@ -96,6 +98,60 @@ export interface ConnectShareOutcome {
   scope: string | null;
   code: string | null;
   reason: string | null;
+}
+
+// 契约 v10 §15（UX3）：本机 agent 端点自动登记面。稳定本地 id 独立于 status
+// 相位重放；peer 不取自 status（契约无该字段），由 console 发现面解析后回填。
+export const LOCAL_AGENT_ENDPOINT_ID = "acp-local-agent";
+
+/** ready 状态 -> 本机 agent 端点草稿；非 ready 或缺连接面返回 null */
+export function localAgentEndpointOf(status: AcpConsoleStatus | null): AcpEndpoint | null {
+  if (!status || status.phase !== "ready" || !status.wsUrl || !status.token) return null;
+  return {
+    endpointId: LOCAL_AGENT_ENDPOINT_ID,
+    wsUrl: status.wsUrl,
+    token: status.token,
+    peer: "",
+    statusUrl: status.statusUrl,
+    adminUrl: status.adminUrl,
+  };
+}
+
+export interface LocalAgentMerge {
+  saved: AcpEndpoint[];
+  endpoint: AcpEndpoint;
+  /** 连接面是否变化（wsUrl/token/statusUrl/adminUrl 任一变化或新登记） */
+  changed: boolean;
+}
+
+/** 幂等登记：无则追加；有则仅覆盖连接面（alias 空、peer 用户值保留，不产生重复条目） */
+export function mergeLocalAgent(
+  saved: AcpEndpoint[],
+  next: AcpEndpoint,
+  alias: string,
+): LocalAgentMerge {
+  const idx = saved.findIndex((e) => e.endpointId === LOCAL_AGENT_ENDPOINT_ID);
+  if (idx < 0) {
+    const created: AcpEndpoint = { ...next, alias: next.alias?.trim() || alias };
+    return { saved: [...saved, created], endpoint: created, changed: true };
+  }
+  const cur = saved[idx]!;
+  const merged: AcpEndpoint = {
+    ...cur,
+    wsUrl: next.wsUrl,
+    token: next.token,
+    statusUrl: next.statusUrl ?? cur.statusUrl,
+    adminUrl: next.adminUrl ?? cur.adminUrl,
+    alias: cur.alias?.trim() ? cur.alias : alias,
+  };
+  const changed =
+    cur.wsUrl !== merged.wsUrl ||
+    cur.token !== merged.token ||
+    (cur.statusUrl ?? "") !== (merged.statusUrl ?? "") ||
+    (cur.adminUrl ?? "") !== (merged.adminUrl ?? "") ||
+    !(cur.alias ?? "").trim();
+  const out = changed ? saved.map((e, i) => (i === idx ? merged : e)) : saved;
+  return { saved: out, endpoint: merged, changed };
 }
 
 const DENIED_UNAVAILABLE: ConnectShareOutcome = {

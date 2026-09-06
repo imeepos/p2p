@@ -3,6 +3,7 @@
 import { create } from "zustand";
 
 import type { AcpCloseInfo, AcpEndpoint, AcpPhase, InitializeResult, SessionSummary } from "./protocol";
+import type { AcpConsoleStatus } from "@/lib/ipc-types";
 import type { InteractionState, PermissionNotice } from "./interaction-model";
 import type { AcpScope, DirectoryEntry, DiscoveryPeer } from "./directory-model";
 import {
@@ -59,6 +60,10 @@ interface AcpConsoleState {
   /** 最新到达的权限提醒（seq 自增去重），PermissionNoticeBridge 转 toast */
   permissionNotice: PermissionNotice | null;
   permissionSeq: number;
+  /** 契约 v10 §15：acp-console 托管状态快照（console-watch 维护，null=尚无快照） */
+  console: AcpConsoleStatus | null;
+  /** 本机 agent 自动流程的可观测提示（i18n key；自动连接被跳过/发现面定位失败等） */
+  consoleFlowNotice: string | null;
   lastError: string | null;
   /** 聊天页深链落定入口：记录聚焦并清零该端点未读（§2.3 选中清零） */
   setFocusedEndpoint: (endpointId: string | null) => void;
@@ -119,6 +124,8 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   promptDrafts: {},
   permissionNotice: null,
   permissionSeq: 0,
+  console: null,
+  consoleFlowNotice: null,
   lastError: null,
 
   setFocusedEndpoint: (endpointId) => {
@@ -232,6 +239,8 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
       promptDrafts: {},
       permissionNotice: null,
       permissionSeq: 0,
+      console: null,
+      consoleFlowNotice: null,
       lastError: null,
     });
   },
