@@ -36,6 +36,17 @@ main @ ec1b783：vitest 157 文件 919 用例全绿（冷启高负载下会出�
 - worktree/本地分支/远端分支均已清理；四个会话已归档。
 - UX-E 交付报告：docs/notes/2026-09-07-uxe-entity-picker-delivery.md。
 
+## 波2 收官（2026-09-07 06:10）
+
+- 三卡全部合入 main @ 7ea7834：986cf1c(UX-J) / e9ccde8(UX-I ff) / 7ea7834(UX-K ff)。
+- 主树机械验收全绿：tsc 0、eslint 0、check:i18n zh=en=1171、vitest 176 文件 1075 用例。
+- worktree/本地与远端分支已清理；三会话已归档。
+- 交付报告：docs/notes/2026-09-07-ux{ i-events-page, j-form-labels, k-flow-consistency }-delivery.md。
+
+## 终验（2026-09-07 06:12 派）
+
+终验走查会话 session-991a45b9：对 28 条 finding 逐条页面实测，产出 docs/notes/2026-09-07-ux-final-walkthrough.md。未修复项将派返工单。
+
 ## 观察与约定
 
 - apps/gui/.env.development.local（VITE_MOCK_IPC=0）为某并行会话本机覆盖，mock 走查须显式 VITE_MOCK_IPC=1 独立实例（审计环境备注 1）。
