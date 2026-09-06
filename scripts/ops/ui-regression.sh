@@ -1,20 +1,18 @@
 #!/usr/bin/env bash
-# U1 UI 回归批产：页面语义协议 8 路由逐页回归（navigate+descriptor+动作断言+截图证据）。
-# CONFIRM_NEG=危险动作缺 confirm 被拒；EXEC_STRUCT=动作以非法参数真执行取结构化拒绝（零写入）。
-# 用法：[--keep <dir>]；幂等零持久写入，confirm=true 唯一豁免 events.clear（易失内存缓冲，幂等）。
-set -eu
-set -o pipefail
+# U1 UI 回归批产：新外壳路由集逐页回归（navigate+descriptor+动作断言+截图证据）：
+# /chat、/settings、/network 六 tab，含 /、/group、/acp 三条重定向落点断言与 /contacts 缺口负向断言。
+# 控制通道白名单（src-tauri control/mod.rs ROUTES）与 PAGE_REGISTRY 键仍为旧注册名
+# （dashboard=overview，见 control-bridge ROUTE_ALIASES）：六 tab 经旧路由重定向进入，
+# 落点以 health.route 归一化、descriptor、截图三重证明；"/" 落点即 dashboard 行（index 重定向）。
+# CONFIRM_NEG=危险动作缺 confirm 被拒；EXEC_STRUCT=非法参数真执行取结构化拒绝（零写入）。用法：[--keep <dir>]；幂等零持久写入，confirm=true 唯一豁免 events.clear（易失缓冲，幂等）。
+set -eu -o pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-CTL="$ROOT/apps/cli/target/debug/p2pctl"
-GUI_DIR="$ROOT/apps/gui"
-GUI_BIN="$GUI_DIR/src-tauri/target/debug/p2p-console"
-EP_FILE="$HOME/Library/Application Support/com.p2p.console/control/endpoint.json"
-PNG_MAGIC="89504e470d0a1a0a"
-PAGES_TOTAL=8
-# 合成 PeerId（合法 base58）仅占参数位；本脚本不加好友、不复位身份、不写配置。
-SYNTH_PEER="Cs8KY3PiWrCMAytMsBRQo8EdGbticVtdvufLnb2UhXh"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; CTL="$ROOT/apps/cli/target/debug/p2pctl"
+GUI_DIR="$ROOT/apps/gui"; GUI_BIN="$GUI_DIR/src-tauri/target/debug/p2p-console"
+EP_FILE="$HOME/Library/Application Support/com.p2p.console/control/endpoint.json"; PNG_MAGIC="89504e470d0a1a0a"
+PAGES_TOTAL=11
+SYNTH_PEER="Cs8KY3PiWrCMAytMsBRQo8EdGbticVtdvufLnb2UhXh" # 合成 PeerId 仅占参数位；不加好友不复位身份不写配置
 
 fail() { echo "UI-REG-ERROR {\"code\":\"$1\",\"message\":\"$2\"}" >&2; exit 2; }
 fail_arg() { echo "UI-REG-ERROR {\"code\":\"ARG_INVALID\",\"message\":\"$1\"}" >&2; exit 2; }
@@ -28,28 +26,16 @@ case "${1:-}" in
     *) fail_arg "未知参数 $1（支持 --keep <dir>）" ;;
 esac
 
-TMP="$(mktemp -d "/tmp/ui-regression.XXXXXX")"
-GUI_LOG="$TMP/gui.log"
-REPORT="$TMP/report.txt"
-SHOT_DIR="$TMP"
+TMP="$(mktemp -d "/tmp/ui-regression.XXXXXX")"; GUI_LOG="$TMP/gui.log"
+REPORT="$TMP/report.txt"; SHOT_DIR="$TMP"
 if [ -n "$KEEP_DIR" ]; then
     # 证据直写指定目录：截图运行中即落盘、报告随 tee 直写，不靠退出时搬运（cp 静默失败会变 0 图）。
     mkdir -p "$KEEP_DIR" || fail "KEEP_DIR_UNWRITABLE" "无法创建证据目录: $KEEP_DIR"
-    SHOT_DIR="$KEEP_DIR"
-    REPORT="$KEEP_DIR/report.txt"
+    SHOT_DIR="$(cd "$KEEP_DIR" && pwd)"; REPORT="$SHOT_DIR/report.txt"  # gui screenshot 仅收绝对路径
 fi
-CHILD=""
-EP_BACKUP=""
-ASSERT_PASS=0
-ASSERT_FAIL=0
-PASSED_PAGES=0
-FAILED_PAGES=0
-FAILED_LIST=""
-PAGE_PASS=0
-PAGE_FAIL=0
-PAGE_REASON=""
-PAGE_MODE=""
-PAGE_TABLE=""
+CHILD=""; EP_BACKUP=""
+ASSERT_PASS=0; ASSERT_FAIL=0; PASSED_PAGES=0; FAILED_PAGES=0; FAILED_LIST=""
+PAGE_PASS=0; PAGE_FAIL=0; PAGE_REASON=""; PAGE_MODE=""; PAGE_TABLE=""
 
 cleanup() {
     if [ -n "$CHILD" ] && kill -0 "$CHILD" 2>/dev/null; then
@@ -60,8 +46,7 @@ cleanup() {
         done
         kill -9 "$CHILD" 2>/dev/null || true
     fi
-    # 显式回收并丢弃终止状态：不给异步 reap 把信号状态泄进脚本退出码的机会。
-    wait "$CHILD" 2>/dev/null || true
+    wait "$CHILD" 2>/dev/null || true  # 显式回收丢弃终止状态，防信号泄进退出码
     # 端点文件只动本实例：有备份还原备份；否则 pid 匹配才删（不碰外部 GUI 的端点）。
     if [ -n "$EP_BACKUP" ]; then
         mkdir -p "$(dirname "$EP_FILE")"
@@ -75,10 +60,7 @@ cleanup() {
 trap cleanup EXIT
 
 a_pass() { ASSERT_PASS=$((ASSERT_PASS + 1)); PAGE_PASS=$((PAGE_PASS + 1)); }
-a_fail() {
-    ASSERT_FAIL=$((ASSERT_FAIL + 1)); PAGE_FAIL=$((PAGE_FAIL + 1))
-    [ -n "$PAGE_REASON" ] || PAGE_REASON="$1"
-}
+a_fail() { ASSERT_FAIL=$((ASSERT_FAIL + 1)); PAGE_FAIL=$((PAGE_FAIL + 1)); [ -n "$PAGE_REASON" ] || PAGE_REASON="$1"; }
 
 # 必须成功的一步：失败记断言失败并回显输出（可观测），不中断整批（保逐页报告完整）。
 must_ok() {
@@ -127,11 +109,7 @@ build_if_missing() {
         echo "前端产物缺失或过期，pnpm build…" >&2
         (cd "$GUI_DIR" && pnpm build) >&2
     fi
-    # bin 有两态：默认 dev 态（webview 加载 devUrl，无 dev 服务器即空壳，页面桥
-    # 全 PAGE_TIMEOUT）与 custom-protocol 态（回归唯一有效形态）。cargo test/
-    # 普通 build 会翻回 dev 态；脚本自猜 staleness（mtime/marker）有误判缺口
-    # （2026-09-05 真机两连红实证），改为无条件按 custom-protocol 构建，形态
-    # 裁决交 cargo fingerprint：不对必重编（增量秒级），对则 Fresh 秒回。
+    # bin 必须是 custom-protocol 态（dev 态加载 devUrl 即空壳）；无条件按该形态构建，裁决交 cargo fingerprint。
     (cd "$GUI_DIR/src-tauri" && cargo build --features tauri/custom-protocol) >&2
     [ -x "$CTL" ] || fail "BUILD_MISSING" "p2pctl 构建后仍不可执行: $CTL"
     [ -x "$GUI_BIN" ] || fail "BUILD_MISSING" "GUI 二进制构建后仍不可执行: $GUI_BIN"
@@ -150,8 +128,7 @@ start_gui() {
     fi
     [ -f "$EP_FILE" ] && EP_BACKUP="$(cat "$EP_FILE")" || true
     "$GUI_BIN" >>"$GUI_LOG" 2>&1 &
-    CHILD=$!
-    disown "$CHILD" 2>/dev/null || true
+    CHILD=$!; disown "$CHILD" 2>/dev/null || true
     # 就绪门探针=真实 round-trip 成功（gui page --json 退出码 0）：端点就绪 ≠ 桥就绪，
     # 仅排除 PAGE_TIMEOUT 字样会被其他错误形态提前放行（GC3c 实测）。单次 ≤5s。
     for i in $(seq 1 60); do
@@ -227,52 +204,72 @@ assert_action() {
 }
 
 assert_screenshot() {
-    local route="$1" shot="$SHOT_DIR/$route.png"
+    # bash 3.2(set -u)：local 同语句依赖前置赋值会读到调用方作用域，须分号隔成两步。
+    local route="$1"; local shot="$SHOT_DIR/$route.png"
     must_ok "$CTL" gui screenshot -o "$shot" >/dev/null
-    if [ -s "$shot" ]; then
+    if [ -s "$shot" ] && [ "$(head -c 8 "$shot" | xxd -p)" = "$PNG_MAGIC" ]; then
         a_pass
     else
-        a_fail "截图为空: $shot"
-        return 0
-    fi
-    if [ "$(head -c 8 "$shot" | xxd -p)" = "$PNG_MAGIC" ]; then
-        a_pass
-    else
-        a_fail "非 PNG magic: $shot"
+        a_fail "截图缺失或非 PNG: $shot"
     fi
 }
 
-run_page() {
-    local route="$1" verdict row
-    PAGE_PASS=0; PAGE_FAIL=0; PAGE_REASON=""; PAGE_MODE="CONFIRM_NEG"
-    must_ok "$CTL" gui navigate "$route" >/dev/null
-    wait_route "$route" || a_fail "route 5s 未归位: $route"
-    assert_descriptor_full "$route"
-    assert_action "$route"
-    assert_screenshot "$route"
+# 行计数汇总：verdict/断言比分/表格行，run_page/run_redirect/run_gap 共用。
+finalize_page() {
+    local label="$1" verdict
     if [ "$PAGE_FAIL" -eq 0 ]; then
         verdict=PASS
         PASSED_PAGES=$((PASSED_PAGES + 1))
     else
         verdict=FAIL
         FAILED_PAGES=$((FAILED_PAGES + 1))
-        FAILED_LIST="$FAILED_LIST $route"
+        FAILED_LIST="$FAILED_LIST $label"
     fi
     [ -n "$PAGE_REASON" ] || PAGE_REASON="-"
-    row="$(printf '%-12s %-6s %2d/%-2d %-12s %s' \
-        "$route" "$verdict" "$PAGE_PASS" "$((PAGE_PASS + PAGE_FAIL))" "$PAGE_MODE" "$PAGE_REASON")"
-    PAGE_TABLE="$PAGE_TABLE$row
+    PAGE_TABLE="$PAGE_TABLE$(printf '%-16s %-6s %2d/%-2d %-12s %s' \
+        "$label" "$verdict" "$PAGE_PASS" "$((PAGE_PASS + PAGE_FAIL))" "$PAGE_MODE" "$PAGE_REASON")
 "
-    echo "  [$route] $verdict 断言 $PAGE_PASS/$((PAGE_PASS + PAGE_FAIL))"
+    echo "  [$label] $verdict 断言 $PAGE_PASS/$((PAGE_PASS + PAGE_FAIL))"
+}
+
+run_page() {
+    local route="$1"
+    PAGE_PASS=0; PAGE_FAIL=0; PAGE_REASON=""; PAGE_MODE="CONFIRM_NEG"
+    must_ok "$CTL" gui navigate "$route" >/dev/null
+    wait_route "$route" || a_fail "route 5s 未归位: $route"
+    assert_descriptor_full "$route"
+    assert_action "$route"
+    assert_screenshot "$route"
+    finalize_page "$route"
+}
+
+# 重定向落点断言：navigate 旧路由源，断言落点归一化路由、descriptor 页名与截图。
+run_redirect() {
+    local source="$1" target="$2"
+    PAGE_PASS=0; PAGE_FAIL=0; PAGE_REASON=""; PAGE_MODE="REDIRECT"
+    must_ok "$CTL" gui navigate "$source" >/dev/null
+    wait_route "$target" || a_fail "重定向落点 5s 未归位: $source -> $target"
+    assert_descriptor_full "$target"
+    assert_screenshot "redirect-$source"
+    finalize_page "$source->$target"
+}
+
+# /contacts 缺口负向断言（不静默跳过）：白名单与注册表均未登记，navigate 必 INVALID_ROUTE；
+# 日后补登记会让本行转红，倒逼纳入正向回归。
+run_gap_contacts() {
+    PAGE_PASS=0; PAGE_FAIL=0; PAGE_REASON=""; PAGE_MODE="GAP-PINNED"
+    expect_code INVALID_ROUTE "$CTL" gui navigate contacts
+    finalize_page "contacts(gap)"
 }
 
 emit_report() {
     {
-        echo "== U1 UI 回归报告（8 路由：navigate/page 断言 + 动作断言 + screenshot） =="
-        echo "route        verdict pass/total mode         note"
+        echo "== U1 UI 回归报告（新外壳 11 行：8 descriptor 页 + 2 重定向落点 + 1 缺口断言） =="
+        echo "route            verdict pass/total mode         note"
         printf '%s' "$PAGE_TABLE"
         echo "SUMMARY: pages=$PAGES_TOTAL passed=$PASSED_PAGES failed=$FAILED_PAGES assertions=$ASSERT_PASS/$((ASSERT_PASS + ASSERT_FAIL))"
         echo "EVIDENCE: keep=$KEEP_DIR dir=$SHOT_DIR pngs=$(ls "$SHOT_DIR" | grep -c '\.png$' || true)"
+        echo "NOTES: /group /acp 落点 /chat?kind=*；contacts 为登记缺口（GAP-PINNED 钉住，不静默跳过）。"
         if [ "$FAILED_PAGES" -eq 0 ]; then
             echo "UI-REG-OK"
         else
@@ -286,9 +283,12 @@ main() {
     start_gui
     echo "== U1 UI 回归开始（证据目录 $SHOT_DIR，keep=$KEEP_DIR） =="
     local r
-    for r in chat dashboard diagnostics discovery events peers relay settings; do
+    for r in dashboard peers discovery relay events diagnostics chat settings; do
         run_page "$r"
     done
+    run_redirect group chat
+    run_redirect acp chat
+    run_gap_contacts
     emit_report
     if [ "$FAILED_PAGES" -eq 0 ]; then
         exit 0
