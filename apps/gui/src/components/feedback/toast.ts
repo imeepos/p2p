@@ -18,6 +18,19 @@ export interface ToastErrorOptions {
 
 const recentKeys = new Map<string, number>();
 
+/** 测试专用：清空去重表（模块单例的用例隔离入口，同 endpoint-meta.resetForTest 惯例） */
+export function resetToastDedupForTest(): void {
+  recentKeys.clear();
+}
+
+// 稳定 id：sonner v2 无 toast 根 onClick（closeOnClick 已移除），
+// 点击关闭由 AppToaster 事件委托按 testid 定位单条 dismiss（sonner.tsx）
+let toastSeq = 0;
+function nextToastId(): string {
+  toastSeq += 1;
+  return "toast-" + String(toastSeq);
+}
+
 function isDuplicate(key: string): boolean {
   const now = Date.now();
   if (recentKeys.size > DEDUP_MAP_PRUNE_SIZE) {
@@ -33,7 +46,8 @@ function isDuplicate(key: string): boolean {
 
 // 中性提示态（IMC3 已处理卡片点击等）：无成功/失败语义，驻留同成功档。
 export function toastInfo(message: string, description?: string) {
-  return toast.info(message, { description, duration: SUCCESS_DURATION_MS });
+  const id = nextToastId();
+  return toast.info(message, { id, testId: id, description, duration: SUCCESS_DURATION_MS });
 }
 
 export function toastSuccess(message: string, description?: string) {
@@ -42,7 +56,10 @@ export function toastSuccess(message: string, description?: string) {
   if (isDuplicate("ok:" + message)) {
     return undefined;
   }
+  const id = nextToastId();
   return toast.success(message, {
+    id,
+    testId: id,
     description,
     duration: SUCCESS_DURATION_MS,
   });
@@ -89,7 +106,10 @@ export function toastError(
     return undefined;
   }
   const clipboardText = buildErrorDetailClipboard(message, normalized);
+  const id = nextToastId();
   return toast.error(message, {
+    id,
+    testId: id,
     description: normalized.description,
     duration: ERROR_DURATION_MS,
     action: {
