@@ -5,6 +5,8 @@ import {
   applyUpdate,
   applyUserPrompt,
   emptyTranscript,
+  ERROR_STOP_REASON,
+  retryablePromptText,
   settleTranscript,
   toolIoView,
   toggleThought,
@@ -67,6 +69,37 @@ describe("transcript model", () => {
     st = applyUpdate(st, { sessionUpdate: "future_kind" });
     expect(st.turns).toHaveLength(0);
     expect(st.ignoredUpdates).toBe(1);
+  });
+});
+
+describe("失败轮重试取词（AG-UI RUN_FAILED 映射）", () => {
+  it("error 结算轮向上取最近 user 轮文本，供重试复用本地草稿", () => {
+    let st = emptyTranscript();
+    st = applyUserPrompt(st, "帮我查配置");
+    st = applyUpdate(st, msgChunk("部分输出"));
+    st = settleTranscript(st, "error");
+    expect(st.turns.map((t) => t.kind)).toEqual(["user", "assistant"]);
+    expect(st.turns[1]).toMatchObject({ stopReason: "error" });
+    expect(retryablePromptText(st, st.turns[1].id)).toBe("帮我查配置");
+  });
+
+  it("非失败结算轮与未知轮 id 返回 null，不猜重试内容", () => {
+    let st = emptyTranscript();
+    st = applyUserPrompt(st, "q");
+    st = applyUpdate(st, msgChunk("答案"));
+    st = settleTranscript(st, "end_turn");
+    const answered = st.turns[1];
+    expect(answered.kind).toBe("assistant");
+    expect(retryablePromptText(st, answered.id)).toBeNull();
+    expect(retryablePromptText(st, 999)).toBeNull();
+  });
+
+  it("发后即失败的占位错误轮同样能取回 user 文本", () => {
+    let st = emptyTranscript();
+    st = applyUserPrompt(st, "solo");
+    st = settleTranscript(st, ERROR_STOP_REASON);
+    expect(st.turns.map((t) => t.kind)).toEqual(["user", "assistant"]);
+    expect(retryablePromptText(st, st.turns[1].id)).toBe("solo");
   });
 });
 

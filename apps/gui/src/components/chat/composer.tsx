@@ -5,6 +5,7 @@ import { ImagePlus, Send, Smile, X } from "lucide-react";
 import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useImeCompositionGuard } from "@/hooks/use-ime-composition";
 import { fileToChatMedia, inferKind, resolveMime } from "@/lib/chat-media";
 import { guardMediaFile, MEDIA_GUARD_I18N_KEY } from "@/lib/chat-limits";
 import type { ChatKind, ChatMediaInput, ChatMessageJson, ChatSendReport } from "@/lib/ipc-types";
@@ -65,6 +66,8 @@ export interface ComposerTransport {
 }
 
 // 输入条：多行文本 + 表情面板 + 附件；回车发送，shift+enter 换行；
+// IME 组合中（组合事件进行中或组合键码 229）Enter 视为确认候选词：
+// 不发送、不拦截默认行为，确认后的按键才走发送；
 // 空文本/超长禁用发送（§2.5 三律(1) 前置校验）；附件在读取前先走
 // guardMediaFile 本地拦截（mime 白名单 + ≤64MiB + 空载荷），稳定错误码经
 // i18n 渲染，不发无效请求；原始错误串只进提示详情。表单三律 (2)(3) 在
@@ -100,6 +103,7 @@ export function Composer({
   const [sending, setSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const { compositionHandlers, shouldBlockEnter } = useImeCompositionGuard();
 
   const trimmed = text.trim();
   const tooLong = trimmed.length > MAX_TEXT_CHARS;
@@ -136,6 +140,8 @@ export function Composer({
   };
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // React 合成事件不透出 isComposing，判定须落在原生事件上
+    if (shouldBlockEnter(event.nativeEvent)) return;
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       void send();
@@ -215,6 +221,7 @@ export function Composer({
           value={text}
           onChange={(event) => setText(event.target.value)}
           onKeyDown={onKeyDown}
+          {...compositionHandlers}
           placeholder={t("chat.inputPlaceholder")}
           aria-label={t("chat.inputPlaceholder")}
           data-testid={ids.input}
