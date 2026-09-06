@@ -1,7 +1,7 @@
 // F1 行为测试（P0）：ACP 提示词输入框回车发送的组合态守卫。
 // 组合选词期间（isComposing 或 keyCode 229 兜底）回车不得发送；
 // 组合结束后的回车正常发送；Shift+Enter 换行行为不变。
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.stubEnv("VITE_MOCK_IPC", "1");
@@ -49,6 +49,23 @@ describe("AcpView composer IME guard", () => {
     expect(pendingOf("s-001")).toBe(false);
     expect(composer().value).toBe("选词中");
     expect(useAcpStore.getState().transcripts["s-001"]?.turns.length ?? 0).toBe(0);
+  });
+
+  it("回合进行中发送禁用防重复提交，结算解除恢复；Stop 仅进行中可见", async () => {
+    await renderConnected();
+    await newSession();
+    fireEvent.change(screen.getByTestId("acp-composer-input"), { target: { value: "draft" } });
+    expect((screen.getByTestId("acp-composer-send") as HTMLButtonElement).disabled).toBe(false);
+    act(() => {
+      useAcpStore.setState({ promptPendingBySession: { "s-001": true } });
+    });
+    expect((screen.getByTestId("acp-composer-send") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId("acp-composer-stop")).toBeTruthy();
+    act(() => {
+      useAcpStore.setState({ promptPendingBySession: {} });
+    });
+    expect((screen.getByTestId("acp-composer-send") as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId("acp-composer-stop")).toBeNull();
   });
 
   it("Shift+Enter 换行不发送（守卫不改变既有行为）", async () => {

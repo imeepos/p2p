@@ -130,6 +130,22 @@ describe("Transcript 自动滚动", () => {
   });
 });
 
+describe("run 生命周期进行中指示（AG-UI RUN_STARTED→FINISHED 映射）", () => {
+  it("pending 置位显进行中条，结算解除后自动消失", () => {
+    seed([{ kind: "user", id: 1, text: "hi" }]);
+    render(<Transcript sessionId={SID} />);
+    expect(screen.queryByTestId("acp-run-active")).toBeNull();
+    act(() => {
+      useAcpStore.setState({ promptPendingBySession: { [SID]: true } });
+    });
+    expect(screen.getByTestId("acp-run-active").textContent).toContain("回合进行中");
+    act(() => {
+      useAcpStore.setState({ promptPendingBySession: {} });
+    });
+    expect(screen.queryByTestId("acp-run-active")).toBeNull();
+  });
+});
+
 describe("AssistantTurn 错误结算徽章", () => {
   it("stopReason=error 渲染红色系失败徽章而非灰字", () => {
     seed([{ kind: "assistant", id: 9, text: "boom", streaming: false, stopReason: "error" }]);

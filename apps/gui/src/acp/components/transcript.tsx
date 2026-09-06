@@ -185,6 +185,21 @@ function ToolTurn({ turn }: { turn: Extract<Turn, { kind: "tool" }> }) {
   );
 }
 
+/** AG-UI RUN_STARTED→RUN_FINISHED/ERROR 窗口的会话区进行中条：
+ *  pending 派生自 store，结算即自动消失，无独立生命周期需要清理 */
+function RunActiveStrip() {
+  const { t } = useTranslation();
+  return (
+    <div
+      className="text-muted-foreground flex items-center gap-2 text-xs"
+      data-testid="acp-run-active"
+    >
+      <span className="bg-warning size-2 animate-pulse rounded-full" />
+      {t("acp.transcript.runActive")}
+    </div>
+  );
+}
+
 function UserTurn({ turn }: { turn: Extract<Turn, { kind: "user" }> }) {
   const { t } = useTranslation();
   return (
@@ -205,6 +220,8 @@ export function Transcript({ sessionId }: TranscriptProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickBottomRef = useRef(true);
   const transcript = useAcpStore((s) => s.transcripts[sessionId]);
+  // AG-UI RUN_STARTED→RUN_FINISHED/ERROR 窗口：回合进行中派生态
+  const runActive = useAcpStore((s) => s.promptPendingBySession[sessionId] ?? false);
   // 兜底空数组须稳定引用，否则每次渲染都会重触发滚动 effect（exhaustive-deps）
   const turns = useMemo(() => transcript?.turns ?? [], [transcript]);
 
@@ -250,6 +267,7 @@ export function Transcript({ sessionId }: TranscriptProps) {
             {t("acp.transcript.ignored", { count: transcript.ignoredUpdates })}
           </p>
         ) : null}
+        {runActive ? <RunActiveStrip /> : null}
       </div>
     </div>
   );
