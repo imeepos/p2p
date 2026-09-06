@@ -177,3 +177,11 @@
 （`archivedSessionIds: [...state.archivedSessionIds, sessionId]`），响应中的 archivedSessionIds 是
 「registry-global archive set」全局投影（工具层文档原话：install the returned complete archive set），
 并非本次批量归档。单会话归档可安全使用；读响应时把长清单理解为全量已归档集即可，不是误归档。
+
+## DSH edit 工具绑定间歇性误报 missing required property description（2026-09-06 UX 波协调会话发现）
+
+- **症状**：同一 run_code 内 tools.edit 连续两次报 `invalid arguments: missing required property "description"`
+  （补传 description 仍报，疑似绑定层剥离未声明字段后宿主侧仍校验它）；同会话稍早一次不带 description 的
+  edit 调用却成功。触发面与参数内容相关（失败两笔的 new_string 含行内反引号，成功笔无），未定因。
+- **绕行**：edit 失败时改走 write 临时文件 + bash python/cat 追加，一次成功。
+- **期望**：绑定层与宿主侧对 edit 参数 schema 对齐；或文档明示 description 为必填。
