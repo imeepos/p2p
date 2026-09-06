@@ -172,3 +172,8 @@
 - **机理**：scripts/check/cli-parity.sh 以「固定 target 目录」按需重建共享工件（p2pctl 及其导出的 shell_union 数据源）；多协调线并发跑全量门禁时，A 线重建换文件、B 线一致性测试读到半新半旧数据即瞬时失配。b51cd5c 已修「陈旧二进制」假红，未覆盖「并发重建」态。
 - **期望修法**：共享工件门禁入口加 flock 互斥或改 per-run mktemp -d 隔离 target；或约定同一物理机同一时刻只允许一个全量门禁（协调者间错峰）。判别特征：一致性比对类测试 0.0x 秒挂 + ps 见他线门禁 + 单跑复绿 = 竞态假红，勿立代码修复单。
 - **附带发现**：.worktrees/acp-agent-sec 存在周五遗留的 cargo test reattach_full_chain --nocapture 挂进程（写 /tmp/acp-re2.log），已滞留多日，属 ACP4 线遗留，请归属线自查清理。
+
+**2026-09-06 澄清（UX 波协调会话核宿主实现）**：dsh-workspace 模型层 archiveSession 为幂等 append 单 id
+（`archivedSessionIds: [...state.archivedSessionIds, sessionId]`），响应中的 archivedSessionIds 是
+「registry-global archive set」全局投影（工具层文档原话：install the returned complete archive set），
+并非本次批量归档。单会话归档可安全使用；读响应时把长清单理解为全量已归档集即可，不是误归档。
