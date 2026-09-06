@@ -15,6 +15,7 @@ import { NARROW_CHAT_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 
 import { AgentConversation } from "./agent-conversation";
 import { FriendConversation } from "./friend-conversation";
+import { GroupPendingPanel } from "./group-pending-panel";
 import { GroupMemberPanel } from "@/views/group/group-member-panel";
 import { GroupConversation } from "@/views/group/group-conversation";
 
@@ -35,6 +36,7 @@ export function ChatPage() {
   const friendsError = useChatStore((s) => s.friendsError);
   const loadFriends = useChatStore((s) => s.loadFriends);
   const loadInvites = useChatStore((s) => s.loadInvites);
+  const loadGroupInvites = useChatStore((s) => s.loadGroupInvites);
   const selectPeer = useChatStore((s) => s.selectPeer);
   const subscribeEvents = useChatStore((s) => s.subscribeEvents);
   const groups = useGroupStore((s) => s.groups);
@@ -49,12 +51,13 @@ export function ChatPage() {
   useEffect(() => {
     void loadFriends();
     void loadInvites();
+    void loadGroupInvites();
     void subscribeEvents();
     void loadGroups();
     void refreshSelf();
     void ensureFriends();
     void subscribeGroupEvents();
-  }, [loadFriends, loadInvites, subscribeEvents, loadGroups, refreshSelf, ensureFriends, subscribeGroupEvents]);
+  }, [loadFriends, loadInvites, loadGroupInvites, subscribeEvents, loadGroups, refreshSelf, ensureFriends, subscribeGroupEvents]);
 
   const peerParam = searchParams.get("peer");
   const groupParam = searchParams.get("group");
@@ -170,6 +173,10 @@ export function ChatPage() {
               group={group}
               onOpenManage={() => setManageOpen(true)}
             />
+          ) : groupParam ? (
+            // IMC3：同意入群后 roster 未达的跳转时序兜底（加载态→自动进入）；
+            // key=groupId 换群即重挂载复位超时窗口
+            <GroupPendingPanel key={groupParam} groupId={groupParam} />
           ) : agentParam ? (
             <AgentConversation endpointId={agentParam} />
           ) : (

@@ -211,6 +211,11 @@ describe("IPC 调用点静态守卫", () => {
     chatHistory: "历史加载统一由 stores/chat-store（selectPeer/loadOlder/loadFriends）调用",
     chatSend: "消息发送统一由 stores/chat-store.sendText/sendMedia 调用（Composer 经 store）",
     chatMediaFile: "媒体展示当前直接消费消息内 path，无独立入口；接媒体落盘地址时补调用点",
+    // IMC3 入群邀请面：视图经 chat-store 群邀请切片（stores/chat-group-invite-slice）调用
+    chatGroupInvitesList: "入群邀请列表刷新统一由 stores/chat-group-invite-slice.loadGroupInvites 调用（数据层）",
+    chatGroupInviteSend: "发起入群邀请统一由 stores/chat-group-invite-slice.sendGroupInvite 调用（数据层）",
+    chatGroupInviteAccept: "同意入群邀请统一由 stores/chat-group-invite-slice.acceptGroupInvite 调用（数据层）",
+    chatGroupInviteReject: "拒绝入群邀请统一由 stores/chat-group-invite-slice.rejectGroupInvite 调用（数据层）",
   };
 
   function listFiles(dir: string): string[] {

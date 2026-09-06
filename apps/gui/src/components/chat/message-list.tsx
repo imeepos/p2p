@@ -4,9 +4,12 @@ import { useTranslation } from "react-i18next";
 
 import { AsyncButton } from "@/components/feedback/async-button";
 import type { ChatMessageJson } from "@/lib/ipc-types";
+import { matchInviteForMessage } from "@/lib/group-invite-match";
 import { useChatStore } from "@/stores/chat-store";
 import { EmptyState } from "@/views/shared/empty-state";
 
+import { GroupInviteDialog, type GroupInviteTarget } from "./group-invite-dialog";
+import { GroupInviteCard } from "./group-invite-card";
 import { MessageBubble } from "./message-bubble";
 
 const LOAD_OLDER_THRESHOLD_PX = 48;
@@ -110,6 +113,10 @@ export function MessageList({
   const olderError = useChatStore((s) => s.olderError[peer] ?? null);
   const selectPeerAction = useChatStore((s) => s.selectPeer);
   const loadOlderAction = useChatStore((s) => s.loadOlder);
+  // IMC3：入群邀请卡片态与确认弹框（1:1 流专属；群流在 GroupMessageList 降级）。
+  // 弹框按需挂载：无 Router 上下文的裸渲染（既有测试）不触发导航钩子。
+  const groupInvites = useChatStore((s) => s.groupInvites);
+  const [inviteTarget, setInviteTarget] = useState<GroupInviteTarget | null>(null);
 
   useEffect(() => {
     // switching peer forces stick-to-bottom
@@ -191,6 +198,16 @@ export function MessageList({
       ) : null}
       <div className="flex flex-col gap-2">
         {messages.map((message) => {
+          if (message.kind === "groupInvite") {
+            return (
+              <GroupInviteCard
+                key={message.id}
+                message={message}
+                invite={matchInviteForMessage(message, groupInvites)}
+                onOpenConfirm={(invite) => setInviteTarget({ message, invite })}
+              />
+            );
+          }
           const replyTo = message.replyTo ?? null;
           const quoted = replyTo ? resolveQuoted(replyTo) ?? null : null;
           return (
@@ -208,6 +225,14 @@ export function MessageList({
           );
         })}
       </div>
+      {inviteTarget ? (
+        <GroupInviteDialog
+          target={inviteTarget}
+          onOpenChange={(open) => {
+            if (!open) setInviteTarget(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -22,6 +22,7 @@ const KIND_KEYS = {
   audio: "chat.reply.kindAudio",
   video: "chat.reply.kindVideo",
   file: "chat.reply.kindFile",
+  groupInvite: "chat.reply.kindGroupInvite",
 } as const;
 
 export function replyKindKey(kind: ChatKind): (typeof KIND_KEYS)[ChatKind] {

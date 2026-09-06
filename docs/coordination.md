@@ -274,3 +274,29 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 - 2026-09-04 IM-T43 契约裁决轮（用户四项全裁）：好友分组采用**方案 A 单分组字段**——ChatFriend += group Option<String>（#[serde(default)]，camelCase，旧记录缺字段读回 None 沿 reply_to 先例）；**单分组语义**（null/空串=未分组虚拟组置底不落盘）；**新增 friend_update 端点**（peerId+可选补丁 group/nickname/note，addrs 不动，拒绝 add-upsert 语义混装）；**CLI 同卡交付**（friends add/list/update 带 --group，cli-parity 同步）。组名校验三处同口径（gui/p2p-chat/mock-chat）：trim ≤32、空串归 None。好友簿仅本地 friends.json 不上 wire，wire-protocol 不动，gui-contract §12 加法登记沿 T46A 格式。账本验收命令已换实（chat-friend-group 测试+三件套+p2p-chat 隔离 cargo test+cli-parity+make check）。专属会话已建派单。
 - 2026-09-05 IM-T43 收官（夜班并行接力完成合入）：协调者白天完成 fmt 修正（48c673a，make check fmt-check 暴露的分组测试断言格式）后，夜班接力 merge origin/main（248922f）并补 CLI 文档修 ai-docs-sync 门禁（4a46f3e）合入 main，worktree/分支按收尾四步清理。主树复验 chat-friend-group 6/6 绿。验收期间录得重要环境事实：负载 30-60 下 vitest forks worker 无法启动产出批量假红（与 T43 沉淀互证），已固化为自适应验收作业模式（负载阈值触发+长窗口兜底）；chat-boundaries 负载型 flake 立卡 IM-T53（P2）还债。账本折叠至 17 卡（CLI-C1..C4 及早期卡入 git 历史可查）。
 - 2026-09-05 IM-T53 flake 加固收官（技术债快清）：夜间空闲窗口交付 4 提交（去重语义锁死回归测试/逐点超时预算/app-boot 拆测/根因复盘 docs），协调者验收 ALL GREEN（boundaries 串行3次<1.3s、全量 315/315 仅 7s、build/i18n/cargo/parity/make check），rebase T20 收官轮后 ff-merge b70919e。新流程教训：cli-parity.sh 的 p2pctl「缺则构建」不查二进制新鲜度，gate-verify 曾用 9/3 陈旧二进制产出假红（chat_friend_update 实测无此命令），已用重建+复跑闭环；后续验收脚本须校验 artifact 时间戳。
+
+## IMC 入群邀请与消息中心轮（2026-09-06 派单，项目负责人协调）
+
+定位：邀请制入群（同意流）+ 聊天流内入群邀请卡片 + 消息中心（聚合入群邀请与好友邀请）。
+契约出处：协调者冻结契约（随各任务书下发）；wire-protocol.md §8.3 旁新增 /im/ginvite/1 登记（IMC1 交付）；
+1:1 消息模型 kind 加法 groupInvite（serde default 兼容旧消息）。
+波次：IMC1（后端契约）∥ IMC3（GUI 契约驱动 mock）→ IMC2（IPC+CLI parity，IMC1 合入后派）→ 三卡合落后主树联验收官。
+范围互斥：三卡文件域零交集；执行会话禁碰 docs/coordination.md 与 devloop 账本。
+
+| 任务单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| IMC1 同意制入群邀请与卡片消息 kind | session-3dc1ece7（专属新会话） | feat/im-card-backend | crates/p2p-chat/** + crates/p2p-itest/** + docs/design/wire-protocol.md + docs/design/im-group-design.md | cargo test -p p2p-chat + clippy -p p2p-chat --all-targets -- -D warnings + cargo test -p p2p-itest --test group_invite_consent + make check 全绿 |
+| IMC3 GUI 入群卡片/确认弹框/消息中心 | session-f4cdafc5（专属新会话） | feat/im-card-gui | apps/gui/src/**（卡片渲染/弹框/消息中心路由+顶栏铃铛入口/chat-store 群邀请切片/i18n zh+en） | vitest src/views + components/chat + stores + build + check:i18n + make check 全绿 |
+| IMC2 IPC 与 CLI parity | 待派（IMC1 合入后） | feat/im-card-ipc | apps/gui/src-tauri/** + apps/cli/** + scripts/check/cli-parity.tsv + docs/ops/cli-guide.md 与 p2pctl-ai-guide.md 对应段 | src-tauri cargo test + cargo test -p p2p-cli + cli-parity OK + make check 全绿 |
+
+## DOC 协议接入文档波（2026-09-06 派单，项目负责人协调）
+
+定位：面向外部接入者的标准通信协议文档（docs/protocol/ 五文件，第三方不读本仓源码也能实现兼容节点/协议）+ 文档集成进 GUI（协议文档页）。
+事实基线：crates/ 代码 + docs/design/wire-protocol.md（v1）；冲突以代码为准，文档漂移只登记不修码（crates/** 对本波只读）。
+与 SHARE 波域互斥：AS3 独占 apps/gui/src/** 在途，DOC2 排队待 AS3 合入腾域后派发。
+
+| 任务单 | 负责会话 | 分支 | 范围 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| DOC1 协议接入文档 | 专属新会话（DOC1） | feat/protocol-integration-docs | docs/protocol/** 新增五文件（README/quickstart/wire-format/node-lifecycle/builtin-and-versioning）+ docs/README.md 索引行；其余一律只读 | 五文件各 ≤300 行、无 emoji + 常量抽检 8/8 出处命中 + 字节示例 varint 独立解码自洽 + make check 全绿 + diff 域合规（仅 docs/protocol/** 与 docs/README.md） | doing |
+| DOC2 GUI 协议文档页 | 待派（依赖 AS3 合入腾出 apps/gui/src/**） | feat/gui-protocol-docs | apps/gui/src/**：/docs 路由 + palette-nav 登记 + 设置页入口行 + i18n zh/en（键先独立小提交）；rail 保持 4 项；内容单源 vite raw 引 docs/protocol/ 禁复制 | pnpm build/lint/test/check:i18n 全绿 + vitest 断言真实文档渲染 + MENU_ENTRIES 仍 4 项 + 无新增 Tauri 命令 + diff 域合规 | todo（排队，等 AS3） |
+

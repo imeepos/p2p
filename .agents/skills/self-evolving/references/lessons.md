@@ -314,3 +314,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 IMC1 卡：同一邀请在 owner/受邀者是两本独立台账，条目 id 各自生成互不相等——accept/reject 只能用本机 group_invites_list 里的 id，拿对端条目 id 必 NotFound；跨端关联靠 groupId+对端 PeerId，不靠 id。
 - 2026-09-06 IMC1 卡：根 workspace members=crates/*，apps/cli 既不入 workspace 也不被 make check test（ai-docs-sync 只 build 不 test）——cli 测试腐坏无门禁拦（存量 FriendUpdateReport 测试缺 addrs 字段烂了很久），动 cli 域时手动 cargo test --manifest-path 补一次。
 - 2026-09-06 IMC1 卡：验收链跑期间改源码=结果作废：cargo test 段跑的是改前二进制、fmt-check 在链尾才炸，白等 6 分钟；源码定稿后先 cargo fmt --check 再挂链，链跑期间冻结一切文件写入（含 docs/.md）。
+- 2026-09-06：组件内聚 useNavigate 等路由钩子时，钩子组件必须「按需挂载」（条件渲染 null）——MessageList 常驻渲染导航弹框让 6 个裸渲染既有测试崩在 useNavigate() invariant；修复是把导航收进弹框组件并按需挂载，既有测试零改动回绿。
+- 2026-09-06：run_code 跨调用无运行时内存再实证两次：上一调用定义的常量（如目标路径 p）在下一调用不存在（ReferenceError: p is not defined）；每个 program 必须自带全部常量与路径。
+- 2026-09-06：read 全文→write 回写是大文件截断陷阱（792 行被 read 输出预算裁成 341 行后覆盖落盘）；追加用 bash cat >> heredoc，写后 wc -l 对账（IMC3 轮实录，合并后才被 diff 行数暴露，当场修复）。
