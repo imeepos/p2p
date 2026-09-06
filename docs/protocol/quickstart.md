@@ -87,7 +87,7 @@ enable_mdns=true 即自动开始通告与浏览，无需任何参数：
     # 节点启动后自动循环：
     #   注册：每 20s 重发一次（兼作控制链路保活），TTL 默认 60s
     #   查询：启动期 5s 一轮、共 2 轮，之后 30s 一轮（出处
-    #         crates/p2p-discovery/src/rendezvous/client.rs:20,25-29,73）
+    #         crates/p2p-discovery/src/rendezvous/client.rs:20,25-29）
     # 注册帧带 Ed25519 签名，覆盖 namespace/peer_id/地址集/TTL/签发时刻，
     # 服务端验签三要点见 node-lifecycle.md 第 1.2 节
 
