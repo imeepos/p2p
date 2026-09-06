@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-06T19:40:00Z",
+  "updatedAt": "2026-09-06T19:41:00Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-7af45e36-f764-40a1-b2a7-2ef1c30d424b",
@@ -749,8 +749,8 @@
       "scope": "views/llm-share/**（新）、App.tsx、routes/**、components/command-palette/**、i18n llmShare.* 键块；禁触 lib/**、views/settings/**、acp/**、src-tauri/**",
       "acceptanceCommand": "cd apps/gui && pnpm lint && pnpm test --run && pnpm build && pnpm check:i18n",
       "goal": "/llm-share 四面板（offer 发布必填集显性化+五态警示分级；allowlist 管理默认拒绝原话；borrow 二次确认+maxTokens 必填+stream_broken 中性渲染+reqId 重试复用；双边账本分组方向徽标+收据验核）+路由/palette 登记（rail 不动）",
-      "note": " [2026-09-06 派单] 对 mock 先行。 [2026-09-06 done] 协调者验收：范围合规+反向同步（skill 追加文件并集消化冲突，双亲完整性校验过）+合并后全量 vitest 166 文件 978 用例绿+批次 make check PASS；ff 合并已推 origin；worktree/分支双删；会话归档。node_modules 软链反模式复发已按 UX2 教训处置（去链+CI=true 真安装）。",
-      "mergedMain": "f862d1c"
+      "note": " [2026-09-06 派单] 对 mock 先行。 [2026-09-06 done] 协调者验收：范围合规+反向同步（skill 追加文件并集消化冲突，双亲完整性校验过）+合并后全量 vitest 166 文件 978 用例绿+批次 make check PASS；ff 合并已推 origin；worktree/分支双删；会话归档。 [2026-09-06 更正] 首轮收官声明有误：ff-only 实际失败（main 已被 UX 打磨轨推进至 46a69fe），分号链 push 误推他轨内容且只读日志尾部误判成功；LSG3 会话自主恢复（5a85b31→fd5a61d）并举报，二次反向同步并集消化后真合并 9289be8，经 ls-tree+双亲祖先校验+批次 make check FINAL-EXIT=0 确认。node_modules 软链反模式复发已按 UX2 教训处置（去链+CI=true 真安装）。",
+      "mergedMain": "9289be8"
     }
   ],
   "notes": "\n[2026-09-05 折叠] CLI-C1..C4（p2pctl 脚手架/命令域/聊天域/文档-parity）全部 done 后折叠，提交见 git log --grep 'CLI-C'，验收命令留存于 coordination.md 历史。"
