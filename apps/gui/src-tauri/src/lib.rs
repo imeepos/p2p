@@ -3,11 +3,13 @@
 //! 模块划分：types（契约 serde 镜像）/ config（配置持久化）/ proto（echo 与 target 解析）/
 //! state（节点生命周期）/ events（事件转发）/ commands（11 个 IPC 命令）/
 //! frontend_log（契约 v3 加法：前端错误落盘，G-H 观测）/
-//! update（契约 v4 加法：在线更新检查，G-U1）。
+//! update（契约 v4 加法：在线更新检查，G-U1）/
+//! console（契约 v10 加法：acp-console 伴生进程托管，UX2）。
 
 pub mod chat;
 pub mod commands;
 pub mod config;
+pub mod console;
 pub mod control;
 pub mod events;
 pub mod frontend_log;

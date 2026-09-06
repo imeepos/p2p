@@ -35,7 +35,7 @@ serde_json = "1"
 # test feature 供集成测试用 mock runtime 直调命令层（不起 webview）；
 # protocol-asset 供 assetProtocol（契约 v7 §12：chat 媒体预览 convertFileSrc）
 tauri = { version = "2", features = ["test", "protocol-asset"] }
-tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+tokio = { version = "1", features = ["macros", "rt", "sync", "time", "process", "io-util"] }
 tracing = "0.1"
 # 在线更新检查（契约 v4 §9，G-U1）：TLS 走 rustls（图内已有，不引 openssl）
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
