@@ -28,7 +28,9 @@ interface EventRowProps {
   onToggle: (event: NodeEventJson) => void;
 }
 
-// 事件行：等宽时间戳 + 类型徽标 + i18n 摘要；整行点击展开详情。
+// 事件行（F16）：行主体点击与行尾「详情」按钮都能展开；展开态容器挂
+// data-state=open 并整体高亮（底色 + 主色内嵌条），收起/再展开状态由
+// 上层 Set 驱动，行为一致。
 export function EventRow({
   event,
   locale,
@@ -50,32 +52,50 @@ export function EventRow({
   const Chevron = expanded ? ChevronDownIcon : ChevronRightIcon;
 
   return (
-    <div className="flex h-full flex-col">
-      <button
-        type="button"
-        onClick={() => onToggle(event)}
-        aria-expanded={expanded}
-        className="flex h-10 w-full shrink-0 items-center gap-2 border-b px-4 text-left font-mono text-xs hover:bg-muted/40"
-      >
-        <Chevron
-          className="text-muted-foreground size-3.5 shrink-0"
-          aria-hidden
-        />
-        <span className="text-muted-foreground w-20 shrink-0 tabular-nums">
-          {formatTime(eventTimeMs(event), locale)}
-        </span>
-        <Badge variant={eventBadgeVariant(event)} className="shrink-0">
-          {t(EVENT_TYPE_KEY[event.type])}
-        </Badge>
-        <span
-          className={cn(
-            "min-w-0 flex-1 truncate",
-            isNodeEventError(event) && "text-destructive",
-          )}
+    <div
+      data-state={expanded ? "open" : "closed"}
+      className={cn(
+        "flex h-full flex-col",
+        expanded &&
+          "bg-muted/50 shadow-[inset_2px_0_0_0_var(--primary)]",
+      )}
+    >
+      <div className="flex h-10 shrink-0 items-stretch border-b">
+        <button
+          type="button"
+          onClick={() => onToggle(event)}
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-2 px-4 text-left font-mono text-xs hover:bg-muted/40"
         >
-          {tt(summary.key, summary.values)}
-        </span>
-      </button>
+          <Chevron
+            className="text-muted-foreground size-3.5 shrink-0"
+            aria-hidden
+          />
+          <span className="text-muted-foreground w-20 shrink-0 tabular-nums">
+            {formatTime(eventTimeMs(event), locale)}
+          </span>
+          <Badge variant={eventBadgeVariant(event)} className="shrink-0">
+            {t(EVENT_TYPE_KEY[event.type])}
+          </Badge>
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate",
+              isNodeEventError(event) && "text-destructive",
+            )}
+          >
+            {tt(summary.key, summary.values)}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onToggle(event)}
+          aria-expanded={expanded}
+          data-testid="event-row-details"
+          className="text-muted-foreground hover:bg-muted/40 hover:text-foreground shrink-0 border-l px-3 text-xs"
+        >
+          {t("uxiEvents.row.details")}
+        </button>
+      </div>
       {expanded && <EventRowDetail event={event} locale={locale} />}
     </div>
   );

@@ -48,6 +48,8 @@ export function EventsView() {
         onErrorOnlyChange={controller.setErrorOnly}
         typeFilter={controller.typeFilter}
         onToggleType={controller.toggleType}
+        counts={controller.counts}
+        onResetFilters={controller.resetFilters}
       />
       <EventsActionsBar
         paused={controller.paused}
