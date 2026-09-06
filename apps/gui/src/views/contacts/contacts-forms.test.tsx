@@ -41,6 +41,7 @@ import { useChatStore } from "@/stores/chat-store";
 import { useGroupStore } from "@/stores/group-store";
 import { useAcpStore } from "@/acp/acp-store";
 import { useEndpointMetaStore } from "@/acp/endpoint-meta";
+import { adminEndpointCandidates } from "@/acp/admin-endpoints";
 
 import { ChatFriendMoveDialog } from "./chat-friend-move-dialog";
 import { EndpointAddDialog } from "./endpoint-add-dialog";
@@ -221,5 +222,77 @@ describe("表单错误 = 稳定错误码 + i18n key（快照断言）", () => {
       "分组名超过 32 字符上限",
     );
     expect(mocks.updateFriend).not.toHaveBeenCalled();
+  });
+});
+
+describe("endpoint 分享管理（零配置向导）", () => {
+  function renderDialog() {
+    return render(
+      <MemoryRouter>
+        <ConfirmProvider>
+          <EndpointAddDialog open onOpenChange={() => {}} onSaved={() => {}} />
+        </ConfirmProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  it("打开即按 wsUrl 预填管理地址：ws -> http 同 host:port", async () => {
+    useAcpStore.setState({
+      saved: [],
+      draft: { wsUrl: "ws://192.168.1.8:8787", token: "ws-token", peer: "" },
+    });
+    renderDialog();
+    await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
+    expect(
+      (screen.getByTestId("contacts-endpoint-adminurl") as HTMLInputElement).value,
+    ).toBe("http://192.168.1.8:8787");
+  });
+
+  it("token 缺失保存被拦：tokenRequired 稳定错误码", async () => {
+    useAcpStore.setState({
+      saved: [],
+      draft: { wsUrl: "ws://127.0.0.1:8787", token: "", peer: "" },
+    });
+    renderDialog();
+    await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
+    fireEvent.click(screen.getByTestId("contacts-endpoint-save"));
+    const node = await screen.findByTestId("contacts-endpoint-error-tokenRequired");
+    expect(node.textContent).toBe(i18n.t("contacts.endpoint.errors.tokenRequired" as I18nKey));
+  });
+
+  it("adminUrl 非法保存被拦：adminUrlInvalid 稳定错误码", async () => {
+    useAcpStore.setState({
+      saved: [],
+      draft: { wsUrl: "ws://127.0.0.1:8787", token: "ws-token", peer: "" },
+    });
+    renderDialog();
+    await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("contacts-endpoint-adminurl"), {
+      target: { value: "ftp://bad" },
+    });
+    fireEvent.click(screen.getByTestId("contacts-endpoint-save"));
+    await screen.findByTestId("contacts-endpoint-error-adminUrlInvalid");
+  });
+
+  it("填齐管理 Token 保存后：分享管理端点候选立即可用（分享解锁）", async () => {
+    useAcpStore.setState({
+      saved: [],
+      draft: { wsUrl: "ws://127.0.0.1:8787", token: "ws-token", peer: "" },
+    });
+    renderDialog();
+    await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("contacts-endpoint-admintoken"), {
+      target: { value: "admin-token" },
+    });
+    fireEvent.click(screen.getByTestId("contacts-endpoint-save"));
+    await waitFor(() => {
+      const cands = adminEndpointCandidates(
+        useAcpStore.getState().saved,
+        useAcpStore.getState().draft,
+      );
+      expect(cands).toHaveLength(1);
+      expect(cands[0]!.url).toBe("http://127.0.0.1:8787");
+      expect(cands[0]!.token).toBe("admin-token");
+    });
   });
 });

@@ -27,6 +27,7 @@ import type { AcpEndpoint } from "@/acp/protocol";
 import type { I18nKey } from "@/i18n/types";
 
 import {
+  defaultAdminUrl,
   hasEndpointFormErrors,
   validateEndpointForm,
   wsUrlHistory,
@@ -50,9 +51,19 @@ interface EndpointAddDialogProps {
   onSaved: (endpoint: AcpEndpoint) => void;
 }
 
+/** 管理地址缺省推导：分享 ACP 依赖 admin 端点（§8），同机部署从 wsUrl 起步即可用 */
+function seedForm(draft: AcpEndpoint): AcpEndpoint {
+  if (draft.adminUrl?.trim()) return draft;
+  const derived = defaultAdminUrl(draft.wsUrl);
+  if (!derived) return draft;
+  return { ...draft, adminUrl: derived };
+}
+
 // 添加 agent endpoint（§3.2/§3.4）：wsUrl 默认值沿用；wsUrl 历史值下拉
 // （已保存端点去重、最近在前）；「测试连接」先行，未通过仍可保存（行内
 // 警告徽标）；保存走 localStorage 收藏语义，endpointId 本地生成兜底。
+// token 必填（console 随机发布，粘贴一次随草稿复用）；分享管理区登记
+// agent admin 端点，保存后分享创建即可用。
 export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDialogProps) {
   const { t } = useTranslation();
   const saved = useAcpStore((s) => s.saved);
@@ -63,12 +74,12 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   const [fieldErrors, setFieldErrors] = useState<EndpointFormErrors | null>(null);
   const idRef = useRef<string | null>(null);
 
-  // 打开瞬间播种一次（渲染期状态调整，不落 effect）：表单回最近草稿
+  // 打开瞬间播种一次（渲染期状态调整，不落 effect）：表单回最近草稿并补管理地址缺省
   const [seededOpen, setSeededOpen] = useState(false);
   if (open !== seededOpen) {
     setSeededOpen(open);
     if (open) {
-      setForm(draft);
+      setForm(seedForm(draft));
       setFieldErrors(null);
     }
   }
@@ -86,8 +97,10 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   const validate = (): boolean => {
     const errors = validateEndpointForm({
       wsUrl: form.wsUrl,
+      token: form.token,
       peer: form.peer,
       alias: form.alias ?? "",
+      adminUrl: form.adminUrl,
     });
     if (hasEndpointFormErrors(errors)) {
       setFieldErrors(errors);
@@ -159,9 +172,11 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
               type="password"
               value={form.token}
               onChange={(e) => patch("token")(e.target.value)}
+              placeholder={t("contacts.endpoint.tokenPlaceholder")}
               autoComplete="off"
               data-testid="contacts-endpoint-token"
             />
+            <FieldError code={fieldErrors?.token} />
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="contacts-endpoint-peer">{t("contacts.endpoint.peerLabel")}</Label>
@@ -185,6 +200,36 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
               data-testid="contacts-endpoint-alias"
             />
             <FieldError code={fieldErrors?.alias} />
+          </div>
+          <div className="flex flex-col gap-2 border-t pt-3">
+            <Label className="text-muted-foreground">{t("contacts.endpoint.adminSectionLabel")}</Label>
+            <p className="text-muted-foreground text-xs">{t("contacts.endpoint.adminHint")}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="contacts-endpoint-adminurl">{t("contacts.endpoint.adminUrlLabel")}</Label>
+                <Input
+                  id="contacts-endpoint-adminurl"
+                  className="font-mono text-xs"
+                  value={form.adminUrl ?? ""}
+                  onChange={(e) => patch("adminUrl")(e.target.value)}
+                  autoComplete="off"
+                  data-testid="contacts-endpoint-adminurl"
+                />
+                <FieldError code={fieldErrors?.adminUrl} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="contacts-endpoint-admintoken">{t("contacts.endpoint.adminTokenLabel")}</Label>
+                <Input
+                  id="contacts-endpoint-admintoken"
+                  type="password"
+                  value={form.adminToken ?? ""}
+                  onChange={(e) => patch("adminToken")(e.target.value)}
+                  placeholder={t("contacts.endpoint.adminTokenPlaceholder")}
+                  autoComplete="off"
+                  data-testid="contacts-endpoint-admintoken"
+                />
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Button type="button" variant="outline" size="sm" onClick={test} disabled={testing} data-testid="contacts-endpoint-test">
