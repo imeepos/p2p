@@ -177,7 +177,9 @@ jobs:
           path: |
             apps/gui/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/gui/src-tauri/target/release/bundle/deb/*.deb
-            # updater 增量包与签名
+            # updater 增量包与签名：Tauri v2 实证产出裸 .AppImage + .AppImage.sig
+            # （v1 的 tar.gz 双件保留为兼容兜底）
+            apps/gui/src-tauri/target/release/bundle/appimage/*.AppImage.sig
             apps/gui/src-tauri/target/release/bundle/appimage/*.AppImage.tar.gz*
           if-no-files-found: error
 
@@ -189,7 +191,9 @@ jobs:
           path: |
             apps/gui/src-tauri/target/release/bundle/nsis/*.exe
             apps/gui/src-tauri/target/release/bundle/msi/*.msi
-            # updater 增量包与签名（NSIS zip 为 v2 updater 格式）
+            # updater 增量包与签名：Tauri v2 实证产出 -setup.exe + -setup.exe.sig
+            # （v1 的 NSIS zip 双件保留为兼容兜底）
+            apps/gui/src-tauri/target/release/bundle/nsis/*.exe.sig
             apps/gui/src-tauri/target/release/bundle/nsis/*-setup.nsis.zip*
           if-no-files-found: error
 

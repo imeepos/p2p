@@ -54,6 +54,7 @@ gate-tests:
 	bash scripts/check/tests/cli-parity.sh
 	bash scripts/check/tests/mock-ipc-guards.sh
 	bash scripts/check/tests/src-tauri-gate.sh
+	bash scripts/check/tests/make-latest-json.sh
 
 # CLI 对等守卫：GUI generate_handler 全集 ↔ p2pctl 实测命令面（映射表 cli-parity.tsv）
 cli-parity:

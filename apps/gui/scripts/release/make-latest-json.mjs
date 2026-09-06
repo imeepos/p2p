@@ -92,6 +92,9 @@ for (const [suffix, platform, arch] of [
 // Linux AppImage / Windows NSIS：文件名自带版本与架构，无需改名
 const linuxDir = findDir("p2p-console-linux");
 const linuxPick = pick(allFiles, linuxDir, [
+  // Tauri v2 实证形态优先：裸 .AppImage + .AppImage.sig；
+  // v1 的 tar.gz 双件保留为兼容兜底（老构建产物仍可发布）
+  { artifact: /\.AppImage$/, sig: /\.AppImage\.sig$/ },
   { artifact: /\.AppImage\.tar\.gz$/, sig: /\.AppImage\.tar\.gz\.sig$/ },
 ]);
 if (!linuxPick) fail("linux 无 AppImage 增量包");
