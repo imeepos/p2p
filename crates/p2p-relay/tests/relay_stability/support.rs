@@ -136,11 +136,7 @@ impl RelayLink for BlackHoleLink {
 /// 截止时间轮询：等谓词为真，超时显式判红。定时器驱动的回收（如
 /// server_silence）需要真实时钟流逝，yield 自旋在多核调度下可能全程
 /// 不 park、纯 CPU 微秒级烧完窗口抢先判红（2026-09-06 CI ubuntu 实锤）。
-pub(crate) async fn wait_until(
-    mut pred: impl FnMut() -> bool,
-    deadline_ms: u64,
-    what: &str,
-) {
+pub(crate) async fn wait_until(mut pred: impl FnMut() -> bool, deadline_ms: u64, what: &str) {
     let deadline = tokio::time::Instant::now() + Duration::from_millis(deadline_ms);
     while !pred() {
         assert!(
