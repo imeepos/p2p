@@ -29,6 +29,14 @@ pub enum ErrorCode {
     HandshakeMalformed,
     #[error("ndjson-truncated: stream ended with an unterminated line")]
     NdjsonTruncated,
+    #[error("share-reuse-denied: share token already bound to another peer")]
+    ShareReuseDenied,
+    #[error("share-expired: share link past its expires_at")]
+    ShareExpired,
+    #[error("share-revoked: share revoked by owner")]
+    ShareRevoked,
+    #[error("share-exhausted: share activation cap reached")]
+    ShareExhausted,
 }
 
 impl ErrorCode {
@@ -45,6 +53,10 @@ impl ErrorCode {
             Self::CwdDenied => "cwd-denied",
             Self::HandshakeMalformed => "handshake-malformed",
             Self::NdjsonTruncated => "ndjson-truncated",
+            Self::ShareReuseDenied => "share-reuse-denied",
+            Self::ShareExpired => "share-expired",
+            Self::ShareRevoked => "share-revoked",
+            Self::ShareExhausted => "share-exhausted",
         }
     }
 }
