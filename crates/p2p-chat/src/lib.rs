@@ -7,6 +7,11 @@ mod core;
 mod drain;
 mod events;
 mod friend;
+mod ginvite;
+mod ginvite_api;
+mod ginvite_flow;
+mod ginvite_handler;
+mod ginvite_wire;
 mod group;
 mod group_core;
 mod group_model;
@@ -17,6 +22,7 @@ mod identity_lock;
 mod invite;
 mod invite_api;
 mod invite_handler;
+mod kind;
 mod model;
 mod outbox;
 mod outbox_api;
@@ -25,6 +31,7 @@ mod store;
 mod store_friends;
 #[cfg(test)]
 mod store_friends_tests;
+mod store_ginvite;
 mod store_invite;
 mod store_io;
 mod store_lock;
@@ -43,8 +50,13 @@ use tokio::sync::broadcast;
 
 pub use events::ChatEvent;
 pub use friend::{validate_group, ChatFriend, FriendPatch, MAX_GROUP_CHARS};
+pub use ginvite::{
+    ChatInviteCard, GroupInvite, GroupInviteDirection, GroupInviteState, MAX_GROUP_INVITES,
+};
+pub use ginvite_api::GroupInviteReport;
 pub use group::{
-    Group, GroupEvent, GroupInfo, GroupMessage, GroupSendReport, GroupState, GROUP_PROTOCOL,
+    Group, GroupEvent, GroupInfo, GroupMessage, GroupSendReport, GroupState, GINVITE_PROTOCOL,
+    GROUP_PROTOCOL,
 };
 pub use invite::{FriendInvite, InviteDirection, InviteState, MAX_INVITES};
 pub use invite_api::InviteReport;
@@ -208,6 +220,11 @@ impl Chat {
         if peer_id == self.core.node.local_peer_id() {
             return Err(ChatError::SelfPeer(peer.to_string()));
         }
+        if kind == ChatKind::GroupInvite {
+            return Err(ChatError::InvalidUpdate(
+                "入群邀请卡片仅经群门面 group_invite_member 发出".into(),
+            ));
+        }
         // 回复引用校验：提供时必须非空字符串；不校验被引用消息存在性（离线引用允许）。
         let reply_to = match reply_to.as_deref() {
             None => None,
@@ -229,6 +246,7 @@ impl Chat {
             media: None,
             status: ChatStatus::Pending,
             reply_to,
+            card: None,
         };
         match (&kind, media) {
             (ChatKind::Text, Some(_)) => {

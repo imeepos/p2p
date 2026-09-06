@@ -1,8 +1,7 @@
 //! 线协议 /im/chat/1 帧编解码与入站 handler（design §3；wire-protocol.md §8 登记）。
 //!
-//! 帧载荷首字节 = 类型头（与 chunked 同风格），其余为 JSON 或原始字节：
-//! ENVELOPE 0x01 / MEDIA_BEGIN 0x02 / MEDIA_CHUNK 0x03 / ACK 0x04。
-//! 时序：ENVELOPE →（MEDIA_BEGIN → MEDIA_CHUNK×n）→ ACK；任意帧校验失败断流告警。
+//! 帧载荷首字节 = 类型头（与 chunked 同风格）：ENVELOPE 0x01 / MEDIA_BEGIN 0x02 /
+//! MEDIA_CHUNK 0x03 / ACK 0x04；时序与断流纪律见 §8.1（wire-protocol.md）登记。
 //!
 //! 对端身份说明：底座 handler 拿不到对端 PeerId（serve.rs 分发不携带 peer），
 //! 故线上 peer 字段承载发端自身 PeerId；收端校验其合法、非本机且 sender 为 me
@@ -47,6 +46,9 @@ pub(crate) struct WireEnvelope {
     text: Option<String>,
     media: Option<WireMedia>,
     reply_to: Option<String>,
+    /// 入群邀请卡片载荷（IMC1 加法字段，kind=groupinvite 时有值；旧对端忽略）。
+    #[serde(default)]
+    pub(crate) card: Option<crate::ginvite::ChatInviteCard>,
     #[serde(default)]
     pub(crate) from_addrs: Option<Vec<String>>,
 }
@@ -98,6 +100,7 @@ impl WireEnvelope {
                 size: m.size,
             }),
             reply_to: env.reply_to.clone(),
+            card: env.card.clone(),
             from_addrs: if from_addrs.is_empty() {
                 None
             } else {
@@ -135,6 +138,29 @@ impl WireEnvelope {
                     media: None,
                     status: ChatStatus::Delivered,
                     reply_to: self.reply_to,
+                    card: None,
+                })
+            }
+            ChatKind::GroupInvite => {
+                if self.media.is_some() {
+                    return Err(ChatError::InvalidMedia(
+                        "groupinvite 卡片不接受附件，拒绝".into(),
+                    ));
+                }
+                let card = self.card.ok_or_else(|| {
+                    ChatError::InvalidMedia("groupinvite 卡片缺载荷，拒绝".into())
+                })?;
+                Ok(ChatEnvelope {
+                    id: self.id,
+                    peer: self.peer,
+                    sender: Sender::Them,
+                    kind: ChatKind::GroupInvite,
+                    ts_ms: self.ts_ms,
+                    text: None,
+                    media: None,
+                    status: ChatStatus::Delivered,
+                    reply_to: self.reply_to,
+                    card: Some(card),
                 })
             }
             kind => {
@@ -157,6 +183,7 @@ impl WireEnvelope {
                     }),
                     status: ChatStatus::Delivered,
                     reply_to: self.reply_to,
+                    card: None,
                 })
             }
         }

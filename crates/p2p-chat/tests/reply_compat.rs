@@ -18,6 +18,7 @@ fn envelope_with_reply(reply_to: Option<&str>) -> ChatEnvelope {
         media: None,
         status: ChatStatus::Pending,
         reply_to: reply_to.map(|s| s.to_string()),
+        card: None,
     }
 }
 

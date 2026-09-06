@@ -14,6 +14,7 @@ fn env() -> ChatEnvelope {
         media: None,
         status: ChatStatus::Pending,
         reply_to: None,
+        card: None,
     }
 }
 

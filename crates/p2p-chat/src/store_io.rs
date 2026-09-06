@@ -211,6 +211,7 @@ mod tests {
             media: None,
             status,
             reply_to: None,
+            card: None,
         }
     }
 
