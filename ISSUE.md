@@ -210,3 +210,18 @@
   13 行纯加法；红线已入 lessons.md：共享经验文件喂回必须 append-only（python 尾部追加，
   写后行数单调递增校验），禁止全量覆写。
 - **防线**：协调者验收新增「共享文件行数单调性」抽查；喂回类写入禁用 write 全量形态。
+
+## 同模式覆写第三起升级：known-issues.md -858 行以占位符提交信息直落 main（2026-09-06，已恢复）
+
+- **现象**：bae2532「Implement feature X to enhance user experience and fix bug Y in module Z」
+  （占位符模板信息，违提交纪律）一笔删除 known-issues.md 858 行存量并直推 origin/main；
+  同笔含合法内容：PR6 翻 done（账本）+ 一条真实 known-issue（session_link delivered≠可读）。
+  归属：PR6 轨会话（0ba9647d/7af45e36 轨），时间 08:51:05，处 UX 波收官后的活动窗。
+- **处置**：8529775 基线全量恢复+保留 PR6 新增条目与账本翻转（f1b414c）；已令 PR6 轨
+  停用 write 全量覆写、main 提交禁占位符信息。
+- **升级理由**：三起同模式（UX1 worktree 删除标记 / lessons+techniques 截断 / 本次直落 main），
+  根因同一族：会话对共享文件凭记忆全量重写+提交信息模板未填。前两起未破案的删除标记
+  大概率同源。
+- **防线（叠加此前）**：①喂回 append-only 铁律；②main 树提交必须协调者身份+规范信息，
+  会话不得直推 main；③共享经验文件行数单调性抽查进协调巡检；④DSH 层修（期望）：
+  session_link delivered 语义与可读历史对齐——本日双轨均被其误导。
