@@ -75,6 +75,11 @@ cwd 监狱 + 每连接一个 `dsh --profile acp` 子进程监督，断线续连�
 不解析 ACP 语义；GUI 作为标准 WS 客户端接入。入口 `cargo run -p acp-console`，
 就绪端口与 token 经 stdout JSON 行发布。
 
+分享链接：owner 经 acp-agent 本地 admin HTTP（或 `p2pctl acp share`）把 agent
+操控权做成临时/一次性 `dsh-acp-share://` 链接，guest `--share-link`（或 console
+POST /connect-share）导入即获得受限 ACP endpoint；全链路 E2E 见
+crates/p2p-itest/tests/share_link_wave.rs，运维见 docs/ops/acp-guide.md §8。
+
 ## 快速上手
 
 ```bash
