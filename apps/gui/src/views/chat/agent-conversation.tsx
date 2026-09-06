@@ -3,7 +3,10 @@ import { Link } from "react-router-dom";
 import { Bot, Loader2 } from "lucide-react";
 
 import { useAcpStore } from "@/acp/acp-store";
+import { acpErrorDetail, connectFailureText } from "@/acp/error-help";
 import { LOCAL_AGENT_ENDPOINT_ID } from "@/acp/console-client";
+import type { AcpCloseInfo } from "@/acp/protocol";
+import { CopyButton } from "@/components/monitor/copy-button";
 import { Button } from "@/components/ui/button";
 import { PromptComposer } from "@/acp/components/prompt-composer";
 import { Transcript } from "@/acp/components/transcript";
@@ -66,6 +69,33 @@ function ConsoleGuideCard({ status }: { status: AcpConsoleStatus }) {
         <Button asChild size="sm" variant="outline" data-testid="agent-console-guide-logs">
           <Link to="/diagnostics">{t("acp.console.guide.logsAction")}</Link>
         </Button>
+      ) : null}
+    </div>
+  );
+}
+
+// F06：连接失败行内出「原因 + 下一步动作」人话；内部码收进可复制详情
+function ConnectFailureNotice({ lastError, closeInfo, wsUrl }: {
+  lastError: string | null;
+  closeInfo: AcpCloseInfo | null;
+  wsUrl: string;
+}) {
+  const { t } = useTranslation();
+  const detail = acpErrorDetail({ lastError, closeInfo, wsUrl });
+  const reason = connectFailureText(t, lastError, closeInfo);
+  return (
+    <div className="flex flex-col items-center gap-1" data-testid="agent-connect-error">
+      <p className="text-destructive text-xs" data-testid="agent-connect-error-text">
+        {t("chat.agentPane.connectFailed")}：{reason}
+      </p>
+      {detail ? (
+        <CopyButton
+          value={detail}
+          className="size-5"
+          aria-label={t("common.feedback.copyDetail")}
+          title={detail}
+          data-testid="agent-connect-error-copy"
+        />
       ) : null}
     </div>
   );
@@ -182,11 +212,11 @@ export function AgentConversation({ endpointId }: { endpointId: string }) {
         </p>
       ) : null}
       {lastError || closeInfo ? (
-        <p className="text-destructive text-xs" data-testid="agent-connect-error">
-          {t("chat.agentPane.connectFailed")}
-          {closeInfo ? " (code=" + closeInfo.code + ")" : ""}
-          {lastError ? " [" + lastError + "]" : ""}
-        </p>
+        <ConnectFailureNotice
+          lastError={lastError}
+          closeInfo={closeInfo}
+          wsUrl={endpoint.wsUrl}
+        />
       ) : null}
     </div>
   );

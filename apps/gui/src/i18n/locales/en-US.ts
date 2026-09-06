@@ -1306,6 +1306,18 @@ const enUS: typeof zhCN = {
     },
     identityKept: "Stopped, identity kept",
   },
+  // UX-G F06: human-readable ACP connect failure copy (reason + next step),
+  // internal codes live only in the copyable detail
+  uxgAcp: {
+    endpointIncomplete: "Missing token or peer ID: fill them in on the connection card (token is under advanced settings), then reconnect",
+    initializeFailed: "Agent handshake failed: check the agent address and token and make sure the agent is running, then retry",
+    sessionNewFailed: "Failed to create a session: the agent may have restarted, reconnect and try again",
+    sessionResumeFailed: "Failed to resume the session: it may have expired, create a new session to continue",
+    sessionCloseFailed: "Failed to close the session: it is kept on the agent side, retry later",
+    promptFailed: "Failed to send the message: the connection may be gone, reconnect and resend",
+    setConfigFailed: "Failed to apply the config option: make sure the session is online and retry",
+    fallback: "Connection failed: please retry; if it keeps failing, copy the details for troubleshooting",
+  },
 };
 
 export default enUS;

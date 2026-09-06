@@ -1,9 +1,11 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CommandPalette } from "@/components/command-palette/command-palette";
+import { useNodeStore } from "@/stores/node-store";
+import type { NodeStatus } from "@/lib/ipc-types";
 import { ThemeProvider } from "@/theme/theme-provider";
 import "@/i18n";
 import { Topbar } from "./topbar";
@@ -74,5 +76,61 @@ describe("Topbar 命令面板入口", () => {
     render(<Shell />);
     fireEvent.click(screen.getByRole("button", { name: "命令面板" }));
     expect(await screen.findByRole("dialog")).toBeTruthy();
+  });
+});
+
+// F04：顶栏停止与概览状态卡同走 StopNodeDialog 二次确认，点击不再直接停机
+function runningStatus(): NodeStatus {
+  return {
+    running: true,
+    peerId: "PEER123",
+    listenAddrs: [],
+    uptimeSecs: 1,
+    startedAtMs: null,
+    config: {
+      quicPort: 3400, tcpPort: 3401, enableMdns: true, dataDir: "/tmp",
+      bootstrap: [], relayAddrs: [], advertisedAddrs: [],
+      observationPort: null, observationAddrs: [],
+    },
+  };
+}
+
+describe("Topbar 停止节点二次确认（F04）", () => {
+  afterEach(() => {
+    useNodeStore.setState({ status: null });
+  });
+
+  it("运行中点击停止节点：先弹确认弹窗，未直接调用停止", () => {
+    const stopNode = vi.fn(async () => runningStatus());
+    useNodeStore.setState({ status: runningStatus(), stopNode });
+    renderTopbar();
+    fireEvent.click(screen.getByTestId("topbar-stop-node"));
+    expect(screen.getByText("停止节点？")).toBeTruthy();
+    expect(stopNode).not.toHaveBeenCalled();
+  });
+
+  it("确认弹窗取消：不停止，弹窗关闭", async () => {
+    const stopNode = vi.fn(async () => runningStatus());
+    useNodeStore.setState({ status: runningStatus(), stopNode });
+    renderTopbar();
+    fireEvent.click(screen.getByTestId("topbar-stop-node"));
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() =>
+      expect(screen.queryByText("停止节点？")).toBeNull(),
+    );
+    expect(stopNode).not.toHaveBeenCalled();
+  });
+
+  it("确认弹窗确认：调用停止", async () => {
+    const stopNode = vi.fn(async () => {
+      const stopped = { ...runningStatus(), running: false };
+      useNodeStore.setState({ status: stopped });
+      return stopped;
+    });
+    useNodeStore.setState({ status: runningStatus(), stopNode });
+    renderTopbar();
+    fireEvent.click(screen.getByTestId("topbar-stop-node"));
+    fireEvent.click(screen.getByRole("button", { name: "确认" }));
+    await waitFor(() => expect(stopNode).toHaveBeenCalled());
   });
 });
