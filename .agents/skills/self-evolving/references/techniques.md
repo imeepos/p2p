@@ -377,3 +377,4 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-06 查 UI 依赖真实行为直接读 unpkg 的未压缩 dist（unpkg.com/pkg@ver/dist/index.js）+ web_fetch 取段分析，比本地 grep 压缩产物/搜二手 changelog 快且准。
 - 2026-09-06 本机 bash 工具里 node/pnpm 静默挂起（exit=null 无输出）：PATH 首位是 ~/.vite-plus/bin，其 node 是 vp 启动器会挂起；export PATH=$HOME/.nvm/versions/node/<版本>/bin:$PATH 后恢复。新 worktree 无 node_modules，nvm pnpm install --frozen-lockfile 走共享 store 秒级。
 - 2026-09-06 vitest 全量在高负载机器上假超时（acp/app-boot 5s testTimeout/40s hookTimeout 成批红）：先对失败文件单跑隔离复判——真红隔离下仍稳定红，假红秒绿；隔离复跑再决定是否改码，避免误诊。
+- 2026-09-06 LSG1：并行会话共用 /tmp 时，后台任务日志名必须带独一标记（如 /tmp/xx-$$.log 或会话前缀），否则互相截断误读（实证：/tmp/lsg-test.log 被兄弟会话 vitest 输出覆写）；后台 cargo 任务超 600s 墙钟前先转 run_in_background。

@@ -888,3 +888,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：vitest 全量红在 hardcoded-copy.test.ts，offenders 指向 views/settings/config-schema.ts 行尾 `// serde default：缺省 false` 注释，而非任何真实文案。
 - 原因：扫描器 stripComments 不剥离行尾 // 注释（只处理块注释），views 下 .ts 文件行内 CJK 一律命中 CJK 正则。
 - 修法：views/**/.ts 行尾注释用英文（或把注释放到 const 上方独立行也躲不过，直接英文最稳）；改后扫描绿。
+
+## tauri generate_handler 找不到子模块命令的 __cmd__ 项（2026-09-06 LSG1 实证）
+- 症状：命令 fn 定义在模块的子模块（如 llm_share/commands.rs），mod.rs 只显式 pub use 函数名，generate_handler![llm_share::xxx] 报 E0433 cannot find __cmd__xxx / __tauri_command_name_xxx in llm_share。
+- 原因：#[tauri::command] 生成的隐藏项（__cmd__*）落在定义处模块，generate_handler 按注册路径的模块根解析；显式具名 re-export 漏掉隐藏项。
+- 修法：mod 里改 pub use commands::*;（glob 连带隐藏项，已加注释说明），或按 console 先例把命令直接定义在模块根。
