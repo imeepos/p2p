@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, Loader2Icon } from "lucide-react";
+import { ChevronDown, CircleCheck, CircleX, Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -234,12 +234,14 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
               )}
             </Button>
             {outcome === "ok" ? (
-              <span className="text-success text-xs" data-testid="contacts-endpoint-test-ok">
+              <span className="inline-flex items-center gap-1 text-success text-xs" data-testid="contacts-endpoint-test-ok">
+                <CircleCheck aria-hidden className="size-3.5" />
                 {t("contacts.endpoint.testPassed")}
               </span>
             ) : null}
             {outcome === "failed" ? (
-              <span className="text-destructive text-xs" data-testid="contacts-endpoint-test-failed">
+              <span className="inline-flex items-center gap-1 text-destructive text-xs" data-testid="contacts-endpoint-test-failed">
+                <CircleX aria-hidden className="size-3.5" />
                 {t("contacts.endpoint.testFailed")}
               </span>
             ) : null}

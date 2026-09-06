@@ -372,3 +372,6 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-06 vitest 里 vi.stubEnv 必须先于模块求值：静态 import 会提升到所有语句之前，被测模块可能在 env 就位前绑定错误分支（实例：console-watch 顶层读 import.meta.env 选 ipc 后端）。修法 = 全动态 await import(...) + vi.resetModules()，保证整链按 stub 后环境重求值。
 - 2026-09-06 硬编码文案扫描（i18n hardcoded-copy.test）会命中「代码行尾的 // 中文注释」，独立成行的中文注释不命中。写码时中文注释一律独立成行。
 - 2026-09-06 zustand subscribe 回调里再 setState 会自环：必须 (s, prev) 边沿触发（只对关心的切片比较变化）+ 幂等前置守卫（已处理状态直接 return），否则订阅-setState-再订阅瞬间栈爆（实例：console-watch 发现面解析回环）。
+- 2026-09-06 DSH bash 每次调用都是全新 shell，默认工作目录 = 会话工作区（主树）：在 worktree 干活时每条命令必须显式绝对路径 cd；相对跳转会落回主树跑错代码（实例：基线测试跑在主树全绿，误判 worktree 健康后才开始改）。
+- 2026-09-06 跨 worktree 共享依赖别软链 node_modules：pnpm 的相对符号链接经 vite 解析会断（UNRESOLVED_IMPORT），直接在 worktree pnpm install——共享 store 硬链接，426 包全量仅 2.4s。
+- 2026-09-06 查 UI 依赖真实行为直接读 unpkg 的未压缩 dist（unpkg.com/pkg@ver/dist/index.js）+ web_fetch 取段分析，比本地 grep 压缩产物/搜二手 changelog 快且准。

@@ -167,3 +167,9 @@
 .scroll-slim::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* toast 文本可选中复制；点击关闭对拖拽选区让位（关闭判定在 sonner.tsx 事件委托） */
+[data-sonner-toast] [data-title],
+[data-sonner-toast] [data-description] {
+  user-select: text;
+}
