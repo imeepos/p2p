@@ -48,7 +48,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | cargo 在 PATH（`$HOME/.cargo/bin`） | 二进制构建（cargo build/clippy/test） | `cargo: command not found`（退出 127）；先 `export PATH=$HOME/.cargo/bin:$PATH` |
 | macOS 屏幕录制授权 | gui screenshot/record、scripts/ops/ui-regression.sh | 退出 1：CAPTURE_PERMISSION_DENIED（HTTP 403），PNG/GIF 不产出；GUI 重编译后 TCC 授权记录可能失效需重新授权（系统设置 > 隐私与安全性 > 屏幕录制），OS 级授权须人完成 |
 | 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、acp share list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
-| 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance | 退出 1：节点身份加载失败；offer publish 不代生成身份；正向门面是 p2pctl identity init（幂等，显式创建后即可重试） |
+| 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance、llm-share borrow | 退出 1：节点身份加载失败；offer publish 不代生成身份；正向门面是 p2pctl identity init（幂等，显式创建后即可重试） |
 | agent 节点身份已存在（<acp-data-dir>/identity/key.seed，由 acp-agent 首启生成） | acp share create | 退出 1：分享链接需要 agent 身份；CLI 不代生成，先启动一次 acp-agent |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1：超时未送达 status=Pending / 对端身份不符快速失败 status=Failed（均保留本机记录，见 chat send 条目与附录A）；peer 域退出 1 |
 | 节点守护进程运行 | peer connect/disconnect/ping/dial、metrics get 实时值 | 退出 1：连接节点守护进程失败；metrics get 例外：返回全零不报错 |
@@ -164,7 +164,7 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 同一份数据。GUI 数据目录（macOS）`~/Library/Application Support/com.p2p.console`，前端
 日志 `~/Library/Logs/com.p2p.console/frontend.log`，均可用 `--gui-data-dir`/`--log-dir` 覆盖。
 
-## 6. 命令面全目录（71 命令）
+## 6. 命令面全目录（72 命令）
 
 条目格式：用途/前置 → 参数表（名称/类型/必填/默认）→ 文本输出例 → --json 输出例。
 类型取值：flag（无值开关）/string/int/path/kv/枚举值说明。尖括号示例为实测采样占位。
@@ -1237,6 +1237,26 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 ```
 --json：同字段 camelCase（verdict/reason/reqId/period/lender/borrower/model/input/output/estimated/ts）。
 退出码：verdict=PASS → 0；verdict=FAIL（签名无效/公钥不绑定）→ 1（报告已先输出，stderr 再给一行失败信号）；收据文件不存在/损坏 → 1；公钥非法（非 base58 或解码后非 32 字节）→ 1；缺省 --pubkey 且本机身份未初始化 → 1（含 identity init 指引）。
+
+### p2pctl llm-share borrow
+用途：借方一次性调用（F11/PR6）：连接/验签选路/预检/代理流式调用/收据入账。
+真实调用出借方额度（写类副作用），执行前必须向人复述 LENDER 与模型/参数并获确认。
+前置：本机身份已初始化；网络可达出借方（--addr 直连或经 rendezvous 查号）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <LENDER> | 位置参数 string（出借方 PeerId，base58 32 字节） | 是 | —— |
+| --model | string | 否 | 出借方声明内唯一模型（多个时列出可选项报错） |
+| --prompt | string | 否 | -（与 --messages 二选一） |
+| --messages | string（OpenAI messages 数组 JSON） | 否 | -（与 --prompt 二选一） |
+| --max-tokens | int | 否 | 出借方声明上限，未声明 256 |
+| --addr | string（ip/u端口 或 ip/t端口） | 否 | 经 rendezvous 查号 |
+| --timeout-secs | int | 否 | 90 |
+| --discover-secs | int | 否 | 10 |
+| --req-id | string（幂等键，失败重试复用同值防双记账） | 否 | 生成 UUID v4 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+输出：调用报告与收据入账结果（真实消耗额度，示例略）；缺 <LENDER> 为用法错误退出 2。
+退出码：用法错误 2；选路/预检/调用/入账失败 1。
 ### p2pctl group create
 用途：建群。校验成员 ⊆ 好友簿、≤32、不含本机；群名 trim 后 1..=64 字符。建群后对每个初始成员推 roster（成员离线经 goutbox 补投，命令不失败）。
 | 参数 | 类型 | 必填 | 默认 |
