@@ -61,6 +61,25 @@ p2pctl node log tail [--lines N] [--data-dir DIR] [--json]  # daemon.log 尾读�
 日志 frontend.log 分属两路，见 log 域说明）。`node start --json` 输出经写后
 flush 落盘，重定向到文件不会丢内容（脚本/CI 直接读重定向文件取 peerId/addr）。
 
+#### lan-only 模式（F8 公网默认显式化）
+
+默认配置连接公共设施（bootstrap=rendezvous 跨网发现、relay=中继兜底、
+observation=公网地址观测），`node start` 人读与 `--json` 输出逐类声明将连接
+的端点与意图（`网络模式: 将连接以下公共设施` 块 + `lanOnly=false` 键值行）。
+`gui-config.json` 的 `lanOnly` 字段（默认 `false`，不开启行为零变化）置
+`true` 后：不拨公网 bootstrap、不连公网 relay、不上报 observation，仅保留
+局域网发现（mDNS）与直连；启动声明转为单行「仅局域网(lan-only)」，且不列端点。
+
+```bash
+p2pctl config get --json | jq '.lanOnly = true' | p2pctl config save -   # 开启（覆盖式保存）
+p2pctl config get                                                        # 回显 lanOnly=true
+p2pctl node stop && p2pctl node start                                    # 修改后需重启生效
+p2pctl node status                                                       # 在线报告带 lanOnly= 键值行
+```
+
+隐私语义：声明列出的公共端点即元数据出口（PeerId/监听与观测地址会经这些节点
+转发）；lan-only 模式零公网外联，安全敏感部署的推荐出口。
+
 ### chat —— 聊天域（对齐 GUI 契约 §12）
 
 ```bash

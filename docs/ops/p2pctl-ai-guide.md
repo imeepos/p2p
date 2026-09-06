@@ -149,6 +149,13 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
   默认拒绝语义），offer publish 以本机身份种子签名并落盘声明信封；执行前必须向人复述
   目标 PeerId / 模型白名单 / 闲量与账期参数并获确认。签名密钥只在 p2p-identity 种子文件
   （0600）中，AI 不得读取、打印或迁移其内容。
+- **公网外联告知（F8）**：默认配置下节点启动即连接公共设施——bootstrap（rendezvous
+  跨网发现）、relay（中继兜底）、observation（公网地址观测，出厂 43.240.223.138 /
+  121.196.193.177）；node start 的人读与 --json 输出逐类列出将连接的端点与意图。
+  PeerId、监听/观测地址等元数据会经公共节点转发，对隐私敏感的部署必须向人如实说明。
+  lan-only 出口：config save 置 lanOnly=true 后重启节点，不连任何公共设施（不拨
+  bootstrap、不连 relay、不上报观测，仅 mDNS 局域网发现与直连）；start 声明转为
+  「仅局域网(lan-only)」，node status 输出 lanOnly=true 供机械验证。
 
 ## 5. 与 GUI 的关系
 
@@ -178,9 +185,9 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 ```
 {"running":false,"pid":null,"logPath":"<data-dir>/daemon.log","dataDir":"<data-dir>","degraded":false,"reason":"无 pid 文件 <data-dir>/daemon.pid"}
 ```
---json（运行中，含 peerId/listenAddrs）：
+--json（运行中，含 peerId/listenAddrs/lanOnly）：
 ```
-{"running":true,"pid":81444,"peerId":"aogbzDcMk5VeRUVkjLK8kLHHv4FWbaeQkg57ErxKmcq","listenAddrs":["127.0.0.1/u52063","127.0.0.1/t59667"],"uptimeSecs":3612,"logPath":"<data-dir>/daemon.log","dataDir":"<data-dir>","degraded":false,"reason":""}
+{"running":true,"pid":81444,"peerId":"aogbzDcMk5VeRUVkjLK8kLHHv4FWbaeQkg57ErxKmcq","listenAddrs":["127.0.0.1/u52063","127.0.0.1/t59667"],"uptimeSecs":3612,"lanOnly":false,"logPath":"<data-dir>/daemon.log","dataDir":"<data-dir>","degraded":false,"reason":""}
 ```
 
 ### p2pctl node start
@@ -193,10 +200,19 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 ```
 节点已启动 pid=80955
 pid=80955
+lanOnly=false
+网络模式: 将连接以下公共设施(公网外联)
+- bootstrap: rendezvous 跨网发现注册与查号 [43.240.223.138/u3400, 121.196.193.177/u3400]
+- relay: 打洞失败后的中继兜底 [43.240.223.138/u3403, 121.196.193.177/u3403]
+- observation: 学习自身公网映射地址 [121.196.193.177:3402]
+log=<data-dir>/daemon.log
 ```
---json：
+lanOnly=true 时声明为单行「网络模式: 仅局域网(lan-only), 不连接任何公共设施(无公网外联)」，
+且不列任何端点。--json（networkNotice 内换行为字面 
+）：
 ```
-{"running":true,"alreadyRunning":false,"pid":80955,"peerId":"<PEER_ID>","listenAddrs":["127.0.0.1/u64935","127.0.0.1/t62038"],"uptimeSecs":0,"logPath":"<data-dir>/daemon.log","dataDir":"<data-dir>","degraded":false,"reason":""}
+{"running":true,"alreadyRunning":false,"pid":80955,"peerId":"<PEER_ID>","listenAddrs":["127.0.0.1/u64935","127.0.0.1/t62038"],"uptimeSecs":0,"lanOnly":false,"networkNotice":"网络模式: 将连接以下公共设施(公网外联)
+- bootstrap: ...","logPath":"<data-dir>/daemon.log","dataDir":"<data-dir>","degraded":false,"reason":""}
 ```
 退出码：已运行再 start 返回 0（alreadyRunning=true）。
 
@@ -492,10 +508,11 @@ enableMdns=true
 dataDir=<data-dir>/p2p-data
 bootstrap=43.240.223.138/u3400,121.196.193.177/u3400
 relayAddrs=43.240.223.138/u3403,121.196.193.177/u3403
+lanOnly=false
 ```
 --json（节选）：
 ```
-{"quicPort":0,"tcpPort":0,"enableMdns":true,"dataDir":"<data-dir>/p2p-data","bootstrap":["43.240.223.138/u3400"],"relayAddrs":["43.240.223.138/u3403"],"advertisedAddrs":[],"observationPort":null,"observationAddrs":["121.196.193.177:3402"]}
+{"quicPort":0,"tcpPort":0,"enableMdns":true,"dataDir":"<data-dir>/p2p-data","bootstrap":["43.240.223.138/u3400"],"relayAddrs":["43.240.223.138/u3403"],"advertisedAddrs":[],"observationPort":null,"observationAddrs":["121.196.193.177:3402"],"lanOnly":false}
 ```
 
 ### p2pctl config save
@@ -513,7 +530,7 @@ enableMdns=true
 ```
 --json：
 ```
-{"quicPort":0,"tcpPort":0,"enableMdns":true,"dataDir":"<data-dir>/p2p-data","bootstrap":["43.240.223.138/u3400"],"relayAddrs":["43.240.223.138/u3403"],"advertisedAddrs":[],"observationPort":null,"observationAddrs":["121.196.193.177:3402"]}
+{"quicPort":0,"tcpPort":0,"enableMdns":true,"dataDir":"<data-dir>/p2p-data","bootstrap":["43.240.223.138/u3400"],"relayAddrs":["43.240.223.138/u3403"],"advertisedAddrs":[],"observationPort":null,"observationAddrs":["121.196.193.177:3402"],"lanOnly":false}
 ```
 退出码：JSON 解析失败 → 1。推荐管道：`p2pctl config get --json | p2pctl config save - --json`。
 
