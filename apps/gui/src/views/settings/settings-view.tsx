@@ -18,6 +18,7 @@ import { IdentityCard } from "./identity-card";
 import { NetworkCard } from "./network-card";
 import { ProfileCard } from "./profile-card";
 import { AboutUpdateCard } from "@/views/update/about-update-card";
+import { DocsEntryCard } from "./docs-entry-card";
 import {
   SettingsSaveBar,
 } from "./save-bar";
@@ -45,6 +46,8 @@ function SettingsCards() {
       <ProfileCard />
       <IdentityCard />
       <AboutUpdateCard />
+      {/* DOC2：协议文档入口行（append-only，只读跳转 /docs） */}
+      <DocsEntryCard />
     </>
   );
 }

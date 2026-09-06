@@ -61,6 +61,8 @@ const routes: Array<[string, string | null]> = [
   ["#/chat?kind=group", "选择或发起会话"],
   ["#/chat?kind=agent", "选择或发起会话"],
   ["#/contacts", "通讯录"],
+  // DOC2：协议文档页真实挂载冒烟（marker = docs.title zh chrome）
+  ["#/docs", "协议文档"],
   ["#/settings", "局域网发现（mDNS）"],
 ];
 

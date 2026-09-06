@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { AppLayout } from "@/components/layout/app-layout";
 import { ChatRoutePage } from "@/routes/chat-route";
 import { ContactsPage } from "@/routes/contacts-page";
+import { DocsPage } from "@/routes/docs-page";
 import { MessagesPage } from "@/views/messages/messages-page";
 import { DiagnosticsPage } from "@/routes/diagnostics-page";
 import { DiscoveryPage } from "@/routes/discovery-page";
@@ -50,6 +51,8 @@ const routes = createRoutesFromChildren(
     {/* IMC3：消息中心（入群/好友邀请），append-only 登记 */}
     <Route path="messages" element={<MessagesPage />} />
     <Route path="contacts" element={<ContactsPage />} />
+    {/* DOC2：协议文档页（append-only 登记，rail 保持 4 项） */}
+    <Route path="docs" element={<DocsPage />} />
     <Route path="settings" element={guarded(<SettingsPage />)} />
     {/* 5.3 重定向层：旧路由 → 新位置；/group /acp 落 /chat?kind=*（已拍板项 1） */}
     <Route path="peers" element={<QueryRedirect to="/network/peers" />} />
