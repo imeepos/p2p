@@ -21,6 +21,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      # Tauri v2 Linux 依赖（清单与 gui-client.yml ubuntu 打包腿一致，已实证）：
+      # 装上后 gui-tauri.sh/clippy.sh 的「缺 webkit2gtk-4.1 即 SKIP」声明式
+      # 口径自动解除——src-tauri 的 fmt/clippy/test 在 ubuntu 真跑，收口盲区
+      - name: 安装 Linux 系统依赖（WebKit/GTK）
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxkbcommon-dev
       # 根 workspace 与 src-tauri 两个 target 目录都缓存：cargo 冷编译
       # 12 分钟是大头，二次 run 走缓存后门禁墙钟主要由测试本体构成
       - uses: Swatinem/rust-cache@v2.9.2
