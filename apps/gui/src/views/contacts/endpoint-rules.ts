@@ -5,6 +5,7 @@
 import { isValidPeerId, MAX_NICKNAME_CHARS } from "@/lib/chat-limits";
 
 export type EndpointFieldError =
+  | "targetRequired"
   | "wsUrlRequired"
   | "wsUrlInvalid"
   | "tokenRequired"
@@ -72,6 +73,8 @@ export function validateEndpointForm(form: {
   else if (!isValidWsUrl(wsUrl)) errors.wsUrl = "wsUrlInvalid";
   if (form.token.trim().length === 0) errors.token = "tokenRequired";
   const peer = form.peer.trim();
+  // peer 保持可空（§3.2 分享管理可先存后连）；非空按 base58 口径校验。
+  // 连接类动作（测试连接/添加并开始对话）的目标必选由弹窗 requireTarget 前置拦截
   if (peer.length > 0 && !isValidPeerId(peer)) errors.peer = "peerInvalid";
   if (Array.from(form.alias.trim()).length > MAX_NICKNAME_CHARS) {
     errors.alias = "aliasTooLong";
@@ -94,4 +97,30 @@ export function wsUrlHistory(saved: Array<{ wsUrl: string }>): string[] {
     list.push(url);
   }
   return list;
+}
+
+/** UX3 主字段目标下拉候选：console 发现面在册条目优先，既有收藏 peer 兜底
+ *  （收藏语义不退化——历史连过的节点不因暂离发现面而消失）；按 peer 去重 */
+export interface EndpointTargetOption {
+  peer: string;
+  label: string;
+}
+
+export function targetOptions(
+  directory: Array<{ peer: string; name: string | null; source: string }>,
+  saved: Array<{ peer: string; alias?: string }>,
+): EndpointTargetOption[] {
+  const out: EndpointTargetOption[] = [];
+  const seen = new Set<string>();
+  for (const entry of directory) {
+    if (entry.source !== "discovered" || !entry.peer || seen.has(entry.peer)) continue;
+    seen.add(entry.peer);
+    out.push({ peer: entry.peer, label: entry.name ?? entry.peer });
+  }
+  for (const endpoint of saved) {
+    if (!endpoint.peer || seen.has(endpoint.peer)) continue;
+    seen.add(endpoint.peer);
+    out.push({ peer: endpoint.peer, label: endpoint.alias ?? endpoint.peer });
+  }
+  return out;
 }

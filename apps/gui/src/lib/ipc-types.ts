@@ -275,7 +275,30 @@ export interface GroupInviteJson {
   delivered: boolean;
 }
 
+// 契约 v10 §15 加法（UX3）：acp-console 托管状态（GUI 壳伴生进程面），逐字对齐冻结契约。
+export type AcpConsolePhase =
+  | "starting"
+  | "ready"
+  | "restarting"
+  | "failed"
+  | "unavailable"
+  | "stopped";
+
+export interface AcpConsoleStatus {
+  phase: AcpConsolePhase;
+  wsUrl?: string; // ready 后：ws://127.0.0.1:<port>
+  token?: string; // ready 后：console WS 鉴权 token
+  statusUrl?: string; // ready 后：console status HTTP 地址
+  adminUrl?: string; // ready 后：agent admin HTTP 地址（ready 行携带才填）
+  restarts: number; // 已自动重启次数
+  lastError?: string; // 最近一次失败原因（可读中文）
+}
+
+export type AcpConsoleEventHandler = (status: AcpConsoleStatus) => void;
+
 export interface IpcBackend {
+  acpConsoleStatus(): Promise<AcpConsoleStatus>;
+  onAcpConsoleEvent(handler: AcpConsoleEventHandler): Promise<UnlistenFn>;
   nodeStart(cfg: GuiConfig): Promise<NodeStatus>;
   nodeStop(): Promise<NodeStatus>;
   nodeStatus(): Promise<NodeStatus>;
