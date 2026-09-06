@@ -37,14 +37,14 @@ function setStatus(running: boolean): void {
   useNodeStore.setState({ status: { ...STATUS, running } });
 }
 
-function fillAndSubmit(): void {
-  fireEvent.change(screen.getByLabelText("目标"), {
-    target: { value: TARGET },
-  });
-  fireEvent.click(screen.getByRole("button", { name: "拨号" }));
+// 结构化三段填写（PeerId/地址/端口），传输默认 QUIC 不动
+function fillSegments(peerId: string, addr: string, port: string): void {
+  fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: peerId } });
+  fireEvent.change(screen.getByLabelText("地址"), { target: { value: addr } });
+  fireEvent.change(screen.getByLabelText("端口"), { target: { value: port } });
 }
 
-describe("PeerDialDialog 节点运行校验", () => {
+describe("PeerDialDialog 结构化拨号", () => {
   beforeEach(() => {
     peerDialMock.mockReset();
     setStatus(false);
@@ -52,14 +52,15 @@ describe("PeerDialDialog 节点运行校验", () => {
 
   it("节点未运行时提交被拦截并给明确业务提示，不触发拨号", async () => {
     render(<PeerDialDialog open onOpenChange={vi.fn()} />);
-    fillAndSubmit();
+    fillSegments(PEER_ID, "192.168.1.9", "34001");
+    fireEvent.click(screen.getByRole("button", { name: "拨号" }));
     expect(
       await screen.findByText("节点未运行：请先启动节点，再手动拨号"),
     ).toBeInTheDocument();
     expect(peerDialMock).not.toHaveBeenCalled();
   });
 
-  it("节点运行中正常提交拨号", async () => {
+  it("节点运行中正常提交拨号：三段组装为契约 §6 复合目标", async () => {
     setStatus(true);
     peerDialMock.mockResolvedValue({
       peer: PEER_ID,
@@ -68,7 +69,8 @@ describe("PeerDialDialog 节点运行校验", () => {
       totalMs: 5,
     });
     render(<PeerDialDialog open onOpenChange={vi.fn()} />);
-    fillAndSubmit();
+    fillSegments(PEER_ID, "192.168.1.9", "34001");
+    fireEvent.click(screen.getByRole("button", { name: "拨号" }));
     await waitFor(() => expect(peerDialMock).toHaveBeenCalledTimes(1));
     expect(peerDialMock).toHaveBeenCalledWith(TARGET);
   });
