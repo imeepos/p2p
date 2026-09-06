@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import "@/i18n";
-import { CommandPalette } from "./command-palette";
+import { CommandPalette, LLM_SHARE_PALETTE_COUNT } from "./command-palette";
 import { requestOpenCommandPalette } from "./palette-bus";
 
 // cmdk 依赖 ResizeObserver 测量与 scrollIntoView 滚动，jsdom 均未实现：
@@ -35,7 +35,9 @@ describe("CommandPalette", () => {
   it("打开时列出全部导航注册项（节点组数据为空时不渲染）", async () => {
     renderPalette(true);
     expect(await screen.findByRole("dialog")).toBeTruthy();
-    expect(screen.getAllByRole("option")).toHaveLength(PALETTE_NAV_ENTRIES.length);
+    expect(screen.getAllByRole("option")).toHaveLength(
+      PALETTE_NAV_ENTRIES.length + LLM_SHARE_PALETTE_COUNT,
+    );
   });
 
   it("底部渲染修正后的快捷键说明（1..4，与热键实现一致）", async () => {

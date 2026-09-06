@@ -1,3 +1,4 @@
+import { Share2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -21,6 +22,10 @@ import { subscribeOpenCommandPalette } from "./palette-bus";
 
 const MAX_PEER_ITEMS = 8;
 const MAX_ADDRESS_ITEMS = 8;
+
+// LSG3：llm-share 非 rail 页入口数量（/docs 先例：rail 不动，命令面板可达）；
+// 测试据 palette 注册项总数同步断言。
+export const LLM_SHARE_PALETTE_COUNT = 1;
 
 interface CommandPaletteProps {
   open: boolean;
@@ -82,6 +87,27 @@ function MenuGroup({ onClose }: { onClose: () => void }) {
   );
 }
 
+// LSG3：llm-share 独立分组（键块 llmShare.*，不触碰共享 palette 键）
+function LlmShareGroup({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const go = (path: string) => {
+    onClose();
+    navigate(path);
+  };
+  return (
+    <CommandGroup heading={t("llmShare.paletteGroup")}>
+      <CommandItem
+        value={"menu /llm-share " + t("llmShare.title")}
+        onSelect={() => go("/llm-share")}
+      >
+        <Share2 className="size-4" />
+        <span>{t("llmShare.title")}</span>
+      </CommandItem>
+    </CommandGroup>
+  );
+}
+
 function PeerGroup({ peers, onCopy }: { peers: PeerRow[]; onCopy: CopyFn }) {
   const { t } = useTranslation();
   return (
@@ -130,6 +156,7 @@ function PaletteItems({ onClose }: { onClose: () => void }) {
   return (
     <>
       <MenuGroup onClose={onClose} />
+      <LlmShareGroup onClose={onClose} />
       {peers.length > 0 && (
         <>
           <CommandSeparator />
