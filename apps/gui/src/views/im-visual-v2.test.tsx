@@ -329,7 +329,7 @@ describe("IM-V2 settings evidence", () => {
       />,
     );
     const hint = screen.getByText("配置已与磁盘一致");
-    expect(hint.className).toContain("text-gray-600");
+    expect(hint.className).toContain("text-muted-foreground");
     const bar = hint.parentElement!;
     expect(bar.className).toContain("justify-between");
     expect(bar.querySelector("button")).toBeTruthy();

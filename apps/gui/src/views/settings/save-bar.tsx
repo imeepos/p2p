@@ -72,7 +72,7 @@ export function SettingsSaveBar({
             {t("settings.saveBar.invalidSummary", { count: invalidCount })}
           </p>
         ) : (
-          <p className="text-xs text-gray-600 dark:text-gray-300">
+          <p className="text-xs text-muted-foreground">
             {dirty ? t("settings.saveBar.dirty") : t("settings.saveBar.clean")}
           </p>
         )}
