@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-06T15:51:00Z",
+  "updatedAt": "2026-09-06T15:52:30Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-7af45e36-f764-40a1-b2a7-2ef1c30d424b",
@@ -399,14 +399,14 @@
     {
       "id": "PR4",
       "priority": "P2",
-      "status": "todo",
+      "status": "doing",
       "title": "PR4 公网默认显式化与 lan-only（persona 轮 F8）",
       "goal": "见 docs/notes/persona-trial-findings-2026-09-05.md",
-      "branch": "待派",
-      "ownerSession": "",
-      "scope": "见 findings 文档需求映射",
-      "acceptanceCommand": "echo NOT-DISPATCHED; exit 1",
-      "note": " [2026-09-05 立卡] PR2 已合并，可派。 [2026-09-06 排队] 与 PR6 共享 apps/cli 注册面（cli-parity.tsv/cli-guide.md），PR6 合入后派，防注册面并行撞行。"
+      "branch": "feat/pr4-lan-only",
+      "ownerSession": "session-f01a7bc2-1654-45ae-a604-db19e6205c1d",
+      "scope": "crates/p2p/**（facade/config 最小加法）+ crates/p2p-cli/** + apps/cli/** + docs/ops/cli-guide.md + docs/ops/p2pctl-ai-guide.md + cli-parity.tsv 如需；禁碰 apps/gui/**、apps/acp-*/**、其他 crates、coordination/gui-coordination/gui-contract、.devloop/**；零 wire 变更",
+      "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-pr4-target; cd /Users/imeepos/ext512/p2p && cargo test -p p2p lan_only && cargo test -p p2p-cli lan_only && cargo test -p p2p -p p2p-cli && cargo clippy -p p2p -p p2p-cli --all-targets -- -D warnings && cd apps/cli && cargo fmt --check && cd ../.. && bash scripts/check/ai-docs-sync.sh | grep -q AI-DOCS-OK && bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK'",
+      "note": " [2026-09-05 立卡] PR2 已合并，可派。 [2026-09-06 排队] 与 PR6 共享 apps/cli 注册面（cli-parity.tsv/cli-guide.md），PR6 合入后派，防注册面并行撞行。 [2026-09-06 派发] PR6 合入腾出 apps/cli 注册面后立即派专属新会话 f01a7bc2；验收要求 facade 与 CLI 各含 lan_only 命名测试+双 crate 全量回归+ai-docs-sync/parity 双守卫；make check 由协调者合并时统一串行复验。"
     },
     {
       "id": "PR5",
