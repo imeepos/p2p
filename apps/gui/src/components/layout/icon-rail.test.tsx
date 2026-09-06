@@ -24,14 +24,23 @@ function railLinks(): HTMLElement[] {
 afterEach(() => cleanup());
 
 describe("IconRail（1.1 rail 规格）", () => {
-  it("恰 4 个一级入口，顺序为聊天/通讯录/网络/设置", () => {
+  it("一级入口与 menu.def 注册一一对应（F15 起 6 项），顺序一致", () => {
     renderRail("/chat");
     const links = railLinks();
-    expect(links).toHaveLength(4);
+    expect(links).toHaveLength(MENU_ENTRIES.length);
     links.forEach((link, index) => {
       expect(link.getAttribute("href")).toBe(MENU_ENTRIES[index].path);
       expect(link.getAttribute("aria-label")).toBe(i18n.t(MENU_ENTRIES[index].titleKey));
     });
+  });
+
+  it("F15：消息中心与协议文档常驻 rail，设置仍沉底", () => {
+    renderRail("/chat");
+    const hrefs = railLinks().map((link) => link.getAttribute("href"));
+    expect(hrefs).toContain("/messages");
+    expect(hrefs).toContain("/docs");
+    expect(hrefs.indexOf("/messages")).toBeLessThan(hrefs.indexOf("/settings"));
+    expect(hrefs.indexOf("/docs")).toBeLessThan(hrefs.indexOf("/settings"));
   });
 
   it("设置沉底：rail 末位入口是 /settings", () => {
@@ -76,6 +85,29 @@ describe("rail 聊天未读合计角标（§2.3）", () => {
     useAcpStore.setState({ unreadByEndpoint: {} });
     renderRail("/chat");
     expect(screen.queryByTestId("rail-badge-/chat")).toBeNull();
+  });
+});
+
+describe("rail 消息中心待处理邀请角标（F15）", () => {
+  it("角标与顶栏铃铛同源：两类 in 向 pending 之和；归零后消失", () => {
+    useChatStore.setState({
+      invites: [
+        { peerId: "p-in", nickname: "甲", addrs: [], note: null, direction: "in", tsMs: 1, delivered: true },
+        { peerId: "p-out", nickname: "丙", addrs: [], note: null, direction: "out", tsMs: 3, delivered: true },
+      ],
+      groupInvites: [
+        { id: "gi-1", groupId: "g-1", groupName: "群", owner: "o", inviter: "i", invitee: "self", note: null, direction: "in", state: "pending", tsMs: 1, delivered: true },
+      ],
+    });
+    renderRail("/chat");
+    const badge = screen.getByTestId("rail-badge-/messages");
+    expect(badge.textContent).toBe("2");
+    expect(badge.getAttribute("aria-label")).toBe(i18n.t("messages.badgeAria", { count: 2 }));
+    cleanup();
+
+    useChatStore.setState({ invites: [], groupInvites: [] });
+    renderRail("/chat");
+    expect(screen.queryByTestId("rail-badge-/messages")).toBeNull();
   });
 });
 

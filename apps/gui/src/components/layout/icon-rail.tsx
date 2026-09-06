@@ -7,11 +7,14 @@ import { useIncomingInviteCount } from "@/hooks/use-incoming-invites";
 import { useUnreadTotal } from "@/hooks/use-unread-total";
 import { formatUnreadCount } from "@/lib/conversation-entry";
 import { cn } from "@/lib/utils";
+import { selectPendingInviteBadgeCount } from "@/stores/chat-group-invite-slice";
+import { useChatStore } from "@/stores/chat-store";
 
 // 窄图标栏（docs/design/app-shell-redesign.md 1.1）：常驻 w-14，仅图标 +
 // tooltip + 选中态高亮，不再提供折叠形态；注册序末项（设置）沉底。
 // 聊天入口附三来源未读合计角标（§2.3）；通讯录入口附带处理好友邀请
-// 角标（§3.2）。顶栏与底部状态栏不在 rail 职责内。
+// 角标（§3.2）；消息中心入口附待处理邀请角标（F15 与顶栏铃铛同源 selector）。
+// 顶栏与底部状态栏不在 rail 职责内。
 function RailLink({
   path,
   titleKey,
@@ -57,6 +60,7 @@ export function IconRail() {
   const bottom = MENU_ENTRIES[MENU_ENTRIES.length - 1];
   const unreadTotal = useUnreadTotal();
   const incomingInvites = useIncomingInviteCount();
+  const pendingInvites = useChatStore(selectPendingInviteBadgeCount);
   const badgeOf = (path: string): { count: number; label: string } | undefined => {
     // §2.3 聊天未读合计角标；§3.2 通讯录待处理好友邀请角标
     if (path === "/chat") {
@@ -67,6 +71,10 @@ export function IconRail() {
         count: incomingInvites,
         label: t("contacts.inviteBadge.aria", { count: incomingInvites }),
       };
+    }
+    // F15：消息中心角标与顶栏铃铛同源 selector（两类 in 向 pending 之和）
+    if (path === "/messages") {
+      return { count: pendingInvites, label: t("messages.badgeAria", { count: pendingInvites }) };
     }
     return undefined;
   };

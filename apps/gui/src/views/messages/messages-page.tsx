@@ -7,8 +7,8 @@ import { FriendInviteSection } from "./friend-invite-section";
 import { GroupInviteSection } from "./group-invite-section";
 
 // 消息中心（IMC3 需求 2，/messages）：入群邀请与好友邀请两组列表统一处理。
-// 入口为顶栏铃铛（未读徽标 = 两类 in 向 pending 之和）；rail 四入口零改动。
-// 行内操作失败原文上浮；行点击跳对应会话（群 or 好友聊天）。
+// 入口：顶栏铃铛 + rail 常驻项（F15，徽标 = 两类 in 向 pending 之和，同源
+// selector）。行内操作失败原文上浮；行点击跳对应会话（群 or 好友聊天）。
 export function MessagesPage() {
   const { t } = useTranslation();
   const loadInvites = useChatStore((s) => s.loadInvites);
