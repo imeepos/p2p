@@ -1267,6 +1267,17 @@ const zhCN = {
       retry: "重试",
     },
   },
+  // UX-G F06：ACP 连接失败人话映射（原因 + 下一步动作），错误码走可复制详情
+  uxgAcp: {
+    endpointIncomplete: "缺少 Token 或 Peer ID：请在连接卡里补全（Token 在高级设置），保存后重新连接",
+    initializeFailed: "agent 握手失败：请确认 agent 地址与 Token 正确且 agent 已启动，再重试连接",
+    sessionNewFailed: "新建会话失败：agent 可能刚重启，请重新连接后再新建会话",
+    sessionResumeFailed: "恢复会话失败：原会话可能已过期，请新建会话继续",
+    sessionCloseFailed: "关闭会话失败：agent 侧会话仍保留，可稍后重试",
+    promptFailed: "消息发送失败：连接可能已中断，请重新连接后重发",
+    setConfigFailed: "配置下发失败：请确认会话在线后重试",
+    fallback: "连接失败：请重试；持续失败可复制详情排查",
+  },
 };
 
 export default zhCN;
