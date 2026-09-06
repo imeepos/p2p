@@ -1228,6 +1228,13 @@ const zhCN = {
       troubleshootTitle: "排障入口",
     },
   },
+  node: {
+    autoStart: {
+      starting: "正在自动启动节点…",
+      failed: "节点自动启动失败",
+      retry: "重试",
+    },
+  },
 };
 
 export default zhCN;

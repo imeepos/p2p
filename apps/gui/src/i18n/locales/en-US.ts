@@ -1248,6 +1248,13 @@ const enUS: typeof zhCN = {
       troubleshootTitle: "Troubleshooting",
     },
   },
+  node: {
+    autoStart: {
+      starting: "Starting node automatically…",
+      failed: "Node auto-start failed",
+      retry: "Retry",
+    },
+  },
 };
 
 export default enUS;
