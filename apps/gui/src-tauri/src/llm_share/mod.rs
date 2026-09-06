@@ -20,11 +20,9 @@ mod views;
 #[cfg(test)]
 mod tests;
 
-pub use commands::{
-    llm_share_allow, llm_share_allow_list, llm_share_borrow, llm_share_deny,
-    llm_share_ledger_balance, llm_share_ledger_list, llm_share_offer_publish, llm_share_offer_show,
-    llm_share_receipt_verify,
-};
+// glob re-export：连带 tauri 宏生成的隐藏 __cmd__* 项（generate_handler 按本模块
+// 路径解析，console 先例即命令定义在模块根；commands.rs 仅含九个命令壳）。
+pub use commands::*;
 
 use std::path::{Path, PathBuf};
 

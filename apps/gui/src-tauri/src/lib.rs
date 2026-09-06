@@ -80,6 +80,15 @@ pub fn run() {
             group::group_history,
             group::group_media_file,
             console::acp_console_status,
+            llm_share::llm_share_offer_publish,
+            llm_share::llm_share_offer_show,
+            llm_share::llm_share_allow_list,
+            llm_share::llm_share_allow,
+            llm_share::llm_share_deny,
+            llm_share::llm_share_borrow,
+            llm_share::llm_share_ledger_list,
+            llm_share::llm_share_ledger_balance,
+            llm_share::llm_share_receipt_verify,
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -95,6 +104,8 @@ pub fn run() {
                 .app_data_dir()
                 .map_err(|e| format!("定位应用数据目录失败: {e}"))?;
             app.manage(AppState::new(dir.clone()));
+            // LSG1 llm-share 命令面（契约 §16）：域数据根 = app 数据目录。
+            app.manage(llm_share::LlmShareStore::new(dir.clone()));
             let frontend_log = frontend_log::FrontendLog::new(&log_dir)
                 .map_err(|e| format!("初始化前端日志失败: {e}"))?;
             app.manage(frontend_log);
