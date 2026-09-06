@@ -129,3 +129,16 @@ i18n 键块 settings.*（LSG2）/llmShare.*（LSG3）分治；make check 由协�
 | LSG1 命令面（Rust） | feat/lsg-commands | lsg-commands | src-tauri llm_share 模块+cli-parity live 迁移 | src-tauri fmt/test/clippy+cli-parity+ai-docs-sync | doing |
 | LSG2 IPC+设置 | feat/lsg-ipc-settings | lsg-ipc-settings | lib/**八命令映射+mock 拆文件+设置页 lanOnly/入口卡 | 四门禁 | doing |
 | LSG3 四面板 | feat/lsg-panels | lsg-panels | views/llm-share/**+App.tsx+palette+i18n llmShare.* | 四门禁 | doing |
+
+
+### LSG 波收官（2026-09-06）
+
+| 单 | 结果 |
+|---|---|
+| LSG1 命令面 | ✓ 合并 dc90ecb（src-tauri llm_share 九命令+serde 矩阵 16 用例+cli-parity live 迁移；五门禁绿） |
+| LSG2 IPC+设置 | ✓ 合并 10cb9e8（§16.1 全形状类型+九命令映射+独立 mock+lanOnly 开关+入口卡；942 用例绿） |
+| LSG3 四面板 | ✓ 合并 f862d1c（/llm-share 四面板+语义测试映射表；合并后全量 978 用例绿） |
+
+- 批次 make check FINAL-EXIT=0（cli-parity 55 命令、ai-docs 75=75）。三会话归档；worktree/分支三清。
+- 跨轨：PR 轨语义面会签待其按 ai-guide 九条目+§16.2 八条出具意见；borrow addr 直连与 §15 peer 两项契约加法议题留档。
+- LSG3 node_modules 软链反模式复发，已按 UX2 教训处置并再次登记。
