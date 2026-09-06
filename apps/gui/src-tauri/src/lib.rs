@@ -11,6 +11,7 @@ pub mod config;
 pub mod control;
 pub mod events;
 pub mod frontend_log;
+pub mod ginvite;
 pub mod group;
 pub mod history;
 pub mod profile;
@@ -60,6 +61,10 @@ pub fn run() {
             chat::chat_history,
             chat::chat_send,
             chat::chat_media_file,
+            ginvite::chat_group_invite_send,
+            ginvite::chat_group_invites_list,
+            ginvite::chat_group_invite_accept,
+            ginvite::chat_group_invite_reject,
             group::group_create,
             group::group_list,
             group::group_invite,
