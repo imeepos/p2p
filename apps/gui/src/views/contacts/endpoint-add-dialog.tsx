@@ -14,13 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { EMPTY_DRAFT, newEndpointId } from "@/acp/endpoint-storage";
 import { useAcpStore } from "@/acp/acp-store";
 import { useEndpointMetaStore } from "@/acp/endpoint-meta";
@@ -28,7 +21,7 @@ import type { AcpEndpoint } from "@/acp/protocol";
 import { useDiscoveryPoll } from "@/acp/use-discovery-poll";
 
 import { defaultAdminUrl, hasEndpointFormErrors, targetOptions, validateEndpointForm, wsUrlHistory } from "./endpoint-rules";
-import { AdvancedFields, EndpointFieldError } from "./endpoint-advanced-fields";
+import { AdvancedFields, EndpointFieldError, EndpointTargetPicker, WsUrlField } from "./endpoint-advanced-fields";
 import { useEndpointTest } from "./use-endpoint-test";
 
 interface EndpointAddDialogProps {
@@ -167,26 +160,20 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
           <DialogDescription>{t("contacts.endpoint.description")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="contacts-endpoint-target">{t("contacts.endpoint.targetLabel")}</Label>
-            <Select
-              value={form.peer}
-              onValueChange={(v) => patch("peer")(v)}
-              disabled={testing}
-            >
-              <SelectTrigger id="contacts-endpoint-target" data-testid="contacts-endpoint-target">
-                <SelectValue placeholder={t("contacts.endpoint.targetPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {candidates.map((option) => (
-                  <SelectItem key={option.peer} value={option.peer} data-testid={"contacts-endpoint-target-" + option.peer}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <EndpointFieldError code={fieldErrors?.peer} testidPrefix="contacts-endpoint-target-error" />
-          </div>
+          <WsUrlField
+            form={form}
+            fieldErrors={fieldErrors}
+            patch={patch}
+            testing={testing}
+            history={history}
+            historyEmptyLabel={t("contacts.endpoint.historyLabel")}
+          />
+          <EndpointTargetPicker
+            form={form}
+            candidates={candidates}
+            fieldErrors={fieldErrors}
+            patch={patch}
+          />
           <div className="flex flex-col gap-1">
             <Label htmlFor="contacts-endpoint-alias">{t("contacts.endpoint.aliasLabel")}</Label>
             <Input
@@ -212,14 +199,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
               {t("contacts.endpoint.advancedToggle")}
             </Button>
             <div hidden={!advancedOpen} data-testid="contacts-endpoint-advanced">
-              <AdvancedFields
-                form={form}
-                fieldErrors={fieldErrors}
-                patch={patch}
-                testing={testing}
-                history={history}
-                historyEmptyLabel={t("contacts.endpoint.historyLabel")}
-              />
+              <AdvancedFields form={form} fieldErrors={fieldErrors} patch={patch} />
             </div>
           </div>
           <div className="flex items-center gap-2">
