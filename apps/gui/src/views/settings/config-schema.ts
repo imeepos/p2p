@@ -95,7 +95,7 @@ export function toFormValues(config: GuiConfig): SettingsFormValues {
     advertisedAddrs: toRows(config.advertisedAddrs),
     observationPort: config.observationPort,
     observationAddrs: toRows(config.observationAddrs),
-    lanOnly: config.lanOnly ?? false, // serde default：缺省 false（契约 v11 §16.5）
+    lanOnly: config.lanOnly ?? false, // serde default: false when absent (v11 16.5)
   };
 }
 
