@@ -28,6 +28,7 @@
   `Device not configured (os error 6)`；正确双变量导出签名成功（绿路径）。
   secret 已于 2026-09-05T23:35Z 经 API 以本地密钥原文重写（PUT 204，updated_at 可查）；
   端到端验证待下个 tag（步骤见 docs/ops/updater-release.md「所有者侧 secret 核验与端到端验证」）。
+- **2026-09-06 最终验证后记（secret 重写 + 流水线修复，v0.1.6 发布成功）**：重写后首个 tag 发布 run 34013595702（client-v0.1.6 @ 829680d，含 gui-client 两修复：release job checkout 前移防 git clean 删 artifacts、上传 glob 与 make-latest-json linux pick 适配 Tauri v2 产物形态）：gate 绿、四平台 build 全绿（签名链首次工作并产出 .sig）。遗留小瑕：softprops/action-gh-release 并发更新 asset metadata 间歇 404 使 job 标红，但 draft 已含全部 15 资产——经 API PATCH draft=false 补完发布；releases/latest 已指向 client-v0.1.6，assets 15 含 latest.json 与四平台 .sig（aarch64/x86_64 .app.tar.gz.sig、amd64.AppImage.sig、x64-setup.exe.sig）。发布页 https://github.com/imeepos/p2p/releases/tag/client-v0.1.6
 
 ## ci.yml（ubuntu 全量门禁）在 main 存量红且本地 macOS 绿（2026-09-05 发布预检发现）
 
