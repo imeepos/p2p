@@ -185,3 +185,15 @@
   edit 调用却成功。触发面与参数内容相关（失败两笔的 new_string 含行内反引号，成功笔无），未定因。
 - **绕行**：edit 失败时改走 write 临时文件 + bash python/cat 追加，一次成功。
 - **期望**：绑定层与宿主侧对 edit 参数 schema 对齐；或文档明示 description 为必填。
+
+## UX1 收尾发现已合并 worktree 内 tracked 文件成批删除标记，肇事方未定（2026-09-06 UX 波协调会话）
+
+- **现象**：UX1（feat/ux-auto-start）验收合并完成后、清理前，其 worktree 出现大量 tracked 文件
+  unstaged 删除标记：根 Cargo.toml/Makefile/.gitea/workflows/ci.yml/杂项 cat、crates/llm-share-ledger、
+  llm-share-offer、llm-share-proxy 全套源文件。UX1 会话被查证否认（附完整命令时间线）；
+  PR6 worktree（llm-share 域，10 dirty）全为正常新增无删除痕迹；主树 status 干净；磁盘 249Gi 空闲。
+- **处置**：该 worktree 属一次性副本，内容已全量 ff 合并（a9a74d7）并推 origin，git worktree remove
+  --force 弃置，本地/远端分支已删，零代码损失。
+- **悬置**：删因未定（波及面仅该副本）。嫌疑方向：某会话的跨 worktree 清理命令路径打错。
+- **防线**：协调者清理 worktree 前必须核对 merge+push 完成；验收时增加「worktree 意外 dirty」巡检项；
+  各会话禁止对非本单 worktree 路径执行任何删除/清理类命令。
