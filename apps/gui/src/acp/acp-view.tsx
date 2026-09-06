@@ -11,6 +11,8 @@ import { CapabilitiesCard } from "@/views/contacts/capabilities-card";
 import { ConfigPanel } from "@/views/contacts/config-panel";
 import { ConnectionCard } from "@/acp/components/connection-card";
 import { ConnectionDirectory } from "@/acp/components/connection-directory";
+import { ShareJoinCard } from "@/acp/components/share-join-card";
+import { ShareManageCard } from "@/acp/components/share-manage-card";
 import { PermissionPanel } from "@/views/contacts/permission-panel";
 import { PromptComposer } from "@/acp/components/prompt-composer";
 import { SessionSidebar } from "@/acp/components/session-sidebar";
@@ -175,6 +177,8 @@ export function AcpView() {
         <div className="col-span-12 grid gap-4 lg:grid-cols-2">
           <ConnectionCard />
           <ConnectionDirectory />
+          <ShareManageCard />
+          <ShareJoinCard />
         </div>
       )}
       <div className="col-span-12 grid grid-cols-12 gap-4">
