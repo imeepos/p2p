@@ -3,7 +3,7 @@
 // 验收 5（§3.3）：详情抽屉五块渲染断言；权限档变更即时落存断言。
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.stubEnv("VITE_MOCK_IPC", "1");
 
@@ -11,9 +11,14 @@ const { mockAcpConsole, createMockWsFactory } = await import("@/acp/mock-acp-ws"
 const { useAcpStore } = await import("@/acp/acp-store");
 const { useEndpointMetaStore } = await import("@/acp/endpoint-meta");
 const { setWsFactory } = await import("@/acp/ws-factory");
+const { resetToastDedupForTest } = await import("@/components/feedback/toast");
+const { toast } = await import("sonner");
 
 import "@/i18n";
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
+import { AppToaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/theme/theme-provider";
+import type { WsLike } from "@/acp/ws-factory";
 import { AgentSection } from "./agent-section";
 
 // mock 白名单对齐真实契约：peer 用合法 base58（对话框同口径校验）
@@ -23,10 +28,14 @@ function renderSection() {
   return render(
     <MemoryRouter initialEntries={["/contacts"]}>
       <ConfirmProvider>
-        <Routes>
-          <Route path="/contacts" element={<AgentSection />} />
-          <Route path="/chat" element={<div data-testid="chat-probe" />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/contacts" element={<AgentSection />} />
+            <Route path="/chat" element={<div data-testid="chat-probe" />} />
+          </Routes>
+          {/* 全局 toast 面随真实应用挂载：失败 toast 断言依赖它在场 */}
+          <AppToaster position="top-right" />
+        </ThemeProvider>
       </ConfirmProvider>
     </MemoryRouter>,
   );
@@ -53,7 +62,15 @@ beforeEach(() => {
   mockAcpConsole.configure({ peers: [PEER] });
   useEndpointMetaStore.getState().resetForTest();
   useAcpStore.getState().resetConsoleState();
+  resetToastDedupForTest();
   radixStubs();
+});
+
+afterEach(() => {
+  act(() => {
+    toast.dismiss();
+  });
+  setWsFactory(null);
 });
 
 describe("endpoint 添加 → 测试连接 → 保存 → 发起会话（P2 验收 4）", () => {
@@ -115,12 +132,90 @@ function savedId(): string {
     await waitFor(() =>
       expect(screen.getByTestId("contacts-endpoint-test-failed")).toBeTruthy(),
     );
+    // 失败轻提示：toast 上墙且带关闭详情（abnormal + code），可复制排查
+    await waitFor(() => {
+      const text = document.querySelector("[data-sonner-toast]")?.textContent ?? "";
+      expect(text).toContain("连接失败");
+      expect(text).toContain("abnormal (code 1006)");
+    });
+    // 点击 toast 本体可关闭（AppToaster 事件委托）
+    fireEvent.click(document.querySelector("[data-sonner-toast] [data-title]")!);
+    await waitFor(() =>
+      expect(document.querySelector('[data-sonner-toast]:not([data-removed="true"])')).toBeNull(),
+    );
     // 未通过测试允许保存，行内显警告徽标（§3.2）
     fireEvent.click(screen.getByTestId("contacts-endpoint-save"));
     await waitFor(() => expect(screen.getByTestId("contact-agent-" + savedId())).toBeTruthy());
     await waitFor(() =>
       expect(screen.getByTestId("contact-agent-warn-" + savedId())).toBeTruthy(),
     );
+  });
+
+  /** 打开弹窗并按测试所需填主字段（peer 必填口径） */
+  async function openAndFill(wsFactory: Parameters<typeof setWsFactory>[0]) {
+    setWsFactory(wsFactory);
+    renderSection();
+    fireEvent.click(screen.getByTestId("contacts-agent-add"));
+    await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("contacts-endpoint-wsurl"), {
+      target: { value: "ws://127.0.0.1:8787" },
+    });
+    fireEvent.change(screen.getByTestId("contacts-endpoint-token"), {
+      target: { value: "mock-token" },
+    });
+    fireEvent.change(screen.getByTestId("contacts-endpoint-peer"), {
+      target: { value: PEER },
+    });
+  }
+
+  it("测试首拨进重连即判失败：立即断开止损并 toast，不空转重试", async () => {
+    // 非终态关断码（3000 abnormal）且未 open：客户端视角进 reconnecting
+    await openAndFill(() => {
+      const sock: WsLike = {
+        send: () => {},
+        close: () => {},
+        onopen: null,
+        onclose: null,
+        onerror: null,
+        onmessage: null,
+      };
+      window.setTimeout(() => sock.onclose?.({ code: 3000, reason: "abnormal-drop" }), 0);
+      return sock;
+    });
+    fireEvent.click(screen.getByTestId("contacts-endpoint-test"));
+    await waitFor(() => expect(useAcpStore.getState().phase).toBe("idle"));
+    expect(screen.getByTestId("contacts-endpoint-test-failed")).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-sonner-toast]:not([data-removed="true"])')?.textContent ?? "",
+      ).toContain("连接失败"),
+    );
+  });
+
+  it("拨号悬挂超时兜底：转失败断开解除 loading，不无限「连接中…」", async () => {
+    await openAndFill(() => ({
+      send: () => {},
+      close: () => {},
+      onopen: null,
+      onclose: null,
+      onerror: null,
+      onmessage: null,
+    }));
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(screen.getByTestId("contacts-endpoint-test"));
+      expect(useAcpStore.getState().phase).toBe("connecting");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(12_500);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(useAcpStore.getState().phase).toBe("idle");
+    expect(screen.getByTestId("contacts-endpoint-test-failed")).toBeTruthy();
+    expect(
+      document.querySelector('[data-sonner-toast]:not([data-removed="true"])')?.textContent ?? "",
+    ).toContain("连接失败");
   });
 });
 
