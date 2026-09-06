@@ -366,3 +366,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - rustfmt 宏调用 fn_call_width 默认 60：单行宏参数超 60 字符被竖排膨胀，行数红线（300）文件先用短参助手收敛再过 fmt；fmt 会改行数，先 fmt 再数行。
 - DSH edit 工具做读时快照校验：外部进程（cargo fmt）改盘后必须先用 read 工具重读该文件再 edit，否则报 "file changed since it was read"。
 - make check 首跑 gate-tests 的 vite 真实构建可能因 pnpm 冷缓存 "Command vite not found" 假红，预热后单跑即绿；判定环境问题前先单测该脚本一次。
+
+- 2026-09-06 DSH run_code 里调 write/edit 工具：run_code 的参数序列化会要求 write 带 `description` 属性（顶层 write 工具直接调用不要求）；且对同一文件连续 edit 报 file changed since read 时，重读一次即可再 edit。session_link_list 用 `{}` 调用报 lossless JSON 错，无参重试即过。
+- 2026-09-06 vitest 里 vi.stubEnv 必须先于模块求值：静态 import 会提升到所有语句之前，被测模块可能在 env 就位前绑定错误分支（实例：console-watch 顶层读 import.meta.env 选 ipc 后端）。修法 = 全动态 await import(...) + vi.resetModules()，保证整链按 stub 后环境重求值。
+- 2026-09-06 硬编码文案扫描（i18n hardcoded-copy.test）会命中「代码行尾的 // 中文注释」，独立成行的中文注释不命中。写码时中文注释一律独立成行。
+- 2026-09-06 zustand subscribe 回调里再 setState 会自环：必须 (s, prev) 边沿触发（只对关心的切片比较变化）+ 幂等前置守卫（已处理状态直接 return），否则订阅-setState-再订阅瞬间栈爆（实例：console-watch 发现面解析回环）。
