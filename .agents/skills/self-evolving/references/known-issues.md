@@ -841,3 +841,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：新 worktree pnpm install 后 mock-ipc-guards 自测仍红，vite 案例报 [ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY]。
 原因：export PATH="/opt/homebrew/bin:$PATH" 把 homebrew 独立 pnpm（v10.33）提到最前装依赖；项目 packageManager/默认 pnpm 是 corepack 的 v11.24。版本错配使 11.24 判定 node_modules 需清空重装，无 TTY 即中止。
 修法：worktree 装依赖先 pnpm --version 对齐项目 pin，再用 CI=true pnpm install --frozen-lockfile 自动确认目录重建；错配状态下 gate-tests 的失败形态会漂移（本例先见 vite not found、再见 purge 中止），别按表象逐个修。
+
+## 2026-09-06 AS4 share E2E（feat/acp-share-e2e）
+- cargo 根 workspace path-dep 指向嵌套 workspace 根（apps/acp-* 各有 [workspace]）→ "multiple workspace roots found in the same workspace" 拒绝构建。修法：根 [workspace] exclude 该包（先例 apps/gui/src-tauri），包本身保持独立 workspace 不动。
+- acp-console/src/dial.rs exchange_hello 裸 ndjson 读写握手，而真桥（acp-agent/src/pump.rs read/write_wire_line）是 varint 帧口径；console 自己的 AgentMock（tests/common/mod.rs 裸 read_line）用同款错误口径当假对端，双侧测试全绿、跨进程必挂。跨 crate 线协议必须有一处真两端集成测试背书。
+- parse_server_hello 对 denied 帧返回 Ok(ServerHello::Denied)；把一切 Ok 当 Ready 会把拒绝伪装成 "unexpected hello shape"。握手封装先分派变体再取载荷。

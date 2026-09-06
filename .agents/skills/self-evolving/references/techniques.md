@@ -360,3 +360,9 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-05 DSH：run_code 里长含反引号/markdown 的文本会被 JS 模板串截断、bash 变量在模板串里会被 JS 插值——多行内容用行数组 push 后 join，bash 变量写成转义形式。
 - 2026-09-06 IMC1 卡：agent 里用 run_code 写大文件（Rust 源码等含括号/换行的内容）时，content 先赋给 const 变量再传 tools.write，别把长内容内联进调用——两次踩坑：闭合序列写重（多一层反引号闭括号）、多行字符串裸换行破坏 JS 语法；const 先行还能顺手 .split("\n").length 回读行数对账红线。
 - 2026-09-06 IMC1 卡：cargo/长命令接管道（| tail / | grep）会把真实退出码换成 tail/grep 的——验收判断一律命令分号接 echo exit=$? 落盘或输出首行，别信管道尾命令的 rc。
+
+## 2026-09-06 AS4 share E2E
+- bash 里 cargo ... | tail 会吞退出码：验收/门禁判定一律用 echo EXIT=${PIPESTATUS[0]}。
+- rustfmt 宏调用 fn_call_width 默认 60：单行宏参数超 60 字符被竖排膨胀，行数红线（300）文件先用短参助手收敛再过 fmt；fmt 会改行数，先 fmt 再数行。
+- DSH edit 工具做读时快照校验：外部进程（cargo fmt）改盘后必须先用 read 工具重读该文件再 edit，否则报 "file changed since it was read"。
+- make check 首跑 gate-tests 的 vite 真实构建可能因 pnpm 冷缓存 "Command vite not found" 假红，预热后单跑即绿；判定环境问题前先单测该脚本一次。
