@@ -916,3 +916,9 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 ## 2026-09-07 UX-E：vitest worker 偶发启动超时（forks/threads 双池都中）
 - 症状：vitest run 报 "Timeout waiting for worker to respond / Failed to start worker"，0 用例执行；同命令隔几分钟重跑即过；高负载机器（并行会话多 vitest）更频发。
 - 修法：先 pkill 本 worktree 残留 vitest 僵尸（上次超时遗留），再重跑；稳定化用 --no-file-parallelism（fork 数降到 1，语义不变只慢）；别急着怀疑自己的测试代码。
+
+
+## 收官合并"宣布完成但内容未进 main"：分支三清前必须 ls-tree 校验交付路径（2026-09-06 LSG3 收官事故）
+- 症状：协调者宣布批次 make check FINAL-EXIT=0 且三清，但六笔交付提交均不在 origin/main 祖先、交付目录在主树不存在；FINAL 门禁跑在交付分支合并态上，主树合并步骤静默丢内容后分支/worktree 照删。
+- 修法：对象库未 GC 时按已知哈希重建分支 ref + worktree 零丢失恢复（本次 602600c..aad7ff9 全活）；根因防线=删除分支前必须 "git merge-base --is-ancestor <交付tip> origin/main" + "git ls-tree origin/main -- <交付路径>" 双校验。
+- 关联：LSG1「命令静默丢失」同象；与 "ff-only 失败后分号链继续删分支"（red-lines 2026-09-06 条）互为表里。
