@@ -372,3 +372,9 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 LSG1：多会话并行 cargo 高负载下，超时等待类测试（console::tests 监督时序）会偶发假红且每次挂在不同用例上；先隔离复跑单用例定性（秒级即过），别急着改代码或归因到自己模块。
 - 2026-09-07 UX-E 走查前先 grep 路由注册确认目标视图真的挂载在现路由上——本任务 GroupView 是孤儿组件（routes/group-page.tsx 无消费方），群管理真实入口在 contacts 群组分区；照测试文件的路由假设走查会白跑。
 - 2026-09-07 UX-E mock 数据的"随机形态"要进实现考量：mock 随机地址 70% 缺 u/t 传输前缀，带入类功能必须按"可拆才带入、不可拆只填主体"降级，走查证据里两类形态都要出现。
+- 2026-09-07 协调轮 run_code 内 session_link_talk 的 talkTimeoutMs 上限只留 540s：包装层自身有 600s 墙钟，顶格 600000 必死在包装层、claimToken 都拿不到。
+- 2026-09-07 协调轮 session_link_collect 的 claimToken 在 ownMessageSeen=false 时必然领不到（目标历史里还没有己方消息）；长首回合的会话不要 collect，直接隔几分钟再 talk 接力。
+- 2026-09-07 协调轮 workspace_session_manage archiveSession 单会话调用会回显全工作区幂等归档清单（470+ 条），别被吓到；核对自己目标 id 在列表且活跃会话不在列表即可。
+- 2026-09-07 协调轮 并行会话在共享主树各跑 pnpm 会互相打碎 node_modules（typescript 凭空消失、ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY）：验收前 CI=true pnpm install --frozen-lockfile 重建一次再跑门禁；门禁假红先怀疑依赖正被改动。
+- 2026-09-07 协调轮 多分支并行收尾时 ff-only 会把合并串行化（每卡都要再反向同步一次）；main 侧改用 --no-ff 合并提交（仓库已有先例），i18n 尾部追加冲突按双侧保留解。
+- 2026-09-07 协调轮 并行会话会把未提交的 skill 笔记滞留共享主树，卡住下一次 ff-merge：先单独 chore(skill) 提交保全内容，再走 --no-ff 合并解 union 冲突，绝不 stash 丢弃他人反思。
