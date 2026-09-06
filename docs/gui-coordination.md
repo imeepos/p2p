@@ -100,3 +100,20 @@ G-U2 遵守 locale 先行独立小提交规则；两单收尾回报前必须 mer
 | UX5 chat IME 守卫（原 UI-DEBT1） | feat/ux-ime-guard | ux-ime-guard | components/chat/composer.tsx 等 chat 域 + 共享组合态钩子 + 群历史滚动跳位补偿；i18n 如需 chat.* | 定向 vitest + pnpm lint/build/test/check:i18n | doing |
 
 - 2026-09-06 21:45 契约 v10 冻结（§15 acp_console_status + acp-console 事件，协调者执笔落 main）；五单经 session_link 新建专属会话并行派发。UX3 依赖 §15 命令面，对 mock 先行开发；UX1 语义红线：一次/应用生命周期、手动 stop 本轮不复活、失败显式态+重试。
+
+
+## UX 易用性波收官（2026-09-06，协调 session-b9f9d3f5）
+
+| 单 | 结果 |
+|---|---|
+| UX1 启动即在线 | ✓ 合并 a9a74d7（node-store 自动启动闸门+AutoStartNotice+12 用例） |
+| UX2 acp-console 托管 | ✓ 合并 a186caf（console 七文件模块+契约 v10 命令/事件+cli-parity 豁免行；cargo 三门禁绿） |
+| UX3 agent 一步直达 | ✓ 合并 eb24118（console-watch 自动登记/连接/开会话+表单收敛一条龙+引导卡；913 用例绿） |
+| UX4 AG-UI 对齐 | ✓ 合并 f6be4bb（run 生命周期+失败徽章重试+工具卡四态；transcript 拆分 221/150 行） |
+| UX5 IME 守卫 | ✓ 合并 002e0bc（共享钩子 use-ime-composition+群滚动补偿+7 用例） |
+
+- 逐卡验收=范围合规检查器+域门禁协调者独立复跑+批次全量 make check（两次 PIPESTATUS=0）。
+- 事件：①UX1 worktree 成批删除标记（未破案，已登记 ISSUE）；②主树 skill references 被 UX3
+  喂回全量覆写截断（认领，已打捞补录 7d40169）——共享经验文件 append-only 铁律生效。
+- 契约后续议题：§15 AcpConsoleStatus 增 peer 字段（UX3 落地口径已背书）。
+- 五专属会话全部验收后归档；清理四步全部执行（worktree/本地分支/远端分支三清）。
