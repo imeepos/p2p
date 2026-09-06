@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-06T09:50:54Z",
+  "updatedAt": "2026-09-06T10:38:27.780Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-fd87d7bf-1e1e-40d7-a489-911a95f94db3",
@@ -518,7 +518,7 @@
     },
     {
       "id": "UI-DEBT4",
-      "priority": "P3",
+      "priority": "P2",
       "status": "todo",
       "title": "评估吸收 t36 旧版 wire_boundaries 未上主的边界用例",
       "goal": "archive/t36-chat-boundary-20260903 tag 保管的 wire_boundaries.rs（275 行 vs main 105 行）基于旧协议面，需逐用例核对：仍适用于现行 p2p-chat 协议的边界用例吸收进 main，失效的丢弃",
@@ -537,7 +537,7 @@
       "branch": "feat/acp-share-agent",
       "ownerSession": "session-99640f08-dc16-4318-81a9-6736afee3cd8",
       "scope": "apps/acp-common/src/**、apps/acp-agent/src/**+tests、apps/cli/src/acp/**、docs/ops/p2pctl-ai-guide.md；禁碰 console/gui/crates/**/.devloop/docs/design",
-      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-as1-target; cd /Users/imeepos/ext512/p2p && cargo test -p acp-common -p acp-agent && cargo clippy -p acp-common -p acp-agent --all-targets -- -D warnings && (cd apps/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo run -q -- acp share --help >/dev/null) && make check'",
+      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-as1-target; cd /Users/imeepos/ext512/p2p/apps/acp-common && cargo fmt --check && cargo test && cargo clippy --all-targets -- -D warnings && cd ../acp-agent && cargo fmt --check && cargo test && cargo clippy --all-targets -- -D warnings && cd ../../apps/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo run -q -- acp share --help >/dev/null && cd ../.. && make check'",
       "note": "2026-09-06 协调派单（设计 0f437ad 已上 main）。拍板：一次性=激活次数默认1且绑定 PeerId；token 复用握手字段零协议变更；撤销级联删 share 来源策略条目；worker 不自行合并 main"
     },
     {
@@ -545,12 +545,15 @@
       "goal": "分享链接 guest 接入（acp-share-design.md §2/§7）：acp-console 链接解析器（合法/非法用例）；CLI --share-link 直拨（登记地址候选→拨号→握手 token=链接 token→ready 后如常）；status HTTP POST /connect-share（Bearer 鉴权，成功/失败 reason 进 status 与 stdout JSON 行，禁止静默）；与 reattach 票据/discovery 兼容、重复导入幂等",
       "title": "AS2 分享链接 console 接入（--share-link + /connect-share）",
       "priority": "P0",
-      "status": "doing",
+      "status": "done",
       "branch": "feat/acp-share-console",
       "ownerSession": "session-b8f635dd-a227-451f-9ca2-eb9c638f6642",
       "scope": "apps/acp-console/src/**+tests；禁碰 acp-common/acp-agent/cli/gui/crates/**/.devloop/docs/design",
-      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-as2-target; cd /Users/imeepos/ext512/p2p && cargo test -p acp-console && cargo clippy -p acp-console --all-targets -- -D warnings && make check'",
-      "note": "2026-09-06 协调派单（设计 0f437ad 已上 main）。worker 不自行合并 main"
+      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-as2-target; cd /Users/imeepos/ext512/p2p/apps/acp-console && cargo fmt --check && cargo test && cargo clippy --all-targets -- -D warnings && cd ../.. && make check'",
+      "note": "2026-09-06 协调派单（设计 0f437ad 已上 main）。worker 不自行合并 main | 2026-09-06 协调验收：fmt/test(43 例含链接解析 9+share_connect 6)/clippy 全绿，make check exit 0（协调 shell 直跑同一命令两次留痕 /tmp/as2-mcwarm.log、/tmp/as2-warm.log）。devloop_accept 三次 exit null 为验收器内置上限杀进程（Terminated 15 于 gate-tests/line-limit），非测试失败；UTF-8 locale 门禁真 bug 已热修 6976d06。",
+      "failCount": 3,
+      "mergedMain": "934c833",
+      "acceptedAt": "2026-09-06T03:38:00-07:00"
     },
     {
       "id": "AS3",
@@ -573,7 +576,7 @@
       "branch": "feat/acp-share-e2e",
       "ownerSession": "",
       "scope": "crates/p2p-itest/**、apps/acp-agent/tests 新增 e2e 文件、docs/ops/acp-guide.md、README.md",
-      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-as4-target; cd /Users/imeepos/ext512/p2p && cargo test -p p2p-itest --test share_link_wave && cargo test -p acp-agent && grep -q \"分享\" docs/ops/acp-guide.md && make check'",
+      "acceptanceCommand": "bash -c 'export PATH=\"/opt/homebrew/bin:$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-as4-target; cd /Users/imeepos/ext512/p2p && cargo test -p p2p-itest --test share_link_wave && cd apps/acp-agent && cargo test && cd ../.. && grep -q \"分享\" docs/ops/acp-guide.md && make check'",
       "note": "待 AS1+AS2 机械验收合入后由协调会话派专属新会话"
     },
     {
