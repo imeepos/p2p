@@ -186,8 +186,9 @@ describe("GUI chat event and history boundaries", () => {
       () => expect(screen.getByText("暂无好友")).toBeTruthy(),
       { timeout: WAIT_TIMEOUT },
     );
-    // 右侧未选中空态（§2.1）：选择或发起会话
-    expect(screen.getByText("选择或发起会话")).toBeTruthy();
+    // 右侧未选中空态（§2.1 + UX 审计 F01）：无可选会话给首公里双 CTA
+    expect(screen.getByText("还没有可聊的会话")).toBeTruthy();
+    expect(screen.getByTestId("chat-empty-add-friend")).toBeTruthy();
     expect(screen.queryByTestId("chat-input")).toBeNull();
   }, VIEW_TIMEOUT);
 

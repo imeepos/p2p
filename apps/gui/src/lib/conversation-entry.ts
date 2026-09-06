@@ -229,9 +229,9 @@ export function agentEntry(params: {
     subtitle: connectionLabel,
     kindMark: { initial: null, botIcon: true, groupBadge: false, dot },
     statusBadge: connectFailed ? { tone: "destructive", label: connectionLabel } : null,
-    lastPreview: lastText
-      ? truncateChars(singleLine(lastText), AGENT_PREVIEW_MAX_CHARS)
-      : connectionLabel,
+    // F07：连接态已由 subtitle/断连徽标承载，预览不再回退拼接同一文案，
+    // 消除「未连接 未连接」两维度无标签重复（UX 审计 20260907 F07）。
+    lastPreview: lastText ? truncateChars(singleLine(lastText), AGENT_PREVIEW_MAX_CHARS) : null,
     lastTsMs: lastInteractionMs,
     unread,
     sendState: promptPending ? "pending" : connectFailed ? "error" : null,

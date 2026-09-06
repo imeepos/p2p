@@ -17,6 +17,8 @@ import { EmojiPicker } from "./emoji-picker";
 import { notifyFailedSendReport } from "./send-notify";
 
 const MAX_TEXT_CHARS = 2000;
+// F28：接近上限即显字数计数（UX 审计 20260907 F28：阈值取上限前 100 字）
+const CHAR_COUNT_THRESHOLD = MAX_TEXT_CHARS - 100;
 
 // 引用预览（IM-T46B）：被引用消息的类型化摘要 + 取消按钮；取消/清空即不带 replyTo。
 function ReplyPreview({
@@ -108,6 +110,9 @@ export function Composer({
   const trimmed = text.trim();
   const tooLong = trimmed.length > MAX_TEXT_CHARS;
   const canSend = trimmed.length > 0 && !tooLong && !sending;
+  // 计数按输入框原文计；超限判定沿用发送口径（trim 后），超限只提示不清空
+  const charCount = text.length;
+  const showCharCount = charCount >= CHAR_COUNT_THRESHOLD;
 
   const insertEmoji = (emoji: string) => {
     const el = textareaRef.current;
@@ -238,8 +243,24 @@ export function Composer({
           {t("chat.send")}
         </Button>
       </div>
-      {tooLong ? (
-        <p className="mt-1 text-xs text-destructive">{t("chat.textTooLong")}</p>
+      {showCharCount || tooLong ? (
+        <div className="mt-1 flex items-center justify-between gap-2 text-xs">
+          {tooLong ? (
+            <p className="text-destructive" role="alert" data-testid="chat-text-too-long">
+              {t("chat.textTooLong")}
+            </p>
+          ) : null}
+          <span
+            data-testid="chat-char-count"
+            aria-live="polite"
+            className={cn(
+              "text-muted-foreground ml-auto shrink-0 tabular-nums",
+              tooLong && "text-destructive",
+            )}
+          >
+            {t("chat.charCount", { count: charCount, max: MAX_TEXT_CHARS })}
+          </span>
+        </div>
       ) : null}
     </div>
   );

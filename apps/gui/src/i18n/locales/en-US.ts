@@ -545,6 +545,20 @@ const enUS: typeof zhCN = {
       confirming: "Removing…",
       failed: "Remove failed: ",
     },
+    // UX-H first mile (F01/F17/F28): empty-state CTAs, pending invite rows, char counter
+    empty: {
+      pendingTitle: "No conversation to open yet",
+      hintListEmpty:
+        "The conversation list is empty; add a friend and start chatting once they accept",
+      hintAgentOnly:
+        "Only the local agent is in the list for now; add a friend and start chatting once they accept",
+      hintInviting:
+        "Invitation sent, waiting for approval; you can start chatting once it is accepted",
+      addFriendCta: "Add friend",
+      goContactsCta: "Open contacts",
+    },
+    pendingInviteBadge: "Waiting for approval",
+    charCount: "{{count}}/{{max}}",
   },
   group: {
     title: "Groups",

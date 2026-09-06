@@ -903,3 +903,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：F19 用 `if (peerId) ref.current = peerId` 在 render 记最后运行期身份，eslint 12 连报 react-hooks/refs；换 useEffect+setState 又报 set-state-in-effect。
 - 原因：react-hooks v7 把 ref 的 render 期读写与 effect 内同步 setState 都定为 error（级联渲染）。
 - 修法：用官方「render 期条件调整 state」模式：`const [prev,setPrev]=useState(x); if (x!==prev) setPrev(x);`——React 文档背书、两规则都不命中；注意该模式 state 每挂载重置，跨挂载要保持的值不能靠它。
+
+## 2026-09-07 UX-H：vite dev 冷启挂死（0% CPU 零输出不监听）三因叠加
+- 症状：vite 启动零输出、端口不监听、进程 0% CPU 挂着；换前台 `( nohup … & )` detach 单命令模式即秒过（ready 8.6s）。
+- 原因：① lsof 见 vite 进程 ESTABLISHED 到 localhost:7890——HTTP(S)_PROXY 环境变量把启动期请求导进代理挂死；② run_in_background bash job 的文件写与端口对宿主不可见（日志文件始终不被截断，读到的全是旧内容）；③ gui-agent DEBUG_PORT 9223 全机器共用，并行会话互抢，抢到别人的 Chrome 就页面加载超时。
+- 修法：启动套 `env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY NO_PROXY='*'`；dev server 放前台单命令内 detach（启动+探活+走查+清理一条命令闭环）；gui-agent 复制副本 `sed 's/9223/9229/'` 用专用端口。
