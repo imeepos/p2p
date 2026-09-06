@@ -212,5 +212,105 @@ _none yet — be the first._
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
-- 2026-09-06：组件内聚 useNavigate 等路由钩子时，钩子组件必须「按需挂载」（条件渲染 null）且只在真实应用必处 Router 内的面板出现——MessageList 常驻渲染导航弹框让 6 个裸渲染既有测试崩在 useNavigate() invariant；修复是把导航收进弹框组件并按需挂载，既有测试零改动回绿。
+- 2026-09-05 P0壳：设计文档内部有张力时（5.3 要求 /group /acp 重定向 vs 七、
+  迁移策略要求群聊/ACP「P1 前保持整页形态挂新壳」），以可机械验收的清单为
+  权威反推实现（重定向到 /chat?kind=*，kind 分支挂整页视图），两头约束同时
+  满足；不要在文档两段间二选一，找同时满足两段的第三形态。
+
+
+
+- 2026-09-05 PR1 轮：bash 后台启动 serve 的函数不能被 `VAR="$(fn)"` 命令替换
+  包裹——子 shell 里 PIDS+=("$!") 只改副本，父 shell 数组恒空，pop 时报 bad
+  array subscript；模式是函数内直接改父 shell 数组 + 就绪结果写全局变量带回，
+  纯读函数才允许命令替换。
+- 2026-09-05 PR1 轮：bash 生成脚本内容经 JS 模板字符串写入时，脚本里的
+  `${...}` 会被 JS 当插值吃掉（parse error Expected ident）；改用逐行数组
+  join 普通字符串承载，或全部转义 `${`。
+- 2026-09-05 PR1 轮：本仓库 chat serve/一次性命令的身份锁要求数据目录已存在，
+  mktemp -d 下的子目录直接当 --data-dir 会报「身份被占用…No such file or
+  directory」（锁文件建不出来）；E2E 起节点前先 mkdir -p 各 data-dir。
+- 2026-09-05 PR1 轮：长测试（workspace 级集成测试单件 20-90s）严禁前台同步
+  等结果——600s 超时烧掉一轮；一律 run_in_background + 日志文件，期间做互不
+  依赖的下游工作，只在真正被阻塞时 job_output wait。
+- 2026-09-05 PR1 轮：同一个日志文件不能被两次后台运行复用（第一次残留与第二
+  次输出交错假象）；每轮独立文件名或先清空。cargo 增量重链接全部集成测试
+  二进制是分钟级操作，改 lib 后的验证优先 cargo test -p <crate> --lib 快筛。
+
+- 2026-09-05 UB：run_code 里用模板串装含反引号/花括号密集的 shell 命令，两次在
+  "解析 program" 阶段炸 Unterminated template（与目标文件无关）；长命令一律改成
+  字符串数组 + join(" ") 拼参，模板串只留给无特殊字符的短串。
+- 2026-09-05 UB：tools.edit 删文件尾部重复块时，old_string 若只含重复块本身会命中
+  两处被拒；锚点必须带上目标块独有的相邻行（如前一个 describe 的收尾断言），
+  先 read 全文核对匹配次数再动手。
+
+- 2026-09-05：git commit 提交的是整个暂存区，不是刚 add 的路径——soft reset 重做
+  提交序列时，`git add <path> && git commit` 会把 index 里所有遗留暂存卷进一个
+  巨石提交。修法：要么 commit 用 pathspec 形式 `git commit -m msg -- <paths>`
+  （按工作区状态只提交指定路径），要么提交前 git status 确认暂存区干净。
+- 2026-09-05：对独立 cargo workspace 的子包（apps/cli 有自己的 [workspace]）跑
+  `cargo fmt --manifest-path` 会把包内他域文件的存量格式漂移一并重写（根 fmt
+  门禁只扫根 workspace，漂移因此长期潜伏）；会凭空造出他域文件 diff，撞并行 PR
+  的冲突面。fmt 后必须 git status 核对，非本任务文件一律 checkout -- 回退。
+- 2026-09-05：run_code 模板串里生成 JS/TS 代码时，行尾续行反斜杠与换行转义需要
+  双重转义层级心算，很容易造出合法 TS 但非法目标语言的序列；写完立刻跑一次
+  目标脚本冒烟（--help 级别即可），本次靠冒烟 30 秒内抓住语法错。
+- 2026-09-05：RTL 的 getByText(函数谓词) 会命中多个元素（谓词跑在多个节点上），定位组件内文本用 data-testid 直读 textContent 最稳（UA 轮 use-hotkeys 探针四连败根因）。
+- 2026-09-05：cmdk 在 jsdom 需要 ResizeObserver 与 Element.prototype.scrollIntoView 两个最小桩，缺一即面板挂载崩；桩放各测试文件头部，不动共享 setup.ts（他人所有文件）。
+- 2026-09-05：行为断言写 toHaveBeenCalledWith(具体值) 而非 toHaveBeenCalled()，才能抓住类型系统放行的真缺陷——本次靠它抓到关闭回调吞参把 undefined 写回受控 open 状态。
+- 2026-09-05 给跨域共享类型（如 EventStateSlice）加必填字段会编译炸掉并行 PR 域的测试文件（它们不可改）：新增字段做成可选+缺省回退（reduceEvent 内 (state.eventSeq ?? 0)+1），本域测试显式补全，契约语义写进注释。
+- 2026-09-05 冷 worktree 跑 make check（含 cargo 全量冷编 + gui-tauri）>10 分钟，同步等待必撞工具超时：一开始就 run_in_background 落盘日志（make check > /tmp/x.log 2>&1; echo EXIT=$?），job_output 轮询。
+- 2026-09-05 门禁跑批期间不改任何文件是硬规则：先把所有源码改完再起 make check；中途补丁会让该次门禁失去证明力，只能重跑全量。
+- 2026-09-05 UC 会话事故复盘：对共享 append-only 文件跑 git restore 前，必须先
+  git diff 全量核对——主树 lessons.md 里叠着他会话 14 行未提交追加，本次 restore
+  连同抹掉，仅抢救出尾部三行（见下条恢复标记）。教训：只 restore 自己能逐行
+  说清来源的 hunks；外来内容一律先另存再处置。
+- 2026-09-05 恢复记录（自主树未提交残留抢救，原会话请以完整原文重录，本条仅防丢失）：
+  「（Expected unicode escape）且整段程序不执行、其中所有已发工具调用全部回滚——
+  大块代码文本搬移用「read 行切片 + write 整写」，长文本一律走 write 工具，
+  不在 JS 串里手拼含转义的代码内容。」
+- 2026-09-05 UD 会话：中央登记守卫测试（acp/group-registration）用正则
+  /path="([^"]+)"/ 解析 App.tsx 源码——把 App.tsx 改成 createHashRouter
+  的对象式 { path: "peers" } 会打碎它们（禁改文件不能适配）；正解是
+  createRoutesFromChildren 保留 JSX 路由声明，data router 与登记守卫两全。
+- 2026-09-05 UD 会话：eslint-plugin-react-hooks v7 有 refs 规则，render 期
+  ref.current = x 直接报错（旧写法 hook 保最新闭包失效）；替代是 useEffect
+  内同步 ref，或干脆 effect 内重注册回调（Map.set 幂等）。组件文件混导出
+  函数触发 react-refresh/only-export-components——纯逻辑拆独立 .ts 文件。
+- 2026-09-05 UD 会话：vitest 不做类型检查（测试文件跑得过），tsc -b 才拦
+  vi.fn 签名/HTMLElement 属性错误——「测试全绿」后 build 仍可能红；先
+  typecheck 再报绿。vi.mock 的模块工厂对象方法签名要和真实调用参数一致。
+- 2026-09-05 UD 会话：useConfirm 这类 context hook，测试 harness 里把
+  <Provider> 包在组件返回 JSX 内没用——必须包住调用 hook 的组件本身
+  （render 外层），否则 useConfirm() 在挂载时即 throw。
+
+- 2026-09-05：页面注册有三处并存清单（menu.def.ts / src-tauri control ROUTES / 前端 PAGE_REGISTRY），加页只改一处会静默漏——group 页曾三缺二；加页前先 grep 旧路由名全仓找齐清单，并同步数量守卫测试（page-registry.test 显式清单）。
+- 2026-09-05：协调链里的验证步骤同样禁止管道收尾（`git rebase main 2>&1 | tail -2; echo RC=$?` 的 RC 是 tail 的）：一律 `> 日志文件 2>&1; echo RC=$?` 再 tail 日志，本轮该坑以「merge 静默未生效、worktree 未删」形态三犯。
+- 2026-09-05：session_link_talk 对已完成会话可能返回 replied=true 且 reply 为空串——交付判定以仓库实况（worktree 状态/分支 tip/远端同步）为准，不采信回执形态。
+- 2026-09-05：GUI 走查脚本用 p2pctl gui navigate 时传路由名（dashboard 而非 /）；发布预检做 DOM 巡检可完全绕开截图权限缺陷，且比 ui-regression.sh 多覆盖 group/acp。
+
+
+AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只有 origin（github）。收尾四步推送前先 git remote -v 核对实际远端名再执行（2026-09-05）。
+- 2026-09-05：run_code 里 bash 命令写成 TS 模板字面量时，shell 的 ${var} 会被 JS 层先行插值直接抛 Unterminated template——长 shell 脚本一律「行数组 + join("\n")」拼串，变量用 $var 不带花括号，绝不让 ${ 出现在 code 字符串里。
+- 2026-09-05：git mv 后对「新路径」文件 write/edit 前必须先用 read 工具读新路径，旧路径读过不算（工具按路径记账）；perl -pi 批量改过的文件再 edit 同样要先重读，否则报 file changed since read。
+- 2026-09-05：并行会话在主树留 staged 半成品时 ff-only 合并三步走：git diff --name-only main <分支> 与 git status --porcelain 取交集 comm 校验为零重叠 + 核对 main==origin/main → 直接 merge --ff-only（git 不碰零重叠路径，外来 staged 态原样保留）→ 事后绝不跑全量测试（主树是别人工作区）。
+- 2026-09-05：主树 index 有他人 staged 内容时提交自己的文件，用 git commit -m ... -- <pathspec> 只提交指定路径，普通 git commit 会把别人的 staged 删除一起打包。
+- 2026-09-05：RTL 断言同名词在多卡片出现（如「中继」既是拨号链行名又是排障链接文案、「中继会话」既是指标卡标签又是趋势系列名）时全局 getByText 必撞多重匹配——用 getAllByText(label)[0].closest("[data-slot=card]") 再取卡内 card-title 的结构定位断值。
+- 2026-09-05：job_output 的 wait 有运行时 600s 墙钟上限，先超时的是等待不是任务——make check 级长任务 run_in_background 后用非阻塞 job_output 轮 job.status，tail 管道会在管道结束前不出文本属正常。
+- 2026-09-05：DSH 的 devloop_scan 绑定调用报 binding arguments must be lossless JSON（harness 序列化缺陷）时，改用 bash 跑同等只读命令替代，不要反复重试绑定。
+- 2026-09-05：规格「迁移 X 配置面板」而 X 实为别的语义（permission-grading 是请求应答分级模型，不是配置面板）时，以章节正文描述的目标态 + 分期验收行为准（「权限档变更对后续会话生效」只可能指策略配置），「迁移」按词源照搬会做出验收不达标的残件；落地时在回报中显式列出待负责人复核的解释点。
+- 2026-09-05：mock 后端夹具要贴真实契约形状（peer 必须合法 base58-32）而不是沿用 mock 自身的宽松值（mock-peer）：表单前置校验与后端同口径后，宽松夹具会被前端正确拦截，测试红因是夹具不是实现；mock 白名单用 configure({ peers: [真实 base58] }) 对齐。
+- 2026-09-05：测试里从数组反查实体用「取末位元素」而不是「拿 length-1 当 id 查」——id 与数组下标是两套序列（mock 权限帧 id 从 100 起），混用必假红。
+- 2026-09-06：跨平台测试断言禁止写死单一平台的路径/格式形态（p2p-cli 日志目录断言写死目录末段=app 名，macOS ~/Library/Logs/<app> 成立、linux XDG ~/.local/state/<app>/logs 末段是 logs，ubuntu CI 恒红）——应对照被测平台函数做 wiring 断言，形态断言下沉到该函数自己的跨平台用例。
+- 2026-09-06：测试里 yield_now 大自旋等待定时器驱动的服务端事件是调度假设（多核热队列下全程不 park，50k 次纯 CPU 微秒级烧完，300ms 墙钟根本没流逝）——改小步 sleep 加截止时间判红的轮询，事件发生即刻过、不发生显式红，双平台语义一致。
+- 2026-09-06：pipefail 脚本里 printf 管道喂带提前 exit 的 awk 有 EPIPE 竞态：awk exit 关读端，printf 没在 awk 退前写完缓冲就炸——macOS 恒赢（假稳）、CI 慢机可输；改 here-string 喂 awk 无此失效面。
+- 2026-09-06：本地 make check 绿之后又改了东西再推送，必须重跑门禁（哪怕只加一个函数）——本次 wait_until 签名漂移被自己扩展的 CI fmt 门禁当场抓获，白烧一轮 12 分钟 CI。
+- 2026-09-05 底座 peer 流下传卡：接任务卡先 `git log --oneline -- <条目涉及文件>` 对账再动手——登记/任务书会滞后于代码现状（c3b260f 已把 trait 加参与 swarm 喂流落地，实际只剩文档留档与应用迁移；不看历史会重复设计或误判契约未定）。
+- 2026-09-05 底座 peer 流下传卡：新写 Rust 文件进长门禁前先 cargo fmt --check 预检（根与独立 [workspace] 子包各跑一次，acp-agent 不被根 fmt 覆盖）——漂移是小 style 提交，白跑一轮 make check 是十几分钟。
+- 2026-09-05 底座 peer 流下传卡：后台 make check 的输出经 `| tail` 缓冲会让中途 job_output peek 全程拿不到进度；改 `make check > /tmp/x.log 2>&1; echo EXIT=$?` 落盘，中途可 tail 日志看阶段，退出码以落盘 echo 为准。
+- 2026-09-05 发布链路卡：「无密码」不等于「空密码加密」——rsign 密钥空口令加密时，tauri 签名必须显式导出空串 PASSWORD 变量，非交互 shell 才不会去开 /dev/tty（Device not configured, os error 6）；文档口径差一个词就是一次四平台发布失败。
+- 2026-09-05 发布链路卡：自检红绿矩阵里唯一期望 rc=0 的绿场景是 harness 自身的照妖镜——本次 eval "export $*" cmd 把命令词当 export 的 NAME 参数，八个红场景全是假阳性 rc=1，绿场景如实变红才暴露 harness bug；写自检先让它证明绿路径真能绿。
+- 2026-09-05 UI 审计修复轮：ui-regression 的 start_gui 会复用「健康外部实例」但探针不区分构建版本——验证新外壳时若装机的旧壳 app 在跑，group/acp 重定向行假红、截图走的是别人家 TCC 授权；对准新产物验证前先确认 endpoint.json 指向的是刚构建的调试二进制。
+- 2026-09-05 UI 审计修复轮：给既有 bash 大脚本加新「调用形态」前，先在目标机器 /bin/bash（常是 3.2）下复跑一遍最小入口；老脚本的历史绿只代表老调用路径。
+- 2026-09-06：组件内聚 useNavigate 等路由钩子时，钩子组件必须「按需挂载」（条件渲染 null）——MessageList 常驻渲染导航弹框让 6 个裸渲染既有测试崩在 useNavigate() invariant；修复是把导航收进弹框组件并按需挂载，既有测试零改动回绿。
 - 2026-09-06：run_code 跨调用无运行时内存再实证两次：上一调用定义的常量（如目标路径 p）在下一调用不存在（ReferenceError: p is not defined）；每个 program 必须自带全部常量与路径。
+- 2026-09-06：read 全文→write 回写是大文件截断陷阱（792 行被 read 输出预算裁成 341 行后覆盖落盘）；追加用 bash cat >> heredoc，写后 wc -l 对账（IMC3 轮实录，合并后才被 diff 行数暴露，当场修复）。
