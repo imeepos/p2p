@@ -41,6 +41,21 @@ describe("RelayConfigCard", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("地址行带可见序号标签并以 htmlFor 关联输入（F13）", () => {
+    render(
+      <RelayConfigCard
+        relayAddrs={["43.240.223.138/u3403", "192.168.1.10/u3403"]}
+        onSave={noopSave}
+      />,
+    );
+    expect(screen.getByText("地址 1")).toBeInTheDocument();
+    expect(screen.getByText("地址 2")).toBeInTheDocument();
+    expect(screen.getByLabelText("地址 1").tagName).toBe("INPUT");
+    expect(screen.getByLabelText("地址 2")).toHaveValue(
+      "192.168.1.10/u3403",
+    );
+  });
+
   it("已有地址时不显示出厂默认提示", () => {
     render(
       <RelayConfigCard

@@ -14,11 +14,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   isValidTransportAddr,
   noDuplicateAddrs,
 } from "@/views/shared/address-rules";
-import { ErrorText } from "@/views/shared/error-text";
+import type { I18nKey } from "@/i18n/types";
 
 interface AddDialogViewProps {
   draft: string;
@@ -48,13 +49,31 @@ function AddDialogView({
         </DialogDescription>
       </DialogHeader>
       <div className="flex flex-col gap-1">
+        {/* F13：可见字段标签，占位符只放示例；口径同 chat-friend-add-dialog */}
+        <Label htmlFor="discovery-add-addr">
+          {t("discovery.rendezvous.addrLabel")}
+        </Label>
         <Input
+          id="discovery-add-addr"
           className="font-mono text-xs"
           placeholder="192.168.1.10/u3400"
           value={draft}
+          aria-invalid={error !== undefined ? true : undefined}
+          aria-describedby={
+            error !== undefined ? "discovery-add-addr-error" : undefined
+          }
           onChange={(event) => onDraftChange(event.target.value)}
         />
-        <ErrorText code={error} />
+        {error !== undefined ? (
+          <p
+            id="discovery-add-addr-error"
+            role="alert"
+            className="text-destructive text-xs"
+            data-testid="discovery-add-addr-error"
+          >
+            {t(`common.validation.${error}` as I18nKey)}
+          </p>
+        ) : null}
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
