@@ -314,3 +314,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06：组件内聚 useNavigate 等路由钩子时，钩子组件必须「按需挂载」（条件渲染 null）——MessageList 常驻渲染导航弹框让 6 个裸渲染既有测试崩在 useNavigate() invariant；修复是把导航收进弹框组件并按需挂载，既有测试零改动回绿。
 - 2026-09-06：run_code 跨调用无运行时内存再实证两次：上一调用定义的常量（如目标路径 p）在下一调用不存在（ReferenceError: p is not defined）；每个 program 必须自带全部常量与路径。
 - 2026-09-06：read 全文→write 回写是大文件截断陷阱（792 行被 read 输出预算裁成 341 行后覆盖落盘）；追加用 bash cat >> heredoc，写后 wc -l 对账（IMC3 轮实录，合并后才被 diff 行数暴露，当场修复）。
+- 2026-09-06 AS2 分享链接直拨轮：对 watch/broadcast 快照做「只认见过中间态」的门控会被通道合并语义击穿——拨号秒失败时 Connecting→Offline 合并成一次 changed()，中间态永远观察不到，真实失败被误判为陈旧快照挂到超时；多阶段迁移的归属判定要用时间锚点（迁移 since >= 本次尝试起点），不要用「是否目击过中间态」。
+- 2026-09-06 AS2 分享链接直拨轮：`cargo test | tail` 这类管道会吞掉 cargo 的退出码（exit 0 假绿）；跑门禁必须 set -o pipefail 并显式 echo ${PIPESTATUS[0]}，验收口径里禁止裸管道收尾。
+- 2026-09-06 AS2 分享链接直拨轮：run_code 里给 write/edit 传多行文本时，JS 模板串里的反引号必须转义，漏一个就是整段语法错白跑一轮；多行内容用「字符串数组 + join("\n")」组装最稳。
