@@ -298,6 +298,8 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 
 | 任务单 | 负责会话 | 分支 | 范围 | 验收 | 状态 |
 |---|---|---|---|---|---|
-| DOC1 协议接入文档 | 专属新会话（DOC1） | feat/protocol-integration-docs | docs/protocol/** 新增五文件（README/quickstart/wire-format/node-lifecycle/builtin-and-versioning）+ docs/README.md 索引行；其余一律只读 | 五文件各 ≤300 行、无 emoji + 常量抽检 8/8 出处命中 + 字节示例 varint 独立解码自洽 + make check 全绿 + diff 域合规（仅 docs/protocol/** 与 docs/README.md） | 验收进行中：门禁/字节示例/域合规全绿；首轮抽检 9/11 检出 noise.rs 行号漂移已退回，d7bd113 修正全中，待分支 make check 后合并 |
+| DOC1 协议接入文档 | 专属新会话（DOC1） | feat/protocol-integration-docs | docs/protocol/** 新增五文件（README/quickstart/wire-format/node-lifecycle/builtin-and-versioning）+ docs/README.md 索引行；其余一律只读 | 五文件各 ≤300 行、无 emoji + 常量抽检 8/8 出处命中 + 字节示例 varint 独立解码自洽 + make check 全绿 + diff 域合规（仅 docs/protocol/** 与 docs/README.md） | 已完成：032b91d ff 合入（协调者机械验收全绿：门禁/字节示例独立解码/抽检全中/主树验收命令绿）；worktree 与分支全清 |
 | DOC2 GUI 协议文档页 | session-ffc31e23（专属新会话） | feat/gui-protocol-docs | apps/gui/src/**：/docs 路由 + palette-nav 登记 + 设置页入口行 + i18n zh/en（键先独立小提交）；rail 保持 4 项；内容单源 vite raw 引 docs/protocol/ 禁复制 | pnpm build/lint/test/check:i18n 全绿 + vitest 断言真实文档渲染 + MENU_ENTRIES 仍 4 项 + 无新增 Tauri 命令 + diff 域合规 | doing（2026-09-06 AS3 已合入腾域，正式派单） |
+
+- 2026-09-06 IMC 轮收官（项目负责人）：三卡全绿收官并完成三会话归档。IMC1 合入 09bad3d（协调者主树权威验收 IMC1_ACC_EXIT=0：p2p-chat 全量+clippy -D warnings+双节点 group_invite_consent E2E ok+make check 158 组 ok）；IMC2 合入 fe8929d 系（IMC2_ACC_EXIT=0：src-tauri 81 用例含 ginvite_commands+p2p-cli+CLI-PARITY-OK 四映射实测+make check 157 组 ok）；IMC3 前已收官（IMC3_ACC_EXIT=0，825 用例）。IMC2 的 make check 即三卡合落后全链联验。IMC1/IMC3/IMC2 三会话确认无误后依序归档，worktree/分支自清。账本登记 IMC1/IMC2/IMC3 三卡翻 done。事故记录：验收期间磁盘 100% 满（/tmp 残留 12 个历史波次验收 target 共约 66Gi：as1/as2/t19/t20/t21/t49/t43/g4doc/p3e 等），协调者核实无进程引用后清理（DOC2 在途 doc2-mc-target 保留未动）后重跑全绿——多波次并存下「造数不过夜」执行不力为系统性风险，建议后续轮立卡机械清扫守卫。
 

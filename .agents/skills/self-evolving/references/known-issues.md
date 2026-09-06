@@ -846,3 +846,7 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - cargo 根 workspace path-dep 指向嵌套 workspace 根（apps/acp-* 各有 [workspace]）→ "multiple workspace roots found in the same workspace" 拒绝构建。修法：根 [workspace] exclude 该包（先例 apps/gui/src-tauri），包本身保持独立 workspace 不动。
 - acp-console/src/dial.rs exchange_hello 裸 ndjson 读写握手，而真桥（acp-agent/src/pump.rs read/write_wire_line）是 varint 帧口径；console 自己的 AgentMock（tests/common/mod.rs 裸 read_line）用同款错误口径当假对端，双侧测试全绿、跨进程必挂。跨 crate 线协议必须有一处真两端集成测试背书。
 - parse_server_hello 对 denied 帧返回 Ok(ServerHello::Denied)；把一切 Ok 当 Ready 会把拒绝伪装成 "unexpected hello shape"。握手封装先分派变体再取载荷。
+## 2026-09-06 p2p-chat group_invite_member 返回条目的 delivered 恒 false，真实信号只在 report.delivered（IMC2）
+症状：消费层把门面返回的 invite 条目直接出参，B 在线时仍显示未送达；测试断言 entry.delivered 恒失败但 ACK 实际已到（条目 1-8ms 内即“失败”）。
+原因：ginvite_api.rs group_invite_member 的 deliver_frame 成功后只 patch store 里那份副本（|i| i.delivered = true），返回的内存 entry 是 patch 前的 clone 未回读刷新；GroupInviteReport 顶层的 delivered bool 才是权威信号。
+修法：消费层（IMC2 src-tauri ginvite.rs）出参前 invite.delivered = report.delivered 对齐契约语义；CLI 直接发 report 不受影响。crates 冻结期在 IPC 边界修复，crate 侧后续可回读刷新。

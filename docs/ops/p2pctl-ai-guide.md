@@ -64,6 +64,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 看消息历史 | `chat history --peer <PEER_ID> --json` |
 | 两节点聊天 E2E 最小拓扑 / chat 与守护双身份说明 | 见附录A（B 起 chat serve → A 用其 chat peerId+监听地址加好友 → send 断言 delivered） |
 | 查附件落盘路径 | `chat media file --peer <PEER_ID> --message-id <ID> --json` |
+| 拉好友入群（同意制）/ 处理入群邀请 | `group invites send --group <GID> --peer <PEER_ID> --json` / `group invites list --json` / `group invites accept <INVITE_ID>` / `group invites reject <INVITE_ID> --reason <R>`（写，须人确认） |
 | 看节点状态 | `p2pctl node status --json` |
 | 启动 / 停止节点 | `node start` / `node stop` |
 | 测连通 / 拨号 / 挂断 | `peer ping <PEER_ID>` / `peer dial "<PEER_ID>@<ADDR>"` / `peer disconnect <PEER_ID>` |
@@ -156,7 +157,7 @@ p2pctl 是 GUI（p2p-console，Tauri 应用）命令面的等价 CLI，由 `scri
 同一份数据。GUI 数据目录（macOS）`~/Library/Application Support/com.p2p.console`，前端
 日志 `~/Library/Logs/com.p2p.console/frontend.log`，均可用 `--gui-data-dir`/`--log-dir` 覆盖。
 
-## 6. 命令面全目录（49 命令）
+## 6. 命令面全目录（71 命令）
 
 条目格式：用途/前置 → 参数表（名称/类型/必填/默认）→ 文本输出例 → --json 输出例。
 类型取值：flag（无值开关）/string/int/path/kv/枚举值说明。尖括号示例为实测采样占位。
@@ -1319,6 +1320,53 @@ reason=验签失败: receipt signature invalid: req_id=0198c0de-0000-7000-8000-0
 | --json | flag | 否 | off |  |  |  |
 | --data-dir | path | 否 | ./p2p-data |  |  |  |
 退出码：消息不存在或非附件类型 → 1。
+
+### p2pctl group invites send
+用途：发起入群邀请（同意制，owner-only，IMC2）。受邀者须在好友簿且不在群；对端离线不失败，delivered=false 挂起待重连重投；重复邀请幂等刷新（id 稳定）。与直接拉人的 group invite 分列。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --group | string | 是 | —— |
+| --peer | string | 是 | —— |
+| --note | string | 否 | —— |
+| --nickname | string | 否 | 空串（回退 PeerId 缩略） |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本输出：`已发起入群邀请 <ID>：群[<NAME>] -> <PEER>（已送达）`；对端离线为`（未送达：对端离线，已挂起待重连重投）`。
+--json：单行 `{"invite":{<INVITE>},"delivered":false}`，invite 为 camelCase 邀请条目（id/groupId/groupName/owner/inviter/invitee/note/direction/state/tsMs/delivered），delivered 顶层可判。
+退出码：仅群主可执行该操作 / 非好友 / 已在群 / 满员 / 非 active → 1。
+
+### p2pctl group invites list
+用途：列出全部入群邀请（in=待本机处理，out=待对方同意；tsMs 倒序；无簿输出空数组）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本输出：`共 <N> 条入群邀请` 加逐条 `- <ID> 群[<NAME>] <INVITER> -> <INVITEE> 方向=<in|out> 状态=<pending|accepted|rejected> <已送达|未送达…>`；空表为 `无入群邀请`。
+--json：单行邀请条目数组（字段同 send 条目）。
+退出码：0。
+
+### p2pctl group invites accept
+用途：受邀者同意入群（仅 in+pending）；owner 离线时决策帧挂起重投，收敛后本端进群（条目置 accepted）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <INVITE_ID> | string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本输出：`已同意入群邀请 <ID>（群[<NAME>]，owner 离线时挂起重投）`。
+--json：单行更新后邀请条目（字段同 send 条目）。
+退出码：无待处理邀请（不存在/非 in 向）或已拒绝 → 1。
+
+### p2pctl group invites reject
+用途：受邀者拒绝入群（仅 in+pending）；本端立即置 rejected，理由随决策帧回送（尽力而为）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <INVITE_ID> | string | 是 | —— |
+| --reason | string | 否 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本输出：`已拒绝入群邀请 <ID>（群[<NAME>]）`。
+--json：单行更新后邀请条目（字段同 send 条目）。
+退出码：无待处理邀请（不存在/非 in 向）或已同意 → 1。
 
 <!-- AI-DOCS-SYNC:END -->
 

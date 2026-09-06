@@ -87,6 +87,23 @@ delivered=false），对端恢复可达后由 serve 启动/周期补投泵自动
 `docs/ops/p2pctl-ai-guide.md` 附录A。可达性闭环 E2E：
 `bash scripts/ops/cli-chat-reach-e2e.sh`（末行 PR1-REACH-OK，Not in make check）。
 
+### group —— 群聊域与入群邀请
+
+群管理（create/list/invite/kick/leave/rename/disband/send/history/media）与 GUI §7
+对等，参数详见 `docs/ops/p2pctl-ai-guide.md` §6；入群邀请（同意制，IMC2）如下：
+
+```bash
+p2pctl group invites send --group <GID> --peer <PEER_ID> [--note X] [--nickname N] [--data-dir DIR] [--json]  # 发起入群邀请（owner-only；受邀者须在好友簿且不在群）
+p2pctl group invites list [--data-dir DIR] [--json]           # 邀请列表（in=待本机处理，out=待对方同意；tsMs 倒序）
+p2pctl group invites accept <INVITE_ID> [--data-dir DIR] [--json]  # 同意入群（owner 离线时挂起，重连/重启重投）
+p2pctl group invites reject <INVITE_ID> [--reason X] [--data-dir DIR] [--json]  # 拒绝入群（reason 随决策帧回送）
+```
+
+注意：`group invites` 是同意制（受邀者 accept 前不进群），与 owner 直接拉人的
+`group invite` 分列。发起对离线对端不失败：`--json` 的顶层 `delivered:false`
+与文本「未送达：对端离线，已挂起待重连重投」均为显式信号（非静默），对端恢复
+可达后由既有离线投递泵补投。重复邀请幂等刷新（条目 id 稳定、state 回 pending）。
+
 ### config / profile —— 配置与资料域
 
 ```bash
@@ -236,6 +253,7 @@ p2pctl gui action <页面> <动作> [K=V...] [--navigate] [--gui-data-dir DIR] [
 | update_open_release_page | update open | CLI 不开浏览器，输出 URL |
 | chat_friends_list / chat_friend_add / chat_friend_remove | chat friends list / add / remove | |
 | chat_history / chat_send / chat_media_file | chat history / send / media file | |
+| chat_group_invite_send / chat_group_invites_list / chat_group_invite_accept / chat_group_invite_reject | group invites send / list / accept / reject | 同意制入群邀请（IMC2）；与 group invite（直接拉人）分列 |
 
 ## 7. E2E 脚本
 
