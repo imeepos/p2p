@@ -185,3 +185,8 @@
 - skill 有提前警告吗？没有。bash 默认工作目录语义这次踩实：一次「全绿基线」其实跑在主树上，白信了一轮。已沉淀 techniques.md。
 - 重来一次怎么做？① 读依赖 dist 确认行为再设计；② 测试命令一律绝对路径 cd；③ 「点击没反应」类工单先分辨反馈挂在动作上还是挂在全局状态上。
 
+
+## 2026-09-06 LSG2（IPC 接线+设置页）反思
+- 最耗时：环境三连坑——vite-plus node 挂起、worktree 缺 node_modules、vitest 负载假超时；门禁环境先探通再写码更省。
+- skill 预警：techniques 已有「bash 全新 shell 必须显式 cd」，但 node 工具链挂起与 hardcoded-copy 行尾注释是新坑，本次已喂回。
+- 重来一次：开工先跑通最小门禁（i18n-diff + 单测文件）再动手写码，环境问题前置暴露。
