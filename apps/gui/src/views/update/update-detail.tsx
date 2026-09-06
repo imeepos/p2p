@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/format";
 import type { UpdateCheckResult } from "@/lib/ipc-types";
 
 import { MAX_NOTES_CHARS, truncateNotes } from "./release-links";
+import { ReleaseNotesMarkdown } from "./release-notes-markdown";
 
 function DetailRow({
   label,
@@ -50,9 +51,9 @@ export function UpdateDetail({
       ) : null}
       {notes ? (
         <DetailRow label={t("update.detail.notes")}>
-          <p className="bg-muted/40 border rounded-md p-3 break-words whitespace-pre-wrap">
-            {truncateNotes(notes)}
-          </p>
+          <div className="bg-muted/40 border rounded-md p-3 break-words">
+            <ReleaseNotesMarkdown notes={truncateNotes(notes)} />
+          </div>
           {truncated ? (
             <span className="text-muted-foreground text-xs">
               {t("update.detail.notesTruncated")}

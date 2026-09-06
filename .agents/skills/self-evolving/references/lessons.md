@@ -309,3 +309,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-05 底座 peer 流下传卡：后台 make check 的输出经 `| tail` 缓冲会让中途 job_output peek 全程拿不到进度；改 `make check > /tmp/x.log 2>&1; echo EXIT=$?` 落盘，中途可 tail 日志看阶段，退出码以落盘 echo 为准。
 - 2026-09-05 发布链路卡：「无密码」不等于「空密码加密」——rsign 密钥空口令加密时，tauri 签名必须显式导出空串 PASSWORD 变量，非交互 shell 才不会去开 /dev/tty（Device not configured, os error 6）；文档口径差一个词就是一次四平台发布失败。
 - 2026-09-05 发布链路卡：自检红绿矩阵里唯一期望 rc=0 的绿场景是 harness 自身的照妖镜——本次 eval "export $*" cmd 把命令词当 export 的 NAME 参数，八个红场景全是假阳性 rc=1，绿场景如实变红才暴露 harness bug；写自检先让它证明绿路径真能绿。
+- 2026-09-05 UI 审计修复轮：ui-regression 的 start_gui 会复用「健康外部实例」但探针不区分构建版本——验证新外壳时若装机的旧壳 app 在跑，group/acp 重定向行假红、截图走的是别人家 TCC 授权；对准新产物验证前先确认 endpoint.json 指向的是刚构建的调试二进制。
+- 2026-09-05 UI 审计修复轮：给既有 bash 大脚本加新「调用形态」前，先在目标机器 /bin/bash（常是 3.2）下复跑一遍最小入口；老脚本的历史绿只代表老调用路径。

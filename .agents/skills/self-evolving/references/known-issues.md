@@ -785,3 +785,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：tauri 签名步 failed to decode base64 secret key: Invalid symbol 37, offset 348，全平台一致复现。
 - 原因：密钥文件无尾换行，终端 cat 回显后 zsh 显示 EOL 标记 %（PROMPT_EOL_MARKER），全选复制时带入 GitHub secret，值尾多一个杂字符；offset 恰等于本地正确密钥长度 348，symbol 37 即 % 的 ASCII 码。
 - 修法：secret 一律文件重定向写入（gh secret set NAME < file 或 API+原文件 sealed box），禁止从终端回显复制；修复验证用 secrets 列表 updated_at + workflow_dispatch 免推 tag 看打包步变绿。
+
+## 2026-09-05 UI 审计修复轮：bash 3.2(set -u) 下 local 同语句依赖前置赋值按调用方作用域展开
+- 症状：ui-regression.sh 新增 run_redirect 后，脚本在 assert_screenshot 的 `local route="$1" shot="$SHOT_DIR/$route.png"` 行报 `route: unbound variable`；旧 8 路由调用方（run_page 有局部 route）从不触发，新调用方一进来就崩。
+- 原因：macOS /bin/bash 3.2 把 local 的各参数当普通命令词先整体展开再赋值，$route 落到动态作用域（调用方局部/全局），set -u 下调用方没有该名即崩；bash 5 不复现（ubuntu CI 绿、真机红）。
+- 修法：同语句内后参依赖前参的一律拆成两条 local（或分号分隔两条命令）；新增 Helper 函数时审计所有 `local x=$1 y=…$x…` 形态。
