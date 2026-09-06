@@ -2,12 +2,15 @@ import { useCallback, useMemo, useState } from "react";
 import type { NodeEventJson, NodeEventType } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
 import { ALL_EVENT_TYPES } from "@/views/network/event-meta";
+import { countEventsByType } from "./event-filter-groups";
 import { filterEvents } from "./events-filter";
 import { useEventsCommands } from "./use-events-commands";
 
 export interface EventsController {
   events: NodeEventJson[];
   filtered: NodeEventJson[];
+  /** F20：缓冲区按类型命中计数（空缓冲全 0），供筛选 chip 展示。 */
+  counts: Record<NodeEventType, number>;
   subscriptionLive: boolean;
   paused: boolean;
   newCount: number;
@@ -45,6 +48,7 @@ export function useEventsController(): EventsController {
     () => filterEvents(events, { query, errorOnly, typeFilter }),
     [events, query, errorOnly, typeFilter],
   );
+  const counts = useMemo(() => countEventsByType(events), [events]);
 
   const toggleType = useCallback((type: NodeEventType) => {
     setTypeFilter((prev) => {
@@ -88,6 +92,7 @@ export function useEventsController(): EventsController {
   return {
     events,
     filtered,
+    counts,
     subscriptionLive,
     paused,
     newCount,

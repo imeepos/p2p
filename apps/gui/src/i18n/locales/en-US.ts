@@ -1383,6 +1383,22 @@ const enUS: typeof zhCN = {
       copyDetailsDone: "Error details copied",
     },
   },
+  // UX-I F16/F20: event row "Details" affordance and filter grouping/count copy
+  uxiEvents: {
+    filter: {
+      group: {
+        connection: "Connection",
+        message: "Messages",
+        group: "Groups",
+        security: "Security",
+        node: "Node",
+      },
+      chipAria: "{{label}}, {{count}} events",
+    },
+    row: {
+      details: "Details",
+    },
+  },
 };
 
 export default enUS;
