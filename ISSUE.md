@@ -197,3 +197,16 @@
 - **悬置**：删因未定（波及面仅该副本）。嫌疑方向：某会话的跨 worktree 清理命令路径打错。
 - **防线**：协调者清理 worktree 前必须核对 merge+push 完成；验收时增加「worktree 意外 dirty」巡检项；
   各会话禁止对非本单 worktree 路径执行任何删除/清理类命令。
+
+## 主树共享 skill 文件遭程序化覆写截断（2026-09-06 UX 波第二起同模式事故，已恢复）
+
+- **现象**：lessons.md 345→217 行、techniques.md 368→373→实际丢 2026-09-05/06 中段条目
+  （lessons -131/techniques -83），mtime 同秒 07:46:24=单次程序化批量写；新增行含字面 \n
+  （多条目折叠单行）——与 UX2 已沉淀的「TS 模板串转义静默变形」同根因。新增内容属 UX3
+  （console-watch/mock 拆分/i18n 注释）与 PR6（apps/cli E0603）两轨的真实教训。
+- **与第一起（UX1 worktree 成批删除标记）的关系**：模式相近（会话对非自身-checked-out
+  内容的程序化批量写），肇事方未定；本起新增行指向 UX3/PR6 会话的 skill 喂回动作。
+- **处置**：新增条目全额打捞（6 lessons+4 techniques），git restore HEAD 后规范补录，净增
+  13 行纯加法；红线已入 lessons.md：共享经验文件喂回必须 append-only（python 尾部追加，
+  写后行数单调递增校验），禁止全量覆写。
+- **防线**：协调者验收新增「共享文件行数单调性」抽查；喂回类写入禁用 write 全量形态。

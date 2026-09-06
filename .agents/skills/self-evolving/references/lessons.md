@@ -343,3 +343,13 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 workspace_session_manage archiveSession 返回的 archivedSessionIds 是累计归档登记不是本次增量，单会话归档后核对以 session_link_list 可见性为准，勿被吓到误判批量误归档。
 - 2026-09-06 .devloop/loop-state.json 用 python json.load+dump 整文件重写会把全文件重排序列化（diff 652 行噪音）；小改动优先 edit 工具做定点替换，整文件重写仅在结构性变更时用。
 - 2026-09-06 ff 合并前 merge-base --is-ancestor 检查必做：主树被并行线持续推进时「刚验完的分支」随时可能不再含最新 main，链条断在 is-ancestor 就回 worktree 再 merge 一次。
+
+- 2026-09-06 UX 波：并行会话对共享经验文件（本 references/*）做全量覆写=丢更新事故——本日 lessons.md -131 行/techniques.md -83 行实证，且多条目被字面 \n 折叠成单行。铁律：喂回一律 python 读文件→尾部 append→写回，写后 wc -l 必须单调递增；禁止凭记忆全量重写。
+- 2026-09-06：crate 内把类型拆到新模块后，原模块的 `use` 再导出默认私有，跨 crate 依赖方（apps/cli）E0603 崩；本 crate clippy/test 全绿完全无信号。修复是拆分后立即 grep 全仓引用点并跑「验收命令全文」（含下游 crate clippy），只跑自身 crate 门禁等于没跑。
+- 2026-09-06：程序化按行号切片搬代码（splice 三段）必留残渣：漏导入（serde_json::Value）、漏改调用点限定名、doc 注释 `//` 与 `//!` 混用全冒出来了。修复是搬完先 cargo check 全量读回两个文件再继续，不要信切片边界。
+- 2026-09-06 契约无某字段不等于该能力做不了：先找系统内已有的权威数据面（实例：§15 status 无 peer，就从 console 发现面解析），并把解读口径显式报给协调会话留档，而不是私自改契约。
+- 2026-09-06 mock 文件有膨胀趋势时要随 feature 拆独立文件（mock-ipc 已 400+ 行，新 mock 面 monolith 化会让行数红线与合并冲突双输）。
+- 2026-09-06 表单收敛类改造要先把既有测试当「不可改约束」读一遍再动手：保留原 testid 与可空语义（如 peer 分享场景可空），新语义（必选校验）挂在新交互入口上，而不是改公共校验函数。
+- 2026-09-06 组件级测试断言别断言 store 内部（draft.peer），断言用户可见面（触发器文案/渲染节点）——store 是实现细节，form 是组件局部态。
+- 2026-09-06 UX 波协调：run_code 里 bash stdout 超 ~30KB 会被截尾，大 JSON 经 stdout 回传再喂 devloop_ledger 必报非法 JSON——大文件就地 python 校验+原子写（tmp+rename），不走工具参数回传。
+- 2026-09-06 UX 波协调：验收检查器的输出过滤（grep ok/FAIL）会把 FAIL 明细行滤掉造成误判「空越界」——先看原始输出再下结论；显示层与判定层要分开。
