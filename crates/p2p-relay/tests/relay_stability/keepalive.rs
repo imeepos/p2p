@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use crate::support::{ka, manual_reserve, read_frame, spawn_relay, BlackHoleLink};
+use crate::support::{ka, manual_reserve, read_frame, spawn_relay, wait_until, BlackHoleLink};
 use p2p_relay::testutil::{mock_link_pair, MockLinkSource};
 use p2p_relay::{
     errcode, relay_msg::Kind, write_msg, RelayClient, RelayError, RelayEvent, RelayLimits,
@@ -56,18 +56,14 @@ async fn server_silence_timeout_reclaims_and_keepalive_survives() {
     source.push(Box::new(sl));
     let mut ctrl = cl.open_stream().await.expect("open control");
     let cid = manual_reserve(&mut ctrl, 3600, "").await;
-    // 消融点 3：裸流不发保活必被清；以保活失败计数收敛替代固定 sleep（无固定时钟）。
-    for _ in 0..50_000 {
-        if svc.metrics().keepalive_failures_total >= 1 {
-            break;
-        }
-        tokio::task::yield_now().await;
-    }
-    assert_eq!(
-        svc.metrics().keepalive_failures_total,
-        1,
-        "静默清理未计入保活失败"
-    );
+    // 消融点 3：裸流不发保活必被清；以保活失败计数收敛作为清理完成信号。
+    // 截止 3s 留足 server_silence=300ms 的两个清理节拍；消融点删除则 3s 判红。
+    wait_until(
+        || svc.metrics().keepalive_failures_total >= 1,
+        3_000,
+        "静默清理未计入保活失败（server_silence=300ms）",
+    )
+    .await;
     // ① 被清电路的 connect 得显式 UNKNOWN_CIRCUIT（非挂死、非停车）。
     let mut s = cl.open_stream().await.expect("open circuit stream");
     write_msg(&mut s, &RelayMsg::connect(cid.0))

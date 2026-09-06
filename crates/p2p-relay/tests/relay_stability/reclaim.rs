@@ -10,7 +10,7 @@ use p2p_relay::{
 use tokio::io::AsyncReadExt;
 
 use crate::support::{
-    bridged_pair, ka, manual_reserve, pump, read_frame, relay_pair_with, spawn_relay,
+    bridged_pair, ka, manual_reserve, pump, read_frame, relay_pair_with, spawn_relay, wait_until,
 };
 
 /// 空闲回收（含消融点 1）：双向静默超过 idle TTL 即拆桥，配额随槽位退役回吐。
@@ -94,14 +94,13 @@ async fn control_close_keeps_bridged_rejects_parked() {
         .await
         .expect("write connect 2");
     drop(ctrl2);
-    // 轮询槽位水位 2 -> 1：确定性等待回收完成（yield 自旋，零真实时钟依赖）
-    for _ in 0..50_000 {
-        if svc.metrics().circuits_active == 1 {
-            break;
-        }
-        tokio::task::yield_now().await;
-    }
-    assert_eq!(svc.metrics().circuits_active, 1, "watermark never reached");
+    // 轮询槽位水位 2 -> 1：确定性等待回收完成（截止轮询，回收不发生 3s 判红）
+    wait_until(
+        || svc.metrics().circuits_active == 1,
+        3_000,
+        "watermark never reached",
+    )
+    .await;
     match read_frame(&mut parked).await.kind {
         Some(Kind::Reject(r)) => assert!(
             r.code == errcode::CIRCUIT_EXPIRED || r.code == errcode::UNKNOWN_CIRCUIT,
