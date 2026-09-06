@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import type { I18nKey } from "@/i18n/types";
 import { StatusBadge } from "@/views/shared/status-badge";
 import { useAcpStore } from "@/acp/acp-store";
-import type { Turn } from "@/acp/transcript-model";
+import { retryablePromptText, type Turn } from "@/acp/transcript-model";
 import { ToolTurn } from "./transcript-tools";
 
 /** ACP v1 stopReason 各态文案；未知值回退原样透传 */
@@ -61,8 +61,13 @@ function ThoughtTurn({ sessionId, turn }: { sessionId: string; turn: Extract<Tur
   );
 }
 
-function AssistantTurn({ turn }: { turn: Extract<Turn, { kind: "assistant" }> }) {
+function AssistantTurn(props: {
+  turn: Extract<Turn, { kind: "assistant" }>;
+  onRetry: (turnId: number) => void;
+  retryDisabled: boolean;
+}) {
   const { t } = useTranslation();
+  const { turn } = props;
   return (
     <div className="flex justify-start" data-testid={"acp-turn-assistant-" + turn.id}>
       <div
@@ -77,9 +82,23 @@ function AssistantTurn({ turn }: { turn: Extract<Turn, { kind: "assistant" }> })
             {t("acp.transcript.streaming")}
           </span>
         ) : turn.stopReason && isErrorStop(turn.stopReason) ? (
-          <span data-testid={"acp-stop-reason-" + turn.id}>
-            <StatusBadge tone="danger" dot>{stopReasonText(t, turn.stopReason)}</StatusBadge>
-          </span>
+          <>
+            <span data-testid={"acp-stop-reason-" + turn.id}>
+              <StatusBadge tone="danger" dot>{stopReasonText(t, turn.stopReason)}</StatusBadge>
+            </span>
+            {/* AG-UI RUN_FAILED 语义的重试入口：复用本地草稿重发原文 */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-1 h-6 px-2 text-xs"
+              disabled={props.retryDisabled}
+              data-testid={"acp-turn-retry-" + turn.id}
+              onClick={() => props.onRetry(turn.id)}
+            >
+              {t("acp.transcript.retry")}
+            </Button>
+          </>
         ) : turn.stopReason ? (
           <span className="text-muted-foreground text-xs" data-testid={"acp-stop-reason-" + turn.id}>
             {stopReasonText(t, turn.stopReason)}
@@ -127,6 +146,21 @@ export function Transcript({ sessionId }: TranscriptProps) {
   const transcript = useAcpStore((s) => s.transcripts[sessionId]);
   // AG-UI RUN_STARTED→RUN_FINISHED/ERROR 窗口：回合进行中派生态
   const runActive = useAcpStore((s) => s.promptPendingBySession[sessionId] ?? false);
+  const setPromptDraft = useAcpStore((s) => s.setPromptDraft);
+  const sendPrompt = useAcpStore((s) => s.sendPrompt);
+  // 失败轮重试：复用本地草稿重发原文（走既有 session/prompt，不发新协议方法）。
+  // 进行中禁点（与发送禁用同窗防重复提交）；取词失败 warn 留痕不静默
+  const retryFailedTurn = (turnId: number) => {
+    if (runActive) return;
+    const state = useAcpStore.getState().transcripts[sessionId];
+    const text = state ? retryablePromptText(state, turnId) : null;
+    if (text === null) {
+      console.warn("[acp] 重试入口未取回原始 prompt 文本", { sessionId, turnId });
+      return;
+    }
+    setPromptDraft(sessionId, text);
+    void sendPrompt(text);
+  };
   // 兜底空数组须稳定引用，否则每次渲染都会重触发滚动 effect（exhaustive-deps）
   const turns = useMemo(() => transcript?.turns ?? [], [transcript]);
 
@@ -163,7 +197,16 @@ export function Transcript({ sessionId }: TranscriptProps) {
       <div className="flex flex-col gap-2" data-testid="acp-transcript">
         {turns.map((turn) => {
           if (turn.kind === "thought") return <ThoughtTurn key={turn.id} sessionId={sessionId} turn={turn} />;
-          if (turn.kind === "assistant") return <AssistantTurn key={turn.id} turn={turn} />;
+          if (turn.kind === "assistant") {
+            return (
+              <AssistantTurn
+                key={turn.id}
+                turn={turn}
+                onRetry={retryFailedTurn}
+                retryDisabled={runActive}
+              />
+            );
+          }
           if (turn.kind === "tool") return <ToolTurn key={turn.id} turn={turn} />;
           return <UserTurn key={turn.id} turn={turn} />;
         })}

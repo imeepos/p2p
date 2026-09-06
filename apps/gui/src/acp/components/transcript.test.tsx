@@ -1,7 +1,7 @@
 // 工具时间线与思考面板打磨测试（P2 页面打磨）：超长内容折叠、失败态红系
 // 高亮、思考展开排版、自动滚底、错误结算徽章；直接播种 store 渲染
 // Transcript，不依赖 mock WS 链路。
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { useAcpStore } from "@/acp/acp-store";
@@ -166,6 +166,33 @@ describe("Transcript 自动滚动", () => {
     fireEvent.scroll(el);
     appendTurn(4);
     expect(el.scrollTop).toBe(1000);
+  });
+});
+
+describe("失败回合重试入口（AG-UI RUN_FAILED 映射）", () => {
+  it("error 结算轮显失败徽章与重试按钮；点击复用草稿回填原文", async () => {
+    seed([
+      { kind: "user", id: 1, text: "帮我查配置" },
+      { kind: "assistant", id: 2, text: "", streaming: false, stopReason: "error" },
+    ]);
+    render(<Transcript sessionId={SID} />);
+    expect(screen.getByTestId("acp-stop-reason-2").textContent).toContain("失败");
+    fireEvent.click(screen.getByTestId("acp-turn-retry-2"));
+    // 草稿复用：原文回填该会话草稿；发送经既有 sendPrompt 路径（无连接时不改写转写）
+    await waitFor(() => {
+      expect(useAcpStore.getState().promptDrafts[SID]).toBe("帮我查配置");
+    });
+    expect(useAcpStore.getState().transcripts[SID]!.turns).toHaveLength(2);
+  });
+
+  it("回合进行中重试禁点（与发送禁用同窗防重复提交）", () => {
+    seed([
+      { kind: "user", id: 1, text: "q" },
+      { kind: "assistant", id: 2, text: "", streaming: false, stopReason: "error" },
+    ]);
+    useAcpStore.setState({ promptPendingBySession: { [SID]: true } });
+    render(<Transcript sessionId={SID} />);
+    expect((screen.getByTestId("acp-turn-retry-2") as HTMLButtonElement).disabled).toBe(true);
   });
 });
 
