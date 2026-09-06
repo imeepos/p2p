@@ -88,8 +88,7 @@ LEAVES="${TMP}/leaves.txt"; : > "${LEAVES}"
 collect() {
     local path="$*" out subs sub hf
     out="$("${CTL}" $path --help 2>&1)" || fail "执行 '$path --help' 失败"
-    subs="$(printf '%s\n' "${out}" \
-        | awk '/^Commands:/{f=1;next} f&&/^[[:space:]]*$/{exit} f{print}' \
+    subs="$(awk '/^Commands:/{f=1;next} f&&/^[[:space:]]*$/{exit} f{print}' <<< "${out}" \
         | awk 'NF{print $1}' | grep -v '^help$' || true)"
     if [ -z "${subs}" ]; then
         printf '%s\n' "${path}" >> "${LEAVES}"
@@ -110,10 +109,13 @@ doc_paths="$(printf '%s\n' "${doc_region}" | grep -E '^### p2pctl ' | sed 's/^##
 doc_count="$(printf '%s\n' "${doc_paths}" | grep -c . || true)"
 
 entry_block() {
-    printf '%s\n' "${doc_region}" | awk -v h="### p2pctl $1" '
+    # here-string 喂 awk：awk 提前 exit 时管道读端关闭，printf 撞 EPIPE，
+    # set -euo pipefail 下整脚本死（2026-09-06 CI ubuntu 实证，macOS 纯靠
+    # 写入竞速侥幸）；here-string 无管道读端，切片语义不变
+    awk -v h="### p2pctl $1" '
         $0==h{f=1;next}
         f&&/^### p2pctl /{exit}
-        f{print}'
+        f{print}' <<< "${doc_region}"
 }
 
 # --- 3. 正向 + 参数机械比对（全量叶子，双向） ---

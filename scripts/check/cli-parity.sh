@@ -122,8 +122,9 @@ trap 'rm -f "${cli_cmds_file}"' EXIT
 collect() {
     local path="$*" out subs sub
     out="$("${CTL}" $path --help 2>&1)" || fail "执行 '$path --help' 失败"
-    subs="$(printf '%s\n' "${out}" \
-        | awk '/^Commands:/{f=1;next} f&&/^[[:space:]]*$/{exit} f{print}' \
+    # here-string 喂早退 awk：管道形式下 awk exit 关闭读端，printf 撞 EPIPE
+    # （竞态：缓冲写入竞速，CI ubuntu 可复现）；无管道即无此失效面
+    subs="$(awk '/^Commands:/{f=1;next} f&&/^[[:space:]]*$/{exit} f{print}' <<< "${out}" \
         | awk 'NF{print $1}' | grep -v '^help$' || true)"
     if [ -z "${subs}" ]; then
         printf '%s\n' "${path}" >> "${cli_cmds_file}"
