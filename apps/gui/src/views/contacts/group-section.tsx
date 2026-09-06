@@ -16,9 +16,9 @@ import { useGroupStore } from "@/stores/group-store";
 import { EmptyState } from "@/views/shared/empty-state";
 
 import { GroupStateBadge } from "@/views/group/group-list";
-import { GroupCreateDialog } from "@/views/group/group-create-dialog";
 import { GroupInvitePicker } from "@/views/group/group-invite-picker";
 import { GroupAddDialog } from "./group-add-dialog";
+// F09：建群表单内嵌 GroupAddDialog 默认页签，不再单独挂 GroupCreateDialog。
 
 // 群区（§3.1）：行 = 群名 + 成员数 + 我的角色 + 四态徽标；行内操作：
 // 发消息（/chat?group=）、邀请成员（owner active）、退群（第三档单次
@@ -31,7 +31,6 @@ export function GroupSection() {
   const selfPeerId = useGroupStore((s) => s.selfPeerId);
   const leave = useGroupStore((s) => s.leave);
   const [addOpen, setAddOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
   const [inviteGroup, setInviteGroup] = useState<GroupJson | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
 
@@ -153,12 +152,7 @@ export function GroupSection() {
         ))
       )}
 
-      <GroupAddDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        onCreate={() => setCreateOpen(true)}
-      />
-      <GroupCreateDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <GroupAddDialog open={addOpen} onOpenChange={setAddOpen} />
       <Dialog open={inviteGroup !== null} onOpenChange={(next) => !next && setInviteGroup(null)}>
         <DialogContent className="sm:max-w-md" data-testid="contacts-group-invite-dialog">
           <DialogHeader>

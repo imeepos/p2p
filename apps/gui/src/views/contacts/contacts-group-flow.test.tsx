@@ -124,14 +124,32 @@ describe("创建群 → 邀请 → 入群流程（P2 验收 3）", () => {
     useGroupStore.setState({ friends: [friendOf(PEER_B, "小圆")], selfPeerId: PEER });
     renderSection();
     fireEvent.click(screen.getByTestId("contacts-group-add"));
-    fireEvent.click(screen.getByTestId("contacts-group-add-create"));
-    await waitFor(() => expect(screen.getByTestId("group-create-dialog")).toBeTruthy());
+    // F09：打开「添加群聊」默认页签即建群表单，一跳直达（无二选一中转）
+    await waitFor(() => expect(screen.getByTestId("group-create-name")).toBeTruthy());
     fireEvent.change(screen.getByTestId("group-create-name"), { target: { value: "新群" } });
     fireEvent.click(screen.getByTestId("group-create-friend-" + PEER_B));
     fireEvent.click(screen.getByTestId("group-create-submit"));
     await waitFor(() => expect(mocks.groupCreate).toHaveBeenCalledWith("新群", [PEER_B]));
     await waitFor(() => expect(screen.getByTestId("contact-group-g-1")).toBeTruthy());
     expect(screen.getByTestId("contact-group-g-1").textContent).toContain("群主");
+  });
+
+  it("F09：无好友时建群页签给「先去添加好友」引导而非死表单", async () => {
+    renderSection();
+    fireEvent.click(screen.getByTestId("contacts-group-add"));
+    await waitFor(() =>
+      expect(screen.getByTestId("group-create-add-friend")).toBeTruthy(),
+    );
+    expect(screen.getByTestId("group-create-add-friend").textContent).toContain("先去添加好友");
+  });
+
+  it("F10：群名输入占位符说用户语言，不再泄漏 trim 内部术语", async () => {
+    useGroupStore.setState({ friends: [friendOf(PEER_B, "小圆")], selfPeerId: PEER });
+    renderSection();
+    fireEvent.click(screen.getByTestId("contacts-group-add"));
+    const input = await screen.findByTestId("group-create-name");
+    expect(input.getAttribute("placeholder")).toBe("输入群名（1-64 个字）");
+    expect(input.getAttribute("placeholder")).not.toContain("trim");
   });
 
   it("owner 邀请成员：好友多选发出邀请，roster 推送后受邀方群区出现该群（入群）", async () => {
@@ -204,7 +222,7 @@ describe("创建群 → 邀请 → 入群流程（P2 验收 3）", () => {
     logSpy.mockRestore();
   });
 
-  it("二选一弹框：收到的入群邀请侧如实呈现已入群清单（契约无待确认流）", async () => {
+  it("F09：添加群聊默认直呈建群表单，收到的入群邀请降为次级页签且如实呈现", async () => {
     const mine = groupOf("g-1", "我的群", PEER, [PEER]);
     const joined = { ...groupOf("g-2", "被拉进的群", PEER_B, [PEER_B, PEER]) };
     mocks.groupList.mockResolvedValue([mine, joined]);
@@ -212,7 +230,10 @@ describe("创建群 → 邀请 → 入群流程（P2 验收 3）", () => {
     renderSection();
     await waitFor(() => expect(screen.getByTestId("contact-group-g-1")).toBeTruthy());
     fireEvent.click(screen.getByTestId("contacts-group-add"));
-    fireEvent.click(screen.getByTestId("contacts-group-add-invites"));
+    // Radix Tabs 以 mousedown 激活（mouseDown+click 模拟真实按压）
+    const invitesTrigger = screen.getByTestId("contacts-group-add-invites");
+    fireEvent.mouseDown(invitesTrigger);
+    fireEvent.click(invitesTrigger);
     await waitFor(() => expect(screen.getByTestId("contacts-group-invites-list")).toBeTruthy());
     expect(screen.getByTestId("contacts-group-invited-g-2")).toBeTruthy();
     expect(screen.queryByTestId("contacts-group-invited-g-1")).toBeNull();
