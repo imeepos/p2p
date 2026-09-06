@@ -4,35 +4,31 @@ import { useTranslation } from "react-i18next";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { PageHeader } from "@/components/page/page-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { clearErrorBufferAndQueue, getRecentErrors } from "@/lib/error-report";
+import { clearErrorBufferAndQueue } from "@/lib/error-report";
 import { diag } from "@/lib/ipc";
-import { copyText } from "@/views/shared/clipboard";
+import { isTauriRuntime } from "@/lib/tauri-env";
 import { errorText } from "@/views/shared/form-flow";
+
+import { EnvCard, ErrorBufferCard, LogTailCard } from "./diagnostics-cards";
 
 const TAIL_LINES = 50;
 const AUTO_REFRESH_MS = 5000;
 
 // 诊断页（G-H 观测）：前端错误缓冲 + 日志文件路径 + 持久化尾部，感知通道的人工视图。
 // IPC 失败以 i18n 标题 + 错误详情 toast 呈现（原始错误串进详情，不当正文直出）。
+// F27：非 Tauri 环境（浏览器 mock dev）没有诊断 IPC，直接进入桌面端说明性
+// 空态并停掉轮询（否则每 5s toast 刷屏）；前端错误缓冲为浏览器侧数据照常。
 export function DiagnosticsView() {
   const { t } = useTranslation();
   const confirm = useConfirm();
+  const desktop = isTauriRuntime();
   const [logPath, setLogPath] = useState<string | null>(null);
   const [tail, setTail] = useState<string[]>([]);
   const [version, setVersion] = useState(0);
 
   // load 只做异步取数（.then 内 setState），供 effect 与定时器直接调用。
   const load = useCallback(() => {
+    if (!desktop) return;
     diag
       .logPath()
       .then(setLogPath)
@@ -50,7 +46,7 @@ export function DiagnosticsView() {
         context: "diagnostics.log_tail",
       });
     });
-  }, [t]);
+  }, [desktop, t]);
 
   const refresh = useCallback(() => {
     setVersion((v) => v + 1);
@@ -58,6 +54,7 @@ export function DiagnosticsView() {
   }, [load]);
 
   // 一键清理：清错误缓冲 + 删持久化日志文件，删除动作先过确认弹框。
+  // 非桌面端没有日志文件可清，只清前端错误缓冲。
   const clearAll = useCallback(async () => {
     const ok = await confirm({
       title: t("diagnostics.clearConfirm.title"),
@@ -69,7 +66,7 @@ export function DiagnosticsView() {
     if (!ok) return;
     try {
       clearErrorBufferAndQueue();
-      await diag.logClear();
+      if (desktop) await diag.logClear();
       setTail([]);
       setVersion((v) => v + 1);
       toastSuccess(t("diagnostics.cleared"));
@@ -80,122 +77,21 @@ export function DiagnosticsView() {
         context: "diagnostics.log_clear",
       });
     }
-  }, [confirm, t]);
+  }, [confirm, desktop, t]);
 
   useEffect(() => {
+    if (!desktop) return;
     load();
     const timer = window.setInterval(load, AUTO_REFRESH_MS);
     return () => window.clearInterval(timer);
-  }, [load]);
+  }, [desktop, load]);
 
   return (
     <>
       <PageHeader titleKey="diagnostics.title" descriptionKey="diagnostics.description" />
-      <EnvCard logPath={logPath} />
+      <EnvCard logPath={logPath} desktop={desktop} />
       <ErrorBufferCard version={version} onRefresh={refresh} onClear={clearAll} />
-      <LogTailCard tail={tail} onRefresh={refresh} />
+      <LogTailCard tail={tail} desktop={desktop} onRefresh={refresh} />
     </>
-  );
-}
-
-function EnvCard({ logPath }: { logPath: string | null }) {
-  const { t } = useTranslation();
-  const copyPath = () => {
-    if (!logPath) return;
-    void copyText(logPath, {
-      done: t("diagnostics.env.copied"),
-      failed: t("common.copyFailed"),
-    });
-  };
-  return (
-    <Card className="col-span-12">
-      <CardHeader>
-        <CardTitle>{t("diagnostics.env.title")}</CardTitle>
-        <CardDescription>{t("diagnostics.env.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground">{t("diagnostics.env.mode")}</span>
-          {/* 诊断数据固定走真实 Tauri IPC（禁止 mock），运行环境恒为 Tauri 桥接 */}
-          <Badge>{t("diagnostics.env.tauri")}</Badge>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-muted-foreground">{t("diagnostics.env.logPath")}</span>
-          <code className="bg-muted rounded px-2 py-1 break-all">{logPath ?? "…"}</code>
-          <Button variant="outline" size="sm" onClick={copyPath} disabled={!logPath}>
-            {t("diagnostics.env.copy")}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ErrorBufferCard({ version, onRefresh, onClear }: { version: number; onRefresh: () => void; onClear: () => void }) {
-  const { t } = useTranslation();
-  const entries = [...getRecentErrors()].reverse();
-  return (
-    <Card className="col-span-12" data-version={version}>
-      <CardHeader>
-        <CardTitle>{t("diagnostics.errors.title")}</CardTitle>
-        <CardDescription>{t("diagnostics.errors.description")}</CardDescription>
-        <CardAction className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={onRefresh}>
-            {t("diagnostics.refresh")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={onClear}>
-            {t("diagnostics.clearAll")}
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        {entries.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{t("diagnostics.errors.empty")}</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {entries.map((entry, i) => (
-              <li key={entry.ts + String(i)} className="flex flex-col gap-1 text-sm">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">{entry.kind}</Badge>
-                  <span className="text-muted-foreground font-mono text-xs">{entry.ts}</span>
-                </div>
-                <p className="break-all">{entry.message}</p>
-                {entry.stack && (
-                  <pre className="bg-muted max-h-32 overflow-auto rounded p-2 text-xs whitespace-pre-wrap">
-                    {entry.stack}
-                  </pre>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function LogTailCard({ tail, onRefresh }: { tail: string[]; onRefresh: () => void }) {
-  const { t } = useTranslation();
-  return (
-    <Card className="col-span-12">
-      <CardHeader>
-        <CardTitle>{t("diagnostics.tail.title")}</CardTitle>
-        <CardDescription>{t("diagnostics.tail.description")}</CardDescription>
-        <CardAction>
-          <Button variant="outline" size="sm" onClick={onRefresh}>
-            {t("diagnostics.refresh")}
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        {tail.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{t("diagnostics.tail.empty")}</p>
-        ) : (
-          <pre className="bg-muted max-h-64 overflow-auto rounded p-3 font-mono text-xs whitespace-pre-wrap">
-            {tail.join("\n")}
-          </pre>
-        )}
-      </CardContent>
-    </Card>
   );
 }
