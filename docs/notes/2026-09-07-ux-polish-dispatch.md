@@ -21,9 +21,20 @@ main @ ec1b783：vitest 157 文件 919 用例全绿（冷启高负载下会出�
 跨卡契约：#/network/peers?dial=<目标> 与 #/contacts?add=<peerId>，UX-E 实现消费端、UX-F 产生端。
 验收：协调者在主树机械复跑四门禁（vitest/lint/tsc/check:i18n）+ gui-agent 页面抽查，不采信自报；通过后 ff-only 合并、worktree 清理。
 
-## 波2（波1 合并后派，待定）
+## 波2（2026-09-07 04:47 派，并行 3 卡）
 
-UX-I 事件页（F16/F20）、UX-J 地址表单标签与术语（F13/F10/F14-设置部分）、UX-K 操作路径与全局命名（F08/F09/F15/F22/F26/F27）。
+| 卡 | 会话 | 分支 | 覆盖 finding | 文件所有权 |
+|---|---|---|---|---|
+| UX-I 事件页可读性 | session-6049202c | feat/uxi-events-page | F16/F20 | views/network/events/* |
+| UX-J 地址表单与校验 | session-04af3a25 | feat/uxj-form-labels | F13/F14 | 中继地址卡/添加地址弹窗/设置网络卡与宣告卡 |
+| UX-K 操作路径一致性 | session-fa94f959 | feat/uxk-flow-consistency | F08/F09/F10/F15/F22/F26/F27 | 消息邀请 section/建群弹窗/rail/命名注册/control-bridge/诊断页 |
+
+## 波1 收官（2026-09-07 04:45）
+
+- 四卡全部合入 main @ 4690a36：46a69fe(UX-F) / f862d1c(UX-G) / d238d23(UX-H) / 4690a36(UX-E ff)。
+- 主树机械验收全绿：tsc 0 错、eslint 0 警、check:i18n zh=en=1041、vitest 170 文件 1008 用例（基线 919 → +89）。
+- worktree/本地分支/远端分支均已清理；四个会话已归档。
+- UX-E 交付报告：docs/notes/2026-09-07-uxe-entity-picker-delivery.md。
 
 ## 观察与约定
 
