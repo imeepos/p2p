@@ -888,3 +888,13 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：vitest 全量红在 hardcoded-copy.test.ts，offenders 指向 views/settings/config-schema.ts 行尾 `// serde default：缺省 false` 注释，而非任何真实文案。
 - 原因：扫描器 stripComments 不剥离行尾 // 注释（只处理块注释），views 下 .ts 文件行内 CJK 一律命中 CJK 正则。
 - 修法：views/**/.ts 行尾注释用英文（或把注释放到 const 上方独立行也躲不过，直接英文最稳）；改后扫描绿。
+
+## 2026-09-06 UX-F：worktree 里 symlink 主树 node_modules 跑 vitest 假随机红
+- 症状：新 worktree 无 node_modules，图省事 symlink 主树 apps/gui/node_modules 后，vitest 报 "Timeout waiting for worker to respond" 或部分测试文件随机报 "Invalid Chai property: toBeInTheDocument"（同文件重跑结果漂移）。
+- 原因：symlink 让 vite/jsdom 缓存与模块实例身份分裂（同一物理目录被两条 root 路径共享），forks worker 启动与 jest-dom matcher 注册撞竞态。
+- 修法：worktree 里老老实实 `pnpm install --frozen-lockfile --prefer-offline`（全局 store 温热，秒级完成），直接调 `./node_modules/.bin/vitest`；期间 `pnpm exec` 在未安装 worktree 会静默挂起等 stdin，绕开。
+
+## 2026-09-06 UX-F：eslint react-hooks v7 新规禁「useRef 记上一个 prop」惯性写法
+- 症状：F19 用 `if (peerId) ref.current = peerId` 在 render 记最后运行期身份，eslint 12 连报 react-hooks/refs；换 useEffect+setState 又报 set-state-in-effect。
+- 原因：react-hooks v7 把 ref 的 render 期读写与 effect 内同步 setState 都定为 error（级联渲染）。
+- 修法：用官方「render 期条件调整 state」模式：`const [prev,setPrev]=useState(x); if (x!==prev) setPrev(x);`——React 文档背书、两规则都不命中；注意该模式 state 每挂载重置，跨挂载要保持的值不能靠它。
