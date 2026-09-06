@@ -485,3 +485,43 @@ interface AcpConsoleStatus {
   cli-parity 守卫保持绿（本命令无 CLI 对等映射，按既有登记机制处理）。
 
 
+
+## 16. llm-share GUI 面（v11 加法，2026-09-06，LSG 波；语义真值源=docs/ops/p2pctl-ai-guide.md 九条目+PR 轨冻结稿 v1）
+
+### 16.1 命令面（src-tauri 封装 crates/llm-share-*，chat.rs 先例；PR4 borrow 注释行随本面 live 行迁移同提交串）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| llm_share_offer_publish | offer | LlmOfferView | 发布出借声明（签名信封落 offer.json）；必填集：models ≥1、spare 覆盖全部 model 且 N>0、period-ends 日期——表单契约显性化，IPC 层校验 |
+| llm_share_offer_show | - | LlmOfferView | status 五态 live/expired/not_yet_valid/peer_mismatch/bad_signature |
+| llm_share_allow_list | - | { entries: LlmAllowEntry[] } | 白名单清单 |
+| llm_share_allow | peerId, models?: string[], note? | LlmAllowlistView | models 缺省=不限模型（原话）；deny 不存在条目=显式报错非错误态 |
+| llm_share_deny | peerId | LlmAllowlistView | 移除白名单 |
+| llm_share_borrow | req{model, messages, maxTokens(必填), targetPeer(必填), reqId?} | LlmBorrowReport | targetPeer 无缺省路径，缺出借方=IPC 层显式报错；reqId 客户端生成 UUID 重试复用，缺省 IPC 层生成 |
+| llm_share_ledger_list | filter{lender?, borrower?, period?} | LlmLedgerEntry[] | 账本流水 |
+| llm_share_ledger_balance | - | LlmBalanceGroup[]{lender, period, netAmount, direction} | 净差按 lender+period 切分，正负号=借贷方向 |
+| llm_share_receipt_verify | reqId, lenderPubkey? | LlmReceiptVerifyResult | 缺省本机身份仅出借方自验；借方场景须传出借方公钥或从账本条目取 |
+
+LlmBorrowReport{status: done|stream_broken|rejected, receipt{reqId, appended, estimated, disputeWindowSecs}, sseCount, usage?, code?, message?}
+
+### 16.2 语义约束（违约即验收红）
+
+1. 拒绝码四值 not_allowlisted/model_not_served/freeze_insufficient/concurrency_exceeded 原样透出不本地化改写；rejected 是业务结果非命令 Err。
+2. stream_broken：estimated=true、disputeWindowSecs=72h、退出 0——GUI 渲染「估算账单·72h 争议窗」中性态，禁渲染失败。
+3. req_id 幂等：重试复用同 reqId，appended=false 不双记。
+4. 数据文件 GUI 只读展示，禁直写 ledger.json/receipt-*/offer.json/allowlist.json。
+5. offer status：expired/not_yet_valid=常态中性；peer_mismatch/bad_signature=醒目警示。
+6. borrow=真实成本动作：UI 二次确认+maxTokens 显式上限必填；sse 原文只出 sseCount，正文截断展示。
+7. 默认拒绝心智进 UI 文案原话：「allowlist 无条目即不可用」。
+
+### 16.3 落点
+
+/llm-share 独立路由页四面板（offer 发布/allowlist 管理/borrow 快捷/双边账本视图）；rail 四入口不动（/docs 先例：命令面板+设置页入口可达）；设置页增 llm-share 入口卡。
+
+### 16.4 cli-parity 迁移
+
+GUI 命令 live 行与 PR4 borrow 注释行升级同一提交串落地，中间态守卫不红；ai-docs-sync 联动由 GUI 轨验收把关。
+
+### 16.5 §3 加法
+
+GuiConfig 增 lanOnly?: boolean（serde default，缺省 false；PR4 已落 serde 双向兼容）；设置页 lanOnly 开关纳入实现卡。
