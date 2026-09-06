@@ -72,7 +72,12 @@ const enUS: typeof zhCN = {
       addrFormat: "Expected ip/uport (QUIC) or ip/tport (TCP)",
       addrDuplicate: "Duplicate address",
     },
-    addressList: { add: "Add address", remove: "Remove address", empty: "No addresses" },
+    addressList: {
+      add: "Add address",
+      remove: "Remove address",
+      empty: "No addresses",
+      rowLabel: "Address {{index}}",
+    },
     errorBoundary: {
       title: "Something went wrong",
       retry: "Retry",
@@ -248,6 +253,7 @@ const enUS: typeof zhCN = {
       add: "Add address",
       addTitle: "Add bootstrap address",
       addDesc: "Syntax: ip/uport (QUIC) or ip/tport (TCP)",
+      addrLabel: "Bootstrap address",
       deleteTitle: "Delete bootstrap address?",
       deleteDesc: "This removes {{addr}} from the address book; effective after node restart.",
       deleteAction: "Delete",

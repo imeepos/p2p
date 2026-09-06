@@ -69,7 +69,12 @@ const zhCN = {
       addrFormat: "地址格式应为 ip/u端口（QUIC）或 ip/t端口（TCP）",
       addrDuplicate: "地址重复",
     },
-    addressList: { add: "添加地址", remove: "删除地址", empty: "暂无地址" },
+    addressList: {
+      add: "添加地址",
+      remove: "删除地址",
+      empty: "暂无地址",
+      rowLabel: "地址 {{index}}",
+    },
     errorBoundary: {
       title: "界面出错了",
       retry: "重试",
@@ -239,6 +244,7 @@ const zhCN = {
       add: "添加地址",
       addTitle: "添加引导地址",
       addDesc: "语法：ip/u端口（QUIC）或 ip/t端口（TCP）",
+      addrLabel: "引导地址",
       deleteTitle: "删除引导地址？",
       deleteDesc: "将从地址簿中移除 {{addr}}，删除后需重启节点生效。",
       deleteAction: "删除",

@@ -108,8 +108,11 @@ describe("设置保存校验失败可见反馈", () => {
     const quic = document.getElementById("settings-quic-port") as HTMLInputElement;
     fireEvent.change(quic, { target: { value: "99999" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain("未通过校验");
+    // 字段级 role=alert（F14 失焦口径）与保存条汇总并存，取保存条汇总断言
+    const alerts = await screen.findAllByRole("alert");
+    expect(
+      alerts.some((el) => el.textContent.includes("未通过校验")),
+    ).toBe(true);
     await waitFor(() => {
       expect(document.activeElement?.id).toBe("settings-quic-port");
     });
