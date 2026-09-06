@@ -46,15 +46,20 @@ export function PromptComposer() {
         rows={2}
         className="min-h-0 flex-1 resize-none"
       />
+      {/* 回合进行中（AG-UI RUN_STARTED 窗口）发送禁用防重复提交，结算解除；
+          Stop 仅进行中出现，保留取消入口 */}
+      <Button
+        onClick={submit}
+        disabled={pending || !text.trim()}
+        data-testid="acp-composer-send"
+      >
+        {t("acp.composer.send")}
+      </Button>
       {pending ? (
         <Button variant="destructive" onClick={cancelPrompt} data-testid="acp-composer-stop">
           {t("acp.composer.stop")}
         </Button>
-      ) : (
-        <Button onClick={submit} disabled={!text.trim()} data-testid="acp-composer-send">
-          {t("acp.composer.send")}
-        </Button>
-      )}
+      ) : null}
     </div>
   );
 }

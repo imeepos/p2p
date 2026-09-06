@@ -895,6 +895,8 @@ const enUS: typeof zhCN = {
       thoughtShow: "Show thinking",
       thoughtHide: "Hide thinking",
       ignored: "Ignored {{count}} unknown updates",
+      runActive: "Run in progress",
+      retry: "Retry",
     },
     tools: {
       status: {
