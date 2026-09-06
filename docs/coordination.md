@@ -298,6 +298,6 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 
 | 任务单 | 负责会话 | 分支 | 范围 | 验收 | 状态 |
 |---|---|---|---|---|---|
-| DOC1 协议接入文档 | 专属新会话（DOC1） | feat/protocol-integration-docs | docs/protocol/** 新增五文件（README/quickstart/wire-format/node-lifecycle/builtin-and-versioning）+ docs/README.md 索引行；其余一律只读 | 五文件各 ≤300 行、无 emoji + 常量抽检 8/8 出处命中 + 字节示例 varint 独立解码自洽 + make check 全绿 + diff 域合规（仅 docs/protocol/** 与 docs/README.md） | 验收进行中：门禁/字节示例/域合规全绿；首轮抽检 9/11 检出 noise.rs 行号漂移已退回，d7bd113 修正全中，待分支 make check 后合并 |
+| DOC1 协议接入文档 | 专属新会话（DOC1） | feat/protocol-integration-docs | docs/protocol/** 新增五文件（README/quickstart/wire-format/node-lifecycle/builtin-and-versioning）+ docs/README.md 索引行；其余一律只读 | 五文件各 ≤300 行、无 emoji + 常量抽检 8/8 出处命中 + 字节示例 varint 独立解码自洽 + make check 全绿 + diff 域合规（仅 docs/protocol/** 与 docs/README.md） | 已完成：032b91d ff 合入（协调者机械验收全绿：门禁/字节示例独立解码/抽检全中/主树验收命令绿）；worktree 与分支全清 |
 | DOC2 GUI 协议文档页 | session-ffc31e23（专属新会话） | feat/gui-protocol-docs | apps/gui/src/**：/docs 路由 + palette-nav 登记 + 设置页入口行 + i18n zh/en（键先独立小提交）；rail 保持 4 项；内容单源 vite raw 引 docs/protocol/ 禁复制 | pnpm build/lint/test/check:i18n 全绿 + vitest 断言真实文档渲染 + MENU_ENTRIES 仍 4 项 + 无新增 Tauri 命令 + diff 域合规 | doing（2026-09-06 AS3 已合入腾域，正式派单） |
 
