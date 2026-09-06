@@ -800,3 +800,24 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：对 792 行 known-issues.md 做全文 read 后原样 join 回写，落盘只剩 341 行；lessons.md 同理 313→216，合并进 main 才被 diff 行数暴露。
 原因：read 返回的 lines 数组在大文件上有输出预算截断，不代表全文；用它的返回值整体回写等于用截断视图覆盖全文件。
 修法：大文件只做 bash cat >> 追加或 edit 工具定点替换，禁止「read 全文→write 全文」回写回路；写后必须 wc -l 对账。
+
+
+## 2026-09-06 /g 正则 exec 跨调用 lastIndex 串位返回 null
+症状：findShareLinkInText 第二次调用对"链接嵌句中"返回 null，单测时过时不过。
+原因：/g 标志的 exec 保留 lastIndex，跨输入继续扫描——新字符串从头匹配的预期落空。
+修法：提取用 String.match（无状态）；或每次 new RegExp。单测必须覆盖"同函数连续多次调用"。
+
+## 2026-09-06 i18n 扁平键与代码拼接点号键不匹配，t() 静默回键名
+症状：Radix Select 的 option 文本渲染成 "acp.share.ttl.1h" 原始键；同组件其他键正常，极具迷惑性。
+原因：locale 登记扁平键 ttl1h，代码按前缀拼出 ttl.1h；i18next 查不到回显键名，不报错。
+修法：动态键统一用 Record 映射表（TTL_LABEL_KEY 同 SCOPE_KEY 先例），禁止运行时拼键路径；测试断言 option 文本而非键名。
+
+## 2026-09-06 react-hooks/set-state-in-effect + purity 双闸拦 effect 取数
+症状：useEffect 里调用组件域 reload 被 eslint 报 "Avoid calling setState() directly within an effect"；render 期 Date.now() 报 purity。
+原因：新 react-hooks 规则能静态追踪组件域 useCallback 内的 setState；渲染期调 impure 函数同禁。
+修法：沿 use-discovery-poll 房法——async 取数函数定义在 effect 体内（void load()），setState 只出现在 await 之后的回调位；Date.now 移到取数时刻（状态徽章在 load 时推导成模型）；刷新按钮改 tick 计数触发 effect 重跑。
+
+## 2026-09-06 useEffect 依赖每次渲染新建的派生对象导致无限自旋
+症状：vitest worker 100% CPU 数分钟无输出假死；管理卡挂载即死循环。
+原因：派生候选对象每渲染新引用，useCallback 依赖随之每轮换新，effect 每轮重跑，setRows 再触发渲染成闭环。
+修法：effect/useCallback 依赖一律取原始值（url/token 字符串），派生对象只留渲染用。定位：ps 看 forks.js 进程 CPU 100% + 日志停在 RUN 标题行。

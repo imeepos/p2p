@@ -314,3 +314,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06：组件内聚 useNavigate 等路由钩子时，钩子组件必须「按需挂载」（条件渲染 null）——MessageList 常驻渲染导航弹框让 6 个裸渲染既有测试崩在 useNavigate() invariant；修复是把导航收进弹框组件并按需挂载，既有测试零改动回绿。
 - 2026-09-06：run_code 跨调用无运行时内存再实证两次：上一调用定义的常量（如目标路径 p）在下一调用不存在（ReferenceError: p is not defined）；每个 program 必须自带全部常量与路径。
 - 2026-09-06：read 全文→write 回写是大文件截断陷阱（792 行被 read 输出预算裁成 341 行后覆盖落盘）；追加用 bash cat >> heredoc，写后 wc -l 对账（IMC3 轮实录，合并后才被 diff 行数暴露，当场修复）。
+
+- 2026-09-06：新 worktree 首跑 pnpm 脚本会触发 verify-deps 自动 install，长 install 撞前台超时被 SIGTERM（exit null 假失败）；建 worktree 后先单独 pnpm install 再跑任何脚本。
+- 2026-09-06：长门禁链必须 run_in_background + 输出重定向日志 + 末尾 echo EXIT 到日志，判定看日志里的 EXIT 行而非 job status。
+- 2026-09-06：run_code 里模板串写文件内容时，内容不能再含模板串或插值序列（外层被截断报 parse 错）；复杂内容先 write 到 /tmp 再 bash 拼接。
+- 2026-09-06：并行波派单后 main 会持续前进（在途分支陆续并入消失），收尾前 fetch + merge main 在 feature 侧消化；overlap 检查对已删分支要容错。
