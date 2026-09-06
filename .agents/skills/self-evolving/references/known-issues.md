@@ -895,6 +895,10 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 原因：workdir（worktree）被并行会话执行收尾 `git worktree remove` 删掉，所有以它为 cwd 的 spawn 全部 ENOENT；与代码无关。
 - 修法：先用只读工具（glob/read）确认目录是否存在；存在性一旦排除，立即 `git reflog` 查 main 最近提交是否被并行会话推进（ff 合并/账本翻转/远端删除三件套），按「他收尾我核验」处理，不重跑重做。
 
+
+## TS 类字段名与同名方法互相覆盖：mock.allow is not a function（2026-09-06 LSG3）
+- 症状：LlmShareMock 里 private readonly allow = new Map() 与 allow() 方法同名；类字段在构造期覆盖原型方法，运行时 "mock.allow is not a function"，测试大面积红。
+- 修法：状态容器字段改名 allowEntries。教训：类字段命名先查同名方法；Map/集合字段加 Entries 后缀。
 ## 2026-09-06 LSG2：i18n hardcoded-copy 扫描把行尾 CJK 注释误报为界面文案
 - 症状：vitest 全量红在 hardcoded-copy.test.ts，offenders 指向 views/settings/config-schema.ts 行尾 `// serde default：缺省 false` 注释，而非任何真实文案。
 - 原因：扫描器 stripComments 不剥离行尾 // 注释（只处理块注释），views 下 .ts 文件行内 CJK 一律命中 CJK 正则。
@@ -924,6 +928,11 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：vitest run 报 "Timeout waiting for worker to respond / Failed to start worker"，0 用例执行；同命令隔几分钟重跑即过；高负载机器（并行会话多 vitest）更频发。
 - 修法：先 pkill 本 worktree 残留 vitest 僵尸（上次超时遗留），再重跑；稳定化用 --no-file-parallelism（fork 数降到 1，语义不变只慢）；别急着怀疑自己的测试代码。
 
+
+## 收官合并"宣布完成但内容未进 main"：分支三清前必须 ls-tree 校验交付路径（2026-09-06 LSG3 收官事故）
+- 症状：协调者宣布批次 make check FINAL-EXIT=0 且三清，但六笔交付提交均不在 origin/main 祖先、交付目录在主树不存在；FINAL 门禁跑在交付分支合并态上，主树合并步骤静默丢内容后分支/worktree 照删。
+- 修法：对象库未 GC 时按已知哈希重建分支 ref + worktree 零丢失恢复（本次 602600c..aad7ff9 全活）；根因防线=删除分支前必须 "git merge-base --is-ancestor <交付tip> origin/main" + "git ls-tree origin/main -- <交付路径>" 双校验。
+- 关联：LSG1「命令静默丢失」同象；与 "ff-only 失败后分号链继续删分支"（red-lines 2026-09-06 条）互为表里。
 ## 2026-09-07 UX-I：Radix AlertDialog 确认按钮吞合成 click，弹窗挂载瞬间点也吞
 - 症状：CDP/JS 对 AlertDialog「确认」按钮 .click() 或完整 MouseEvent 序列偶发无效，弹窗不关、onConfirm 不执行；同坐标隔 ~700ms 再点即成功。elementFromPoint 命中按钮本身、无遮罩，纯挂载时序问题。
 - 修法：弹窗 [role=alertdialog] 出现后 settle ≥700ms 再取坐标点击（clickPrev 坐标链），并留二次点击兜底；别的 root 内普通按钮（chip/行）.click() 始终可靠，勿一刀切归因「合成事件不可用」。
