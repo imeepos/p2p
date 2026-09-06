@@ -10,6 +10,7 @@ pub mod dial;
 pub mod discovery;
 pub mod out;
 pub mod pump;
+pub mod share;
 pub mod state;
 pub mod status;
 pub mod ticket;

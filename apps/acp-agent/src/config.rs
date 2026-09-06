@@ -53,6 +53,10 @@ pub struct AgentConfig {
     pub mcp_definitions: BTreeMap<String, serde_json::Value>,
     /// MCP 定义文件路径（社区惯例为文件式 JSON 配置）；设置后以文件内容整体为准。
     pub mcp_definitions_path: Option<String>,
+    /// 本地 admin HTTP 监听端口（0 = 随机，设计 §5）。
+    pub admin_port: u16,
+    /// 关闭本地 admin HTTP（设计 §5 --admin-disabled）。
+    pub admin_disabled: bool,
 }
 
 impl Default for AgentConfig {
@@ -74,6 +78,8 @@ impl Default for AgentConfig {
             permission_timeout_secs: PERMISSION_TIMEOUT_SECS,
             mcp_definitions: BTreeMap::new(),
             mcp_definitions_path: None,
+            admin_port: 0,
+            admin_disabled: false,
         }
     }
 }

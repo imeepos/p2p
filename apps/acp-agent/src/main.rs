@@ -33,6 +33,7 @@ async fn run(cli: Cli) -> Result<(), String> {
         .map_err(|err| format!("policy load: {err}"))?;
     let handler = AcpHandler::new(deps.clone()).map_err(|err| format!("protocol id: {err}"))?;
     node.handle_protocol(Arc::new(handler));
+    start_admin(&config, &paths, &node, deps.clone()).await?;
     eprintln!(
         "acp-agent: running peer={} data-dir={}",
         node.local_peer_id(),
@@ -50,6 +51,40 @@ async fn run(cli: Cli) -> Result<(), String> {
 
 fn ensure_dir(dir: &std::path::Path) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|err| format!("create {}: {err}", dir.display()))
+}
+
+/// 本地 admin HTTP 装配（设计 §5）：token 随机生成落 0600 文件，
+/// 端口与 token 文件经 stdout JSON 行发布；--admin-disabled 可关。
+async fn start_admin(
+    config: &acp_agent::AgentConfig,
+    paths: &acp_common::AcpPaths,
+    node: &p2p::Node,
+    deps: Arc<acp_agent::SessionDeps>,
+) -> Result<(), String> {
+    if config.admin_disabled {
+        eprintln!("acp-agent: admin http disabled (--admin-disabled)");
+        return Ok(());
+    }
+    let token = acp_agent::share::admin::AdminToken::issue(paths.admin_token())
+        .map_err(|err| format!("admin token file: {err}"))?;
+    let server = acp_agent::share::admin::AdminServer::start(
+        config.admin_port,
+        token.value,
+        acp_agent::share::admin::AdminDeps {
+            service: deps.shares.clone(),
+            link: acp_agent::LinkContext {
+                peer: node.local_peer_id().to_string(),
+                addrs: node.listen_addrs(),
+            },
+        },
+    )
+    .await
+    .map_err(|err| format!("admin http: {err}"))?;
+    println!(
+        "{}",
+        acp_agent::share::admin::ready_line(server.addr.port(), &token.file)
+    );
+    Ok(())
 }
 
 fn node_identity_dir(paths: &acp_common::AcpPaths) -> PathBuf {

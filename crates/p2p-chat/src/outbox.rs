@@ -32,6 +32,7 @@ pub(crate) fn spawn_outbox_sweeper(core: Arc<ChatCore>) {
                     tracing::warn!(%peer, error = %e, "outbox 周期补投失败");
                 }
             }
+            crate::ginvite_flow::flush_ginvites_pending(&core).await;
             tokio::time::sleep(SWEEP_INTERVAL).await;
         }
     });
@@ -56,6 +57,7 @@ pub(crate) fn spawn_outbox_task(core: Arc<ChatCore>, group: Arc<GroupCore>) {
                         tracing::warn!(%peer, error = %e, "群 outbox flush 失败");
                     }
                     crate::invite_api::flush_invites_peer(&core, &peer_s).await;
+                    crate::ginvite_flow::flush_ginvites_peer(&core, &peer_s).await;
                 }
                 Ok(_) => {}
                 Err(broadcast::error::RecvError::Lagged(_)) => continue,

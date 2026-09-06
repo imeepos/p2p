@@ -50,13 +50,13 @@ pub async fn run(args: ServeArgs) -> CliResult<()> {
     let explicit = args.quic_port;
     let remembered = p2p_chat::load_serve_port(&data_dir);
     let requested = explicit.or(remembered).unwrap_or(0);
-    let built = context::builder(&args.data_dir, requested, args.mdns).build().await;
+    let built = context::builder(&args.data_dir, requested, args.mdns)
+        .build()
+        .await;
     let node = match built {
         Ok(node) => node,
         Err(e) if explicit.is_none() && remembered.is_some() => {
-            eprintln!(
-                "chat serve: 记忆端口 {requested} 绑定失败（{e}），回退随机端口",
-            );
+            eprintln!("chat serve: 记忆端口 {requested} 绑定失败（{e}），回退随机端口",);
             context::builder(&args.data_dir, 0, args.mdns)
                 .build()
                 .await

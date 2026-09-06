@@ -2,7 +2,6 @@
 //!
 //! 序列化形状逐字对齐契约（camelCase，Option 序列化 null）；校验失败一律可读中文 Err 禁止静默降级。
 
-use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use p2p_identity::PeerId;
@@ -19,28 +18,6 @@ pub const MAX_TEXT_CHARS: usize = 2000;
 pub enum Sender {
     Me,
     Them,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ChatKind {
-    Text,
-    Image,
-    Audio,
-    Video,
-    File,
-}
-
-impl fmt::Display for ChatKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            ChatKind::Text => "text",
-            ChatKind::Image => "image",
-            ChatKind::Audio => "audio",
-            ChatKind::Video => "video",
-            ChatKind::File => "file",
-        })
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -77,9 +54,12 @@ pub struct ChatEnvelope {
     pub status: ChatStatus,
     /// 被引用消息的本端消息 id；None=无引用（加法字段，旧记录缺字段读回 None）。
     pub reply_to: Option<String>,
+    /// 入群邀请卡片载荷（IMC1 加法字段，kind=groupinvite 时有值，其余恒 None）。
+    pub card: Option<crate::ginvite::ChatInviteCard>,
 }
 
 pub use crate::friend::ChatFriend;
+pub use crate::kind::{validate_media, ChatKind};
 
 /// 发送附件入参（GUI 侧解码 base64 后传入）。
 #[derive(Clone, Debug)]
@@ -179,35 +159,6 @@ pub fn validate_nickname(raw: &str) -> Result<String, ChatError> {
     Ok(t.to_string())
 }
 
-/// MIME 白名单按 kind 校验：mime 小写后精确匹配，不匹配 Err 不降级。
-pub fn validate_media(kind: &ChatKind, mime: &str, size: u64) -> Result<(), ChatError> {
-    if size > MAX_MESSAGE_SIZE {
-        return Err(ChatError::MediaTooLarge(size));
-    }
-    if size == 0 {
-        return Err(ChatError::InvalidMedia("附件字节为空".into()));
-    }
-    let mime = mime.trim().to_ascii_lowercase();
-    let allowed: &[&str] = match kind {
-        ChatKind::Image => &["image/png", "image/jpeg", "image/gif", "image/webp"],
-        ChatKind::Audio => &[
-            "audio/mpeg",
-            "audio/wav",
-            "audio/ogg",
-            "audio/m4a",
-            "audio/mp4",
-        ],
-        ChatKind::Video => &["video/mp4", "video/webm", "video/mov", "video/quicktime"],
-        ChatKind::File | ChatKind::Text => return Ok(()),
-    };
-    if !allowed.contains(&mime.as_str()) {
-        return Err(ChatError::InvalidMedia(format!(
-            "MIME 与 kind 不匹配：{kind} 不接受 {mime}"
-        )));
-    }
-    Ok(())
-}
-
 /// 附件文件名 sanitize：仅保留 [A-Za-z0-9._-]，空/纯点/超长回退或截断。
 pub fn sanitize_name(name: &str) -> String {
     let cleaned: String = name
@@ -255,23 +206,6 @@ mod tests {
         assert_eq!(validate_nickname(" 小 b ").unwrap(), "小 b");
         assert!(validate_nickname("").is_ok());
         assert!(validate_nickname(&"a".repeat(65)).is_err());
-    }
-
-    #[test]
-    fn media_validation_matrix() {
-        assert!(validate_media(&ChatKind::Image, "image/png", 1).is_ok());
-        assert!(validate_media(&ChatKind::Image, "image/webp", 1).is_ok());
-        assert!(validate_media(&ChatKind::Image, "IMAGE/JPEG", 1).is_ok());
-        assert!(validate_media(&ChatKind::Image, "image/svg+xml", 1).is_err());
-        assert!(validate_media(&ChatKind::Audio, "audio/mpeg", 1).is_ok());
-        assert!(validate_media(&ChatKind::Audio, "audio/mp4", 1).is_ok());
-        assert!(validate_media(&ChatKind::Video, "video/quicktime", 1).is_ok());
-        assert!(validate_media(&ChatKind::Video, "video/mp4", 1).is_ok());
-        assert!(validate_media(&ChatKind::File, "application/octet-stream", 1).is_ok());
-        assert!(validate_media(&ChatKind::File, "text/plain", 1).is_ok());
-        assert!(validate_media(&ChatKind::Image, "image/png", MAX_MESSAGE_SIZE + 1).is_err());
-        assert!(validate_media(&ChatKind::Image, "image/png", 0).is_err());
-        assert!(validate_media(&ChatKind::Image, "image/png", MAX_MESSAGE_SIZE).is_ok());
     }
 
     #[test]

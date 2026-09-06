@@ -10,8 +10,8 @@ use serde::Serialize;
 use crate::error::CliResult;
 use crate::node::DEFAULT_DATA_DIR;
 
-use crate::chat::{emit, runtime_err};
 use crate::chat::context;
+use crate::chat::{emit, runtime_err};
 
 #[derive(Args)]
 pub struct CreateArgs {
@@ -161,7 +161,7 @@ pub(crate) async fn create(args: CreateArgs) -> CliResult<()> {
 pub(crate) async fn list(args: ListArgs) -> CliResult<()> {
     let ctx = context::open(&args.data_dir).await?;
     let groups = ctx.chat.group.group_list();
-    let lines: Vec<String> = groups.iter().map(|g| text_of(g)).collect();
+    let lines: Vec<String> = groups.iter().map(text_of).collect();
     emit(args.json, &groups, &lines.join("\n"))
 }
 

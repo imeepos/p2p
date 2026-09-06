@@ -10,12 +10,18 @@ pub mod error;
 pub mod handshake;
 pub mod paths;
 pub mod policy;
+pub mod share;
 
 pub use chunk::{frames, LineReassembler};
 pub use error::ErrorCode;
 pub use handshake::{parse_client_hello, parse_server_hello, ClientHello, Ready, ServerHello};
 pub use paths::AcpPaths;
 pub use policy::{AskRoute, PeerPolicy, PolicyStoreError, PolicyTable, Scope};
+pub use share::{
+    build_share_link, generate_token, rfc3339_from_unix, token_sha256, unix_now, ShareDenyKind,
+    ShareEntry, ShareLedger, ShareSpec, ShareStoreError, DEFAULT_MAX_ACTIVATIONS,
+    SHARE_FINGERPRINT_PREFIX,
+};
 
 #[cfg(test)]
 mod chunk_tests;
@@ -25,3 +31,5 @@ mod error_tests;
 mod handshake_tests;
 #[cfg(test)]
 mod policy_tests;
+#[cfg(test)]
+mod share_tests;

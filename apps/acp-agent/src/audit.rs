@@ -5,6 +5,8 @@
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use acp_common::ShareDenyKind;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AuditEvent {
     /// 握手层拒绝（策略表未授权 / 握手非法 / peer 不可归属）。
@@ -64,6 +66,14 @@ pub enum AuditEvent {
     WindowExpired { peer: String, detail: String },
     /// 无票据新连接顶替窗口期遗留槽位。
     SlotSuperseded { peer: String, detail: String },
+    /// 分享兑换成功（设计 §4）：share 前缀指纹已写策略表，绑定首连 peer。
+    ShareRedeemed { peer: String, share_id: String },
+    /// 分享兑换拒绝（设计 §4/§10）：kind 决定五条分享审计键之一。
+    ShareRedeemDenied {
+        peer: String,
+        share_id: String,
+        kind: ShareDenyKind,
+    },
 }
 
 impl AuditEvent {
@@ -82,6 +92,8 @@ impl AuditEvent {
             Self::ReattachDenied { .. } => "reattach-denied",
             Self::WindowExpired { .. } => "window-expired",
             Self::SlotSuperseded { .. } => "slot-superseded",
+            Self::ShareRedeemed { .. } => "share-redeemed",
+            Self::ShareRedeemDenied { kind, .. } => kind.audit_key(),
         }
     }
 
@@ -99,13 +111,16 @@ impl AuditEvent {
             | Self::ReattachAccepted { peer, .. }
             | Self::ReattachDenied { peer, .. }
             | Self::WindowExpired { peer, .. }
-            | Self::SlotSuperseded { peer, .. } => peer,
+            | Self::SlotSuperseded { peer, .. }
+            | Self::ShareRedeemed { peer, .. }
+            | Self::ShareRedeemDenied { peer, .. } => peer,
         }
     }
 
     pub fn code(&self) -> &str {
         match self {
             Self::ConnDenied { code, .. } | Self::GateDenied { code, .. } => code,
+            Self::ShareRedeemDenied { kind, .. } => kind.error_code().code(),
             _ => "-",
         }
     }
@@ -182,6 +197,16 @@ impl AuditSink for TracingAudit {
             }
             AuditEvent::SlotSuperseded { peer, detail } => {
                 tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, detail, "stale slot superseded by fresh connection");
+            }
+            AuditEvent::ShareRedeemed { peer, share_id } => {
+                tracing::info!(target: "acp_audit", ts, event = event.kind(), peer, share_id, "share redeemed");
+            }
+            AuditEvent::ShareRedeemDenied {
+                peer,
+                share_id,
+                kind,
+            } => {
+                tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, share_id, code = event.code(), "share redeem denied: {kind:?}");
             }
         }
     }

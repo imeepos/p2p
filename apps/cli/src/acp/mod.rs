@@ -5,8 +5,11 @@
 //! deny=删条目；本卡不做交互确认（TOFU 指纹显式传入，交互面归 GUI 波）。
 
 pub mod render;
+pub mod share;
 pub mod store;
 
+#[cfg(test)]
+mod share_tests;
 #[cfg(test)]
 mod tests;
 
@@ -28,6 +31,8 @@ pub enum AcpCommand {
     Deny(DenyArgs),
     /// 列出全部授权条目
     List(ListArgs),
+    /// 分享链接管理（acp-share 设计 §6：create/list/revoke）
+    Share(share::ShareArgs),
 }
 
 #[derive(Args)]
@@ -122,6 +127,7 @@ pub async fn run(command: AcpCommand) -> CliResult<()> {
         AcpCommand::Allow(args) => allow_cmd(args),
         AcpCommand::Deny(args) => deny_cmd(args),
         AcpCommand::List(args) => list_cmd(args),
+        AcpCommand::Share(args) => share::run(args.command),
     }
 }
 

@@ -10,8 +10,8 @@ use serde_json::{json, Value};
 use tokio::net::UnixListener;
 
 use crate::error::{CliError, CliResult};
-use crate::ops;
 use crate::observe::{self, PeerRegistry};
+use crate::ops;
 use crate::paths::{remove_file_if_exists, Paths};
 use crate::store;
 use crate::types::{default_bootstrap, default_observation_addrs, default_relay_addrs, GuiConfig};

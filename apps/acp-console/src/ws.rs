@@ -135,7 +135,8 @@ fn param<'a>(params: &'a [(String, String)], key: &str) -> Option<&'a str> {
 }
 
 /// query 串解析：& 分隔、= 取值、%XX 与 + 解码；无 '=' 的键视为空值。
-fn parse_query(query: &str) -> Vec<(String, String)> {
+/// share 链接解析复用同一语法（重复键按出现序保留，由调用方取舍）。
+pub(crate) fn parse_query(query: &str) -> Vec<(String, String)> {
     query
         .split('&')
         .filter(|pair| !pair.is_empty())
@@ -146,7 +147,7 @@ fn parse_query(query: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-fn percent_decode(s: &str) -> String {
+pub(crate) fn percent_decode(s: &str) -> String {
     let bytes = s.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
