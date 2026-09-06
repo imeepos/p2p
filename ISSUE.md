@@ -14,6 +14,7 @@
 - **候选定因**（无法免认证拉日志，待仓库权限者确认）：① `TAURI_SIGNING_PRIVATE_KEY` secret 未配/名不匹配；② 密钥为空密码加密而 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secret 被设了非空值（GitHub secrets 存不了空串，密钥为空密码时该 secret 不应存在）；③ 密钥内容粘贴带入换行/空白差异。本地等价复现：不设 PASSWORD 时报 `incorrect updater private key password: Device not configured`。
 - **影响**：该步失败则任何 client-v* tag 都出不了 release。
 - **期望**：拉 run 33946473330 「Tauri 打包」步日志核对真实报错；按 ①②③ 对应修正后重跑。
+- **2026-09-06 后记（定因实证，候选项收敛为密钥内容污染）**：PR #2 的 gui-client run 34005855259（四平台 build 腿同报，job 101413024734 等）拉到打包步原始报错：failed to decode secret key: failed to decode base64 secret key: Invalid symbol 61, offset 346——诊断步已排除 ①（key_present=yes）与 ②（PASSWORD 非空才命中，实际 skipped），base64 在偏移 346 处遇非法字符，指向 ③ 变体：secret 值本身被污染（混入非 base64 字符，非纯换行/空白）。属 GitHub Settings 密钥值问题，仓库代码不可修；需负责人在 Settings 重贴纯净 minisign 私钥后以 client-v* tag 重验。修复前任何 tag 均无法出 release。
 - **2026-09-05 后记**：client-v0.1.5 tag 已推（0722 后），run 结果将直接验证上述候选——成功则出带 .sig 的 release，失败则注解/日志给出定因。
 - **2026-09-05 解决后记（定因闭环）**：经本机 gh 凭据（hosts.yml oauth_token，repo scope）拉取
   run 33946473330（v0.1.4）与 run 33970431521（v0.1.5）四平台日志，真实报错均为
