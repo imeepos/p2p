@@ -6,6 +6,7 @@
 use std::io::Cursor;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
+#[cfg(target_os = "macos")]
 use std::time::Duration;
 
 use tauri::{Runtime, WebviewWindow};
@@ -119,6 +120,9 @@ fn rgb_to_rgba(rgb: &[u8]) -> Vec<u8> {
 
 /// 真实帧源：捕获主窗口 webview 内容。
 pub struct RealFrameSource<R: Runtime> {
+    // 仅 macOS capture() 读取（快照走 WKWebView）；非 macOS 平台 capture
+    // 返回平台不支持，字段仅构造不读取——dead_code 允许按平台定向豁免
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     window: Option<WebviewWindow<R>>,
 }
 
