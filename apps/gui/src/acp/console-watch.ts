@@ -145,7 +145,8 @@ function applyConsoleStatus(status: AcpConsoleStatus): void {
     return;
   }
   const key = autoKeyOf(status);
-  if (key === lastAutoKey && stage !== "idle") return; // 相位重放幂等闸
+  // 相位重放幂等闸：同 ready 快照且流程已在途/完成时不重复登记连接
+  if (key === lastAutoKey && stage !== "idle") return;
   lastAutoKey = key;
   const draft = localAgentEndpointOf(status);
   if (!draft) {
@@ -153,7 +154,8 @@ function applyConsoleStatus(status: AcpConsoleStatus): void {
     return;
   }
   const merge = mergeLocalAgent(get().saved, draft, i18n.t("acp.console.localAgentName"));
-  if (stage === "done" && !merge.changed) return; // 重放：登记未变化且流程已完成
+  // 重放：登记未变化且流程已完成，直接收敛
+  if (stage === "done" && !merge.changed) return;
   registerLocalAgent(merge.changed, merge.saved);
   stage = "registered";
   if (merge.endpoint.peer) {
