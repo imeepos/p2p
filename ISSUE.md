@@ -165,3 +165,10 @@
 - 底座域附带发现（QUIC 长驻监听僵死）仍开放，待底座轮排查。
 - 2026-09-06（IMC 协调会话实证）DSH run_code 内零参/空参工具绑定损坏：session_link_list 以 {} 或 undefined 调用均报 "binding arguments must be lossless JSON"，get_goal 同样（含无参调用）；update_goal 需靠 create_goal 回执里的 id/revision 硬编码绕行。疑为空 schema 工具的参数绑定层缺陷，非使用方错误。
 - 2026-09-06（IMC 协调会话实证）update_goal 的 complete 动作在「goal 轮耗尽后的 schedule 巡检回合」被拒（"require a direct human turn or the current goal round"），schedule 回合不算 goal round 也不算 human turn——目标实际完成却无法在工具层闭合，需用户下一条消息补标记。建议把 schedule 触发回合视同可闭合回合。
+
+## 门禁并发竞态：多会话同时跑 make check 会在共享固定 target 工件上互相打假红（2026-09-06 DOC 协调会话实证）
+
+- **症状**：主树全量 make check 中 repair-enforce whitelist_data::embedded_table_matches_shell_union 以 0.02s 瞬时失配（9 过 1 挂，Error 101）；同测试单跑立即 10/10 全绿，且单跑时仍有他线门禁在并发。此前两轮全量（DOC2 worktree 与主树各自）均绿，红只出现在与他线 cargo test --workspace + make check 的重叠窗口。
+- **机理**：scripts/check/cli-parity.sh 以「固定 target 目录」按需重建共享工件（p2pctl 及其导出的 shell_union 数据源）；多协调线并发跑全量门禁时，A 线重建换文件、B 线一致性测试读到半新半旧数据即瞬时失配。b51cd5c 已修「陈旧二进制」假红，未覆盖「并发重建」态。
+- **期望修法**：共享工件门禁入口加 flock 互斥或改 per-run mktemp -d 隔离 target；或约定同一物理机同一时刻只允许一个全量门禁（协调者间错峰）。判别特征：一致性比对类测试 0.0x 秒挂 + ps 见他线门禁 + 单跑复绿 = 竞态假红，勿立代码修复单。
+- **附带发现**：.worktrees/acp-agent-sec 存在周五遗留的 cargo test reattach_full_chain --nocapture 挂进程（写 /tmp/acp-re2.log），已滞留多日，属 ACP4 线遗留，请归属线自查清理。
