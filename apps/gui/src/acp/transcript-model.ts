@@ -2,6 +2,11 @@
 // assistant 气泡只在流式期间聚合块；prompt 结算后新块开新气泡（对齐 ACP
 // 每 prompt 一轮的语义）。工具轮按 toolCallId 原地迁移状态（ACP tool_call/update）。
 // 未知 update 种类计数留痕，不静默丢弃。
+// AG-UI（Agent-User Interaction Protocol）事件家族映射（语义对齐，不引依赖包、
+// 不改 ACP 线协议）：RUN_STARTED/RUN_FINISHED ↔ promptPendingBySession 置位与
+// settleTranscript 结算；RUN_FAILED ↔ settleTranscript("error")（GUI 约定失败
+// 结算值）；TEXT_MESSAGE_* ↔ agent_message_chunk；REASONING_* ↔
+// agent_thought_chunk；TOOL_CALL_* ↔ ACP tool_call(_update)。
 import type { SessionUpdate, ToolCallPayload, ToolCallStatus } from "./protocol";
 
 export type Turn =
@@ -197,6 +202,24 @@ export function settleTranscript(
     next.nextId += 1;
   }
   return next;
+}
+
+/** 失败轮重试取词（AG-UI RUN_FAILED 后客户端复用本地 prompt 重发，走既有
+ *  session/prompt，不新增协议方法）：失败 assistant 轮向上回溯最近 user 轮文本；
+ *  非失败轮或无归属 user 轮返回 null，调用方显式留痕，不猜重试内容。 */
+export function retryablePromptText(
+  state: TranscriptState,
+  assistantTurnId: number,
+): string | null {
+  const idx = state.turns.findIndex((t) => t.id === assistantTurnId);
+  if (idx < 0) return null;
+  const turn = state.turns[idx];
+  if (turn.kind !== "assistant" || turn.stopReason !== ERROR_STOP_REASON) return null;
+  for (let i = idx - 1; i >= 0; i -= 1) {
+    const prev = state.turns[i];
+    if (prev.kind === "user") return prev.text;
+  }
+  return null;
 }
 
 export function toggleThought(state: TranscriptState, id: number): TranscriptState {
