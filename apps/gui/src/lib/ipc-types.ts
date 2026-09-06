@@ -89,7 +89,9 @@ export type NodeEventJson =
   // roster 变更回执（建群、邀请、移除、退群、解散、改名）。
   | { type: "chat_group_message"; groupId: string; message: GroupMessageJson; tsMs?: number }
   | { type: "chat_group_status"; groupId: string; messageId: string; acks: string[]; status: GroupDeliveryStatus; tsMs?: number }
-  | { type: "chat_group_state"; group: GroupJson; tsMs?: number };
+  | { type: "chat_group_state"; group: GroupJson; tsMs?: number }
+  // IMC3 加法（冻结契约）：入群邀请生命周期事件，载荷=邀请条目。
+  | { type: "chat_group_invite"; invite: GroupInviteJson; tsMs?: number };
 
 export type NodeEventType = NodeEventJson["type"];
 
@@ -139,7 +141,8 @@ export interface NodeProfile {
 }
 
 // 契约 v7 §12.3 加法（IM 聊天）：与 docs/design/gui-contract.md §12.3 逐字对齐，禁止改名。
-export type ChatKind = "text" | "image" | "audio" | "video" | "file";
+// IMC3 加法：groupInvite 为 1:1 入群邀请卡片消息专用 kind（协调会话冻结契约）。
+export type ChatKind = "text" | "image" | "audio" | "video" | "file" | "groupInvite";
 
 export type ChatMessageStatus = "pending" | "sent" | "delivered" | "failed";
 
@@ -183,6 +186,14 @@ export interface ChatMediaJson {
   path?: string | null; // 本端落盘绝对路径（仅返回给本端消费）
 }
 
+// IMC3 加法：kind=groupInvite 的 1:1 消息体载荷（卡片渲染输入）。
+export interface ChatGroupInviteBody {
+  groupId: string;
+  groupName: string;
+  inviterNickname: string;
+  note: string | null;
+}
+
 export interface ChatMessageJson {
   id: string; // UUID（发端生成）
   peer: string;
@@ -193,6 +204,7 @@ export interface ChatMessageJson {
   media?: ChatMediaJson | null;
   status: ChatMessageStatus; // 本地状态字段，不跨网
   replyTo?: string | null; // 被引用消息的本端消息 id；null/缺省=无引用（IM-T46A 加法，不校验存在性）
+  groupInvite?: ChatGroupInviteBody | null; // 仅 kind=groupInvite 携带（IMC3）
 }
 
 export interface ChatSendReport {
@@ -242,6 +254,25 @@ export interface GroupSendReport {
   acked: number; // 本轮已确认成员数
   recipients: number; // 目标成员数（n-1）
   delivered: boolean; // acked === recipients
+}
+
+// IMC3 同意制入群邀请（协调会话冻结契约，与 IMC1 后端逐字对齐，禁止改名）。
+// direction 为本端视角：in=待本机处理 / out=本机已发出。
+export type GroupInviteDirection = "in" | "out";
+export type GroupInviteState = "pending" | "accepted" | "rejected";
+
+export interface GroupInviteJson {
+  id: string; // 邀请唯一 id（UUID）
+  groupId: string; // 目标群 UUID
+  groupName: string; // 快照群名（弹框与卡片直接展示）
+  owner: string; // 群主 PeerId
+  inviter: string; // 邀请人 PeerId
+  invitee: string; // 受邀人 PeerId
+  note: string | null; // 邀请备注，可空
+  direction: GroupInviteDirection;
+  state: GroupInviteState;
+  tsMs: number;
+  delivered: boolean;
 }
 
 export interface IpcBackend {
@@ -294,6 +325,15 @@ export interface IpcBackend {
     replyTo?: string | null,
   ): Promise<ChatSendReport>;
   chatMediaFile(peer: string, messageId: string): Promise<ChatMediaFile>;
+  // IMC3 入群邀请命令面（冻结契约：invoke 名逐字 snake_case；可选参数统一传 null）。
+  chatGroupInvitesList(): Promise<GroupInviteJson[]>;
+  chatGroupInviteSend(
+    groupId: string,
+    peerId: string,
+    note: string | null,
+  ): Promise<GroupInviteJson>;
+  chatGroupInviteAccept(inviteId: string): Promise<void>;
+  chatGroupInviteReject(inviteId: string, reason: string | null): Promise<void>;
   // IM 群聊命令面（im-group-design §7；mock 与 tauri 同签名，可选参数统一传 null）。
   groupCreate(name: string, memberIds: string[]): Promise<GroupJson>;
   groupList(): Promise<GroupJson[]>;

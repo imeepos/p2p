@@ -311,3 +311,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-05 发布链路卡：自检红绿矩阵里唯一期望 rc=0 的绿场景是 harness 自身的照妖镜——本次 eval "export $*" cmd 把命令词当 export 的 NAME 参数，八个红场景全是假阳性 rc=1，绿场景如实变红才暴露 harness bug；写自检先让它证明绿路径真能绿。
 - 2026-09-05 UI 审计修复轮：ui-regression 的 start_gui 会复用「健康外部实例」但探针不区分构建版本——验证新外壳时若装机的旧壳 app 在跑，group/acp 重定向行假红、截图走的是别人家 TCC 授权；对准新产物验证前先确认 endpoint.json 指向的是刚构建的调试二进制。
 - 2026-09-05 UI 审计修复轮：给既有 bash 大脚本加新「调用形态」前，先在目标机器 /bin/bash（常是 3.2）下复跑一遍最小入口；老脚本的历史绿只代表老调用路径。
+- 2026-09-06：组件内聚 useNavigate 等路由钩子时，钩子组件必须「按需挂载」（条件渲染 null）——MessageList 常驻渲染导航弹框让 6 个裸渲染既有测试崩在 useNavigate() invariant；修复是把导航收进弹框组件并按需挂载，既有测试零改动回绿。
+- 2026-09-06：run_code 跨调用无运行时内存再实证两次：上一调用定义的常量（如目标路径 p）在下一调用不存在（ReferenceError: p is not defined）；每个 program 必须自带全部常量与路径。
+- 2026-09-06：read 全文→write 回写是大文件截断陷阱（792 行被 read 输出预算裁成 341 行后覆盖落盘）；追加用 bash cat >> heredoc，写后 wc -l 对账（IMC3 轮实录，合并后才被 diff 行数暴露，当场修复）。

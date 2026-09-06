@@ -15,6 +15,7 @@ import type {
   GroupJson,
   GroupMessageJson,
   GroupSendReport,
+  GroupInviteJson,
   GuiConfig,
   IpcBackend,
   MetricsJson,
@@ -92,6 +93,18 @@ const tauriBackend: IpcBackend = {
     }),
   chatMediaFile: (peer, messageId) =>
     invoke<ChatMediaFile>("chat_media_file", { peer, messageId }),
+  // IMC3 入群邀请命令面（冻结契约：invoke 名逐字 snake_case，不得自造）。
+  chatGroupInvitesList: () => invoke<GroupInviteJson[]>("chat_group_invites_list"),
+  chatGroupInviteSend: (groupId, peerId, note) =>
+    invoke<GroupInviteJson>("chat_group_invite_send", {
+      groupId,
+      peerId,
+      note: note ?? null,
+    }),
+  chatGroupInviteAccept: (inviteId) =>
+    invoke<void>("chat_group_invite_accept", { inviteId }),
+  chatGroupInviteReject: (inviteId, reason) =>
+    invoke<void>("chat_group_invite_reject", { inviteId, reason: reason ?? null }),
   // IM 群聊命令面（im-group-design §7）；可选参数统一传 null（同 chat 段约定）。
   groupCreate: (name, memberIds) =>
     invoke<GroupJson>("group_create", { name, memberIds }),

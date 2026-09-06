@@ -31,6 +31,11 @@ function isDuplicate(key: string): boolean {
   return false;
 }
 
+// 中性提示态（IMC3 已处理卡片点击等）：无成功/失败语义，驻留同成功档。
+export function toastInfo(message: string, description?: string) {
+  return toast.info(message, { description, duration: SUCCESS_DURATION_MS });
+}
+
 export function toastSuccess(message: string, description?: string) {
   // 去重命中只忽略本次重复调用；禁止 toast.dismiss()——无参会把屏幕上
   // 不相关的在显提示全部关掉，重复消息必须只影响重复那条自身。
