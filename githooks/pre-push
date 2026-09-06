@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# pre-push 快速门禁：推送前秒级拦截零编译类违规（2026-09-06 实锤：
+# 本地 make check 绿之后又改代码不重跑门禁就推送，漂移被 CI 的
+# fmt 门禁当场抓获，白烧一轮 12 分钟 CI）。
+# 范围：fmt 双段 / 行数红线 / 版本一致 / 门禁自测——全部秒级、零编译。
+# 编译类（clippy/test）仍以 make check 与 CI 为准，此处不重复。
+# 启用：git config core.hooksPath githooks（本仓库既有约定，主树已配置；
+# post-checkout 的 .env 引导亦在此目录，见 docs/ops/env-worktree-bootstrap.md）。
+set -eu
+set -o pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+status=0
+
+bash "$ROOT/scripts/check/fmt.sh" || status=1
+bash "$ROOT/scripts/check/line-limit.sh" || status=1
+bash "$ROOT/scripts/check/version.sh" || status=1
+bash "$ROOT/scripts/check/tests/src-tauri-gate.sh" || status=1
+
+if [ "$status" -ne 0 ]; then
+  echo "pre-push: 快速门禁未过，推送被拦（修复后重推；全量门禁仍以 make check 为准）" >&2
+  exit 1
+fi
+echo "pre-push: 快速门禁 PASS"
