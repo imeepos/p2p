@@ -52,6 +52,7 @@ export interface SettingsFormValues {
   advertisedAddrs: AddressRow[];
   observationPort: number | null;
   observationAddrs: AddressRow[];
+  lanOnly: boolean;
 }
 
 export const settingsSchema = z.object({
@@ -64,6 +65,7 @@ export const settingsSchema = z.object({
   advertisedAddrs: addrRowsField("addrDuplicate"),
   observationPort: observationPortField,
   observationAddrs: observationRowsField(),
+  lanOnly: z.boolean(),
 });
 
 // z.preprocess 的输入类型与表单值不同，此处收口为 Resolver。
@@ -79,6 +81,7 @@ export const EMPTY_SETTINGS: SettingsFormValues = {
   advertisedAddrs: [],
   observationPort: null,
   observationAddrs: [],
+  lanOnly: false,
 };
 
 export function toFormValues(config: GuiConfig): SettingsFormValues {
@@ -92,6 +95,7 @@ export function toFormValues(config: GuiConfig): SettingsFormValues {
     advertisedAddrs: toRows(config.advertisedAddrs),
     observationPort: config.observationPort,
     observationAddrs: toRows(config.observationAddrs),
+    lanOnly: config.lanOnly ?? false, // serde default：缺省 false（契约 v11 §16.5）
   };
 }
 
@@ -106,5 +110,6 @@ export function toGuiConfig(values: SettingsFormValues): GuiConfig {
     advertisedAddrs: fromRows(values.advertisedAddrs),
     observationPort: values.observationPort,
     observationAddrs: fromRows(values.observationAddrs),
+    lanOnly: values.lanOnly,
   };
 }
