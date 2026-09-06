@@ -212,6 +212,8 @@ _none yet — be the first._
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
   从我的合并点 ff+merge 到 214c41f）；ff 合并后尽快 push main，回报合并 hash
   用自己的合并点并注明 main 已前进到含它的后继提交。
+- 2026-09-07 UX 终验：UI 验收断言抓「含目标文本的最小节点」会漏掉兄弟位置的按钮（撤回按钮与卡片标题是 siblings），判定以 bodyInnerText 全文证据为准；innerText 不含 placeholder/aria-label/title，复制 affordance 这类无文本交互必须单独查 attribute。
+- 2026-09-07 UX 终验：场景断言失败先分「应用未修复」vs「断言口径过时」——修复本身会改 DOM 形态（字段标签变「地址 N」序号、二级选择页变页签、错误码变人话文案），拿修复后形态重写选择器后仍失败的项目才可定性为未修复；别把第一轮脚本当判决书。
 - 2026-09-06 UX1 轮：zustand store 新增锁存/闸门字段（如 autoStartRequested）必须
   同步进所有测试夹具的 reset/prime 基线——夹具只重置旧字段时，上一用例消耗掉的
   闸门会跨用例残留，表现为下一用例「动作静默不触发」的假红；新增状态字段与夹具

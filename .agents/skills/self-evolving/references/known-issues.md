@@ -329,6 +329,11 @@ failed: early eof（客户端侧超时中止）。
 
 ## 2026-09-05 PR2：ai-docs-sync 参数机械比对「看不见」clap visible_alias
 - 症状：log 域给 --log-dir 加 `visible_alias = "data-dir"` 后，ai-docs-sync 报「文档参数 --data-dir 实现不存在」，但肉眼 --help 输出里明明有。
+
+## 2026-09-07 UX 终验：headless Chrome（全新临时 profile）访问 127.0.0.1 被系统代理劫持
+- 症状：shell 已 unset/export -n 全部代理变量，dev server curl 探活 200，但 CDP 打开的页面全是 Chrome 错误页「This site can't be reached / ERR_CONNECTION_REFUSED」，页面锚点只剩错误页的 `#buttons`。
+- 原因：Chrome 不读 shell 环境变量，读 macOS 系统代理；错误页文案「Checking the proxy and the firewall」是判别信号。
+- 修法：Chrome 启动参数加 `--no-proxy-server`（或 `--proxy-bypass-list="<-loopback>"`）；另 `require.resolve("vite/dist/node/index.js")` 这类子路径解析会撞 exports map（ERR_PACKAGE_PATH_NOT_EXPORTED），应 resolve("vite/package.json") 定位包目录再拼 dist/node/index.js。
 - 原因：该守卫对 Options 段逐行取**首个** `--长参数`（awk match 只取每行第一处）；clap 把 visible_alias 渲染成与主参数同行（`--log-dir <LOG_DIR> ... [alias: --data-dir]`），别名永远不是行首参，提取不到。
 - 修法：别名一律用独立参数声明（两个字段 + 取值函数 `data_dir.or(log_dir)` 定优先级），--help 各占一行即可双向比对；文档参数表同步加行。判据：给参数加别名前先看消费它的机械守卫怎么解析 help。
 
