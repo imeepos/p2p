@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { ArrowLeft, MessageSquare } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { ConversationList } from "@/components/chat/conversation-list";
 import { useAcpStore } from "@/acp/acp-store";
 import { Button } from "@/components/ui/button";
 import { useConversationEntries } from "@/views/chat/use-conversation-entries";
+import { usePendingInviteItems } from "@/views/chat/use-pending-invites";
+import { ChatEmptyState } from "@/views/chat/chat-empty-state";
 import type { ConversationEntry } from "@/lib/conversation-entry";
 import { useChatStore } from "@/stores/chat-store";
 import { useGroupStore } from "@/stores/group-store";
-import { EmptyState } from "@/views/shared/empty-state";
 import { NARROW_CHAT_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 
 import { AgentConversation } from "./agent-conversation";
@@ -32,6 +33,7 @@ export function ChatPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const narrow = useMediaQuery(NARROW_CHAT_QUERY);
   const entries = useConversationEntries();
+  const pendingInvites = usePendingInviteItems();
   const friendsLoaded = useChatStore((s) => s.friendsLoaded);
   const friendsError = useChatStore((s) => s.friendsError);
   const loadFriends = useChatStore((s) => s.loadFriends);
@@ -137,6 +139,7 @@ export function ChatPage() {
             selectedId={selectedId}
             loading={listLoading}
             error={friendsError}
+            pendingInvites={pendingInvites}
             onRetry={async () => {
               await loadFriends();
               const err = useChatStore.getState().friendsError;
@@ -180,11 +183,11 @@ export function ChatPage() {
           ) : agentParam ? (
             <AgentConversation endpointId={agentParam} />
           ) : (
-            <EmptyState
-              className="max-w-none flex-1"
-              icon={MessageSquare}
-              title={t("chat.conversations.empty")}
-              description={t("chat.conversations.emptyHint")}
+            <ChatEmptyState
+              friendCount={entries.filter((e) => e.kind === "friend").length}
+              groupCount={entries.filter((e) => e.kind === "group").length}
+              agentCount={entries.filter((e) => e.kind === "agent").length}
+              pendingInviteCount={pendingInvites.length}
             />
           )}
         </section>

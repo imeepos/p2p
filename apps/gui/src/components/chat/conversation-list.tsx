@@ -3,10 +3,12 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ConversationRow } from "@/components/chat/conversation-row";
+import { InvitePlaceholderRow } from "@/components/chat/invite-placeholder-row";
 import { AsyncButton } from "@/components/feedback/async-button";
 import { Input } from "@/components/ui/input";
 import { filterEntries } from "@/lib/conversation-entry";
 import type { ConversationEntry } from "@/lib/conversation-entry";
+import type { PendingInviteItem } from "@/views/chat/use-pending-invites";
 import { EmptyState } from "@/views/shared/empty-state";
 
 // 会话列表（§2.1/§2.4）：顶部常驻搜索框 + 统一条目混排。搜索为列表内
@@ -21,6 +23,8 @@ export interface ConversationListProps {
   error?: string | null;
   onRetry?: () => Promise<void>;
   onSelect: (entry: ConversationEntry) => void;
+  /** F17：等待对方同意的邀请占位（与通讯录/消息中心同源），置灰垫底 */
+  pendingInvites?: PendingInviteItem[];
 }
 
 export function ConversationList({
@@ -30,10 +34,19 @@ export function ConversationList({
   error,
   onRetry,
   onSelect,
+  pendingInvites = [],
 }: ConversationListProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const visible = useMemo(() => filterEntries(entries, query), [entries, query]);
+  // 占位与真实条目共用搜索词：title/id 子串过滤，保持列表语义一致
+  const visiblePending = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return pendingInvites;
+    return pendingInvites.filter(
+      (p) => p.title.toLowerCase().includes(q) || p.id.toLowerCase().startsWith(q),
+    );
+  }, [pendingInvites, query]);
 
   if (loading) {
     return (
@@ -76,14 +89,14 @@ export function ConversationList({
           ) : null}
         </div>
       ) : null}
-      {entries.length === 0 ? (
+      {entries.length === 0 && pendingInvites.length === 0 ? (
         <EmptyState
           className="min-h-56 flex-1"
           icon={MessageCircle}
           title={t("chat.noFriends")}
           description={t("chat.noFriendsHint")}
         />
-      ) : visible.length === 0 ? (
+      ) : visible.length === 0 && visiblePending.length === 0 ? (
         <EmptyState
           className="min-h-40 flex-1"
           icon={SearchIcon}
@@ -101,6 +114,9 @@ export function ConversationList({
               active={entry.id === selectedId}
               onSelect={onSelect}
             />
+          ))}
+          {visiblePending.map((item) => (
+            <InvitePlaceholderRow key={`invite:${item.kind}:${item.id}`} item={item} />
           ))}
         </ul>
       )}
