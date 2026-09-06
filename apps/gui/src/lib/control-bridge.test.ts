@@ -35,10 +35,31 @@ describe("installControlBridge", () => {
     emitMock.mockClear();
     emitMock.mockResolvedValue(undefined);
     delete window.__P2P_CONTROL_BRIDGE__;
+    // F26：桥接行为仅在 Tauri 环境有意义；jsdom 需显式注入运行时标记
+    window.__TAURI_INTERNALS__ = {};
   });
 
   afterEach(() => {
     delete window.__P2P_CONTROL_BRIDGE__;
+    delete window.__TAURI_INTERNALS__;
+  });
+
+  // F26 用例居首：Tauri 用例安装的 hashchange 监听会存活到后续用例，
+  // 反向排列会把旧监听的 emit 计数污染进本用例的 not.toHaveBeenCalled 断言
+  it("F26：非 Tauri 环境不注册上报，单次 info 提示后静默", () => {
+    delete window.__TAURI_INTERNALS__;
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    window.location.hash = "#/chat";
+    installControlBridge();
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    installControlBridge();
+    expect(emitMock).not.toHaveBeenCalled();
+    expect(
+      infoSpy.mock.calls.filter((call) =>
+        String(call[0]).includes("[control-bridge]"),
+      ),
+    ).toHaveLength(1);
+    infoSpy.mockRestore();
   });
 
   it("安装即上报当前路由，hashchange 时再次上报", () => {

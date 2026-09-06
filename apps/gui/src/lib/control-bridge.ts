@@ -3,6 +3,8 @@
 // 本桥只做上报，职责单一，不在页面新增视觉元素。
 import { emit } from "@tauri-apps/api/event";
 
+import { isTauriRuntime } from "./tauri-env";
+
 declare global {
   interface Window {
     __P2P_CONTROL_BRIDGE__?: boolean;
@@ -31,6 +33,12 @@ export function normalizeRoute(hash: string): string {
 export function installControlBridge(): void {
   if (window.__P2P_CONTROL_BRIDGE__) return;
   window.__P2P_CONTROL_BRIDGE__ = true;
+  if (!isTauriRuntime()) {
+    // F26：纯浏览器（mock dev/预览）没有 Tauri 桥，路由上报无接收方；
+    // 单次 info 提示替代逐路由 console.warn 刷屏（capability absent 非错误）。
+    console.info("[control-bridge] 非 Tauri 环境，路由上报停用");
+    return;
+  }
   const report = (): void => {
     emit("control-route", { route: normalizeRoute(window.location.hash) }).catch(
       (err: unknown) => {
