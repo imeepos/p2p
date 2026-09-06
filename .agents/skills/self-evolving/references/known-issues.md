@@ -878,3 +878,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：全局 toast 只能等自动消失或滑走，点击无反应；用户要求「点击可关闭」。
 - 原因：sonner v2.0 移除 closeOnClick，toast 根节点 li 没有 onClick，关闭只剩 swipe/X 按钮（closeButton 默认关）。
 - 修法：toast 工厂发稳定 id 并以 testId 落 DOM（v2 支持 testId 属性，data-testid=toast id）；Toaster 外层容器事件委托，closest('[data-sonner-toast]') 取 testid 按条 toast.dismiss(id)；两类点击豁免：命中 button/a/[data-button]、window.getSelection() 非空（用户在复制文本）；键盘 Enter/Space 同效（li tabIndex=0 天然可聚焦）。
+
+## 2026-09-07 spawn bash ENOENT / uv_cwd ENOENT：workdir 目录在命令运行中被删
+- 症状：bash 工具连报 `spawn bash ENOENT`、glob 报目录 os error 2，且后台命令中途冒 node `uv_cwd ENOENT`（process.cwd failed），像是运行时坏了。
+- 原因：workdir（worktree）被并行会话执行收尾 `git worktree remove` 删掉，所有以它为 cwd 的 spawn 全部 ENOENT；与代码无关。
+- 修法：先用只读工具（glob/read）确认目录是否存在；存在性一旦排除，立即 `git reflog` 查 main 最近提交是否被并行会话推进（ff 合并/账本翻转/远端删除三件套），按「他收尾我核验」处理，不重跑重做。
