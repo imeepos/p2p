@@ -72,7 +72,12 @@ const enUS: typeof zhCN = {
       addrFormat: "Expected ip/uport (QUIC) or ip/tport (TCP)",
       addrDuplicate: "Duplicate address",
     },
-    addressList: { add: "Add address", remove: "Remove address", empty: "No addresses" },
+    addressList: {
+      add: "Add address",
+      remove: "Remove address",
+      empty: "No addresses",
+      rowLabel: "Address {{index}}",
+    },
     errorBoundary: {
       title: "Something went wrong",
       retry: "Retry",
@@ -248,6 +253,7 @@ const enUS: typeof zhCN = {
       add: "Add address",
       addTitle: "Add bootstrap address",
       addDesc: "Syntax: ip/uport (QUIC) or ip/tport (TCP)",
+      addrLabel: "Bootstrap address",
       deleteTitle: "Delete bootstrap address?",
       deleteDesc: "This removes {{addr}} from the address book; effective after node restart.",
       deleteAction: "Delete",
@@ -1478,6 +1484,22 @@ const enUS: typeof zhCN = {
     promptFailed: "Failed to send the message: the connection may be gone, reconnect and resend",
     setConfigFailed: "Failed to apply the config option: make sure the session is online and retry",
     fallback: "Connection failed: please retry; if it keeps failing, copy the details for troubleshooting",
+  },
+  // UX-I F16/F20: event row "Details" affordance and filter grouping/count copy
+  uxiEvents: {
+    filter: {
+      group: {
+        connection: "Connection",
+        message: "Messages",
+        group: "Groups",
+        security: "Security",
+        node: "Node",
+      },
+      chipAria: "{{label}}, {{count}} events",
+    },
+    row: {
+      details: "Details",
+    },
   },
 };
 

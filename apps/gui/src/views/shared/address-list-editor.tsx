@@ -64,10 +64,20 @@ export function AddressListEditor<T extends FieldValues>({
           {t("common.addressList.empty")}
         </p>
       ) : (
-        fields.map((field, index) => (
+        fields.map((field, index) => {
+          // F13：行级可见标签（组标题+序号），占位符只承担示例职责
+          const inputId = `${name}-row-${index}`;
+          return (
           <div key={field.id} className="flex flex-col gap-1">
+            <Label
+              htmlFor={inputId}
+              className="text-muted-foreground text-xs"
+            >
+              {t("common.addressList.rowLabel", { index: index + 1 })}
+            </Label>
             <div className="flex items-center gap-2">
               <Input
+                id={inputId}
                 className="font-mono text-xs"
                 placeholder={placeholder}
                 {...register(`${name}.${index}.value` as never)}
@@ -84,7 +94,8 @@ export function AddressListEditor<T extends FieldValues>({
             </div>
             <ErrorText code={rowMessage(container, index)} />
           </div>
-        ))
+          );
+        })
       )}
       <ErrorText code={rootMessage(container)} />
       <Button

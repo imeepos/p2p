@@ -69,7 +69,12 @@ const zhCN = {
       addrFormat: "地址格式应为 ip/u端口（QUIC）或 ip/t端口（TCP）",
       addrDuplicate: "地址重复",
     },
-    addressList: { add: "添加地址", remove: "删除地址", empty: "暂无地址" },
+    addressList: {
+      add: "添加地址",
+      remove: "删除地址",
+      empty: "暂无地址",
+      rowLabel: "地址 {{index}}",
+    },
     errorBoundary: {
       title: "界面出错了",
       retry: "重试",
@@ -239,6 +244,7 @@ const zhCN = {
       add: "添加地址",
       addTitle: "添加引导地址",
       addDesc: "语法：ip/u端口（QUIC）或 ip/t端口（TCP）",
+      addrLabel: "引导地址",
       deleteTitle: "删除引导地址？",
       deleteDesc: "将从地址簿中移除 {{addr}}，删除后需重启节点生效。",
       deleteAction: "删除",
@@ -1453,6 +1459,22 @@ const zhCN = {
     promptFailed: "消息发送失败：连接可能已中断，请重新连接后重发",
     setConfigFailed: "配置下发失败：请确认会话在线后重试",
     fallback: "连接失败：请重试；持续失败可复制详情排查",
+  },
+  // UX-I F16/F20：事件行「详情」入口与筛选分组/计数文案（独立命名空间块）
+  uxiEvents: {
+    filter: {
+      group: {
+        connection: "连接",
+        message: "消息",
+        group: "群组",
+        security: "安全",
+        node: "节点",
+      },
+      chipAria: "{{label}}，{{count}} 条",
+    },
+    row: {
+      details: "详情",
+    },
   },
 };
 

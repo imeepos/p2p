@@ -922,3 +922,16 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：协调者宣布批次 make check FINAL-EXIT=0 且三清，但六笔交付提交均不在 origin/main 祖先、交付目录在主树不存在；FINAL 门禁跑在交付分支合并态上，主树合并步骤静默丢内容后分支/worktree 照删。
 - 修法：对象库未 GC 时按已知哈希重建分支 ref + worktree 零丢失恢复（本次 602600c..aad7ff9 全活）；根因防线=删除分支前必须 "git merge-base --is-ancestor <交付tip> origin/main" + "git ls-tree origin/main -- <交付路径>" 双校验。
 - 关联：LSG1「命令静默丢失」同象；与 "ff-only 失败后分号链继续删分支"（red-lines 2026-09-06 条）互为表里。
+## 2026-09-07 UX-I：Radix AlertDialog 确认按钮吞合成 click，弹窗挂载瞬间点也吞
+- 症状：CDP/JS 对 AlertDialog「确认」按钮 .click() 或完整 MouseEvent 序列偶发无效，弹窗不关、onConfirm 不执行；同坐标隔 ~700ms 再点即成功。elementFromPoint 命中按钮本身、无遮罩，纯挂载时序问题。
+- 修法：弹窗 [role=alertdialog] 出现后 settle ≥700ms 再取坐标点击（clickPrev 坐标链），并留二次点击兜底；别的 root 内普通按钮（chip/行）.click() 始终可靠，勿一刀切归因「合成事件不可用」。
+
+## 2026-09-07 UX-J：headless Chrome 里 focus()+blur() 触不发 React onBlur
+- 症状：CDP 走查失焦校验（onBlur trigger）时 eval 执行 input.focus()+input.blur() 后提示不出现、aria-invalid 不出现；同路径 vitest fireEvent.blur 全绿，误判成功能缺失。
+- 原因：headless 窗口 document.hasFocus()=false，程序化 blur() 派发的事件对不完整（探针实测连元素上的原生 blur 监听都收不到，只有 document 能捕到 focusout）；而 React onBlur 委托消费的是冒泡 focusout。RTL fireEvent.blur 事件属性不同所以测试里能过。
+- 修法：eval 里改派发 `new FocusEvent('focusout', { bubbles: true })`——与真实用户点击别处走的是同一条 React 委托路径；先用带事件探针的单步 eval（挂 blur/focusout 监听 + 试合成事件）定位，别在盲改里空转。
+
+## 2026-09-07 UX-J：vite dev 端口探活 200 后立刻拉浏览器首屏超时
+- 症状：dev server curl 200 即启动 CDP 加载页面，15s 加载超时；vite.log 尾部报 dep-scan "The server is being restarted or closed. Request is outdated"——实为脚本超时先杀了 server，不是配置错。
+- 原因：--force 全量重优化 + worktree 全新模块图首 transform 耗时远超 agent 加载超时；探活只证明「在监听」不证明「模块图已可服务」。
+- 修法：去掉 --force；暖机轮询 `curl -sf /src/main.tsx` 且日志无 error 再拉浏览器；agent 副本 LOAD_TIMEOUT 放宽到 90s。「截图需要状态但 snap 是新会话」的矛盾用 gui-agent 副本加 flow 模式（场景 JSON 多步 eval+snap 单会话顺序执行）机械解决。
