@@ -533,6 +533,17 @@ const zhCN = {
       confirming: "移除中…",
       failed: "移除失败：",
     },
+    // UX-H 首公里（F01/F17/F28）：空态双 CTA、等待邀请占位、字数计数
+    empty: {
+      pendingTitle: "还没有可聊的会话",
+      hintListEmpty: "会话列表还是空的；添加好友，对方同意后即可开始私聊",
+      hintAgentOnly: "会话列表目前只有本机 Agent；添加好友，对方同意后即可开始私聊",
+      hintInviting: "邀请已发出，等待对方同意；同意后即可开始私聊",
+      addFriendCta: "添加好友",
+      goContactsCta: "去通讯录",
+    },
+    pendingInviteBadge: "等待对方同意",
+    charCount: "{{count}}/{{max}}",
   },
   group: {
     title: "群聊",
