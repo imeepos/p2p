@@ -365,3 +365,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 UI 动作的反馈若挂在全局单例连接相位上（实例：endpoint 测试连接直接订阅 acp phase），拨号悬挂时按钮无限 loading、进重连时长时间假转圈，用户感知即「点击没反应」：动作要自持生命周期（在途标记 + 终态结算 + 超时兜底），全局相位只当信号源。
 - 2026-09-07 门禁命令经管道取退出码必须 pipefail：`make check 2>&1 | tail -40; echo $?` 拿到的是 tail 的 0，make 实际 Error 1 被吞成假绿（OPS1 已立规范仍再犯）；后台验收一律 `set -o pipefail` 或读 `${PIPESTATUS[0]}`，且退出码回显要贴着真命令而不是管道末端。
 - 2026-09-07 接手「检查某分支并合并」类 handover 前，先 `git reflog -5` + `git worktree list` 判断并行执行会话是否已在收尾（实例：我做反向同步+跑门禁的同时，并行会话完成 ff 合并、主树验收、翻账本、删分支删 worktree，两边互相踩）；发现账本任务 doing 但远端/main 已含产物时，只做核验不做重做，避免双写。
+- 2026-09-07 编辑共享 append-only 经验文件禁止「read 带 limit 只读局部 + write 全量覆写」——read limit=8 只见头部，write 写回「头部+新条目」即机械截掉全部存量（PR6 轨 known-issues.md -858 行实证）：必须不带 limit 全文读回核实行数后再追加，或用 edit 工具做纯追加锚点替换。
+- 2026-09-07 主树任何写完必须立刻 commit：脏文件滞留共享主树会被并行会话的收尾打包卷进占位符提交（bae2532 实证——known-issues 截断滞留约 10 分钟后被卷入「Implement feature X」模板信息提交直落 main，截断与占位符两事故叠加）。

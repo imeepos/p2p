@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-07T01:11:00Z",
+  "updatedAt": "2026-09-07T10:17:00Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-7af45e36-f764-40a1-b2a7-2ef1c30d424b",
@@ -430,7 +430,7 @@
       "ownerSession": "session-0ba9647d-2410-4b30-a9b2-5f96e46a5bcc",
       "scope": "apps/cli/**（llm_share 域）+ crates/llm-share-proxy|offer|ledger 最小加法 + docs/ops/cli-guide.md 与 cli-parity.tsv 登记；禁碰 apps/gui/**、docs/coordination.md、docs/gui-coordination.md、gui-contract.md、.devloop/**",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-pr6-target; cd /Users/imeepos/ext512/p2p/apps/cli && cargo fmt --check && cargo clippy --all-targets -- -D warnings && cargo run -q -- llm-share borrow --help >/dev/null && cd ../.. && cargo test -p p2p-cli -p llm-share-proxy -p llm-share-offer -p llm-share-ledger && bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK'",
-      "note": " [2026-09-05 立卡] 需求登记。 [2026-09-06 项目负责人裁决 Phase 1 决策门开启（用户需求拉动：token 共享做成可用能力）] 借方一次性 CLI 入口先行；GUI 面待 UX 波 UX3 合入后另卡；协调者=session-7af45e36；make check 由协调者合并时统一串行复验。 [2026-09-06 收官 mergedMain=8529775] 协调者主树权威验收 PR6-ACC-EXIT=0（worktree 同构：fmt+clippy -D warnings+borrow --help+四 crate 测试全绿：p2p-cli 43 unit+borrow_flow 4 场景[成功入账验签往返/NotAllowlisted 结构化拒绝上游零调用/断流 estimated 72h 争议窗/req_id 重放幂等]+cli-parity 重建 p2pctl 后 OK）；ff 合入并推 origin；worktree/分支/远端分支三清。自曝遗留三项裁定：①预检=出借方闸序前置+借方结构化透出现状采纳（wire 探针帧列 Phase 1 可选后续卡，需出借方语义变更不阻塞本卡）②cli-parity.tsv 注释行登记采纳（纯 CLI 加法依 gui 域先例）③estimated 口径沿用产品 estimate_tokens 采纳。make check 全链由协调者合并后串行复验另行留痕。GUI 面按裁决待后续波另卡。 [2026-09-07 归档记录] bae2532 归属查证两问已投递，两轮等待窗口（约 10 分钟）未获回复；依据证据链（提交早于 PR4 会话首消息 18 秒 + 内容含 PR6 E0603 教训与 PR6 done 翻转 + 该会话自述「已在 skill 沉淀」）判定归属为 PR6 执行会话 0ba9647d，按其此前「随时可归档」同意执行归档；会话日志保留可追溯，append-only 铁律（7d40169）已立并纳入本轨后续任务书模板。"
+      "note": " [2026-09-05 立卡] 需求登记。 [2026-09-06 项目负责人裁决 Phase 1 决策门开启（用户需求拉动：token 共享做成可用能力）] 借方一次性 CLI 入口先行；GUI 面待 UX 波 UX3 合入后另卡；协调者=session-7af45e36；make check 由协调者合并时统一串行复验。 [2026-09-06 收官 mergedMain=8529775] 协调者主树权威验收 PR6-ACC-EXIT=0（worktree 同构：fmt+clippy -D warnings+borrow --help+四 crate 测试全绿：p2p-cli 43 unit+borrow_flow 4 场景[成功入账验签往返/NotAllowlisted 结构化拒绝上游零调用/断流 estimated 72h 争议窗/req_id 重放幂等]+cli-parity 重建 p2pctl 后 OK）；ff 合入并推 origin；worktree/分支/远端分支三清。自曝遗留三项裁定：①预检=出借方闸序前置+借方结构化透出现状采纳（wire 探针帧列 Phase 1 可选后续卡，需出借方语义变更不阻塞本卡）②cli-parity.tsv 注释行登记采纳（纯 CLI 加法依 gui 域先例）③estimated 口径沿用产品 estimate_tokens 采纳。make check 全链由协调者合并后串行复验另行留痕。GUI 面按裁决待后续波另卡。 [2026-09-07 归档记录] bae2532 归属查证两问已投递，两轮等待窗口（约 10 分钟）未获回复；依据证据链（提交早于 PR4 会话首消息 18 秒 + 内容含 PR6 E0603 教训与 PR6 done 翻转 + 该会话自述「已在 skill 沉淀」）判定归属为 PR6 执行会话 0ba9647d，按其此前「随时可归档」同意执行归档；会话日志保留可追溯，append-only 铁律（7d40169）已立并纳入本轨后续任务书模板。 [2026-09-07 归属裁定修正] 0ba9647d 归档后迟到回复（其出站通道问题已自沉淀）：①认领 known-issues.md -858 行截断的内容责任（read limit=8 局部读 + write 全量覆写机械错误，脏文件滞留主树）；②自曝第二次 lessons.md -151 行截断（过期快照覆写），已自经 git checkout 恢复，其两条新教训由协调者代为 append（369 行实证）；③否认 bae2532 git 执行者身份——PR4 时间线排除 PR4、PR6 否认自身、协调者自证未执行，git 执行者成为悬案（占位符信息疑为某工具链打包行为），bae2532 定责以「内容责任=PR6 会话已认领、git 执行者未定」为准，本条修正前账本中的确定性归属表述作废。"
     },
     {
       "id": "UI-A",
