@@ -97,7 +97,10 @@ mod tests {
         let text = notice.text();
         assert!(text.contains("仅局域网"), "lan-only 声明缺席: {text}");
         assert!(text.contains("lan-only"), "关键字 lan-only 缺席: {text}");
-        assert!(!text.contains("43.240.223.138"), "lan-only 不得列出公网端点: {text}");
+        assert!(
+            !text.contains("43.240.223.138"),
+            "lan-only 不得列出公网端点: {text}"
+        );
         let v = notice.json();
         assert_eq!(v["lanOnly"], json!(true));
         assert_eq!(
