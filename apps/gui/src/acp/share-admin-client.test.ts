@@ -19,7 +19,7 @@ afterEach(() => {
 
 describe("createShare POST /shares 契约（§5）", () => {
   it("Bearer 头 + JSON 体投递；响应 link 直用", async () => {
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) =>
       jsonResponse(true, {
         share_id: "sid-1",
         token: "f".repeat(32),
@@ -105,7 +105,7 @@ describe("listShares GET /shares 契约", () => {
 
 describe("revokeShare DELETE /shares/{id} 契约", () => {
   it("DELETE 到编码后的 shareId 路径", async () => {
-    const fetchMock = vi.fn(async () => jsonResponse(true, {}));
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => jsonResponse(true, {}));
     vi.stubGlobal("fetch", fetchMock);
     await revokeShare(ADMIN, TOK, "sid 1");
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];

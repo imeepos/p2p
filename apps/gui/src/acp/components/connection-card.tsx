@@ -207,6 +207,8 @@ export function ConnectionCard() {
           <Field label={t("acp.connection.token")} value={draft.token} onChange={patch("token")} testid="acp-input-token" type="password" />
           <Field label={t("acp.connection.peer")} value={draft.peer} onChange={patch("peer")} testid="acp-input-peer" />
           <Field label={t("acp.connection.statusUrl")} value={draft.statusUrl ?? ""} onChange={patch("statusUrl")} testid="acp-input-status-url" />
+          <Field label={t("acp.connection.adminUrl")} value={draft.adminUrl ?? ""} onChange={patch("adminUrl")} testid="acp-input-admin-url" />
+          <Field label={t("acp.connection.adminToken")} value={draft.adminToken ?? ""} onChange={patch("adminToken")} testid="acp-input-admin-token" type="password" />
         </div>
         <Notices />
         {phase === "offline" ? <OfflineRetryRow /> : null}

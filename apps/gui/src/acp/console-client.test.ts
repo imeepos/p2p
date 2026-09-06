@@ -114,14 +114,14 @@ describe("connectShare /connect-share 契约（§7 guest 导入）", () => {
   const LINK = "dsh-acp-share://v1?peer=peerA&token=" + "a".repeat(32);
 
   it("POST {link} 到 status 面 /connect-share，成功映射 peer/scope", async () => {
-    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => ({
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => ({
       ok: true,
       json: async () => ({ ok: true, peer: "peerA", scope: "workspace" }),
     }));
     vi.stubGlobal("fetch", fetchMock);
     const outcome = await connectShare("http://127.0.0.1:9900/", "tok", LINK);
     expect(fetchMock.mock.calls[0][0]).toBe("http://127.0.0.1:9900/connect-share");
-    const init = fetchMock.mock.calls[0][1] as RequestInit & {
+    const init = fetchMock.mock.calls[0]![1] as RequestInit & {
       headers: Record<string, string>;
       body: string;
     };
