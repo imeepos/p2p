@@ -873,3 +873,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：向协调会话 session_link_talk/send 投递回报，返回 delivered=true 共五次，对端两轮声称「未收到任何回报」并发起接管预告；session_link_collect 凭对应 claimToken 一律报「凭证无法识别：目标会话历史中找不到该凭证对应的己方消息」。
 原因：投递通道的 delivered 只证明传输层受理，不证明消息落入对端会话可读历史（对端接收面或历史投影单侧异常）；collect 的凭证核验恰好暴露了这一点。
 修法：①关键回报不要只走 session_link——同文写进自己的最终答复（人类调度面可见）与分支提交正文，用产物承载事实；②接管场景立即回「状态一句 + 停止改文件」，防双写的核心是冻结自己的写面而非等对端确认；③对端改用分支产物核对（commit 列表 + worktree clean）即可推进，不阻塞于消息面。
+
+## 2026-09-06 sonner v2 移除 closeOnClick：升级后 toast 点击不关闭（UX 回退）
+- 症状：全局 toast 只能等自动消失或滑走，点击无反应；用户要求「点击可关闭」。
+- 原因：sonner v2.0 移除 closeOnClick，toast 根节点 li 没有 onClick，关闭只剩 swipe/X 按钮（closeButton 默认关）。
+- 修法：toast 工厂发稳定 id 并以 testId 落 DOM（v2 支持 testId 属性，data-testid=toast id）；Toaster 外层容器事件委托，closest('[data-sonner-toast]') 取 testid 按条 toast.dismiss(id)；两类点击豁免：命中 button/a/[data-button]、window.getSelection() 非空（用户在复制文本）；键盘 Enter/Space 同效（li tabIndex=0 天然可聚焦）。

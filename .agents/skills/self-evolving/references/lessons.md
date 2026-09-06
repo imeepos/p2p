@@ -362,3 +362,4 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 派单文里的会话短 id（session-7af45e36）不能直接喂 session_link_send——报「不在同一工作区」误导排查方向；先 session_link_list 拿完整 id（session-7af45e36-f764-...）再投递。
 - 2026-09-06 run_code 里给 edit/write 传含 markdown ``` 围栏的多行文档内容会撞 JS 反引号模板字面量（围栏提前终止字符串，报 Expected , got ident 这类迷惑语法错）；文档 patch 一律 write 一个 python 脚本（三引号 + 转义围栏）再 bash 执行，替换点用 count==1 断言。
 - 2026-09-06 中央登记的「注释行先例」只豁免 cli-parity 守卫，ai-docs-sync 的反向断言（实测命令 vs 文档条目）独立生效：上一卡新增 p2pctl 子命令只登记 tsv 不补 ai-guide 条目，守卫照样红。接手他卡遗留的守卫红先跑一遍守卫脚本读 fail 明细，不要默认是自己的改动引入。
+- 2026-09-06 UI 动作的反馈若挂在全局单例连接相位上（实例：endpoint 测试连接直接订阅 acp phase），拨号悬挂时按钮无限 loading、进重连时长时间假转圈，用户感知即「点击没反应」：动作要自持生命周期（在途标记 + 终态结算 + 超时兜底），全局相位只当信号源。
