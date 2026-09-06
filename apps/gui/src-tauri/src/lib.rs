@@ -77,6 +77,7 @@ pub fn run() {
             group::group_send,
             group::group_history,
             group::group_media_file,
+            console::acp_console_status,
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -114,6 +115,14 @@ pub fn run() {
             if let Err(e) = watcher::spawn(app.handle().clone(), &dir) {
                 eprintln!("p2p-console: 数据目录监听降级: {e}");
             }
+            // UX2 acp-console 托管（契约 §15）：定位失败转 unavailable 留痕不阻断
+            // 主功能；phase 变更经 acp-console 事件推送；RunEvent::Exit 收尾终止子进程。
+            let console = console::Manager::spawn();
+            app.manage(console);
+            console::spawn_forwarder(
+                app.handle().clone(),
+                app.state::<console::Manager>().subscribe(),
+            );
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -122,6 +131,9 @@ pub fn run() {
         if let tauri::RunEvent::Exit = event {
             if let Some(handle) = app.try_state::<control::ControlHandle<tauri::Wry>>() {
                 handle.shutdown();
+            }
+            if let Some(console) = app.try_state::<console::Manager>() {
+                console.shutdown();
             }
         }
     });

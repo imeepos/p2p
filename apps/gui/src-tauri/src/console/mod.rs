@@ -70,6 +70,11 @@ impl Manager {
         self.status.borrow().clone()
     }
 
+    /// 订阅状态变更（事件转发任务用）。
+    pub(crate) fn subscribe(&self) -> watch::Receiver<AcpConsoleStatus> {
+        self.status.clone()
+    }
+
     /// RunEvent::Exit 收尾：停监督并终止子进程（幂等；unavailable 形态为 no-op）。
     pub fn shutdown(&self) {
         if let Some(handle) = &self.handle {
