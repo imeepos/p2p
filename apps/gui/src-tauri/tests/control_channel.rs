@@ -236,6 +236,10 @@ fn record_start_stop_produces_gif() {
         health["data"]["recording"], true,
         "录屏中 health 应如实反映"
     );
+    // 采样线程是 capture-first 但先查停止位：start/stop 紧邻时 worker 可能
+    // 尚未调度就看到 stop=true（CI ubuntu 实证零帧 RECORD_EMPTY）。持录
+    // 400ms（>1 个 200ms 采样周期）保证至少落 1 帧，断言才回归本意。
+    std::thread::sleep(Duration::from_millis(400));
     let (code, body) = call(&env, "POST", "/record/stop", Some(&env.token), None);
     assert_eq!(code, 200, "record stop 应成功: {body}");
     assert!(
