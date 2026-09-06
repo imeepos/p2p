@@ -19,6 +19,7 @@ import { NetworkCard } from "./network-card";
 import { ProfileCard } from "./profile-card";
 import { AboutUpdateCard } from "@/views/update/about-update-card";
 import { DocsEntryCard } from "./docs-entry-card";
+import { LlmShareEntryCard } from "./llm-share-entry-card";
 import {
   SettingsSaveBar,
 } from "./save-bar";
@@ -48,6 +49,8 @@ function SettingsCards() {
       <AboutUpdateCard />
       {/* DOC2：协议文档入口行（append-only，只读跳转 /docs） */}
       <DocsEntryCard />
+      {/* 契约 v11 §16.3：llm-share 入口卡（页面本体归 LSG3，入口先行） */}
+      <LlmShareEntryCard />
     </>
   );
 }

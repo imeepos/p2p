@@ -13,6 +13,7 @@ const CFG: GuiConfig = {
   advertisedAddrs: [],
   observationPort: null,
   observationAddrs: [],
+  lanOnly: false,
 };
 
 const TICK_MS = 2500;
@@ -163,5 +164,19 @@ describe("mock-ipc", () => {
     await vi.advanceTimersByTimeAsync(300);
     const saved = await save;
     expect(saved.quicPort).toBe(12345);
+  });
+
+  it("lanOnly 开关读改存往返（契约 v11 §16.5，serde 缺省 false）", async () => {
+    expect((await mockBackend.configGet()).lanOnly).toBe(false);
+    const save = mockBackend.configSave({ ...CFG, lanOnly: true });
+    await vi.advanceTimersByTimeAsync(300);
+    await save;
+    expect((await mockBackend.configGet()).lanOnly).toBe(true);
+  });
+
+  it("llm-share mock 已挂接 mockBackend（同签名透传）", async () => {
+    const listed = await mockBackend.llmShareAllowList();
+    expect(listed).toEqual({ entries: [] });
+    await expect(mockBackend.llmShareOfferShow()).rejects.toThrow(/尚未发布/);
   });
 });

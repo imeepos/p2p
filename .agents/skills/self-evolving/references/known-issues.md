@@ -883,3 +883,8 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：bash 工具连报 `spawn bash ENOENT`、glob 报目录 os error 2，且后台命令中途冒 node `uv_cwd ENOENT`（process.cwd failed），像是运行时坏了。
 - 原因：workdir（worktree）被并行会话执行收尾 `git worktree remove` 删掉，所有以它为 cwd 的 spawn 全部 ENOENT；与代码无关。
 - 修法：先用只读工具（glob/read）确认目录是否存在；存在性一旦排除，立即 `git reflog` 查 main 最近提交是否被并行会话推进（ff 合并/账本翻转/远端删除三件套），按「他收尾我核验」处理，不重跑重做。
+
+## 2026-09-06 LSG2：i18n hardcoded-copy 扫描把行尾 CJK 注释误报为界面文案
+- 症状：vitest 全量红在 hardcoded-copy.test.ts，offenders 指向 views/settings/config-schema.ts 行尾 `// serde default：缺省 false` 注释，而非任何真实文案。
+- 原因：扫描器 stripComments 不剥离行尾 // 注释（只处理块注释），views 下 .ts 文件行内 CJK 一律命中 CJK 正则。
+- 修法：views/**/.ts 行尾注释用英文（或把注释放到 const 上方独立行也躲不过，直接英文最稳）；改后扫描绿。
