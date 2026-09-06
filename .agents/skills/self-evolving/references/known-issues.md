@@ -857,3 +857,14 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 原因：scripts/check/cli-parity.sh 等以「固定 target 目录」重建共享工件（p2pctl/shell_union 数据源），多会话并发门禁时 A 线重建换文件、B 线测试读到半新半旧数据源即瞬时失配。同类：cli-parity 陈旧二进制假红（b51cd5c 修过陈旧态，未修并发态）。
 - 修法方向：共享工件门禁加文件锁（flock）或 per-run mktemp -d target；判定数据一致类测试失败先看有无并发门禁再定性代码缺陷。
 - 判别特征：一致性比对类测试 0.0x 秒即挂 + ps 里有他线 make check/cargo test + 单跑复绿 = 竞态假红，不立修复单改立基础设施卡。
+
+
+## 2026-09-06 UX2：TS 模板串写含转义序列的源码，\\n 被求值成真实换行（两踩）
+- 症状：run_code 里用 TS 模板串生成 Rust 测试文件，shell stub 的 printf '%s\n' 落盘成 printf '%s<真实换行>'；fmt 后看起来"合法"但 stub 输出永远无行尾，下游 BufRead::lines() 永久阻塞、用例超时假红。
+- 原因：模板字面量处理全部转义序列，\\n 是换行不是"反斜杠+n"；与已知 ${var} 插值坑同族但更隐蔽——它不报错，只是静默改写字节。
+- 修法：生成内容含 \\n/\\t/\\\\ 等转义时在 TS 侧双写（\\\\n），或直接走 edit 工具传 JSON 参数（不经 JS 解析）；写完必做字节级自检（grep -n 'printf' 看反斜杠是否还在），rustfmt 不报、编译不红的静默变形只能靠自检抓。
+
+## 2026-09-06 UX2：SIGKILL 父进程后孤儿子进程持有 stdout 管道写端，读端 EOF 永不到来
+- 症状：监督器对 /bin/sh stub start_kill 后，读循环停在 next_line().await，stopped 迁移 10s 超时不发生——杀进程成功、管道也"理应"关闭。
+- 原因：sh 脚本 fork 出的 sleep 孤儿继承了 stdout 管道写端；父进程死亡不关管道，只要任一持有者存活读端就无 EOF。生产 acp-console 是无子进程的 Rust 二进制不会踩，但监督器是通用设施。
+- 修法：收尾不能只赌 EOF——读循环 tokio::select! 加 stop 轮询臂（150ms），观察 stop 位即返回，EOF 仅作快速路径；轮询臂使百毫秒级收敛且天然免疫孤儿持管道。连带：spawn 用锁槽 + 同步函数（守卫不跨 await，否则 impl Future 不满足 Send）。

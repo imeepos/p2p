@@ -4,6 +4,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 
 import type {
+  AcpConsoleStatus,
   ChatFriendJson,
   ChatMediaFile,
   FriendInviteJson,
@@ -30,6 +31,8 @@ import type {
 } from "./ipc-types";
 
 const NODE_EVENT_CHANNEL = "node-event";
+// 契约 v10 §15：acp-console 托管事件通道（独立于 node-event），payload 即状态快照。
+const ACP_CONSOLE_EVENT_CHANNEL = "acp-console";
 
 export const useMockIpc = import.meta.env.VITE_MOCK_IPC === "1";
 
@@ -38,6 +41,14 @@ export const useMockIpc = import.meta.env.VITE_MOCK_IPC === "1";
 const mockIpc = useMockIpc ? (await import("./mock-ipc")).mockBackend : null;
 
 const tauriBackend: IpcBackend = {
+  // 契约 v10 §15：托管状态快照 + 相位事件（phase 变更即发射，可带 tsMs）。
+  acpConsoleStatus: () => invoke<AcpConsoleStatus>("acp_console_status"),
+  onAcpConsoleEvent: (handler) =>
+    listen<AcpConsoleStatus>(ACP_CONSOLE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
+      (unlisten) => () => {
+        unlisten();
+      },
+    ),
   nodeStart: (cfg) => invoke<NodeStatus>("node_start", { cfg }),
   nodeStop: () => invoke<NodeStatus>("node_stop"),
   nodeStatus: () => invoke<NodeStatus>("node_status"),

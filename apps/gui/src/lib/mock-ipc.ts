@@ -24,6 +24,7 @@ import {
   createMockGroupInviteBackend,
   injectMockGroupInviteIncoming,
 } from "./mock-group-invite";
+import { mockAcpConsole } from "./mock-acp-console";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -421,6 +422,15 @@ export const mockBackend: IpcBackend & {
   updateCheck: () => mockUpdateCheck(),
 
   updateOpenReleasePage: (url) => mockUpdateOpenReleasePage(url),
+
+  // 契约 v10 §15：acp-console 托管面 mock（同签名，相位经 mockAcpConsole 可控）。
+  async acpConsoleStatus() {
+    return mockAcpConsole.status();
+  },
+
+  onAcpConsoleEvent(handler): Promise<UnlistenFn> {
+    return Promise.resolve(mockAcpConsole.subscribe(handler));
+  },
 
   onNodeEvent(handler): Promise<UnlistenFn> {
     handlers.add(handler);

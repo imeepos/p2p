@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Loader2Icon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ChevronDown, Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -24,26 +25,11 @@ import { EMPTY_DRAFT, newEndpointId } from "@/acp/endpoint-storage";
 import { useAcpStore } from "@/acp/acp-store";
 import { useEndpointMetaStore } from "@/acp/endpoint-meta";
 import type { AcpEndpoint } from "@/acp/protocol";
-import type { I18nKey } from "@/i18n/types";
+import { useDiscoveryPoll } from "@/acp/use-discovery-poll";
 
-import {
-  defaultAdminUrl,
-  hasEndpointFormErrors,
-  validateEndpointForm,
-  wsUrlHistory,
-  type EndpointFormErrors,
-} from "./endpoint-rules";
+import { defaultAdminUrl, hasEndpointFormErrors, targetOptions, validateEndpointForm, wsUrlHistory } from "./endpoint-rules";
+import { AdvancedFields, EndpointFieldError } from "./endpoint-advanced-fields";
 import { useEndpointTest } from "./use-endpoint-test";
-
-function FieldError({ code }: { code?: string }) {
-  const { t } = useTranslation();
-  if (!code) return null;
-  return (
-    <p className="text-destructive text-xs" data-testid={"contacts-endpoint-error-" + code}>
-      {t(("contacts.endpoint.errors." + code) as I18nKey)}
-    </p>
-  );
-}
 
 interface EndpointAddDialogProps {
   open: boolean;
@@ -51,38 +37,62 @@ interface EndpointAddDialogProps {
   onSaved: (endpoint: AcpEndpoint) => void;
 }
 
-/** 管理地址缺省推导：分享 ACP 依赖 admin 端点（§8），同机部署从 wsUrl 起步即可用 */
-function seedForm(draft: AcpEndpoint): AcpEndpoint {
-  if (draft.adminUrl?.trim()) return draft;
-  const derived = defaultAdminUrl(draft.wsUrl);
-  if (!derived) return draft;
-  return { ...draft, adminUrl: derived };
+/** 打开瞬间播种（渲染期状态调整，不落 effect）：console ready 时以本机控制台值
+ *  预填连接面（未动过的字段才覆盖），补管理地址缺省，并预选首个发现目标 */
+function seedForm(draft: AcpEndpoint, consoleStatus: ReturnType<typeof useAcpStore.getState>["console"]): AcpEndpoint {
+  const seeded = { ...draft };
+  const ready = consoleStatus?.phase === "ready" ? consoleStatus : null;
+  if (ready) {
+    if (!seeded.wsUrl.trim() || seeded.wsUrl === EMPTY_DRAFT.wsUrl) {
+      seeded.wsUrl = ready.wsUrl ?? seeded.wsUrl;
+    }
+    if (!seeded.token.trim()) seeded.token = ready.token ?? seeded.token;
+    if (!seeded.statusUrl?.trim()) seeded.statusUrl = ready.statusUrl;
+    if (!seeded.adminUrl?.trim()) seeded.adminUrl = ready.adminUrl;
+  }
+  if (!seeded.adminUrl?.trim()) {
+    const derived = defaultAdminUrl(seeded.wsUrl);
+    if (derived) seeded.adminUrl = derived;
+  }
+  return seeded;
 }
 
-// 添加 agent endpoint（§3.2/§3.4）：wsUrl 默认值沿用；wsUrl 历史值下拉
-// （已保存端点去重、最近在前）；「测试连接」先行，未通过仍可保存（行内
-// 警告徽标）；保存走 localStorage 收藏语义，endpointId 本地生成兜底。
-// token 必填（console 随机发布，粘贴一次随草稿复用）；分享管理区登记
-// agent admin 端点，保存后分享创建即可用。
+/** 添加 agent endpoint（§3.2/§3.4 + UX3 收敛）：主字段 = 目标节点从发现清单下拉
+ *  选择（禁自由文本）；wsUrl/token/peer/分享管理收进「高级」折叠，默认以本机
+ *  console 值预填；wsUrl 历史值下拉与「保存/测试连接」既有语义不退化。
+ *  主按钮「添加并开始对话」= 保存 + 测试连接（连接即测试）+ 跳转会话一条龙。 */
 export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDialogProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const saved = useAcpStore((s) => s.saved);
+  const directory = useAcpStore((s) => s.directory);
+  const consoleStatus = useAcpStore((s) => s.console);
   const draft = useAcpStore((s) => s.draft);
   const upsertSaved = useAcpStore((s) => s.upsertSaved);
   const { start, testing } = useEndpointTest();
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [form, setForm] = useState<AcpEndpoint>(draft);
-  const [fieldErrors, setFieldErrors] = useState<EndpointFormErrors | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ReturnType<typeof validateEndpointForm> | null>(null);
   const idRef = useRef<string | null>(null);
 
-  // 打开瞬间播种一次（渲染期状态调整，不落 effect）：表单回最近草稿并补管理地址缺省
+  // 打开瞬间播种一次（渲染期状态调整，不落 effect）；发现面轮询仅弹窗打开期间运行
   const [seededOpen, setSeededOpen] = useState(false);
   if (open !== seededOpen) {
     setSeededOpen(open);
     if (open) {
-      setForm(seedForm(draft));
+      const seeded = seedForm(draft, consoleStatus);
+      const candidates = targetOptions(directory, saved);
+      if (!seeded.peer.trim() && candidates.length > 0) seeded.peer = candidates[0]!.peer;
+      setForm(seeded);
       setFieldErrors(null);
+      setAdvancedOpen(false);
     }
   }
+  const ready = consoleStatus?.phase === "ready" ? consoleStatus : null;
+  useDiscoveryPoll({
+    statusUrl: open && ready ? (ready.statusUrl ?? null) : null,
+    token: ready?.token ?? "",
+  });
 
   const patch = (field: keyof AcpEndpoint) => (value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -104,14 +114,24 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
     });
     if (hasEndpointFormErrors(errors)) {
       setFieldErrors(errors);
+      // 目标未选时展开高级区，错误与字段同屏（可观测，不静默）
+      if (errors.peer) setAdvancedOpen(true);
       return false;
     }
     setFieldErrors(null);
     return true;
   };
 
+  /** 连接类动作前置：目标必选（主字段下拉，禁自由文本留空连接）；错误显式呈现 */
+  const requireTarget = (): boolean => {
+    if (form.peer.trim()) return true;
+    setFieldErrors({ peer: "targetRequired" });
+    setAdvancedOpen(false);
+    return false;
+  };
+
   const test = () => {
-    if (!validate()) return;
+    if (!validate() || !requireTarget()) return;
     start({ ...form, endpointId: ensureId() });
   };
 
@@ -122,7 +142,18 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
     onSaved(stamped);
   };
 
+  // UX3 一条龙：保存 + 测试连接（连接即测试）+ 连接 + 跳转会话，零二次点击
+  const addAndOpen = () => {
+    if (!validate() || !requireTarget()) return;
+    const stamped = upsertSaved({ ...form, endpointId: ensureId() });
+    onOpenChange(false);
+    onSaved(stamped);
+    start(stamped);
+    navigate("/chat?agent=" + stamped.endpointId);
+  };
+
   const history = wsUrlHistory(saved);
+  const candidates = targetOptions(directory, saved);
   const activeId = idRef.current;
   const outcome = useEndpointMetaStore((s) =>
     activeId ? s.lastTest[activeId] ?? null : null,
@@ -137,58 +168,24 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
         </DialogHeader>
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
-            <Label htmlFor="contacts-endpoint-wsurl">{t("contacts.endpoint.wsUrlLabel")}</Label>
-            <div className="flex gap-2">
-              <Input
-                id="contacts-endpoint-wsurl"
-                className="font-mono text-xs"
-                value={form.wsUrl}
-                onChange={(e) => patch("wsUrl")(e.target.value)}
-                placeholder={EMPTY_DRAFT.wsUrl}
-                autoComplete="off"
-                data-testid="contacts-endpoint-wsurl"
-              />
-              {history.length > 0 ? (
-                <Select value="" onValueChange={(v) => v && patch("wsUrl")(v)} disabled={testing}>
-                  <SelectTrigger className="w-28" data-testid="contacts-endpoint-history">
-                    <SelectValue placeholder={t("contacts.endpoint.historyLabel")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {history.map((url) => (
-                      <SelectItem key={url} value={url} data-testid={"contacts-endpoint-history-" + url}>
-                        {url}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : null}
-            </div>
-            <FieldError code={fieldErrors?.wsUrl} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="contacts-endpoint-token">{t("contacts.endpoint.tokenLabel")}</Label>
-            <Input
-              id="contacts-endpoint-token"
-              type="password"
-              value={form.token}
-              onChange={(e) => patch("token")(e.target.value)}
-              placeholder={t("contacts.endpoint.tokenPlaceholder")}
-              autoComplete="off"
-              data-testid="contacts-endpoint-token"
-            />
-            <FieldError code={fieldErrors?.token} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="contacts-endpoint-peer">{t("contacts.endpoint.peerLabel")}</Label>
-            <Input
-              id="contacts-endpoint-peer"
-              className="font-mono text-xs"
+            <Label htmlFor="contacts-endpoint-target">{t("contacts.endpoint.targetLabel")}</Label>
+            <Select
               value={form.peer}
-              onChange={(e) => patch("peer")(e.target.value)}
-              autoComplete="off"
-              data-testid="contacts-endpoint-peer"
-            />
-            <FieldError code={fieldErrors?.peer} />
+              onValueChange={(v) => patch("peer")(v)}
+              disabled={testing}
+            >
+              <SelectTrigger id="contacts-endpoint-target" data-testid="contacts-endpoint-target">
+                <SelectValue placeholder={t("contacts.endpoint.targetPlaceholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                {candidates.map((option) => (
+                  <SelectItem key={option.peer} value={option.peer} data-testid={"contacts-endpoint-target-" + option.peer}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <EndpointFieldError code={fieldErrors?.peer} testidPrefix="contacts-endpoint-target-error" />
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="contacts-endpoint-alias">{t("contacts.endpoint.aliasLabel")}</Label>
@@ -199,36 +196,30 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
               autoComplete="off"
               data-testid="contacts-endpoint-alias"
             />
-            <FieldError code={fieldErrors?.alias} />
+            <EndpointFieldError code={fieldErrors?.alias} />
           </div>
           <div className="flex flex-col gap-2 border-t pt-3">
-            <Label className="text-muted-foreground">{t("contacts.endpoint.adminSectionLabel")}</Label>
-            <p className="text-muted-foreground text-xs">{t("contacts.endpoint.adminHint")}</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="contacts-endpoint-adminurl">{t("contacts.endpoint.adminUrlLabel")}</Label>
-                <Input
-                  id="contacts-endpoint-adminurl"
-                  className="font-mono text-xs"
-                  value={form.adminUrl ?? ""}
-                  onChange={(e) => patch("adminUrl")(e.target.value)}
-                  autoComplete="off"
-                  data-testid="contacts-endpoint-adminurl"
-                />
-                <FieldError code={fieldErrors?.adminUrl} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="contacts-endpoint-admintoken">{t("contacts.endpoint.adminTokenLabel")}</Label>
-                <Input
-                  id="contacts-endpoint-admintoken"
-                  type="password"
-                  value={form.adminToken ?? ""}
-                  onChange={(e) => patch("adminToken")(e.target.value)}
-                  placeholder={t("contacts.endpoint.adminTokenPlaceholder")}
-                  autoComplete="off"
-                  data-testid="contacts-endpoint-admintoken"
-                />
-              </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mr-auto gap-1 px-2"
+              aria-expanded={advancedOpen}
+              onClick={() => setAdvancedOpen((v) => !v)}
+              data-testid="contacts-endpoint-advanced-toggle"
+            >
+              <ChevronDown aria-hidden className={"size-4 transition-transform " + (advancedOpen ? "" : "-rotate-90")} />
+              {t("contacts.endpoint.advancedToggle")}
+            </Button>
+            <div hidden={!advancedOpen} data-testid="contacts-endpoint-advanced">
+              <AdvancedFields
+                form={form}
+                fieldErrors={fieldErrors}
+                patch={patch}
+                testing={testing}
+                history={history}
+                historyEmptyLabel={t("contacts.endpoint.historyLabel")}
+              />
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -258,8 +249,11 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.actions.cancel")}
           </Button>
-          <Button type="button" onClick={save} disabled={testing} data-testid="contacts-endpoint-save">
+          <Button type="button" variant="outline" onClick={save} disabled={testing} data-testid="contacts-endpoint-save">
             {t("contacts.endpoint.save")}
+          </Button>
+          <Button type="button" onClick={addAndOpen} disabled={testing} data-testid="contacts-endpoint-add-open">
+            {testing ? t("contacts.endpoint.opening") : t("contacts.endpoint.addAndOpen")}
           </Button>
         </DialogFooter>
       </DialogContent>

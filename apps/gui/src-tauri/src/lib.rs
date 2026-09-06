@@ -3,11 +3,13 @@
 //! 模块划分：types（契约 serde 镜像）/ config（配置持久化）/ proto（echo 与 target 解析）/
 //! state（节点生命周期）/ events（事件转发）/ commands（11 个 IPC 命令）/
 //! frontend_log（契约 v3 加法：前端错误落盘，G-H 观测）/
-//! update（契约 v4 加法：在线更新检查，G-U1）。
+//! update（契约 v4 加法：在线更新检查，G-U1）/
+//! console（契约 v10 加法：acp-console 伴生进程托管，UX2）。
 
 pub mod chat;
 pub mod commands;
 pub mod config;
+pub mod console;
 pub mod control;
 pub mod events;
 pub mod frontend_log;
@@ -75,6 +77,7 @@ pub fn run() {
             group::group_send,
             group::group_history,
             group::group_media_file,
+            console::acp_console_status,
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -112,6 +115,14 @@ pub fn run() {
             if let Err(e) = watcher::spawn(app.handle().clone(), &dir) {
                 eprintln!("p2p-console: 数据目录监听降级: {e}");
             }
+            // UX2 acp-console 托管（契约 §15）：定位失败转 unavailable 留痕不阻断
+            // 主功能；phase 变更经 acp-console 事件推送；RunEvent::Exit 收尾终止子进程。
+            let console = console::Manager::spawn();
+            app.manage(console);
+            console::spawn_forwarder(
+                app.handle().clone(),
+                app.state::<console::Manager>().subscribe(),
+            );
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -120,6 +131,9 @@ pub fn run() {
         if let tauri::RunEvent::Exit = event {
             if let Some(handle) = app.try_state::<control::ControlHandle<tauri::Wry>>() {
                 handle.shutdown();
+            }
+            if let Some(console) = app.try_state::<console::Manager>() {
+                console.shutdown();
             }
         }
     });
