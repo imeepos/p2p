@@ -28,6 +28,16 @@ const DEFAULT_NAMESPACE: &str = "p2p-base";
 const DISCOVERY_EVENTS: usize = 64;
 
 pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
+    // lan-only（F8）：公网外联显式全断必须在任何外联动作（观测探测/relay 接线/
+    // rendezvous 拨号）发生前生效；剥离留 info 级信号，运维可从日志确认模式。
+    let cfg = if cfg.lan_only {
+        tracing::info!(
+            "lan-only mode: public bootstrap/relay/observation disabled; LAN discovery and direct dial only"
+        );
+        strip_public_endpoints(cfg)
+    } else {
+        cfg
+    };
     let keypair = Arc::new(load_identity(&cfg.data_dir)?);
 
     // 观测反射器（bootstrap 角色节点）：独立 UDP 口，回答对端观测地址
@@ -109,6 +119,16 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
         static_peers.map(Arc::new),
         observation_exhausted,
     ))
+}
+
+/// lan-only 端点剥离（纯函数）：公网三类清空 + 观测反射口关闭；
+/// mdns/静态对端/监听端口等局域网面原样保留（F8 生效面）。
+fn strip_public_endpoints(mut cfg: NodeConfig) -> NodeConfig {
+    cfg.bootstrap.clear();
+    cfg.relay_addrs.clear();
+    cfg.observation_addrs.clear();
+    cfg.observation_port = None;
+    cfg
 }
 
 /// 登记一条静态对端；坏条目 warn 跳过不拖垮启动（数据文件可人工编辑）。
@@ -216,4 +236,46 @@ fn listen_ports(addrs: &[TransportAddr]) -> (Option<u16>, Option<u16>) {
         }
     }
     (quic, tcp)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    fn public_config() -> NodeConfig {
+        NodeConfig {
+            bootstrap: vec!["43.240.223.138/u3400".into()],
+            relay_addrs: vec!["43.240.223.138/u3403".into()],
+            observation_addrs: vec!["121.196.193.177:3402".into()],
+            observation_port: Some(3402),
+            ..NodeConfig::default()
+        }
+    }
+
+    #[test]
+    fn lan_only_default_false_preserves_public_endpoints() {
+        let cfg = NodeConfig::default();
+        assert!(!cfg.lan_only, "默认必须为 false：不开启时现网行为零变化");
+        let base = public_config();
+        assert_eq!(base.bootstrap.len(), 1, "lan_only=false 装配不动公网端点");
+        assert_eq!(base.observation_port, Some(3402));
+    }
+
+    #[test]
+    fn lan_only_strips_public_endpoints_keeps_lan_facets() {
+        let mut cfg = public_config();
+        cfg.lan_only = true;
+        cfg.enable_mdns = true;
+        cfg.static_peers_file = Some(PathBuf::from("/tmp/peers.json"));
+        cfg.quic_port = 3400;
+        let stripped = strip_public_endpoints(cfg);
+        assert!(stripped.bootstrap.is_empty(), "不拨公网 bootstrap");
+        assert!(stripped.relay_addrs.is_empty(), "不连公网 relay");
+        assert!(stripped.observation_addrs.is_empty(), "不上报 observation");
+        assert_eq!(stripped.observation_port, None, "不开公共观测反射口");
+        assert!(stripped.enable_mdns, "局域网发现保留");
+        assert!(stripped.static_peers_file.is_some(), "局域网直连登记保留");
+        assert_eq!(stripped.quic_port, 3400, "监听端口保留");
+    }
 }

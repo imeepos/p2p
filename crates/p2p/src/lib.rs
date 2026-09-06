@@ -50,6 +50,9 @@ pub struct NodeConfig {
     pub rendezvous_public_only: bool,
     /// 静态对端登记文件（社交化发现 P1）：启动载入 + upsert 落盘；None = 不启用。
     pub static_peers_file: Option<PathBuf>,
+    /// 仅局域网模式（F8）：true 时装配期剥离全部公网端点（bootstrap/relay/
+    /// observation），仅保留局域网发现与直连；默认 false 保持现行为。
+    pub lan_only: bool,
 }
 
 impl Default for NodeConfig {
@@ -69,6 +72,7 @@ impl Default for NodeConfig {
             observe_interval: Duration::from_millis(500),
             rendezvous_public_only: false,
             static_peers_file: None,
+            lan_only: false,
         }
     }
 }
@@ -163,6 +167,12 @@ impl NodeBuilder {
     /// 来源），配合 [`Node::upsert_static_peer`] 落盘，重启后可直拨。
     pub fn static_peers_file(mut self, path: PathBuf) -> Self {
         self.0.static_peers_file = Some(path);
+        self
+    }
+
+    /// 仅局域网模式（F8）：公网外联显式关闭，详情见 [NodeConfig::lan_only]。
+    pub fn lan_only(mut self, on: bool) -> Self {
+        self.0.lan_only = on;
         self
     }
 
