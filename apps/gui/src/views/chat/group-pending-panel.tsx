@@ -17,12 +17,11 @@ export function GroupPendingPanel({ groupId }: { groupId: string }) {
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    // 首挂与 groupId 变化都重置窗口；列表从未加载过则主动补拉一次
-    setTimedOut(false);
+    // groupId 变化经调用方 key 重挂载复位；列表从未加载过则主动补拉一次
     if (!groupsLoaded) void loadGroups();
     const timer = window.setTimeout(() => setTimedOut(true), GROUP_WAIT_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, [groupId, groupsLoaded, loadGroups]);
+  }, [groupsLoaded, loadGroups]);
 
   if (timedOut) {
     return (

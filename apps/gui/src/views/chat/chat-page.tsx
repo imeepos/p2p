@@ -174,8 +174,9 @@ export function ChatPage() {
               onOpenManage={() => setManageOpen(true)}
             />
           ) : groupParam ? (
-            // IMC3：同意入群后 roster 未达的跳转时序兜底（加载态→自动进入）
-            <GroupPendingPanel groupId={groupParam} />
+            // IMC3：同意入群后 roster 未达的跳转时序兜底（加载态→自动进入）；
+            // key=groupId 换群即重挂载复位超时窗口
+            <GroupPendingPanel key={groupParam} groupId={groupParam} />
           ) : agentParam ? (
             <AgentConversation endpointId={agentParam} />
           ) : (
