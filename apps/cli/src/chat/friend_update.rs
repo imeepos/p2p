@@ -113,7 +113,10 @@ mod tests {
         assert_eq!(patch.group.as_deref(), Some("g"));
         assert!(patch.nickname.is_none());
         assert_eq!(patch.note.as_deref(), Some(""));
-        assert_eq!(patch.addrs.as_deref(), Some(["127.0.0.1/u1".to_string()].as_slice()));
+        assert_eq!(
+            patch.addrs.as_deref(),
+            Some(["127.0.0.1/u1".to_string()].as_slice())
+        );
         assert!(!patch.is_empty());
         let empty = UpdateArgs {
             peer_id: "p".into(),

@@ -11,8 +11,8 @@ use serde::Serialize;
 use crate::error::CliResult;
 use crate::output;
 
-pub(crate) use backend::DEFAULT_TAIL_LINES;
 use backend::FrontendLog;
+pub(crate) use backend::DEFAULT_TAIL_LINES;
 
 #[derive(Subcommand)]
 pub enum LogCommand {

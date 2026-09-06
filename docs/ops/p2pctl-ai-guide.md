@@ -47,8 +47,9 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 |---|---|---|
 | cargo 在 PATH（`$HOME/.cargo/bin`） | 二进制构建（cargo build/clippy/test） | `cargo: command not found`（退出 127）；先 `export PATH=$HOME/.cargo/bin:$PATH` |
 | macOS 屏幕录制授权 | gui screenshot/record、scripts/ops/ui-regression.sh | 退出 1：CAPTURE_PERMISSION_DENIED（HTTP 403），PNG/GIF 不产出；GUI 重编译后 TCC 授权记录可能失效需重新授权（系统设置 > 隐私与安全性 > 屏幕录制），OS 级授权须人完成 |
-| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
+| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、acp share list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
 | 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance | 退出 1：节点身份加载失败；offer publish 不代生成身份；正向门面是 p2pctl identity init（幂等，显式创建后即可重试） |
+| agent 节点身份已存在（<acp-data-dir>/identity/key.seed，由 acp-agent 首启生成） | acp share create | 退出 1：分享链接需要 agent 身份；CLI 不代生成，先启动一次 acp-agent |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1：超时未送达 status=Pending / 对端身份不符快速失败 status=Failed（均保留本机记录，见 chat send 条目与附录A）；peer 域退出 1 |
 | 节点守护进程运行 | peer connect/disconnect/ping/dial、metrics get 实时值 | 退出 1：连接节点守护进程失败；metrics get 例外：返回全零不报错 |
 | GUI 进程运行 | gui 全域（status/screenshot/record/navigate/invoke/page/action） | 退出 1（控制通道不可达） |
@@ -85,6 +86,9 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 给 peer 授予 agent 访问 | `acp allow <PEER_ID> --scope sandbox --json`（写，须人确认） |
 | 撤销 peer 授权 | `acp deny <PEER_ID>`（写，须人确认；不存在条目报错退出 1） |
 | 查看授权策略表 | `acp list --json` |
+| 创建 agent 分享链接（限时/限激活次数） | `acp share create --scope sandbox --ttl-secs 86400`（写，须人确认；输出 JSON 含 share_id/token/link） |
+| 查看分享台账 | `acp share list --json`（脱敏：无 token 原文/哈希） |
+| 撤销分享 | `acp share revoke <SHARE_ID>`（写，须人确认；已绑定 peer 时级联删除其策略条目） |
 | 把借方加入出借 allowlist（可带模型白名单） | `llm-share allow <PEER_ID> --model <M> --json`（写，须人确认；缺 --model 不限模型） |
 | 把借方移出 allowlist / 查 allowlist | `llm-share deny <PEER_ID>`（写，须人确认）/ `llm-share allowlist --json` |
 | 签名发布能力声明 / 查看生效声明与剩余 TTL | `llm-share offer publish --model <M> --spare <M>=<N> --period-ends <DATE> --json`（写，须人确认）/ `llm-share offer show --json` |
@@ -99,7 +103,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 【工具认知】
 - 可执行文件：apps/cli/target/debug/p2pctl（先 export PATH=$HOME/.cargo/bin:$PATH 再 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在；cargo 不在 PATH 会报 command not found）。
-- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 45 个叶子命令。
+- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 48 个叶子命令。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
 - 退出码：0 成功；1 运行失败（stderr 前缀 "p2pctl: 运行失败: "）；2 用法错误。失败时先读 stderr 再决定下一步，不要盲目重试。
@@ -108,7 +112,8 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 1. 只读命令优先：node status / chat friends list / chat history / config get / metrics get /
    log tail / gui status / update check 等查询类命令可自由执行。
 2. 写操作必须先征得人确认再执行：chat send / chat friends add|remove / config save /
-   profile save / node start|stop / peer dial|connect|disconnect / log clear / acp allow|deny / gui navigate /
+   profile save / node start|stop / peer dial|connect|disconnect / log clear / acp allow|deny /
+   acp share create|revoke / gui navigate /
    llm-share allow|deny|offer publish。
 3. 不可逆红线：identity reset 会删除节点身份（key.seed），除非人明确说"重置身份"，
    永远不得执行；执行时必须带 --confirm 且仅限人指定的数据目录。
@@ -136,6 +141,10 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 - **ACP 授权面**：acp allow/deny 直写节点策略表（<data-dir>/acp-policy.json），
   执行前必须向人复述目标 PeerId 与 scope 并获确认；deny 对不存在条目报错退出 1，
   属预期行为（默认拒绝语义，非故障）。
+- **ACP 分享面**：acp share create/revoke 直写分享台账（<data-dir>/acp-shares.json）。
+  create 输出的 token 原文只在本次 stdout 与链接里出现，AI 不得复述进日志或转存文件；
+  scope=workspace 在 CLI 侧一律拒绝（无法确认 agent 已配 workspace-dir，fail-closed），
+  需经 agent admin HTTP/GUI 创建。revoke 对不存在 share_id 报错退出 1，属预期行为。
 - **LLM 共享面**：llm-share allow/deny 直写出借方 allowlist（<data-dir>/llm-share/allowlist.json，
   默认拒绝语义），offer publish 以本机身份种子签名并落盘声明信封；执行前必须向人复述
   目标 PeerId / 模型白名单 / 闲量与账期参数并获确认。签名密钥只在 p2p-identity 种子文件
@@ -979,6 +988,60 @@ HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj  sandbox  fs,web     remote_gui  20
 {"peers":[]}
 ```
 退出码：策略表损坏 → 1（可读报错）。
+
+### p2pctl acp share create
+用途：创建 agent 分享链接（acp-share 设计 §6），stdout 恒为 JSON（含 share_id/token/link，snake_case 与设计契约一致；没有 json 开关，无文本形态）。前置：agent 节点身份已存在（<data-dir>/identity/key.seed）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --scope | sandbox 或 workspace | 否 | sandbox |
+| --ttl-secs | 秒数 | 是 | —— |
+| --max-activations | 正整数（一次性 = 激活次数） | 否 | 1 |
+| --allow-mcp | string（可重复；mcpServers 白名单） | 否 | 无 |
+| --ask-route | remote_gui 或 owner_local | 否 | remote_gui |
+| --note | string | 否 | 无 |
+| --addr | string（可重复；链接候选地址，QUIC/TCP/中继） | 否 | 无 |
+| --data-dir | path | 否 | ./p2p-data |
+输出（恒定 JSON）：
+```
+{"share_id":"…","token":"<32hex>","link":"dsh-acp-share://v1?peer=…&token=…&exp=…&sid=…","peer":"<base58PeerId>","addrs":[],"scope":"sandbox","expires_at_unix":0,"created_at":"…Z"}
+```
+语义：一次性 = 激活次数（默认 1）；token 原文只出现在本次 stdout 与链接里一次，台账只存 sha256；链接 exp/sid 为展示性提示，过期/撤销/次数以 agent 为准（权威判定在 agent 侧）。
+退出码：--ttl-secs 缺失（clap）→ 2；--ttl-secs/--max-activations 为 0 → 1；scope=workspace → 1（CLI 直读台账无法确认 agent 侧已配置 workspace 授权目录，fail-closed，需经 admin HTTP/GUI 创建）；agent 身份不存在 → 1；分享台账损坏 → 1。
+
+### p2pctl acp share list
+用途：列出分享台账全部条目（脱敏：无 token 原文与哈希；status 徽章 active/bound/exhausted/expired/revoked）。前置：无（离线可跑；文件缺失视为空账）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本（空账）：
+```
+分享台账为空（用 acp share create 创建）
+```
+--json（空账）：
+```
+{"shares":[]}
+```
+--json（有条目）字段：share_id/scope/allow_mcp/ask_route/note/max_activations/activations/expires_at_unix/revoked/bound_peer/created_at/status。
+退出码：分享台账损坏 → 1（可读报错，禁止静默回退空账）。
+
+### p2pctl acp share revoke
+用途：撤销分享（置 revoked；已绑定 peer 则级联删除该 peer 的 share 来源策略条目，已在线连接由桥按既有断链路径收尾）。前置：无（离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <SHARE_ID> | 位置参数 string（创建输出中的 share_id） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已撤销分享 share_id=…（级联删除策略条目：是；撤销前状态：有效）
+```
+--json：
+```
+{"share_id":"…","revoked":true,"already_revoked":false,"policy_removed":true}
+```
+语义：重复撤销幂等成功（already_revoked=true）；策略条目非 share 来源（如手工 acp allow）不级联。
+退出码：无此 share_id → 1（明确报错不静默）；分享台账/策略表损坏 → 1。
 
 ### p2pctl llm-share allow
 用途：把借方加入出借方 allowlist（upsert：条目已存在则为更新并刷新 grantedAt）。前置：无（离线可跑，纯本地 allowlist）；写操作须人确认。

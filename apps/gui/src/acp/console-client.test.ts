@@ -2,7 +2,7 @@
 // 容错折化（不可达/坏形/未知 reason → unavailable 或空清单），绝不抛出。
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { fetchDiscoveryPeers, queryReattachTicket } from "./console-client";
+import { connectShare, fetchDiscoveryPeers, queryReattachTicket } from "./console-client";
 
 function stubFetch(payload: () => { ok: boolean; body: unknown } | "throw"): void {
   // "throw" 哨兵而非 Promise.reject：被拒 promise 无人 await 会挂成 unhandled rejection
@@ -109,3 +109,46 @@ describe("fetchDiscoveryPeers /discovery 契约", () => {
     expect(await fetchDiscoveryPeers("http://s", "t")).toBeNull();
   });
 });
+
+describe("connectShare /connect-share 契约（§7 guest 导入）", () => {
+  const LINK = "dsh-acp-share://v1?peer=peerA&token=" + "a".repeat(32);
+
+  it("POST {link} 到 status 面 /connect-share，成功映射 peer/scope", async () => {
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => ({
+      ok: true,
+      json: async () => ({ ok: true, peer: "peerA", scope: "workspace" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const outcome = await connectShare("http://127.0.0.1:9900/", "tok", LINK);
+    expect(fetchMock.mock.calls[0][0]).toBe("http://127.0.0.1:9900/connect-share");
+    const init = fetchMock.mock.calls[0]![1] as RequestInit & {
+      headers: Record<string, string>;
+      body: string;
+    };
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer tok");
+    expect(JSON.parse(init.body)).toEqual({ link: LINK });
+    expect(outcome).toMatchObject({ ok: true, peer: "peerA", scope: "workspace" });
+  });
+
+  it("非 2xx denied：折化 ok=false 并透出 code/reason，不抛出", async () => {
+    stubFetch(() => ({ ok: false, body: { code: "share-expired", reason: "expired at 123" } }));
+    const outcome = await connectShare("http://s", "t", LINK);
+    expect(outcome).toMatchObject({
+      ok: false,
+      code: "share-expired",
+      reason: "expired at 123",
+    });
+  });
+
+  it("console 不可达/坏形响应：ok=false + unavailable（可观测不静默）", async () => {
+    stubFetch(() => "throw");
+    expect(await connectShare("http://s", "t", LINK)).toMatchObject({
+      ok: false,
+      reason: "unavailable",
+    });
+    stubFetch(() => ({ ok: true, body: null }));
+    expect(await connectShare("http://s", "t", LINK)).toMatchObject({ ok: false });
+  });
+});
+

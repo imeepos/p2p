@@ -80,7 +80,11 @@ async fn flush(args: OutboxFlushArgs) -> CliResult<()> {
     if report.peers.is_empty() {
         return emit(
             args.json,
-            &FlushView { peers: vec![], flushed_total: 0, remaining_total: 0 },
+            &FlushView {
+                peers: vec![],
+                flushed_total: 0,
+                remaining_total: 0,
+            },
             "无积压对端，无需补投",
         );
     }
@@ -115,7 +119,10 @@ fn fmt_row(r: &p2p_chat::OutboxPeerReport) -> String {
         .collect::<Vec<_>>()
         .join(" ");
     if entries.is_empty() {
-        format!("- peer={} pending=0 failed=0 delivered={}", r.peer_id, r.delivered)
+        format!(
+            "- peer={} pending=0 failed=0 delivered={}",
+            r.peer_id, r.delivered
+        )
     } else {
         format!(
             "- peer={} pending={} failed={} delivered={} entries=[{}]",

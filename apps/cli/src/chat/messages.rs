@@ -179,8 +179,7 @@ pub async fn send(args: SendArgs) -> CliResult<()> {
     emit(args.json, &report, &text_out)?;
     if report.report.message.status == ChatStatus::Failed {
         return Err(CliError::Runtime(
-            "消息投递失败（status=Failed），已保留本机记录，可经 chat outbox flush 手动补投"
-                .into(),
+            "消息投递失败（status=Failed），已保留本机记录，可经 chat outbox flush 手动补投".into(),
         ));
     }
     Ok(())
@@ -238,7 +237,6 @@ mod tests {
         assert_eq!(v["path"], serde_json::json!("/tmp/x.png"));
         assert_eq!(v["mime"], serde_json::json!("image/png"));
     }
-
 
     #[test]
     fn envelope_text_line_marks_sender_side() {
