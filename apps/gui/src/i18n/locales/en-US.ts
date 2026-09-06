@@ -1355,6 +1355,22 @@ const enUS: typeof zhCN = {
     setConfigFailed: "Failed to apply the config option: make sure the session is online and retry",
     fallback: "Connection failed: please retry; if it keeps failing, copy the details for troubleshooting",
   },
+  // UX-I F16/F20: event row "Details" affordance and filter grouping/count copy
+  uxiEvents: {
+    filter: {
+      group: {
+        connection: "Connection",
+        message: "Messages",
+        group: "Groups",
+        security: "Security",
+        node: "Node",
+      },
+      chipAria: "{{label}}, {{count}} events",
+    },
+    row: {
+      details: "Details",
+    },
+  },
 };
 
 export default enUS;

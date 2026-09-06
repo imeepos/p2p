@@ -1330,6 +1330,22 @@ const zhCN = {
     setConfigFailed: "配置下发失败：请确认会话在线后重试",
     fallback: "连接失败：请重试；持续失败可复制详情排查",
   },
+  // UX-I F16/F20：事件行「详情」入口与筛选分组/计数文案（独立命名空间块）
+  uxiEvents: {
+    filter: {
+      group: {
+        connection: "连接",
+        message: "消息",
+        group: "群组",
+        security: "安全",
+        node: "节点",
+      },
+      chipAria: "{{label}}，{{count}} 条",
+    },
+    row: {
+      details: "详情",
+    },
+  },
 };
 
 export default zhCN;
