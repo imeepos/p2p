@@ -16,7 +16,7 @@ import {
   type PeerStatusKind,
 } from "./peer-status";
 import { PeerRowActions } from "./peer-row-actions";
-import { PeerIdCell } from "@/views/shared/peer-id-cell";
+import { PeerNameCell } from "@/views/shared/peer-name-cell";
 
 const STATUS_DOT: Record<PeerStatusKind, string> = {
   connected: "bg-success motion-safe:animate-pulse",
@@ -67,10 +67,10 @@ export function PeerTableRow({
 
   return (
     <TableRow>
-      <TableCell className="font-mono text-xs">
+      <TableCell className="max-w-48">
         <span className="flex items-center gap-1">
-          <PeerIdCell peerId={peer.peerId} />
-          <CopyButton value={peer.peerId} className="size-6" />
+          <PeerNameCell peerId={peer.peerId} />
+          <CopyButton value={peer.peerId} className="size-6 shrink-0" />
         </span>
       </TableCell>
       <TableCell className="max-w-56 font-mono text-xs">

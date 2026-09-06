@@ -25,6 +25,7 @@ import {
   injectMockGroupInviteIncoming,
 } from "./mock-group-invite";
 import { mockAcpConsole } from "./mock-acp-console";
+import { createMockLlmShare } from "./mock-llm-share";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -49,6 +50,7 @@ const DEFAULT_CONFIG: GuiConfig = {
   advertisedAddrs: [],
   observationPort: null,
   observationAddrs: [...FACTORY_LIST_DEFAULTS.observationAddrs],
+  lanOnly: false, // 契约 v11 §16.5：serde default 缺省 false，mock 显性化同值
 };
 
 const DEFAULT_PROFILE: NodeProfile = { name: "", description: "", avatar: null };
@@ -227,6 +229,12 @@ const mockGroupInvite = createMockGroupInviteBackend({
   selfPeerId: () => state.peerId,
   selfNickname: () => state.profile.name,
 });
+
+// llm-share 命令面 mock（契约 v11 §16）：同签名独立文件；相位/拒绝码/断流经控制器驱动。
+const mockLlmShare = createMockLlmShare({ selfPeerId: () => state.peerId });
+
+// llm-share dev 注入入口：offer 五态、拒绝码四值与 stream_broken 相位矩阵（测试/演示共用）。
+(window as unknown as Record<string, unknown>).__MOCK_LLM_SHARE__ = mockLlmShare.controller;
 
 // IM-T50 dev 注入入口：mock 模式下控制台/演示脚本可经 window.__MOCK_CHAT__
 // 驱动 them 气泡注入与状态推进（全状态矩阵演示与集成测试共用一套接口）。
@@ -422,6 +430,9 @@ export const mockBackend: IpcBackend & {
   updateCheck: () => mockUpdateCheck(),
 
   updateOpenReleasePage: (url) => mockUpdateOpenReleasePage(url),
+
+  // 契约 v11 §16：llm-share 命令面 mock（同签名透传独立 mock 实例）。
+  ...mockLlmShare.backend,
 
   // 契约 v10 §15：acp-console 托管面 mock（同签名，相位经 mockAcpConsole 可控）。
   async acpConsoleStatus() {

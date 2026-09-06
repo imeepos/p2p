@@ -86,6 +86,9 @@ export interface SummaryLabels {
 export interface EventSummaryOptions {
   /** true 时 PeerId/消息 id 不截断：供 tooltip 等需要完整信息的场景。 */
   full?: boolean;
+  /** F02：PeerId → 人可读标签（好友名 + 缩略 ID）；缺省回退缩略 ID。
+   *  只用于 peer 语义字段，消息 id / 群 id 不经此映射。 */
+  peerLabel?: (peerId: string) => string;
 }
 
 export function eventSummary(
@@ -95,21 +98,27 @@ export function eventSummary(
 ): EventSummary {
   const short = (peerId: string | null): string =>
     peerId ? (options.full ? peerId : peerId.slice(0, 8)) : "-";
+  const peer = (peerId: string | null): string =>
+    peerId
+      ? options.full
+        ? peerId
+        : (options.peerLabel?.(peerId) ?? peerId.slice(0, 8))
+      : "-";
   switch (event.type) {
     case "peer_discovered":
       return {
         key: "events.summary.peerDiscovered",
-        values: { peer: short(event.peer), addr: event.addrs[0] ?? "-" },
+        values: { peer: peer(event.peer), addr: event.addrs[0] ?? "-" },
       };
     case "peer_connected":
       return {
         key: "events.summary.peerConnected",
-        values: { peer: short(event.peer) },
+        values: { peer: peer(event.peer) },
       };
     case "peer_disconnected":
       return {
         key: "events.summary.peerDisconnected",
-        values: { peer: short(event.peer) },
+        values: { peer: peer(event.peer) },
       };
     case "listen_failed":
       return {
@@ -119,18 +128,18 @@ export function eventSummary(
     case "dial_failed":
       return {
         key: "events.summary.dialFailed",
-        values: { peer: short(event.peer), reason: event.reason },
+        values: { peer: peer(event.peer), reason: event.reason },
       };
     case "protocol_violation":
       return {
         key: "events.summary.protocolViolation",
-        values: { peer: short(event.peer), reason: event.reason },
+        values: { peer: peer(event.peer), reason: event.reason },
       };
     case "dial_hop":
       return {
         key: "events.summary.dialHop",
         values: {
-          peer: short(event.peer),
+          peer: peer(event.peer),
           hop: labels.hopLabel(event.hop),
           outcome: event.ok ? labels.okLabel : labels.failLabel,
           detail: event.detail,
@@ -149,13 +158,13 @@ export function eventSummary(
         values: { reason: event.reason },
       };
     case "chat_message":
-      return { key: "events.summary.chatMessage", values: { peer: short(event.peer) } };
+      return { key: "events.summary.chatMessage", values: { peer: peer(event.peer) } };
     case "chat_status":
       return { key: "events.summary.chatStatus", values: { id: short(event.messageId), status: event.status } };
     case "chat_group_message":
       return {
         key: "events.summary.chatGroupMessage",
-        values: { group: short(event.groupId), sender: short(event.message.senderId) },
+        values: { group: short(event.groupId), sender: peer(event.message.senderId) },
       };
     case "chat_group_status":
       return {
@@ -165,7 +174,7 @@ export function eventSummary(
     case "chat_invite":
       return {
         key: "events.summary.chatInvite",
-        values: { peer: short(event.peer), state: event.state },
+        values: { peer: peer(event.peer), state: event.state },
       };
     case "chat_group_state":
       return {

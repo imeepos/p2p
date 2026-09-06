@@ -10,6 +10,8 @@ export interface GuiConfig {
   advertisedAddrs: string[];
   observationPort: number | null;
   observationAddrs: string[];
+  // 契约 v11 §16.5 加法：仅监听局域网发现；serde default，缺省 false（双向兼容）。
+  lanOnly?: boolean;
 }
 
 export interface NodeStatus {
@@ -296,6 +298,161 @@ export interface AcpConsoleStatus {
 
 export type AcpConsoleEventHandler = (status: AcpConsoleStatus) => void;
 
+// ── 契约 v11 §16 加法（LSG 波）：llm-share GUI 面，与 §16.1 逐字对齐，禁止改名 ──
+
+// offer show status 五态：expired/not_yet_valid=常态中性；peer_mismatch/bad_signature=警示。
+export type LlmOfferStatus =
+  | "live"
+  | "expired"
+  | "not_yet_valid"
+  | "peer_mismatch"
+  | "bad_signature";
+
+// 声明视图：声明本体 + remaining_secs/status/file；file 只读展示，GUI 禁直写 offer.json。
+export interface LlmOfferView {
+  peer: string; // 出借方 PeerId
+  models: string[];
+  spare: Record<string, number>; // model -> 闲量 token，覆盖全部 models 且 >0
+  periodEnds: string; // YYYY-MM-DD 账期截止日
+  maxPerReq: Record<string, number> | null; // model -> 单请求上限；null=未显式设限
+  rateLimit: { rpm: number; concurrency: number };
+  ttlSecs: number;
+  retention: string; // 数据留存自述
+  issuedAt: number; // 签发 epoch 秒
+  expiresAt: number; // 过期 epoch 秒
+  remainingSecs: number; // <=0 即过期（常态非错误）
+  status: LlmOfferStatus;
+  file: string;
+}
+
+// offer publish 入参：必填集 IPC 层校验（models>=1、spare 覆盖全部 model 且 N>0、
+// period-ends 为 YYYY-MM-DD），与 CLI --model/--spare/--period-ends 同规则。
+export interface LlmOfferPublishInput {
+  models: string[];
+  spare: Record<string, number>;
+  periodEnds: string;
+  maxPerReq?: Record<string, number> | null;
+  rpm?: number; // 缺省 10
+  concurrency?: number; // 缺省 2
+  ttlSecs?: number; // 缺省 3600
+  retention?: string; // 缺省 "none"
+}
+
+// allowlist 条目：models null = 不限模型（CLI --model 缺省原话）。
+export interface LlmAllowEntry {
+  peerId: string;
+  models: string[] | null;
+  note: string | null;
+  grantedAt: string; // ISO8601
+}
+
+// allow/deny 操作回执：deny 不存在条目 = ok:false 显式报错，非错误态（§16.1）。
+export interface LlmAllowOpReport {
+  op: "allow" | "deny";
+  peerId: string;
+  ok: boolean;
+  created: boolean; // allow upsert：新建 true / 刷新 false；deny 恒 false
+  message: string;
+}
+
+// allow/deny 返回操作后的 allowlist 全量快照；纯读取语义 lastOp 为 null。
+export interface LlmAllowlistView {
+  entries: LlmAllowEntry[];
+  lastOp: LlmAllowOpReport | null;
+}
+
+export interface LlmBorrowMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+// borrow 入参：maxTokens/targetPeer 必填（真实成本动作，§16.2.6）；targetPeer 无缺省
+// 路径，缺出借方 IPC 层显式报错；reqId 客户端生成 UUID 重试复用，缺省 IPC 层生成。
+export interface LlmBorrowRequest {
+  model: string;
+  messages: LlmBorrowMessage[];
+  maxTokens: number;
+  targetPeer: string;
+  reqId?: string;
+}
+
+export type LlmBorrowStatus = "done" | "stream_broken" | "rejected";
+
+// 拒绝码四值原样透出不本地化改写（§16.2.1）；rejected 是业务结果非命令 Err。
+export type LlmBorrowRejectionCode =
+  | "not_allowlisted"
+  | "model_not_served"
+  | "freeze_insufficient"
+  | "concurrency_exceeded";
+
+export interface LlmBorrowReceipt {
+  reqId: string;
+  appended: boolean; // req_id 幂等：重试复用同 reqId 不双记（§16.2.3）
+  estimated: boolean; // stream_broken 时 true（估算账单）
+  disputeWindowSecs: number; // stream_broken 时 259200（72h 争议窗）
+}
+
+export interface LlmBorrowUsage {
+  input: number;
+  output: number;
+}
+
+export interface LlmBorrowReport {
+  status: LlmBorrowStatus;
+  receipt: LlmBorrowReceipt;
+  sseCount: number; // sse 原文只出计数，正文不透传（§16.2.6）
+  usage?: LlmBorrowUsage | null;
+  code?: LlmBorrowRejectionCode | null;
+  message?: string | null;
+}
+
+export interface LlmLedgerFilter {
+  lender?: string | null;
+  borrower?: string | null;
+  period?: string | null; // 如 "2026-09"
+}
+
+// 账本流水条目（append-only 存储序；GUI 只读展示，禁直写 ledger.json）。
+export interface LlmLedgerEntry {
+  reqId: string;
+  period: string;
+  lender: string;
+  borrower: string;
+  model: string;
+  input: number;
+  output: number;
+  tokens: number;
+  estimated: boolean;
+  ts: number; // epoch 秒
+}
+
+export type LlmBalanceDirection = "lent_out" | "borrowed";
+
+// 净差按 lender+period 切分（§16.1）；netAmount 正=出借，负=借入。
+export interface LlmBalanceGroup {
+  lender: string;
+  period: string;
+  netAmount: number;
+  direction: LlmBalanceDirection;
+}
+
+export type LlmReceiptVerdict = "PASS" | "FAIL";
+
+// receipt verify 结果（ai-guide receipt verify --json 同字段，camelCase）。
+export interface LlmReceiptVerifyResult {
+  verdict: LlmReceiptVerdict;
+  reason: string;
+  reqId: string;
+  period: string;
+  lender: string;
+  borrower: string;
+  model: string;
+  input: number;
+  output: number;
+  estimated: boolean;
+  ts: number;
+}
+
 export interface IpcBackend {
   acpConsoleStatus(): Promise<AcpConsoleStatus>;
   onAcpConsoleEvent(handler: AcpConsoleEventHandler): Promise<UnlistenFn>;
@@ -378,6 +535,24 @@ export interface IpcBackend {
     limit?: number,
   ): Promise<GroupMessageJson[]>;
   groupMediaFile(groupId: string, messageId: string): Promise<ChatMediaFile>;
+  // 契约 v11 §16 加法（LSG 波）：llm-share 命令面（invoke 名逐字 snake_case，
+  // 可选参数统一传 null，同 chat 段约定）。
+  llmShareOfferPublish(offer: LlmOfferPublishInput): Promise<LlmOfferView>;
+  llmShareOfferShow(): Promise<LlmOfferView>;
+  llmShareAllowList(): Promise<{ entries: LlmAllowEntry[] }>;
+  llmShareAllow(
+    peerId: string,
+    models?: string[],
+    note?: string,
+  ): Promise<LlmAllowlistView>;
+  llmShareDeny(peerId: string): Promise<LlmAllowlistView>;
+  llmShareBorrow(req: LlmBorrowRequest): Promise<LlmBorrowReport>;
+  llmShareLedgerList(filter?: LlmLedgerFilter): Promise<LlmLedgerEntry[]>;
+  llmShareLedgerBalance(): Promise<LlmBalanceGroup[]>;
+  llmShareReceiptVerify(
+    reqId: string,
+    lenderPubkey?: string,
+  ): Promise<LlmReceiptVerifyResult>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
 }
 

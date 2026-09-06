@@ -105,6 +105,20 @@ describe("agent 会话 console 引导卡与直落（UX3）", () => {
     expect(screen.queryByTestId("agent-console-guide")).toBeNull();
   });
 
+  it("连接失败行内出人话与可复制详情，错误码不再直显（F06）", () => {
+    seedLocalEndpoint();
+    useAcpStore.setState({ console: readyStatus() });
+    useAcpStore.setState({ lastError: "endpointIncomplete" });
+    renderConversation();
+    const text = screen.getByTestId("agent-connect-error-text").textContent ?? "";
+    expect(text).toContain("缺少 Token");
+    expect(text).toContain("高级设置");
+    expect(text).not.toContain("[endpointIncomplete]");
+    const copy = screen.getByTestId("agent-connect-error-copy");
+    expect(copy.getAttribute("title")).toContain("error=endpointIncomplete");
+    expect(copy.getAttribute("title")).toContain("ws://127.0.0.1:8787");
+  });
+
   it("自动流程就绪后 /chat?agent=<本机id> 直落会话：transcript 就位零二次点击", async () => {
     vi.stubGlobal(
       "fetch",

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { z } from "zod";
@@ -55,16 +55,27 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
   });
   const serialized = relayAddrs.join("\n");
 
+  // 最近一次落定的地址串（磁盘值/保存值），同步脏判断的比对基准
+  const committedRef = useRef(serialized);
+
   // 外部（保存回读/设置页修改）同步进表单；按序列化值比对避免无谓重置。
   useEffect(() => {
+    committedRef.current = serialized;
     form.reset({ relayAddrs: toRows(relayAddrs) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serialized]);
 
-  // 地址列表脏状态注册路由守卫：离开中继页时统一弹确认，放弃则还原为磁盘值
+  // 地址列表脏状态注册路由守卫：离开中继页时统一弹确认，放弃则还原为磁盘值。
+  // 脏判断用即时值比对而非 formState.isDirty——RHF 的 isDirty 在 reset 后滞后
+  // 一拍，守卫「放弃 -> 放行导航」会被残留脏标记二次拦截（F05 实测复现）。
   useUnsavedGuard("relay-addrs", {
-    hasUnsaved: () => form.formState.isDirty,
-    discard: () => form.reset({ relayAddrs: toRows(relayAddrs) }),
+    hasUnsaved: () =>
+      fromRows(form.getValues().relayAddrs ?? []).join("\n") !==
+      committedRef.current,
+    discard: () => {
+      form.reset({ relayAddrs: toRows(relayAddrs) });
+      committedRef.current = relayAddrs.join("\n");
+    },
   });
 
   const submit = (): Promise<void> =>
@@ -73,6 +84,7 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
         try {
           await onSave(fromRows(values.relayAddrs));
           form.reset(values);
+          committedRef.current = fromRows(values.relayAddrs).join("\n");
           toastSuccess(t("relay.config.saved"));
           resolve();
         } catch (error) {
