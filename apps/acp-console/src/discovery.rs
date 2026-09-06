@@ -98,29 +98,41 @@ pub async fn forward_events(node: Arc<p2p::Node>, hub: Arc<DiscoveryHub>) {
     }
 }
 
-/// 手动登记（D 的手动面）：地址入底座地址簿（直拨入口）+ 候选表；
-/// 随后按 PeerId 向 rendezvous 精确查号补地址（best-effort，失败降 debug 留痕）。
+/// 手动登记（D 的手动面）：沿 register_peer 的通用机制，来源标注 manual。
 pub async fn apply_manual(node: &p2p::Node, hub: &DiscoveryHub, manual: &[(String, Vec<String>)]) {
     for (peer_raw, addrs) in manual {
-        let peer = match crate::dial::parse_peer_id(peer_raw) {
-            Ok(p) => p,
-            Err(err) => {
-                tracing::warn!(peer = %peer_raw, %err, "manual peer rejected");
-                continue;
-            }
-        };
-        for addr in addrs {
-            if let Err(err) = node.add_peer_address(peer, addr) {
-                tracing::warn!(peer = %peer_raw, addr, error = %err, "manual address rejected");
-            }
+        register_peer(node, hub, peer_raw, addrs, "manual").await;
+    }
+}
+
+/// 单 peer 候选登记（manual/share 共用直拨入口）：地址入底座地址簿 + 候选表
+/// （带 source 标注）；随后按 PeerId 向 rendezvous 精确查号补地址
+/// （best-effort，失败降 debug 留痕）。
+pub async fn register_peer(
+    node: &p2p::Node,
+    hub: &DiscoveryHub,
+    peer_raw: &str,
+    addrs: &[String],
+    source: &str,
+) {
+    let peer = match crate::dial::parse_peer_id(peer_raw) {
+        Ok(p) => p,
+        Err(err) => {
+            tracing::warn!(peer = %peer_raw, %err, "manual peer rejected");
+            return;
         }
-        hub.record(peer_raw.clone(), addrs.clone(), "manual");
-        match node.query_peer(peer_raw).await {
-            Ok(found) if !found.is_empty() => hub.record(peer_raw.clone(), found, "rendezvous"),
-            Ok(_) => {}
-            Err(err) => {
-                tracing::debug!(peer = %peer_raw, error = %err, "rendezvous query unavailable");
-            }
+    };
+    for addr in addrs {
+        if let Err(err) = node.add_peer_address(peer, addr) {
+            tracing::warn!(peer = %peer_raw, addr, error = %err, "manual address rejected");
+        }
+    }
+    hub.record(peer_raw.to_string(), addrs.to_vec(), source);
+    match node.query_peer(peer_raw).await {
+        Ok(found) if !found.is_empty() => hub.record(peer_raw.to_string(), found, "rendezvous"),
+        Ok(_) => {}
+        Err(err) => {
+            tracing::debug!(peer = %peer_raw, error = %err, "rendezvous query unavailable");
         }
     }
 }

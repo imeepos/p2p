@@ -33,6 +33,8 @@ pub struct AgentMock {
     half_close_after_ready: bool,
     issue_ticket: Option<String>,
     received: Mutex<Option<ClientHello>>,
+    /// 全部握手历史（share 直拨等多次连接断言用）。
+    history: Mutex<Vec<ClientHello>>,
 }
 
 impl AgentMock {
@@ -43,6 +45,7 @@ impl AgentMock {
             half_close_after_ready: false,
             issue_ticket: None,
             received: Mutex::new(None),
+            history: Mutex::new(Vec::new()),
         }
     }
 
@@ -53,6 +56,7 @@ impl AgentMock {
             half_close_after_ready: false,
             issue_ticket: None,
             received: Mutex::new(None),
+            history: Mutex::new(Vec::new()),
         }
     }
 
@@ -64,6 +68,7 @@ impl AgentMock {
             half_close_after_ready: true,
             issue_ticket: None,
             received: Mutex::new(None),
+            history: Mutex::new(Vec::new()),
         }
     }
 
@@ -75,12 +80,18 @@ impl AgentMock {
             half_close_after_ready: false,
             issue_ticket: Some(ticket.to_string()),
             received: Mutex::new(None),
+            history: Mutex::new(Vec::new()),
         }
     }
 
-    /// 收到的 ClientHello（None = 尚未握手）。
+    /// 收到的 ClientHello（None = 尚未握手；多次连接取最近一次）。
     pub fn hello(&self) -> Option<ClientHello> {
         self.received.lock().unwrap().clone()
+    }
+
+    /// 按到达序的全部握手记录（幂等/重复导入断言用）。
+    pub fn hellos(&self) -> Vec<ClientHello> {
+        self.history.lock().unwrap().clone()
     }
 }
 
@@ -96,7 +107,8 @@ impl ProtocolHandler for AgentMock {
         reader.read_line(&mut line).await?;
         let hello = parse_client_hello(line.trim())
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
-        *self.received.lock().unwrap() = Some(hello);
+        *self.received.lock().unwrap() = Some(hello.clone());
+        self.history.lock().unwrap().push(hello);
         let reply = match (&self.deny, &self.issue_ticket) {
             (Some(code), _) => ServerHello::Denied {
                 denied: code.clone(),
@@ -249,29 +261,20 @@ pub fn teardown(rig: Rig) {
     let _ = std::fs::remove_dir_all(&rig.data_dir);
 }
 
-/// status 端点依赖（与 main.rs 同装配：hub + discovery + 票据 + 窗口）。
+/// status 端点依赖（与 main.rs 同装配：hub + discovery + 票据 + 窗口 + 直拨面）。
 pub fn status_deps(rig: &Rig) -> acp_console::status::StatusDeps {
     acp_console::status::StatusDeps {
         hub: rig.hub.clone(),
         discovery: rig.disc.clone(),
         tickets: rig.tickets.clone(),
         window: TEST_WINDOW,
+        node: rig.console.clone(),
+        ws_addr: rig.ws_addr,
+        ws_token: rig.token.clone(),
     }
 }
 
-/// 裸 HTTP GET（status 契约测试用）：返回完整响应文本。
-pub async fn http_get(addr: std::net::SocketAddr, path: &str, token: Option<&str>) -> String {
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    let mut s = tokio::net::TcpStream::connect(addr).await.unwrap();
-    let head = match token {
-        Some(t) => format!("GET {path} HTTP/1.1\r\nAuthorization: Bearer {t}\r\n\r\n"),
-        None => format!("GET {path} HTTP/1.1\r\n\r\n"),
-    };
-    s.write_all(head.as_bytes()).await.unwrap();
-    let mut buf = Vec::new();
-    tokio::time::timeout(STEP, s.read_to_end(&mut buf))
-        .await
-        .unwrap()
-        .unwrap();
-    String::from_utf8(buf).unwrap()
-}
+mod util;
+// 按目标独立编译：不触 HTTP 面的测试目标会报未用，沿本文件 dead_code 豁免先例。
+#[allow(unused_imports)]
+pub use util::*;

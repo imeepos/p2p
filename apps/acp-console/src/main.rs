@@ -13,6 +13,7 @@ use serde::Serialize;
 use acp_console::config::{parse_manual_peers, ConsoleConfig};
 use acp_console::discovery::{self, DiscoveryHub};
 use acp_console::out;
+use acp_console::share;
 use acp_console::state::StatusHub;
 use acp_console::status::{StatusDeps, StatusServer};
 use acp_console::ticket::TicketStore;
@@ -49,6 +50,9 @@ struct Args {
     /// 断流续连窗口秒数（设计 §5 默认 90）
     #[arg(long, default_value_t = acp_common::consts::REATTACH_WINDOW_DEFAULT_SECS, value_name = "SECS")]
     window_secs: u64,
+    /// 分享链接 dsh-acp-share://v1：启动即按链接直拨激活（设计 acp-share §7）
+    #[arg(long, value_name = "URL")]
+    share_link: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -71,6 +75,12 @@ fn main() -> Result<(), String> {
 
 async fn run(args: Args) -> Result<(), String> {
     let manual_peers = parse_manual_peers(&args.peers)?;
+    let share_link = match args.share_link.as_deref() {
+        Some(raw) => {
+            Some(share::parse_share_link(raw).map_err(|e| format!("bad --share-link: {e}"))?)
+        }
+        None => None,
+    };
     // CLI 入参统一收敛进 ConsoleConfig（库面装配契约），main 只做翻译不做业务。
     let cfg = ConsoleConfig {
         data_dir: args.data_dir.clone(),
@@ -81,6 +91,7 @@ async fn run(args: Args) -> Result<(), String> {
         ws_port: args.ws_port,
         status_port: args.status_port,
         reattach_window: Duration::from_secs(args.window_secs),
+        share_link,
     };
     std::fs::create_dir_all(&cfg.data_dir)
         .map_err(|e| format!("data dir {}: {e}", cfg.data_dir.display()))?;
@@ -102,6 +113,19 @@ async fn run(args: Args) -> Result<(), String> {
     tokio::spawn(discovery::forward_events(node.clone(), disc.clone()));
 
     let local_token = token::new_token();
+    // WS 先起：status deps 需要 ws.addr（/connect-share 经本地 WS 复用连接编排）。
+    let ws = WsServer::start(
+        cfg.ws_port,
+        local_token.clone(),
+        WsDeps {
+            node: node.clone(),
+            hub: hub.clone(),
+            tickets: tickets.clone(),
+            window,
+        },
+    )
+    .await
+    .map_err(|e| format!("ws server: {e}"))?;
     let status = StatusServer::start(
         cfg.status_port,
         local_token.clone(),
@@ -110,23 +134,15 @@ async fn run(args: Args) -> Result<(), String> {
             discovery: disc.clone(),
             tickets: tickets.clone(),
             window,
+            node: node.clone(),
+            ws_addr: ws.addr,
+            ws_token: local_token.clone(),
         },
     )
     .await
     .map_err(|e| format!("status server: {e}"))?;
-    let ws = WsServer::start(
-        cfg.ws_port,
-        local_token.clone(),
-        WsDeps {
-            node: node.clone(),
-            hub,
-            tickets,
-            window,
-        },
-    )
-    .await
-    .map_err(|e| format!("ws server: {e}"))?;
 
+    let ws_token = local_token.clone();
     out::event(
         "ready",
         &ReadyLine {
@@ -137,6 +153,18 @@ async fn run(args: Args) -> Result<(), String> {
         },
     );
     tracing::info!(ws = %ws.addr, status = %status.addr, "acp-console ready");
+
+    // 分享链接直拨（acp-share §7）：不阻塞就绪发布；结果经 stdout
+    // share-connect/state 事件行可观测，禁止静默。
+    if let Some(link) = cfg.share_link.clone() {
+        let node = node.clone();
+        let hub = hub.clone();
+        let disc = disc.clone();
+        let ws_addr = ws.addr;
+        tokio::spawn(async move {
+            share::connect_via_link(node, hub, disc, ws_addr, ws_token, &link).await;
+        });
+    }
 
     tokio::signal::ctrl_c()
         .await

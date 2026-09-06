@@ -13,6 +13,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::discovery::DiscoveryHub;
+use crate::share;
 use crate::state::{now_unix_ms, StatusHub};
 use crate::ticket::{TicketQuery, TicketStore};
 
@@ -26,6 +27,12 @@ pub struct StatusDeps {
     pub discovery: Arc<DiscoveryHub>,
     pub tickets: Arc<TicketStore>,
     pub window: Duration,
+    /// P2P 节点（/connect-share 直拨复用本进程拨号面）。
+    pub node: Arc<p2p::Node>,
+    /// 本地 WS 服务地址（/connect-share 经其复用连接编排）。
+    pub ws_addr: SocketAddr,
+    /// 本地 WS 鉴权 token（与 status 同源，connect_via_link 自连用）。
+    pub ws_token: String,
 }
 
 pub struct StatusServer {
@@ -60,8 +67,8 @@ async fn accept_loop(listener: TcpListener, token: String, deps: StatusDeps) {
 }
 
 async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
-    let head = match read_head(&mut tcp).await {
-        Ok(head) => head,
+    let (head, body_prefix) = match read_request(&mut tcp).await {
+        Ok((head, body_prefix)) => (head, body_prefix),
         Err(err) => {
             tracing::warn!(error = %err, "status: bad request head");
             return;
@@ -100,6 +107,19 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
             reply(&mut tcp, 200, "OK", &body).await;
         }
         ("GET", "/reattach") => handle_reattach(&mut tcp, &deps, query).await,
+        ("POST", "/connect-share") => match read_body(&mut tcp, &head, body_prefix).await {
+            Ok(body) => share::handle_connect_share(&mut tcp, &deps, &body).await,
+            Err(err) => {
+                tracing::warn!(error = %err, "connect-share: unreadable body");
+                reply(
+                    &mut tcp,
+                    400,
+                    "Bad Request",
+                    "{\"error\":\"bad-request\",\"reason\":\"unreadable body\"}",
+                )
+                .await;
+            }
+        },
         _ => reply(&mut tcp, 404, "Not Found", "{\"error\":\"not-found\"}").await,
     }
 }
@@ -145,8 +165,11 @@ fn query_param<'a>(query: &'a str, key: &str) -> Option<&'a str> {
     })
 }
 
-/// 读请求头（至 "\r\n\r\n"），带护栏与超时；EOF/超限即坏请求。
-async fn read_head(tcp: &mut TcpStream) -> io::Result<String> {
+/// /connect-share 请求体上限：链接为 KB 级，64 KiB 已宽松。
+const BODY_CAP: usize = 64 * 1024;
+
+/// 读请求（头至 "\r\n\r\n"）与同批到达的请求体前缀；护栏与超时，EOF/超限即坏请求。
+async fn read_request(tcp: &mut TcpStream) -> io::Result<(String, Vec<u8>)> {
     let inner = async {
         let mut buf: Vec<u8> = Vec::new();
         let mut chunk = [0u8; 512];
@@ -165,13 +188,50 @@ async fn read_head(tcp: &mut TcpStream) -> io::Result<String> {
     let buf = tokio::time::timeout(HEAD_TIMEOUT, inner)
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "status head timeout"))??;
-    if find_head_end(&buf).is_none() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "unterminated head",
-        ));
+    let head_end = find_head_end(&buf)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "unterminated head"))?;
+    let head = String::from_utf8_lossy(&buf[..head_end + 4]).into_owned();
+    Ok((head, buf[head_end + 4..].to_vec()))
+}
+
+/// 按 Content-Length 读全请求体（在 read_request 前缀上续读，带护栏）；
+/// 缺长/超限/截断/超时即错，由路由方以 400 应答。
+async fn read_body(tcp: &mut TcpStream, head: &str, prefix: Vec<u8>) -> io::Result<String> {
+    let want = header_value(head, "content-length")
+        .and_then(|v| v.parse::<usize>().ok())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing content-length"))?;
+    if want > BODY_CAP {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "body too large"));
     }
-    Ok(String::from_utf8_lossy(&buf).into_owned())
+    let mut buf = prefix;
+    let read_rest = async {
+        let mut chunk = [0u8; 1024];
+        while buf.len() < want {
+            let n = tcp.read(&mut chunk).await?;
+            if n == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "truncated body",
+                ));
+            }
+            buf.extend_from_slice(&chunk[..n]);
+        }
+        Ok::<(), io::Error>(())
+    };
+    tokio::time::timeout(HEAD_TIMEOUT, read_rest)
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "body timeout"))??;
+    Ok(String::from_utf8_lossy(&buf[..want]).into_owned())
+}
+
+fn header_value(head: &str, name: &str) -> Option<String> {
+    head.split("\r\n")
+        .skip(1)
+        .take_while(|l| !l.is_empty())
+        .find_map(|l| {
+            let (n, v) = l.split_once(':')?;
+            n.eq_ignore_ascii_case(name).then(|| v.trim().to_string())
+        })
 }
 
 fn find_head_end(buf: &[u8]) -> Option<usize> {
@@ -194,7 +254,7 @@ fn parse_head(head: &str) -> (String, String, Option<String>) {
     (method, path, bearer)
 }
 
-async fn reply(tcp: &mut TcpStream, status: u16, reason: &str, body: &str) {
+pub(crate) async fn reply(tcp: &mut TcpStream, status: u16, reason: &str, body: &str) {
     let resp = format!(
         "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
