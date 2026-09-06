@@ -584,7 +584,7 @@ const enUS: typeof zhCN = {
       action: "New group",
       title: "Create group",
       nameLabel: "Group name",
-      namePlaceholder: "1-64 characters after trim",
+      namePlaceholder: "Group name, 1-64 characters",
       membersLabel: "Pick members (friends)",
       memberRequired: "Pick at least one friend",
       submit: "Create",
@@ -1297,7 +1297,7 @@ const enUS: typeof zhCN = {
       diagnostics: "Diagnostics",
     },
     overview: {
-      title: "Network Overview",
+      title: "Overview",
       description: "Node status, metrics and recent events at a glance",
       viewAll: "View all",
       troubleshootTitle: "Troubleshooting",
@@ -1354,6 +1354,28 @@ const enUS: typeof zhCN = {
     promptFailed: "Failed to send the message: the connection may be gone, reconnect and resend",
     setConfigFailed: "Failed to apply the config option: make sure the session is online and retry",
     fallback: "Connection failed: please retry; if it keeps failing, copy the details for troubleshooting",
+  },
+  // UX-K (F08/F09/F10/F27): flow-consistency copy; the withdraw label reuses
+  // contacts.friends.cancelInvite (single source for both surfaces)
+  uxk: {
+    messages: {
+      withdrawFailed: "Withdraw failed: ",
+    },
+    group: {
+      nameTooLong: "Group name is limited to 64 characters",
+      emptyFriendsTitle: "No friends yet, cannot create a group",
+      emptyFriendsHint: "Group members are chosen from your friends. Add at least one friend first.",
+      addFriendCta: "Add a friend first",
+    },
+    diagnostics: {
+      desktopOnlyTitle: "Log files are a desktop capability",
+      desktopOnlyHint:
+        "The browser preview runs no node and has no local logs. Start the desktop app to see the log path and contents here.",
+    },
+    errors: {
+      copyDetails: "Copy details",
+      copyDetailsDone: "Error details copied",
+    },
   },
 };
 

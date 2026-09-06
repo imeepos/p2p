@@ -569,7 +569,7 @@ const zhCN = {
       action: "建群",
       title: "创建群聊",
       nameLabel: "群名称",
-      namePlaceholder: "群名（trim 后 1-64 字符）",
+      namePlaceholder: "输入群名（1-64 个字）",
       membersLabel: "选择成员（好友簿）",
       memberRequired: "至少选择一名好友",
       submit: "创建",
@@ -1273,7 +1273,7 @@ const zhCN = {
       diagnostics: "诊断",
     },
     overview: {
-      title: "网络概览",
+      title: "概览",
       description: "节点状态、指标与最近事件一屏总览",
       viewAll: "查看全部",
       troubleshootTitle: "排障入口",
@@ -1329,6 +1329,28 @@ const zhCN = {
     promptFailed: "消息发送失败：连接可能已中断，请重新连接后重发",
     setConfigFailed: "配置下发失败：请确认会话在线后重试",
     fallback: "连接失败：请重试；持续失败可复制详情排查",
+  },
+  // UX-K（F08/F09/F10/F27）：操作路径一致性文案；撤回按钮标签复用
+  // contacts.friends.cancelInvite（两处同源），此处只放新增键
+  uxk: {
+    messages: {
+      withdrawFailed: "撤回失败：",
+    },
+    group: {
+      nameTooLong: "群名最长 64 个字",
+      emptyFriendsTitle: "还没有好友，暂不能建群",
+      emptyFriendsHint: "群聊成员从好友簿中选择，先添加至少一名好友",
+      addFriendCta: "先去添加好友",
+    },
+    diagnostics: {
+      desktopOnlyTitle: "日志文件为桌面端能力",
+      desktopOnlyHint:
+        "浏览器预览不运行节点，也没有本地日志；启动桌面应用后可在此查看日志路径与内容",
+    },
+    errors: {
+      copyDetails: "复制详情",
+      copyDetailsDone: "错误详情已复制",
+    },
   },
 };
 
