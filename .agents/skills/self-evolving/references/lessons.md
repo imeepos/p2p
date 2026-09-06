@@ -333,3 +333,4 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06：apps/cli 包名是 p2pctl 且自带 [workspace]（根 workspace 成员只有 crates/*）：cargo test -p p2p-cli 跑的是 crates/p2p-cli 小库，p2pctl 单测门禁不覆盖，交付 CLI 改动后手动 cargo test --manifest-path apps/cli/Cargo.toml 验证。
 - 2026-09-06：tauri mock-runtime 测试助手里 State 生命周期挂在 Manager 上，不能随函数返回值带出；照 group_command_smoke 模式返回 (App, AppHandle, 数据)，用例体内 handle.state() 自取。
 - 2026-09-06：断言恒 false 的字段先读实现判断它改的是 store 还是内存副本；用钓鱼定位——在失败路径直调底层门面打印真实返回值，一次钉死黑盒差异（本次 1-8ms 即据此排除拨号超时假设）。
+见下方 IMC 轮新增条目（追加于文件尾）
