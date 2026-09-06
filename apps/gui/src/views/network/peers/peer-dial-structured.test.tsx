@@ -6,7 +6,7 @@ const { peerDialMock } = vi.hoisted(() => ({ peerDialMock: vi.fn() }));
 vi.mock("@/lib/ipc", () => ({ ipc: { peerDial: peerDialMock } }));
 
 import "@/i18n";
-import { selectPeerList, useNodeStore } from "@/stores/node-store";
+import { useNodeStore } from "@/stores/node-store";
 import { PeerDialDialog } from "./peer-dial-dialog";
 
 const PEER_ID = "a".repeat(44);

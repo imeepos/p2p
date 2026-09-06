@@ -12,38 +12,43 @@ const OPTIONS: PickerOption[] = [
   { value: "p-gamma", label: "远端 gamma" },
 ];
 
-function Harness(props: {
+interface HarnessProps {
+  options?: PickerOption[];
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
-}): { current: string | null } {
-  const box: { current: string | null } = { current: null };
-  function Inner() {
-    const [value, setValue] = useState<string | null>(null);
-    box.current = value;
-    return (
-      <EntityCombobox
-        options={OPTIONS}
-        value={value}
-        onChange={setValue}
-        loading={props.loading}
-        error={props.error}
-        onRetry={props.onRetry}
-        testId="picker"
-      />
-    );
-  }
-  render(<Inner />);
-  return box;
+  testId?: string;
 }
 
-function openPanel(): void {
-  fireEvent.click(screen.getByTestId("picker"));
+// 顶层 harness（react-hooks 编译规则：不在渲染期造组件）；选中态经 DOM 断言
+function ComboHarness({
+  options = OPTIONS,
+  loading,
+  error,
+  onRetry,
+  testId = "picker",
+}: HarnessProps) {
+  const [value, setValue] = useState<string | null>(null);
+  return (
+    <EntityCombobox
+      options={options}
+      value={value}
+      onChange={setValue}
+      loading={loading}
+      error={error}
+      onRetry={onRetry}
+      testId={testId}
+    />
+  );
+}
+
+function openPanel(testId = "picker"): void {
+  fireEvent.click(screen.getByTestId(testId));
 }
 
 describe("EntityCombobox 单选选择器", () => {
   it("展开后即时搜索过滤选项：命中保留，未命中隐藏", () => {
-    Harness({});
+    render(<ComboHarness />);
     openPanel();
     expect(screen.getByRole("option", { name: /小圆/ })).toBeTruthy();
     fireEvent.change(screen.getByTestId("picker-search"), { target: { value: "gamma" } });
@@ -52,56 +57,44 @@ describe("EntityCombobox 单选选择器", () => {
   });
 
   it("键盘上下移动高亮、回车选中并收起面板", () => {
-    const box = Harness({});
+    render(<ComboHarness />);
     openPanel();
     fireEvent.keyDown(screen.getByTestId("picker-search"), { key: "ArrowDown" });
     fireEvent.keyDown(screen.getByTestId("picker-search"), { key: "Enter" });
-    expect(box.current).toBe("p-beta");
     expect(screen.queryByTestId("picker-panel")).toBeNull();
+    expect(screen.getByTestId("picker").textContent).toContain("节点 beta");
   });
 
   it("加载态显示加载提示；错误态显示失败与重试入口并可触发", () => {
     const onRetry = vi.fn();
-    const { unmount } = render(
-      <EntityCombobox options={[]} value={null} onChange={vi.fn()} loading testId="picker-l" />,
-    );
-    fireEvent.click(screen.getByTestId("picker-l"));
+    const { unmount } = render(<ComboHarness options={[]} loading testId="picker-l" />);
+    openPanel("picker-l");
     expect(screen.getByTestId("picker-loading")).toBeTruthy();
     unmount();
-    render(
-      <EntityCombobox
-        options={[]}
-        value={null}
-        onChange={vi.fn()}
-        error="boom"
-        onRetry={onRetry}
-        testId="picker-e"
-      />,
-    );
+    render(<ComboHarness options={[]} error="boom" onRetry={onRetry} testId="picker-e" />);
     fireEvent.click(screen.getByTestId("picker-e"));
     expect(screen.getByTestId("picker-error")).toBeTruthy();
     fireEvent.click(screen.getByTestId("picker-retry"));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it("无匹配进入空态；选中后可清空（onChange(null)）", () => {
-    const box = Harness({});
+  it("无匹配进入空态；选中后可清空（触发器回到占位）", () => {
+    render(<ComboHarness />);
     openPanel();
     fireEvent.change(screen.getByTestId("picker-search"), { target: { value: "不存在" } });
     expect(screen.getByTestId("picker-empty")).toBeTruthy();
     fireEvent.change(screen.getByTestId("picker-search"), { target: { value: "" } });
     fireEvent.click(screen.getByRole("option", { name: /小圆/ }));
+    expect(screen.getByTestId("picker").textContent).toContain("小圆");
     fireEvent.click(screen.getByTestId("picker-clear"));
-    expect(box.current).toBeNull();
+    expect(screen.getByTestId("picker").textContent).not.toContain("小圆");
   });
 
-  it("选项副行展示缩略标识；触发器回显人可读名", () => {
-    const box = Harness({});
+  it("选项副行展示缩略标识", () => {
+    render(<ComboHarness />);
     openPanel();
-    const row = screen.getByRole("option", { name: /小圆/ });
-    expect(row.textContent).toContain(shortPeerId("p-alpha-full"));
-    fireEvent.click(row);
-    expect(screen.getByTestId("picker").textContent).toContain("小圆");
-    expect(box.current).toBe("p-alpha");
+    expect(
+      screen.getByRole("option", { name: /小圆/ }).textContent,
+    ).toContain(shortPeerId("p-alpha-full"));
   });
 });

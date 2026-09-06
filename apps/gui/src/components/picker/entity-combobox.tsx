@@ -97,7 +97,8 @@ export function EntityCombobox({
 
   const filtered = useMemo(() => filterOptions(options, query), [options, query]);
   const selected = options.find((option) => option.value === value) ?? null;
-  const activeId = listId + "-opt-" + active;
+  // active 渲染期钳制（不落 effect）：列表缩短时高亮不越界
+  const activeIndex = Math.min(active, Math.max(0, filtered.length - 1));
 
   useEffect(() => {
     if (!open) return;
@@ -107,10 +108,6 @@ export function EntityCombobox({
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
-
-  useEffect(() => {
-    setActive((prev) => Math.min(prev, Math.max(0, filtered.length - 1)));
-  }, [filtered.length]);
 
   const openPanel = () => {
     setQuery("");
@@ -136,7 +133,7 @@ export function EntityCombobox({
       );
     } else if (event.key === "Enter") {
       event.preventDefault();
-      pick(filtered[active]);
+      pick(filtered[activeIndex]);
     } else if (event.key === "Escape") {
       setOpen(false);
     }
@@ -207,7 +204,7 @@ export function EntityCombobox({
               role="combobox"
               aria-expanded
               aria-controls={listId}
-              aria-activedescendant={filtered.length > 0 ? activeId : undefined}
+              aria-activedescendant={filtered.length > 0 ? listId + "-opt-" + activeIndex : undefined}
               aria-autocomplete="list"
               autoComplete="off"
               data-testid={testId + "-search"}
@@ -222,7 +219,7 @@ export function EntityCombobox({
                   key={option.value}
                   option={option}
                   selected={option.value === value}
-                  active={index === active}
+                  active={index === activeIndex}
                   optionId={listId + "-opt-" + index}
                   onHover={() => setActive(index)}
                   onSelect={() => pick(option)}

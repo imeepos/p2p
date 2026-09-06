@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
-import { EntityCombobox, shortPeerId, type PickerOption } from "@/components/picker";
+import { EntityCombobox } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +20,7 @@ import { selectPeerList, useNodeStore } from "@/stores/node-store";
 import { useChatStore } from "@/stores/chat-store";
 
 import {
+  friendPickOptions,
   hasFriendFormErrors,
   validateFriendForm,
   type FriendFieldError,
@@ -53,21 +54,6 @@ function CommandError({ message }: { message: string | null }) {
       {message}
     </p>
   );
-}
-
-// F03：发现清单/节点表 → 选择器候选；在册好友显示昵称，其余用缩略 PeerId。
-export function friendPickOptions(
-  peers: Array<{ peerId: string }>,
-  friends: Array<{ peerId: string; nickname: string }>,
-): PickerOption[] {
-  return peers.map((peer) => {
-    const friend = friends.find((f) => f.peerId === peer.peerId);
-    return {
-      value: peer.peerId,
-      label: friend?.nickname || shortPeerId(peer.peerId),
-      hint: shortPeerId(peer.peerId),
-    };
-  });
 }
 
 // 行内校验错误与字段 aria 关联（F24）：invalid + describedby 指向错误节点，
@@ -236,7 +222,7 @@ function AddrRows({
 }: {
   addrs: string[];
   setAddrs: (update: (rows: string[]) => string[]) => void;
-  errors: Record<number, FriendFieldError>;
+  errors?: Record<number, FriendFieldError>;
 }) {
   const { t } = useTranslation();
   return (
@@ -258,7 +244,7 @@ function AddrRows({
                 placeholder={t("chat.addFriend.addrPlaceholder")}
                 aria-label={`${t("chat.addFriend.addrsLabel")} ${index + 1}`}
                 autoComplete="off"
-                {...peerAria(errorId, errors[index])}
+                {...peerAria(errorId, errors?.[index])}
               />
               <Button
                 type="button"
@@ -270,7 +256,7 @@ function AddrRows({
                 <Trash2Icon aria-hidden />
               </Button>
             </div>
-            <FieldError code={errors[index]} errorId={errorId} />
+            <FieldError code={errors?.[index]} errorId={errorId} />
           </div>
         );
       })}

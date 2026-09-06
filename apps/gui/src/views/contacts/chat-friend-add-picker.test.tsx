@@ -23,20 +23,22 @@ vi.mock("@/lib/ipc", () => ({
 }));
 
 import "@/i18n";
-import { ChatFriendAddDialog, friendPickOptions } from "./chat-friend-add-dialog";
+import type { PeerEntry } from "@/stores/node-store";
+import { friendPickOptions } from "./chat-friend-rules";
+import { ChatFriendAddDialog } from "./chat-friend-add-dialog";
 
 // 真实 base58（解码恰 32 字节），与后端 parse_peer_id 同口径的合法夹具
 const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
 const PEER2 = "2cLxSV5Nr7oBdzPhCaLD5XMuwkRDWsyf9m3DpZCTHs2a";
 
 function seedDiscovered(peerIds: string[]): void {
-  const peers = Object.fromEntries(
+  const peers: Record<string, PeerEntry> = Object.fromEntries(
     peerIds.map((peerId) => [
       peerId,
       {
         peerId,
         addrs: ["192.168.1.9/u34001"],
-        source: "mdns",
+        source: "mdns" as const,
         connected: false,
         lastSeenMs: 1,
         hops: [],

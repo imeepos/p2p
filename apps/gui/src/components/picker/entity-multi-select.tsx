@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SearchIcon, XIcon } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 
 import { filterOptions, type PickerOption } from "./picker-option";
 import { PickerOptionRow } from "./picker-option-row";
@@ -39,10 +38,8 @@ export function EntityMultiSelect({
   const selectedOptions = selected
     .map((value) => options.find((option) => option.value === value))
     .filter((option): option is PickerOption => option !== undefined);
-
-  useEffect(() => {
-    setActive((prev) => Math.min(prev, Math.max(0, filtered.length - 1)));
-  }, [filtered.length]);
+  // active 渲染期钳制（不落 effect）：列表缩短时高亮不越界
+  const activeIndex = Math.min(active, Math.max(0, filtered.length - 1));
 
   const toggle = (value: string) => {
     onChange(
@@ -63,7 +60,7 @@ export function EntityMultiSelect({
       );
     } else if (event.key === "Enter") {
       event.preventDefault();
-      const option = filtered[active];
+      const option = filtered[activeIndex];
       if (option) toggle(option.value);
     }
   };
@@ -86,7 +83,7 @@ export function EntityMultiSelect({
           role="combobox"
           aria-expanded
           aria-controls={listId}
-          aria-activedescendant={filtered.length > 0 ? listId + "-opt-" + active : undefined}
+          aria-activedescendant={filtered.length > 0 ? listId + "-opt-" + activeIndex : undefined}
           aria-autocomplete="list"
           autoComplete="off"
           className="pl-8"
@@ -144,7 +141,7 @@ export function EntityMultiSelect({
               key={option.value}
               option={option}
               selected={selected.includes(option.value)}
-              active={index === active}
+              active={index === activeIndex}
               optionId={listId + "-opt-" + index}
               onHover={() => setActive(index)}
               onSelect={() => toggle(option.value)}

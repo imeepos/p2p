@@ -1,3 +1,4 @@
+import { shortPeerId, type PickerOption } from "@/components/picker";
 import { isValidTransportAddr } from "@/views/shared/address-rules";
 
 // 添加好友表单预校验，与后端 crates/p2p-chat friend_add 同口径：
@@ -56,6 +57,21 @@ export function hasFriendFormErrors(errors: FriendFormErrors): boolean {
     errors.nickname !== undefined ||
     Object.keys(errors.addrs).length > 0
   );
+}
+
+// F03：发现清单/节点表 → 选择器候选；在册好友显示昵称，其余用缩略 PeerId。
+export function friendPickOptions(
+  peers: Array<{ peerId: string }>,
+  friends: Array<{ peerId: string; nickname: string }>,
+): PickerOption[] {
+  return peers.map((peer) => {
+    const friend = friends.find((f) => f.peerId === peer.peerId);
+    return {
+      value: peer.peerId,
+      label: friend?.nickname || shortPeerId(peer.peerId),
+      hint: shortPeerId(peer.peerId),
+    };
+  });
 }
 
 // 空地址行忽略（提交前由调用方过滤），非空行逐条语法校验。
