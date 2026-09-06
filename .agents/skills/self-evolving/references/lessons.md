@@ -338,3 +338,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 IMC 轮：共享账本/协调表编辑禁多层转义内联脚本（bash 套 python 套 JSON 必炸语法），用 write 落脚本文件再执行；改前先读回、改后回读校验（轮 44 教训复验）。
 - 2026-09-06 IMC 轮：自己验收作业运行期间，主树禁止任何写操作（含 ff 同步远端）；编辑共享文档前必须重新 read（并行波次随时插提交，本轮 coordination.md 两次变化）。
 - 2026-09-06 IMC 轮：磁盘余量是验收前置检查项——/tmp 历史波次 acc target 残留 66Gi 致 100% 满，验收作业只进 stderr 静默失败；清理前先 ps 确认无进程引用，在途波次 target 保留。
+
+- 2026-09-06 后台门禁用 `make check 2>&1 | tail -N` 时管道吞退出码（job 报 exit 0 实为 tail 的 0），必须 set -o pipefail 并 echo ${PIPESTATUS[0]} 取真值。
+- 2026-09-06 workspace_session_manage archiveSession 返回的 archivedSessionIds 是累计归档登记不是本次增量，单会话归档后核对以 session_link_list 可见性为准，勿被吓到误判批量误归档。
+- 2026-09-06 .devloop/loop-state.json 用 python json.load+dump 整文件重写会把全文件重排序列化（diff 652 行噪音）；小改动优先 edit 工具做定点替换，整文件重写仅在结构性变更时用。
+- 2026-09-06 ff 合并前 merge-base --is-ancestor 检查必做：主树被并行线持续推进时「刚验完的分支」随时可能不再含最新 main，链条断在 is-ancestor 就回 worktree 再 merge 一次。

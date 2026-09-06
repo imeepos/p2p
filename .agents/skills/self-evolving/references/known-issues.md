@@ -850,3 +850,10 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 症状：消费层把门面返回的 invite 条目直接出参，B 在线时仍显示未送达；测试断言 entry.delivered 恒失败但 ACK 实际已到（条目 1-8ms 内即“失败”）。
 原因：ginvite_api.rs group_invite_member 的 deliver_frame 成功后只 patch store 里那份副本（|i| i.delivered = true），返回的内存 entry 是 patch 前的 clone 未回读刷新；GroupInviteReport 顶层的 delivered bool 才是权威信号。
 修法：消费层（IMC2 src-tauri ginvite.rs）出参前 invite.delivered = report.delivered 对齐契约语义；CLI 直接发 report 不受影响。crates 冻结期在 IPC 边界修复，crate 侧后续可回读刷新。
+
+## 并行门禁竞态：共享固定 target 工件致一致性测试瞬时假红（2026-09-06）
+
+- 症状：主树全量 make check 中 repair-enforce whitelist_data::embedded_table_matches_shell_union 0.02s 瞬时失配（9 过 1 挂）；单跑 10/10 全绿。同期多协调线各自跑 make check。
+- 原因：scripts/check/cli-parity.sh 等以「固定 target 目录」重建共享工件（p2pctl/shell_union 数据源），多会话并发门禁时 A 线重建换文件、B 线测试读到半新半旧数据源即瞬时失配。同类：cli-parity 陈旧二进制假红（b51cd5c 修过陈旧态，未修并发态）。
+- 修法方向：共享工件门禁加文件锁（flock）或 per-run mktemp -d target；判定数据一致类测试失败先看有无并发门禁再定性代码缺陷。
+- 判别特征：一致性比对类测试 0.0x 秒即挂 + ps 里有他线 make check/cargo test + 单跑复绿 = 竞态假红，不立修复单改立基础设施卡。
