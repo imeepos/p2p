@@ -70,14 +70,14 @@
 | Timeout(d) | request-response 全程一个超时，任一环节卡住即报 | 链路连通性、对端 handler 是否阻塞 |
 | Io(e) | 长度与实际字节不符、流半途关闭等 | 查对端日志与网络 |
 
-### 3.2 传输/身份层错误（crates/p2p-transport/src/lib.rs:77-105，noise.rs:117-135）
+### 3.2 传输/身份层错误（crates/p2p-transport/src/lib.rs:77-105，noise.rs:175-193）
 
 | 错误 | 确切行为 | 排查方向 |
 |---|---|---|
 | PeerMismatch{expected, actual} | 握手完成但推导 PeerId 与期望不符：立即终止连接 | 地址是否指向别的节点；PeerId 公式是否用对（对原始公钥取 SHA-256） |
 | Dial{addr, reason} / DialChained | 拨号失败（不可达/拒绝/超时），source 链带内层原因 | 地址语法、端口放行、超时预算 |
 | Handshake(s) / HandshakeChained | TLS/Noise 握手失败（含 ALPN 不一致、证书无身份扩展、验签失败） | ALPN p2p-base/1、证书扩展 OID、Noise 参数串 |
-| IdentityUnverified | Noise 身份负载长度非 96 字节或验签失败：断链 | 身份负载编码与域串 p2p-noise-xx-v1 |
+| IdentityUnverified | Noise 身份负载长度非 96 字节或验签失败：断链（crates/p2p-security/src/noise.rs:175-193） | 身份负载编码与域串 p2p-noise-xx-v1 |
 
 ### 3.3 中继控制面
 
