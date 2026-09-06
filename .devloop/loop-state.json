@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-06T15:52:30Z",
+  "updatedAt": "2026-09-07T00:59:30Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-7af45e36-f764-40a1-b2a7-2ef1c30d424b",
@@ -399,14 +399,14 @@
     {
       "id": "PR4",
       "priority": "P2",
-      "status": "doing",
+      "status": "done",
       "title": "PR4 公网默认显式化与 lan-only（persona 轮 F8）",
       "goal": "见 docs/notes/persona-trial-findings-2026-09-05.md",
       "branch": "feat/pr4-lan-only",
       "ownerSession": "session-f01a7bc2-1654-45ae-a604-db19e6205c1d",
       "scope": "crates/p2p/**（facade/config 最小加法）+ crates/p2p-cli/** + apps/cli/** + docs/ops/cli-guide.md + docs/ops/p2pctl-ai-guide.md + cli-parity.tsv 如需；禁碰 apps/gui/**、apps/acp-*/**、其他 crates、coordination/gui-coordination/gui-contract、.devloop/**；零 wire 变更",
       "acceptanceCommand": "bash -c 'export PATH=\"$HOME/.cargo/bin:$PATH\" CARGO_TARGET_DIR=/tmp/acc-pr4-target; cd /Users/imeepos/ext512/p2p && cargo test -p p2p lan_only && cargo test -p p2p-cli lan_only && cargo test -p p2p -p p2p-cli && cargo clippy -p p2p -p p2p-cli --all-targets -- -D warnings && cd apps/cli && cargo fmt --check && cd ../.. && bash scripts/check/ai-docs-sync.sh | grep -q AI-DOCS-OK && bash scripts/check/cli-parity.sh | grep -q CLI-PARITY-OK'",
-      "note": " [2026-09-05 立卡] PR2 已合并，可派。 [2026-09-06 排队] 与 PR6 共享 apps/cli 注册面（cli-parity.tsv/cli-guide.md），PR6 合入后派，防注册面并行撞行。 [2026-09-06 派发] PR6 合入腾出 apps/cli 注册面后立即派专属新会话 f01a7bc2；验收要求 facade 与 CLI 各含 lan_only 命名测试+双 crate 全量回归+ai-docs-sync/parity 双守卫；make check 由协调者合并时统一串行复验。"
+      "note": " [2026-09-05 立卡] PR2 已合并，可派。 [2026-09-06 排队] 与 PR6 共享 apps/cli 注册面（cli-parity.tsv/cli-guide.md），PR6 合入后派，防注册面并行撞行。 [2026-09-06 派发] PR6 合入腾出 apps/cli 注册面后立即派专属新会话 f01a7bc2；验收要求 facade 与 CLI 各含 lan_only 命名测试+双 crate 全量回归+ai-docs-sync/parity 双守卫；make check 由协调者合并时统一串行复验。 [2026-09-07 收官 mergedMain=073c455] 协调者主树权威验收 PR4-ACC-EXIT=0（worktree 073c455 同构：facade lan_only 剥离/默认 false 零行为变化 2 测试 + CLI notice 声明两形态 4 测试 + 双 crate 全量回归 + clippy -D warnings + fmt + ai-docs-sync AI-DOCS-OK + cli-parity OK）；ff 合入推 origin，worktree/分支/远端分支三清。遗留裁定：①5cda33a（borrow 条目简版）与协调者 c8f3619 撞同文档，合并时整取 main 详版、简版弃用，PR6 账本不回写；②GuiConfig.lanOnly 为 GUI 契约 §3 镜像字段，serde 双向兼容已验证，契约登记留待 GUI 侧下次契约触点（GUI 轨 b9f9d3f5 知会）；③本卡首提交 bae2532 经 PR4 会话时间线证据（提交早于其会话首消息 18 秒）排除归属，真实制造者指向 PR6 执行会话（0ba9647d，内容含 PR6 E0603 教训+PR6 done 翻转），待其确认后归档留痕。"
     },
     {
       "id": "PR5",
