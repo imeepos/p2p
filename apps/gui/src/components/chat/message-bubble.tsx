@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { MediaContent } from "./media-content";
 import { QuoteBlock } from "./quote-block";
 import { replySummaryOf } from "./reply-summary";
+import { TextWithShareLink } from "./share-message-card";
 
 const STATUS_KEYS = {
   pending: "chat.status.pending",
@@ -124,7 +125,7 @@ export function MessageBubble({
           </div>
         ) : null}
         {message.kind === "text" && message.text ? (
-          <p className="whitespace-pre-wrap break-words">{message.text}</p>
+          <TextWithShareLink text={message.text} />
         ) : null}
         {message.media ? <MediaContent media={message.media} /> : null}
         <div className="mt-1 flex items-center gap-2 text-xs opacity-80">
