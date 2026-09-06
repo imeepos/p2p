@@ -1,7 +1,7 @@
 // 工具时间线与思考面板打磨测试（P2 页面打磨）：超长内容折叠、失败态红系
 // 高亮、思考展开排版、自动滚底、错误结算徽章；直接播种 store 渲染
 // Transcript，不依赖 mock WS 链路。
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { useAcpStore } from "@/acp/acp-store";
@@ -39,6 +39,45 @@ function toolTurn(over: Partial<Extract<Turn, { kind: "tool" }>>): Turn {
 
 beforeEach(() => {
   useAcpStore.getState().resetConsoleState();
+});
+
+describe("ToolTurn 四态区分（AG-UI TOOL_CALL_* 映射）", () => {
+  const statuses = ["pending", "in_progress", "completed", "failed"] as const;
+  it("四态 data-status 可区分；in_progress 行带进行时脉冲视觉", () => {
+    seed(
+      statuses.map((status, i) =>
+        toolTurn({ status, toolCallId: "call-" + status, id: i + 1 }),
+      ),
+    );
+    render(<Transcript sessionId={SID} />);
+    for (const status of statuses) {
+      expect(
+        screen.getByTestId("acp-turn-tool-call-" + status).getAttribute("data-status"),
+      ).toBe(status);
+      expect(
+        screen.getByTestId("acp-tool-status-call-" + status).textContent,
+      ).toBeTruthy();
+    }
+    expect(screen.getByTestId("acp-tool-dot-call-in_progress").className).toContain("animate-pulse");
+    expect(screen.getByTestId("acp-tool-dot-call-pending").className).not.toContain("animate-pulse");
+  });
+});
+
+describe("ToolResultSection 完成结果折叠（UX4 R3）", () => {
+  it("completed 结果默认展开可收起；运行态不渲染结果折叠开关", () => {
+    seed([
+      toolTurn({ outputText: "ok" }),
+      toolTurn({ status: "in_progress", toolCallId: "call-run", id: 2, outputText: "partial" }),
+    ]);
+    render(<Transcript sessionId={SID} />);
+    const toggle = screen.getByTestId("acp-tool-result-call-1-toggle");
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByTestId("acp-tool-output-call-1").textContent).toContain("ok");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByTestId("acp-tool-result-call-1").textContent).not.toContain("ok");
+    expect(screen.queryByTestId("acp-tool-result-call-run-toggle")).toBeNull();
+  });
 });
 
 describe("ToolTurn 折叠与失败态", () => {
@@ -127,6 +166,49 @@ describe("Transcript 自动滚动", () => {
     fireEvent.scroll(el);
     appendTurn(4);
     expect(el.scrollTop).toBe(1000);
+  });
+});
+
+describe("失败回合重试入口（AG-UI RUN_FAILED 映射）", () => {
+  it("error 结算轮显失败徽章与重试按钮；点击复用草稿回填原文", async () => {
+    seed([
+      { kind: "user", id: 1, text: "帮我查配置" },
+      { kind: "assistant", id: 2, text: "", streaming: false, stopReason: "error" },
+    ]);
+    render(<Transcript sessionId={SID} />);
+    expect(screen.getByTestId("acp-stop-reason-2").textContent).toContain("失败");
+    fireEvent.click(screen.getByTestId("acp-turn-retry-2"));
+    // 草稿复用：原文回填该会话草稿；发送经既有 sendPrompt 路径（无连接时不改写转写）
+    await waitFor(() => {
+      expect(useAcpStore.getState().promptDrafts[SID]).toBe("帮我查配置");
+    });
+    expect(useAcpStore.getState().transcripts[SID]!.turns).toHaveLength(2);
+  });
+
+  it("回合进行中重试禁点（与发送禁用同窗防重复提交）", () => {
+    seed([
+      { kind: "user", id: 1, text: "q" },
+      { kind: "assistant", id: 2, text: "", streaming: false, stopReason: "error" },
+    ]);
+    useAcpStore.setState({ promptPendingBySession: { [SID]: true } });
+    render(<Transcript sessionId={SID} />);
+    expect((screen.getByTestId("acp-turn-retry-2") as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("run 生命周期进行中指示（AG-UI RUN_STARTED→FINISHED 映射）", () => {
+  it("pending 置位显进行中条，结算解除后自动消失", () => {
+    seed([{ kind: "user", id: 1, text: "hi" }]);
+    render(<Transcript sessionId={SID} />);
+    expect(screen.queryByTestId("acp-run-active")).toBeNull();
+    act(() => {
+      useAcpStore.setState({ promptPendingBySession: { [SID]: true } });
+    });
+    expect(screen.getByTestId("acp-run-active").textContent).toContain("回合进行中");
+    act(() => {
+      useAcpStore.setState({ promptPendingBySession: {} });
+    });
+    expect(screen.queryByTestId("acp-run-active")).toBeNull();
   });
 });
 

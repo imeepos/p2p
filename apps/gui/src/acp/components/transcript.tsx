@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { I18nKey } from "@/i18n/types";
-import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
+import { StatusBadge } from "@/views/shared/status-badge";
 import { useAcpStore } from "@/acp/acp-store";
-import type { ToolCallStatus } from "@/acp/protocol";
-import { toolIoView, type Turn } from "@/acp/transcript-model";
+import { retryablePromptText, type Turn } from "@/acp/transcript-model";
+import { ToolTurn } from "./transcript-tools";
 
 /** ACP v1 stopReason 各态文案；未知值回退原样透传 */
 const STOP_KEY: Record<string, I18nKey> = {
@@ -23,20 +23,6 @@ const STOP_KEY: Record<string, I18nKey> = {
 function isErrorStop(reason: string): boolean {
   return reason === "error";
 }
-
-const TOOL_STATUS_TONE: Record<ToolCallStatus, StatusTone> = {
-  pending: "neutral",
-  in_progress: "warning",
-  completed: "success",
-  failed: "danger",
-};
-
-const TOOL_STATUS_KEY: Record<ToolCallStatus, I18nKey> = {
-  pending: "acp.tools.status.pending",
-  in_progress: "acp.tools.status.in_progress",
-  completed: "acp.tools.status.completed",
-  failed: "acp.tools.status.failed",
-};
 
 function stopReasonText(t: (key: I18nKey, opts?: Record<string, unknown>) => string, reason: string): string {
   const key = STOP_KEY[reason];
@@ -75,8 +61,13 @@ function ThoughtTurn({ sessionId, turn }: { sessionId: string; turn: Extract<Tur
   );
 }
 
-function AssistantTurn({ turn }: { turn: Extract<Turn, { kind: "assistant" }> }) {
+function AssistantTurn(props: {
+  turn: Extract<Turn, { kind: "assistant" }>;
+  onRetry: (turnId: number) => void;
+  retryDisabled: boolean;
+}) {
   const { t } = useTranslation();
+  const { turn } = props;
   return (
     <div className="flex justify-start" data-testid={"acp-turn-assistant-" + turn.id}>
       <div
@@ -91,9 +82,23 @@ function AssistantTurn({ turn }: { turn: Extract<Turn, { kind: "assistant" }> })
             {t("acp.transcript.streaming")}
           </span>
         ) : turn.stopReason && isErrorStop(turn.stopReason) ? (
-          <span data-testid={"acp-stop-reason-" + turn.id}>
-            <StatusBadge tone="danger" dot>{stopReasonText(t, turn.stopReason)}</StatusBadge>
-          </span>
+          <>
+            <span data-testid={"acp-stop-reason-" + turn.id}>
+              <StatusBadge tone="danger" dot>{stopReasonText(t, turn.stopReason)}</StatusBadge>
+            </span>
+            {/* AG-UI RUN_FAILED 语义的重试入口：复用本地草稿重发原文 */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-1 h-6 px-2 text-xs"
+              disabled={props.retryDisabled}
+              data-testid={"acp-turn-retry-" + turn.id}
+              onClick={() => props.onRetry(turn.id)}
+            >
+              {t("acp.transcript.retry")}
+            </Button>
+          </>
         ) : turn.stopReason ? (
           <span className="text-muted-foreground text-xs" data-testid={"acp-stop-reason-" + turn.id}>
             {stopReasonText(t, turn.stopReason)}
@@ -104,83 +109,17 @@ function AssistantTurn({ turn }: { turn: Extract<Turn, { kind: "assistant" }> })
   );
 }
 
-
-/** 工具入参/结果块：超过约 6 行默认折叠，展开开关带 aria-expanded/aria-controls */
-function ToolIoBlock(props: { text: string; testId: string; muted?: boolean }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const view = toolIoView(props.text);
-  return (
-    <div className="flex flex-col items-start gap-0.5">
-      <pre
-        id={props.testId + "-body"}
-        className={cn(
-          "max-w-[90%] overflow-x-auto rounded px-2 py-1 text-xs whitespace-pre-wrap break-all",
-          props.muted && "bg-muted/50 text-muted-foreground",
-        )}
-        data-testid={props.testId}
-      >
-        {view.collapsible && !open ? view.preview : props.text}
-      </pre>
-      {view.collapsible ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground h-6 px-2 text-xs"
-          aria-expanded={open}
-          aria-controls={props.testId + "-body"}
-          data-testid={props.testId + "-toggle"}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? t("acp.tools.collapse") : t("acp.tools.expand")}
-        </Button>
-      ) : null}
-    </div>
-  );
-}
-
-/** 工具时间线节点：名称/状态徽章/入参/结果（设计 §8 工具行）；失败态红系整行高亮 */
-function ToolTurn({ turn }: { turn: Extract<Turn, { kind: "tool" }> }) {
+/** AG-UI RUN_STARTED→RUN_FINISHED/ERROR 窗口的会话区进行中条：
+ *  pending 派生自 store，结算即自动消失，无独立生命周期需要清理 */
+function RunActiveStrip() {
   const { t } = useTranslation();
   return (
     <div
-      className={cn("ml-2 flex flex-col gap-1 border-l pl-3",
-        turn.status === "failed"
-          ? "border-l-destructive bg-destructive/5 rounded-r-md py-1"
-          : "border-l-border/60",
-      )}
-      data-testid={"acp-turn-tool-" + turn.toolCallId}
+      className="text-muted-foreground flex items-center gap-2 text-xs"
+      data-testid="acp-run-active"
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={cn("size-2 shrink-0 rounded-full",
-            turn.status === "failed" && "bg-destructive",
-            turn.status === "completed" && "bg-success",
-            turn.status === "in_progress" && "bg-warning animate-pulse",
-            turn.status === "pending" && "bg-muted-foreground/40",
-          )}
-        />
-        <span className="text-sm font-medium">{turn.title}</span>
-        {turn.toolKind ? (
-          <span className="bg-muted rounded px-1.5 py-0.5 text-xs">
-            {t(("acp.tools.kind." + turn.toolKind) as I18nKey, { defaultValue: turn.toolKind })}
-          </span>
-        ) : null}
-        <span data-testid={"acp-tool-status-" + turn.toolCallId}>
-          <StatusBadge tone={TOOL_STATUS_TONE[turn.status]}>{t(TOOL_STATUS_KEY[turn.status])}</StatusBadge>
-        </span>
-      </div>
-      {turn.inputText ? (
-        <ToolIoBlock muted
-          text={turn.inputText}
-          testId={"acp-tool-input-" + turn.toolCallId} />
-      ) : null}
-      {turn.outputText ? (
-        <ToolIoBlock
-          text={turn.outputText}
-          testId={"acp-tool-output-" + turn.toolCallId} />
-      ) : null}
+      <span className="bg-warning size-2 animate-pulse rounded-full" />
+      {t("acp.transcript.runActive")}
     </div>
   );
 }
@@ -205,6 +144,23 @@ export function Transcript({ sessionId }: TranscriptProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickBottomRef = useRef(true);
   const transcript = useAcpStore((s) => s.transcripts[sessionId]);
+  // AG-UI RUN_STARTED→RUN_FINISHED/ERROR 窗口：回合进行中派生态
+  const runActive = useAcpStore((s) => s.promptPendingBySession[sessionId] ?? false);
+  const setPromptDraft = useAcpStore((s) => s.setPromptDraft);
+  const sendPrompt = useAcpStore((s) => s.sendPrompt);
+  // 失败轮重试：复用本地草稿重发原文（走既有 session/prompt，不发新协议方法）。
+  // 进行中禁点（与发送禁用同窗防重复提交）；取词失败 warn 留痕不静默
+  const retryFailedTurn = (turnId: number) => {
+    if (runActive) return;
+    const state = useAcpStore.getState().transcripts[sessionId];
+    const text = state ? retryablePromptText(state, turnId) : null;
+    if (text === null) {
+      console.warn("[acp] 重试入口未取回原始 prompt 文本", { sessionId, turnId });
+      return;
+    }
+    setPromptDraft(sessionId, text);
+    void sendPrompt(text);
+  };
   // 兜底空数组须稳定引用，否则每次渲染都会重触发滚动 effect（exhaustive-deps）
   const turns = useMemo(() => transcript?.turns ?? [], [transcript]);
 
@@ -241,7 +197,16 @@ export function Transcript({ sessionId }: TranscriptProps) {
       <div className="flex flex-col gap-2" data-testid="acp-transcript">
         {turns.map((turn) => {
           if (turn.kind === "thought") return <ThoughtTurn key={turn.id} sessionId={sessionId} turn={turn} />;
-          if (turn.kind === "assistant") return <AssistantTurn key={turn.id} turn={turn} />;
+          if (turn.kind === "assistant") {
+            return (
+              <AssistantTurn
+                key={turn.id}
+                turn={turn}
+                onRetry={retryFailedTurn}
+                retryDisabled={runActive}
+              />
+            );
+          }
           if (turn.kind === "tool") return <ToolTurn key={turn.id} turn={turn} />;
           return <UserTurn key={turn.id} turn={turn} />;
         })}
@@ -250,6 +215,7 @@ export function Transcript({ sessionId }: TranscriptProps) {
             {t("acp.transcript.ignored", { count: transcript.ignoredUpdates })}
           </p>
         ) : null}
+        {runActive ? <RunActiveStrip /> : null}
       </div>
     </div>
   );

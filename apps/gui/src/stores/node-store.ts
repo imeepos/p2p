@@ -19,11 +19,32 @@ export type { PeerEntry };
 /** 引导生命周期：error 时界面必须给出显式错误态与重试入口，禁止静默骨架。 */
 export type BootstrapPhase = "idle" | "loading" | "ready" | "error";
 
+/** 自动启动生命周期：failed 必须显式呈现并给可反复触发的重试入口。 */
+export type AutoStartPhase = "idle" | "starting" | "failed";
+
 /** 周期刷新连续失败达该阈值即视为数据可能过期（5s 轮询下约 15s）。 */
 export const REFRESH_STALE_THRESHOLD = 3;
 
 function toErrorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+type StoreSet = (partial: Partial<NodeStoreState>) => void;
+type StoreGet = () => NodeStoreState;
+
+// 复用现有启动动作 startNode；失败进显式 failed 态并留错误日志，禁止静默。
+async function runAutoStart(set: StoreSet, get: StoreGet): Promise<void> {
+  const status = get().status;
+  if (!status || status.running) return;
+  set({ autoStartPhase: "starting", autoStartError: null });
+  try {
+    // 配置取状态快照：未运行时即持久化配置（契约 §3），无需额外 config_get。
+    await get().startNode(status.config);
+    set({ autoStartPhase: "idle", autoStartError: null });
+  } catch (error) {
+    console.error("[node-store] 自动启动失败", error);
+    set({ autoStartPhase: "failed", autoStartError: toErrorText(error) });
+  }
 }
 
 export interface NodeStoreState {
@@ -39,10 +60,18 @@ export interface NodeStoreState {
   dataStale: boolean;
   consecutiveRefreshFailures: number;
   lastRefreshError: string | null;
+  autoStartPhase: AutoStartPhase;
+  autoStartError: string | null;
+  /** 本轮运行的一次性闸门：自动启动机会一经消耗（含失败）不再自动触发。 */
+  autoStartRequested: boolean;
+  /** 手动停止意愿：本轮运行内自动启动不再复活。 */
+  manualStopRequested: boolean;
   bootstrap: () => Promise<void>;
   refresh: () => Promise<boolean>;
   startNode: (cfg: GuiConfig) => Promise<NodeStatus>;
   stopNode: () => Promise<NodeStatus>;
+  maybeAutoStart: () => Promise<void>;
+  retryAutoStart: () => Promise<void>;
   dial: (target: string) => Promise<DialReport>;
   connect: (peerId: string) => Promise<DialReport>;
   disconnect: (peerId: string) => Promise<boolean>;
@@ -62,6 +91,10 @@ export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   dataStale: false,
   consecutiveRefreshFailures: 0,
   lastRefreshError: null,
+  autoStartPhase: "idle",
+  autoStartError: null,
+  autoStartRequested: false,
+  manualStopRequested: false,
 
   bootstrap: async () => {
     const phase = get().bootstrapPhase;
@@ -133,9 +166,27 @@ export const useNodeStore = create<NodeStoreState>()((set, get) => ({
   },
 
   stopNode: async () => {
+    // 手动停止意愿先行落位：即便 IPC 失败，本轮内自动启动也不得复活。
+    set({ manualStopRequested: true });
     const status = await ipc.nodeStop();
     set({ status });
     return status;
+  },
+
+  // UX1 启动即在线：引导完成且首次状态取回成功后，节点未运行则以状态里的
+  // 配置快照自动启动；一次性闸门保证每次应用运行至多自动尝试一次。
+  maybeAutoStart: async () => {
+    const s = get();
+    if (s.autoStartRequested || s.manualStopRequested) return;
+    if (s.bootstrapPhase !== "ready" || !s.status || s.status.running) return;
+    set({ autoStartRequested: true });
+    await runAutoStart(set, get);
+  },
+
+  // 失败态的显式重试入口：不受一次性闸门约束，可反复触发直至成功。
+  retryAutoStart: async () => {
+    if (get().autoStartPhase !== "failed") return;
+    await runAutoStart(set, get);
   },
 
   dial: (target) => ipc.peerDial(target),

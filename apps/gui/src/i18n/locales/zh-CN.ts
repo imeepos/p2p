@@ -874,6 +874,8 @@ const zhCN = {
       thoughtShow: "展开思考",
       thoughtHide: "收起思考",
       ignored: "已忽略 {{count}} 条未知更新",
+      runActive: "回合进行中",
+      retry: "重试",
     },
     tools: {
       status: {
@@ -1224,6 +1226,13 @@ const zhCN = {
       description: "节点状态、指标与最近事件一屏总览",
       viewAll: "查看全部",
       troubleshootTitle: "排障入口",
+    },
+  },
+  node: {
+    autoStart: {
+      starting: "正在自动启动节点…",
+      failed: "节点自动启动失败",
+      retry: "重试",
     },
   },
 };

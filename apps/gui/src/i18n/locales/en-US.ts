@@ -894,6 +894,8 @@ const enUS: typeof zhCN = {
       thoughtShow: "Show thinking",
       thoughtHide: "Hide thinking",
       ignored: "Ignored {{count}} unknown updates",
+      runActive: "Run in progress",
+      retry: "Retry",
     },
     tools: {
       status: {
@@ -1244,6 +1246,13 @@ const enUS: typeof zhCN = {
       description: "Node status, metrics and recent events at a glance",
       viewAll: "View all",
       troubleshootTitle: "Troubleshooting",
+    },
+  },
+  node: {
+    autoStart: {
+      starting: "Starting node automatically…",
+      failed: "Node auto-start failed",
+      retry: "Retry",
     },
   },
 };

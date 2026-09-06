@@ -10,9 +10,11 @@ import {
   useCommandHotkey,
   useNumberRouteHotkeys,
 } from "@/hooks/use-hotkeys";
+import { useNodeAutoStart } from "@/hooks/use-node-auto-start";
 import { useNodeStore } from "@/stores/node-store";
 import { useUpdateStore } from "@/stores/update-store";
 import { DataLinkBanner } from "@/views/network/data-link-banner";
+import { AutoStartNotice } from "@/views/shared/auto-start-notice";
 import { UpdateNotice } from "@/views/update/update-notice";
 
 const REFRESH_INTERVAL_MS = 5000;
@@ -34,6 +36,9 @@ export function AppLayout() {
     void bootstrap();
   }, [bootstrap]);
 
+  // UX1 启动即在线：引导就绪且节点未运行时自动启动一次（闸门在 store 内）。
+  useNodeAutoStart();
+
   // 更新自动检查：启动即查一次 + 每 4h 轮询（定时器在 store 模块层，幂等启停）
   useEffect(() => {
     startAutoCheck();
@@ -54,6 +59,7 @@ export function AppLayout() {
         <Topbar />
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <DataLinkBanner />
+          <AutoStartNotice />
           <div
             className="grid min-h-0 flex-1 grid-cols-12 gap-4 p-6"
             aria-label={t("common.appName")}
