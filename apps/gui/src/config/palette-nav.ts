@@ -1,6 +1,7 @@
 import {
   Activity,
   Bell,
+  BookOpen,
   Bot,
   LayoutDashboard,
   MessageCircle,
@@ -32,6 +33,8 @@ export const PALETTE_NAV_ENTRIES: readonly PaletteNavEntry[] = [
   { path: "/settings", labelKey: "settings.title", icon: Settings },
   // IMC3：消息中心（append-only 登记，rail 仍 4 项）
   { path: "/messages", labelKey: "messages.title", icon: Bell },
+  // DOC2：协议文档页（append-only 登记，rail 仍 4 项）
+  { path: "/docs", labelKey: "docs.title", icon: BookOpen },
   { path: "/network/overview", labelKey: "dashboard.title", icon: LayoutDashboard },
   { path: "/network/peers", labelKey: "peers.title", icon: Network },
   { path: "/network/discovery", labelKey: "discovery.title", icon: Radar },
