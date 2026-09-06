@@ -43,3 +43,7 @@ group_disband	mapped	group disband
 group_send	mapped	group send	
 group_history	mapped	group history	
 group_media_file	mapped	group media file	
+chat_group_invite_send	mapped	group invites send	
+chat_group_invites_list	mapped	group invites list	
+chat_group_invite_accept	mapped	group invites accept	
+chat_group_invite_reject	mapped	group invites reject	

@@ -3,6 +3,7 @@
 //! 数据面复用 crates/p2p-chat 群门面（Chat.group，路径依赖禁止复制实现）；
 //! --data-dir 与 GUI 同约定：聊天库在 <data-dir>/chat，群库在同根 groups.json。
 
+mod invites;
 pub mod ops;
 pub mod send;
 
@@ -36,6 +37,11 @@ pub enum GroupCommand {
         #[command(subcommand)]
         command: send::MediaCommand,
     },
+    /// 入群邀请（同意制，IMC2）：send/list/accept/reject（与直接拉人的 Invite 分列）
+    Invites {
+        #[command(subcommand)]
+        command: invites::InvitesCommand,
+    },
 }
 
 pub async fn run(command: GroupCommand) -> crate::error::CliResult<()> {
@@ -50,5 +56,6 @@ pub async fn run(command: GroupCommand) -> crate::error::CliResult<()> {
         GroupCommand::Send(args) => send::send(args).await,
         GroupCommand::History(args) => send::history(args).await,
         GroupCommand::Media { command } => send::run_media(command).await,
+        GroupCommand::Invites { command } => invites::run(command).await,
     }
 }
