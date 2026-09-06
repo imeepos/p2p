@@ -1209,6 +1209,18 @@ const enUS: typeof zhCN = {
       autoAnswered: "Answered by policy ({{tier}}), without asking",
     },
   },
+  docs: {
+    title: "Protocol Docs",
+    description: "P2P wire protocol integration docs (body text zh-CN single source)",
+    toc: "Documents",
+    empty: "This document has no content",
+    settings: {
+      entry: "Protocol Docs",
+      entryDescription:
+        "Read the five integration docs: overview, quickstart, wire format, node lifecycle, built-ins and versioning",
+      entryAction: "Open",
+    },
+  },
   network: {
     title: "Network",
     tabs: {

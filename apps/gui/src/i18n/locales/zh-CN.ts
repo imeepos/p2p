@@ -1189,6 +1189,18 @@ const zhCN = {
       autoAnswered: "已按策略{{tier}}，未询问",
     },
   },
+  docs: {
+    title: "协议文档",
+    description: "P2P 标准通信协议接入文档（正文中文单源）",
+    toc: "文档目录",
+    empty: "该文档暂无内容",
+    settings: {
+      entry: "协议文档",
+      entryDescription:
+        "查阅协议接入五篇：总览、快速上手、线格式、节点生命周期、内置协议与版本",
+      entryAction: "打开",
+    },
+  },
   network: {
     title: "网络",
     tabs: {
