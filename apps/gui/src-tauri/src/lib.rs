@@ -4,7 +4,8 @@
 //! state（节点生命周期）/ events（事件转发）/ commands（11 个 IPC 命令）/
 //! frontend_log（契约 v3 加法：前端错误落盘，G-H 观测）/
 //! update（契约 v4 加法：在线更新检查，G-U1）/
-//! console（契约 v10 加法：acp-console 伴生进程托管，UX2）。
+//! console（契约 v10 加法：acp-console 伴生进程托管，UX2）/
+//! llm_share（契约 v11 §16 加法：llm-share 命令面，LSG1）。
 
 pub mod chat;
 pub mod commands;
@@ -16,6 +17,7 @@ pub mod frontend_log;
 pub mod ginvite;
 pub mod group;
 pub mod history;
+pub mod llm_share;
 pub mod profile;
 pub mod proto;
 pub mod state;
