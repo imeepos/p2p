@@ -50,17 +50,17 @@ afterEach(() => {
 });
 
 describe("useNumberRouteHotkeys（5.1 快捷键重映射）", () => {
-  it("Cmd/Ctrl+1..4 分别跳转聊天/通讯录/网络/设置", () => {
+  it("Cmd/Ctrl+1..N 按注册序逐项跳转（F15 起 N=6：含消息中心/协议文档）", () => {
     renderProbe();
-    for (let digit = 1; digit <= 4; digit += 1) {
+    for (let digit = 1; digit <= MENU_ENTRIES.length; digit += 1) {
       pressDigitOn(window, String(digit), true);
       expect(currentPath()).toBe("path:" + MENU_ENTRIES[digit - 1].path);
     }
   });
 
-  it("Cmd/Ctrl+5..9 不注册，按下不改变当前路由", () => {
+  it("超出注册表长度的数字（含 5..9 溢出段）不注册，按下不改变当前路由", () => {
     renderProbe();
-    for (let digit = 5; digit <= 9; digit += 1) {
+    for (let digit = MENU_ENTRIES.length + 1; digit <= 9; digit += 1) {
       pressDigitOn(window, String(digit), true);
       expect(currentPath()).toBe("path:/");
     }
