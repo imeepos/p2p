@@ -289,3 +289,14 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 | IMC3 GUI 入群卡片/确认弹框/消息中心 | session-f4cdafc5（专属新会话） | feat/im-card-gui | apps/gui/src/**（卡片渲染/弹框/消息中心路由+顶栏铃铛入口/chat-store 群邀请切片/i18n zh+en） | vitest src/views + components/chat + stores + build + check:i18n + make check 全绿 |
 | IMC2 IPC 与 CLI parity | 待派（IMC1 合入后） | feat/im-card-ipc | apps/gui/src-tauri/** + apps/cli/** + scripts/check/cli-parity.tsv + docs/ops/cli-guide.md 与 p2pctl-ai-guide.md 对应段 | src-tauri cargo test + cargo test -p p2p-cli + cli-parity OK + make check 全绿 |
 
+## DOC 协议接入文档波（2026-09-06 派单，项目负责人协调）
+
+定位：面向外部接入者的标准通信协议文档（docs/protocol/ 五文件，第三方不读本仓源码也能实现兼容节点/协议）+ 文档集成进 GUI（协议文档页）。
+事实基线：crates/ 代码 + docs/design/wire-protocol.md（v1）；冲突以代码为准，文档漂移只登记不修码（crates/** 对本波只读）。
+与 SHARE 波域互斥：AS3 独占 apps/gui/src/** 在途，DOC2 排队待 AS3 合入腾域后派发。
+
+| 任务单 | 负责会话 | 分支 | 范围 | 验收 | 状态 |
+|---|---|---|---|---|---|
+| DOC1 协议接入文档 | 专属新会话（DOC1） | feat/protocol-integration-docs | docs/protocol/** 新增五文件（README/quickstart/wire-format/node-lifecycle/builtin-and-versioning）+ docs/README.md 索引行；其余一律只读 | 五文件各 ≤300 行、无 emoji + 常量抽检 8/8 出处命中 + 字节示例 varint 独立解码自洽 + make check 全绿 + diff 域合规（仅 docs/protocol/** 与 docs/README.md） | doing |
+| DOC2 GUI 协议文档页 | 待派（依赖 AS3 合入腾出 apps/gui/src/**） | feat/gui-protocol-docs | apps/gui/src/**：/docs 路由 + palette-nav 登记 + 设置页入口行 + i18n zh/en（键先独立小提交）；rail 保持 4 项；内容单源 vite raw 引 docs/protocol/ 禁复制 | pnpm build/lint/test/check:i18n 全绿 + vitest 断言真实文档渲染 + MENU_ENTRIES 仍 4 项 + 无新增 Tauri 命令 + diff 域合规 | todo（排队，等 AS3） |
+
