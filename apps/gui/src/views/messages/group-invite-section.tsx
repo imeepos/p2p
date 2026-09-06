@@ -4,9 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { UsersRound } from "lucide-react";
 
 import { AsyncButton } from "@/components/feedback/async-button";
+import { CopyButton } from "@/components/monitor/copy-button";
 import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/format";
 import type { GroupInviteJson } from "@/lib/ipc-types";
+import { shortPeerId } from "@/lib/peer-name";
 import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
@@ -138,8 +140,11 @@ export function GroupInviteSection() {
                   </time>
                 </span>
               </div>
-              <p className="text-muted-foreground mt-1 font-mono text-xs">
-                {invite.groupId}
+              <p className="text-muted-foreground mt-1 flex items-center gap-1 font-mono text-xs">
+                <span title={invite.groupId}>{shortPeerId(invite.groupId)}</span>
+                <span onClick={(e) => e.stopPropagation()}>
+                  <CopyButton value={invite.groupId} className="size-6" />
+                </span>
               </p>
               {invite.note ? (
                 <p className="text-foreground/80 mt-1 text-xs">

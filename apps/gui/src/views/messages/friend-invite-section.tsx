@@ -3,11 +3,13 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { UserRoundPlus } from "lucide-react";
 
+import { CopyButton } from "@/components/monitor/copy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MAX_NICKNAME_CHARS } from "@/lib/chat-limits";
 import { formatTime } from "@/lib/format";
 import type { FriendInviteJson } from "@/lib/ipc-types";
+import { shortPeerId } from "@/lib/peer-name";
 import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
@@ -85,9 +87,7 @@ export function FriendInviteSection() {
                   {t(incoming ? "messages.direction.in" : "messages.direction.out")}
                 </span>
                 <span className="text-sm font-medium">
-                  {incoming
-                    ? t("chat.invite.incoming", { name: invite.nickname })
-                    : t("chat.invite.outgoing", { name: invite.nickname })}
+                  {invite.nickname || shortPeerId(invite.peerId)}
                 </span>
                 <span className="ml-auto flex items-center gap-2">
                   {incoming ? (
@@ -140,7 +140,12 @@ export function FriendInviteSection() {
                   </time>
                 </span>
               </div>
-              <p className="text-muted-foreground mt-1 font-mono text-xs">{invite.peerId}</p>
+              <p className="text-muted-foreground mt-1 flex items-center gap-1 font-mono text-xs">
+                <span title={invite.peerId}>{shortPeerId(invite.peerId)}</span>
+                <span onClick={(e) => e.stopPropagation()}>
+                  <CopyButton value={invite.peerId} className="size-6" />
+                </span>
+              </p>
               {invite.note ? (
                 <p className="text-foreground/80 mt-1 text-xs">
                   {t("chat.groupInvite.noteLabel", { note: invite.note })}
