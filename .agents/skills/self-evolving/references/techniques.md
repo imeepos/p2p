@@ -383,3 +383,5 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-07 vitest4 已删 `--reporter=basic`（会当自定义 reporter 模块加载报 ERR_LOAD_URL）；抓失败清单用默认 reporter 输出重定向后 grep FAIL 行。
 - 2026-09-07 管道吞退出码假绿：`cmd | tail -8; echo $?` 取到的是 tail 的 0；验收判定一律 `cmd > log 2>&1; rc=$?` 直取命令退出码。
 - 2026-09-07 gui-agent 走查 SPA：页面内 mock 状态不跨调用存活，每个场景在单次 eval 内闭环（导航+操作+断言一次跑完）；启动竞态会吞掉早期的 location.hash 赋值——轮询循环里反复 set hash 自愈，失败分支回传 bodySnippet 便于诊断。
+- 2026-09-07 UX-E 多步 SPA 走查用自写单会话 CDP 驱动（gui-agent 每次调用都是新 Chrome，多步交互必须合并进一次会话）：CDP /json/new?url= 建的 tab 停在 about:blank 不导航，必须显式 Page.navigate + 轮询 readyState；boot 判据 = readyState complete && mock 注入存在 && root innerHTML>1000；React 受控输入用原生 value setter + dispatch input 事件；blur 类校验显式 dispatchEvent focusout(bubbles)。每次改源码都会触发 HMR full reload 打断走查——走查前确保源码已冻结。
+- 2026-09-07 UX-E vite 6 没有 --cacheDir CLI：隔离缓存用 --config /tmp/xxx.mjs wrapper（import 官方 vite.config 后展开覆盖 cacheDir），零仓库污染。

@@ -908,3 +908,7 @@ write 的末尾定位原子，两次调用之间另一进程可插入整行。
 - 症状：vite 启动零输出、端口不监听、进程 0% CPU 挂着；换前台 `( nohup … & )` detach 单命令模式即秒过（ready 8.6s）。
 - 原因：① lsof 见 vite 进程 ESTABLISHED 到 localhost:7890——HTTP(S)_PROXY 环境变量把启动期请求导进代理挂死；② run_in_background bash job 的文件写与端口对宿主不可见（日志文件始终不被截断，读到的全是旧内容）；③ gui-agent DEBUG_PORT 9223 全机器共用，并行会话互抢，抢到别人的 Chrome 就页面加载超时。
 - 修法：启动套 `env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy -u ALL_PROXY NO_PROXY='*'`；dev server 放前台单命令内 detach（启动+探活+走查+清理一条命令闭环）；gui-agent 复制副本 `sed 's/9223/9229/'` 用专用端口。
+
+## 2026-09-07 UX-E：vitest worker 偶发启动超时（forks/threads 双池都中）
+- 症状：vitest run 报 "Timeout waiting for worker to respond / Failed to start worker"，0 用例执行；同命令隔几分钟重跑即过；高负载机器（并行会话多 vitest）更频发。
+- 修法：先 pkill 本 worktree 残留 vitest 僵尸（上次超时遗留），再重跑；稳定化用 --no-file-parallelism（fork 数降到 1，语义不变只慢）；别急着怀疑自己的测试代码。
