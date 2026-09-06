@@ -163,3 +163,5 @@
   回归 tests/group_deadletter.rs（同身份裸 Node 替身模拟 serve 僵死），红绿已验；
   commits e015c6d + 78776f2。
 - 底座域附带发现（QUIC 长驻监听僵死）仍开放，待底座轮排查。
+- 2026-09-06（IMC 协调会话实证）DSH run_code 内零参/空参工具绑定损坏：session_link_list 以 {} 或 undefined 调用均报 "binding arguments must be lossless JSON"，get_goal 同样（含无参调用）；update_goal 需靠 create_goal 回执里的 id/revision 硬编码绕行。疑为空 schema 工具的参数绑定层缺陷，非使用方错误。
+- 2026-09-06（IMC 协调会话实证）update_goal 的 complete 动作在「goal 轮耗尽后的 schedule 巡检回合」被拒（"require a direct human turn or the current goal round"），schedule 回合不算 goal round 也不算 human turn——目标实际完成却无法在工具层闭合，需用户下一条消息补标记。建议把 schedule 触发回合视同可闭合回合。

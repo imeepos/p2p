@@ -51,6 +51,8 @@ GUI/脚本从这里读端口与 token。
 | --reattach-window-secs | reattach_window_secs | 90 | 续连窗口（§12-Q1） |
 | --permission-timeout-secs | permission_timeout_secs | 60 | ask 应答上限，超时 reject-once |
 | --mcp-definitions-path | mcp_definitions_path | 无 | MCP 定义文件（名称 -> 服务定义 JSON） |
+| --admin-port | admin_port | 0（随机） | 本地 admin HTTP 端口（只绑 127.0.0.1，§8 分享管理面） |
+| --admin-disabled | admin_disabled | 关 | 关闭本地 admin HTTP |
 
 ### acp-console
 
@@ -64,6 +66,7 @@ GUI/脚本从这里读端口与 token。
 | --ws-port | 0（随机） | 本地 WS 端口（只绑 127.0.0.1） |
 | --status-port | 0（随机） | status HTTP 端口（只绑 127.0.0.1） |
 | --window-secs | 90 | 断流续连窗口 |
+| --share-link | 无 | 启动即按分享链接直拨（dsh-acp-share://v1?...，§8 guest 导入） |
 
 ### 端口暴露建议
 
@@ -116,7 +119,9 @@ cwd-denied 拒绝。
 审计事件清单（acp_audit target，只记 PeerId/错误码/时间，不含凭据与策略细节）：
 conn-denied / gate-denied / conn-established / spawn-failed / client-gone /
 subprocess-exit / cwd-denied / mcp-rewritten / permission-acted /
-reattach-accepted / reattach-denied / window-expired / slot-superseded。
+reattach-accepted / reattach-denied / window-expired / slot-superseded；
+分享链接五事件（§8）：share-redeemed / share-reuse-denied / share-expired /
+share-revoked / share-exhausted。
 排障先看 conn-denied（谁被拒、什么码）与 subprocess-exit（退出状态或 killed-after-grace）。
 
 ## 5. 容量建议（设计 §7 资源门禁拍板）
@@ -155,3 +160,68 @@ max_connections x 300 MB + 系统底座是否留有余量。温池预热不共�
 - 验收自测：apps/acp-agent 的 acp_wave_e2e 覆盖 §7 矩阵全部行；真 dsh 链路用例
   以 cargo test --test acp_wave_e2e -- --ignored --test-threads 1 单独跑，
   dsh 不可用时会打 SKIP 信号（不假绿）。
+
+## 8. 分享链接（Share Link）
+
+owner 把 agent 操控权做成临时/一次性链接发给好友（设计
+acp-share-design.md v1）。链接契约冻结：
+
+    dsh-acp-share://v1?peer=<base58PeerId>&addr=<addr>&token=<32hex>&exp=<unix秒>&sid=<shareId>
+
+addr 可重复（QUIC/TCP/中继多地址）；exp/sid 只是展示提示，权威判定在 agent 侧，
+guest 不得因本地时钟误判而拒绝尝试。
+
+### 8.1 owner 创建与管理
+
+通道一：agent 本地 admin HTTP（127.0.0.1 + Bearer；token 随机生成落
+<data-dir>/acp-admin-token（0600），启动 stdout JSON 行发布
+{"kind":"ready","admin":{"port":N,"token_file":"..."}}；--admin-port 定端口，
+--admin-disabled 可关）。GUI 管理面走同一通道。
+
+    POST   /shares              创建：入参 {scope, allow_mcp?, ask_route?, ttl_secs,
+                                max_activations?, note?}；出参 {share_id, token, link,
+                                peer, addrs, ...}，token 原文只在这一次出现。
+                                scope=workspace 未配 --workspace-dir → 422 拒绝。
+    GET    /shares              列表（脱敏：无 token 原文/哈希；含 activations/
+                                expires/bound_peer/revoked 与 status 徽章）。
+    DELETE /shares/{share_id}   撤销：级联删除 share 来源策略条目（见 8.3）。
+
+通道二：p2pctl 对等命令（直读台账 <data-dir>/acp-shares.json，语义同上）：
+
+    p2pctl acp share create --scope sandbox --ttl-secs 86400 [--max-activations 1]
+        [--allow-mcp fs] [--ask-route remote_gui] [--note ...] [--addr <多地址，可重复>]
+        --data-dir /var/lib/acp-agent
+      → stdout JSON：{share_id, token, link, ...}（peer 取 agent 节点身份）
+    p2pctl acp share list [--json]   --data-dir /var/lib/acp-agent
+    p2pctl acp share revoke <share_id> [--json] --data-dir /var/lib/acp-agent
+
+### 8.2 guest 导入
+
+- CLI：acp-console --share-link "dsh-acp-share://v1?..."（启动即直拨）。
+- 运行中：console 本地 status HTTP POST /connect-share，体 {"link": "..."}（GUI
+  「用链接加入」入口）。
+- 行为：解析链接 → 登记 peer 地址候选 → 拨号 → 握手 token=链接 token → ready 后
+  与普通 endpoint 无异（本地 WS 哑泵、status/discovery 可见、reattach 票据照常）。
+  denied 码/原因进 stdout JSON 行与 /status，禁止静默。激活在首连完成，同一链接
+  重复导入 = 对同 peer 重复连接，幂等。
+
+### 8.3 语义与安全注意
+
+- **token 只存哈希**：台账只存 token sha256；原文只出现在创建响应与链接里一次，
+  永不落盘/进日志/进审计（admin 访问日志、审计、stderr 滚动日志三处同红线）。
+- **一次性 = 激活次数**（默认 1）：激活即 activations+1 并绑定 PeerId、按 share 写
+  策略表条目（fingerprint 记 share:<share_id>）；此后该 peer 凭策略表正常连接/
+  重连，token 是否继续持有不影响。
+- **撤销级联**：DELETE /shares/{id} 置 revoked，并级联删除该 peer 的 share 来源
+  策略条目（按 share: 前缀指纹识别，非 share 来源不动）；已在线连接由桥按既有
+  断链路径收尾，新连接即被拒。
+- **拒绝判定优先级**：撤销 > 过期 > 他人重用 > 超次；denied 帧错误码与审计事件
+  一一对应（share-revoked / share-expired / share-reuse-denied / share-exhausted），
+  兑换成功记 share-redeemed。
+- **审计可观测**：五条事件只记 PeerId/share_id/错误码/时间，排障检索键 acp_audit
+  （见 §4 清单）。
+- scope=workspace 的分享前提是 agent 已配 --workspace-dir，否则创建即拒
+  （fail-closed 前移，不等 guest 撞 cwd-denied）。
+- 全链路 E2E：crates/p2p-itest/tests/share_link_wave.rs（真两节点回环；真 dsh
+  链路用例 --ignored 单独跑，dsh 不可用打 SKIP 不假绿）。
+
