@@ -18,12 +18,16 @@ dependencies = [
 name = "acp-agent"
 version = "0.1.0"
 dependencies = [
+ "a2a",
  "acp-common",
  "async-trait",
  "clap",
  "p2p",
+ "p2p-discovery",
+ "p2p-identity",
  "p2p-log",
  "p2p-protocol",
+ "p2p-transport",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -1469,10 +1473,12 @@ dependencies = [
 name = "p2p-itest"
 version = "0.1.0"
 dependencies = [
+ "a2a",
  "acp-agent",
  "acp-common",
  "acp-console",
  "async-trait",
+ "bs58",
  "bytes",
  "futures",
  "llm-share-ledger",
