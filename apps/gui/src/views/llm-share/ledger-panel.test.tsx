@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import "@/i18n";
 import i18n from "@/i18n";
+import { formatDateTime } from "@/lib/format";
+import { shortPeerId } from "@/lib/peer-name";
+import { useChatStore } from "@/stores/chat-store";
 
 import { makeLlmShareMockPair, MOCK_LOCAL_PEER } from "./mock-backend";
 import { LedgerPanel } from "./ledger-panel";
@@ -69,6 +72,38 @@ describe("LLM3 双边账本面板（§16.1 balance 分组方向徽标 / list 三
       expect(screen.getAllByTestId("ledger-row")).toHaveLength(1),
     );
     expect(screen.getAllByTestId("ledger-row")[0].textContent).toContain("old");
+  });
+
+  // R2-10 回归：流水表补时间列与「共 N 条 · 合计 X tokens」统计行
+  it("流水表渲染本地化时间列与检索规模统计行", async () => {
+    const { backend, mock } = makeLlmShareMockPair();
+    seedTwoPeriods(mock);
+    render(<LedgerPanel backend={backend} />);
+    expect(await screen.findByRole("columnheader", { name: t("llmShare.ledger.columnTs") })).toBeTruthy();
+    const firstTs = screen.getAllByTestId("ledger-row-ts")[0];
+    expect(firstTs.textContent).toBe(formatDateTime(T0 * 1000, i18n.language as "zh-CN"));
+    expect(firstTs.textContent).not.toMatch(/T0|Z/u);
+    const stats = await screen.findByTestId("ledger-stats");
+    expect(stats.textContent).toBe(t("llmShare.ledger.statsLine", { count: 3, tokens: 440 }));
+  });
+
+  // R2-11 回归：净差行组合值拆标签（出借/借入/笔数），lender 走昵称映射
+  it("净差行组合值拆带标签明细，lender 显示昵称映射", async () => {
+    useChatStore.setState({
+      friends: [{ peerId: PEER, nickname: "小借", addrs: [] }],
+      friendsLoaded: true,
+    });
+    const { backend, mock } = makeLlmShareMockPair();
+    seedTwoPeriods(mock);
+    render(<LedgerPanel backend={backend} />);
+    const rows = await screen.findAllByTestId("balance-row");
+    const own = rows.find((row) => row.getAttribute("data-direction") === "lent");
+    expect(own?.querySelector('[data-testid="balance-detail"]')?.textContent).toBe(
+      t("llmShare.ledger.balanceDetail", { lentOut: 100, borrowed: 0, entries: 1 }),
+    );
+    const borrowed = rows.find((row) => row.getAttribute("data-direction") === "borrowed");
+    expect(borrowed?.textContent).toContain(`小借 (${shortPeerId(PEER)})`);
+    useChatStore.setState({ friends: [], friendsLoaded: true });
   });
 
   it("收据验核：缺省本机身份 PASS；高级字段 lenderPubkey 错值 FAIL", async () => {

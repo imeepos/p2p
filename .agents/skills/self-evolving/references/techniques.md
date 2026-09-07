@@ -399,3 +399,14 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-07 模块级「单次提示」降级 flag（如 console 不可达单次 info）：测试里前置 describe 的失败样例会提前消费额度，断言用例必须 beforeEach 调导出的 resetXxxForTest() 复位，否则 info 计数恒为 0 假失败；Tauri 态分支用临时 window.__TAURI_INTERNALS__ = {} 注入（isTauriRuntime 是调用时读取，非模块加载时）。
 - 2026-09-07 R2F-C 端口预检：派单分配的调试端口可能被历史孤儿进程占着（5179 被 9/2 的 /tmp/report-server.py 占，PPID=1 可判孤儿）；dev server 起不来先 lsof -nP -iTCP:<port> 查身份，确认孤儿再 kill，不误伤并行会话。
 - 2026-09-07 浏览器 mock 走查 ACP「在线态」触达：真机 acp-console 若在 8787 监听，mock token 会被拒（1006/401），MockSocket 与真 ws 都走不通——用 Page.addScriptToEvaluateOnNewDocument 垫片伪造 /discovery fetch（对齐单测 stubGlobal 口径）仍不通时，按派单预案走 store 状态注入（window.__acpInject* 仅 VITE_MOCK_IPC=1 暴露），注入后轮询重打对抗自动流程的相位覆写。
+
+- 2026-09-07 UX-R2A run_code 工具里写「含反引号/多层转义」的文件内容必撞 JS 解析（外层模板串被内层截断）：改走 bash heredoc（<<'EOF' 引号形态零展开）落盘，或先 write 骨架再 edit。
+- 2026-09-07 UX-R2A CDP 有状态走查（A 面板操作、B 面板验证联动）必须常驻 Chrome 会话：仓库 gui-agent.mjs 每次调用起杀一个 Chrome，页面模块态全重置；复制它改 DEBUG_PORT + 常驻循环 + steps.mjs 模块文件（evalOf 助手前缀），consoleAPICalled 监听顺带收 console 证据。
+- 2026-09-07 UX-R2A 页面驱动 React 受控组件：Input/Textarea 用原生 value setter + input 事件，onBlur 用 FocusEvent('focusout', {bubbles:true})（React onBlur 走 focusout 委托，派发 blur 无效）；Radix AlertDialog 里点确认按钮必须 querySelector('[role=alertdialog]') 作用域内找，行内同名按钮在文档序更前会截胡。
+- 2026-09-07 UX-R2A vitest forks worker「Timeout waiting for worker to respond」是负载抖动不是代码问题：pkill 残留 vitest/node worker 后重跑即绿；长时间多轮跑测后先 ps 清场再跑门禁。
+- 2026-09-07 UX-R2A vite 程序化 createServer 做隔离走查实例：root 指向 apps/gui 复用仓库 vite.config，cacheDir/server.port 覆盖即可；vite 包 import 不动 node_modules 顶层软链时用 apps/gui/node_modules/vite/dist/node/index.js 绝对路径。
+
+## 远程服务器排障（2026-09-07）
+- 138 服务器 = 43.240.223.138（.env 里 LINUX_SSH_138=ops@43.240.223.138；ssh config 有 public-box:25446 / public-box-2222 别名，备用端口可能反而不通）
+- 服务器上只有 ops 用户；本机公网 IP 用 curl -4 ifconfig.me（不带 -4 拿到 IPv6，与 fail2ban 记录对不上）
+- macOS 无 sshpass 时用自带 expect 验证密码 SSH 登录；批量远程诊断用 ssh '多行脚本' 一次跑完，sudo -n 免交互

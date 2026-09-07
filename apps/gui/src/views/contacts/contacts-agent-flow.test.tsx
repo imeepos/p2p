@@ -24,9 +24,9 @@ import { AgentSection } from "./agent-section";
 // mock 白名单对齐真实契约：peer 用合法 base58（对话框同口径校验）
 const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
 
-function renderSection() {
+function renderSection(entry = "/contacts") {
   return render(
-    <MemoryRouter initialEntries={["/contacts"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <ConfirmProvider>
         <ThemeProvider>
           <Routes>
@@ -322,5 +322,31 @@ describe("详情抽屉五块与权限档变更（P2 验收 5）", () => {
     );
     const raw = JSON.parse(localStorage.getItem("p2p-gui-acp-endpoint-meta") ?? "{}");
     expect(raw.policies?.["ep-1"]?.defaults?.execute).toBe("deny");
+  });
+
+  it("R2-23/R2-24 深链 /contacts?agentDetail=<id> 直开详情抽屉", async () => {
+    useAcpStore.setState({
+      saved: [
+        {
+          wsUrl: "ws://127.0.0.1:8787",
+          token: "mock-token",
+          peer: PEER,
+          alias: "编码助手",
+          endpointId: "ep-1",
+        },
+      ],
+    });
+    renderSection("/contacts?agentDetail=ep-1");
+    await waitFor(() => expect(screen.getByTestId("contacts-agent-drawer")).toBeTruthy());
+    expect(screen.getByTestId("contacts-agent-drawer-title").textContent).toContain("编码助手");
+    // 权限面板所在的策略块可达（R2-24 深链落点）
+    expect(screen.getByTestId("contacts-drawer-block-policy")).toBeTruthy();
+  });
+
+  it("深链未命中已登记端点：不开抽屉（只读参数不改现有行为）", async () => {
+    useAcpStore.setState({ saved: [] });
+    renderSection("/contacts?agentDetail=ghost");
+    await act(async () => {});
+    expect(screen.queryByTestId("contacts-agent-drawer")).toBeNull();
   });
 });

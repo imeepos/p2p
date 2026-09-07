@@ -1,6 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { I18nKey } from "@/i18n/types";
+
+import { EntityCombobox, type PickerOption } from "@/components/picker";
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +20,10 @@ import {
   type BorrowFormValues,
 } from "./borrow-form";
 import { BorrowReportCard } from "./borrow-report";
+import { notifyLedgerMutated } from "./ledger-sync";
+import { focusFirstInvalidField } from "./focus-first-error";
+import { PeerIdField } from "./peer-id-field";
+import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
 import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";
 
 // borrow 快捷面板：提交前二次确认对话框明示真实成本（§16.2-6）；
@@ -32,9 +39,39 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const [hasIntent, setHasIntent] = useState(false);
   const [reqId, setReqId] = useState<string | null>(null);
   const [lastReq, setLastReq] = useState<LlmBorrowReq | null>(null);
+  const [targetTouched, setTargetTouched] = useState(false);
+  // R2-06：model 实为可枚举输入——本机白名单已放行的模型集即现成选项源
+  const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await backend.allowList();
+        if (cancelled) return;
+        const models = [...new Set(view.entries.flatMap((e) => e.models))];
+        setModelOptions(models.map((model) => ({ value: model, label: model })));
+      } catch (error) {
+        // 选项源读取失败不阻塞自由输入：留告警信号即可
+        console.warn("[llm-share] 借用模型候选读取失败", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [backend]);
 
   const set = (field: keyof BorrowFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
+
+  // R2-05：出借方 PeerId 失焦即时格式校验（提交校验在 validateBorrowForm）
+  const targetPeerErrorKey: I18nKey | null =
+    errors.targetPeer ??
+    (targetTouched &&
+    values.targetPeer.trim().length > 0 &&
+    !isValidFriendPeerId(values.targetPeer.trim())
+      ? "llmShare.borrow.errTargetPeerFormat"
+      : null);
 
   const runBorrow = async (req: LlmBorrowReq) => {
     const ok = await confirm({
@@ -52,6 +89,8 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
     try {
       const result = await backend.borrow(req);
       setReport(result);
+      // R2-01：真实入账（含估算入账）即广播，净差/流水卡联动重拉
+      if (result.receipt.appended) notifyLedgerMutated();
     } catch (error) {
       console.error("[llm-share] borrow 失败", error);
       setSubmitError(errorText(error));
@@ -64,6 +103,14 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
     event.preventDefault();
     const validation = validateBorrowForm(values);
     setErrors(validation.errors);
+    // R2-12：校验失败聚焦第一个错误字段（与 aria-invalid 同源判定）
+    const fieldErrors: Partial<Record<string, unknown>> = {
+      "llm-borrow-peer": validation.errors.targetPeer,
+      "llm-borrow-model": validation.errors.model,
+      "llm-borrow-maxtokens": validation.errors.maxTokens,
+      "llm-borrow-messages": validation.errors.messages,
+    };
+    focusFirstInvalidField(Object.keys(fieldErrors), (id) => fieldErrors[id] != null);
     if (!validation.req) return;
     const id = reqId ?? newReqId();
     if (id !== reqId) setReqId(id);
@@ -96,19 +143,27 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-3" onSubmit={(e) => void handleSubmit(e)} noValidate>
+            <PeerIdField
+              label={t("llmShare.borrow.formTargetPeer")}
+              inputId="llm-borrow-peer"
+              value={values.targetPeer}
+              onValueChange={set("targetPeer")}
+              onBlur={() => setTargetTouched(true)}
+              errorKey={targetPeerErrorKey}
+              errorId="llm-borrow-peer-error"
+              placeholder={t("llmShare.borrow.formTargetPeerPlaceholder")}
+            />
             <div className="flex flex-col gap-1">
-              <Label htmlFor="llm-borrow-peer">{t("llmShare.borrow.formTargetPeer")}</Label>
-              <Input
-                id="llm-borrow-peer"
-                value={values.targetPeer}
-                onChange={(e) => set("targetPeer")(e.target.value)}
-                placeholder={t("llmShare.borrow.formTargetPeerPlaceholder")}
+              <Label htmlFor="llm-borrow-model-pick">{t("llmShare.borrow.formModelPick")}</Label>
+              <EntityCombobox
+                id="llm-borrow-model-pick"
+                testId="llm-borrow-model-pick"
+                options={modelOptions}
+                value={modelOptions.some((option) => option.value === values.model) ? values.model : null}
+                onChange={(next) => {
+                  if (next) set("model")(next);
+                }}
               />
-              {errors.targetPeer ? (
-                <p role="alert" className="text-destructive text-xs">
-                  {t(errors.targetPeer)}
-                </p>
-              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
@@ -117,9 +172,11 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                   id="llm-borrow-model"
                   value={values.model}
                   onChange={(e) => set("model")(e.target.value)}
+                  aria-invalid={errors.model ? true : undefined}
+                  aria-describedby={errors.model ? "llm-borrow-model-error" : undefined}
                 />
                 {errors.model ? (
-                  <p role="alert" className="text-destructive text-xs">
+                  <p role="alert" id="llm-borrow-model-error" className="text-destructive text-xs">
                     {t(errors.model)}
                   </p>
                 ) : null}
@@ -131,9 +188,17 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                   inputMode="numeric"
                   value={values.maxTokensText}
                   onChange={(e) => set("maxTokensText")(e.target.value)}
+                  placeholder={t("llmShare.borrow.formMaxTokensPlaceholder")}
+                  aria-describedby={
+                    errors.maxTokens ? "llm-borrow-maxtokens-error" : "llm-borrow-maxtokens-hint"
+                  }
+                  aria-invalid={errors.maxTokens ? true : undefined}
                 />
+                <p id="llm-borrow-maxtokens-hint" className="text-muted-foreground text-xs">
+                  {t("llmShare.borrow.formMaxTokensHint")}
+                </p>
                 {errors.maxTokens ? (
-                  <p role="alert" className="text-destructive text-xs">
+                  <p role="alert" id="llm-borrow-maxtokens-error" className="text-destructive text-xs">
                     {t(errors.maxTokens)}
                   </p>
                 ) : null}
@@ -146,9 +211,17 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                 rows={3}
                 value={values.messages}
                 onChange={(e) => set("messages")(e.target.value)}
+                placeholder={t("llmShare.borrow.formMessagesPlaceholder")}
+                aria-describedby={
+                  errors.messages ? "llm-borrow-messages-error" : "llm-borrow-messages-hint"
+                }
+                aria-invalid={errors.messages ? true : undefined}
               />
+              <p id="llm-borrow-messages-hint" className="text-muted-foreground text-xs">
+                {t("llmShare.borrow.formMessagesHint")}
+              </p>
               {errors.messages ? (
-                <p role="alert" className="text-destructive text-xs">
+                <p role="alert" id="llm-borrow-messages-error" className="text-destructive text-xs">
                   {t(errors.messages)}
                 </p>
               ) : null}
@@ -156,6 +229,12 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
             {submitError ? (
               <p role="alert" className="text-destructive text-xs">
                 {submitError}
+              </p>
+            ) : null}
+            {/* R2-14：LLM 调用为长耗时动作，处理中给行内状态反馈（aria-live） */}
+            {busy ? (
+              <p role="status" aria-live="polite" className="text-muted-foreground text-xs" data-testid="borrow-calling">
+                {t("llmShare.borrow.calling")}
               </p>
             ) : null}
             <div className="flex gap-2">

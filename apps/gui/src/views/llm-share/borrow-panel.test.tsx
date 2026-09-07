@@ -111,7 +111,8 @@ describe("LLM3 borrow 面板（§16.2-3/6 二次确认 + reqId 幂等复用）",
     const report = await screen.findByTestId("borrow-report");
     expect(report.getAttribute("data-tone")).toBe("neutral");
     expect(report.textContent).toContain(t("llmShare.borrow.streamBrokenBadge"));
-    expect(report.textContent).toContain("259200");
+    expect(report.textContent).toContain(t("llmShare.borrow.disputeWindowValue", { hours: 72 }));
+    expect(report.textContent).not.toContain("259200");
     expect(report.querySelector('[role="alert"]')).toBeNull();
   });
 
@@ -136,5 +137,37 @@ describe("LLM3 borrow 面板（§16.2-3/6 二次确认 + reqId 幂等复用）",
     fillValidForm();
     await submitThroughConfirm();
     expect(await screen.findByRole("alert")).toHaveTextContent("connection refused");
+  });
+
+  // R2-06 回归：model 选择器数据源 = 白名单已放行模型集，选中回填输入框
+  it("model 选择器候选来自白名单模型集，选中即回填", async () => {
+    const { backend, mock } = makeLlmShareMockPair();
+    mock.allow({ peerId: PEER, models: ["gpt-4o", "deepseek-v3"] });
+    renderPanel(backend);
+    fireEvent.click(await screen.findByTestId("llm-borrow-model-pick"));
+    fireEvent.click(await screen.findByTestId("llm-borrow-model-pick-panel"));
+    fireEvent.click(screen.getByRole("option", { name: "deepseek-v3" }));
+    const input = screen.getByLabelText(t("llmShare.borrow.formModel")) as HTMLInputElement;
+    expect(input.value).toBe("deepseek-v3");
+  });
+
+  it("maxTokens/messages 补占位与辅助说明", () => {
+    const { backend } = makeLlmShareMockPair();
+    renderPanel(backend);
+    const maxTokens = screen.getByLabelText(t("llmShare.borrow.formMaxTokens"));
+    expect(maxTokens.getAttribute("placeholder")).toBe(
+      t("llmShare.borrow.formMaxTokensPlaceholder"),
+    );
+    expect(maxTokens.getAttribute("aria-describedby")).toBe("llm-borrow-maxtokens-hint");
+    expect(
+      document.getElementById("llm-borrow-maxtokens-hint")?.textContent,
+    ).toContain(t("llmShare.borrow.formMaxTokensHint"));
+    const messages = screen.getByLabelText(t("llmShare.borrow.formMessages"));
+    expect(messages.getAttribute("placeholder")).toBe(
+      t("llmShare.borrow.formMessagesPlaceholder"),
+    );
+    expect(
+      document.getElementById("llm-borrow-messages-hint")?.textContent,
+    ).toContain(t("llmShare.borrow.formMessagesHint"));
   });
 });

@@ -56,6 +56,8 @@ export interface UpdateStoreState {
   downloadVersion: string | null;
   check: (source: UpdateCheckSource) => Promise<void>;
   skipCurrentVersion: () => void;
+  /** R2-22：撤销跳过——清持久化与状态，下轮检查恢复该版本提醒 */
+  unskipVersion: () => void;
   markReminderShown: (version: string) => void;
   startAutoCheck: () => void;
   stopAutoCheck: () => void;
@@ -100,6 +102,15 @@ export const useUpdateStore = create<UpdateStoreState>()((set, get) => ({
     if (!version) return;
     persistSkippedVersion(version);
     set({ skippedVersion: version });
+  },
+
+  unskipVersion: () => {
+    try {
+      localStorage.removeItem(SKIPPED_VERSION_KEY);
+    } catch {
+      console.warn("[update] localStorage 不可写，跳过版本仅本次会话撤销");
+    }
+    set({ skippedVersion: null });
   },
 
   markReminderShown: (version) => {
