@@ -258,16 +258,16 @@ describe("IM-V2 relay evidence", () => {
 });
 
 describe("IM-V2 settings evidence", () => {
-  it("S1 头像行 items-center，说明文字对比度 text-gray-600 级", async () => {
+  it("S1 头像行微信式：头像与节点名同轴，说明文字走 muted AA 令牌", async () => {
     profileGetMock.mockResolvedValue({ name: "节点", description: "", avatar: null });
     render(<ProfileCard />);
     const hint = await screen.findByText("支持 PNG / JPG / WebP，自动压缩为 128×128");
-    expect(hint.className).toContain("text-gray-600");
-    // 说明文字已移出侧列：头像行内不再有 <p>，圆标只与标签/按钮行同轴
+    expect(hint.className).toContain("text-muted-foreground");
+    // 微信账号行形态：圆标、节点名与说明同轴居中，上传/移除按钮行尾对齐
     const avatar = document.querySelector("span.rounded-full")!;
-    const row = avatar.closest(".items-center")!;
-    expect(row.querySelectorAll("p")).toHaveLength(0);
-    expect(hint.parentElement!.className).not.toContain("items-center");
+    const row = avatar.closest("div.justify-between")!;
+    expect(row.textContent).toContain("节点");
+    expect(row.className).toContain("items-center");
   });
 
   it("S2 主题/语言未选中 chip 深描边 gray-300", () => {
@@ -281,12 +281,11 @@ describe("IM-V2 settings evidence", () => {
     for (const b of unselected) expect(b.className).toContain("border-gray-300");
   });
 
-  it("S4 mDNS 长描述 max-w-sm + leading-5，左列 flex-1 与开关等距", () => {
+  it("S4 mDNS 行：说明 leading-5，左列 flex-1 与开关等距（微信行式）", () => {
     const { container } = render(
       <FormHarness><NetworkCard /></FormHarness>,
     );
     const hint = screen.getByText("开启后通过组播发现同一局域网内的节点");
-    expect(hint.className).toContain("max-w-sm");
     expect(hint.className).toContain("leading-5");
     expect(hint.parentElement!.className).toContain("flex-1");
     expect(container.querySelector("[data-slot=switch]")).toBeTruthy();

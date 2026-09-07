@@ -415,3 +415,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-08 评审页面「是否混乱」先数三样：同一后端动作的 UI 入口数（重复入口互相覆盖比字段多更致混乱）、角色/任务流是否混排、以及每列承载的表格列数——别从视觉密度入手，视觉挤往往是 IA 错位的下游症状。
 - 2026-09-08 右键菜单轮：react-hooks 新规则 set-state-in-effect 禁止 effect 体内同步 setState，「量尺寸后钳制定位」类代码整段报红——修法 = 渲染期 props 调整模式（`if (anchor !== renderedAnchor) setState`）复位锚点 + requestAnimationFrame 回调里 setState（回调内合法）；用 effect 直接改 DOM 样式会被下次渲染覆写，别用。
 - 2026-09-08 右键菜单轮：`A && B && C > log` 的重定向只绑最后一段 C——前面门禁的输出只进 job stdout，而流式 job_output 读一次即消费、丢中段；每个门禁段各自 `> 独立日志 2>&1` 落盘，最后统一 grep 各日志拿 RC。
+- 2026-09-08 设置页微信式改版轮：视图级测试里 configGet mock resolve 后 form.reset 在 microtask 才应用，waitFor(configGet 被调) 后立刻改输入会被 reset 竞态清掉 dirty（按钮仍 disabled，点击 no-op 无任何信号）——等输入回显出加载值（value===期望值）再交互，别等 mock 调用计数。
+- 2026-09-08 设置页微信式改版轮：closest(".items-center") 是自包含匹配——目标元素自己带 items-center 类时返回自身（textContent 为空制造「行里没内容」假象），要用更特异的 div.justify-back/div.items-center 跳过自匹配。
+- 2026-09-08 设置页微信式改版轮：新增视图级测试必须整备全部隐式上下文——分节常挂后 AppearanceCard 要 ThemeProvider、入口行要 MemoryRouter（useNavigate invariant），单卡测试时代不暴露；报「occurred in <组件X>」先查 X 的 hook 上下文缺谁。
+- 2026-09-08 设置页微信式改版轮：jsdom 无 scrollIntoView，未 stub 时 focusFirstInvalidField 在 RHF onInvalid 回调内抛 TypeError，onInvalid 里排在它之后的 setState 静默不执行——表现是「保存点击无反应」而非测试报错；新测试先抄 settings-focus-error 的 `HTMLElement.prototype.scrollIntoView = vi.fn()` setup。

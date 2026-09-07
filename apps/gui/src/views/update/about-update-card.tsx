@@ -3,13 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { Locale } from "@/i18n";
 import { formatDateTime } from "@/lib/format";
@@ -17,6 +10,7 @@ import { useUpdateStore } from "@/stores/update-store";
 
 import { DownloadSection } from "./download-section";
 import { UpdateDetail } from "./update-detail";
+import { SettingsGroup, SettingsRow } from "@/views/settings/settings-row";
 
 // 手动检查：失败必须可见可重试（toast + 行内失败态）；自动检查失败仅落状态。
 function useManualCheck() {
@@ -66,7 +60,7 @@ function CheckStateLine() {
   return null;
 }
 
-// 设置"关于与更新"卡：当前版本 + 手动检查三态 + 有更新详情与跳过入口。
+// 设置「关于与更新」组：版本行 + 手动检查三态 + 有更新详情与跳过入口。
 export function AboutUpdateCard() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
@@ -80,75 +74,76 @@ export function AboutUpdateCard() {
   const checkNow = useManualCheck();
 
   return (
-    <Card className="col-span-12 lg:col-span-6">
-      <CardHeader>
-        <CardTitle>{t("settings.cards.about")}</CardTitle>
-        <CardDescription>{t("update.status.autoHint")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-muted-foreground text-sm">
-            {t("update.about.currentVersion")}
-          </span>
-          <span className="text-sm font-medium">v{__APP_VERSION__}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            disabled={status === "checking"}
-            onClick={() => void checkNow()}
-          >
-            {status === "checking"
-              ? t("update.status.checking")
-              : t("update.about.checkNow")}
-          </Button>
-          <CheckStateLine />
-        </div>
-        {checkedAtMs !== null && status !== "checking" ? (
+    <SettingsGroup
+      title={t("settings.cards.about")}
+      description={t("update.status.autoHint")}
+    >
+      <SettingsRow
+        label={t("update.about.currentVersion")}
+        control={
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">v{__APP_VERSION__}</span>
+            <Button
+              type="button"
+              size="sm"
+              disabled={status === "checking"}
+              onClick={() => void checkNow()}
+            >
+              {status === "checking"
+                ? t("update.status.checking")
+                : t("update.about.checkNow")}
+            </Button>
+          </div>
+        }
+      />
+      {status === "upToDate" || status === "failed" ? (
+        <SettingsRow control={<CheckStateLine />} />
+      ) : null}
+      {checkedAtMs !== null && status !== "checking" ? (
+        <div className="py-1">
           <span className="text-muted-foreground text-xs">
             {t("update.status.checkedAt", {
               time: formatDateTime(checkedAtMs, locale),
             })}
           </span>
-        ) : null}
-        {skippedVersion ? (
-          <span className="text-muted-foreground flex items-center gap-2 text-xs">
-            {t("update.about.skipped", { version: skippedVersion })}
+        </div>
+      ) : null}
+      {skippedVersion ? (
+        <div className="text-muted-foreground flex items-center gap-2 py-1 text-xs">
+          {t("update.about.skipped", { version: skippedVersion })}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            data-testid="update-unskip"
+            onClick={unskipVersion}
+          >
+            {t("update.about.unskip")}
+          </Button>
+        </div>
+      ) : null}
+      {status === "available" && result ? (
+        <div className="flex flex-col gap-3 pt-2">
+          <Separator />
+          <span className="text-sm font-medium">
+            {t("update.reminder.title", {
+              version: result.latestVersion ?? "",
+            })}
+          </span>
+          <UpdateDetail result={result} />
+          {downloadPhase === "idle" ? (
             <Button
               type="button"
               size="sm"
               variant="outline"
-              data-testid="update-unskip"
-              onClick={unskipVersion}
+              onClick={skipCurrentVersion}
             >
-              {t("update.about.unskip")}
+              {t("update.about.skip")}
             </Button>
-          </span>
-        ) : null}
-        {status === "available" && result ? (
-          <div className="flex flex-col gap-3">
-            <Separator />
-            <span className="text-sm font-medium">
-              {t("update.reminder.title", {
-                version: result.latestVersion ?? "",
-              })}
-            </span>
-            <UpdateDetail result={result} />
-            {downloadPhase === "idle" ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={skipCurrentVersion}
-              >
-                {t("update.about.skip")}
-              </Button>
-            ) : null}
-            <DownloadSection size="sm" />
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
+          ) : null}
+          <DownloadSection size="sm" />
+        </div>
+      ) : null}
+    </SettingsGroup>
   );
 }

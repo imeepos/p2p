@@ -79,8 +79,8 @@ export function IconRail() {
   };
   return (
     <aside className="bg-sidebar flex h-full w-14 shrink-0 flex-col items-center border-r border-sidebar-border">
-      {/* macOS Overlay 标题栏红绿灯叠在窗口左上：nav 顶部让位，跨平台统一留白 */}
-      <nav className="flex w-full flex-1 flex-col items-center gap-1.5 px-1.5 pt-10 pb-2">
+      {/* 红绿灯已由 app-layout 顶部 28px 同色条承载：nav 顶部常规留白 */}
+      <nav className="flex w-full flex-1 flex-col items-center gap-1.5 px-1.5 pt-4 pb-2">
         {top.map((entry) => {
           const badge = badgeOf(entry.path);
           return (

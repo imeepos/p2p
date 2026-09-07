@@ -1,7 +1,7 @@
 import { useCallback } from "react";
+import type { FieldErrors, UseFormReturn } from "react-hook-form";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import type { UseFormReturn } from "react-hook-form";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
@@ -15,6 +15,12 @@ import {
 } from "@/views/shared/form-flow";
 import { focusFirstInvalidField } from "./focus-first-error";
 import { toFormValues, toGuiConfig, type SettingsFormValues } from "./config-schema";
+
+// onInvalid 附带原始 errors：视图层据此把 hidden 分节切回错误所在分节后再聚焦。
+export type InvalidCallback = (
+  invalidCount: number,
+  errors: FieldErrors<SettingsFormValues>,
+) => void;
 
 function reportSaveFailure(t: TFunction, error: unknown): void {
   console.error("[settings] config_save 失败", error);
@@ -36,7 +42,7 @@ function reportRestartFailure(t: TFunction, error: unknown): void {
 // 校验失败回调 onInvalid：滚动聚焦第一个错误字段并上报错误数（保存条可见反馈）。
 export function useSettingsSave(
   form: UseFormReturn<SettingsFormValues>,
-  onInvalid?: (invalidCount: number) => void,
+  onInvalid?: InvalidCallback,
 ) {
   const { t } = useTranslation();
   const confirm = useConfirm();
@@ -62,7 +68,7 @@ export function useSettingsSave(
           resolve();
         },
         (errors) => {
-          onInvalid?.(focusFirstInvalidField(errors));
+          onInvalid?.(focusFirstInvalidField(errors), errors);
           reject(new Error(FORM_VALIDATION_MARK));
         },
       )();
@@ -78,7 +84,10 @@ export function useSettingsSave(
     });
     if (!ok) throw new Error(ACTION_CANCELLED_MARK);
     if (!(await form.trigger())) {
-      onInvalid?.(focusFirstInvalidField(form.formState.errors));
+      onInvalid?.(
+        focusFirstInvalidField(form.formState.errors),
+        form.formState.errors,
+      );
       throw new Error(FORM_VALIDATION_MARK);
     }
     const values = toGuiConfig(form.getValues());

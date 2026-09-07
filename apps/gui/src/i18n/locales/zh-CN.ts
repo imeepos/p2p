@@ -660,6 +660,12 @@ const zhCN = {
   settings: {
     title: "设置",
     description: "节点配置、外观与身份管理",
+    nav: {
+      account: "账号",
+      general: "通用",
+      network: "网络",
+      about: "关于",
+    },
     hint: "节点配置表单将在视图波次接入，当前展示当前生效配置摘要",
     loadFailed: "配置加载失败，请重试",
     cards: {

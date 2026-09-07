@@ -676,6 +676,12 @@ const enUS: typeof zhCN = {
   settings: {
     title: "Settings",
     description: "Node config, appearance and identity",
+    nav: {
+      account: "Account",
+      general: "General",
+      network: "Network",
+      about: "About",
+    },
     hint: "Config form lands in the views wave; effective config shown below",
     loadFailed: "Failed to load config, please retry",
     cards: {

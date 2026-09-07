@@ -430,3 +430,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：测试套件整体 FAIL（0 用例执行），报 "There was an error when mocking a module. If you are using vi.mock factory, make sure there are no top level variables inside"，Caused by ReferenceError 指向工厂里引用的断言靶变量。
 - 原因：vi.mock 调用被提升到文件顶部，工厂执行时其引用的普通 `const toastError = vi.fn()` 尚未初始化。
 - 修法：工厂引用的一切变量（含 toastError 这类要在断言里查调用的靶）都用 `vi.hoisted(() => ({ fn: vi.fn() }))` 提升；被测模块的 import 放在 vi.mock 之后（vitest 会保证 mock 先注册）。
+
+## 2026-09-08 jsdom 缺 scrollIntoView：校验失败回调链静默中断，保存「点了没反应」
+- 症状：设置页测试点「保存」后 aria-busy 常驻、无 alert、状态不切换；生产同构代码路径为「校验失败→聚焦错误字段→切分节」，中间任何一环抛错即中断。
+- 原因：jsdom 未实现 Element.prototype.scrollIntoView，RHF handleSubmit 的 onInvalid 回调里 focusFirstInvalidField 调用即抛 TypeError；异常发生在 setState 之前，后续逻辑全部跳过且 AsyncButton 只吞进 reject 不再上抛。
+- 修法：测试 setup 里 `HTMLElement.prototype.scrollIntoView = vi.fn()`（settings-focus-error.test 先例）；实现侧教训是回调链里「定位→反馈」多步骤要各自 try/catch 留 console 信号，别让定位失败连带吞掉状态切换。
