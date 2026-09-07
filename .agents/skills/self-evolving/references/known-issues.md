@@ -363,3 +363,9 @@ failed: early eof（客户端侧超时中止）。
 - 修法：断言直接对 getByTestId(...) 本身做 tagName/href 检查。
 
 - 2026-09-07 UX-R2A 症状：vitest 单文件跑绿、全量跑出现「scrollIntoView is not a function」Unhandled Rejection 且计为 Errors——原因：其他测试文件触发了带 scrollIntoView 的校验路径而各自 jsdom 无 stub。修法：helper 内能力探测降级（typeof element.scrollIntoView === 'function'），或每个涉及文件 beforeEach stub HTMLElement.prototype.scrollIntoView（settings-focus-error.test 先例）。
+
+## WinSCP 连不上 138 服务器（2026-09-07）
+- 症状：WinSCP 连 43.240.223.138:22 失败，用户以为是 22 端口被封
+- 真因：sshd 加固后 PasswordAuthentication no（只许密钥），且 WinSCP 里配的是 root（PermitRootLogin prohibit-password 也拒）；ops 账号密码为锁定态(L)
+- 修法：查 auth.log 确认是认证被拒而非端口封禁 → 改 PasswordAuthentication yes → chpasswd 给 ops 设密码 → sshd -t + reload → expect 实测密码登录
+- 坑：fail2ban 封禁列表为空、ufw 放行 22 时，连不上几乎都不是端口问题，先看 auth.log
