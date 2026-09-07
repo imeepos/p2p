@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/page/page-header";
 import type { Locale } from "@/i18n";
+import { peerKnownName, usePeerNameSource } from "@/lib/peer-name";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";
 import { PeerDialDialog } from "./peer-dial-dialog";
 import { PeerDetailSheet } from "./peer-detail-sheet";
@@ -17,12 +18,14 @@ const PING_TIMEOUT_MS = 8000;
 function matchesSearch(
   peer: { peerId: string; addrs: string[] },
   query: string,
+  knownName: string | null,
 ): boolean {
   const q = query.trim().toLowerCase();
   if (q.length === 0) return true;
   return (
     peer.peerId.toLowerCase().includes(q) ||
-    peer.addrs.some((addr) => addr.toLowerCase().includes(q))
+    peer.addrs.some((addr) => addr.toLowerCase().includes(q)) ||
+    (knownName !== null && knownName.toLowerCase().includes(q))
   );
 }
 
@@ -30,6 +33,8 @@ export function PeersView() {
   const { i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const peers = useNodeStore(selectPeerList);
+  // N-01：搜索纳入好友昵称/备注——首列显示人可读名，按屏上名字搜必须命中
+  const friends = usePeerNameSource();
   const ping = useNodeStore((s) => s.ping);
   const connect = useNodeStore((s) => s.connect);
   const disconnect = useNodeStore((s) => s.disconnect);
@@ -66,13 +71,13 @@ export function PeersView() {
 
   const filtered = peers.filter(
     (peer) =>
-      matchesSearch(peer, query) &&
+      matchesSearch(peer, query, peerKnownName(peer.peerId, friends)) &&
       (statusFilter === "all" || peerStatusKind(peer, now) === statusFilter),
   );
 
   // tabs 计数只按搜索词统计（不受当前状态过滤影响，否则未选 tab 恒为 0）。
   const tabCounts = useMemo(() => {
-    const matched = peers.filter((peer) => matchesSearch(peer, query));
+    const matched = peers.filter((peer) => matchesSearch(peer, query, peerKnownName(peer.peerId, friends)));
     const byKind = (kind: PeerStatusKind) =>
       matched.filter((peer) => peerStatusKind(peer, now) === kind).length;
     return {

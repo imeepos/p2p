@@ -6,16 +6,25 @@ import { Input } from "@/components/ui/input";
 
 import { filterOptions, type PickerOption } from "./picker-option";
 import { PickerOptionRow } from "./picker-option-row";
+import { PickerStatusRow } from "./picker-status-row";
 
 interface EntityMultiSelectProps {
   options: PickerOption[];
   selected: string[];
   onChange: (next: string[]) => void;
   disabled?: boolean;
+  /** 数据面状态由调用方持有：加载/错误/重试三态与单选选择器同口径 */
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   /** 调用方口径的告警文案（如群成员上限），选择器只负责就地呈现 */
   warning?: string | null;
   warningTestId?: string;
   testId?: string;
+  /** 搜索框 id（Label htmlFor 命中用）；搜索占位/空态文案非节点语境可覆盖 */
+  id?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
 }
 
 // 统一多选关联选择器：即时搜索；已选区置顶（chip 可单个移除）+ 已选计数
@@ -25,9 +34,15 @@ export function EntityMultiSelect({
   selected,
   onChange,
   disabled,
+  loading,
+  error,
+  onRetry,
   warning,
   warningTestId,
   testId = "entity-multi-select",
+  id,
+  searchPlaceholder,
+  emptyText,
 }: EntityMultiSelectProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -62,6 +77,12 @@ export function EntityMultiSelect({
       event.preventDefault();
       const option = filtered[activeIndex];
       if (option) toggle(option.value);
+    } else if (event.key === "Escape" && query.length > 0) {
+      // 有查询词先清词且不穿透（避免连带关闭外层 Dialog）；无查询词放行给外层
+      event.preventDefault();
+      event.stopPropagation();
+      setQuery("");
+      setActive(0);
     }
   };
 
@@ -73,13 +94,14 @@ export function EntityMultiSelect({
           className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
         />
         <Input
+          id={id}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
             setActive(0);
           }}
           onKeyDown={onInputKeyDown}
-          placeholder={t("picker.searchPlaceholder")}
+          placeholder={searchPlaceholder ?? t("picker.searchPlaceholder")}
           role="combobox"
           aria-expanded
           aria-controls={listId}
@@ -131,9 +153,11 @@ export function EntityMultiSelect({
         id={listId}
         className="scroll-slim flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border p-1"
       >
-        {filtered.length === 0 ? (
+        {loading || error ? (
+          <PickerStatusRow loading={loading} error={error} onRetry={onRetry} emptyText={emptyText} />
+        ) : filtered.length === 0 ? (
           <p className="text-muted-foreground px-2 py-1.5 text-sm" data-testid="picker-empty">
-            {t("picker.empty")}
+            {emptyText ?? t("picker.empty")}
           </p>
         ) : (
           filtered.map((option, index) => (

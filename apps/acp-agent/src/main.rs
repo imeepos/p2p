@@ -76,6 +76,7 @@ async fn start_admin(
                 peer: node.local_peer_id().to_string(),
                 addrs: node.listen_addrs(),
             },
+            workspaces: config.workspace_rows(),
         },
     )
     .await
@@ -128,20 +129,6 @@ fn build_local_descriptor(
     }
 }
 
-#[cfg(test)]
-mod descriptor_tests {
-    use super::build_local_descriptor;
-
-    #[test]
-    fn descriptor_carries_loopback_admin_url_and_version() {
-        let descriptor = build_local_descriptor("home-agent", "12D3KooW", 8123, "tok");
-        assert_eq!(descriptor.admin_url, "http://127.0.0.1:8123");
-        assert_eq!(descriptor.version, acp_common::DESCRIPTOR_VERSION);
-        assert_eq!(descriptor.peer, "12D3KooW");
-        assert_eq!(descriptor.token, "tok");
-    }
-}
-
 fn node_identity_dir(paths: &acp_common::AcpPaths) -> PathBuf {
     paths.root.join("identity")
 }
@@ -176,5 +163,19 @@ async fn wait_shutdown() {
     tokio::select! {
         _ = tokio::signal::ctrl_c() => {},
         _ = term_recv => {},
+    }
+}
+
+#[cfg(test)]
+mod descriptor_tests {
+    use super::build_local_descriptor;
+
+    #[test]
+    fn descriptor_carries_loopback_admin_url_and_version() {
+        let descriptor = build_local_descriptor("home-agent", "12D3KooW", 8123, "tok");
+        assert_eq!(descriptor.admin_url, "http://127.0.0.1:8123");
+        assert_eq!(descriptor.version, acp_common::DESCRIPTOR_VERSION);
+        assert_eq!(descriptor.peer, "12D3KooW");
+        assert_eq!(descriptor.token, "tok");
     }
 }

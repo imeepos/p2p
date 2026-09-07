@@ -4,14 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { UsersRound } from "lucide-react";
 
 import { AsyncButton } from "@/components/feedback/async-button";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { formatTime } from "@/lib/format";
 import type { GroupInviteJson } from "@/lib/ipc-types";
 import { shortPeerId } from "@/lib/peer-name";
 import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
-import { errorText } from "@/views/shared/form-flow";
 
 // 入群邀请列表（IMC3 需求 2）：每条含方向/状态徽章/时间/备注；in 向待处理
 // 行内同意/拒绝；行点击跳对应群会话（roster 未达由会话页加载态兜底）；
@@ -61,44 +60,29 @@ export function GroupInviteSection() {
   const listError = useChatStore((s) => s.groupInvitesError);
   const acceptGroupInvite = useChatStore((s) => s.acceptGroupInvite);
   const rejectGroupInvite = useChatStore((s) => s.rejectGroupInvite);
-  // 行内错误按行结构化存放，标题与原文分行展示
-  const [rowErrors, setRowErrors] = useState<
-    Record<string, { title: string; detail: string }>
-  >({});
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
   const rows = [...invites].sort((a, b) => b.tsMs - a.tsMs);
 
-  const clearRowError = (id: string) =>
-    setRowErrors((prev) => {
-      if (!(id in prev)) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-
-  // AsyncButton onError 统一落位：标题为动作名，原文单独一行
-  const onRowError = (invite: GroupInviteJson, kind: "accept" | "reject") => (err: unknown) => {
-    console.error("[messages] 入群邀请行内操作失败", kind, invite.id, err);
-    setRowErrors((prev) => ({
-      ...prev,
-      [invite.id]: {
-        title: t(
-          kind === "accept"
-            ? "messages.error.acceptFailed"
-            : "messages.error.rejectFailed",
-        ),
-        detail: errorText(err),
-      },
-    }));
-  };
-
-  // 失败直接抛给 AsyncButton（fail 态 + onError），避免失败亮成功勾
   const act = async (invite: GroupInviteJson, kind: "accept" | "reject") => {
-    clearRowError(invite.id);
-    if (kind === "accept") {
-      await acceptGroupInvite(invite.id);
-    } else {
-      await rejectGroupInvite(invite.id, null);
+    setRowErrors((prev) => ({ ...prev, [invite.id]: "" }));
+    try {
+      if (kind === "accept") {
+        await acceptGroupInvite(invite.id);
+      } else {
+        await rejectGroupInvite(invite.id, null);
+      }
+    } catch (err) {
+      console.error("[messages] 入群邀请行内操作失败", invite.id, err);
+      const detail = err instanceof Error ? err.message : String(err);
+      setRowErrors((prev) => ({
+        ...prev,
+        [invite.id]:
+          t(kind === "accept" ? "messages.error.acceptFailed" : "messages.error.rejectFailed") +
+          detail,
+      }));
+      // 抛给 AsyncButton 呈现 fail 态，避免失败亮成功勾
+      throw err;
     }
   };
 
@@ -128,7 +112,6 @@ export function GroupInviteSection() {
                 <span className="text-sm font-medium">{invite.groupName}</span>
                 <span className="ml-auto flex items-center gap-2">
                   {actionable ? (
-                    // 内层 span 停冒泡：行内按钮点击不得触发行跳转
                     <span
                       className="inline-flex items-center gap-2"
                       onClick={(event) => event.stopPropagation()}
@@ -137,7 +120,6 @@ export function GroupInviteSection() {
                         type="button"
                         size="sm"
                         action={() => act(invite, "accept")}
-                        onError={onRowError(invite, "accept")}
                         data-testid={"messages-group-accept-" + invite.id}
                       >
                         {t("messages.action.accept")}
@@ -147,7 +129,6 @@ export function GroupInviteSection() {
                         size="sm"
                         variant="outline"
                         action={() => act(invite, "reject")}
-                        onError={onRowError(invite, "reject")}
                         data-testid={"messages-group-reject-" + invite.id}
                       >
                         {t("messages.action.reject")}
@@ -173,8 +154,7 @@ export function GroupInviteSection() {
               ) : null}
               {rowErrors[invite.id] ? (
                 <p className="text-destructive mt-1 text-xs" role="alert">
-                  <span className="block">{rowErrors[invite.id].title}</span>
-                  <span className="block break-all">{rowErrors[invite.id].detail}</span>
+                  {rowErrors[invite.id]}
                 </p>
               ) : null}
             </div>

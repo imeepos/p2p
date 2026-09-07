@@ -119,6 +119,7 @@ export function RelayConfigCard({ relayAddrs, onSave }: RelayConfigCardProps) {
           size="sm"
           disabled={!form.formState.isDirty}
           action={submit}
+          loadingLabel={t("common.actions.saving")}
           onError={(error) => {
             if (isFlowMark(error, FORM_VALIDATION_MARK)) return;
             console.error("[relay] relayAddrs 保存失败", error);

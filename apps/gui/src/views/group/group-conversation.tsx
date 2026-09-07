@@ -5,6 +5,8 @@ import { Settings2 } from "lucide-react";
 import { Composer, type ComposerTransport } from "@/components/chat/composer";
 import type { BubbleAvatar } from "@/components/chat/message-bubble";
 import { NodeStoppedCard } from "@/components/chat/node-stopped-card";
+import { notifyFailedSendReport } from "@/components/chat/send-notify";
+import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import type { ChatMessageJson, GroupJson } from "@/lib/ipc-types";
 import { useGroupStore } from "@/stores/group-store";
@@ -62,6 +64,22 @@ export function GroupConversation({ group, onOpenManage }: GroupConversationProp
 
   const onReply = (message: ChatMessageJson) => setReplyTarget(message);
 
+  // 群失败文本重发（W1-01）：与 1:1 use-retry-send 同构，两条失败路径都有信号
+  const onRetrySend = async (message: ChatMessageJson) => {
+    if (message.kind !== "text" || !message.text) return;
+    try {
+      notifyFailedSendReport(
+        await sendText(group.groupId, message.text, message.replyTo ?? undefined),
+      );
+    } catch (error) {
+      console.error("[group] 重试发送失败", error);
+      toastError(t("chat.sendFailed"), {
+        description: error instanceof Error ? error.message : String(error),
+        context: "chat.retry",
+      });
+    }
+  };
+
   return (
     <>
       <div
@@ -108,6 +126,11 @@ export function GroupConversation({ group, onOpenManage }: GroupConversationProp
         onLoadOlder={() => void loadOlder(group.groupId)}
         onRetryHistory={() => selectGroup(group.groupId)}
         onCancelPending={(messageId) => cancelPending(group.groupId, messageId)}
+        onRetry={
+          readOnly
+            ? undefined
+            : (message) => void onRetrySend(toBubbleMessage(message, selfPeerId))
+        }
         onReply={
           readOnly
             ? undefined

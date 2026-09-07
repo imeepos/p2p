@@ -4,7 +4,7 @@ import { ChevronDownIcon, ChevronUpIcon, UserRoundPlusIcon } from "lucide-react"
 
 import { AsyncButton } from "@/components/feedback/async-button";
 import { toastError } from "@/components/feedback/toast";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { Input } from "@/components/ui/input";
 import { useChatStore } from "@/stores/chat-store";
 import { MAX_NICKNAME_CHARS } from "@/lib/chat-limits";

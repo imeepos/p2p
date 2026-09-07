@@ -83,6 +83,7 @@ function AddDialogView({
           type="button"
           disabled={error !== undefined || busy || draft.trim().length === 0}
           action={onConfirm}
+          loadingLabel={t("common.actions.confirming")}
         >
           {t("common.actions.confirm")}
         </AsyncButton>

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { UsersRound } from "lucide-react";
 
 import { useGroupStore } from "@/stores/group-store";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { EmptyState } from "@/views/shared/empty-state";
 
 // 同意入群后的跳转时序兜底（IMC3 需求 1）：roster 事件未到、群尚不在列表时

@@ -17,6 +17,7 @@ fn sample_policy() -> PeerPolicy {
         note: "first contact".to_owned(),
         granted_at: "2026-09-04T12:00:00Z".to_owned(),
         fingerprint: "ab12cd34".to_owned(),
+        workspace: None,
     }
 }
 

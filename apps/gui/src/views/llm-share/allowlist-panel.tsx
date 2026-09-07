@@ -6,6 +6,7 @@ import type { I18nKey } from "@/i18n/types";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { EntityMultiSelect, type PickerOption } from "@/components/picker";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,7 +48,7 @@ function peerErrorKeyOf(value: string, touched: boolean): I18nKey | null {
   return null;
 }
 
-function AllowRow({ entry, onDeny }: { entry: LlmAllowEntry; onDeny: (peerId: string) => void }) {
+function AllowRow({ entry, onDeny, busy }: { entry: LlmAllowEntry; onDeny: (peerId: string) => void; busy: boolean }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const models =
@@ -57,13 +58,13 @@ function AllowRow({ entry, onDeny }: { entry: LlmAllowEntry; onDeny: (peerId: st
       <TableCell className="max-w-44">
         <PeerNameCell peerId={entry.peerId} />
       </TableCell>
-      <TableCell className="text-xs">{models}</TableCell>
-      <TableCell className="text-xs">{entry.note}</TableCell>
+      <TableCell className="max-w-44 truncate text-xs" title={models}>{models}</TableCell>
+      <TableCell className="max-w-44 truncate text-xs" title={entry.note ?? ""}>{entry.note}</TableCell>
       <TableCell className="text-xs">
         {formatDateTime(new Date(entry.grantedAt).getTime(), locale)}
       </TableCell>
       <TableCell>
-        <Button type="button" size="sm" variant="outline" onClick={() => onDeny(entry.peerId)}>
+        <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onDeny(entry.peerId)}>
           {t("llmShare.allowlist.deny")}
         </Button>
       </TableCell>
@@ -207,9 +208,10 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
               </div>
             </div>
             {actionError ? (
-              <p role="alert" className="text-destructive text-xs">
-                {t("llmShare.allowlist.actionFailed")}: {actionError}
-              </p>
+              <CommandErrorText
+                message={actionError}
+                prefix={t("llmShare.allowlist.actionFailed") + "："}
+              />
             ) : null}
             <div>
               <Button type="submit" size="sm" disabled={busy}>
@@ -233,8 +235,9 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                <TableRow><TableCell colSpan={5} className="text-muted-foreground text-xs">{t("llmShare.allowlist.count", { count: entries.length })}</TableCell></TableRow>
                 {entries.map((entry) => (
-                  <AllowRow key={entry.peerId} entry={entry} onDeny={handleDeny} />
+                  <AllowRow key={entry.peerId} entry={entry} onDeny={handleDeny} busy={busy} />
                 ))}
               </TableBody>
             </Table>

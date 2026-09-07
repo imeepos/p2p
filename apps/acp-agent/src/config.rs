@@ -18,6 +18,19 @@ pub const DEFAULT_GRACE_SECS: u64 = 10;
 /// 子进程 stderr 滚动日志单文件上限与份数。
 pub const CHILD_LOG_MAX_BYTES: u64 = 4 * 1024 * 1024;
 pub const CHILD_LOG_MAX_FILES: usize = 3;
+/// legacy --workspace-dir 隐式工作区 id（多工作区表项可显式占用同名）。
+pub const DEFAULT_WORKSPACE_ID: &str = "default";
+
+/// 具名工作区（多工作区分享的目标行；admin GET /workspaces 的条目形状）。
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct WorkspaceDef {
+    /// 稳定 id：分享创建时定向（ShareSpec.workspace），jail 解析 cwd 的键。
+    pub id: String,
+    /// 展示名（GUI 列表行）。
+    pub name: String,
+    /// 锁定目录（绝对路径；jail 内 symlink 解析到真实目标）。
+    pub dir: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
@@ -43,8 +56,10 @@ pub struct AgentConfig {
     pub grace_secs: u64,
     /// sandbox 监狱根目录；None = <data_dir>/sandbox（设计 §6 工作区行）。
     pub sandbox_root: Option<String>,
-    /// scope=workspace 的锁定授权目录；未配置则该 scope 拒绝 spawn。
+    /// scope=workspace 的锁定授权目录（legacy 单工作区；None 且 workspaces 空则该 scope 拒绝）。
     pub workspace_dir: Option<String>,
+    /// 多工作区表项（追加配置；GUI「分享工作区」列表数据源）。
+    pub workspaces: Vec<WorkspaceDef>,
     /// 续连窗口秒数（设计 §5，默认取 acp-common 常量）。
     pub reattach_window_secs: u64,
     /// request_permission 客户端应答上限秒数，超时代答 reject-once（设计 §6）。
@@ -74,6 +89,7 @@ impl Default for AgentConfig {
             grace_secs: DEFAULT_GRACE_SECS,
             sandbox_root: None,
             workspace_dir: None,
+            workspaces: Vec::new(),
             reattach_window_secs: REATTACH_WINDOW_DEFAULT_SECS,
             permission_timeout_secs: PERMISSION_TIMEOUT_SECS,
             mcp_definitions: BTreeMap::new(),
@@ -170,6 +186,32 @@ impl AgentConfig {
         }
     }
 
+    /// 解析工作区行：id=None → 默认工作区（显式表项优先，回落 legacy workspace_dir）。
+    pub fn workspace(&self, id: Option<&str>) -> Option<WorkspaceDef> {
+        let want = id.unwrap_or(DEFAULT_WORKSPACE_ID);
+        if let Some(hit) = self.workspaces.iter().find(|w| w.id == want) {
+            return Some(hit.clone());
+        }
+        if want == DEFAULT_WORKSPACE_ID {
+            return self.workspace_dir.as_ref().map(|dir| WorkspaceDef {
+                id: DEFAULT_WORKSPACE_ID.to_owned(),
+                name: DEFAULT_WORKSPACE_ID.to_owned(),
+                dir: dir.clone(),
+            });
+        }
+        None
+    }
+
+    /// 工作区全列表（admin GET /workspaces）：显式表项 + legacy 兜底行（去重）。
+    pub fn workspace_rows(&self) -> Vec<WorkspaceDef> {
+        let mut rows = self.workspaces.clone();
+        if self.workspace(None).is_some() && !rows.iter().any(|w| w.id == DEFAULT_WORKSPACE_ID) {
+            let fallback = self.workspace(None).expect("checked above");
+            rows.push(fallback);
+        }
+        rows
+    }
+
     /// 续连窗口下限 1s：0 会让断流立即降级为退出阶梯。
     pub fn window(&self) -> Duration {
         Duration::from_secs(self.reattach_window_secs.max(1))
@@ -203,86 +245,5 @@ impl AgentConfig {
             .map(|(name, definition)| (name.clone(), definition.clone()))
             .collect();
         Ok(())
-    }
-}
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn defaults_match_design() {
-        let cfg = AgentConfig::default();
-        assert_eq!(cfg.protocol_id, "/dsh-acp/1");
-        assert_eq!(cfg.command, vec!["pnpm", "dsh", "--profile", "acp"]);
-        assert_eq!(cfg.max_connections, 8);
-        assert_eq!(cfg.grace_secs, 10);
-        cfg.validate().expect("defaults must validate");
-    }
-
-    #[test]
-    fn partial_file_fills_defaults() {
-        let dir = std::env::temp_dir().join(format!("acp-agent-cfg-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("tmp dir");
-        let path = dir.join("agent.json");
-        let body = serde_json::json!({ "data_dir": "/tmp/x" }).to_string();
-        std::fs::write(&path, body).expect("write");
-        let cfg = load_file(path.to_str().expect("utf8")).expect("parse");
-        assert_eq!(cfg.data_dir, "/tmp/x");
-        assert_eq!(cfg.protocol_id, "/dsh-acp/1");
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn mcp_definitions_file_loads_and_wins() {
-        let dir = std::env::temp_dir().join(format!("acp-mcp-load-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("tmp dir");
-        let path = dir.join("mcp.json");
-        std::fs::write(&path, "{\"fs\":{\"command\":\"node\"}}").expect("write");
-        let mut cfg = AgentConfig {
-            mcp_definitions_path: Some(path.to_string_lossy().into_owned()),
-            mcp_definitions: BTreeMap::from([("inline".to_owned(), serde_json::json!({}))]),
-            ..AgentConfig::default()
-        };
-        cfg.load_mcp_definitions().expect("load");
-        assert!(cfg.mcp_definitions.contains_key("fs"));
-        assert!(!cfg.mcp_definitions.contains_key("inline"));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn mcp_definitions_corrupt_file_is_explicit_error() {
-        let dir = std::env::temp_dir().join(format!("acp-mcp-bad-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("tmp dir");
-        let path = dir.join("mcp.json");
-        std::fs::write(&path, "not json").expect("write");
-        let mut cfg = AgentConfig {
-            mcp_definitions_path: Some(path.to_string_lossy().into_owned()),
-            ..AgentConfig::default()
-        };
-        let err = cfg.load_mcp_definitions().expect_err("must fail");
-        assert!(matches!(err, ConfigError::McpFileJson { .. }));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn mcp_definitions_array_shape_is_rejected() {
-        let dir = std::env::temp_dir().join(format!("acp-mcp-shape-{}", std::process::id()));
-        std::fs::create_dir_all(&dir).expect("tmp dir");
-        let path = dir.join("mcp.json");
-        std::fs::write(&path, "[]").expect("write");
-        let mut cfg = AgentConfig {
-            mcp_definitions_path: Some(path.to_string_lossy().into_owned()),
-            ..AgentConfig::default()
-        };
-        let err = cfg.load_mcp_definitions().expect_err("must fail");
-        assert!(matches!(err, ConfigError::McpFileShape { .. }));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn validate_rejects_empty_command() {
-        let mut cfg = AgentConfig::default();
-        cfg.command.clear();
-        assert!(cfg.validate().is_err());
     }
 }

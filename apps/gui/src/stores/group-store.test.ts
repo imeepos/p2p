@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  ChatFriendJson,
   GroupJson,
   GroupMessageJson,
   GroupSendReport,
@@ -17,6 +18,7 @@ const { mocks } = vi.hoisted(() => ({
     groupSend: vi.fn<() => Promise<GroupSendReport>>(),
     groupInvite: vi.fn<() => Promise<GroupJson>>(),
     nodeStatus: vi.fn<() => Promise<NodeStatus>>(),
+    chatFriendsList: vi.fn<() => Promise<ChatFriendJson[]>>(),
     handler: { current: null as NodeEventHandler | null },
   },
 }));
@@ -28,6 +30,7 @@ vi.mock("@/lib/ipc", () => ({
     groupSend: mocks.groupSend,
     groupInvite: mocks.groupInvite,
     nodeStatus: mocks.nodeStatus,
+    chatFriendsList: mocks.chatFriendsList,
     onNodeEvent: (handler: NodeEventHandler) => {
       mocks.handler.current = handler;
       return Promise.resolve(() => {});
@@ -100,6 +103,8 @@ beforeEach(() => {
     groupsError: null,
     friends: [],
     friendsLoaded: false,
+    friendsLoading: false,
+    friendsError: null,
     selfPeerId: SELF,
     selectedGroupId: null,
     messagesByGroup: {},
@@ -122,6 +127,25 @@ describe("group-store 列表与本机身份", () => {
     mocks.groupList.mockRejectedValueOnce(new Error("list boom"));
     await useGroupStore.getState().loadGroups();
     expect(useGroupStore.getState().groupsError).toBe("list boom");
+  });
+
+  it("ensureFriends 失败落 friendsError 不静默；再调即为重试并清除", async () => {
+    const friend: ChatFriendJson = {
+      peerId: peerId("m1"),
+      nickname: "小圆",
+      addrs: [],
+      group: null,
+    };
+    mocks.chatFriendsList.mockRejectedValueOnce(new Error("friends boom"));
+    await useGroupStore.getState().ensureFriends();
+    expect(useGroupStore.getState().friendsError).toBe("friends boom");
+    expect(useGroupStore.getState().friendsLoaded).toBe(true);
+    expect(useGroupStore.getState().friendsLoading).toBe(false);
+
+    mocks.chatFriendsList.mockResolvedValueOnce([friend]);
+    await useGroupStore.getState().ensureFriends();
+    expect(useGroupStore.getState().friendsError).toBeNull();
+    expect(useGroupStore.getState().friends).toHaveLength(1);
   });
 
   it("refreshSelf 读节点状态 peerId；节点停止时为 null", async () => {

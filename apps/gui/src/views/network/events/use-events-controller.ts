@@ -1,7 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import type { NodeEventJson, NodeEventType } from "@/lib/ipc-types";
+import { useTranslation } from "react-i18next";
+import type { DialHopKind, NodeEventJson, NodeEventType } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
-import { ALL_EVENT_TYPES } from "@/views/network/event-meta";
+import { describeNodeEvent } from "@/lib/event-text";
+import { usePeerNameLabel } from "@/lib/peer-name";
+import { ALL_EVENT_TYPES, eventSummary } from "@/views/network/event-meta";
+import { HOP_KEY } from "@/views/network/hop-labels";
+import { toLooseT } from "@/views/network/loose-t";
 import { countEventsByType } from "./event-filter-groups";
 import { filterEvents } from "./events-filter";
 import { useEventsCommands } from "./use-events-commands";
@@ -44,9 +49,33 @@ export function useEventsController(): EventsController {
 
   const events = snapshot ?? live;
   const newCount = paused ? Math.max(0, eventSeq - pausedSeq) : 0;
+
+  // N1 搜索同源化：语料 = 行内所见人话摘要（短形态）+ 全量形态（完整
+  // PeerId 可搜）+ 原始负载摘要（reason/addr 等内部字段兜底）。
+  const { t } = useTranslation();
+  const tt = toLooseT(t);
+  const peerLabel = usePeerNameLabel();
+  const searchText = useCallback(
+    (event: NodeEventJson) => {
+      const labels = {
+        hopLabel: (kind: DialHopKind) => tt(HOP_KEY[kind]),
+        okLabel: tt("events.outcome.ok"),
+        failLabel: tt("events.outcome.fail"),
+      };
+      const short = eventSummary(event, labels, { peerLabel });
+      const full = eventSummary(event, labels, { full: true });
+      return [
+        tt(short.key, short.values),
+        tt(full.key, full.values),
+        describeNodeEvent(event),
+      ].join("\n");
+    },
+    [tt, peerLabel],
+  );
+
   const filtered = useMemo(
-    () => filterEvents(events, { query, errorOnly, typeFilter }),
-    [events, query, errorOnly, typeFilter],
+    () => filterEvents(events, { query, errorOnly, typeFilter, searchText }),
+    [events, query, errorOnly, typeFilter, searchText],
   );
   const counts = useMemo(() => countEventsByType(events), [events]);
 

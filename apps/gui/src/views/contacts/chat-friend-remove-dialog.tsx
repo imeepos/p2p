@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +12,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ChatFriendJson } from "@/lib/ipc-types";
-import { CopyButton } from "@/components/monitor/copy-button";
 import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
@@ -24,15 +24,12 @@ interface ChatFriendRemoveDialogProps {
 // 后端拒绝：错误原文（Rust/mock 可读 Err）原样展示在框内，不翻译不吞。
 function CommandError({ message }: { message: string | null }) {
   const { t } = useTranslation();
-  if (!message) return null;
   return (
-    <div className="flex items-center gap-1" data-testid="friend-remove-error-row">
-      <p className="text-destructive text-xs" role="alert" data-testid="friend-remove-error">
-        {t("chat.removeFriend.failed")}
-        {message}
-      </p>
-      <CopyButton value={t("chat.removeFriend.failed") + message} className="size-5" />
-    </div>
+    <CommandErrorText
+      message={message}
+      prefix={t("chat.removeFriend.failed")}
+      testId="friend-remove-error"
+    />
   );
 }
 

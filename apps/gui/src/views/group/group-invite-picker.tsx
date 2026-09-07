@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { EntityMultiSelect, shortPeerId, type PickerOption } from "@/components/picker";
 import { MAX_GROUP_MEMBERS } from "@/lib/chat-limits";
 import { useGroupStore } from "@/stores/group-store";
@@ -19,6 +21,8 @@ interface GroupInvitePickerProps {
 export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
   const { t } = useTranslation();
   const friends = useGroupStore((s) => s.friends);
+  const friendsLoading = useGroupStore((s) => s.friendsLoading);
+  const friendsError = useGroupStore((s) => s.friendsError);
   const ensureFriends = useGroupStore((s) => s.ensureFriends);
   const invite = useGroupStore((s) => s.invite);
   const [selected, setSelected] = useState<string[]>([]);
@@ -55,14 +59,19 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
 
   return (
     <div className="flex flex-col gap-2 rounded-md border p-2" data-testid="group-invite-picker">
-      <p className="text-xs font-medium">{t("group.manage.inviteTitle")}</p>
-      {candidates.length === 0 ? (
+      <Label htmlFor="group-invite-search" className="text-xs font-medium">{t("group.manage.inviteTitle")}</Label>
+      {/* 加载/失败由选择器三态就地呈现；真无候选才给空态文案 */}
+      {!friendsLoading && !friendsError && candidates.length === 0 ? (
         <p className="text-muted-foreground text-xs">{t("group.manage.inviteEmpty")}</p>
       ) : (
         <EntityMultiSelect
+          id="group-invite-search"
           options={options}
           selected={selected}
           onChange={setSelected}
+          loading={friendsLoading}
+          error={friendsError}
+          onRetry={() => void ensureFriends()}
           warning={
             overCap
               ? t("group.manage.inviteOverCap", {
@@ -88,15 +97,11 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
         </Button>
       </div>
       {commandError ? (
-        <div
-          className="text-destructive flex flex-col gap-0.5 text-xs"
-          role="alert"
-          data-testid="group-invite-error"
-        >
-          {/* 前缀与后端原文分行：长错误串不再与标题挤成一行 */}
-          <p className="font-medium">{t("group.manage.inviteFailed")}</p>
-          <p className="break-all">{commandError}</p>
-        </div>
+<CommandErrorText
+          message={commandError}
+          prefix={t("group.manage.inviteFailed")}
+          testId="group-invite-error"
+        />
       ) : null}
     </div>
   );

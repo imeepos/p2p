@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import "@/i18n";
 import { type PickerOption } from "./picker-option";
@@ -15,16 +15,22 @@ const OPTIONS: PickerOption[] = [
 interface HarnessProps {
   options?: PickerOption[];
   warning?: string | null;
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
 // 顶层 harness（react-hooks 编译规则：不在渲染期造组件）；已选经 DOM 断言
-function MultiHarness({ options = OPTIONS, warning }: HarnessProps) {
+function MultiHarness({ options = OPTIONS, warning, loading, error, onRetry }: HarnessProps) {
   const [selected, setSelected] = useState<string[]>([]);
   return (
     <EntityMultiSelect
       options={options}
       selected={selected}
       onChange={setSelected}
+      loading={loading}
+      error={error}
+      onRetry={onRetry}
       warning={warning}
       warningTestId="multi-warning"
       testId="multi"
@@ -68,5 +74,34 @@ describe("EntityMultiSelect 多选选择器", () => {
     render(<MultiHarness />);
     fireEvent.change(screen.getByTestId("multi-search"), { target: { value: "无" } });
     expect(screen.getByTestId("picker-empty")).toBeTruthy();
+  });
+
+  it("加载态占列表且候选不渲染；错误态带重试且与空态区分", () => {
+    const onRetry = vi.fn();
+    const { unmount } = render(<MultiHarness loading />);
+    expect(screen.getByTestId("picker-loading")).toBeTruthy();
+    expect(screen.queryByRole("option")).toBeNull();
+    unmount();
+    render(<MultiHarness error="boom" onRetry={onRetry} />);
+    expect(screen.getByTestId("picker-error")).toBeTruthy();
+    expect(screen.queryByTestId("picker-empty")).toBeNull();
+    fireEvent.click(screen.getByTestId("picker-retry"));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("Esc 有查询词清词且不穿透外层；无查询词放行给外层", () => {
+    const onWrapperKeyDown = vi.fn();
+    render(
+      <div onKeyDown={onWrapperKeyDown}>
+        <MultiHarness />
+      </div>,
+    );
+    const search = screen.getByTestId("multi-search");
+    fireEvent.change(search, { target: { value: "乙" } });
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect((search as HTMLInputElement).value).toBe("");
+    expect(onWrapperKeyDown).not.toHaveBeenCalled();
+    fireEvent.keyDown(search, { key: "Escape" });
+    expect(onWrapperKeyDown).toHaveBeenCalledTimes(1);
   });
 });

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { validateGroupName } from "@/lib/chat-limits";
 
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CopyButton } from "@/components/monitor/copy-button";
 import { existingGroupNames } from "@/views/contacts/chat-friend-group";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { ipc } from "@/lib/ipc";
@@ -49,15 +49,12 @@ function FormError({ message }: { message: string | null }) {
 // 后端拒绝：错误原文（Rust/mock 可读 Err）原样展示在框内，不翻译不吞。
 function CommandError({ message }: { message: string | null }) {
   const { t } = useTranslation();
-  if (!message) return null;
   return (
-    <div className="flex items-center gap-1" data-testid="friend-move-error-row">
-      <p className="text-destructive text-xs" role="alert" data-testid="friend-move-error">
-        {t("chat.group.failed")}
-        {message}
-      </p>
-      <CopyButton value={t("chat.group.failed") + message} className="size-5" />
-    </div>
+    <CommandErrorText
+      message={message}
+      prefix={t("chat.group.failed")}
+      testId="friend-move-error"
+    />
   );
 }
 

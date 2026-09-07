@@ -202,6 +202,7 @@ fn revoke_redacts_and_cascades_share_sourced_policy() {
             note: String::new(),
             granted_at: "2026-01-01T00:00:00Z".to_owned(),
             fingerprint: format!("share:{}", report.share_id),
+            workspace: None,
         },
     );
     store::save(&policy_path, &table).expect("save policy");

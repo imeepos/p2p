@@ -2,6 +2,11 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-07 聊天消息多才冒横向滚动条：罪魁是 opacity-0 的 hover 按钮越出滚动域
+- 症状：聊天消息流「消息多的时候」出横向滚动条；连续两条消息视觉上贴叠成一泡。横向 scrollbar 与消息数量的相关性把排查引向内容宽度（图片/长文本），全都不是。
+- 原因：两件事叠加。① CSS 规定 overflow-y 非 visible 时 overflow-x 的 visible 隐式算作 auto——只写 overflow-y-auto 的滚动域其实横竖都可滚；② 悬停回复按钮 absolute left-full 锚定整行，me 侧越出滚动域右缘 12px（padding 只有 16px），而 opacity-0 不影响 scrollable overflow——看不见的元素照样撑出滚动条；竖向滚动条出现（消息变多）收窄 8px 内容宽只是让存量溢出显形。纵向贴叠则是消息列 flex-col 没写 gap。
+- 修法：滚动域显式 overflow-x-hidden 兜底（横向滚动机制上不可能）；越界元素改锚到行内的定位锚点（气泡列加 relative）落在空白侧；消息列补 gap-y-2.5。排查口诀：滚动域内 grep absolute + left-full/right-full/-right-/-left- 负偏移，每个都要问「越出 padding box 没有」；opacity-0/visibility-hidden 不豁免 overflow。
+
 ## 2026-09-07 分享创建失败：GUI 测试 stub fetch + agent 测试裸 TCP，CORS 预检缝两侧测试都探不到
 - 症状：GUI「生成链接」必弹「分享创建失败」；同 URL 用 curl 直打 200 成功；GUI/agent 两侧测试全绿。
 - 原因：WebView fetch 带 Authorization 头必先发无凭据 OPTIONS 预检，admin HTTP 管道层把预检当未授权请求 401 挡掉。前端测试 vi.stubGlobal("fetch") 把浏览器传输语义（CORS/预检/Origin）整体 mock 掉；agent 测试用裸 TCP 客户端不发 Origin 不做预检。两侧各自 100% 绿，缝在两个测试视角的交集盲区。
@@ -330,6 +335,12 @@ failed: early eof（客户端侧超时中止）。
 
 ## 2026-09-04 reset_min_uptime 恰等于探测死亡窗口：0% 探测成功的会话被判健康（线上日志分析）
 - 症状：三个 peer 会话寿命恒为 30.004-30.008s（3x10s 探测网格，首探即 early eof），每次重连都打 backoff reset: previous session healthy，退避永不升级，delay 恒 800ms、attempts 恒 1，30s 周期重连风暴无限循环。
+
+## 2026-09-07 run_code 大文件 write 偶发截断
+- 症状：write 工具返回成功或后续命令静默失败，但目标文件停在中间，出现 Unterminated string、unclosed delimiter 或大量测试突然失败。
+- 原因：大段模板内容经过运行时传输时可能被截断；同一 run_code 中后续 bash 解析错误也可能让前面的意图未执行，且 workdir 偶尔传错使验证落在仓库根目录。
+- 修法：大文件改用小范围 edit 或临时脚本；每次写后立刻 read 尾部、wc -l、typecheck；bash 内显式 cd 并输出 pwd/branch，解析错误后重新 read，不能假设前序 edit 已落盘。
+
 - 原因：mark_connected 以 uptime 不小于 reset_min_uptime(30s) 判健康，而会话寿命恰被 max_probe_misses x probe_interval = 3x10s 钉死在 30s——「活得够久」与「探测成功」完全脱钩，参数互撞使健康判定形同虚设；且 EOF（对端关流/连接已死）与超时不分，白等满 3 次才断链。
 - 修法：健康判定追加「本会话至少一次 probe 成功」；EOF 型探测失败立即断链不等满次数；新增超时参数时先核对与既有定时器网格（探测间隔/退避/保活）的倍数关系，避免语义相消。
 

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { TableCell, TableRow } from "@/components/ui/table";
 import type { Locale } from "@/i18n";

@@ -8,7 +8,7 @@ use acp_common::Scope;
 use super::testutil::{ledger_on_disk, rig, spec, tmp_dir, NOW};
 use super::*;
 use crate::audit::CaptureAudit;
-use crate::config::AgentConfig;
+use crate::config::{AgentConfig, WorkspaceDef};
 
 #[test]
 fn open_missing_ledger_starts_empty_with_warn() {
@@ -113,4 +113,59 @@ fn workspace_scope_requires_workspace_dir_owner_never_shareable() {
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
     let service = ShareService::open(&cfg, policy, audit).expect("open");
     assert!(service.create(spec(Scope::Workspace, 60, 1), NOW).is_ok());
+}
+#[test]
+fn workspace_share_targets_named_workspace_and_stamps_policy() {
+    let cfg = AgentConfig {
+        data_dir: tmp_dir("ws-named"),
+        workspaces: vec![WorkspaceDef {
+            id: "ws1".to_owned(),
+            name: "p2p".to_owned(),
+            dir: tmp_dir("ws-named-dir"),
+        }],
+        ..AgentConfig::default()
+    };
+    let audit = Arc::new(CaptureAudit::new());
+    let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
+    let service = ShareService::open(&cfg, policy.clone(), audit).expect("open");
+    let ws_spec = ShareSpec {
+        workspace: Some("ws1".to_owned()),
+        ..spec(Scope::Workspace, 60, 1)
+    };
+    let created = service.create(ws_spec, NOW).expect("create");
+    assert_eq!(created.entry.workspace.as_deref(), Some("ws1"));
+    match service.redeem("peerW", &created.token, NOW + 1) {
+        RedeemOutcome::Activated(grant) => {
+            assert_eq!(
+                grant.workspace.as_deref(),
+                Some("ws1"),
+                "策略条目必须携带工作区"
+            );
+        }
+        other => panic!("兑换必须激活，实际 {other:?}"),
+    }
+}
+
+#[test]
+fn workspace_share_unknown_id_rejected_at_create() {
+    let cfg = AgentConfig {
+        data_dir: tmp_dir("ws-unknown"),
+        workspaces: vec![WorkspaceDef {
+            id: "ws1".to_owned(),
+            name: "p2p".to_owned(),
+            dir: tmp_dir("ws-unknown-dir"),
+        }],
+        ..AgentConfig::default()
+    };
+    let audit = Arc::new(CaptureAudit::new());
+    let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
+    let service = ShareService::open(&cfg, policy, audit).expect("open");
+    let ws_spec = ShareSpec {
+        workspace: Some("nope".to_owned()),
+        ..spec(Scope::Workspace, 60, 1)
+    };
+    assert!(matches!(
+        service.create(ws_spec, NOW),
+        Err(ShareCreateError::WorkspaceUnknown(id)) if id == "nope",
+    ));
 }

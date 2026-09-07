@@ -24,6 +24,7 @@ pub(super) async fn route(
     match (method, target) {
         ("POST", "/shares") => create_share(tcp, deps, body, cors).await,
         ("GET", "/shares") => list_shares(tcp, deps, cors).await,
+        ("GET", "/workspaces") => list_workspaces(tcp, deps, cors).await,
         ("DELETE", path) if path.starts_with(share_prefix) => {
             revoke_share(tcp, deps, path.trim_start_matches(share_prefix), cors).await;
         }
@@ -70,6 +71,7 @@ async fn create_share(tcp: &mut TcpStream, deps: &AdminDeps, body: &[u8], cors: 
         max_activations: parsed.max_activations.unwrap_or(DEFAULT_MAX_ACTIVATIONS),
         note: parsed.note.unwrap_or_default(),
         ttl_secs: parsed.ttl_secs,
+        workspace: parsed.workspace,
     };
     match deps.service.create(spec, unix_now()) {
         Ok(created) => {
@@ -99,6 +101,7 @@ async fn create_share(tcp: &mut TcpStream, deps: &AdminDeps, body: &[u8], cors: 
             let (status, code) = match err {
                 super::ShareCreateError::OwnerScope => (400, "owner-scope-not-shareable"),
                 super::ShareCreateError::WorkspaceUnconfigured => (422, "workspace-unconfigured"),
+                super::ShareCreateError::WorkspaceUnknown(_) => (422, "workspace-unknown"),
                 super::ShareCreateError::Store(_) => (500, "store"),
             };
             reply_json(tcp, status, "Error", &json!({ "error": code }), cors).await;
@@ -166,6 +169,22 @@ async fn revoke_share(tcp: &mut TcpStream, deps: &AdminDeps, share_id: &str, cor
     }
 }
 
+/// GET /workspaces：owner 本机工作区清单（多工作区分享的 GUI 数据源）。
+async fn list_workspaces(tcp: &mut TcpStream, deps: &AdminDeps, cors: Option<&str>) {
+    let rows: Vec<serde_json::Value> = deps
+        .workspaces
+        .iter()
+        .map(|ws| {
+            json!({
+                "id": ws.id,
+                "name": ws.name,
+                "dir": ws.dir,
+            })
+        })
+        .collect();
+    reply_json(tcp, 200, "OK", &json!({ "workspaces": rows }), cors).await;
+}
+
 #[derive(Deserialize)]
 struct AdminCreateBody {
     scope: Scope,
@@ -178,4 +197,7 @@ struct AdminCreateBody {
     max_activations: Option<u32>,
     #[serde(default)]
     note: Option<String>,
+    /// 定向工作区 id（scope=workspace 时生效；缺省 = 默认工作区）。
+    #[serde(default)]
+    workspace: Option<String>,
 }

@@ -6,7 +6,9 @@ use acp_common::policy::PolicyTable;
 use acp_common::{AskRoute, Scope, ShareEntry, SHARE_FINGERPRINT_PREFIX};
 
 use super::testutil::{hand_ledger, ledger_on_disk, rig, spec, tmp_dir, NOW};
-use super::{RedeemOutcome, ShareDenyKind, ShareService};
+use acp_common::ShareDenyKind;
+
+use super::{RedeemOutcome, ShareService};
 use crate::audit::{AuditEvent, CaptureAudit};
 use crate::config::AgentConfig;
 
@@ -150,6 +152,7 @@ fn revoke_cascades_only_share_sourced_policy_entry() {
         table.grant(
             "peerB",
             acp_common::PeerPolicy {
+                workspace: None,
                 scope: Scope::Sandbox,
                 allow_mcp: Vec::new(),
                 ask_route: AskRoute::RemoteGui,

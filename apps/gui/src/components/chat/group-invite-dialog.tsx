@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { errorText } from "@/views/shared/form-flow";
 import type { ChatMessageJson, GroupInviteJson } from "@/lib/ipc-types";
+import { usePeerNameLabel } from "@/lib/peer-name";
 import { useChatStore } from "@/stores/chat-store";
 
 // 入群确认弹框（IMC3 需求 1）：群信息（群名/群主/成员数口径说明）+ 邀请人 +
@@ -41,6 +42,7 @@ function InfoRow({ label, value, testId }: { label: string; value: string; testI
 export function GroupInviteDialog({ target, onOpenChange }: GroupInviteDialogProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const peerLabel = usePeerNameLabel();
   const acceptGroupInvite = useChatStore((s) => s.acceptGroupInvite);
   const rejectGroupInvite = useChatStore((s) => s.rejectGroupInvite);
   const [error, setError] = useState<string | null>(null);
@@ -102,7 +104,7 @@ export function GroupInviteDialog({ target, onOpenChange }: GroupInviteDialogPro
             />
             <InfoRow
               label={t("chat.groupInvite.dialog.owner")}
-              value={invite?.owner ?? "-"}
+              value={invite?.owner ? peerLabel(invite.owner) : "-"}
               testId="group-invite-dialog-owner"
             />
             <p className="text-muted-foreground text-xs">

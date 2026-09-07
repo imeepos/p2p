@@ -180,7 +180,7 @@ export function MessageList({
       ref={scrollRef}
       onScroll={onScroll}
       data-testid="message-scroll"
-      className="scroll-slim min-h-0 flex-1 overflow-y-auto px-4 py-3"
+      className="scroll-slim min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-3"
     >
       {olderError ? (
         <OlderErrorBanner detail={olderError} onRetry={() => loadOlderAction(peer)} />
@@ -204,7 +204,7 @@ export function MessageList({
           <EmptyState icon={MessageSquare} title={t("chat.noMessages")} />
         </div>
       ) : null}
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-y-2.5" data-testid="message-column">
         {messages.map((message, index) => {
           const divider = needsTimeDivider(index > 0 ? messages[index - 1] : null, message) ? (
             <TimeDivider tsMs={message.tsMs} locale={i18n.language as Locale} />

@@ -34,6 +34,8 @@ pub struct ShareSpec {
     pub max_activations: u32,
     pub note: String,
     pub ttl_secs: u64,
+    /// 定向工作区 id（scope=workspace 时生效；None = 默认工作区）。
+    pub workspace: Option<String>,
 }
 
 /// 单条分享台账（设计 §3）。token 原文只存在于创建响应与链接里一次。
@@ -57,6 +59,9 @@ pub struct ShareEntry {
     pub created_at: String,
     #[serde(default)]
     pub bound_peer: Option<String>,
+    /// 定向工作区 id（追加字段，台账 v1 旧文件缺省 = None = 默认工作区）。
+    #[serde(default)]
+    pub workspace: Option<String>,
 }
 
 fn default_max_activations() -> u32 {
@@ -79,6 +84,7 @@ impl ShareEntry {
             note: spec.note,
             created_at: rfc3339_from_unix(now_secs),
             bound_peer: None,
+            workspace: spec.workspace,
         }
     }
 

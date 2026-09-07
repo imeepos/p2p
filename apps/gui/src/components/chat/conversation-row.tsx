@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { AvatarBox } from "@/components/chat/avatar-box";
 import { Badge } from "@/components/ui/badge";
-import { formatTimeShort } from "@/lib/format";
+import { formatConversationTime } from "@/lib/format";
 import { formatUnreadCount } from "@/lib/conversation-entry";
 import type { ConversationEntry } from "@/lib/conversation-entry";
 import type { Locale } from "@/i18n";
@@ -63,13 +63,15 @@ export function ConversationRow({ entry, active, onSelect }: ConversationRowProp
   const sendStateIcon =
     entry.sendState === "failed" || entry.sendState === "error" ? (
       <CircleAlert
-        aria-hidden
+        role="img"
+        aria-label={t("chat.status.failed")}
         data-testid={`conversation-sendstate-${entry.id}`}
         className="size-3.5 shrink-0 text-destructive"
       />
     ) : entry.sendState === "pending" ? (
       <Clock3
-        aria-hidden
+        role="img"
+        aria-label={t("chat.status.pending")}
         data-testid={`conversation-sendstate-${entry.id}`}
         className={cn("size-3.5 shrink-0", active ? "text-white/80" : "text-muted-foreground")}
       />
@@ -93,12 +95,13 @@ export function ConversationRow({ entry, active, onSelect }: ConversationRowProp
             <span className="truncate text-sm font-medium">{entry.title}</span>
             {showTime ? (
               <time
+                dateTime={new Date(entry.lastTsMs).toISOString()}
                 className={cn(
                   "shrink-0 text-[11px]",
                   active ? "text-white/75" : "text-muted-foreground",
                 )}
               >
-                {formatTimeShort(entry.lastTsMs, locale)}
+                {formatConversationTime(entry.lastTsMs, locale)}
               </time>
             ) : null}
           </span>

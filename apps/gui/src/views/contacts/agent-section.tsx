@@ -4,7 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Bot, MessageSquareIcon, Settings2Icon, Trash2Icon, UserRoundXIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { useAcpStore } from "@/acp/acp-store";
 import {
   forgetEndpointMeta,

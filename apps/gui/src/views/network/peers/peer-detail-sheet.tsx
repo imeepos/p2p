@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { HopTimeline } from "@/components/monitor/hop-timeline";
 import {
   Sheet,
