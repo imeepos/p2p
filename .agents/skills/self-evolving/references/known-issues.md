@@ -353,3 +353,11 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-07 vitest vi.fn 零参签名在 tsc 严格元组下无法索引 mock.calls[0][0]
 - 症状：vi.fn(async () => undefined) 后写 writeText.mock.calls[0]?.[0] 报 TS2493（Tuple type '[]' has no element at index '0'）；vitest 运行全绿但 typecheck 红。
 - 修法：显式标注形参 vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)（诊断页 F27 用例既有写法）；要断言入参的 mock 别用零参箭头签名。
+
+## 2026-09-07 深链开抽屉用 useEffect setState 触发 react-hooks/set-state-in-effect 红线
+- 症状：/contacts?agentDetail=<id> 深链在 useEffect 里 setDetailId 开抽屉，lint 直接报错（hooks 新规），repo 无豁免先例。
+- 修法：照 contacts-view hash 深链先例改渲染期同步——useState 惰性初值解析深链 + lastDeepLink 渲染期比对变更再 setState；注意别留旧 useState 声明造成重复声明（duplicate const 在 eslint 只报 no-useless-assignment 不报语法错，迷惑性强）。
+
+## 2026-09-07 Radix Button asChild 下 data-testid 落在子元素本体
+- 症状：getByTestId("agent-edit-link").querySelector("a") 取到 null——asChild 把 props 合并到子元素，testid 就在渲染出的 <a> 上。
+- 修法：断言直接对 getByTestId(...) 本身做 tagName/href 检查。
