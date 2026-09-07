@@ -12,7 +12,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use super::{LinkContext, ShareService};
-use crate::config::WorkspaceDef;
+use crate::workspaces::WorkspaceStore;
 
 /// 请求头/请求体护栏：多大都不信任。
 const HEAD_CAP: usize = 8 * 1024;
@@ -23,8 +23,10 @@ const HEAD_TIMEOUT: Duration = Duration::from_secs(5);
 pub struct AdminDeps {
     pub service: Arc<ShareService>,
     pub link: LinkContext,
-    /// 工作区清单快照（启动装配期注入；GET /workspaces 数据源）。
-    pub workspaces: Vec<WorkspaceDef>,
+    /// 工作区动态表（GET/POST/DELETE /workspaces 数据源；jail 同源）。
+    pub workspaces: Arc<WorkspaceStore>,
+    /// A2A 管理上下文（a2a-over-p2p-design §3；--a2a-disabled 时 None）。
+    pub a2a_admin: Option<Arc<crate::a2a::A2aAdminCtx>>,
 }
 
 /// 浏览器来源白名单：Tauri WebView 生产 origin + vite dev origin。
@@ -252,7 +254,7 @@ fn parse_head(
     (method, path, bearer, content_length, origin)
 }
 
-pub(super) async fn reply_json(
+pub(crate) async fn reply_json(
     tcp: &mut TcpStream,
     status: u16,
     reason: &str,
@@ -262,7 +264,7 @@ pub(super) async fn reply_json(
     reply(tcp, status, reason, &body.to_string(), cors).await;
 }
 
-pub(super) async fn reply(
+pub(crate) async fn reply(
     tcp: &mut TcpStream,
     status: u16,
     reason: &str,

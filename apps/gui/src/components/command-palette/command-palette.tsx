@@ -1,4 +1,4 @@
-import { Share2 } from "lucide-react";
+import { Server, Share2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -89,7 +89,30 @@ function MenuGroup({ onClose }: { onClose: () => void }) {
   );
 }
 
-// LSG3：llm-share 独立分组（键块 llmShare.*，不触碰共享 palette 键）
+// 本地 ACP 管理页入口数量（同 llm-share 先例：rail 不动，命令面板可达）
+export const ACP_MANAGE_PALETTE_COUNT = 1;
+
+// 本地 ACP 管理页独立分组（键块 acpManage.*，不触碰共享 palette 键）
+function AcpManageGroup({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const go = (path: string) => {
+    onClose();
+    navigate(path);
+  };
+  return (
+    <CommandGroup heading={t("acpManage.paletteGroup")}>
+      <CommandItem
+        value={"menu /acp-manage " + t("acpManage.title")}
+        onSelect={() => go("/acp-manage")}
+      >
+        <Server className="size-4" />
+        <span>{t("acpManage.title")}</span>
+      </CommandItem>
+    </CommandGroup>
+  );
+}
+
 function LlmShareGroup({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -159,6 +182,7 @@ function PaletteItems({ onClose }: { onClose: () => void }) {
   return (
     <>
       <MenuGroup onClose={onClose} />
+      <AcpManageGroup onClose={onClose} />
       <LlmShareGroup onClose={onClose} />
       {peers.length > 0 && (
         <>

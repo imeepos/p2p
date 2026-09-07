@@ -14,6 +14,7 @@ import { MessagesPage } from "@/views/messages/messages-page";
 import { DiagnosticsPage } from "@/routes/diagnostics-page";
 import { DiscoveryPage } from "@/routes/discovery-page";
 import { EventsPage } from "@/routes/events-page";
+import { AcpManagePage } from "@/routes/acp-manage-page";
 import { LlmSharePage } from "@/routes/llm-share-page";
 import { NetworkIndexRedirect } from "@/routes/network-index-redirect";
 import { NetworkOverviewPage } from "@/routes/network-overview-page";
@@ -56,6 +57,8 @@ const routes = createRoutesFromChildren(
     <Route path="docs" element={<DocsPage />} />
     {/* LSG3：LLM 共享四面板（append-only 登记，rail 保持 4 项，命令面板可达） */}
     <Route path="llm-share" element={<LlmSharePage />} />
+    {/* 本地 ACP 管理页（append-only 登记，rail 不动，命令面板与 ACP 视图入口可达） */}
+    <Route path="acp-manage" element={<AcpManagePage />} />
     <Route path="settings" element={guarded(<SettingsPage />)} />
     {/* 5.3 重定向层：旧路由 → 新位置；/group /acp 落 /chat?kind=*（已拍板项 1） */}
     <Route path="peers" element={<QueryRedirect to="/network/peers" />} />

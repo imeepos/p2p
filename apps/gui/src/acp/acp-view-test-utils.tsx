@@ -31,6 +31,10 @@ export function resetFixtures() {
 
 export async function renderConnected() {
   const { AcpView } = await import("./acp-view");
+  const { useAcpStore } = await import("./acp-store");
+  // 前序用例的 disconnect/自动重连可能把 store 留在 online/reconnecting，新视图结构下
+  // 连接卡随相位移形（在线分支整卡不渲染）；本夹具契约 = 断开态起渲染，先钉住相位。
+  useAcpStore.setState({ phase: "idle", reconnect: null });
   render(<AcpView />);
   fireEvent.click(screen.getByTestId("acp-connect"));
   await waitFor(() => {

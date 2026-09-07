@@ -440,3 +440,12 @@ failed: early eof（客户端侧超时中止）。
 - 症状：api_call 对 sideEffect=write 操作 dryRun=false 调用报 "tool api_call returned invalid output: value is not lossless JSON"，且耗时 2~4 分钟；本地探针服务器零请求记录，证明 HTTP 根本没发出。
 - 原因：write 操作需人工审批弹框，审批禁用会话自动拒绝；而拒绝结果对象本身过不了 run_code 桥接的无损 JSON 序列化，报错误导成序列化问题。长耗时是卡在等一个永远不弹的审批框。
 - 修法：出图/写操作别走 api_call——直接 curl + .env 凭证 + b64 解码落盘（docs/design/message-center/gen.sh 先例）；报 invalid output 且目标是 write 操作时先怀疑审批拦截，别往参数/大小方向排查。
+
+## 2026-09-08 A2A over P2P 波（run_code + 大文件搬移）
+- 症状：read 工具带 limit 读文件后用 write 整文件覆写 → 文件尾部被静默截断（agents.rs 330 行读到 240 行就写回；a2a_card_wave.rs 同坑两次），cargo 报 unclosed delimiter。原因：read 的 limit 截断 + write 全量覆写 = 丢尾部。修法：整文件覆写前必须无 limit 读完整文件；否则只用 edit 改片段。
+- 症状：cargo fmt 后 edit 报 file changed since it was read。修法：外部进程可能改文件，edit 前重新 read。
+- 症状：bash 里 cmd1 | tail -1 && cmd2 管道掩盖 cmd1 退出码，rebase 冲突被跳过继续 push/merge。修法：关键命令不接管道，或用 PIPESTATUS 判定。
+- serde #[serde(with = "别名::b58")] 配 use x as 别名 可编译（别名即路径）。
+- 行数红线：crates/*.rs 由 line-limit 机械管；apps/** 靠自觉但同样适用——测试拆 *_tests.rs 兄弟文件（lib.rs 声明 #[cfg(test)] mod，测试内 use crate::xxx::*）。
+- panic-hygiene 门禁扫 crates 非测试路径 unwrap/expect/panic：serde_json 参数用 json! 宏直接建，别 to_value().expect()。
+

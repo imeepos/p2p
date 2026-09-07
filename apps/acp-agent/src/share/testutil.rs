@@ -32,7 +32,10 @@ pub fn rig(tag: &str) -> Rig {
     };
     let audit = Arc::new(CaptureAudit::new());
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
-    let service = ShareService::open(&cfg, policy.clone(), audit.clone()).expect("open");
+    let workspaces =
+        std::sync::Arc::new(crate::workspaces::WorkspaceStore::open_for_config(&cfg).expect("ws"));
+    let service =
+        ShareService::open(&cfg, workspaces, policy.clone(), audit.clone()).expect("open");
     Rig {
         service,
         cfg,

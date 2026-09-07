@@ -33,7 +33,9 @@ async fn run(cli: Cli) -> Result<(), String> {
         .map_err(|err| format!("policy load: {err}"))?;
     let handler = AcpHandler::new(deps.clone()).map_err(|err| format!("protocol id: {err}"))?;
     node.handle_protocol(Arc::new(handler));
-    start_admin(&config, &paths, &node, deps.clone()).await?;
+    // A2A 宿主（a2a-over-p2p-design §3）：/a2a/1 card 相 + admin 管理面 + 在场发布
+    let a2a_ctx = start_a2a(&config, &paths, &node).await?;
+    start_admin(&config, &paths, &node, deps.clone(), a2a_ctx).await?;
     eprintln!(
         "acp-agent: running peer={} data-dir={}",
         node.local_peer_id(),
@@ -53,6 +55,70 @@ fn ensure_dir(dir: &std::path::Path) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|err| format!("create {}: {err}", dir.display()))
 }
 
+/// A2A 装配（a2a-over-p2p-design §3/§7）：簿打开失败拒启（对齐 policy 纪律）；
+/// handler 注册 + rendezvous 在场发布（bootstrap 空则发布停用）。
+async fn start_a2a(
+    config: &acp_agent::AgentConfig,
+    paths: &acp_common::AcpPaths,
+    node: &p2p::Node,
+) -> Result<Option<std::sync::Arc<acp_agent::a2a::A2aAdminCtx>>, String> {
+    if config.a2a_disabled {
+        eprintln!("acp-agent: a2a disabled (--a2a-disabled)");
+        return Ok(None);
+    }
+    let keypair = p2p_identity::load_seed(&node_identity_dir(paths).join("key.seed"))
+        .map_err(|err| format!("a2a identity: {err}"))?;
+    let agents = acp_agent::a2a::AgentStore::open(paths.root.join(acp_agent::a2a::AGENTS_FILE))
+        .map_err(|err| format!("a2a agents load: {err}"))?;
+    let subscribers = std::sync::Arc::new(acp_agent::a2a::Subscribers::new());
+    let deps = std::sync::Arc::new(acp_agent::a2a::A2aDeps {
+        config: config.clone(),
+        agents: agents.clone(),
+        keypair: keypair.clone(),
+        host_peer: keypair.peer_id().to_string(),
+        subscribers: subscribers.clone(),
+        audit: std::sync::Arc::new(TracingAudit),
+    });
+    let handler = acp_agent::a2a::A2aCardHandler::new(deps.clone())
+        .map_err(|err| format!("a2a protocol id: {err}"))?;
+    node.handle_protocol(std::sync::Arc::new(handler));
+    acp_agent::a2a::spawn_publisher(
+        deps.clone(),
+        &config.a2a_bootstrap,
+        parse_transport_addrs(node.listen_addrs()),
+    );
+    eprintln!("acp-agent: a2a ready agents={}", agents.list().len());
+    Ok(Some(std::sync::Arc::new(acp_agent::a2a::A2aAdminCtx {
+        agents,
+        subscribers,
+        keypair,
+        host_peer: deps.host_peer.clone(),
+    })))
+}
+
+/// facade 显示地址（ip/u端口）转回 TransportAddr（发布注册需要结构化地址）。
+fn parse_transport_addrs(addrs: Vec<String>) -> Vec<p2p_transport::TransportAddr> {
+    addrs
+        .iter()
+        .filter_map(|s| {
+            let (ip_str, tail) = s.split_once('/')?;
+            let ip = ip_str.parse().ok()?;
+            let mut rest = tail.chars();
+            match rest.next()? {
+                'u' => Some(p2p_transport::TransportAddr::Quic {
+                    ip,
+                    port: rest.as_str().parse().ok()?,
+                }),
+                't' => Some(p2p_transport::TransportAddr::Tcp {
+                    ip,
+                    port: rest.as_str().parse().ok()?,
+                }),
+                _ => None,
+            }
+        })
+        .collect()
+}
+
 /// 本地 admin HTTP 装配（设计 §5）：token 随机生成落 0600 文件，
 /// 端口与 token 文件经 stdout JSON 行发布；--admin-disabled 可关。
 async fn start_admin(
@@ -60,10 +126,14 @@ async fn start_admin(
     paths: &acp_common::AcpPaths,
     node: &p2p::Node,
     deps: Arc<acp_agent::SessionDeps>,
+    a2a_admin: Option<std::sync::Arc<acp_agent::a2a::A2aAdminCtx>>,
 ) -> Result<(), String> {
     if config.admin_disabled {
         eprintln!("acp-agent: admin http disabled (--admin-disabled)");
         return Ok(());
+    }
+    if config.descriptor_disabled {
+        eprintln!("acp-agent: local descriptor disabled (--descriptor-disabled)");
     }
     let token = acp_agent::share::admin::AdminToken::issue(paths.admin_token())
         .map_err(|err| format!("admin token file: {err}"))?;
@@ -76,7 +146,8 @@ async fn start_admin(
                 peer: node.local_peer_id().to_string(),
                 addrs: node.listen_addrs(),
             },
-            workspaces: config.workspace_rows(),
+            workspaces: deps.workspaces.clone(),
+            a2a_admin,
         },
     )
     .await
@@ -98,6 +169,9 @@ fn publish_local_descriptor(
     admin_port: u16,
     token_value: &str,
 ) {
+    if config.descriptor_disabled {
+        return;
+    }
     let Some(home) = acp_common::user_home_dir() else {
         tracing::warn!("用户主目录不可得，跳过本机描述文件：GUI 将无法自动发现 admin 端点");
         return;

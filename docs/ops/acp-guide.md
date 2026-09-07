@@ -183,6 +183,8 @@ guest 不得因本地时钟误判而拒绝尝试。
 tmp+rename）；GUI 分享面读不到已登记管理端点时自动读它兜底。仅覆盖本机
 agent；远端 agent 仍在 endpoint「分享管理」手动登记。token 红线不变：
 不进日志/审计。
+不进日志/审计。临时/测试实例必须带 --descriptor-disabled 跳过落盘，
+否则会覆盖生产描述文件（2026-09-08 冒烟实证）。
 
     POST   /shares              创建：入参 {scope, allow_mcp?, ask_route?, ttl_secs,
                                 max_activations?, note?}；出参 {share_id, token, link,
@@ -230,4 +232,50 @@ agent；远端 agent 仍在 endpoint「分享管理」手动登记。token 红�
   （fail-closed 前移，不等 guest 撞 cwd-denied）。
 - 全链路 E2E：crates/p2p-itest/tests/share_link_wave.rs（真两节点回环；真 dsh
   链路用例 --ignored 单独跑，dsh 不可用打 SKIP 不假绿）。
+
+## 9. 本地回环（本机 agent）快速上手
+
+一条命令装配本机回环（幂等）：
+
+    scripts/ops/acp-local-setup.sh
+
+做五件事：① release 构建并安装 acp-agent/acp-console/p2pctl 到 ~/.dsh/bin；
+② dsh acp profile 装自托管启动 shim（见下）；③ 用 p2pctl identity show 派本机
+console 身份 PeerId，写 scope=owner 授权（owner 全 root，GUI 连本机 agent 即全
+权）；④ kickstart 重启 launchd 服务（无 plist 则 nohup）；⑤ 三探针：admin
+/workspaces 可达（兼验二进制未老化）、~/.dsh/acp/local-agent.json 新鲜、
+dsh --profile acp initialize 应答（dsh 缺失/失败显式 SKIP 不假绿）。
+验收口径 ACP-LOCAL-SETUP-OK。
+
+### 9.1 dsh acp profile 启动 shim
+
+裸跑 dsh --profile acp 时没有任何 launcher 提供 ctx.appExit/appReady，
+@deepseek-ai/dsh-acp-app 挂载即抛（2026-09-05 记录的 harness 侧课题）。
+scripts/ops/dsh-acp-launch 经 profile 用户层 patch 把 acp-app-startup 条目
+顶替为 @local/dsh-acp-launch：自备 appExit（stdin EOF=有界退出，stdout 冲刷
+一拍）/appReady 缺省实现后复刻原插件语义（acpAppStartup 服务 + EOF 绑定退出），
+不改 harness 仓库；shim 落在各 dsh home 的 profiles/acp/（node_modules +
+cordis.patch.yml），setup 幂等维护。
+
+### 9.2 全链冒烟
+
+    scripts/ops/acp-local-smoke.sh
+
+临时目录起真 console + 真 agent（stub 子进程）+ node 原生 WS 客户端，机械走
+握手→initialize→session/new→prompt 往返（全链经 GUI 同款 WS 面）与 admin
+工作区 CRUD；验收口径 ACP-LOCAL-SMOKE-OK。
+
+### 9.3 工作区动态管理（admin）
+
+具名工作区不再是启动期静态配置：<data-dir>/acp-workspaces.json 为运行期权威
+（缺失=配置种子落盘；损坏=拒启），admin 实时增删、tmp+rename 原子持久化，
+jail cwd 与分享创建校验同源即时生效：
+
+    POST   /workspaces        {id, name, dir}  400 invalid-field / 409 duplicate-id /
+                                              422 invalid-dir / 500 store
+    DELETE /workspaces/{id}   404 unknown-workspace / 400 legacy-default
+
+legacy --workspace-dir 仅作默认行兜底展示，不入文件、不可经 admin 删除。
+GUI 管理面：/acp-manage（命令面板或消息中心 agent 视图入口）——服务状态、
+工作区增删、会话清单三卡。
 
