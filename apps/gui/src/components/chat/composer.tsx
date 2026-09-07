@@ -135,7 +135,8 @@ export function Composer({
       const report = await tx.sendText(peer, trimmed, replyTarget?.id);
       setText("");
       onReplyCancel();
-      if (!transport) notifyFailedSendReport(report as ChatSendReport);
+      // 报告级失败统一上浮（1:1 与群同链路）：mark_failed 不抛错，失败禁止零解释
+      notifyFailedSendReport(report as ChatSendReport);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       toastError(t("chat.sendFailed"), { description: reason });
@@ -173,7 +174,7 @@ export function Composer({
         const media = await fileToChatMedia(file);
         const report = await tx.sendMedia(peer, kind, media, replyTarget?.id);
         onReplyCancel();
-        if (!transport) notifyFailedSendReport(report as ChatSendReport);
+        notifyFailedSendReport(report as ChatSendReport);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         console.error("[chat] 附件发送失败", error);

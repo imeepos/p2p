@@ -476,7 +476,7 @@ const zhCN = {
       kindGroupInvite: "入群邀请",
     },
     status: {
-      pending: "等待对方上线",
+      pending: "发送中…",
       sent: "已发送",
       delivered: "已送达",
       failed: "失败",

@@ -28,6 +28,8 @@ interface GroupMessageListProps {
   onRetryHistory: () => Promise<unknown>;
   onCancelPending: (messageId: string) => void;
   onReply?: (message: GroupMessageJson) => void;
+  /** 群失败文本重发（W1-01）：与 1:1 同入口，透传给气泡 retry 钮 */
+  onRetry?: (message: GroupMessageJson) => void;
   /** WX1：me 气泡外侧头像（可选）。 */
   selfAvatar?: BubbleAvatar;
 }
@@ -41,6 +43,7 @@ interface ItemProps {
   quoted: ChatMessageJson | null;
   onCancelPending: (messageId: string) => void;
   onReply?: (message: GroupMessageJson) => void;
+  onRetry?: (message: GroupMessageJson) => void;
   onQuoteOpen: (bubble: ChatMessageJson) => void;
   selfAvatar?: BubbleAvatar;
 }
@@ -56,12 +59,19 @@ function GroupBubbleItem({
   quoted,
   onCancelPending,
   onReply,
+  onRetry,
   onQuoteOpen,
   selfAvatar,
 }: ItemProps) {
   const { t } = useTranslation();
   const view = toBubbleMessage(message, selfPeerId);
   const isMe = view.sender === "me";
+  // 群发送状态（W1-01）：pending 显发送中、failed 走 1:1 气泡原生失败+重试
+  // 渲染（不传 override），仅已落账的 sent/delivered 显送达计数。
+  const statusOverride =
+    isMe && message.status !== "pending" && message.status !== "failed"
+      ? t("group.delivery", { acked: message.acks.length, total: totalRecipients })
+      : undefined;
   return (
     <MessageBubble
       message={view}
@@ -71,15 +81,12 @@ function GroupBubbleItem({
           ? selfAvatar
           : { label: groupDisplayName(message.senderId, friends), seed: message.senderId }
       }
-      statusOverride={
-        isMe
-          ? t("group.delivery", { acked: message.acks.length, total: totalRecipients })
-          : undefined
-      }
+      statusOverride={statusOverride}
       highlighted={highlighted}
       quoted={quoted}
       quotedMissing={view.replyTo !== null && !quoted}
       onCancelPending={onCancelPending}
+      onRetry={onRetry ? () => onRetry(message) : undefined}
       onReply={onReply ? () => onReply(message) : undefined}
       onQuoteOpen={onQuoteOpen}
     />
@@ -101,6 +108,7 @@ export function GroupMessageList({
   onRetryHistory,
   onCancelPending,
   onReply,
+  onRetry,
   selfAvatar,
 }: GroupMessageListProps) {
   const { t, i18n } = useTranslation();
@@ -232,6 +240,7 @@ export function GroupMessageList({
               highlighted={highlightId === message.id}
               quoted={resolveQuoted(message)}
               onCancelPending={onCancelPending}
+              onRetry={onRetry}
               onReply={onReply}
               onQuoteOpen={openQuote}
               selfAvatar={selfAvatar}

@@ -14,6 +14,7 @@ import { useNodeStore, usePeerOnline } from "@/stores/node-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { ShareCreateDialog } from "@/acp/components/share-create-dialog";
 import { toastSuccess } from "@/components/feedback/toast";
+import { isFailedSendReport, notifyFailedSendReport } from "@/components/chat/send-notify";
 
 // WX1 微信风格会话区：居中标题 + 右侧动作；气泡带外侧头像（本机走资料头像）。
 // key=peer 挂载（引用预览随会话切换自动复位）。
@@ -50,7 +51,12 @@ export function FriendConversation({ peer }: { peer: string }) {
   };
 
   const sendShareLink = async (link: string) => {
-    await sendText(peer, link);
+    const report = await sendText(peer, link);
+    // W1-02：mark_failed 不抛错，假成功 toast 会误导——失败走失败信号
+    if (isFailedSendReport(report)) {
+      notifyFailedSendReport(report);
+      return;
+    }
     toastSuccess(t("acp.share.sent"));
   };
 

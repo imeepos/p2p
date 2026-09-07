@@ -487,7 +487,7 @@ const enUS: typeof zhCN = {
       kindGroupInvite: "Group invite",
     },
     status: {
-      pending: "Waiting for peer to come online",
+      pending: "Sending…",
       sent: "Sent",
       delivered: "Delivered",
       failed: "Failed",
