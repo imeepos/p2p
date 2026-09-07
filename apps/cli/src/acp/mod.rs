@@ -91,6 +91,8 @@ pub enum ScopeArg {
     Sandbox,
     /// 锁定授权目录
     Workspace,
+    /// 全 root（owner 本机回环专用；子进程继承桥 cwd）
+    Owner,
 }
 
 /// --ask-route 取值（设计 §12-Q3：默认 remote_gui）。
@@ -109,6 +111,7 @@ impl From<ScopeArg> for Scope {
         match value {
             ScopeArg::Sandbox => Scope::Sandbox,
             ScopeArg::Workspace => Scope::Workspace,
+            ScopeArg::Owner => Scope::Owner,
         }
     }
 }
