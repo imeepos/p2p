@@ -7,6 +7,7 @@
 //! console（契约 v10 加法：acp-console 伴生进程托管，UX2）/
 //! llm_share（契约 v11 §16 加法：llm-share 命令面，LSG1）。
 
+pub mod acp_descriptor;
 pub mod chat;
 pub mod commands;
 pub mod config;
@@ -80,6 +81,7 @@ pub fn run() {
             group::group_history,
             group::group_media_file,
             console::acp_console_status,
+            acp_descriptor::acp_local_descriptor,
             llm_share::llm_share_offer_publish,
             llm_share::llm_share_offer_show,
             llm_share::llm_share_allow_list,

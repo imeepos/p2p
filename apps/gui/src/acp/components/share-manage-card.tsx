@@ -12,6 +12,7 @@ import { useAcpStore } from "@/acp/acp-store";
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { toastError } from "@/components/feedback/toast";
 import { adminEndpointCandidates } from "@/acp/admin-endpoints";
+import { useLocalAdminCandidate } from "@/acp/use-local-admin";
 import { listShares, revokeShare } from "@/acp/share-admin-client";
 import { shareStatus, type ShareEntry, type ShareStatus } from "@/acp/share-model";
 import type { I18nKey } from "@/i18n/types";
@@ -39,7 +40,17 @@ const STATUS_KEY: Record<ShareStatus, I18nKey> = {
 
 type ShareRowModel = ShareEntry & { status: ShareStatus };
 
-function ShareRow({ entry, onRevoked }: { entry: ShareRowModel; onRevoked: () => void }) {
+function ShareRow({
+  entry,
+  onRevoked,
+  adminUrl,
+  adminToken,
+}: {
+  entry: ShareRowModel;
+  onRevoked: () => void;
+  adminUrl: string;
+  adminToken: string;
+}) {
   const { t, i18n } = useTranslation();
   const confirm = useConfirm();
   const expiresText = entry.expires_at_unix
@@ -57,9 +68,8 @@ function ShareRow({ entry, onRevoked }: { entry: ShareRowModel; onRevoked: () =>
       destructive: true,
     }).then(async (ok) => {
       if (!ok) return;
-      const { draft } = useAcpStore.getState();
       try {
-        await revokeShare(draft.adminUrl ?? "", draft.adminToken ?? "", entry.share_id);
+        await revokeShare(adminUrl, adminToken, entry.share_id);
         onRevoked();
       } catch (error) {
         toastError(t("acp.share.manage.revokeFailed"), {
@@ -112,7 +122,13 @@ export function ShareManageCard() {
   const { t } = useTranslation();
   const saved = useAcpStore((s) => s.saved);
   const draft = useAcpStore((s) => s.draft);
-  const endpoint = adminEndpointCandidates(saved, draft)[0] ?? null;
+  const registered = adminEndpointCandidates(saved, draft)[0] ?? null;
+  // 无已登记管理端点时自动发现本机 agent（自描述文件），免手填 token
+  const { candidate: localCandidate, done: localDone } = useLocalAdminCandidate(
+    registered === null,
+    t("acp.share.localCandidateLabel"),
+  );
+  const endpoint = registered ?? localCandidate;
   // effect 依赖只取原始值：endpoint 对象每渲染都是新引用，直接依赖会自旋
   const endpointUrl = endpoint?.url ?? null;
   const endpointToken = endpoint?.token ?? "";
@@ -171,7 +187,7 @@ export function ShareManageCard() {
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        {!endpoint ? (
+        {!endpoint && localDone ? (
           <p className="text-muted-foreground text-sm" data-testid="acp-share-manage-need-admin">
             {t("acp.share.manage.needAdmin")}
           </p>
@@ -190,7 +206,13 @@ export function ShareManageCard() {
           </p>
         ) : (
           rows.map((entry) => (
-            <ShareRow key={entry.share_id} entry={entry} onRevoked={bump} />
+            <ShareRow
+              key={entry.share_id}
+              entry={entry}
+              onRevoked={bump}
+              adminUrl={endpointUrl ?? ""}
+              adminToken={endpointToken}
+            />
           ))
         )}
       </CardContent>

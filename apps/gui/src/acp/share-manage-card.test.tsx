@@ -9,6 +9,7 @@ const { ShareManageCard } = await import("./components/share-manage-card");
 const { ConfirmProvider } = await import("@/components/feedback/confirm-provider");
 const { useAcpStore } = await import("./acp-store");
 const { resetFixtures } = await import("./acp-view-test-utils");
+const { mockBackend } = await import("@/lib/mock-ipc");
 await import("@/i18n");
 
 function entryOf(id: string, patch: Record<string, unknown>) {
@@ -117,6 +118,40 @@ describe("ShareManageCard 渲染与撤销", () => {
       </ConfirmProvider>,
     );
     expect(await screen.findAllByTestId("acp-share-manage-need-admin")).toHaveLength(2);
+  });
+
+  it("本机自描述兜底：未登记时自动发现 admin 端点，台账与撤销走发现地址", async () => {
+    const fetchMock = stubList([entryOf("sid-auto", {})]);
+    const spy = vi.spyOn(mockBackend, "acpLocalDescriptor").mockResolvedValue({
+      adminUrl: "http://127.0.0.1:8123",
+      token: "auto-tok",
+      peer: "peerLOCAL",
+      agentName: "home-agent",
+      writtenAtUnix: 1_725_700_000,
+    });
+    try {
+      useAcpStore.setState({ draft: { wsUrl: "ws://127.0.0.1:8787", token: "t", peer: "p" } });
+      render(
+        <ConfirmProvider>
+          <ShareManageCard />
+        </ConfirmProvider>,
+      );
+      await waitFor(() => {
+        expect(screen.getByTestId("acp-share-row-sid-auto")).toBeTruthy();
+      });
+      expect(String(fetchMock.mock.calls[0][0])).toBe("http://127.0.0.1:8123/shares");
+      fireEvent.click(screen.getByTestId("acp-share-revoke-sid-auto"));
+      const dialog = await screen.findByRole("alertdialog");
+      fireEvent.click(within(dialog).getByText("撤销"));
+      await waitFor(() => {
+        const deleteCall = fetchMock.mock.calls.find(
+          ([, init]) => (init as RequestInit | undefined)?.method === "DELETE",
+        );
+        expect(String(deleteCall![0])).toBe("http://127.0.0.1:8123/shares/sid-auto");
+      });
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("加载失败显式报错并提供重载入口", async () => {

@@ -23,6 +23,7 @@ import { toastError } from "@/components/feedback/toast";
 import { CopyButton } from "@/components/monitor/copy-button";
 import { useAcpStore } from "@/acp/acp-store";
 import { adminEndpointCandidates } from "@/acp/admin-endpoints";
+import { useLocalAdminCandidate } from "@/acp/use-local-admin";
 import { createShare } from "@/acp/share-admin-client";
 import {
   hasShareCreateErrors,
@@ -55,6 +56,11 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
   const saved = useAcpStore((s) => s.saved);
   const draft = useAcpStore((s) => s.draft);
   const candidates = adminEndpointCandidates(saved, draft);
+  // 无已登记管理端点时自动发现本机 agent（自描述文件），免手填 token
+  const { candidate: localCandidate, done: localDone } = useLocalAdminCandidate(
+    open && candidates.length === 0,
+    t("acp.share.localCandidateLabel"),
+  );
 
   const [endpointId, setEndpointId] = useState<string | null>(null);
   const [scope, setScope] = useState<ShareScope>("sandbox");
@@ -82,7 +88,7 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
     }
   }
 
-  const endpoint = candidates.find((c) => c.id === endpointId) ?? candidates[0] ?? null;
+  const endpoint = candidates.find((c) => c.id === endpointId) ?? candidates[0] ?? localCandidate;
 
   const create = async () => {
     const maxActivations = Number(activations);
@@ -134,7 +140,12 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
           <DialogTitle>{t("acp.share.dialogTitle")}</DialogTitle>
           <DialogDescription>{t("acp.share.dialogDescription")}</DialogDescription>
         </DialogHeader>
-        {candidates.length === 0 ? (
+        {candidates.length === 0 && localCandidate ? (
+          <p className="text-muted-foreground text-xs" data-testid="acp-share-local-auto">
+            {t("acp.share.localAutoHint", { url: localCandidate.url })}
+          </p>
+        ) : null}
+        {candidates.length === 0 && localDone && !localCandidate ? (
           <p className="text-muted-foreground text-sm" data-testid="acp-share-admin-missing">
             {t("acp.share.adminMissing")}
           </p>
@@ -250,7 +261,7 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
             type="button"
             variant={link ? "outline" : "default"}
             onClick={() => void create()}
-            disabled={creating || candidates.length === 0}
+            disabled={creating || (candidates.length === 0 && !localCandidate)}
             data-testid="acp-share-create"
           >
             {creating ? t("acp.share.creating") : t("acp.share.create")}

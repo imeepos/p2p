@@ -8,6 +8,7 @@ vi.stubEnv("VITE_MOCK_IPC", "1");
 const { ShareCreateDialog } = await import("./components/share-create-dialog");
 const { useAcpStore } = await import("./acp-store");
 const { pickOption, resetFixtures } = await import("./acp-view-test-utils");
+const { mockBackend } = await import("@/lib/mock-ipc");
 await import("@/i18n");
 
 const TOKEN32 = "f".repeat(32);
@@ -95,10 +96,35 @@ describe("ShareCreateDialog 表单校验与提交契约", () => {
     });
   });
 
-  it("admin 端点未登记：显式引导且生成入口停用", () => {
+  it("admin 端点未登记且本机自描述缺失：显式引导且生成入口停用", async () => {
     useAcpStore.setState({ draft: { wsUrl: "ws://127.0.0.1:8787", token: "t", peer: "p" } });
     render(<ShareCreateDialog open onOpenChange={vi.fn()} />);
-    expect(screen.getByTestId("acp-share-admin-missing")).toBeTruthy();
+    expect(await screen.findByTestId("acp-share-admin-missing")).toBeTruthy();
     expect((screen.getByTestId("acp-share-create") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("本机自描述兜底：未登记时自动发现 admin 端点并可创建", async () => {
+    const fetchMock = stubCreatefetch(LINK);
+    const spy = vi.spyOn(mockBackend, "acpLocalDescriptor").mockResolvedValue({
+      adminUrl: "http://127.0.0.1:8123",
+      token: "auto-tok",
+      peer: "peerLOCAL",
+      agentName: "home-agent",
+      writtenAtUnix: 1_725_700_000,
+    });
+    try {
+      useAcpStore.setState({ draft: { wsUrl: "ws://127.0.0.1:8787", token: "t", peer: "p" } });
+      render(<ShareCreateDialog open onOpenChange={vi.fn()} />);
+      expect(await screen.findByTestId("acp-share-local-auto")).toBeTruthy();
+      expect(screen.queryByTestId("acp-share-admin-missing")).toBeNull();
+      expect((screen.getByTestId("acp-share-create") as HTMLButtonElement).disabled).toBe(false);
+      fireEvent.click(screen.getByTestId("acp-share-create"));
+      await waitFor(() => {
+        expect((screen.getByTestId("acp-share-link") as HTMLInputElement).value).toBe(LINK);
+      });
+      expect(callsOf(fetchMock)[0][0]).toBe("http://127.0.0.1:8123/shares");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

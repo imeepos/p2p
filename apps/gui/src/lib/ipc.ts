@@ -5,6 +5,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 
 import type {
   AcpConsoleStatus,
+  AcpLocalDescriptor,
   ChatFriendJson,
   ChatMediaFile,
   FriendInviteJson,
@@ -50,6 +51,7 @@ const mockIpc = useMockIpc ? (await import("./mock-ipc")).mockBackend : null;
 const tauriBackend: IpcBackend = {
   // 契约 v10 §15：托管状态快照 + 相位事件（phase 变更即发射，可带 tsMs）。
   acpConsoleStatus: () => invoke<AcpConsoleStatus>("acp_console_status"),
+  acpLocalDescriptor: () => invoke<AcpLocalDescriptor | null>("acp_local_descriptor"),
   onAcpConsoleEvent: (handler) =>
     listen<AcpConsoleStatus>(ACP_CONSOLE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {

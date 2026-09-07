@@ -439,6 +439,11 @@ export const mockBackend: IpcBackend & {
     return mockAcpConsole.status();
   },
 
+  acpLocalDescriptor() {
+    // mock 环境无本机 agent 自描述：返回 null 走「未登记」引导（测试可 spy 覆盖）
+    return Promise.resolve(null);
+  },
+
   onAcpConsoleEvent(handler): Promise<UnlistenFn> {
     return Promise.resolve(mockAcpConsole.subscribe(handler));
   },

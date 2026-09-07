@@ -298,6 +298,17 @@ export interface AcpConsoleStatus {
 
 export type AcpConsoleEventHandler = (status: AcpConsoleStatus) => void;
 
+// 2026-09-07 裁决加法：本机 agent 自描述（acp-agent 写 ~/.dsh/acp/local-agent.json，
+// src-tauri acp_local_descriptor 读出）。分享流据此免手填 admin token；
+// null = 本机无描述文件（agent 未跑/远端场景），回落手动登记。
+export interface AcpLocalDescriptor {
+  adminUrl: string; // http://127.0.0.1:<port>
+  token: string;
+  peer: string;
+  agentName: string;
+  writtenAtUnix: number;
+}
+
 // ── 契约 v11 §16 加法（LSG 波）：llm-share GUI 面，与 §16.1 逐字对齐，禁止改名 ──
 
 // offer show status 五态：expired/not_yet_valid=常态中性；peer_mismatch/bad_signature=警示。
@@ -455,6 +466,7 @@ export interface LlmReceiptVerifyResult {
 
 export interface IpcBackend {
   acpConsoleStatus(): Promise<AcpConsoleStatus>;
+  acpLocalDescriptor(): Promise<AcpLocalDescriptor | null>;
   onAcpConsoleEvent(handler: AcpConsoleEventHandler): Promise<UnlistenFn>;
   nodeStart(cfg: GuiConfig): Promise<NodeStatus>;
   nodeStop(): Promise<NodeStatus>;
