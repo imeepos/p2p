@@ -1,11 +1,9 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { CommandPalette } from "@/components/command-palette/command-palette";
-import { useNodeStore } from "@/stores/node-store";
-import type { NodeStatus } from "@/lib/ipc-types";
 import { ThemeProvider } from "@/theme/theme-provider";
 import "@/i18n";
 import { Topbar } from "./topbar";
@@ -21,8 +19,6 @@ class ResizeObserverStub {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
-
-
 
 function stubPlatform(value: string) {
   Object.defineProperty(navigator, "platform", { configurable: true, value });
@@ -79,71 +75,14 @@ describe("Topbar 命令面板入口", () => {
   });
 });
 
-// macOS Overlay 标题栏（titleBarStyle: Overlay + hiddenTitle）双标题栏收敛：
-// 顶栏即唯一标题栏，header 与应用名 span 必须带拖拽区属性；按钮区不带保持可点击。
-describe("Topbar 拖拽标题栏（Overlay）", () => {
-  it("header 与应用名 span 带 data-tauri-drag-region", () => {
+// macOS Overlay 标题栏：顶栏即唯一标题栏，header 空白区带拖拽属性。
+// 紧凑化后标题文本与节点启停文字按钮不再存在，仅保留右侧图标控件。
+describe("Topbar 紧凑标题栏（Overlay）", () => {
+  it("header 带 data-tauri-drag-region，无标题文本与启停按钮", () => {
     renderTopbar();
     const header = screen.getByRole("banner");
     expect(header.hasAttribute("data-tauri-drag-region")).toBe(true);
-    const appName = header.querySelector("span");
-    expect(appName?.textContent).toContain("p2p-console");
-    expect(appName?.hasAttribute("data-tauri-drag-region")).toBe(true);
-  });
-});
-
-// F04：顶栏停止与概览状态卡同走 StopNodeDialog 二次确认，点击不再直接停机
-function runningStatus(): NodeStatus {
-  return {
-    running: true,
-    peerId: "PEER123",
-    listenAddrs: [],
-    uptimeSecs: 1,
-    startedAtMs: null,
-    config: {
-      quicPort: 3400, tcpPort: 3401, enableMdns: true, dataDir: "/tmp",
-      bootstrap: [], relayAddrs: [], advertisedAddrs: [],
-      observationPort: null, observationAddrs: [],
-    },
-  };
-}
-
-describe("Topbar 停止节点二次确认（F04）", () => {
-  afterEach(() => {
-    useNodeStore.setState({ status: null });
-  });
-
-  it("运行中点击停止节点：先弹确认弹窗，未直接调用停止", () => {
-    const stopNode = vi.fn(async () => runningStatus());
-    useNodeStore.setState({ status: runningStatus(), stopNode });
-    renderTopbar();
-    fireEvent.click(screen.getByTestId("topbar-stop-node"));
-    expect(screen.getByText("停止节点？")).toBeTruthy();
-    expect(stopNode).not.toHaveBeenCalled();
-  });
-
-  it("确认弹窗取消：不停止，弹窗关闭", async () => {
-    const stopNode = vi.fn(async () => runningStatus());
-    useNodeStore.setState({ status: runningStatus(), stopNode });
-    renderTopbar();
-    fireEvent.click(screen.getByTestId("topbar-stop-node"));
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    await waitFor(() =>
-      expect(screen.queryByText("停止节点？")).toBeNull(),
-    );
-    expect(stopNode).not.toHaveBeenCalled();
-  });
-
-  it("确认弹窗确认：调用停止", async () => {
-    const stopNode = vi.fn(async () => {
-      const stopped = { ...runningStatus(), running: false };
-      useNodeStore.setState({ status: stopped });
-      return stopped;
-    });
-    useNodeStore.setState({ status: runningStatus(), stopNode });
-    renderTopbar();
-    fireEvent.click(screen.getByTestId("topbar-stop-node"));
-    fireEvent.click(screen.getByRole("button", { name: "确认" }));
-    await waitFor(() => expect(stopNode).toHaveBeenCalled());
+    expect(screen.queryByText("p2p-console")).toBeNull();
+    expect(screen.queryByTestId("topbar-stop-node")).toBeNull();
   });
 });
