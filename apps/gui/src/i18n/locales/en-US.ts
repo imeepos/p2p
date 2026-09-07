@@ -1244,7 +1244,6 @@ const enUS: typeof zhCN = {
       leaveFailed: "Leave group failed: ",
       leaveSuccess: "Left the group",
       inviteDisabledNotOwner: "Only the group owner can invite members",
-      inviteDisabledInactive: "Group is not active; inviting is unavailable",
       searchPlaceholder: "Search group name or ID…",
     },
     groupAdd: {

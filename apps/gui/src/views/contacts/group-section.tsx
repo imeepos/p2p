@@ -12,21 +12,21 @@ import {
 } from "@/components/ui/dialog";
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
+import { visibleGroups } from "@/lib/conversation-entry";
 import type { GroupJson } from "@/lib/ipc-types";
 import { useGroupStore } from "@/stores/group-store";
 import { EmptyState } from "@/views/shared/empty-state";
 import { errorText } from "@/views/shared/form-flow";
 
-import { GroupStateBadge } from "@/views/group/group-list";
 import { GroupInvitePicker } from "@/views/group/group-invite-picker";
 import { GroupAddDialog } from "./group-add-dialog";
 import { matchesQuery } from "./contacts-sections";
 import { SectionHeader } from "./section-search";
 // F09：建群表单内嵌 GroupAddDialog 默认页签，不再单独挂 GroupCreateDialog。
 
-// 群区（§3.1）：行 = 群名 + 成员数 + 我的角色 + 四态徽标；行内操作：
-// 发消息（/chat?group=）、邀请成员（owner active）、退群（第三档单次
-// 确认）。left/kicked/disbanded 置底沿用 orderedGroups 语义。
+// 群区（§3.1）：只列在群（active），已退出/已解散/被踢不进通讯录（退群
+// 后行即消失；历史回看走 chat 侧 inactive 开关与 /group 管理页）。行内
+// 操作：发消息（/chat?group=）、邀请成员（owner）、退群（第三档单次确认）。
 export function GroupSection() {
   const { t } = useTranslation();
   const confirm = useConfirm();
@@ -65,14 +65,11 @@ export function GroupSection() {
     }
   };
 
-  const active = (group: GroupJson) => group.state === "active";
   const isOwner = (group: GroupJson) => selfPeerId !== null && group.owner === selfPeerId;
-  const sorted = [...groups].sort((a, b) => {
-    // active 在前，同态按最近 roster 时间倒序（group-names orderedGroups 同语义）
-    if (active(a) !== active(b)) return active(a) ? -1 : 1;
-    return b.tsMs - a.tsMs;
-  });
-  const filtered = sorted.filter((g) => matchesQuery([g.name, g.groupId], query));
+  // 非 active 群不进通讯录：复用会话列表同款可见性（默认仅 active），同态按
+  // 最近 roster 时间倒序（group-names orderedGroups 同语义）
+  const listed = visibleGroups(groups, false).sort((a, b) => b.tsMs - a.tsMs);
+  const filtered = listed.filter((g) => matchesQuery([g.name, g.groupId], query));
 
   return (
     <section
@@ -88,7 +85,7 @@ export function GroupSection() {
         onQueryChange={setQuery}
         placeholder={t("contacts.groups.searchPlaceholder")}
         matched={filtered.length}
-        total={sorted.length}
+        total={listed.length}
         addLabel={t("contacts.groups.add")}
         addIcon={UsersRoundIcon}
         onAdd={() => setAddOpen(true)}
@@ -97,7 +94,7 @@ export function GroupSection() {
 
       {!groupsLoaded && groups.length === 0 ? (
         <p className="text-muted-foreground px-1 py-2 text-sm">{t("group.loading")}</p>
-      ) : sorted.length === 0 ? (
+      ) : listed.length === 0 ? (
         <EmptyState
           icon={UsersRoundIcon}
           title={t("contacts.groups.empty")}
@@ -126,10 +123,7 @@ export function GroupSection() {
               {Array.from(group.name)[0] ?? "?"}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 truncate text-sm font-medium">
-                {group.name}
-                {group.state !== "active" ? <GroupStateBadge state={group.state} /> : null}
-              </p>
+              <p className="truncate text-sm font-medium">{group.name}</p>
               <p className="text-muted-foreground truncate text-xs">
                 {t("group.members", { count: group.members.length })} ·{" "}
                 {isOwner(group) ? t("contacts.groups.role.owner") : t("contacts.groups.role.member")}
@@ -146,14 +140,8 @@ export function GroupSection() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={!isOwner(group) || !active(group)}
-                title={
-                  !active(group)
-                    ? t("contacts.groups.inviteDisabledInactive")
-                    : !isOwner(group)
-                      ? t("contacts.groups.inviteDisabledNotOwner")
-                      : undefined
-                }
+                disabled={!isOwner(group)}
+                title={!isOwner(group) ? t("contacts.groups.inviteDisabledNotOwner") : undefined}
                 onClick={() => setInviteGroup(group)}
                 data-testid={"contact-group-invite-" + group.groupId}
               >
@@ -164,7 +152,7 @@ export function GroupSection() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={!active(group) || leavingId === group.groupId}
+                disabled={leavingId === group.groupId}
                 onClick={() => void leaveGroup(group)}
                 data-testid={"contact-group-leave-" + group.groupId}
               >

@@ -1220,7 +1220,6 @@ const zhCN = {
       leaveFailed: "退群失败：",
       leaveSuccess: "已退出群聊",
       inviteDisabledNotOwner: "仅群主可邀请成员",
-      inviteDisabledInactive: "群聊不在活跃状态，无法邀请",
       searchPlaceholder: "搜索群名或群 ID…",
     },
     groupAdd: {

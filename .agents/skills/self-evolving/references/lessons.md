@@ -211,6 +211,8 @@ _none yet — be the first._
 - 2026-09-04：AGENTS.md 写"远端名是 gitea 不是 origin"，但本仓库实测 git remote 只有 origin——仓库级惯例文件会过时或张冠李戴，涉及远端操作前先 git remote 实测再动手。
 - 2026-09-04：git worktree add 不能检出已被其他 worktree 占用的分支（fatal: already used by worktree）；验证钩子/临时检出用 --detach，不占分支名。
 - 2026-09-04：post-checkout 触发面：HEAD 级检出（分支切换/新 worktree/clone）都触发（flag=1 或 old=全零），git checkout -- <path> 路径级不触发（flag=0）——钩子内按 flag 过滤可避免路径检出误动作。
+- 2026-09-08：edit 替换 import 块时 old_string 只锚了块尾两行，new_string 却按整块重写并重发了块内上文已有的行——立刻产生双 import（tsc 必红）。改 import 块前先确认 old_string 的覆盖边界，new_string 只写净新增行，改完立刻 read 回看。
+- 2026-09-08：测试夹具给联合类型字段覆写字面量（state: "left"）先赋 const 再传 setState，字面量在声明处已放宽为 string——vitest 不查类型全绿，tsc build 才红（2026-09-04 键类型教训的同类：build 是唯一闸口）。沿用仓内 `as const` 先例或给夹具直接标目标类型。
 - 2026-09-07 rail 轮：ff-merge 后并行会话会继续推进 main，收尾核验「我的提交是否还活着」用 git merge-base --is-ancestor <commit> main，别用 git log 头部比对——头部早就是别人的提交了（本轮 main 在我合并后 1 分钟内被 chat-paged-view 会话推进两个提交，ancestry 校验确认两个 fix 提交均在）。
 - 2026-09-07 rail 轮：设计系统已有语义令牌（shadcn 的 --sidebar/--muted 系列）时要先找令牌再写死颜色——本轮侧栏「黑底不随主题」的根因就是 WX1 风格引入了固定色 --wx-rail，绕过了已有主题机制；删固定令牌 + 改语义类（bg-sidebar/text-muted-foreground/hover:bg-sidebar-accent）零 JS 改动即双主题自适应。
 - 2026-09-04 N2：git stash pop 或外部脚本改写文件后，edit 工具必报 file changed

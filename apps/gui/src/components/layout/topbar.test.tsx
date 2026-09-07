@@ -79,6 +79,19 @@ describe("Topbar 命令面板入口", () => {
   });
 });
 
+// macOS Overlay 标题栏（titleBarStyle: Overlay + hiddenTitle）双标题栏收敛：
+// 顶栏即唯一标题栏，header 与应用名 span 必须带拖拽区属性；按钮区不带保持可点击。
+describe("Topbar 拖拽标题栏（Overlay）", () => {
+  it("header 与应用名 span 带 data-tauri-drag-region", () => {
+    renderTopbar();
+    const header = screen.getByRole("banner");
+    expect(header.hasAttribute("data-tauri-drag-region")).toBe(true);
+    const appName = header.querySelector("span");
+    expect(appName?.textContent).toContain("p2p-console");
+    expect(appName?.hasAttribute("data-tauri-drag-region")).toBe(true);
+  });
+});
+
 // F04：顶栏停止与概览状态卡同走 StopNodeDialog 二次确认，点击不再直接停机
 function runningStatus(): NodeStatus {
   return {
