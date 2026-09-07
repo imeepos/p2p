@@ -19,6 +19,7 @@ export function GroupView() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const groups = useGroupStore((s) => s.groups);
+  const friends = useGroupStore((s) => s.friends);
   const groupsLoaded = useGroupStore((s) => s.groupsLoaded);
   const groupsError = useGroupStore((s) => s.groupsError);
   const selectedGroupId = useGroupStore((s) => s.selectedGroupId);
@@ -101,6 +102,7 @@ export function GroupView() {
               selectedGroupId={selectedGroupId}
               onSelect={handleSelect}
               onReload={reload}
+              friends={friends}
             />
           </div>
         </section>

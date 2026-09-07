@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ipc } from "@/lib/ipc";
 import { useNodeStore } from "@/stores/node-store";
 import { errorText } from "@/views/shared/form-flow";
@@ -49,11 +50,17 @@ function ResetDialogBody({
           {t("settings.identity.resetDesc")}
         </AlertDialogDescription>
       </AlertDialogHeader>
-      <Input
-        value={prefixInput}
-        placeholder={t("settings.identity.resetInputHint")}
-        onChange={(event) => onPrefixChange(event.target.value)}
-      />
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="settings-reset-prefix">
+          {t("settings.identity.resetInputLabel")}
+        </Label>
+        <Input
+          id="settings-reset-prefix"
+          value={prefixInput}
+          placeholder={t("settings.identity.resetInputHint")}
+          onChange={(event) => onPrefixChange(event.target.value)}
+        />
+      </div>
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
           {t("common.actions.cancel")}

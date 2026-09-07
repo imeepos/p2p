@@ -8,11 +8,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { PickerOption } from "@/components/picker";
-import { shortPeerId } from "@/components/picker";
 import type { DialReport } from "@/lib/ipc-types";
 import { parseDialTarget } from "@/lib/dial-target";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";
+import { usePeerPickerOptions } from "@/views/llm-share/peer-options";
 import { FORM_VALIDATION_MARK } from "@/views/shared/form-flow";
 
 import {
@@ -35,14 +34,6 @@ interface PeerDialDialogProps {
 
 const EMPTY_SEGMENTS: DialSegments = { peerId: "", addr: "", port: "", transport: "u" };
 
-function pickerOptionsOf(peers: Array<{ peerId: string; addrs: string[] }>): PickerOption[] {
-  return peers.map((peer) => ({
-    value: peer.peerId,
-    label: shortPeerId(peer.peerId),
-    hint: shortPeerId(peer.peerId),
-  }));
-}
-
 // 发现结果带入：PeerId 必带；首个可拆地址连带预填主机/端口/传输。
 function segmentsFromEntry(peerId: string, addrs: string[]): DialSegments {
   const split = addrs.map(splitDialAddr).find((item) => item !== null);
@@ -58,6 +49,8 @@ export function PeerDialDialog({ open, onOpenChange, initialTarget }: PeerDialDi
   const dial = useNodeStore((s) => s.dial);
   const running = useNodeStore((s) => s.status?.running ?? false);
   const discovered = useNodeStore(selectPeerList);
+  // R2-05 同源候选：节点表可见对端 + 好友昵称（与 llm-share 共用 peerPickerOptions）。
+  const options = usePeerPickerOptions();
   // 三段状态先声明：URL 契约播种（下方渲染期迁移块）与手工编辑共用。
   const [segments, setSegments] = useState<DialSegments>(() =>
     open && initialTarget ? splitDialTarget(initialTarget) : EMPTY_SEGMENTS,
@@ -81,11 +74,13 @@ export function PeerDialDialog({ open, onOpenChange, initialTarget }: PeerDialDi
   }
 
   const portInvalid = segments.port.length > 0 && !isValidDialPort(segments.port);
+  // 节点未运行禁用提交（就地提示由下方 !running 内联行说明），与 submit 守卫同口径。
   const canSubmit =
     segments.peerId.trim().length > 0 &&
     segments.addr.trim().length > 0 &&
     segments.port.trim().length > 0 &&
-    !portInvalid;
+    !portInvalid &&
+    running;
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
@@ -115,8 +110,6 @@ export function PeerDialDialog({ open, onOpenChange, initialTarget }: PeerDialDi
     return result;
   };
 
-  const options = pickerOptionsOf(discovered);
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -137,6 +130,11 @@ export function PeerDialDialog({ open, onOpenChange, initialTarget }: PeerDialDi
           commandError={commandError}
           pickerOptions={options}
         />
+        {!running ? (
+          <p className="text-destructive text-xs" role="alert" data-testid="dial-node-stopped-hint">
+            {t("peers.dial.nodeNotRunning")}
+          </p>
+        ) : null}
         {syntaxError ? (
           <p className="text-destructive text-xs" role="alert" data-testid="dial-syntax-error">
             {syntaxError}

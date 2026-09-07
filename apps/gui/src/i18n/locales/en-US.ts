@@ -243,6 +243,8 @@ const enUS: typeof zhCN = {
       title: "LAN discovery results",
       hint: "Derived live from the node event stream (peer_discovered)",
       firstSeen: "First seen",
+      searchPlaceholder: "Search PeerId or address",
+      count: "{{shown}} / {{total}} nodes",
     },
     rendezvous: {
       title: "Rendezvous address book",
@@ -626,6 +628,7 @@ const enUS: typeof zhCN = {
       renameAction: "Rename",
       renameSubmit: "Save",
       renameFailed: "Rename failed: ",
+      renameDone: "Group name updated",
       inviteAction: "Invite members",
       inviteTitle: "Invite friends",
       inviteEmpty: "All friends are already in this group",
@@ -705,6 +708,7 @@ const enUS: typeof zhCN = {
       resetTitle: "Reset node identity?",
       resetDesc:
         "Stops the node and deletes the identity seed files in the data directory. The node will start with a brand-new PeerId and existing peer records will no longer match. This cannot be undone.",
+      resetInputLabel: "PeerId prefix",
       resetInputHint: "Type the first 4 characters of the current PeerId to confirm",
       resetConfirm: "Reset identity",
       resetting: "Resetting…",
@@ -829,6 +833,7 @@ const enUS: typeof zhCN = {
     description:
       "Frontend error buffer, log file path and persisted tail — human view of the agent perception channel.",
     refresh: "Refresh",
+    refreshed: "Diagnostics refreshed",
     clearAll: "Clear diagnostics",
     clearConfirm: {
       title: "Clear diagnostics data?",

@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { GroupChatState, GroupJson } from "@/lib/ipc-types";
+import type { ChatFriendJson, GroupChatState, GroupJson } from "@/lib/ipc-types";
+import { shortPeerId } from "@/lib/peer-name";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/views/shared/empty-state";
-import { orderedGroups } from "./group-names";
+import { groupDisplayName, orderedGroups } from "./group-names";
 
 interface GroupListProps {
   groups: GroupJson[];
@@ -15,6 +16,8 @@ interface GroupListProps {
   selectedGroupId: string | null;
   onSelect: (groupId: string) => void;
   onReload: () => void;
+  /** 好友簿：群主昵称解析（groupDisplayName），非在册回退缩略 PeerId */
+  friends: ChatFriendJson[];
 }
 
 // 群状态徽标（契约 state 四态）：非 active 置灰/标红，历史保留可辨。
@@ -39,10 +42,12 @@ function GroupRow({
   group,
   isActive,
   onSelect,
+  friends,
 }: {
   group: GroupJson;
   isActive: boolean;
   onSelect: (groupId: string) => void;
+  friends: ChatFriendJson[];
 }) {
   const { t } = useTranslation();
   return (
@@ -60,9 +65,11 @@ function GroupRow({
         {group.state !== "active" ? <GroupStateBadge state={group.state} /> : null}
       </div>
       <div className="text-muted-foreground flex items-center gap-2 text-xs">
+        {/* 群主行：好友昵称优先（groupDisplayName），缩略 PeerId 辅助辨认 */}
         <span className="font-medium">
-          {t("group.ownerLabel")} {group.owner.slice(0, 8)}
+          {t("group.ownerLabel")} {groupDisplayName(group.owner, friends)}
         </span>
+        <span className="font-mono">{shortPeerId(group.owner)}</span>
         <span>{t("group.members", { count: group.members.length })}</span>
       </div>
     </button>
@@ -77,6 +84,7 @@ export function GroupList({
   selectedGroupId,
   onSelect,
   onReload,
+  friends,
 }: GroupListProps) {
   const { t } = useTranslation();
 
@@ -110,6 +118,7 @@ export function GroupList({
           group={group}
           isActive={group.groupId === selectedGroupId}
           onSelect={onSelect}
+          friends={friends}
         />
       ))}
     </div>

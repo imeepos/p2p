@@ -136,10 +136,15 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
         ) : null}
       </div>
       {commandError ? (
-        <p className="text-destructive text-xs" role="alert" data-testid="group-create-error">
-          {t("group.create.failed")}
-          {commandError}
-        </p>
+        <div
+          className="text-destructive flex flex-col gap-0.5 text-xs"
+          role="alert"
+          data-testid="group-create-error"
+        >
+          {/* 前缀与后端原文分行：长错误串不再与标题挤成一行 */}
+          <p className="font-medium">{t("group.create.failed")}</p>
+          <p className="break-all">{commandError}</p>
+        </div>
       ) : null}
       <Button type="button" onClick={() => void submit()} disabled={!canSubmit} data-testid="group-create-submit">
         {submitting ? t("group.create.submitting") : t("group.create.submit")}

@@ -88,10 +88,15 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
         </Button>
       </div>
       {commandError ? (
-        <p className="text-destructive text-xs" role="alert" data-testid="group-invite-error">
-          {t("group.manage.inviteFailed")}
-          {commandError}
-        </p>
+        <div
+          className="text-destructive flex flex-col gap-0.5 text-xs"
+          role="alert"
+          data-testid="group-invite-error"
+        >
+          {/* 前缀与后端原文分行：长错误串不再与标题挤成一行 */}
+          <p className="font-medium">{t("group.manage.inviteFailed")}</p>
+          <p className="break-all">{commandError}</p>
+        </div>
       ) : null}
     </div>
   );

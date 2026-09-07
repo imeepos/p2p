@@ -3,11 +3,13 @@ import { MessagesSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AsyncButton } from "@/components/feedback/async-button";
+import { toastError } from "@/components/feedback/toast";
 import { MessageBubble, type BubbleAvatar } from "@/components/chat/message-bubble";
 import { TimeDivider } from "@/components/chat/time-divider";
 import { needsTimeDivider } from "@/components/chat/time-divider-rule";
 import type { ChatFriendJson, ChatMessageJson, GroupMessageJson } from "@/lib/ipc-types";
 import type { Locale } from "@/i18n";
+import { errorText } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
 
 import { groupDisplayName, toBubbleMessage } from "./group-names";
@@ -201,7 +203,13 @@ export function GroupMessageList({
               variant="outline"
               className="mt-1"
               action={onRetryHistory}
-              onError={(error) => console.error("[group] 群历史重试失败", error)}
+              onError={(error) => {
+                console.error("[group] 群历史重试失败", error);
+                toastError(t("chat.historyLoadFailed"), {
+                  description: errorText(error),
+                  context: "group.history_retry",
+                });
+              }}
             >
               {t("chat.retry")}
             </AsyncButton>

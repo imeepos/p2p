@@ -234,6 +234,8 @@ const zhCN = {
       title: "局域网发现结果",
       hint: "由节点事件流（peer_discovered）实时派生",
       firstSeen: "首次见到",
+      searchPlaceholder: "搜索 PeerId 或地址",
+      count: "{{shown}} / {{total}} 个节点",
     },
     rendezvous: {
       title: "rendezvous 地址簿",
@@ -611,6 +613,7 @@ const zhCN = {
       renameAction: "群改名",
       renameSubmit: "保存",
       renameFailed: "改名失败：",
+      renameDone: "群名已更新",
       inviteAction: "邀请成员",
       inviteTitle: "邀请好友",
       inviteEmpty: "好友都已在群中",
@@ -688,6 +691,7 @@ const zhCN = {
       resetTitle: "重置节点身份？",
       resetDesc:
         "将停止节点并删除数据目录内的身份种子文件，节点下次将以全新 PeerId 启动，既有对端记录不再匹配。此操作不可撤销。",
+      resetInputLabel: "PeerId 前缀",
       resetInputHint: "输入当前 PeerId 前 4 位以确认",
       resetConfirm: "确认重置",
       resetting: "重置中…",
@@ -808,6 +812,7 @@ const zhCN = {
     title: "诊断",
     description: "前端错误缓冲、日志文件路径与持久化尾部——Agent 感知通道的人工视图。",
     refresh: "刷新",
+    refreshed: "诊断数据已刷新",
     clearAll: "一键清理诊断数据",
     clearConfirm: {
       title: "清理诊断数据？",

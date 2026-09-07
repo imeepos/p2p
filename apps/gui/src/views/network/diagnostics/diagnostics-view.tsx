@@ -15,7 +15,8 @@ const TAIL_LINES = 50;
 const AUTO_REFRESH_MS = 5000;
 
 // 诊断页（G-H 观测）：前端错误缓冲 + 日志文件路径 + 持久化尾部，感知通道的人工视图。
-// IPC 失败以 i18n 标题 + 错误详情 toast 呈现（原始错误串进详情，不当正文直出）。
+// 失败反馈分档：轮询/首载失败静默（console 告警，否则每 5s toast 刷屏），
+// 手动刷新失败才 toast（i18n 标题 + 错误详情，原始错误串进详情不当正文直出）。
 // F27：非 Tauri 环境（浏览器 mock dev）没有诊断 IPC，直接进入桌面端说明性
 // 空态并停掉轮询（否则每 5s toast 刷屏）；前端错误缓冲为浏览器侧数据照常。
 export function DiagnosticsView() {
@@ -26,32 +27,42 @@ export function DiagnosticsView() {
   const [tail, setTail] = useState<string[]>([]);
   const [version, setVersion] = useState(0);
 
-  // load 只做异步取数（.then 内 setState），供 effect 与定时器直接调用。
-  const load = useCallback(() => {
-    if (!desktop) return;
-    diag
-      .logPath()
-      .then(setLogPath)
-      .catch((err) => {
-        console.error("[diagnostics] log_path 读取失败", err);
-        toastError(t("diagnostics.loadPathFailed"), {
-          description: errorText(err),
-          context: "diagnostics.log_path",
+  // load 只做异步取数（.then 内 setState），供 effect 与定时器直接调用；
+  // silent 分档：轮询/首载静默（仅 console），手动刷新失败才 toast 打扰。
+  const load = useCallback(
+    (silent: boolean) => {
+      if (!desktop) return;
+      diag
+        .logPath()
+        .then(setLogPath)
+        .catch((err) => {
+          console.error("[diagnostics] log_path 读取失败", err);
+          if (!silent) {
+            toastError(t("diagnostics.loadPathFailed"), {
+              description: errorText(err),
+              context: "diagnostics.log_path",
+            });
+          }
         });
+      diag.logTail(TAIL_LINES).then(setTail).catch((err) => {
+        console.error("[diagnostics] log_tail 读取失败", err);
+        if (!silent) {
+          toastError(t("diagnostics.loadTailFailed"), {
+            description: errorText(err),
+            context: "diagnostics.log_tail",
+          });
+        }
       });
-    diag.logTail(TAIL_LINES).then(setTail).catch((err) => {
-      console.error("[diagnostics] log_tail 读取失败", err);
-      toastError(t("diagnostics.loadTailFailed"), {
-        description: errorText(err),
-        context: "diagnostics.log_tail",
-      });
-    });
-  }, [desktop, t]);
+    },
+    [desktop, t],
+  );
 
+  // 手动刷新：失败 toast（load 内 silent=false）+ 成功轻反馈。
   const refresh = useCallback(() => {
     setVersion((v) => v + 1);
-    load();
-  }, [load]);
+    load(false);
+    toastSuccess(t("diagnostics.refreshed"));
+  }, [load, t]);
 
   // 一键清理：清错误缓冲 + 删持久化日志文件，删除动作先过确认弹框。
   // 非桌面端没有日志文件可清，只清前端错误缓冲。
@@ -79,10 +90,11 @@ export function DiagnosticsView() {
     }
   }, [confirm, desktop, t]);
 
+  // 首载与 5s 轮询同档：静默取数，失败只留 console 信号。
   useEffect(() => {
     if (!desktop) return;
-    load();
-    const timer = window.setInterval(load, AUTO_REFRESH_MS);
+    load(true);
+    const timer = window.setInterval(() => load(true), AUTO_REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [desktop, load]);
 

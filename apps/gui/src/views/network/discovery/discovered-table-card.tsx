@@ -1,5 +1,5 @@
-import { CopyIcon, RadarIcon } from "lucide-react";
-import { useMemo } from "react";
+import { CopyIcon, RadarIcon, SearchIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button";
 
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -54,6 +56,16 @@ function dialHref(peer: PeerEntry): string {
 
 function addFriendHref(peerId: string): string {
   return "/contacts?add=" + encodeURIComponent(peerId);
+}
+
+// 与 peers 页同口径：按 PeerId/地址过滤（大小写不敏感）。
+function matchesSearch(peer: { peerId: string; addrs: string[] }, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q.length === 0) return true;
+  return (
+    peer.peerId.toLowerCase().includes(q) ||
+    peer.addrs.some((addr) => addr.toLowerCase().includes(q))
+  );
 }
 
 function PeerTable({
@@ -137,6 +149,7 @@ interface DiscoveredTableCardProps {
 
 // 发现结果表：数据完全由 store 的 node-event 派生（peer_discovered/connected）。
 // 空态文案承诺「开启 mDNS 或添加引导地址」——两个入口按钮就地兑现承诺。
+// 非空态提供搜索过滤与「命中/总数」计数（与 peers 页同口径）。
 export function DiscoveredTableCard({
   mdnsActive,
   onEnableMdns,
@@ -145,13 +158,44 @@ export function DiscoveredTableCard({
   const { t } = useTranslation();
   const peers = useNodeStore(selectPeerList);
   const events = useNodeStore((s) => s.events);
+  const [query, setQuery] = useState("");
   const firstSeen = useMemo(() => deriveFirstSeen(events), [events]);
+  const filtered = useMemo(
+    () => peers.filter((peer) => matchesSearch(peer, query)),
+    [peers, query],
+  );
 
   return (
     <Card className="col-span-12">
       <CardHeader>
         <CardTitle>{t("discovery.table.title")}</CardTitle>
         <CardDescription>{t("discovery.table.hint")}</CardDescription>
+        {peers.length > 0 ? (
+          <CardAction className="flex flex-wrap items-center gap-2">
+            <div className="relative w-56">
+              <SearchIcon
+                className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+                aria-hidden
+              />
+              <Input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("discovery.table.searchPlaceholder")}
+                className="h-9 pl-8"
+                data-testid="discovery-search"
+              />
+            </div>
+            <span
+              className="text-muted-foreground text-xs"
+              data-testid="discovery-count"
+            >
+              {t("discovery.table.count", {
+                shown: filtered.length,
+                total: peers.length,
+              })}
+            </span>
+          </CardAction>
+        ) : null}
       </CardHeader>
       <CardContent>
         {peers.length === 0 ? (
@@ -180,8 +224,12 @@ export function DiscoveredTableCard({
               </div>
             }
           />
+        ) : filtered.length === 0 ? (
+          <p className="text-muted-foreground py-6 text-center text-sm">
+            {t("common.table.empty")}
+          </p>
         ) : (
-          <PeerTable peers={peers} firstSeen={firstSeen} />
+          <PeerTable peers={filtered} firstSeen={firstSeen} />
         )}
       </CardContent>
     </Card>
