@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { I18nKey } from "@/i18n/types";
+
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +20,8 @@ import {
 } from "./borrow-form";
 import { BorrowReportCard } from "./borrow-report";
 import { notifyLedgerMutated } from "./ledger-sync";
+import { PeerIdField } from "./peer-id-field";
+import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
 import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";
 
 // borrow 快捷面板：提交前二次确认对话框明示真实成本（§16.2-6）；
@@ -33,9 +37,19 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const [hasIntent, setHasIntent] = useState(false);
   const [reqId, setReqId] = useState<string | null>(null);
   const [lastReq, setLastReq] = useState<LlmBorrowReq | null>(null);
+  const [targetTouched, setTargetTouched] = useState(false);
 
   const set = (field: keyof BorrowFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
+
+  // R2-05：出借方 PeerId 失焦即时格式校验（提交校验在 validateBorrowForm）
+  const targetPeerErrorKey: I18nKey | null =
+    errors.targetPeer ??
+    (targetTouched &&
+    values.targetPeer.trim().length > 0 &&
+    !isValidFriendPeerId(values.targetPeer.trim())
+      ? "llmShare.borrow.errTargetPeerFormat"
+      : null);
 
   const runBorrow = async (req: LlmBorrowReq) => {
     const ok = await confirm({
@@ -99,20 +113,16 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-3" onSubmit={(e) => void handleSubmit(e)} noValidate>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="llm-borrow-peer">{t("llmShare.borrow.formTargetPeer")}</Label>
-              <Input
-                id="llm-borrow-peer"
-                value={values.targetPeer}
-                onChange={(e) => set("targetPeer")(e.target.value)}
-                placeholder={t("llmShare.borrow.formTargetPeerPlaceholder")}
-              />
-              {errors.targetPeer ? (
-                <p role="alert" className="text-destructive text-xs">
-                  {t(errors.targetPeer)}
-                </p>
-              ) : null}
-            </div>
+            <PeerIdField
+              label={t("llmShare.borrow.formTargetPeer")}
+              inputId="llm-borrow-peer"
+              value={values.targetPeer}
+              onValueChange={set("targetPeer")}
+              onBlur={() => setTargetTouched(true)}
+              errorKey={targetPeerErrorKey}
+              errorId="llm-borrow-peer-error"
+              placeholder={t("llmShare.borrow.formTargetPeerPlaceholder")}
+            />
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-borrow-model">{t("llmShare.borrow.formModel")}</Label>

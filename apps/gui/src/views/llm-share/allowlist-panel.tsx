@@ -2,6 +2,8 @@ import { ShieldOff } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { I18nKey } from "@/i18n/types";
+
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +22,9 @@ import type { Locale } from "@/i18n";
 import { errorText } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
 import { PeerNameCell } from "@/views/shared/peer-name-cell";
+import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
+
+import { PeerIdField } from "./peer-id-field";
 
 import type { LlmAllowEntry, LlmShareBackend } from "./types";
 
@@ -30,6 +35,15 @@ interface AllowFormValues {
 }
 
 const EMPTY_ALLOW_FORM: AllowFormValues = { peerId: "", models: "", note: "" };
+
+// R2-05：PeerId 即时校验（F14 时机：首次失焦前不打断输入），提交兜底拦截
+function peerErrorKeyOf(value: string, touched: boolean): I18nKey | null {
+  if (!touched) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return "llmShare.allowlist.errPeerRequired";
+  if (!isValidFriendPeerId(trimmed)) return "llmShare.allowlist.errPeerInvalid";
+  return null;
+}
 
 function parseAllowModels(text: string): string[] {
   return text
@@ -70,6 +84,8 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [form, setForm] = useState<AllowFormValues>(EMPTY_ALLOW_FORM);
   const [busy, setBusy] = useState(false);
+  const [peerTouched, setPeerTouched] = useState(false);
+  const peerErrorKey = peerErrorKeyOf(form.peerId, peerTouched);
 
   const refresh = useCallback(async () => {
     try {
@@ -119,6 +135,8 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
 
   const handleAllow = (event: FormEvent) => {
     event.preventDefault();
+    setPeerTouched(true);
+    if (peerErrorKey) return;
     void runAction(async () => {
       await backend.allow({
         peerId: form.peerId.trim(),
@@ -157,14 +175,15 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-3" onSubmit={handleAllow} noValidate>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="llm-allow-peer">{t("llmShare.allowlist.formPeerId")}</Label>
-              <Input
-                id="llm-allow-peer"
-                value={form.peerId}
-                onChange={(e) => set("peerId")(e.target.value)}
-              />
-            </div>
+            <PeerIdField
+              label={t("llmShare.allowlist.formPeerId")}
+              inputId="llm-allow-peer"
+              value={form.peerId}
+              onValueChange={set("peerId")}
+              onBlur={() => setPeerTouched(true)}
+              errorKey={peerErrorKey}
+              errorId="llm-allow-peer-error"
+            />
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-allow-models">{t("llmShare.allowlist.formModels")}</Label>
