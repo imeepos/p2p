@@ -112,6 +112,7 @@ pub async fn owner_rig(tag: &str, tweak: impl FnOnce(&mut AgentConfig)) -> Owner
                 acp_agent::workspaces::WorkspaceStore::open(&[], None, cfg.paths().workspaces())
                     .expect("ws store"),
             ),
+            a2a_admin: None,
         },
     )
     .await

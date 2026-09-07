@@ -51,6 +51,7 @@ async fn spawn_with(
                 addrs: vec!["/ip4/127.0.0.1/udp/4001/quic-v1".to_owned()],
             },
             workspaces: store,
+            a2a_admin: None,
         },
     )
     .await

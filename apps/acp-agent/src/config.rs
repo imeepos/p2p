@@ -74,6 +74,11 @@ pub struct AgentConfig {
     pub admin_disabled: bool,
     /// 关闭本机自描述落盘（临时/测试实例必须置位，防覆盖生产 local-agent.json）。
     pub descriptor_disabled: bool,
+    /// A2A 发布 rendezvous bootstrap（ip/u端口 或 ip/t端口）；空 = 发布停用
+    /// （a2a-over-p2p-design §7.1，卡片经 /a2a/1 按需取，此处只宣告在场）。
+    pub a2a_bootstrap: Vec<String>,
+    /// 关闭 /a2a/1 handler（a2a-over-p2p-design §5，默认开启）。
+    pub a2a_disabled: bool,
 }
 
 impl Default for AgentConfig {
@@ -99,6 +104,8 @@ impl Default for AgentConfig {
             admin_port: 0,
             admin_disabled: false,
             descriptor_disabled: false,
+            a2a_bootstrap: Vec::new(),
+            a2a_disabled: false,
         }
     }
 }

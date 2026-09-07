@@ -61,6 +61,12 @@ pub struct Cli {
     /// 关闭本机自描述文件落盘（临时/测试实例必须关闭，防覆盖生产描述）
     #[arg(long)]
     pub descriptor_disabled: bool,
+    /// A2A 发布 rendezvous bootstrap（可多次；ip/u端口 或 ip/t端口）
+    #[arg(long)]
+    pub a2a_bootstrap: Vec<String>,
+    /// 关闭 /a2a/1 handler
+    #[arg(long)]
+    pub a2a_disabled: bool,
 }
 
 pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
@@ -118,6 +124,12 @@ pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
     }
     if cli.descriptor_disabled {
         cfg.descriptor_disabled = true;
+    }
+    if !cli.a2a_bootstrap.is_empty() {
+        cfg.a2a_bootstrap = cli.a2a_bootstrap.clone();
+    }
+    if cli.a2a_disabled {
+        cfg.a2a_disabled = true;
     }
     cfg.load_mcp_definitions()?;
     cfg.validate()?;
