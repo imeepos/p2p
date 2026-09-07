@@ -9,11 +9,13 @@ import {
   friendEntry,
   groupEntry,
   sortEntries,
+  visibleGroups,
   type ConversationEntry,
   type PreviewLabels,
 } from "@/lib/conversation-entry";
 import { useChatStore } from "@/stores/chat-store";
 import { useGroupStore } from "@/stores/group-store";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 
 // §2.2 store 层聚合：三来源构建统一条目并混排排序，渲染层无来源分支。
 // agent 为单连接语义：仅 activeEndpointId 继承全局连接态，其余端点显未连接。
@@ -50,6 +52,7 @@ export function useConversationEntries(): ConversationEntry[] {
   const lastInteractionByEndpoint = useAcpStore((s) => s.lastInteractionByEndpoint);
   const unreadByEndpoint = useAcpStore((s) => s.unreadByEndpoint);
   const promptPendingBySession = useAcpStore((s) => s.promptPendingBySession);
+  const showInactiveGroups = useUiPrefsStore((s) => s.showInactiveGroups);
 
   return useMemo(() => {
     const labels: PreviewLabels = {
@@ -72,7 +75,7 @@ export function useConversationEntries(): ConversationEntry[] {
         labels,
       }),
     );
-    const groupEntries = groups.map((group, index) =>
+    const groupEntries = visibleGroups(groups, showInactiveGroups).map((group, index) =>
       groupEntry({
         group,
         last: lastMessageByGroup[group.groupId] ?? null,
@@ -112,6 +115,6 @@ export function useConversationEntries(): ConversationEntry[] {
     t, friends, lastMessageByPeer, unreadByPeer, groups, groupFriends,
     lastMessageByGroup, unreadByGroup, selfPeerId, saved, phase,
     activeEndpointId, activeSessionId, transcripts, lastInteractionByEndpoint,
-    unreadByEndpoint, promptPendingBySession,
+    unreadByEndpoint, promptPendingBySession, showInactiveGroups,
   ]);
 }

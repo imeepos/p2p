@@ -191,6 +191,11 @@ export function groupEntry(params: {
   };
 }
 
+/** 已退出/已解散群聊的列表可见性：默认仅放行 active，开关打开才全量显示。 */
+export function visibleGroups(groups: GroupJson[], showInactive: boolean): GroupJson[] {
+  return showInactive ? groups : groups.filter((g) => g.state === "active");
+}
+
 export type AgentPhase = "idle" | "connecting" | "online" | "reconnecting" | "offline";
 
 export function agentEntry(params: {
