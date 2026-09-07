@@ -140,27 +140,22 @@ describe("LLM3 offer 面板（契约 §16.1 必填集 / §16.2-5 五态两级）
     );
   });
 
-  it("模型清单快捷带入：上游配置模型一键追加", async () => {
-    const { backend } = makeLlmShareMockPair();
-    localStorage.setItem(
-      "p2p-gui-llm-providers",
-      JSON.stringify([
-        {
-          id: "pv-1",
-          name: "DeepSeek",
-          baseUrl: "https://api.deepseek.com/v1",
-          apiKey: "sk-test-123456",
-          models: ["deepseek-v3"],
-          createdAt: 1,
-        },
-      ]),
-    );
+  it("模型清单快捷带入：ProviderStore 模型一键追加", async () => {
+    // v13：候选源 = 后端 ProviderStore（迁移后不再读 localStorage 明文键）
+    const { backend, mock } = makeLlmShareMockPair();
+    mock.providerSave({
+      id: "pv-1",
+      name: "DeepSeek",
+      baseUrl: "https://api.deepseek.com/v1",
+      protocol: "openai",
+      apiKey: "sk-test-123456",
+      models: ["deepseek-v3"],
+    });
     render(<OfferPanel backend={backend} />);
     await openForm();
     fireEvent.click(await screen.findByTestId("offer-quickadd-deepseek-v3"));
     const models = screen.getByLabelText(t("llmShare.offer.formModels")) as HTMLInputElement;
     expect(models.value).toBe("deepseek-v3");
-    localStorage.clear();
   });
 
   it("账期快捷预设一键填 +30 天", async () => {
