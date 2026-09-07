@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 // messages-page-pending.png 的类型图标色一致。
 export type SectionTone = "primary" | "info";
 
+// 消息中心视图（设计稿增量 3）：pending=默认只显示待处理；history=终态回看。
+export type MessagesView = "pending" | "history";
+
 const toneChipClass: Record<SectionTone, string> = {
   primary: "bg-primary",
   info: "bg-info",

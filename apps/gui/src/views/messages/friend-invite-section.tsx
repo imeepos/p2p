@@ -16,7 +16,7 @@ import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
 
-import { MessageSectionHeader } from "./section-header";
+import { MessageSectionHeader, type MessagesView } from "./section-header";
 import { nicknameCharCount } from "@/views/contacts/chat-friend-rules";
 
 // 好友邀请列表（IMC3 需求 2）：方向/状态徽章/时间/备注；in 向待处理行内
@@ -24,7 +24,7 @@ import { nicknameCharCount } from "@/views/contacts/chat-friend-rules";
 // 好友聊天；操作失败原文上浮。状态语义对齐 invite-inbox：列表本身即待处理集。
 // F08：out 向待处理行补「撤回」，与通讯录同卡同源（同 store action
 // cancelInvite + 同 i18n 标签 contacts.friends.cancelInvite），失败原文上浮。
-export function FriendInviteSection() {
+export function FriendInviteSection({ view }: { view: MessagesView }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const navigate = useNavigate();
@@ -96,24 +96,34 @@ export function FriendInviteSection() {
         icon={UserRoundPlus}
         title={t("messages.section.friends")}
         tone="info"
-        count={rows.length}
+        count={view === "pending" ? rows.length : undefined}
       />
-      {invitesError ? (
-        <CommandErrorText
-          message={invitesError}
-          prefix={t("messages.error.listLoadFailed")}
-          testId="messages-friend-list-error"
+      {view === "history" ? (
+        // 好友邀请收件箱即待处理集（契约无 state 字段），历史视图显式空态
+        // 而非隐藏分区，保持两组结构稳定。
+        <EmptyState
+          icon={UserRoundPlus}
+          title={t("messages.history.friendEmpty")}
+          description={t("messages.history.friendEmptyDesc")}
         />
-      ) : rows.length === 0 ? (
-        <EmptyState icon={UserRoundPlus} title={t("messages.empty.friends")} />
-      ) : null}
-      {invitesError ? (
-        <Button type="button" variant="outline" size="sm" onClick={() => void loadInvites()}>
-          {t("picker.retry")}
-        </Button>
-      ) : null}
-      <div className="flex flex-col gap-2">
-        {rows.map((invite) => {
+      ) : (
+        <>
+          {invitesError ? (
+            <CommandErrorText
+              message={invitesError}
+              prefix={t("messages.error.listLoadFailed")}
+              testId="messages-friend-list-error"
+            />
+          ) : rows.length === 0 ? (
+            <EmptyState icon={UserRoundPlus} title={t("messages.empty.friends")} />
+          ) : null}
+          {invitesError ? (
+            <Button type="button" variant="outline" size="sm" onClick={() => void loadInvites()}>
+              {t("picker.retry")}
+            </Button>
+          ) : null}
+          <div className="flex flex-col gap-2">
+            {rows.map((invite) => {
           const incoming = invite.direction === "in";
           return (
             <div
@@ -213,7 +223,9 @@ export function FriendInviteSection() {
             </div>
           );
         })}
-      </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }
