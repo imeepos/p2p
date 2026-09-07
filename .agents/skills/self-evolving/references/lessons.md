@@ -429,3 +429,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-08 本地 ACP 回环轮：常驻部署的二进制（launchd/侧栏 sidecar）会与仓库漂移——「功能缺失」先 diff 运行实例与仓库 HEAD（新端点 404、新 flag 不识别都是老化信号），再决定写代码还是先部署。
 - 2026-09-08 本地 ACP 回环轮：临时/测试实例禁止写用户级共享单槽文件（如 ~/.dsh/acp/local-agent.json），必须留 --descriptor-disabled 式禁用开关，否则冒烟覆盖生产描述、GUI 读到死端口。
 - 2026-09-08 本地 ACP 回环轮：worktree 内 bash grep 偶发无输出（疑符号链接/路径解析问题），排查别死磕一条命令——换 SDK grep 工具或 python 逐行扫描立刻现形。
+
+- 2026-09-08: run_code 的 JS 模板字符串里写 markdown 代码块必须转义反引号；单引号字符串不能跨行——大文档用 bash heredoc（带引号定界符）写入最稳。
+- 2026-09-08: 并行会话会同窗合并 main——每次 push 前先 fetch + rebase；ff-merge 被拒唯一动作是回 worktree rebase 后重试。
+- 2026-09-08: itest 夹具里 use acp_agent::{a2a, ...} 会影子化外部 crate 名 a2a——用 as host_a2a 别名。
+
