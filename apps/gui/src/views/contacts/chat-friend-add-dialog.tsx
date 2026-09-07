@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toastSuccess } from "@/components/feedback/toast";
+import { CopyButton } from "@/components/monitor/copy-button";
 import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";
@@ -114,6 +116,7 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
       markLocalWrite("chat");
       await loadFriends();
       await loadInvites();
+      toastSuccess(t("contacts.friends.addSuccess"));
       handleOpenChange(false);
     } catch (error) {
       console.error("[chat] 添加好友失败", error);

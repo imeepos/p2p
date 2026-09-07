@@ -25,7 +25,7 @@ export function EndpointFieldError({
   const { t } = useTranslation();
   if (!code) return null;
   return (
-    <p className="text-destructive text-xs" data-testid={testidPrefix + "-" + code}>
+    <p className="text-destructive text-xs" role="alert" data-testid={testidPrefix + "-" + code}>
       {t(("contacts.endpoint.errors." + code) as I18nKey)}
     </p>
   );
@@ -59,6 +59,7 @@ export function WsUrlField({
           className="font-mono text-xs"
           value={form.wsUrl}
           onChange={(e) => patch("wsUrl")(e.target.value)}
+          placeholder={t("contacts.endpoint.wsUrlPlaceholder")}
           autoComplete="off"
           data-testid="contacts-endpoint-wsurl"
         />
@@ -149,6 +150,7 @@ export function AdvancedFields({ form, fieldErrors, patch }: AdvancedFieldsProps
           className="font-mono text-xs"
           value={form.peer}
           onChange={(e) => patch("peer")(e.target.value)}
+          placeholder={t("contacts.endpoint.peerPlaceholder")}
           autoComplete="off"
           data-testid="contacts-endpoint-peer"
         />
@@ -165,6 +167,7 @@ export function AdvancedFields({ form, fieldErrors, patch }: AdvancedFieldsProps
               className="font-mono text-xs"
               value={form.adminUrl ?? ""}
               onChange={(e) => patch("adminUrl")(e.target.value)}
+              placeholder={t("contacts.endpoint.adminUrlPlaceholder")}
               autoComplete="off"
               data-testid="contacts-endpoint-adminurl"
             />

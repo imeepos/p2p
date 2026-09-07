@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
@@ -8,6 +9,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { toastError } from "@/components/feedback/toast";
+import { errorText } from "@/views/shared/form-flow";
 import {
   Card,
   CardContent,
@@ -35,13 +38,31 @@ function optionLabel(t: (key: I18nKey) => string, option: ConfigOption): string 
 function ConfigRow({ option }: { option: ConfigOption }) {
   const { t } = useTranslation();
   const setConfigOption = useAcpStore((s) => s.setConfigOption);
+  // P2#4 乐观显示值：下发期间即显新值；失败回滚 store 权威值并 toast，
+  // 绝不静默留在改动后的假值上。
+  const [optimistic, setOptimistic] = useState<string | boolean | null>(null);
+  const current = optimistic ?? option.currentValue;
+
+  const apply = (value: string | boolean) => {
+    setOptimistic(value);
+    void Promise.resolve(setConfigOption(option.id, value))
+      .catch((error) => {
+        console.error("[contacts] 配置下发失败", option.id, error);
+        toastError(t("contacts.config.applyFailed"), {
+          description: errorText(error),
+          context: "acp_config_set",
+        });
+      })
+      .finally(() => setOptimistic(null));
+  };
+
   if (option.type === "boolean") {
     const labelId = "acp-config-label-" + option.id;
-    const checked = option.currentValue === true;
+    const checked = current === true;
     return (
       <div className="flex items-center justify-between gap-2 text-sm">
         <span id={labelId}>{optionLabel(t, option)}</span>
-        <Switch checked={checked} onCheckedChange={(v) => void setConfigOption(option.id, v)}
+        <Switch checked={checked} onCheckedChange={(v) => apply(v)}
           aria-labelledby={labelId}
           data-testid={"acp-config-option-" + option.id} />
       </div>
@@ -52,8 +73,8 @@ function ConfigRow({ option }: { option: ConfigOption }) {
   return (
     <div className="flex items-center justify-between gap-2 text-sm">
       <span id={labelId}>{optionLabel(t, option)}</span>
-      <Select value={String(option.currentValue)}
-        onValueChange={(v) => void setConfigOption(option.id, v)}>
+      <Select value={String(current)}
+        onValueChange={(v) => apply(v)}>
         <SelectTrigger size="sm" className="w-44" aria-labelledby={labelId}
           data-testid={"acp-config-option-" + option.id}>
           <SelectValue />

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { UsersRound } from "lucide-react";
 
 import { useGroupStore } from "@/stores/group-store";
+import { CopyButton } from "@/components/monitor/copy-button";
 import { EmptyState } from "@/views/shared/empty-state";
 
 // 同意入群后的跳转时序兜底（IMC3 需求 1）：roster 事件未到、群尚不在列表时
@@ -26,10 +27,18 @@ export function GroupPendingPanel({ groupId }: { groupId: string }) {
   if (timedOut) {
     return (
       <div data-testid="group-pending-timeout" className="flex flex-1 items-center justify-center">
+        {/* P3#20 超时态不裸晒 groupId：中性文案 + 复制按钮 */}
         <EmptyState
           icon={UsersRound}
           title={t("chat.groupPending.timeout")}
-          description={groupId}
+          description={t("chat.groupPending.timeoutHint")}
+          action={
+            <CopyButton
+              value={groupId}
+              aria-label={t("common.actions.copy")}
+              data-testid="group-pending-timeout-copy"
+            />
+          }
         />
       </div>
     );

@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 import { ChevronDownIcon, ChevronUpIcon, UserRoundPlusIcon } from "lucide-react";
 
 import { AsyncButton } from "@/components/feedback/async-button";
-import { Button } from "@/components/ui/button";
+import { toastError } from "@/components/feedback/toast";
+import { CopyButton } from "@/components/monitor/copy-button";
 import { Input } from "@/components/ui/input";
 import { useChatStore } from "@/stores/chat-store";
 import { MAX_NICKNAME_CHARS } from "@/lib/chat-limits";
+import { errorText } from "@/views/shared/form-flow";
 import { nicknameCharCount } from "./chat-friend-rules";
 
 // 待处理好友邀请收件箱（§3.2 加好友 in 向）：页顶红点徽标计数，展开后
@@ -41,18 +43,8 @@ export function InviteInbox() {
     }
   };
 
-  const reject = async (peerId: string) => {
-    setError(null);
-    try {
-      await rejectInvite(peerId);
-    } catch (err) {
-      console.error("[contacts] 拒绝邀请失败", peerId, err);
-      setError(
-        t("contacts.inviteInbox.rejectFailed") +
-          (err instanceof Error ? err.message : String(err)),
-      );
-    }
-  };
+  // P2#5 拒绝与接受对称走 AsyncButton：失败 toast 报错，不写底部共享 error。
+  const reject = (peerId: string) => rejectInvite(peerId);
 
   return (
     <div
@@ -115,22 +107,32 @@ export function InviteInbox() {
                 >
                   {t("contacts.inviteInbox.accept")}
                 </AsyncButton>
-                <Button
+                <AsyncButton
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => void reject(invite.peerId)}
+                  action={() => reject(invite.peerId)}
+                  onError={(error) => {
+                    console.error("[contacts] 拒绝邀请失败", invite.peerId, error);
+                    toastError(t("contacts.inviteInbox.rejectFailedToast"), {
+                      description: errorText(error),
+                      context: "chat_invite_reject",
+                    });
+                  }}
                   data-testid={"contacts-invite-reject-" + invite.peerId}
                 >
                   {t("contacts.inviteInbox.reject")}
-                </Button>
+                </AsyncButton>
               </div>
             </div>
           ))}
           {error ? (
-            <p className="text-destructive text-xs" role="alert" data-testid="contacts-invite-error">
-              {error}
-            </p>
+            <div className="flex items-center gap-1" data-testid="contacts-invite-error-row">
+              <p className="text-destructive text-xs" role="alert" data-testid="contacts-invite-error">
+                {error}
+              </p>
+              <CopyButton value={error} className="size-5" />
+            </div>
           ) : null}
         </div>
       ) : null}

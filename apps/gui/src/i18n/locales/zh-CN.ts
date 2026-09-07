@@ -394,6 +394,7 @@ const zhCN = {
     inputPlaceholder: "输入消息…",
     send: "发送",
     sendFailed: "发送失败",
+    shareSendFailed: "分享链接发送失败",
     textTooLong: "消息不能超过 2000 字符",
     noFriends: "暂无好友",
     invite: {
@@ -519,6 +520,7 @@ const zhCN = {
     groupPending: {
       loading: "正在进入群会话…",
       timeout: "未能进入该群会话",
+      timeoutHint: "等待群信息同步超时：可稍后从群列表进入；群 ID 可复制用于排查",
     },
     addFriend: {
       action: "添加好友",
@@ -1127,6 +1129,11 @@ const zhCN = {
       agents: "Agent",
     },
     description: "好友、群聊与 Agent 管理与添加流",
+    countOf: "{{matched}}/{{total}}",
+    noMatch: "无匹配条目",
+    config: {
+      applyFailed: "配置下发失败",
+    },
     anchor: {
       goto: "定位到{{section}}分区",
     },
@@ -1140,6 +1147,7 @@ const zhCN = {
       reject: "拒绝",
       acceptFailed: "接受邀请失败：",
       rejectFailed: "拒绝邀请失败：",
+      rejectFailedToast: "拒绝邀请失败",
       nicknameTooLong: "昵称 trim 后不能超过 64 字符",
     },
     friends: {
@@ -1150,8 +1158,12 @@ const zhCN = {
       move: "移动分组",
       remove: "删除",
       cancelInvite: "撤回",
+      cancelInviteSuccess: "邀请已撤回",
+      cancelInviteFailed: "撤回邀请失败",
       pendingOut: "待对方同意",
       loadFailed: "好友列表加载失败",
+      searchPlaceholder: "搜索昵称或 PeerId…",
+      addSuccess: "好友邀请已发送",
     },
     groups: {
       empty: "还没有群聊",
@@ -1168,6 +1180,10 @@ const zhCN = {
       leaveConfirmDesc: "退出后不再接收「{{group}}」的新消息；历史保留，之后可重新受邀入群。",
       leaveConfirm: "退出",
       leaveFailed: "退群失败：",
+      leaveSuccess: "已退出群聊",
+      inviteDisabledNotOwner: "仅群主可邀请成员",
+      inviteDisabledInactive: "群聊不在活跃状态，无法邀请",
+      searchPlaceholder: "搜索群名或群 ID…",
     },
     groupAdd: {
       title: "添加群聊",
@@ -1192,6 +1208,9 @@ const zhCN = {
       removeConfirmDescription:
         "将删除「{{name}}」的配置并断开连接，将同时移除本地会话记录索引，操作不可撤销。",
       removeConfirmAction: "删除",
+      searchPlaceholder: "搜索名称或 PeerId…",
+      messageDisabled: "该 Agent 已停用：启用后可发消息",
+      resumeDegraded: "已跳转会话页，但会话恢复失败：可在会话页重试或新建会话",
     },
     endpoint: {
       title: "添加 Agent endpoint",
@@ -1206,13 +1225,17 @@ const zhCN = {
       shareImportDenied: "导入被对方拒绝",
       shareImportBack: "改为手动填写",
       wsUrlLabel: "WS 地址",
+      wsUrlPlaceholder: "如 ws://127.0.0.1:8787",
       tokenLabel: "Token",
       tokenPlaceholder: "仅同机部署手填；分享接入请直接粘贴对方发来的分享链接",
       peerLabel: "Agent PeerId（可空）",
+      peerPlaceholder: "如 2jSUsWcEf7z68xBscf2YmVYzQ4uPZfpMz8XRW3vruJU4",
       aliasLabel: "别名（缺省用 host:port）",
+      aliasPlaceholder: "如 my-agent",
       adminSectionLabel: "分享管理（可选）",
       adminHint: "分享 ACP 依赖 agent 管理端点；管理地址已按 WS 地址预填，Token 见 agent 数据目录 acp-admin-token 文件",
       adminUrlLabel: "管理地址",
+      adminUrlPlaceholder: "如 http://127.0.0.1:8787",
       adminTokenLabel: "管理 Token",
       adminTokenPlaceholder: "粘贴 acp-admin-token 文件内容",
       historyLabel: "历史地址",
@@ -1222,6 +1245,7 @@ const zhCN = {
       testPassed: "连接成功",
       testFailed: "连接失败",
       save: "保存",
+      saveSuccess: "Agent endpoint 已保存",
       targetLabel: "目标节点",
       targetPlaceholder: "从发现清单选择节点",
       advancedToggle: "高级设置",
