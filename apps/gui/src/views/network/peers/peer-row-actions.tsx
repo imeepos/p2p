@@ -44,6 +44,7 @@ export function PeerRowActions({
               context: "peer.disconnect",
             });
           }}
+          loadingLabel={t("common.actions.hangingUp")}
         >
           {t("common.actions.hangup")}
         </AsyncButton>
@@ -71,6 +72,7 @@ export function PeerRowActions({
               context: "peer.connect",
             });
           }}
+          loadingLabel={t("common.actions.dialing")}
         >
           {t("common.actions.dial")}
         </AsyncButton>
@@ -98,6 +100,7 @@ export function PeerRowActions({
             context: "peer.ping",
           });
         }}
+        loadingLabel={t("common.actions.pinging")}
       >
         {t("common.actions.ping")}
       </AsyncButton>

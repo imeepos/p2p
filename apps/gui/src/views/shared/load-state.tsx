@@ -22,6 +22,7 @@ export function LoadFailedNotice({ onRetry, messageKey }: LoadFailedNoticeProps)
         size="sm"
         variant="outline"
         action={onRetry}
+        loadingLabel={t("common.actions.refreshing")}
         onError={(error) => {
           console.error("[views] config_get 重试失败", error);
           toastError(t(messageKey), {
