@@ -1,5 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { save } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 
@@ -27,6 +28,9 @@ import type {
   LlmLedgerEntry,
   LlmOfferView,
   LlmReceiptVerifyResult,
+  MediaExportBackend,
+  MediaExportProgressPayload,
+  MediaExportResult,
   MetricsJson,
   MetricsPoint,
   NodeEventJson,
@@ -232,3 +236,24 @@ const tauriUpdateDownloadBackend: UpdateDownloadBackend = {
 export const updateDl: UpdateDownloadBackend = mockIpc
   ? (await import("./mock-update")).mockUpdateDownloadBackend
   : tauriUpdateDownloadBackend;
+
+// 契约 §12.5 加法（2026-09-07）：媒体导出面。保存对话框选目标 + chat_media_export
+// 后台拷贝（进度经 Channel 流式回报）；浏览器/dev 无插件环境走 mock。
+const tauriMediaExportBackend: MediaExportBackend = {
+  async pickSavePath(defaultFileName) {
+    return save({ defaultPath: defaultFileName });
+  },
+  exportMedia(sourceUrl, destPath, onProgress) {
+    const channel = new Channel<MediaExportProgressPayload>();
+    channel.onmessage = onProgress;
+    return invoke<MediaExportResult>("chat_media_export", {
+      sourceUrl,
+      destPath,
+      onProgress: channel,
+    });
+  },
+};
+
+export const mediaDl: MediaExportBackend = mockIpc
+  ? (await import("./mock-media-export")).mockMediaExportBackend
+  : tauriMediaExportBackend;

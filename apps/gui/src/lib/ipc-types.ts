@@ -135,6 +135,28 @@ export interface UpdateDownloadBackend {
   relaunchApp(): Promise<void>;
 }
 
+// 媒体导出面（契约 §12.5 加法，2026-09-07）：保存对话框 + 后台拷贝进度。
+export interface MediaExportProgressPayload {
+  receivedBytes: number;
+  totalBytes: number;
+}
+
+export interface MediaExportResult {
+  destPath: string;
+  totalBytes: number;
+}
+
+export interface MediaExportBackend {
+  // 系统保存对话框；用户取消返回 null
+  pickSavePath(defaultFileName: string): Promise<string | null>;
+  // 后台导出（目标路径已选定）；onProgress 流式回报，resolve 即拷贝完成
+  exportMedia(
+    sourceUrl: string,
+    destPath: string,
+    onProgress: (p: MediaExportProgressPayload) => void,
+  ): Promise<MediaExportResult>;
+}
+
 // 契约 v6 §11 加法：本机节点资料（纯展示，仅存本机，不随发现协议广播）。
 export interface NodeProfile {
   name: string; // trim 后 ≤64 字符；空串 = 未命名
