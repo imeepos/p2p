@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { UserRoundPlus } from "lucide-react";
 
+import { AsyncButton } from "@/components/feedback/async-button";
 import { CommandErrorText } from "@/components/feedback/command-error";
 import { CopyButton } from "@/components/feedback/copy-button";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export function FriendInviteSection() {
         ...prev,
         [invite.peerId]: t("uxk.messages.withdrawFailed") + detail,
       }));
+      throw err;
     }
   };
 
@@ -164,18 +166,18 @@ export function FriendInviteSection() {
                     </>
                   ) : (
                     // F08：发出的邀请卡与通讯录同卡同源补撤回
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void withdraw(invite);
-                      }}
-                      data-testid={"messages-friend-withdraw-" + invite.peerId}
-                    >
-                      {t("contacts.friends.cancelInvite")}
-                    </Button>
+                    <span onClick={(e) => e.stopPropagation()}>
+                      <AsyncButton
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        action={() => withdraw(invite)}
+                        loadingLabel={t("settings.saveBar.saving")}
+                        data-testid={"messages-friend-withdraw-" + invite.peerId}
+                      >
+                        {t("contacts.friends.cancelInvite")}
+                      </AsyncButton>
+                    </span>
                   )}
                   <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs font-medium">
                     {t("messages.state.pending")}
