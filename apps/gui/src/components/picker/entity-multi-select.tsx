@@ -6,12 +6,17 @@ import { Input } from "@/components/ui/input";
 
 import { filterOptions, type PickerOption } from "./picker-option";
 import { PickerOptionRow } from "./picker-option-row";
+import { PickerStatusRow } from "./picker-status-row";
 
 interface EntityMultiSelectProps {
   options: PickerOption[];
   selected: string[];
   onChange: (next: string[]) => void;
   disabled?: boolean;
+  /** 数据面状态由调用方持有：加载/错误/重试三态与单选选择器同口径 */
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   /** 调用方口径的告警文案（如群成员上限），选择器只负责就地呈现 */
   warning?: string | null;
   warningTestId?: string;
@@ -25,6 +30,9 @@ export function EntityMultiSelect({
   selected,
   onChange,
   disabled,
+  loading,
+  error,
+  onRetry,
   warning,
   warningTestId,
   testId = "entity-multi-select",
@@ -62,6 +70,12 @@ export function EntityMultiSelect({
       event.preventDefault();
       const option = filtered[activeIndex];
       if (option) toggle(option.value);
+    } else if (event.key === "Escape" && query.length > 0) {
+      // 有查询词先清词且不穿透（避免连带关闭外层 Dialog）；无查询词放行给外层
+      event.preventDefault();
+      event.stopPropagation();
+      setQuery("");
+      setActive(0);
     }
   };
 
@@ -131,7 +145,9 @@ export function EntityMultiSelect({
         id={listId}
         className="scroll-slim flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border p-1"
       >
-        {filtered.length === 0 ? (
+        {loading || error ? (
+          <PickerStatusRow loading={loading} error={error} onRetry={onRetry} />
+        ) : filtered.length === 0 ? (
           <p className="text-muted-foreground px-2 py-1.5 text-sm" data-testid="picker-empty">
             {t("picker.empty")}
           </p>

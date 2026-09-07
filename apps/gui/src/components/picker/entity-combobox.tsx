@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDownIcon, Loader2Icon, XIcon } from "lucide-react";
+import { ChevronDownIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 import { filterOptions, type PickerOption } from "./picker-option";
 import { PickerOptionRow } from "./picker-option-row";
+import { PickerStatusRow } from "./picker-status-row";
 
 interface EntityComboboxProps {
   options: PickerOption[];
@@ -20,58 +21,6 @@ interface EntityComboboxProps {
   disabled?: boolean;
   id?: string;
   testId?: string;
-}
-
-function StatusRow({
-  loading,
-  error,
-  onRetry,
-}: {
-  loading?: boolean;
-  error?: string | null;
-  onRetry?: () => void;
-}) {
-  const { t } = useTranslation();
-  if (loading) {
-    return (
-      <p
-        className="text-muted-foreground flex items-center gap-2 px-2 py-1.5 text-sm"
-        data-testid="picker-loading"
-        role="status"
-      >
-        <Loader2Icon aria-hidden className="size-4 animate-spin" />
-        {t("picker.loading")}
-      </p>
-    );
-  }
-  if (error) {
-    return (
-      <div
-        className="flex flex-col gap-1 px-2 py-1.5"
-        data-testid="picker-error"
-        role="alert"
-      >
-        <p className="text-destructive text-sm">{t("picker.loadFailed")}</p>
-        {onRetry ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-fit"
-            onClick={onRetry}
-            data-testid="picker-retry"
-          >
-            {t("picker.retry")}
-          </Button>
-        ) : null}
-      </div>
-    );
-  }
-  return (
-    <p className="text-muted-foreground px-2 py-1.5 text-sm" data-testid="picker-empty">
-      {t("picker.empty")}
-    </p>
-  );
 }
 
 // 统一单选关联选择器：触发器与表单控件同款，展开即时搜索 + 键盘上下/回车，
@@ -93,6 +42,7 @@ export function EntityCombobox({
   const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const listId = id + "-list";
 
   const filtered = useMemo(() => filterOptions(options, query), [options, query]);
@@ -116,10 +66,17 @@ export function EntityCombobox({
     requestAnimationFrame(() => inputRef.current?.focus());
   };
 
+  // 关闭即归还焦点到触发器：选中/Esc 收起后面板卸载，键盘用户不落空；
+  // 触发器挂 id 供 Label htmlFor 命中（点击标签即展开）。
+  const closePanel = () => {
+    setOpen(false);
+    triggerRef.current?.focus();
+  };
+
   const pick = (option: PickerOption | undefined) => {
     if (!option) return;
     onChange(option.value);
-    setOpen(false);
+    closePanel();
   };
 
   const onInputKeyDown = (event: React.KeyboardEvent) => {
@@ -135,13 +92,18 @@ export function EntityCombobox({
       event.preventDefault();
       pick(filtered[activeIndex]);
     } else if (event.key === "Escape") {
-      setOpen(false);
+      // 只收面板不穿透：外层 Dialog 的 Esc 关闭不因收面板被连带触发
+      event.preventDefault();
+      event.stopPropagation();
+      closePanel();
     }
   };
 
   return (
     <div ref={rootRef} className="relative w-full">
       <Button
+        ref={triggerRef}
+        id={id}
         type="button"
         variant="outline"
         role="combobox"
@@ -212,7 +174,7 @@ export function EntityCombobox({
           </div>
           <div role="listbox" id={listId} aria-label={t("picker.triggerPlaceholder")} className="scroll-slim max-h-60 overflow-y-auto p-1">
             {loading || error || filtered.length === 0 ? (
-              <StatusRow loading={loading} error={error} onRetry={onRetry} />
+              <PickerStatusRow loading={loading} error={error} onRetry={onRetry} />
             ) : (
               filtered.map((option, index) => (
                 <PickerOptionRow

@@ -97,4 +97,45 @@ describe("EntityCombobox 单选选择器", () => {
       screen.getByRole("option", { name: /小圆/ }).textContent,
     ).toContain(shortPeerId("p-alpha-full"));
   });
+
+  it("触发器挂 id：Label htmlFor 点击命中触发器并展开面板", () => {
+    render(
+      <>
+        {/* biome-ignore lint/a11y: 断言目标就是 label 关联行为 */}
+        <label htmlFor="entity-combobox">从列表选择</label>
+        <ComboHarness />
+      </>,
+    );
+    fireEvent.click(screen.getByText("从列表选择"));
+    expect(screen.getByTestId("picker-panel")).toBeTruthy();
+  });
+
+  it("选中后焦点归还触发器；Esc 收起面板同样归还且不冒泡出容器", () => {
+    const onWrapperKeyDown = vi.fn();
+    const onDocumentKeyDown = vi.fn();
+    document.addEventListener("keydown", onDocumentKeyDown);
+    try {
+      render(
+        <div onKeyDown={onWrapperKeyDown}>
+          <ComboHarness />
+        </div>,
+      );
+      // Esc 收面板：焦点回触发器，且对 document 级监听（Dialog 关闭路径）不穿透
+      openPanel();
+      fireEvent.keyDown(screen.getByTestId("picker-search"), { key: "Escape" });
+      expect(screen.queryByTestId("picker-panel")).toBeNull();
+      expect(screen.getByTestId("picker")).toEqual(document.activeElement);
+      expect(onWrapperKeyDown).not.toHaveBeenCalled();
+      expect(onDocumentKeyDown).not.toHaveBeenCalled();
+
+      // 回车选中：焦点同样归还；事件本身正常冒泡（不额外吞键）
+      openPanel();
+      fireEvent.keyDown(screen.getByTestId("picker-search"), { key: "Enter" });
+      expect(screen.queryByTestId("picker-panel")).toBeNull();
+      expect(screen.getByTestId("picker")).toEqual(document.activeElement);
+      expect(onWrapperKeyDown).toHaveBeenCalledTimes(1);
+    } finally {
+      document.removeEventListener("keydown", onDocumentKeyDown);
+    }
+  });
 });
