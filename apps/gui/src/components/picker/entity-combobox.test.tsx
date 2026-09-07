@@ -18,6 +18,8 @@ interface HarnessProps {
   error?: string | null;
   onRetry?: () => void;
   testId?: string;
+  clearable?: boolean;
+  placeholder?: string;
 }
 
 // 顶层 harness（react-hooks 编译规则：不在渲染期造组件）；选中态经 DOM 断言
@@ -27,6 +29,8 @@ function ComboHarness({
   error,
   onRetry,
   testId = "picker",
+  clearable,
+  placeholder,
 }: HarnessProps) {
   const [value, setValue] = useState<string | null>(null);
   return (
@@ -38,6 +42,8 @@ function ComboHarness({
       error={error}
       onRetry={onRetry}
       testId={testId}
+      clearable={clearable}
+      placeholder={placeholder}
     />
   );
 }
@@ -137,5 +143,14 @@ describe("EntityCombobox 单选选择器", () => {
     } finally {
       document.removeEventListener("keydown", onDocumentKeyDown);
     }
+  });
+
+  it("clearable=false 时选中后不出清空叉；placeholder 覆盖节点语境默认文案", () => {
+    render(<ComboHarness clearable={false} placeholder="选择模型" />);
+    expect(screen.getByTestId("picker").textContent).toContain("选择模型");
+    openPanel();
+    fireEvent.click(screen.getByRole("option", { name: /小圆/ }));
+    expect(screen.getByTestId("picker").textContent).toContain("小圆");
+    expect(screen.queryByTestId("picker-clear")).toBeNull();
   });
 });

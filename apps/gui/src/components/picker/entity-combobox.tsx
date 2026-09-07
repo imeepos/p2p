@@ -21,6 +21,12 @@ interface EntityComboboxProps {
   disabled?: boolean;
   id?: string;
   testId?: string;
+  /** 触发器占位/搜索占位/空态文案覆盖：非节点语境（如模型选择器）必传 */
+  placeholder?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
+  /** false 时选中后不显示清空叉（如拨号「带入」语义，清空无意义） */
+  clearable?: boolean;
 }
 
 // 统一单选关联选择器：触发器与表单控件同款，展开即时搜索 + 键盘上下/回车，
@@ -35,6 +41,10 @@ export function EntityCombobox({
   disabled,
   id = "entity-combobox",
   testId = "entity-combobox",
+  placeholder,
+  searchPlaceholder,
+  emptyText,
+  clearable = true,
 }: EntityComboboxProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -118,13 +128,13 @@ export function EntityCombobox({
       >
         <span className="flex min-w-0 flex-col items-start">
           <span className={cn("truncate text-sm", !selected && "text-muted-foreground")}>
-            {selected ? selected.label : t("picker.triggerPlaceholder")}
+            {selected ? selected.label : (placeholder ?? t("picker.triggerPlaceholder"))}
           </span>
           {selected?.hint ? (
             <span className="text-muted-foreground font-mono text-xs">{selected.hint}</span>
           ) : null}
         </span>
-        {selected ? (
+        {selected && clearable ? (
           <span
             role="button"
             tabIndex={0}
@@ -162,7 +172,7 @@ export function EntityCombobox({
                 setActive(0);
               }}
               onKeyDown={onInputKeyDown}
-              placeholder={t("picker.searchPlaceholder")}
+              placeholder={searchPlaceholder ?? t("picker.searchPlaceholder")}
               role="combobox"
               aria-expanded
               aria-controls={listId}
@@ -172,9 +182,9 @@ export function EntityCombobox({
               data-testid={testId + "-search"}
             />
           </div>
-          <div role="listbox" id={listId} aria-label={t("picker.triggerPlaceholder")} className="scroll-slim max-h-60 overflow-y-auto p-1">
+          <div role="listbox" id={listId} aria-label={placeholder ?? t("picker.triggerPlaceholder")} className="scroll-slim max-h-60 overflow-y-auto p-1">
             {loading || error || filtered.length === 0 ? (
-              <PickerStatusRow loading={loading} error={error} onRetry={onRetry} />
+              <PickerStatusRow loading={loading} error={error} onRetry={onRetry} emptyText={emptyText} />
             ) : (
               filtered.map((option, index) => (
                 <PickerOptionRow

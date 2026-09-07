@@ -21,6 +21,10 @@ interface EntityMultiSelectProps {
   warning?: string | null;
   warningTestId?: string;
   testId?: string;
+  /** 搜索框 id（Label htmlFor 命中用）；搜索占位/空态文案非节点语境可覆盖 */
+  id?: string;
+  searchPlaceholder?: string;
+  emptyText?: string;
 }
 
 // 统一多选关联选择器：即时搜索；已选区置顶（chip 可单个移除）+ 已选计数
@@ -36,6 +40,9 @@ export function EntityMultiSelect({
   warning,
   warningTestId,
   testId = "entity-multi-select",
+  id,
+  searchPlaceholder,
+  emptyText,
 }: EntityMultiSelectProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -87,13 +94,14 @@ export function EntityMultiSelect({
           className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
         />
         <Input
+          id={id}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
             setActive(0);
           }}
           onKeyDown={onInputKeyDown}
-          placeholder={t("picker.searchPlaceholder")}
+          placeholder={searchPlaceholder ?? t("picker.searchPlaceholder")}
           role="combobox"
           aria-expanded
           aria-controls={listId}
@@ -146,10 +154,10 @@ export function EntityMultiSelect({
         className="scroll-slim flex max-h-48 flex-col gap-0.5 overflow-y-auto rounded-md border p-1"
       >
         {loading || error ? (
-          <PickerStatusRow loading={loading} error={error} onRetry={onRetry} />
+          <PickerStatusRow loading={loading} error={error} onRetry={onRetry} emptyText={emptyText} />
         ) : filtered.length === 0 ? (
           <p className="text-muted-foreground px-2 py-1.5 text-sm" data-testid="picker-empty">
-            {t("picker.empty")}
+            {emptyText ?? t("picker.empty")}
           </p>
         ) : (
           filtered.map((option, index) => (

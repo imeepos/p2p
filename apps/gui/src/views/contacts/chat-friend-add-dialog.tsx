@@ -141,6 +141,7 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
               value={options.some((option) => option.value === peerId) ? peerId : null}
               onChange={(value) => {
                 if (value) setPeerId(value);
+                else setPeerId("");
               }}
               testId="friend-add-picker"
             />

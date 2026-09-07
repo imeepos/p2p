@@ -107,6 +107,7 @@ export function EndpointTargetPicker({ form, candidates, fieldErrors, patch }: T
         value={options.some((option) => option.value === form.peer) ? form.peer : null}
         onChange={(value) => {
           if (value) patch("peer")(value);
+          else patch("peer")("");
         }}
         testId="contacts-endpoint-target"
       />

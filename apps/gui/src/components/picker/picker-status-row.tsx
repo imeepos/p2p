@@ -7,12 +7,14 @@ interface PickerStatusRowProps {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  /** 空态文案覆盖（如模型选择器的「白名单暂无模型」）；缺省走通用「没有匹配的节点」 */
+  emptyText?: string;
 }
 
 // 选择器列表区三态（加载/错误/空）共享行：单选下拉与多选内嵌列表共用，
 // 保证全站选择器数据面表现一致。空态文案由调用方按列表是否真无数据决定
 // 渲染时机（本组件只管加载与错误两态）。
-export function PickerStatusRow({ loading, error, onRetry }: PickerStatusRowProps) {
+export function PickerStatusRow({ loading, error, onRetry, emptyText }: PickerStatusRowProps) {
   const { t } = useTranslation();
   if (loading) {
     return (
@@ -51,7 +53,7 @@ export function PickerStatusRow({ loading, error, onRetry }: PickerStatusRowProp
   }
   return (
     <p className="text-muted-foreground px-2 py-1.5 text-sm" data-testid="picker-empty">
-      {t("picker.empty")}
+      {emptyText ?? t("picker.empty")}
     </p>
   );
 }

@@ -118,8 +118,9 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
         ) : null}
       </div>
       <div className="flex flex-col gap-1">
-        <Label>{t("group.create.membersLabel")}</Label>
+        <Label htmlFor="group-create-friends-search">{t("group.create.membersLabel")}</Label>
         <EntityMultiSelect
+          id="group-create-friends-search"
           options={memberOptions}
           selected={selected}
           onChange={setSelected}
