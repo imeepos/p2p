@@ -419,3 +419,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-08 设置页微信式改版轮：closest(".items-center") 是自包含匹配——目标元素自己带 items-center 类时返回自身（textContent 为空制造「行里没内容」假象），要用更特异的 div.justify-back/div.items-center 跳过自匹配。
 - 2026-09-08 设置页微信式改版轮：新增视图级测试必须整备全部隐式上下文——分节常挂后 AppearanceCard 要 ThemeProvider、入口行要 MemoryRouter（useNavigate invariant），单卡测试时代不暴露；报「occurred in <组件X>」先查 X 的 hook 上下文缺谁。
 - 2026-09-08 设置页微信式改版轮：jsdom 无 scrollIntoView，未 stub 时 focusFirstInvalidField 在 RHF onInvalid 回调内抛 TypeError，onInvalid 里排在它之后的 setState 静默不执行——表现是「保存点击无反应」而非测试报错；新测试先抄 settings-focus-error 的 `HTMLElement.prototype.scrollIntoView = vi.fn()` setup。
+- 2026-09-08 llm-share UX 轮：表单「区段级错误展示」绝不能硬编码单一错误键（本次 SpareRows 把 errors.spare 恒显为 errSpareRequired，真实 errPositiveInt 被吞）——必须透传真实错误键；测试断言要区分具体错误文案，只数 alert 数量或「包含任一错误」都抓不到这类显示层撒谎缺陷。
+- 2026-09-08 llm-share UX 轮：把常驻表单改成「按钮展开」后，测试助手必须 async 化（CTA/表单随异步加载出现，getByTestId 有竞态，统一 findByTestId + await）；改组件交互形态时先 grep 渲染同一组件的其他测试文件（本次 peer-id-field.test 渲染 AllowlistPanel，漏改了一轮才发现）。
+- 2026-09-08 llm-share UX 轮：并行会话推进期间主树 main 会前移——feature 收尾先 git merge main 反向同步并重跑门禁；ff-only 合并前用 git rev-parse main origin/main 核对双指针一致（本次 main 会话中途从 a40e464 前移到 7772200）。
