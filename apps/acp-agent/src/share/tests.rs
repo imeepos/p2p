@@ -25,7 +25,12 @@ fn open_corrupt_ledger_refuses_start() {
     std::fs::write(cfg.paths().shares(), "not json").expect("write");
     let audit = Arc::new(CaptureAudit::new());
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
-    let err = match ShareService::open(&cfg, policy, audit) {
+    let err = match ShareService::open(
+        &cfg,
+        std::sync::Arc::new(crate::workspaces::WorkspaceStore::open_for_config(&cfg).unwrap()),
+        policy,
+        audit,
+    ) {
         Err(err) => err,
         Ok(_) => panic!("损坏台账必须拒启"),
     };
@@ -74,7 +79,13 @@ fn policy_save_failure_fails_closed_and_rolls_back_ledger() {
     std::fs::create_dir_all(cfg.policy_path()).expect("policy dir");
     let audit = Arc::new(CaptureAudit::new());
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
-    let service = ShareService::open(&cfg, policy.clone(), audit).expect("open");
+    let service = ShareService::open(
+        &cfg,
+        std::sync::Arc::new(crate::workspaces::WorkspaceStore::open_for_config(&cfg).unwrap()),
+        policy.clone(),
+        audit,
+    )
+    .expect("open");
     let created = service
         .create(spec(Scope::Sandbox, 3_600, 1), NOW)
         .expect("create");
@@ -111,7 +122,13 @@ fn workspace_scope_requires_workspace_dir_owner_never_shareable() {
     };
     let audit = Arc::new(CaptureAudit::new());
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
-    let service = ShareService::open(&cfg, policy, audit).expect("open");
+    let service = ShareService::open(
+        &cfg,
+        std::sync::Arc::new(crate::workspaces::WorkspaceStore::open_for_config(&cfg).unwrap()),
+        policy,
+        audit,
+    )
+    .expect("open");
     assert!(service.create(spec(Scope::Workspace, 60, 1), NOW).is_ok());
 }
 #[test]
@@ -127,7 +144,13 @@ fn workspace_share_targets_named_workspace_and_stamps_policy() {
     };
     let audit = Arc::new(CaptureAudit::new());
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
-    let service = ShareService::open(&cfg, policy.clone(), audit).expect("open");
+    let service = ShareService::open(
+        &cfg,
+        std::sync::Arc::new(crate::workspaces::WorkspaceStore::open_for_config(&cfg).unwrap()),
+        policy.clone(),
+        audit,
+    )
+    .expect("open");
     let ws_spec = ShareSpec {
         workspace: Some("ws1".to_owned()),
         ..spec(Scope::Workspace, 60, 1)
@@ -159,7 +182,13 @@ fn workspace_share_unknown_id_rejected_at_create() {
     };
     let audit = Arc::new(CaptureAudit::new());
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
-    let service = ShareService::open(&cfg, policy, audit).expect("open");
+    let service = ShareService::open(
+        &cfg,
+        std::sync::Arc::new(crate::workspaces::WorkspaceStore::open_for_config(&cfg).unwrap()),
+        policy,
+        audit,
+    )
+    .expect("open");
     let ws_spec = ShareSpec {
         workspace: Some("nope".to_owned()),
         ..spec(Scope::Workspace, 60, 1)

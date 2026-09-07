@@ -12,6 +12,7 @@ use super::admin::{AdminDeps, AdminServer, AdminToken};
 use super::{LinkContext, ShareService};
 use crate::audit::CaptureAudit;
 use crate::config::{AgentConfig, WorkspaceDef};
+use crate::workspaces::WorkspaceStore;
 
 async fn spawn(tag: &str) -> (SocketAddr, String, AgentConfig, Arc<CaptureAudit>) {
     spawn_with(tag, Vec::new()).await
@@ -27,14 +28,17 @@ async fn spawn_with(
             .join(format!("acp-admin-{tag}-{}", std::process::id()))
             .to_string_lossy()
             .into_owned(),
-        workspaces,
+        workspaces: workspaces.clone(),
         ..AgentConfig::default()
     };
     let _ = std::fs::remove_dir_all(&cfg.data_dir);
     std::fs::create_dir_all(&cfg.data_dir).expect("tmp dir");
     let audit = Arc::new(CaptureAudit::new());
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
-    let service = ShareService::open(&cfg, policy, audit.clone()).expect("service");
+    let store = Arc::new(
+        WorkspaceStore::open(&workspaces, None, cfg.paths().workspaces()).expect("ws store"),
+    );
+    let service = ShareService::open(&cfg, store.clone(), policy, audit.clone()).expect("service");
     let token = AdminToken::issue(cfg.paths().admin_token()).expect("token file");
     let value = token.value.clone();
     let server = AdminServer::start(
@@ -46,7 +50,7 @@ async fn spawn_with(
                 peer: "PEER_ADMIN_TEST".to_owned(),
                 addrs: vec!["/ip4/127.0.0.1/udp/4001/quic-v1".to_owned()],
             },
-            workspaces: cfg.workspace_rows(),
+            workspaces: store,
         },
     )
     .await

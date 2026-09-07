@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use acp_common::Scope;
 
 use crate::config::AgentConfig;
+use crate::workspaces::WorkspaceStore;
 
 #[derive(Debug, thiserror::Error)]
 pub enum JailError {
@@ -28,6 +29,7 @@ pub enum JailError {
 /// workspace = 分享定向的工作区 id（None = 默认工作区；未知 id 显式拒绝）。
 pub fn resolve(
     cfg: &AgentConfig,
+    workspaces: &WorkspaceStore,
     scope: Scope,
     peer_id: &str,
     workspace: Option<&str>,
@@ -40,7 +42,7 @@ pub fn resolve(
             require_prefix(&jail, &root)?;
             Ok(Some(jail))
         }
-        Scope::Workspace => match cfg.workspace(workspace) {
+        Scope::Workspace => match workspaces.resolve(workspace) {
             None => Err(match workspace {
                 Some(id) => JailError::WorkspaceUnknown { id: id.to_owned() },
                 None => JailError::WorkspaceUnconfigured,
@@ -117,7 +119,8 @@ mod tests {
             ),
             ..AgentConfig::default()
         };
-        let cwd = resolve(&cfg, Scope::Sandbox, "peer/other", None).expect("sandbox jail");
+        let ws = empty_store(&cfg, "sandbox");
+        let cwd = resolve(&cfg, &ws, Scope::Sandbox, "peer/other", None).expect("sandbox jail");
         let cwd = cwd.expect("sandbox resolves to a path");
         assert!(cwd.ends_with("peer_other"));
         assert!(cwd.is_dir());
@@ -126,7 +129,8 @@ mod tests {
     #[test]
     fn workspace_without_config_rejects() {
         let cfg = AgentConfig::default();
-        let err = resolve(&cfg, Scope::Workspace, "peer", None).expect_err("must reject");
+        let ws = empty_store(&cfg, "reject");
+        let err = resolve(&cfg, &ws, Scope::Workspace, "peer", None).expect_err("must reject");
         assert!(matches!(err, JailError::WorkspaceUnconfigured));
     }
 
@@ -137,7 +141,8 @@ mod tests {
             workspace_dir: Some(dir.to_string_lossy().into_owned()),
             ..AgentConfig::default()
         };
-        let cwd = resolve(&cfg, Scope::Workspace, "peer", None).expect("workspace jail");
+        let ws = empty_store(&cfg, "legacy");
+        let cwd = resolve(&cfg, &ws, Scope::Workspace, "peer", None).expect("workspace jail");
         assert_eq!(cwd.expect("path"), dir.canonicalize().expect("canonical"));
     }
 
@@ -152,9 +157,24 @@ mod tests {
             }],
             ..AgentConfig::default()
         };
-        let cwd = resolve(&cfg, Scope::Workspace, "peer", Some("ws1")).expect("named jail");
+        let ws = crate::workspaces::WorkspaceStore::open_for_config(&cfg).expect("ws store");
+        let cwd = resolve(&cfg, &ws, Scope::Workspace, "peer", Some("ws1")).expect("named jail");
         assert_eq!(cwd.expect("path"), dir.canonicalize().expect("canonical"));
-        let err = resolve(&cfg, Scope::Workspace, "peer", Some("nope")).expect_err("must reject");
+        let err =
+            resolve(&cfg, &ws, Scope::Workspace, "peer", Some("nope")).expect_err("must reject");
         assert!(matches!(err, JailError::WorkspaceUnknown { id } if id == "nope"));
+    }
+
+    /// 空表存储（legacy 兜底沿用 cfg.workspace_dir；落盘到独立临时目录）。
+    fn empty_store(cfg: &AgentConfig, tag: &str) -> WorkspaceStore {
+        let dir = std::env::temp_dir().join(format!("jail-test-ws-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("tmp dir");
+        WorkspaceStore::open(
+            &cfg.workspaces,
+            cfg.workspace_dir.clone(),
+            dir.join("ws.json"),
+        )
+        .expect("ws store")
     }
 }

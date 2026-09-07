@@ -76,7 +76,7 @@ async fn start_admin(
                 peer: node.local_peer_id().to_string(),
                 addrs: node.listen_addrs(),
             },
-            workspaces: config.workspace_rows(),
+            workspaces: deps.workspaces.clone(),
         },
     )
     .await
