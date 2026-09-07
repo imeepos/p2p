@@ -99,9 +99,17 @@ if [ "$ok" != "1" ]; then
 fi
 
 if command -v dsh >/dev/null; then
-  probe="$( (printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{}}}\n'; sleep 8) |
-    dsh --profile acp 2>/dev/null | head -c 2000 || true)"
-  if echo "$probe" | grep -q '"agentInfo"'; then
+  pf="$(mktemp)"
+  ( printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":1,"clientCapabilities":{}}}\n'; sleep 120 ) | dsh --profile acp >"$pf" 2>/dev/null &
+  dpid=$!
+  ok2=0
+  for _ in $(seq 1 90); do
+    grep -q '"agentInfo"' "$pf" 2>/dev/null && { ok2=1; break; }
+    sleep 1
+  done
+  kill "$dpid" 2>/dev/null; wait "$dpid" 2>/dev/null
+  rm -f "$pf"
+  if [ "$ok2" = "1" ]; then
     echo "[5] dsh --profile acp initialize OK（shim 生效）"
   else
     echo "warn: dsh initialize 无应答（shim 未生效或 dsh 变更）；SKIP 不阻断" >&2
@@ -109,5 +117,4 @@ if command -v dsh >/dev/null; then
 else
   echo "warn: dsh 不在 PATH；跳过 dsh 探针（不假绿）" >&2
 fi
-
 echo "ACP-LOCAL-SETUP-OK"
