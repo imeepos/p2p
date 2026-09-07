@@ -153,3 +153,4 @@ i18n：新增文案全量走 i18n 注册（append-only），pnpm check:i18n 过�
 | Q4 | 撤销的效力 | 台账 revoked + 级联删除 share 来源的策略条目 |
 | Q5 | scope=workspace 的分享前提 | agent 已配 --workspace-dir，否则创建即拒（fail-closed 前移） |
 | Q6 | 链接进聊天消息的载体 | 普通文本消息 + transcript 渲染层识别成卡片；不改 IM 冻结契约 |
+| Q7 | owner 手填 admin token 的消除（2026-09-07） | acp-agent 启动写本机自描述 ~/.dsh/acp/local-agent.json（0600），GUI 无登记管理端点时自动读入兜底；远端 agent 仍手动登记。同用户 0600 与既有 token 文件同一信任域，token 不进日志/审计红线不变 |

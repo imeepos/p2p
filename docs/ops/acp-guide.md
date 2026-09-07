@@ -178,6 +178,12 @@ guest 不得因本地时钟误判而拒绝尝试。
 {"kind":"ready","admin":{"port":N,"token_file":"..."}}；--admin-port 定端口，
 --admin-disabled 可关）。GUI 管理面走同一通道。
 
+本机自描述（2026-09-07 裁决：GUI 免手填 admin token）：agent 装配 admin 后
+把 admin_url/token/peer/agent_name 原子写 ~/.dsh/acp/local-agent.json（0600，
+tmp+rename）；GUI 分享面读不到已登记管理端点时自动读它兜底。仅覆盖本机
+agent；远端 agent 仍在 endpoint「分享管理」手动登记。token 红线不变：
+不进日志/审计。
+
     POST   /shares              创建：入参 {scope, allow_mcp?, ask_route?, ttl_secs,
                                 max_activations?, note?}；出参 {share_id, token, link,
                                 peer, addrs, ...}，token 原文只在这一次出现。
