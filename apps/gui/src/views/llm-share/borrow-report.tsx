@@ -2,12 +2,14 @@ import { useTranslation } from "react-i18next";
 
 import type { I18nKey } from "@/i18n/types";
 
+import { CopyButton } from "@/components/monitor/copy-button";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 
-import type { LlmBorrowReport } from "./types";
+import type { LlmBorrowReport, LlmRejectCode } from "./types";
 
 // 借用结果三态渲染（§16.2-1/2）：done 正常收据；stream_broken 渲染
-// 「估算账单·72h 争议窗」中性态禁渲染失败；rejected 展示拒绝码原样透出。
+// 「估算账单·争议窗」中性态禁渲染失败；rejected 展示人话原因，拒绝码
+// 原样保留并入可复制详情（R2-07，F06 先例）。
 function toneOf(status: LlmBorrowReport["status"]): StatusTone {
   if (status === "done") return "success";
   if (status === "rejected") return "warning";
@@ -20,9 +22,49 @@ const BADGE_KEY: Record<LlmBorrowReport["status"], I18nKey> = {
   rejected: "llmShare.borrow.statusRejected",
 };
 
+const REJECT_REASON_KEY: Record<LlmRejectCode, I18nKey> = {
+  not_allowlisted: "llmShare.borrow.rejectNotAllowlisted",
+  model_not_served: "llmShare.borrow.rejectModelNotServed",
+  freeze_insufficient: "llmShare.borrow.rejectFreezeInsufficient",
+  concurrency_exceeded: "llmShare.borrow.rejectConcurrencyExceeded",
+};
+
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={mono ? "truncate font-mono" : undefined}>{value}</dd>
+    </>
+  );
+}
+
+function RejectedBlock({ report }: { report: LlmBorrowReport }) {
+  const { t } = useTranslation();
+  const reason = report.code ? t(REJECT_REASON_KEY[report.code]) : "";
+  return (
+    <div className="mt-1 flex flex-col gap-1" data-testid="reject-reason">
+      {reason ? <p className="text-xs">{t("llmShare.borrow.rejectedReasonLabel")}: {reason}</p> : null}
+      {report.code ? (
+        <p className="flex items-center gap-1 text-xs">
+          {t("llmShare.borrow.rejectedCodeLabel")}:{" "}
+          <code data-testid="reject-code" className="font-mono">
+            {report.code}
+          </code>
+          <CopyButton
+            value={`${reason}\ncode: ${report.code}`}
+            className="size-6"
+            aria-label={t("common.feedback.copyDetail")}
+          />
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function BorrowReportCard({ report }: { report: LlmBorrowReport }) {
   const { t } = useTranslation();
   const tone = toneOf(report.status);
+  const disputeHours = Math.round(report.receipt.disputeWindowSecs / 3600);
   return (
     <div
       data-testid="borrow-report"
@@ -44,35 +86,28 @@ export function BorrowReportCard({ report }: { report: LlmBorrowReport }) {
           {t("llmShare.borrow.streamBrokenHint")}
         </p>
       ) : null}
-      {report.code ? (
-        <p className="mt-1 text-xs">
-          {t("llmShare.borrow.rejectedCodeLabel")}:{" "}
-          <code data-testid="reject-code" className="font-mono">
-            {report.code}
-          </code>
-        </p>
-      ) : null}
+      {report.status === "rejected" ? <RejectedBlock report={report} /> : null}
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-        <dt className="text-muted-foreground">{t("llmShare.borrow.reqIdLabel")}</dt>
-        <dd className="truncate font-mono" title={report.receipt.reqId}>
-          {report.receipt.reqId}
-        </dd>
-        <dt className="text-muted-foreground">{t("llmShare.borrow.appendedLabel")}</dt>
-        <dd>{String(report.receipt.appended)}</dd>
-        <dt className="text-muted-foreground">{t("llmShare.borrow.sseCountLabel")}</dt>
-        <dd>{report.sseCount}</dd>
+        <InfoRow label={t("llmShare.borrow.reqIdLabel")} value={report.receipt.reqId} mono />
+        <InfoRow
+          label={t("llmShare.borrow.appendedLabel")}
+          value={t(report.receipt.appended ? "llmShare.borrow.appendedYes" : "llmShare.borrow.appendedNo")}
+        />
+        <InfoRow label={t("llmShare.borrow.sseCountLabel")} value={String(report.sseCount)} />
         {report.usage ? (
-          <>
-            <dt className="text-muted-foreground">{t("llmShare.borrow.usageLabel")}</dt>
-            <dd>
-              {report.usage.input}/{report.usage.output}
-            </dd>
-          </>
+          <InfoRow
+            label={t("llmShare.borrow.usageLabel")}
+            value={`${report.usage.input}/${report.usage.output}`}
+          />
         ) : null}
-        <dt className="text-muted-foreground">disputeWindowSecs</dt>
-        <dd>{report.receipt.disputeWindowSecs}</dd>
+        {disputeHours > 0 ? (
+          <InfoRow
+            label={t("llmShare.borrow.disputeWindowLabel")}
+            value={t("llmShare.borrow.disputeWindowValue", { hours: disputeHours })}
+          />
+        ) : null}
       </dl>
-      {report.message ? (
+      {report.message && report.status !== "rejected" ? (
         <p className="mt-2">
           <span className="text-muted-foreground text-xs">
             {t("llmShare.borrow.ssePreviewLabel")}

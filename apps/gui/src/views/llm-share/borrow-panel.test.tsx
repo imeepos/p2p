@@ -111,7 +111,8 @@ describe("LLM3 borrow 面板（§16.2-3/6 二次确认 + reqId 幂等复用）",
     const report = await screen.findByTestId("borrow-report");
     expect(report.getAttribute("data-tone")).toBe("neutral");
     expect(report.textContent).toContain(t("llmShare.borrow.streamBrokenBadge"));
-    expect(report.textContent).toContain("259200");
+    expect(report.textContent).toContain(t("llmShare.borrow.disputeWindowValue", { hours: 72 }));
+    expect(report.textContent).not.toContain("259200");
     expect(report.querySelector('[role="alert"]')).toBeNull();
   });
 
