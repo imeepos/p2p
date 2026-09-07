@@ -128,7 +128,7 @@ export function Topbar() {
       data-tauri-drag-region
       className="flex h-7 shrink-0 items-center justify-end gap-1 border-b px-3"
     >
-      <div className="flex items-center gap-0.5 [&_button]:size-6 [&_[data-testid='notification-badge']]:-top-0.5 [&_[data-testid='notification-badge']]:-right-0.5">
+      <div className="flex items-center gap-1.5 [&_button]:size-6 [&_[data-testid='notification-badge']]:-top-0.5 [&_[data-testid='notification-badge']]:-right-0.5">
         <NotificationBell />
         <CommandPaletteButton />
         <ThemeMenu />
