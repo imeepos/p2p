@@ -18,8 +18,10 @@ import {
   useEndpointMetaStore,
 } from "@/acp/endpoint-meta";
 import type { AcpEndpoint } from "@/acp/protocol";
+import { toastInfo } from "@/components/feedback/toast";
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { wsHostOf } from "@/lib/conversation-entry";
+import { errorText } from "@/views/shared/form-flow";
 
 import { CapabilitiesCard } from "./capabilities-card";
 import { ConfigPanel } from "./config-panel";
@@ -99,7 +101,9 @@ export function AgentDetailDrawer({
       try {
         await resumeSession(sessionId);
       } catch (error) {
+        // P3#18 已跳转会话页但恢复失败：中性提示说明降级，不静默
         console.error("[contacts] 恢复会话失败，跳转会话页继续", sessionId, error);
+        toastInfo(t("contacts.agents.resumeDegraded"), errorText(error));
       }
     }
     navigate("/chat?agent=" + endpointId);
@@ -159,7 +163,13 @@ export function AgentDetailDrawer({
                       data-testid={"contacts-agent-session-" + session.sessionId}
                     >
                       <MessagesSquareIcon aria-hidden className="size-4 shrink-0" />
-                      <span className="truncate text-sm">{session.title ?? session.sessionId}</span>
+                      {/* P3#17 裸 sessionId 等宽缩小 + hover 全文 */}
+                      <span
+                        className={session.title ? "truncate text-sm" : "truncate font-mono text-xs"}
+                        title={session.title ?? session.sessionId}
+                      >
+                        {session.title ?? session.sessionId}
+                      </span>
                     </button>
                   ))}
                 </div>

@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ChatFriendJson } from "@/lib/ipc-types";
+import { CopyButton } from "@/components/monitor/copy-button";
 import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
@@ -25,10 +26,13 @@ function CommandError({ message }: { message: string | null }) {
   const { t } = useTranslation();
   if (!message) return null;
   return (
-    <p className="text-destructive text-xs" role="alert" data-testid="friend-remove-error">
-      {t("chat.removeFriend.failed")}
-      {message}
-    </p>
+    <div className="flex items-center gap-1" data-testid="friend-remove-error-row">
+      <p className="text-destructive text-xs" role="alert" data-testid="friend-remove-error">
+        {t("chat.removeFriend.failed")}
+        {message}
+      </p>
+      <CopyButton value={t("chat.removeFriend.failed") + message} className="size-5" />
+    </div>
   );
 }
 

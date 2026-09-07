@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CopyButton } from "@/components/monitor/copy-button";
 import { existingGroupNames } from "@/views/contacts/chat-friend-group";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { ipc } from "@/lib/ipc";
@@ -50,10 +51,13 @@ function CommandError({ message }: { message: string | null }) {
   const { t } = useTranslation();
   if (!message) return null;
   return (
-    <p className="text-destructive text-xs" role="alert" data-testid="friend-move-error">
-      {t("chat.group.failed")}
-      {message}
-    </p>
+    <div className="flex items-center gap-1" data-testid="friend-move-error-row">
+      <p className="text-destructive text-xs" role="alert" data-testid="friend-move-error">
+        {t("chat.group.failed")}
+        {message}
+      </p>
+      <CopyButton value={t("chat.group.failed") + message} className="size-5" />
+    </div>
   );
 }
 

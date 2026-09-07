@@ -13,7 +13,8 @@ import { useChatStore } from "@/stores/chat-store";
 import { useNodeStore, usePeerOnline } from "@/stores/node-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { ShareCreateDialog } from "@/acp/components/share-create-dialog";
-import { toastSuccess } from "@/components/feedback/toast";
+import { toastError, toastSuccess } from "@/components/feedback/toast";
+import { errorText } from "@/views/shared/form-flow";
 
 // WX1 微信风格会话区：居中标题 + 右侧动作；气泡带外侧头像（本机走资料头像）。
 // key=peer 挂载（引用预览随会话切换自动复位）。
@@ -50,8 +51,17 @@ export function FriendConversation({ peer }: { peer: string }) {
   };
 
   const sendShareLink = async (link: string) => {
-    await sendText(peer, link);
-    toastSuccess(t("acp.share.sent"));
+    // P2#11 分享链接发送失败 toast 显式报错，成功保持既有提示
+    try {
+      await sendText(peer, link);
+      toastSuccess(t("acp.share.sent"));
+    } catch (error) {
+      console.error("[chat] 发送分享链接失败", peer, error);
+      toastError(t("chat.shareSendFailed"), {
+        description: errorText(error),
+        context: "chat_send_text",
+      });
+    }
   };
 
   return (

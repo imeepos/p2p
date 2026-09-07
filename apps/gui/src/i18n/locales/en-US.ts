@@ -404,6 +404,7 @@ const enUS: typeof zhCN = {
     inputPlaceholder: "Type a message…",
     send: "Send",
     sendFailed: "Send failed",
+    shareSendFailed: "Failed to send share link",
     textTooLong: "Message cannot exceed 2000 characters",
     noFriends: "No friends yet",
     invite: {
@@ -530,6 +531,7 @@ const enUS: typeof zhCN = {
     groupPending: {
       loading: "Entering the group chat…",
       timeout: "Could not enter this group chat",
+      timeoutHint: "Timed out waiting for the group roster: retry from the group list later; copy the group ID for troubleshooting",
     },
     addFriend: {
       action: "Add friend",
@@ -1151,6 +1153,11 @@ const enUS: typeof zhCN = {
       agents: "Agents",
     },
     description: "Friends, groups and agents: management and add flows",
+    countOf: "{{matched}}/{{total}}",
+    noMatch: "No matches",
+    config: {
+      applyFailed: "Failed to apply config",
+    },
     anchor: {
       goto: "Go to {{section}} section",
     },
@@ -1164,6 +1171,7 @@ const enUS: typeof zhCN = {
       reject: "Reject",
       acceptFailed: "Accept invite failed: ",
       rejectFailed: "Reject invite failed: ",
+      rejectFailedToast: "Reject invite failed",
       nicknameTooLong: "Nickname must be at most 64 characters after trim",
     },
     friends: {
@@ -1174,8 +1182,12 @@ const enUS: typeof zhCN = {
       move: "Move group",
       remove: "Delete",
       cancelInvite: "Cancel invite",
+      cancelInviteSuccess: "Invite withdrawn",
+      cancelInviteFailed: "Failed to withdraw invite",
       pendingOut: "Waiting for approval",
       loadFailed: "Failed to load friends",
+      searchPlaceholder: "Search nickname or PeerId…",
+      addSuccess: "Friend invite sent",
     },
     groups: {
       empty: "No groups yet",
@@ -1192,6 +1204,10 @@ const enUS: typeof zhCN = {
       leaveConfirmDesc: "You will stop receiving new messages of \"{{group}}\"; history is kept, and you can be invited again later.",
       leaveConfirm: "Leave",
       leaveFailed: "Leave group failed: ",
+      leaveSuccess: "Left the group",
+      inviteDisabledNotOwner: "Only the group owner can invite members",
+      inviteDisabledInactive: "Group is not active; inviting is unavailable",
+      searchPlaceholder: "Search group name or ID…",
     },
     groupAdd: {
       title: "Add group",
@@ -1216,6 +1232,9 @@ const enUS: typeof zhCN = {
       removeConfirmDescription:
         "This deletes the \"{{name}}\" config and disconnects it, and also removes the local session record index. This cannot be undone.",
       removeConfirmAction: "Delete",
+      searchPlaceholder: "Search name or PeerId…",
+      messageDisabled: "This agent is disabled: enable it to send messages",
+      resumeDegraded: "Jumped to the session page, but the session failed to resume; retry or create one there",
     },
     endpoint: {
       title: "Add agent endpoint",
@@ -1230,13 +1249,17 @@ const enUS: typeof zhCN = {
       shareImportDenied: "Import rejected by the remote side",
       shareImportBack: "Fill in manually instead",
       wsUrlLabel: "WS URL",
+      wsUrlPlaceholder: "e.g. ws://127.0.0.1:8787",
       tokenLabel: "Token",
       tokenPlaceholder: "Only for same-machine setups; for shared agents paste the share link instead",
       peerLabel: "Agent PeerId (optional)",
+      peerPlaceholder: "e.g. 2jSUsWcEf7z68xBscf2YmVYzQ4uPZfpMz8XRW3vruJU4",
       aliasLabel: "Alias (defaults to host:port)",
+      aliasPlaceholder: "e.g. my-agent",
       adminSectionLabel: "Share management (optional)",
       adminHint: "Sharing ACP needs the agent admin endpoint; the URL is pre-filled from the WS URL, the token is in the agent data dir (acp-admin-token file)",
       adminUrlLabel: "Admin URL",
+      adminUrlPlaceholder: "e.g. http://127.0.0.1:8787",
       adminTokenLabel: "Admin token",
       adminTokenPlaceholder: "Paste the acp-admin-token file content",
       historyLabel: "History",
@@ -1246,6 +1269,7 @@ const enUS: typeof zhCN = {
       testPassed: "Connection OK",
       testFailed: "Connection failed",
       save: "Save",
+      saveSuccess: "Agent endpoint saved",
       targetLabel: "Target node",
       targetPlaceholder: "Pick a node from discovery",
       advancedToggle: "Advanced",

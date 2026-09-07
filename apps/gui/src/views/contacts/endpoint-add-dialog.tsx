@@ -14,14 +14,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { EMPTY_DRAFT, newEndpointId } from "@/acp/endpoint-storage";
+import { toastSuccess } from "@/components/feedback/toast";
+import { newEndpointId } from "@/acp/endpoint-storage";
 import { useAcpStore } from "@/acp/acp-store";
 import { useEndpointMetaStore } from "@/acp/endpoint-meta";
 import type { AcpEndpoint } from "@/acp/protocol";
 import { findShareLinkInText } from "@/acp/share-model";
 import { useDiscoveryPoll } from "@/acp/use-discovery-poll";
 
-import { defaultAdminUrl, hasEndpointFormErrors, shareEndpointId, targetOptions, validateEndpointForm, wsUrlHistory } from "./endpoint-rules";
+import { hasEndpointFormErrors, seedForm, shareEndpointId, targetOptions, validateEndpointForm, wsUrlHistory } from "./endpoint-rules";
 import { AdvancedFields, EndpointFieldError, EndpointTargetPicker, WsUrlField } from "./endpoint-advanced-fields";
 import { EndpointShareImport } from "./endpoint-share-import";
 import { useEndpointTest } from "./use-endpoint-test";
@@ -30,26 +31,6 @@ interface EndpointAddDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (endpoint: AcpEndpoint) => void;
-}
-
-/** 打开瞬间播种（渲染期状态调整，不落 effect）：console ready 时以本机控制台值
- *  预填连接面（未动过的字段才覆盖），补管理地址缺省，并预选首个发现目标 */
-function seedForm(draft: AcpEndpoint, consoleStatus: ReturnType<typeof useAcpStore.getState>["console"]): AcpEndpoint {
-  const seeded = { ...draft };
-  const ready = consoleStatus?.phase === "ready" ? consoleStatus : null;
-  if (ready) {
-    if (!seeded.wsUrl.trim() || seeded.wsUrl === EMPTY_DRAFT.wsUrl) {
-      seeded.wsUrl = ready.wsUrl ?? seeded.wsUrl;
-    }
-    if (!seeded.token.trim()) seeded.token = ready.token ?? seeded.token;
-    if (!seeded.statusUrl?.trim()) seeded.statusUrl = ready.statusUrl;
-    if (!seeded.adminUrl?.trim()) seeded.adminUrl = ready.adminUrl;
-  }
-  if (!seeded.adminUrl?.trim()) {
-    const derived = defaultAdminUrl(seeded.wsUrl);
-    if (derived) seeded.adminUrl = derived;
-  }
-  return seeded;
 }
 
 /** 添加 agent endpoint（§3.2/§3.4 + UX3 收敛）：wsUrl 为主字段（历史值下拉），
@@ -151,6 +132,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   const save = () => {
     if (!validate(false)) return;
     const stamped = upsertSaved({ ...form, endpointId: ensureId() });
+    toastSuccess(t("contacts.endpoint.saveSuccess"));
     onOpenChange(false);
     onSaved(stamped);
   };
@@ -236,6 +218,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
               id="contacts-endpoint-alias"
               value={form.alias ?? ""}
               onChange={(e) => patch("alias")(e.target.value)}
+              placeholder={t("contacts.endpoint.aliasPlaceholder")}
               autoComplete="off"
               data-testid="contacts-endpoint-alias"
             />

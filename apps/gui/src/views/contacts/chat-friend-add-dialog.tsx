@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toastSuccess } from "@/components/feedback/toast";
+import { CopyButton } from "@/components/monitor/copy-button";
 import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";
@@ -49,10 +51,13 @@ function CommandError({ message }: { message: string | null }) {
   const { t } = useTranslation();
   if (!message) return null;
   return (
-    <p className="text-destructive text-xs" role="alert" data-testid="friend-add-error">
-      {t("chat.addFriend.failed")}
-      {message}
-    </p>
+    <div className="flex items-center gap-1" data-testid="friend-add-error-row">
+      <p className="text-destructive text-xs" role="alert" data-testid="friend-add-error">
+        {t("chat.addFriend.failed")}
+        {message}
+      </p>
+      <CopyButton value={t("chat.addFriend.failed") + message} className="size-5" />
+    </div>
   );
 }
 
@@ -113,6 +118,7 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
       markLocalWrite("chat");
       await loadFriends();
       await loadInvites();
+      toastSuccess(t("contacts.friends.addSuccess"));
       handleOpenChange(false);
     } catch (error) {
       console.error("[chat] 添加好友失败", error);
