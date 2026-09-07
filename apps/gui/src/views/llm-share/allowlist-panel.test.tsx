@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
 import i18n from "@/i18n";
 
@@ -18,20 +19,35 @@ function submitAllow() {
   fireEvent.submit(form);
 }
 
+function renderPanel(backend: LlmShareBackend) {
+  return render(
+    <ConfirmProvider>
+      <AllowlistPanel backend={backend} />
+    </ConfirmProvider>,
+  );
+}
+
+function denyButton() {
+  const row = screen.getByTestId("allow-row");
+  const button = row.querySelector("button");
+  if (!button) throw new Error("test precondition broken: deny button missing");
+  return button;
+}
+
 afterEach(() => cleanup());
 
 describe("LLM3 allowlist 面板（契约 §16.2-7 默认拒绝原话 / ai-guide 条目 1-3）", () => {
-  it("空态渲染契约原话：allowlist 无条目即不可用", async () => {
+  it("空态渲染契约原话：默认拒绝说明", async () => {
     const { backend } = makeLlmShareMockPair();
-    render(<AllowlistPanel backend={backend} />);
+    renderPanel(backend);
     expect(
       await screen.findByText(t("llmShare.allowlist.emptyTitle")),
     ).toBeTruthy();
   });
 
-  it("allow 表单 models 缺省=不限模型，note 入列并可移出（deny 回空态）", async () => {
+  it("allow 表单 models 缺省=不限模型，note 入列", async () => {
     const { backend, mock } = makeLlmShareMockPair();
-    render(<AllowlistPanel backend={backend} />);
+    renderPanel(backend);
     fireEvent.change(screen.getByLabelText(t("llmShare.allowlist.formPeerId")), {
       target: { value: PEER },
     });
@@ -43,28 +59,44 @@ describe("LLM3 allowlist 面板（契约 §16.2-7 默认拒绝原话 / ai-guide 
     expect(row.textContent).toContain(t("llmShare.allowlist.unlimitedModels"));
     expect(row.textContent).toContain("首批白名单");
     expect(mock.allowList().entries[0].models).toEqual([]);
+  });
+
+  // R2-02 回归：移出必须经破坏性二次确认，取消不动、确认才移除
+  it("移出二次确认：取消保留条目，确认后移除并回空态", async () => {
+    const { backend, mock } = makeLlmShareMockPair();
+    const denySpy = vi.spyOn(backend, "deny");
+    renderPanel(backend);
+    fireEvent.change(screen.getByLabelText(t("llmShare.allowlist.formPeerId")), {
+      target: { value: PEER },
+    });
+    submitAllow();
+    await screen.findByTestId("allow-row");
+    fireEvent.click(denyButton());
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toContain(t("llmShare.allowlist.denyConfirmTitle"));
+    expect(dialog.textContent).toContain(t("llmShare.allowlist.denyConfirmDesc"));
+    expect(denySpy).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: t("common.actions.cancel") }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(screen.getByTestId("allow-row")).toBeTruthy();
+    expect(denySpy).not.toHaveBeenCalled();
+    fireEvent.click(denyButton());
+    await screen.findByRole("alertdialog");
     fireEvent.click(screen.getByRole("button", { name: t("llmShare.allowlist.deny") }));
     expect(await screen.findByText(t("llmShare.allowlist.emptyTitle"))).toBeTruthy();
+    expect(mock.allowList().entries).toHaveLength(0);
   });
 
   it("deny 失败路径显式报错（默认拒绝语义非故障，不静默）", async () => {
-    const { backend, mock } = makeLlmShareMockPair();
-    mock.allow({ peerId: PEER, models: ["gpt-4o"] });
-    const spy = {
-      ...backend,
-      deny: (peerId: string) => {
-        void peerId;
-        return Promise.reject(new Error("deny: 条目不存在"));
-      },
-    } satisfies LlmShareBackend;
-    render(<AllowlistPanel backend={spy} />);
-    const row = await screen.findByTestId("allow-row");
-    fireEvent.click(
-      row.querySelector('button, [role="button"]') ??
-        (() => {
-          throw new Error("test precondition broken: deny button missing");
-        })(),
-    );
+    const pair = makeLlmShareMockPair();
+    pair.mock.allow({ peerId: PEER, models: ["gpt-4o"] });
+    const deny = vi.fn(() => Promise.reject(new Error("deny: 条目不存在")));
+    const backend = { ...pair.backend, deny } satisfies LlmShareBackend;
+    renderPanel(backend);
+    await screen.findByTestId("allow-row");
+    fireEvent.click(denyButton());
+    await screen.findByRole("alertdialog");
+    fireEvent.click(screen.getByRole("button", { name: t("llmShare.allowlist.deny") }));
     expect(await screen.findByRole("alert")).toHaveTextContent("deny: 条目不存在");
   });
 });

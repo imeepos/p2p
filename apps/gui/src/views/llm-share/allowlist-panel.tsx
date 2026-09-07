@@ -2,6 +2,7 @@ import { ShieldOff } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useConfirm } from "@/components/feedback/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ function AllowRow({ entry, onDeny }: { entry: LlmAllowEntry; onDeny: (peerId: st
 
 export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const [entries, setEntries] = useState<LlmAllowEntry[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -122,8 +124,20 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
     });
   };
 
+  // R2-02：移出即撤销借用授权（破坏性），走全站统一的二次确认，文案说明
+  // 后果与恢复路径（再次加入即恢复）。
   const handleDeny = (peerId: string) => {
-    void runAction(() => backend.deny(peerId));
+    void (async () => {
+      const ok = await confirm({
+        title: t("llmShare.allowlist.denyConfirmTitle"),
+        description: t("llmShare.allowlist.denyConfirmDesc"),
+        confirmText: t("llmShare.allowlist.deny"),
+        cancelText: t("common.actions.cancel"),
+        destructive: true,
+      });
+      if (!ok) return;
+      await runAction(() => backend.deny(peerId));
+    })();
   };
 
   const set = (field: keyof AllowFormValues) => (value: string) =>
