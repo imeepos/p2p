@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { PageHeader } from "@/components/page/page-header";
 
+import { setBorrowPrefill, consumeBorrowPrefill } from "./borrow-prefill";
 import { AllowlistPanel } from "./allowlist-panel";
 import { BorrowPanel } from "./borrow-panel";
 import { LedgerPanel } from "./ledger-panel";
@@ -38,6 +40,26 @@ function PanelSection({
 // borrow 快捷 / 双边账本。自持一份 ConfirmProvider（borrow 二次确认依赖，与
 // main.tsx 全站 Provider 嵌套无害，acp-view 先例）。
 export function LlmShareView({ backend }: { backend: LlmShareBackend }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // §6 第 5 步：redeem 成功后跳 /llm-share?peer=<A>&model=<m1>，此处并入借出方
+  // offer 快照（prefill store）并立即清 query——防刷新重放，刷新后回到空表单。
+  useEffect(() => {
+    const peer = searchParams.get("peer");
+    const model = searchParams.get("model");
+    if (!peer && !model) return;
+    const stored = consumeBorrowPrefill();
+    setBorrowPrefill({
+      peer: peer ?? stored?.peer ?? "",
+      model: model ?? stored?.model ?? "",
+      models: stored?.models ?? [],
+    });
+    const next = new URLSearchParams(searchParams);
+    next.delete("peer");
+    next.delete("model");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   return (
     <ConfirmProvider>
       <div className="flex min-h-0 flex-col gap-4">

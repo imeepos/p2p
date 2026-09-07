@@ -1,20 +1,29 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import "@/i18n";
 import i18n from "@/i18n";
 
+import { resetBorrowPrefill } from "./borrow-prefill";
 import { makeLlmShareMockPair } from "./mock-backend";
 import { LlmShareView } from "./llm-share-view";
 
 const t = i18n.t.bind(i18n);
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  resetBorrowPrefill();
+});
 
 describe("LLM3 /llm-share 四面板（契约 §16.3 落点）", () => {
   it("四面板齐备：offer/allowlist/borrow/ledger 四 section 与页头", async () => {
     const { backend } = makeLlmShareMockPair();
-    render(<LlmShareView backend={backend} />);
+    render(
+      <MemoryRouter>
+        <LlmShareView backend={backend} />
+      </MemoryRouter>,
+    );
     expect(screen.getByRole("heading", { level: 1, name: t("llmShare.title") })).toBeTruthy();
     for (const [testid, key] of [
       ["section-offer", "llmShare.panels.offer"],
@@ -29,7 +38,11 @@ describe("LLM3 /llm-share 四面板（契约 §16.3 落点）", () => {
 
   it("全新实例空态齐备：offer 未发布 / allowlist 原话 / 账本两处空态", async () => {
     const { backend } = makeLlmShareMockPair();
-    render(<LlmShareView backend={backend} />);
+    render(
+      <MemoryRouter>
+        <LlmShareView backend={backend} />
+      </MemoryRouter>,
+    );
     expect(
       await screen.findByText(t("llmShare.offer.emptyTitle")),
     ).toBeTruthy();
@@ -52,7 +65,11 @@ describe("LLM3 /llm-share 四面板（契约 §16.3 落点）", () => {
       maxTokens: 8,
       reqId: "R1",
     });
-    render(<LlmShareView backend={backend} />);
+    render(
+      <MemoryRouter>
+        <LlmShareView backend={backend} />
+      </MemoryRouter>,
+    );
     expect(await screen.findByTestId("offer-status")).toBeTruthy();
     expect(await screen.findByTestId("allow-row")).toBeTruthy();
     expect(await screen.findByTestId("balance-row")).toBeTruthy();
