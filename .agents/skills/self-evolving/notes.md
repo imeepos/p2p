@@ -1,5 +1,14 @@
 # Self-Evolving Notes
 
+## 2026-09-07 rail 多主题适配 + 删除重复设置入口（fix/rail-theme-and-avatar）
+
+- 哪个坑浪费了最多时间？
+  不在业务改动本身（半小时内完成），而在收尾：收尾四步链成一条 bash，输出截断 exit=null，push --delete 和 push main 实际没执行，远端残留 fix 分支；靠 ls-remote 计数核验才补删。另有一个 run_code 正则经 JSON 转义跨行的 SyntaxError（报误导性的 "Unmatched )"），换 edit 工具传字面量一次过。
+- skill 有没有提前警告我？
+  有：「并行会话基线」让我开工前 fetch 核对 main==origin/main；「误闯并行 worktree」让我开局 git worktree list 识别两个他人半成品 worktree 并避开。收尾核验粒度（每步独立+机械核验）是本轮新坑，已喂回 red-lines/lessons。
+- 重来一次会怎么做？
+  收尾四步从第一条命令起就逐步独立执行带核验；给 worktree 装依赖直接给足 timeoutMs（本轮 2m20s 装完）；样式类「固定色绕过主题系统」类缺陷先找语义令牌再动手。
+
 ## 2026-09-04 gui-updater 轮：应用内下载安装更新（updater 插件全链路）
 
 - 哪个坑浪费了最多时间？
