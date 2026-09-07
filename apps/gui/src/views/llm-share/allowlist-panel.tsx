@@ -15,8 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDateTime } from "@/lib/format";
+import type { Locale } from "@/i18n";
 import { errorText } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
+import { PeerNameCell } from "@/views/shared/peer-name-cell";
 
 import type { LlmAllowEntry, LlmShareBackend } from "./types";
 
@@ -36,17 +39,20 @@ function parseAllowModels(text: string): string[] {
 }
 
 function AllowRow({ entry, onDeny }: { entry: LlmAllowEntry; onDeny: (peerId: string) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language as Locale;
   const models =
     entry.models.length > 0 ? entry.models.join(", ") : t("llmShare.allowlist.unlimitedModels");
   return (
     <TableRow data-testid="allow-row">
-      <TableCell className="max-w-40 truncate font-mono text-xs" title={entry.peerId}>
-        {entry.peerId}
+      <TableCell className="max-w-44">
+        <PeerNameCell peerId={entry.peerId} />
       </TableCell>
       <TableCell className="text-xs">{models}</TableCell>
       <TableCell className="text-xs">{entry.note}</TableCell>
-      <TableCell className="text-xs">{entry.grantedAt}</TableCell>
+      <TableCell className="text-xs">
+        {formatDateTime(new Date(entry.grantedAt).getTime(), locale)}
+      </TableCell>
       <TableCell>
         <Button type="button" size="sm" variant="outline" onClick={() => onDeny(entry.peerId)}>
           {t("llmShare.allowlist.deny")}
@@ -197,7 +203,7 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>PeerId</TableHead>
+                  <TableHead>{t("llmShare.allowlist.columnPeer")}</TableHead>
                   <TableHead>{t("llmShare.allowlist.columnModels")}</TableHead>
                   <TableHead>{t("llmShare.allowlist.columnNote")}</TableHead>
                   <TableHead>{t("llmShare.allowlist.columnGrantedAt")}</TableHead>

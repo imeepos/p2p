@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
 import i18n from "@/i18n";
+import { formatDateTime } from "@/lib/format";
+import { shortPeerId } from "@/lib/peer-name";
+import { useChatStore } from "@/stores/chat-store";
 
 import { makeLlmShareMockPair } from "./mock-backend";
 import { AllowlistPanel } from "./allowlist-panel";
@@ -85,6 +88,44 @@ describe("LLM3 allowlist 面板（契约 §16.2-7 默认拒绝原话 / ai-guide 
     fireEvent.click(screen.getByRole("button", { name: t("llmShare.allowlist.deny") }));
     expect(await screen.findByText(t("llmShare.allowlist.emptyTitle"))).toBeTruthy();
     expect(mock.allowList().entries).toHaveLength(0);
+  });
+
+  // R2-04 回归：表头 i18n、已知好友昵称+缩略 PeerId、授权时间本地化
+  it("表格表头走 i18n 借方列，行内已知好友显示昵称+缩略 PeerId", async () => {
+    useChatStore.setState({
+      friends: [{ peerId: PEER, nickname: "小借", addrs: [] }],
+      friendsLoaded: true,
+    });
+    const { backend } = makeLlmShareMockPair();
+    renderPanel(backend);
+    fireEvent.change(screen.getByLabelText(t("llmShare.allowlist.formPeerId")), {
+      target: { value: PEER },
+    });
+    submitAllow();
+    const row = await screen.findByTestId("allow-row");
+    expect(row.textContent).toContain("小借");
+    expect(row.textContent).toContain(shortPeerId(PEER));
+    expect(row.textContent).not.toContain(PEER);
+    expect(
+      screen.getByRole("columnheader", { name: t("llmShare.allowlist.columnPeer") }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: "PeerId" })).toBeNull();
+    useChatStore.setState({ friends: [], friendsLoaded: true });
+  });
+
+  it("授权时间本地化为 formatDateTime 而非原始 ISO UTC", async () => {
+    const { backend, mock } = makeLlmShareMockPair({ now: () => 1788549300 });
+    mock.allow({ peerId: PEER });
+    renderPanel(backend);
+    const row = await screen.findByTestId("allow-row");
+    const grantedAt = mock.allowList().entries[0]!.grantedAt;
+    const expected = formatDateTime(
+      new Date(grantedAt).getTime(),
+      i18n.language as "zh-CN",
+    );
+    expect(row.textContent).toContain(expected);
+    expect(row.textContent).not.toContain("T0");
+    expect(row.textContent).not.toContain("Z");
   });
 
   it("deny 失败路径显式报错（默认拒绝语义非故障，不静默）", async () => {

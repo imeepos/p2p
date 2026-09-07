@@ -1375,6 +1375,7 @@ const enUS: typeof zhCN = {
       denyConfirmDesc: "Once removed, this borrower is denied immediately (default deny). To restore access, add them to the allowlist again.",
       emptyTitle: "No allowlist entry means no access",
       emptyHint: "Default deny: borrowers without an entry are rejected; allow first to grant access",
+      columnPeer: "Borrower",
       columnModels: "Allowed models",
       columnNote: "Note",
       columnGrantedAt: "Granted at",

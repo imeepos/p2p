@@ -1351,6 +1351,7 @@ const zhCN = {
       denyConfirmDesc: "移出后该借方立即不可借用（白名单默认拒绝）。如需恢复，可再次将其加入白名单。",
       emptyTitle: "allowlist 无条目即不可用",
       emptyHint: "默认拒绝：未列入条目的借方一律不可用，加入白名单后才放行",
+      columnPeer: "借方",
       columnModels: "允许模型",
       columnNote: "备注",
       columnGrantedAt: "授权时间",
