@@ -248,7 +248,7 @@ describe("endpoint 分享管理（零配置向导）", () => {
     ).toBe("http://192.168.1.8:8787");
   });
 
-  it("token 缺失保存被拦：tokenRequired 稳定错误码", async () => {
+  it("空 token 保存放行（先存后连，§3.2 原始口径）：tokenRequired 移至连接路径", async () => {
     useAcpStore.setState({
       saved: [],
       draft: { wsUrl: "ws://127.0.0.1:8787", token: "", peer: "" },
@@ -256,8 +256,7 @@ describe("endpoint 分享管理（零配置向导）", () => {
     renderDialog();
     await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
     fireEvent.click(screen.getByTestId("contacts-endpoint-save"));
-    const node = await screen.findByTestId("contacts-endpoint-error-tokenRequired");
-    expect(node.textContent).toBe(i18n.t("contacts.endpoint.errors.tokenRequired" as I18nKey));
+    await waitFor(() => expect(useAcpStore.getState().saved.length).toBe(1));
   });
 
   it("adminUrl 非法保存被拦：adminUrlInvalid 稳定错误码", async () => {

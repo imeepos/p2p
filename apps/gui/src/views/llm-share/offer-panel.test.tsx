@@ -5,10 +5,15 @@ import "@/i18n";
 import i18n from "@/i18n";
 
 import { makeLlmShareMockPair } from "./mock-backend";
+import { resetOfferLoadWarnForTest } from "./offer-errors";
 import { OfferPanel } from "./offer-panel";
 import type { LlmOfferStatus, LlmShareBackend } from "./types";
 
 const t = i18n.t.bind(i18n);
+
+// R2-08：发布成功 toast 反馈（toast 模块整体 mock，专断言调用）
+const { toastSuccessMock } = vi.hoisted(() => ({ toastSuccessMock: vi.fn() }));
+vi.mock("@/components/feedback/toast", () => ({ toastSuccess: toastSuccessMock }));
 
 function rejectAll(): LlmShareBackend {
   const fail = () => Promise.reject(new Error("boom"));
@@ -133,4 +138,70 @@ describe("LLM3 offer 面板（契约 §16.1 必填集 / §16.2-5 五态两级）
     submitPublish();
     expect(await screen.findByRole("alert")).toHaveTextContent("boom");
   });
+
+  // R2-03 回归：未发布是常态非故障，空态走中文出路文案，不露内部英文报错
+  it("未发布空态走中文出路文案，不显示内部报错原文，console 静默", async () => {
+    resetOfferLoadWarnForTest();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { backend } = makeLlmShareMockPair();
+    render(<OfferPanel backend={backend} />);
+    expect(await screen.findByText(t("llmShare.offer.emptyTitle"))).toBeTruthy();
+    expect(await screen.findByText(t("llmShare.offer.emptyHint"))).toBeTruthy();
+    expect(screen.queryByText(/never published/u)).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  // R2-26 回归：真实错误整个会话仅 console 提示一次，但错误原文始终可见
+  it("真实错误显示错误原文，console 告警会话级单次", async () => {
+    resetOfferLoadWarnForTest();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(<OfferPanel backend={rejectAll()} />);
+    expect((await screen.findAllByText("boom"))[0]).toBeTruthy();
+    const second = render(<OfferPanel backend={rejectAll()} />);
+    expect((await screen.findAllByText("boom"))[0]).toBeTruthy();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    second.unmount();
+    warnSpy.mockRestore();
+  });
+
+  // R2-08 回归：发布成功补 toast 确认，不再仅状态卡静默出现
+  it("发布成功触发成功 toast", async () => {
+    const { backend } = makeLlmShareMockPair({ now: () => 1788549300 });
+    render(<OfferPanel backend={backend} />);
+    fillValidForm();
+    submitPublish();
+    await screen.findByTestId("offer-status");
+    expect(toastSuccessMock).toHaveBeenCalledWith(t("llmShare.offer.publishSuccess"));
+  });
+
+  // R2-09 回归：剩余时间人性化——live 显时长、过期显「已过期」语义
+  it("剩余时间显人性化时长而非裸秒", async () => {
+    const { backend, mock } = makeLlmShareMockPair({ now: () => 1788549300 });
+    mock.offerPublish({ models: ["gpt-4o"], spare: { "gpt-4o": 5 }, periodEnds: "2026-09-30" });
+    const view = render(<OfferPanel backend={backend} />);
+    const remaining = await vi.waitFor(() => {
+      const el = view.container.querySelector('[data-testid="offer-remaining"]');
+      if (!el) throw new Error("remaining cell not rendered yet");
+      return el;
+    });
+    expect(remaining.textContent).toMatch(/小时|分|秒/u);
+    expect(remaining.textContent).not.toBe("3600");
+  });
+
+  it.each<LlmOfferStatus>(["expired", "not_yet_valid"])(
+    "%s 态剩余时间给状态语义而非 0 秒",
+    async (status) => {
+      const { backend, mock } = makeLlmShareMockPair({ forceOfferStatus: status });
+      mock.offerPublish({ models: ["gpt-4o"], spare: { "gpt-4o": 5 }, periodEnds: "2026-09-30" });
+      const view = render(<OfferPanel backend={backend} />);
+      const remaining = await vi.waitFor(() => {
+        const el = view.container.querySelector('[data-testid="offer-remaining"]');
+        if (!el) throw new Error("remaining cell not rendered yet");
+        return el;
+      });
+      expect(remaining.textContent?.length).toBeGreaterThan(0);
+      expect(remaining.textContent).not.toBe("0");
+    },
+  );
 });

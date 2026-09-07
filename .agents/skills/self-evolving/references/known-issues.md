@@ -2,6 +2,11 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-07 UX-R2C：acp-store 的 draft 跨测试用例残留，新用例假定空白初值即踩
+- 症状：endpoint 弹窗新用例不填 token 点「测试连接」，预期报 tokenRequired 却直接发起连接，DOM 里找不到错误码；单文件重跑又全绿（用例执行顺序敏感）。
+- 原因：beforeEach 的 localStorage.clear() + resetConsoleState() 都不清 in-memory store 的 draft/saved（resetConsoleState 只清连接态面）；同文件前序用例经 upsertSaved 留下的 draft（含 token）被新用例的 useState(draft) 继承，validate 直接通过。
+- 修法：依赖表单初值的用例必须在用例内显式 setState/填充被测字段（哪怕值是空串），或 beforeEach 显式 useAcpStore.setState({ draft: EMPTY_DRAFT, saved: [] })；「单文件重跑绿、全量红（或反之）」先怀疑 store 模块级状态残留而非代码逻辑。
+
 ## 2026-09-07 UX-K：Radix Tabs 用 fireEvent.click 不切换，且非激活 Content 以 hidden 空壳留在 DOM
 - 症状：弹窗内 Tabs 点触发器后 aria-selected 仍 false；断言「内容存在」却通过（getByTestId 命中 hidden 空壳），下游子元素断言才失败，误导排查方向。
 - 原因：@radix-ui/react-tabs 1.1.x 触发器在 onMouseDown 里 onValueChange（click 不是激活事件）；TabsContent 非激活时不卸载而是 hidden+不渲染 children。
@@ -344,3 +349,17 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-07 harness edit 工具 JSON 参数顺序敏感：old_string 必须放参数对象第一位
 - 症状：tools.edit 传参把 new_string 放在 old_string 之前时报 "missing required property old_string"，两次复现；调序后同样的字符串内容即成功。
 - 修法：调 edit 工具时把 old_string 写在对象字面量第一位（file_path 之后紧随），别依赖键序无关假设；批量 edit 时拆成多次调用，失败重试先查参数顺序。
+
+## 2026-09-07 vitest vi.fn 零参签名在 tsc 严格元组下无法索引 mock.calls[0][0]
+- 症状：vi.fn(async () => undefined) 后写 writeText.mock.calls[0]?.[0] 报 TS2493（Tuple type '[]' has no element at index '0'）；vitest 运行全绿但 typecheck 红。
+- 修法：显式标注形参 vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)（诊断页 F27 用例既有写法）；要断言入参的 mock 别用零参箭头签名。
+
+## 2026-09-07 深链开抽屉用 useEffect setState 触发 react-hooks/set-state-in-effect 红线
+- 症状：/contacts?agentDetail=<id> 深链在 useEffect 里 setDetailId 开抽屉，lint 直接报错（hooks 新规），repo 无豁免先例。
+- 修法：照 contacts-view hash 深链先例改渲染期同步——useState 惰性初值解析深链 + lastDeepLink 渲染期比对变更再 setState；注意别留旧 useState 声明造成重复声明（duplicate const 在 eslint 只报 no-useless-assignment 不报语法错，迷惑性强）。
+
+## 2026-09-07 Radix Button asChild 下 data-testid 落在子元素本体
+- 症状：getByTestId("agent-edit-link").querySelector("a") 取到 null——asChild 把 props 合并到子元素，testid 就在渲染出的 <a> 上。
+- 修法：断言直接对 getByTestId(...) 本身做 tagName/href 检查。
+
+- 2026-09-07 UX-R2A 症状：vitest 单文件跑绿、全量跑出现「scrollIntoView is not a function」Unhandled Rejection 且计为 Errors——原因：其他测试文件触发了带 scrollIntoView 的校验路径而各自 jsdom 无 stub。修法：helper 内能力探测降级（typeof element.scrollIntoView === 'function'），或每个涉及文件 beforeEach stub HTMLElement.prototype.scrollIntoView（settings-focus-error.test 先例）。

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import type { I18nKey } from "@/i18n/types";
 
+import { toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { errorText } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
-import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 
 import {
   EMPTY_OFFER_FORM,
@@ -19,94 +19,30 @@ import {
   type OfferErrors,
   type OfferFormValues,
 } from "./offer-form";
-import type { LlmOfferStatus, LlmOfferView, LlmShareBackend } from "./types";
+import { isOfferNotPublished, warnOfferLoadOnce } from "./offer-errors";
+import { focusFirstInvalidField } from "./focus-first-error";
+import { OfferStatusCard } from "./offer-status-card";
+import type { LlmOfferView, LlmShareBackend } from "./types";
 
-// §16.2-5：expired/not_yet_valid = 常态中性；peer_mismatch/bad_signature =
-// 醒目警示（danger 徽章 + role=alert + destructive 描边）。
-const STATUS_TONE: Record<LlmOfferStatus, StatusTone> = {
-  live: "success",
-  expired: "neutral",
-  not_yet_valid: "neutral",
-  peer_mismatch: "danger",
-  bad_signature: "danger",
-};
-
-const STATUS_KEY: Record<LlmOfferStatus, I18nKey> = {
-  live: "llmShare.offer.statusLive",
-  expired: "llmShare.offer.statusExpired",
-  not_yet_valid: "llmShare.offer.statusNotYetValid",
-  peer_mismatch: "llmShare.offer.statusPeerMismatch",
-  bad_signature: "llmShare.offer.statusBadSignature",
-};
-
-function FieldError({ messageKey }: { messageKey?: I18nKey }) {
+function FieldError({ messageKey, htmlId }: { messageKey?: I18nKey; htmlId?: string }) {
   const { t } = useTranslation();
   if (!messageKey) return null;
   return (
-    <p role="alert" className="text-destructive text-xs">
+    <p role="alert" id={htmlId} className="text-destructive text-xs">
       {t(messageKey)}
     </p>
   );
 }
 
-function OfferFieldRow({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="truncate font-mono" title={value}>
-        {value}
-      </dd>
-    </>
-  );
-}
-
-export function OfferStatusCard({ offer }: { offer: LlmOfferView }) {
-  const { t } = useTranslation();
-  const warning = offer.status === "peer_mismatch" || offer.status === "bad_signature";
-  const spare = Object.entries(offer.spare)
-    .map(([m, n]) => `${m}=${n}`)
-    .join(", ");
-  return (
-    <div
-      data-testid="offer-status"
-      data-status={offer.status}
-      className={
-        warning
-          ? "border-destructive/40 rounded-md border p-3 text-sm"
-          : "rounded-md border p-3 text-sm"
-      }
-    >
-      <div className="flex items-center gap-2">
-        <StatusBadge tone={STATUS_TONE[offer.status]} dot>
-          {t(STATUS_KEY[offer.status])}
-        </StatusBadge>
-        <span className="text-muted-foreground text-xs">
-          {t("llmShare.offer.labelStatus")}
-        </span>
-      </div>
-      {warning ? (
-        <p role="alert" className="text-destructive mt-2 text-xs">
-          {t("llmShare.offer.securityWarning")}
-        </p>
-      ) : null}
-      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-        <OfferFieldRow label={t("llmShare.offer.labelPeer")} value={offer.peer} />
-        <OfferFieldRow
-          label={t("llmShare.offer.labelModels")}
-          value={offer.models.join(", ")}
-        />
-        <OfferFieldRow label={t("llmShare.offer.labelSpare")} value={spare} />
-        <OfferFieldRow
-          label={t("llmShare.offer.labelPeriodEnds")}
-          value={offer.periodEnds}
-        />
-        <OfferFieldRow
-          label={t("llmShare.offer.labelRemaining")}
-          value={String(offer.remainingSecs)}
-        />
-      </dl>
-    </div>
-  );
+// R2-12：字段 id → 错误键映射（聚焦顺序 = 表单视觉顺序；limits 归属 RPM 输入）
+function fieldErrorOf(errors: OfferErrors): Partial<Record<string, I18nKey>> {
+  return {
+    "llm-offer-models": errors.models,
+    "llm-offer-spare": errors.spare,
+    "llm-offer-period": errors.periodEnds,
+    "llm-offer-maxperreq": errors.maxPerReq,
+    "llm-offer-rpm": errors.limits,
+  };
 }
 
 export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
@@ -118,18 +54,27 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // R2-03：未发布是常态非故障——空态静默走中文出路文案；仅真实错误才
+  // 原样露出并告警（会话级单次，console 不逐次刷屏）。
+  const reportLoadError = useCallback((error: unknown) => {
+    if (isOfferNotPublished(error)) {
+      setLoadError(null);
+      return;
+    }
+    warnOfferLoadOnce(error);
+    setLoadError(errorText(error));
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
       const view = await backend.offerShow();
       setOffer(view);
       setLoadError(null);
     } catch (error) {
-      // 可观测：从未发布属常态空态，其余错误同样原样露出
-      console.warn("[llm-share] offer show 失败", error);
-      setLoadError(errorText(error));
+      reportLoadError(error);
       setOffer(null);
     }
-  }, [backend]);
+  }, [backend, reportLoadError]);
 
   // 挂载拉取走 effect 内联 IIFE（react-hooks/set-state-in-effect 合规形态，
   // use-gui-config 先例）；refresh 供按钮手动刷新复用。
@@ -143,14 +88,13 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
           setLoadError(null);
         }
       } catch (error) {
-        console.warn("[llm-share] offer show 失败", error);
-        if (!cancelled) setLoadError(errorText(error));
+        if (!cancelled) reportLoadError(error);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [backend]);
+  }, [backend, reportLoadError]);
 
   const set = (field: keyof OfferFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
@@ -159,6 +103,9 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
     event.preventDefault();
     const validation = validateOfferForm(values);
     setErrors(validation.errors);
+    // R2-12：校验失败聚焦第一个错误字段（与 aria-invalid 同源判定）
+    const fieldErrors = fieldErrorOf(validation.errors);
+    focusFirstInvalidField(Object.keys(fieldErrors), (id) => fieldErrors[id] != null);
     if (!validation.req) return;
     setBusy(true);
     setPublishError(null);
@@ -166,6 +113,8 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
       const view = await backend.offerPublish(validation.req);
       setOffer(view);
       setLoadError(null);
+      // R2-08：保存类操作对齐全站 toast 反馈，不再仅状态卡静默出现
+      toastSuccess(t("llmShare.offer.publishSuccess"));
     } catch (error) {
       console.error("[llm-share] offer publish 失败", error);
       setPublishError(errorText(error));
@@ -189,8 +138,10 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                 value={values.modelsText}
                 onChange={(e) => set("modelsText")(e.target.value)}
                 placeholder={t("llmShare.offer.formModelsPlaceholder")}
+                aria-invalid={errors.models ? true : undefined}
+                aria-describedby={errors.models ? "llm-offer-models-error" : undefined}
               />
-              <FieldError messageKey={errors.models} />
+              <FieldError messageKey={errors.models} htmlId="llm-offer-models-error" />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="llm-offer-spare">{t("llmShare.offer.formSpare")}</Label>
@@ -200,8 +151,10 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                 value={values.spareText}
                 onChange={(e) => set("spareText")(e.target.value)}
                 placeholder={t("llmShare.offer.formSparePlaceholder")}
+                aria-invalid={errors.spare ? true : undefined}
+                aria-describedby={errors.spare ? "llm-offer-spare-error" : undefined}
               />
-              <FieldError messageKey={errors.spare} />
+              <FieldError messageKey={errors.spare} htmlId="llm-offer-spare-error" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
@@ -211,8 +164,10 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                   type="date"
                   value={values.periodEnds}
                   onChange={(e) => set("periodEnds")(e.target.value)}
+                  aria-invalid={errors.periodEnds ? true : undefined}
+                  aria-describedby={errors.periodEnds ? "llm-offer-period-error" : undefined}
                 />
-                <FieldError messageKey={errors.periodEnds} />
+                <FieldError messageKey={errors.periodEnds} htmlId="llm-offer-period-error" />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-offer-maxperreq">{t("llmShare.offer.formMaxPerReq")}</Label>
@@ -221,14 +176,22 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                   value={values.maxPerReqText}
                   onChange={(e) => set("maxPerReqText")(e.target.value)}
                   placeholder={t("llmShare.offer.formMaxPerReqPlaceholder")}
+                  aria-invalid={errors.maxPerReq ? true : undefined}
+                  aria-describedby={errors.maxPerReq ? "llm-offer-maxperreq-error" : undefined}
                 />
-                <FieldError messageKey={errors.maxPerReq} />
+                <FieldError messageKey={errors.maxPerReq} htmlId="llm-offer-maxperreq-error" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-offer-rpm">{t("llmShare.offer.formRpm")}</Label>
-                <Input id="llm-offer-rpm" value={values.rpm} onChange={(e) => set("rpm")(e.target.value)} />
+                <Input
+                  id="llm-offer-rpm"
+                  value={values.rpm}
+                  onChange={(e) => set("rpm")(e.target.value)}
+                  aria-invalid={errors.limits ? true : undefined}
+                  aria-describedby={errors.limits ? "llm-offer-limits-error" : undefined}
+                />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-offer-concurrency">{t("llmShare.offer.formConcurrency")}</Label>
@@ -243,7 +206,21 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                 <Input id="llm-offer-ttl" value={values.ttl} onChange={(e) => set("ttl")(e.target.value)} />
               </div>
             </div>
-            <FieldError messageKey={errors.limits} />
+            {/* R2-15：留存自述渲染（可选输入 + 用途说明），此前键在而字段缺渲染 */}
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="llm-offer-retention">{t("llmShare.offer.formRetention")}</Label>
+              <Input
+                id="llm-offer-retention"
+                value={values.retention}
+                onChange={(e) => set("retention")(e.target.value)}
+                placeholder="none"
+                aria-describedby="llm-offer-retention-hint"
+              />
+              <p id="llm-offer-retention-hint" className="text-muted-foreground text-xs">
+                {t("llmShare.offer.formRetentionHint")}
+              </p>
+            </div>
+            <FieldError messageKey={errors.limits} htmlId="llm-offer-limits-error" />
             {publishError ? (
               <p role="alert" className="text-destructive text-xs">
                 {t("llmShare.offer.publishFailed")}: {publishError}

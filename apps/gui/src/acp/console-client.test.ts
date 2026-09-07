@@ -1,8 +1,13 @@
 // console status HTTP 客户端契约测试：/reattach 与 /discovery 响应映射、
 // 容错折化（不可达/坏形/未知 reason → unavailable 或空清单），绝不抛出。
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { connectShare, fetchDiscoveryPeers, queryReattachTicket } from "./console-client";
+import {
+  connectShare,
+  fetchDiscoveryPeers,
+  queryReattachTicket,
+  resetStatusFaceNoticeForTest,
+} from "./console-client";
 
 function stubFetch(payload: () => { ok: boolean; body: unknown } | "throw"): void {
   // "throw" 哨兵而非 Promise.reject：被拒 promise 无人 await 会挂成 unhandled rejection
@@ -107,6 +112,47 @@ describe("fetchDiscoveryPeers /discovery 契约", () => {
     expect(await fetchDiscoveryPeers("http://s", "t")).toEqual([]);
     stubFetch(() => ({ ok: false, body: null }));
     expect(await fetchDiscoveryPeers("http://s", "t")).toBeNull();
+  });
+});
+
+// R2-26 回归：非 Tauri（浏览器 mock/预览）console 进程不存在，status 面
+// 不可达是常态——降级为单次 info，不逐会话逐次 warn 刷屏（F26 口径）；
+// Tauri 态逐次 warn 保留，真故障必须可观测。
+describe("console status 不可达日志降级（R2-26）", () => {
+  // 前置 describe 的失败样例可能已消费单次提示额度，先复位再断言
+  beforeEach(() => {
+    resetStatusFaceNoticeForTest();
+  });
+
+  afterEach(() => {
+    resetStatusFaceNoticeForTest();
+    delete (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
+  });
+
+  it("非 Tauri：多次失败仅一条 info，无逐次 warn", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    stubFetch(() => "throw");
+    await fetchDiscoveryPeers("http://s", "t");
+    await fetchDiscoveryPeers("http://s", "t");
+    await queryReattachTicket("http://s", "t", "p");
+    expect(info).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
+    info.mockRestore();
+    warn.mockRestore();
+  });
+
+  it("Tauri 态：逐次 warn 保留（真故障可观测）", async () => {
+    (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = {};
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    stubFetch(() => "throw");
+    await fetchDiscoveryPeers("http://s", "t");
+    await fetchDiscoveryPeers("http://s", "t");
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(info).not.toHaveBeenCalled();
+    info.mockRestore();
+    warn.mockRestore();
   });
 });
 

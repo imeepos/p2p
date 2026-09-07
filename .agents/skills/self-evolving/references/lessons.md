@@ -380,3 +380,11 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-07 协调轮 并行会话在共享主树各跑 pnpm 会互相打碎 node_modules（typescript 凭空消失、ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY）：验收前 CI=true pnpm install --frozen-lockfile 重建一次再跑门禁；门禁假红先怀疑依赖正被改动。
 - 2026-09-07 协调轮 多分支并行收尾时 ff-only 会把合并串行化（每卡都要再反向同步一次）；main 侧改用 --no-ff 合并提交（仓库已有先例），i18n 尾部追加冲突按双侧保留解。
 - 2026-09-07 协调轮 并行会话会把未提交的 skill 笔记滞留共享主树，卡住下一次 ff-merge：先单独 chore(skill) 提交保全内容，再走 --no-ff 合并解 union 冲突，绝不 stash 丢弃他人反思。
+- 2026-09-07 UX-R2C 「这表单太难用/要填的太多」类反馈，先查后端已自动化能力与 UI 文案是否脱节（本次本机 agent 托管早已全自动接入，弹窗文案还在教用户手动抄 acp-console 启动输出），方向常常是删流程改文案而不是加字段做智能预填。
+
+- 2026-09-07 UX-R2A react-refresh/only-export-components 会拦组件文件里的测试复位钩子导出（resetXxxForTest）：模块级单例 flag 的复位入口放独立非组件模块（offer-errors.ts 先例），别和组件同文件。
+- 2026-09-07 UX-R2A react-hooks/set-state-in-effect 连「effect 里调用一个最终会 setState 的 useCallback」都静态点名：用 ref 中转（loadRef.current()）断开静态调用链，或回仓库 IIFE+cancelled 先例形态。
+- 2026-09-07 UX-R2A 硬编码 CJK 门禁（i18n hardcoded-copy scan）连 views 源码里正则的中文匹配片段都拦（非用户可见文案也算）：用 \u 转义书写匹配片段并注释说明，测试文件不受限。
+- 2026-09-07 UX-R2A EntityCombobox 是「只能选候选」型选择器，无自由输入能力：需要「选择器+自由文本兜底」时按 dial 带入同款形态（选择器回填旁边的 Input），别想着让 combobox 兼容手打。
+- 2026-09-07 UX-R2A 跨卡复用纪律的可操作口径：只 import 不 edit 不算触碰红线（CopyButton/isValidFriendPeerId 均跨目录 import 复用），但 import 前确认目标文件确实通用（无本卡业务耦合）。
+- 2026-09-07 UX-R2A 并行会话推进 main 后，在自己分支上跑 git diff main..HEAD 的 diffstat 会出现「他卡新增文件显示为被删」的假象：判断自己改动看 merge-base..HEAD，别被吓到去「恢复」别人的文件。

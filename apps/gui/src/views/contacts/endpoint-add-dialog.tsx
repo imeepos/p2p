@@ -50,9 +50,10 @@ function seedForm(draft: AcpEndpoint, consoleStatus: ReturnType<typeof useAcpSto
   return seeded;
 }
 
-/** 添加 agent endpoint（§3.2/§3.4 + UX3 收敛）：主字段 = 目标节点从发现清单下拉
- *  选择（禁自由文本）；wsUrl/token/peer/分享管理收进「高级」折叠，默认以本机
- *  console 值预填；wsUrl 历史值下拉与「保存/测试连接」既有语义不退化。
+/** 添加 agent endpoint（§3.2/§3.4 + UX3 收敛）：wsUrl 为主字段（历史值下拉），
+ *  目标节点从发现清单下拉选择；token/peer/分享管理收进「高级」折叠，默认以本机
+ *  console 值预填（本机 agent 由托管自动接入，弹窗顶部场景提示引导远端场景）。
+ *  token 分径校验：保存可空（先存后连），连接类动作必填（2026-09-07 用户裁决）。
  *  主按钮「添加并开始对话」= 保存 + 测试连接（连接即测试）+ 跳转会话一条龙。 */
 export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDialogProps) {
   const { t } = useTranslation();
@@ -97,18 +98,22 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
     return idRef.current;
   };
 
-  const validate = (): boolean => {
-    const errors = validateEndpointForm({
-      wsUrl: form.wsUrl,
-      token: form.token,
-      peer: form.peer,
-      alias: form.alias ?? "",
-      adminUrl: form.adminUrl,
-    });
+  /** 分径校验：保存路径 token 可空（先存后连）；连接类动作必填。错误显式
+   *  呈现且与字段同屏（peer/token 在折叠区时自动展开，可观测，不静默） */
+  const validate = (requireToken: boolean): boolean => {
+    const errors = validateEndpointForm(
+      {
+        wsUrl: form.wsUrl,
+        token: form.token,
+        peer: form.peer,
+        alias: form.alias ?? "",
+        adminUrl: form.adminUrl,
+      },
+      { requireToken },
+    );
     if (hasEndpointFormErrors(errors)) {
       setFieldErrors(errors);
-      // 目标未选时展开高级区，错误与字段同屏（可观测，不静默）
-      if (errors.peer) setAdvancedOpen(true);
+      if (errors.peer || errors.token) setAdvancedOpen(true);
       return false;
     }
     setFieldErrors(null);
@@ -124,12 +129,12 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   };
 
   const test = () => {
-    if (!validate() || !requireTarget()) return;
+    if (!validate(true) || !requireTarget()) return;
     start({ ...form, endpointId: ensureId() });
   };
 
   const save = () => {
-    if (!validate()) return;
+    if (!validate(false)) return;
     const stamped = upsertSaved({ ...form, endpointId: ensureId() });
     onOpenChange(false);
     onSaved(stamped);
@@ -137,7 +142,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
 
   // UX3 一条龙：保存 + 测试连接（连接即测试）+ 连接 + 跳转会话，零二次点击
   const addAndOpen = () => {
-    if (!validate() || !requireTarget()) return;
+    if (!validate(true) || !requireTarget()) return;
     const stamped = upsertSaved({ ...form, endpointId: ensureId() });
     onOpenChange(false);
     onSaved(stamped);
@@ -160,6 +165,11 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
           <DialogDescription>{t("contacts.endpoint.description")}</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">
+          {ready ? (
+            <p className="text-muted-foreground text-xs" data-testid="contacts-endpoint-local-hint">
+              {t("contacts.endpoint.localAgentHint")}
+            </p>
+          ) : null}
           <WsUrlField
             form={form}
             fieldErrors={fieldErrors}

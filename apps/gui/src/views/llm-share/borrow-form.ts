@@ -1,5 +1,7 @@
 import type { I18nKey } from "@/i18n/types";
 
+import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
+
 import type { LlmBorrowReq } from "./types";
 
 // borrow 快捷表单（§16.2-6 真实成本动作）：model/messages/maxTokens/targetPeer
@@ -34,6 +36,10 @@ export function validateBorrowForm(values: BorrowFormValues): BorrowValidation {
   const model = values.model.trim();
   const messages = values.messages.trim();
   if (!targetPeer) errors.targetPeer = `${KEY}.errTargetPeerRequired` as I18nKey;
+  // R2-05：与添加好友表单同口径——PeerId = base58 解码恰 32 字节
+  else if (!isValidFriendPeerId(targetPeer)) {
+    errors.targetPeer = `${KEY}.errTargetPeerFormat` as I18nKey;
+  }
   if (!model) errors.model = `${KEY}.errModelRequired` as I18nKey;
   if (!messages) errors.messages = `${KEY}.errMessagesRequired` as I18nKey;
   const maxTokens = Number(values.maxTokensText.trim());

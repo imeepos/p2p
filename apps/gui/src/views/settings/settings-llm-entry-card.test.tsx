@@ -21,7 +21,7 @@ describe("settings llm-share 入口卡（契约 v11 §16.3）", () => {
       </MemoryRouter>,
     );
     expect(screen.getByText("LLM 共享")).toBeInTheDocument();
-    expect(screen.getByText(/allowlist 无条目即不可用/)).toBeInTheDocument();
+    expect(screen.getByText(/白名单外一律不可借用/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "打开" }));
     expect(screen.getByTestId("loc")).toHaveTextContent("/llm-share");
   });
