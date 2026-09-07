@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { EntityMultiSelect, shortPeerId, type PickerOption } from "@/components/picker";
 import { MAX_GROUP_MEMBERS } from "@/lib/chat-limits";
 import { useGroupStore } from "@/stores/group-store";
@@ -96,10 +97,11 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
         </Button>
       </div>
       {commandError ? (
-        <p className="text-destructive text-xs" role="alert" data-testid="group-invite-error">
-          {t("group.manage.inviteFailed")}
-          {commandError}
-        </p>
+        <CommandErrorText
+          message={commandError}
+          prefix={t("group.manage.inviteFailed")}
+          testId="group-invite-error"
+        />
       ) : null}
     </div>
   );

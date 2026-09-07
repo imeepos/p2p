@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,12 +24,12 @@ interface ChatFriendRemoveDialogProps {
 // 后端拒绝：错误原文（Rust/mock 可读 Err）原样展示在框内，不翻译不吞。
 function CommandError({ message }: { message: string | null }) {
   const { t } = useTranslation();
-  if (!message) return null;
   return (
-    <p className="text-destructive text-xs" role="alert" data-testid="friend-remove-error">
-      {t("chat.removeFriend.failed")}
-      {message}
-    </p>
+    <CommandErrorText
+      message={message}
+      prefix={t("chat.removeFriend.failed")}
+      testId="friend-remove-error"
+    />
   );
 }
 

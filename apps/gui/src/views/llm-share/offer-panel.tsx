@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { I18nKey } from "@/i18n/types";
 
 import { toastSuccess } from "@/components/feedback/toast";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -222,9 +223,10 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
             </div>
             <FieldError messageKey={errors.limits} htmlId="llm-offer-limits-error" />
             {publishError ? (
-              <p role="alert" className="text-destructive text-xs">
-                {t("llmShare.offer.publishFailed")}: {publishError}
-              </p>
+              <CommandErrorText
+                message={publishError}
+                prefix={t("llmShare.offer.publishFailed") + "："}
+              />
             ) : null}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={busy}>

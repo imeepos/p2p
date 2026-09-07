@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { UserRoundPlus } from "lucide-react";
 
 import { EntityMultiSelect, shortPeerId, type PickerOption } from "@/components/picker";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -143,10 +144,11 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
         ) : null}
       </div>
       {commandError ? (
-        <p className="text-destructive text-xs" role="alert" data-testid="group-create-error">
-          {t("group.create.failed")}
-          {commandError}
-        </p>
+        <CommandErrorText
+          message={commandError}
+          prefix={t("group.create.failed")}
+          testId="group-create-error"
+        />
       ) : null}
       <Button type="button" onClick={() => void submit()} disabled={!canSubmit} data-testid="group-create-submit">
         {submitting ? t("group.create.submitting") : t("group.create.submit")}

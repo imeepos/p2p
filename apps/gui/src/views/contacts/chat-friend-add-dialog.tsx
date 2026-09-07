@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { EntityCombobox } from "@/components/picker";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,12 +48,12 @@ function FieldError({ code, errorId }: { code?: FriendFieldError; errorId: strin
 // 后端拒绝：错误原文（Rust/mock 可读 Err）原样展示在表单内，不翻译不吞。
 function CommandError({ message }: { message: string | null }) {
   const { t } = useTranslation();
-  if (!message) return null;
   return (
-    <p className="text-destructive text-xs" role="alert" data-testid="friend-add-error">
-      {t("chat.addFriend.failed")}
-      {message}
-    </p>
+    <CommandErrorText
+      message={message}
+      prefix={t("chat.addFriend.failed")}
+      testId="friend-add-error"
+    />
   );
 }
 

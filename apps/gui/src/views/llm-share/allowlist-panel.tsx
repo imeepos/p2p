@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { I18nKey } from "@/i18n/types";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -208,9 +209,10 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
               </div>
             </div>
             {actionError ? (
-              <p role="alert" className="text-destructive text-xs">
-                {t("llmShare.allowlist.actionFailed")}: {actionError}
-              </p>
+              <CommandErrorText
+                message={actionError}
+                prefix={t("llmShare.allowlist.actionFailed") + "："}
+              />
             ) : null}
             <div>
               <Button type="submit" size="sm" disabled={busy}>
