@@ -415,3 +415,4 @@ failed: early eof（客户端侧超时中止）。
 - 症状：storage-clean-before-skip 断言 FAIL（键值=0.2.0），一度误疑 mock/应用层。
 - 原因：上一轮驱动脚本 bug 误触「跳过此版本」，skipped-version 持久化进 user-data-dir 的 localStorage；同 profile 重跑基线自然不干净。
 - 修法：基线敏感断言（空→写入→清空）正式跑前 pkill chrome + rm -rf 其 user-data-dir 全新起；轮次间污染就作废重跑，不打补丁。
+\n## 2026-09-08 run_code 里 heredoc 结束后再接 && 链：bash 语法错误整条静默 exit 2\n- 症状： 后按惯例 join(" && ") 续接下一条命令，整条 exit 2 且 stdout/stderr 零输出，commit 实际没跑。\n- 原因：heredoc 结束符 MSG 必须单独成行收尾；join 产生 "MSG\n && git log"，" && " 开头的行是语法错误，bash 在解析阶段整条失败——前面的命令一条都没执行，不是中途失败。\n- 修法：heredoc 永远放命令串最后一段，后续命令拆独立调用；看到 exit 2 + 零输出先怀疑整条解析失败，再怀疑单条命令失败。\n
