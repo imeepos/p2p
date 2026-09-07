@@ -118,3 +118,10 @@ SSE 事件数 3 | 用量（入/出）21/9 | 争议窗口 24 小时
 - 证据文本摘录已全部内嵌上文（AX dump / CLI 输出 / pbpaste / ledger.json 全文），不依赖临时文件。
 - 附注：真机 AX 驱动（Swift 按 pid 直连 AXUIElement）与 GC1 页面语义协议组合可远程驱动桌面 GUI 完成真实点击/表单/读数闭环，建议纳入后续真机验收工具链；本轮按纪律脚本未入库（仅 docs 与 .agents 提交）。
 
+
+## 8. 附录（同阶段收口记录，2026-09-07 补）
+
+- **RF-1/RF-2 已修复**（commit 2c541c2）：borrow「消息」在 IPC 适配层兼容纯文本（messages_payload：数组 JSON 透传、其余包装为单条用户消息，对齐 CLI --prompt 语义），内部错误直出路径消除；LlmBalanceGroup 补 lentOut/borrowed/entries 且 direction wire 值对齐前端 lent/borrowed/flat，新增消费方键集断言防契约再漂移；gui-contract §16.1 表格同步。src-tauri 全量 120 用例绿。
+- **D-2/D-3（R2-21/22）浏览器态复核通过**（专属复核会话执行，17/17 断言 PASS）：R2-21 quickstart 篇滚动后返回顶部按钮出现、点击回顶即隐；R2-22 跳过→「已跳过版本」行+update-unskip+localStorage 记录在，取消后三者全清。证据：/tmp/verify-r22122/（assertions.json + 4 张截图）。原「受限」两项据此升级为**实测通过（浏览器态）**。
+- **验收工具链补齐**（commit dc7caec，会话 B 交付、主会话验收合并）：GC1 控制面路由白名单与前端页面注册表接入 llm-share（只读观测页），p2pctl 帮助文本同步，navigate/health/注册表 describe 测试齐备——真机验收对 llm-share 页的远程盲区消除。门禁：lint/typecheck/vitest 1148/build + cargo build + control_channel 11 全绿。
+- 本轮最终计数（含附录）：**通过 8 / 不通过 0 / 受限 1（仅 R2-24 待 dsh acp profile 环境）**。
