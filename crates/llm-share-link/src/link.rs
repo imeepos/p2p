@@ -83,14 +83,12 @@ pub fn parse_link(raw: &str) -> Result<ShareLink, LinkError> {
                     sid = Some(value.to_owned());
                 }
             }
-            "models" => {
-                if models.is_none() {
-                    models = if value.is_empty() {
-                        None
-                    } else {
-                        Some(value.split(',').map(str::to_owned).collect())
-                    };
-                }
+            "models" if models.is_none() => {
+                models = if value.is_empty() {
+                    None
+                } else {
+                    Some(value.split(',').map(str::to_owned).collect())
+                };
             }
             _ => {}
         }

@@ -16,7 +16,14 @@ fn roundtrip_and_upsert_semantics() {
     let file = dir.join(FILE_NAME);
     let p = peer(1);
     let mut list = AllowlistFile::new();
-    assert!(list.upsert(&p, vec!["gpt-4o".into()], "n", None, None, "2026-09-04T00:00:00Z"));
+    assert!(list.upsert(
+        &p,
+        vec!["gpt-4o".into()],
+        "n",
+        None,
+        None,
+        "2026-09-04T00:00:00Z"
+    ));
     assert!(!list.upsert(&p, vec![], "", None, None, "2026-09-04T01:00:00Z"));
     save(&file, &list).unwrap();
     assert!(!file.with_extension("json.tmp").exists());
@@ -42,7 +49,16 @@ fn deny_missing_entry_is_explicit_error() {
     let dir = temp_dir("deny");
     let p = peer(2);
     assert!(deny(dir.to_str().unwrap(), &p).is_err());
-    allow(dir.to_str().unwrap(), &p, &[], None, None, None, "2026-09-04T00:00:00Z").unwrap();
+    allow(
+        dir.to_str().unwrap(),
+        &p,
+        &[],
+        None,
+        None,
+        None,
+        "2026-09-04T00:00:00Z",
+    )
+    .unwrap();
     assert!(deny(dir.to_str().unwrap(), &p).unwrap().removed);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -50,9 +66,27 @@ fn deny_missing_entry_is_explicit_error() {
 #[test]
 fn allow_validates_peer_and_models() {
     let dir = temp_dir("validate");
-    assert!(allow(dir.to_str().unwrap(), "bad-peer", &[], None, None, None, "t").is_err());
+    assert!(allow(
+        dir.to_str().unwrap(),
+        "bad-peer",
+        &[],
+        None,
+        None,
+        None,
+        "t"
+    )
+    .is_err());
     let p = peer(3);
-    assert!(allow(dir.to_str().unwrap(), &p, &["  ".to_owned()], None, None, None, "t").is_err());
+    assert!(allow(
+        dir.to_str().unwrap(),
+        &p,
+        &["  ".to_owned()],
+        None,
+        None,
+        None,
+        "t"
+    )
+    .is_err());
     let report = allow(
         dir.to_str().unwrap(),
         &p,
@@ -136,11 +170,26 @@ fn remove_by_source_only_touches_share_entries() {
         "t",
     )
     .unwrap();
-    allow(dir.to_str().unwrap(), &manual_peer, &[], None, None, None, "t").unwrap();
-    assert_eq!(remove_by_source(dir.to_str().unwrap(), "share:share-1").unwrap(), 1);
+    allow(
+        dir.to_str().unwrap(),
+        &manual_peer,
+        &[],
+        None,
+        None,
+        None,
+        "t",
+    )
+    .unwrap();
+    assert_eq!(
+        remove_by_source(dir.to_str().unwrap(), "share:share-1").unwrap(),
+        1
+    );
     let report = list(dir.to_str().unwrap()).unwrap();
     assert_eq!(report.peers.len(), 1, "手工条目不受级联");
     assert_eq!(report.peers[0].peer_id, manual_peer);
-    assert_eq!(remove_by_source(dir.to_str().unwrap(), "share:missing").unwrap(), 0);
+    assert_eq!(
+        remove_by_source(dir.to_str().unwrap(), "share:missing").unwrap(),
+        0
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }

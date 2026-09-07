@@ -243,7 +243,7 @@ impl ShareLedger {
         };
         let text = serde_json::to_string_pretty(&file).map_err(|err| LedgerError::Io {
             path: path.display().to_string(),
-            err: std::io::Error::new(std::io::ErrorKind::Other, err),
+            err: std::io::Error::other(err),
         })?;
         let tmp = path.with_extension("json.tmp");
         let written = std::fs::write(&tmp, &text).and_then(|()| std::fs::rename(&tmp, path));

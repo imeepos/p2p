@@ -69,7 +69,8 @@ fn create_requires_published_offer() {
         },
     )
     .unwrap();
-    let err = share_create(dir.to_str().unwrap(), create_params("prov-a", None), 1_000).unwrap_err();
+    let err =
+        share_create(dir.to_str().unwrap(), create_params("prov-a", None), 1_000).unwrap_err();
     assert!(err.contains("offer publish"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -78,7 +79,8 @@ fn create_requires_published_offer() {
 fn create_requires_existing_provider() {
     let dir = temp_dir("noprovider");
     setup(&dir);
-    let err = share_create(dir.to_str().unwrap(), create_params("missing", None), 1_000).unwrap_err();
+    let err =
+        share_create(dir.to_str().unwrap(), create_params("missing", None), 1_000).unwrap_err();
     assert!(err.contains("provider 不存在"), "{err}");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -135,7 +137,10 @@ fn create_default_ttl_and_link_roundtrip() {
     assert_eq!(parsed.addrs, vec!["127.0.0.1/u52063"]);
     let ledger = ShareLedger::load_or_empty(&ledger_path(dir.to_str().unwrap())).unwrap();
     let entry = ledger.get(&report.share_id).unwrap();
-    assert_eq!(entry.token_sha256, llm_share_link::token::token_sha256(&parsed.token));
+    assert_eq!(
+        entry.token_sha256,
+        llm_share_link::token::token_sha256(&parsed.token)
+    );
     assert!(!report.link.contains(&parsed.token) || parsed.token.len() == 32);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -175,7 +180,13 @@ fn revoke_cascades_allowlist_and_repeat_revoke_errors() {
     assert_eq!(revoked.allowlist_removed, 1);
     let listed = allowlist::list(dir.to_str().unwrap()).unwrap();
     assert!(listed.peers.is_empty(), "share 来源条目被级联删除");
-    assert!(share_revoke(dir.to_str().unwrap(), &report.share_id).is_err(), "重复撤销显式报错");
-    assert!(share_revoke(dir.to_str().unwrap(), "nonexistent").is_err(), "不存在显式报错");
+    assert!(
+        share_revoke(dir.to_str().unwrap(), &report.share_id).is_err(),
+        "重复撤销显式报错"
+    );
+    assert!(
+        share_revoke(dir.to_str().unwrap(), "nonexistent").is_err(),
+        "不存在显式报错"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -167,7 +167,14 @@ pub fn allow(
     let note = note.unwrap_or_default();
     let file = path(data_dir);
     let mut list = load_or_empty(&file)?;
-    let created = list.upsert(peer_id, models.clone(), note, source, expires_at, granted_at);
+    let created = list.upsert(
+        peer_id,
+        models.clone(),
+        note,
+        source,
+        expires_at,
+        granted_at,
+    );
     save(&file, &list)?;
     Ok(AllowReport {
         created,
@@ -222,7 +229,8 @@ pub fn remove_by_source(data_dir: &str, source: &str) -> Result<usize, String> {
     let file = path(data_dir);
     let mut list = load_or_empty(&file)?;
     let before = list.entries.len();
-    list.entries.retain(|_, entry| entry.source.as_deref() != Some(source));
+    list.entries
+        .retain(|_, entry| entry.source.as_deref() != Some(source));
     let removed = before - list.entries.len();
     if removed > 0 {
         save(&file, &list)?;
