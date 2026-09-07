@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CopyButton } from "@/components/monitor/copy-button";
 import { existingGroupNames } from "@/views/contacts/chat-friend-group";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { ipc } from "@/lib/ipc";

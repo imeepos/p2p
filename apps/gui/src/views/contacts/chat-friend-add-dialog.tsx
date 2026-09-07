@@ -16,7 +16,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toastSuccess } from "@/components/feedback/toast";
-import { CopyButton } from "@/components/monitor/copy-button";
 import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";

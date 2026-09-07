@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ChatFriendJson } from "@/lib/ipc-types";
-import { CopyButton } from "@/components/monitor/copy-button";
 import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
