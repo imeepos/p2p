@@ -69,11 +69,12 @@ export function GroupConversation({ group, onOpenManage }: GroupConversationProp
         className="relative flex h-12 shrink-0 items-center border-b border-border/60 px-4"
       >
         <div className="absolute left-1/2 flex min-w-0 max-w-[60%] -translate-x-1/2 items-center gap-2 text-sm font-medium">
-          <span className="truncate">{group.name}</span>
-          {group.state !== "active" ? <GroupStateBadge state={group.state} /> : null}
-          <span className="text-muted-foreground shrink-0 text-xs">
-            {t("group.members", { count: group.members.length })}
+          {/* WX1：成员数随名并括号呈现（微信桌面同款），字号字色一致 */}
+          <span className="truncate">
+            {group.name}
+            <span className="ml-0.5">({group.members.length})</span>
           </span>
+          {group.state !== "active" ? <GroupStateBadge state={group.state} /> : null}
         </div>
         <Button
           type="button"

@@ -26,6 +26,13 @@ export function formatTime(epochMs: number, locale: Locale): string {
   );
 }
 
+// WX1 聊天时间用 HH:mm（微信桌面同款短时间），与日志/遥测的 medium 区分
+export function formatTimeShort(epochMs: number, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale, { timeStyle: "short" }).format(
+    epochMs,
+  );
+}
+
 export function formatDateTime(epochMs: number, locale: Locale): string {
   return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",

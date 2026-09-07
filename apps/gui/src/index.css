@@ -44,7 +44,7 @@
   --wx-rail-icon: #9ca3af;
   --wx-rail-icon-active: #07c160;
   --wx-chat-bg: #f5f5f5;
-  --wx-list-bg: #f7f7f7;
+  --wx-list-bg: #ffffff;
   --wx-hover: #f0f0f0;
   --wx-bubble-me: #95ec69;
   --wx-bubble-them: #ffffff;
@@ -202,10 +202,8 @@
   user-select: text;
 }
 
-/* WX1 微信风格气泡小尾巴：旋转 45° 的小方块探出气泡边缘 */
+/* WX1 微信风格气泡小尾巴：实心三角贴气泡外缘（宽 8px 全部外探，无叠边） */
 .wx-bubble {
-  /* isolate 建立堆叠上下文：z-index:-1 的尾巴不会沉到会话区背景之下 */
-  isolation: isolate;
   position: relative;
 }
 
@@ -213,20 +211,19 @@
 .wx-bubble-me::before {
   content: "";
   position: absolute;
-  top: 14px;
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  transform: rotate(45deg);
-  z-index: -1;
+  top: 12px;
+  border-style: solid;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.04));
 }
 
 .wx-bubble-them::before {
-  left: -4px;
-  background: var(--wx-bubble-them);
+  left: -8px;
+  border-width: 8px 8px 8px 0;
+  border-color: transparent var(--wx-bubble-them) transparent transparent;
 }
 
 .wx-bubble-me::before {
-  right: -4px;
-  background: var(--wx-bubble-me);
+  right: -8px;
+  border-width: 8px 0 8px 8px;
+  border-color: transparent transparent transparent var(--wx-bubble-me);
 }

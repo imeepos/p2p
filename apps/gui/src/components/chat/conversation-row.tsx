@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { AvatarBox } from "@/components/chat/avatar-box";
 import { Badge } from "@/components/ui/badge";
-import { formatTime } from "@/lib/format";
+import { formatTimeShort } from "@/lib/format";
 import { formatUnreadCount } from "@/lib/conversation-entry";
 import type { ConversationEntry } from "@/lib/conversation-entry";
 import type { Locale } from "@/i18n";
@@ -75,14 +75,15 @@ export function ConversationRow({ entry, active, onSelect }: ConversationRowProp
       />
     ) : null;
   return (
-    <li className="px-1.5 py-0.5 first:mt-1">
+    <li>
       <button
         type="button"
         onClick={() => onSelect(entry)}
         aria-current={active || undefined}
         data-testid={`conversation-row-${entry.kind}-${entry.id}`}
         className={cn(
-          "flex w-full items-start gap-2.5 rounded-md px-2 py-2.5 text-left transition-colors",
+          // WX1：行通栏直角（选中绿条贴满列表宽度，微信桌面同款）
+          "flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors",
           active ? "bg-primary text-white" : "hover:bg-wx-hover",
         )}
       >
@@ -97,7 +98,7 @@ export function ConversationRow({ entry, active, onSelect }: ConversationRowProp
                   active ? "text-white/75" : "text-muted-foreground",
                 )}
               >
-                {formatTime(entry.lastTsMs, locale)}
+                {formatTimeShort(entry.lastTsMs, locale)}
               </time>
             ) : null}
           </span>
