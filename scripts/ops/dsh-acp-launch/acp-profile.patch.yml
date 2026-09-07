@@ -1,0 +1,5 @@
+# acp profile 用户层 patch：把 acp-app-startup 条目顶替为自托管启动器。
+# 机理见 scripts/ops/dsh-acp-launch/index.mjs 头注；本文件随
+# scripts/ops/acp-local-setup.sh 落到 ~/.dsh/profiles/acp/cordis.patch.yml。
+- id: acp-app-startup
+  name: "@local/dsh-acp-launch"
