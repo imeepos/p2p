@@ -53,6 +53,20 @@ impl SpawnSpec {
     }
 }
 
+/// 第 n 次连续失败的退避时长：base * 2^(n-1)，封顶 cap（n 从 1 计）。
+pub(crate) fn backoff_for(limits: &Limits, consecutive: u32) -> Duration {
+    let mut delay = limits.backoff_base;
+    let steps = consecutive.saturating_sub(1).min(8);
+    for _ in 0..steps {
+        let next = delay.saturating_mul(2);
+        if next >= limits.backoff_cap {
+            return limits.backoff_cap;
+        }
+        delay = next;
+    }
+    delay.min(limits.backoff_cap)
+}
+
 #[cfg(test)]
 mod tests {
     use super::SpawnSpec;
@@ -72,18 +86,4 @@ mod tests {
         assert!(joined.contains("--ws-port 0"));
         assert!(joined.contains("--status-port 0"));
     }
-}
-
-/// 第 n 次连续失败的退避时长：base * 2^(n-1)，封顶 cap（n 从 1 计）。
-pub(crate) fn backoff_for(limits: &Limits, consecutive: u32) -> Duration {
-    let mut delay = limits.backoff_base;
-    let steps = consecutive.saturating_sub(1).min(8);
-    for _ in 0..steps {
-        let next = delay.saturating_mul(2);
-        if next >= limits.backoff_cap {
-            return limits.backoff_cap;
-        }
-        delay = next;
-    }
-    delay.min(limits.backoff_cap)
 }
