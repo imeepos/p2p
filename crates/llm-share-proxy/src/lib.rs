@@ -2,8 +2,10 @@
 //! `/llm-share/proxy/1` 服务端处理器（三闸准入 + SSE 逐帧转发 + 预授权结算 + 签名收据）与拨号客户端。
 //! 纯应用层：只消费 p2p-protocol / llm-share-ledger 公共 API，不改内核；
 //! 上游 key 仅存出借方进程内存，落盘必须 0600（[keystore]）。
+//! 双协议上游：openai 直发（[HttpUpstream]），claude 请求/SSE 双向翻译（[ClaudeUpstream]）。
 #![forbid(unsafe_code)]
 
+pub mod claude_upstream;
 pub mod client;
 pub mod error;
 pub mod keystore;
@@ -14,6 +16,7 @@ pub mod upstream;
 pub mod upstream_http;
 pub mod wire;
 
+pub use claude_upstream::ClaudeUpstream;
 pub use client::{ProxyClient, ProxyEvent};
 pub use error::{ErrorCode, ProxyClientError};
 pub use server::{LenderProxy, ModelRoute, ProxyConfig};
