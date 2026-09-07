@@ -121,4 +121,18 @@ describe("/docs 协议文档页（DOC2）", () => {
     fireEvent.click(link);
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(href));
   });
+
+  it("R2-21 长文滚动出返回顶部按钮，点击回到顶部即隐", () => {
+    const overview = PROTOCOL_DOCS[0];
+    render(<DocsView />);
+    expect(screen.queryByTestId("docs-back-top")).toBeNull();
+    const section = screen.getByRole("region", { name: overview.title });
+    Object.defineProperty(section, "scrollTop", { value: 800, writable: true, configurable: true });
+    fireEvent.scroll(section);
+    const button = screen.getByTestId("docs-back-top");
+    expect(button.getAttribute("aria-label")).toBe(i18n.t("docs.backToTop"));
+    fireEvent.click(button);
+    expect(section.scrollTop).toBe(0);
+    expect(screen.queryByTestId("docs-back-top")).toBeNull();
+  });
 });

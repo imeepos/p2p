@@ -1289,6 +1289,7 @@ const enUS: typeof zhCN = {
       blockedCopied: "Document path copied: {{path}}",
       externalCopied: "Link copied; open it in your system browser: {{path}}",
     },
+    backToTop: "Back to top",
     settings: {
       entry: "Protocol Docs",
       entryDescription:

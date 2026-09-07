@@ -1265,6 +1265,7 @@ const zhCN = {
       blockedCopied: "文档路径已复制：{{path}}",
       externalCopied: "链接已复制，请在系统浏览器打开：{{path}}",
     },
+    backToTop: "返回顶部",
     settings: {
       entry: "协议文档",
       entryDescription:
