@@ -86,7 +86,7 @@ export function PeersView() {
       discovered: byKind("discovered"),
       offline: byKind("offline"),
     } as const;
-  }, [peers, query, now]);
+  }, [peers, query, now, friends]);
   const detailPeer = peers.find((peer) => peer.peerId === detailId) ?? null;
   const onPing = (peer: { peerId: string }) => () =>
     ping(peer.peerId, PING_TIMEOUT_MS);
