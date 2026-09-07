@@ -1,0 +1,13 @@
+[package]
+name = "llm-share-link"
+version.workspace = true
+edition.workspace = true
+description = "llm-share 分享链接纯逻辑：链接解析/组装、token 生成与摘要、兑换台账、redeem 协议帧"
+
+[dependencies]
+rand.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
