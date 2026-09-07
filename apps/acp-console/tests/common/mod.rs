@@ -12,9 +12,10 @@ use std::time::Duration;
 
 use acp_common::consts::PROTOCOL_ID;
 use acp_common::policy::Scope;
-use acp_common::{parse_client_hello, ClientHello, ServerHello};
+use acp_common::{frames, parse_client_hello, ClientHello, LineReassembler, ServerHello};
 use p2p::{BoxedStream, Node, PeerId, ProtocolHandler, ProtocolId};
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use p2p_protocol::{read_frame, write_frame};
+use tokio::io::AsyncWriteExt;
 
 use acp_console::discovery::DiscoveryHub;
 use acp_console::state::StatusHub;
@@ -101,11 +102,10 @@ impl ProtocolHandler for AgentMock {
         ProtocolId::new(PROTOCOL_ID).unwrap()
     }
 
-    async fn handle(&self, stream: BoxedStream) -> std::io::Result<()> {
-        let mut reader = BufReader::new(stream);
-        let mut line = String::new();
-        reader.read_line(&mut line).await?;
-        let hello = parse_client_hello(line.trim())
+    async fn handle(&self, mut stream: BoxedStream) -> std::io::Result<()> {
+        // wire 帧面（设计 §4.2-1）：握手与 echo 都走 varint 帧，与生产 agent 同帧。
+        let hello = read_framed_line(&mut stream).await?;
+        let hello = parse_client_hello(hello.trim())
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
         *self.received.lock().unwrap() = Some(hello.clone());
         self.history.lock().unwrap().push(hello);
@@ -118,16 +118,14 @@ impl ProtocolHandler for AgentMock {
             }
             (None, None) => ServerHello::ready(Scope::Sandbox, "mock-agent"),
         };
-        let mut out = reply
+        let reply_line = reply
             .to_line()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
-        out.push('\n');
-        reader.get_mut().write_all(out.as_bytes()).await?;
-        reader.get_mut().flush().await?;
+        let mut stream = write_framed_line(stream, reply_line.as_bytes()).await?;
         if self.half_close_after_ready {
             // 探针模式：就地流级 shutdown，验证 FIN→EOF 对端可见（见
             // transport_semantics.rs 与治理文档）。
-            reader.get_mut().shutdown().await?;
+            stream.shutdown().await?;
             return Ok(());
         }
         if self.drop_after_ready {
@@ -135,21 +133,58 @@ impl ProtocolHandler for AgentMock {
             // shutdown 模拟（见 transport_semantics 探针与 E-4）。
             return Ok(());
         }
-        echo_loop(reader.into_inner()).await
+        echo_loop(stream).await
     }
 }
 
-/// 有界 echo 泵：64 KiB 块读到多少回多少，EOF 即结束。
+/// 帧化 echo 泵：帧读 + 行重组，整行（含行尾换行）原样经 frames() 回写，EOF 即结束。
 async fn echo_loop(mut stream: BoxedStream) -> std::io::Result<()> {
-    let mut buf = vec![0u8; 64 * 1024];
+    let mut reassembler = LineReassembler::new();
     loop {
-        let n = stream.read(&mut buf).await?;
-        if n == 0 {
-            return Ok(());
+        let frame = match read_frame(&mut stream).await {
+            Ok(frame) => frame,
+            Err(err) if err.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(()),
+            Err(err) => return Err(err),
+        };
+        if let Err(e) = reassembler.push_frame(&frame) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                e.to_string(),
+            ));
         }
-        stream.write_all(&buf[..n]).await?;
-        stream.flush().await?;
+        while let Some(mut line) = reassembler.take_line() {
+            while line.last() == Some(&10) {
+                line.pop();
+            }
+            stream = write_framed_line(stream, &line).await?;
+        }
     }
+}
+
+/// 读一条帧化 ndjson 行（帧内字节精确读，无缓冲残字问题）。
+async fn read_framed_line(stream: &mut BoxedStream) -> std::io::Result<String> {
+    let mut reassembler = LineReassembler::new();
+    loop {
+        if let Some(line) = reassembler.take_line() {
+            return Ok(String::from_utf8_lossy(&line).into_owned());
+        }
+        let frame = read_frame(stream).await?;
+        reassembler
+            .push_frame(&frame)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+    }
+}
+
+/// 写一条帧化 ndjson 行（frames() 自带行尾换行帧）。
+async fn write_framed_line(
+    mut stream: BoxedStream,
+    line: &[u8],
+) -> std::io::Result<BoxedStream> {
+    for frame in frames(line) {
+        write_frame(&mut stream, frame).await?;
+    }
+    stream.flush().await?;
+    Ok(stream)
 }
 
 /// console 侧组件栈 + 两端节点。
