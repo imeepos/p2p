@@ -405,3 +405,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-07 IM 隐群开关轮：run_code 里手工展开 Promise.all([write,edit,…]) 多工具批次漏闭合括号即 "Expected ',' got ';'" 整批未执行——批次化改 jobs 数组存 thunk + for-await 逐个跑，结构扁平、错点单一生、失败面小。
 - 2026-09-07 IM 隐群开关轮：bash 多行命令串偶发整体静默空输出（exit 0 无 stdout），同语义改单行 && 链即恢复——run_code 跑批优先单行 && 链；空输出先原样重试一次再排查，别基于空结果下结论。
 - 2026-09-07 IM 隐群开关轮：pre-push hook 文案（如「纯删除引用推送，跳过门禁」）与实际 push 行为可能不符，push 成败以 git rev-parse <分支> origin/<分支> 哈希核对为准，别信 hook 打印。
+- 2026-09-07 表情面板轮：新 worktree 缺 node_modules 时别 symlink 主树的（vite/tsc 缓存与并发测试互踩），直接在 apps/gui 跑 pnpm install --frozen-lockfile --prefer-offline，store 硬链接秒级完成（本次 1.6s）。
+- 2026-09-07 表情面板轮：全量 vitest 偶发 1 例失败（1210/1211）而直接涉及的两个测试文件双轮全绿，原样重跑全量即 1211/1211——先按「受影响文件是否红」定位嫌疑面，flaky 单例先重跑拿结论，别急着给自己的改动翻案或补丁。
