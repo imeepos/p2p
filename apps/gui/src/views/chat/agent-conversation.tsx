@@ -1,11 +1,15 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { Bot, Loader2 } from "lucide-react";
+import { Bot, Loader2, TriangleAlertIcon } from "lucide-react";
 
 import { useAcpStore } from "@/acp/acp-store";
 import { acpErrorDetail, connectFailureText } from "@/acp/error-help";
 import { LOCAL_AGENT_ENDPOINT_ID } from "@/acp/console-client";
-import type { AcpCloseInfo } from "@/acp/protocol";
+import {
+  addPermission,
+  emptyInteraction,
+} from "@/acp/interaction-model";
+import type { AcpCloseInfo, PermissionOption } from "@/acp/protocol";
 import { CopyButton } from "@/components/monitor/copy-button";
 import { Button } from "@/components/ui/button";
 import { PromptComposer } from "@/acp/components/prompt-composer";
@@ -15,6 +19,53 @@ import type { AcpConsoleStatus } from "@/lib/ipc-types";
 import type { I18nKey } from "@/i18n/types";
 // 模块加载即订阅 acp-console 托管事件（幂等；chat 路由静态链保证应用启动即生效）
 import "@/acp/console-watch";
+
+// R2-24 测试注入路径：mock 回放脚本默认无权限步，待应答态无法自然触达；
+// 仅 VITE_MOCK_IPC=1 下在 window 挂注入入口（登记形状与 store-events 消费
+// request_permission 帧同形），供页面走查以注入态验证指示条与深链。
+// 生产构建不暴露。注入不新增交互范式，仅填 store 既有状态。
+type AcpTestInjectWindow = {
+  __acpInjectPendingPermission?: (sessionId?: string) => void;
+  __acpInjectAgentOnlineSession?: (endpointId?: string) => void;
+};
+if (import.meta.env.VITE_MOCK_IPC === "1" && typeof window !== "undefined") {
+  (window as unknown as AcpTestInjectWindow).__acpInjectPendingPermission = (sessionId?: string) => {
+    const state = useAcpStore.getState();
+    const sid = sessionId ?? state.activeSessionId;
+    if (!sid) {
+      console.warn("[acp] 注入待应答权限需要活动会话（activeSessionId 为空）");
+      return;
+    }
+    const options: PermissionOption[] = [
+      { optionId: "allow-once", name: "Allow", kind: "allow_once" },
+      { optionId: "reject-once", name: "Deny", kind: "reject_once" },
+    ];
+    const next = addPermission(state.interactions[sid] ?? emptyInteraction(), {
+      requestId: Math.floor(Math.random() * 1_000_000_000),
+      sessionId: sid,
+      // 注入数据为 mock 合成帧载荷（同 mock-script 英文惯例），非产品文案
+      title: "Execute command (injected for walkthrough)",
+      toolKind: "execute",
+      options,
+      receivedAt: Date.now(),
+    });
+    useAcpStore.setState({
+      interactions: { ...state.interactions, [sid]: next },
+    });
+  };
+  // 在线会话态注入：浏览器 mock 无 console 伴生进程（真机 8787 与 mock
+  // token 不一致），连接在线态无法自然触达；仅置 store 既有状态供走查。
+  (window as unknown as AcpTestInjectWindow).__acpInjectAgentOnlineSession = (
+    endpointId?: string,
+  ) => {
+    const ep = endpointId ?? LOCAL_AGENT_ENDPOINT_ID;
+    useAcpStore.setState({
+      phase: "online",
+      activeEndpointId: ep,
+      activeSessionId: useAcpStore.getState().activeSessionId ?? "s-test-inject",
+    });
+  };
+}
 
 // agent 会话记录区（§2.1 右栏 agent 形态）：连接期复用 acp transcript/
 // prompt-composer；未连接显连接引导卡（连接态与错误显式呈现，不静默）。
@@ -108,6 +159,37 @@ function ConnectFailureNotice({ lastError, closeInfo, wsUrl, endpointId }: {
   );
 }
 
+// R2-24（产品裁决：最小可见性）：存在待应答权限请求时出指示条 + 直达
+// contacts Agent 详情权限面板（agentDetail 深链）；无待应答零痕迹。
+// 计数读 store 已消费的 interactions（事件管线注册的 pending 项）。
+function PendingPermissionBanner({ endpointId }: { endpointId: string }) {
+  const { t } = useTranslation();
+  const pendingCount = useAcpStore((s) =>
+    Object.values(s.interactions).reduce(
+      (n, i) => n + i.permissions.filter((p) => p.status === "pending").length,
+      0,
+    ),
+  );
+  if (pendingCount === 0) return null;
+  return (
+    <div
+      role="status"
+      data-testid="agent-permission-banner"
+      className="border-warning/50 bg-warning/10 text-warning mx-4 mt-2 flex shrink-0 items-center gap-2 rounded-md border px-3 py-1.5 text-xs"
+    >
+      <TriangleAlertIcon aria-hidden className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate" data-testid="agent-permission-banner-text">
+        {t("chat.agentPane.permissionPending", { count: pendingCount })}
+      </span>
+      <Button asChild size="sm" variant="outline" data-testid="agent-permission-banner-action">
+        <Link to={"/contacts?agentDetail=" + encodeURIComponent(endpointId)}>
+          {t("chat.agentPane.permissionPendingAction")}
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
 export function AgentConversation({ endpointId }: { endpointId: string }) {
   const { t } = useTranslation();
   const saved = useAcpStore((s) => s.saved);
@@ -151,6 +233,7 @@ export function AgentConversation({ endpointId }: { endpointId: string }) {
           </span>
           <span className="text-muted-foreground ml-2 text-xs">{endpoint.wsUrl}</span>
         </div>
+        <PendingPermissionBanner endpointId={endpointId} />
         {activeSessionId === null ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2">
             <p className="text-muted-foreground text-sm">{t("acp.sessions.empty")}</p>
