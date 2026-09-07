@@ -2,6 +2,11 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-07 分享创建失败：GUI 测试 stub fetch + agent 测试裸 TCP，CORS 预检缝两侧测试都探不到
+- 症状：GUI「生成链接」必弹「分享创建失败」；同 URL 用 curl 直打 200 成功；GUI/agent 两侧测试全绿。
+- 原因：WebView fetch 带 Authorization 头必先发无凭据 OPTIONS 预检，admin HTTP 管道层把预检当未授权请求 401 挡掉。前端测试 vi.stubGlobal("fetch") 把浏览器传输语义（CORS/预检/Origin）整体 mock 掉；agent 测试用裸 TCP 客户端不发 Origin 不做预检。两侧各自 100% 绿，缝在两个测试视角的交集盲区。
+- 修法：admin.rs 预检先于 Bearer 校验（204 + 放行方法/头），实响应按 origin 白名单回显 ACAO；新增 admin_cors_tests.rs 用「带 Origin 的客户端」锁死浏览器行为矩阵。教训：跨进程 HTTP 契约（WebView→本地服务）至少要有一条真浏览器对真服务的 E2E，或后端测试必须模拟浏览器行为矩阵；「curl 成功 + 浏览器失败」= 首查 CORS 预检。
+
 ## 2026-09-07 UX-R2C：acp-store 的 draft 跨测试用例残留，新用例假定空白初值即踩
 - 症状：endpoint 弹窗新用例不填 token 点「测试连接」，预期报 tokenRequired 却直接发起连接，DOM 里找不到错误码；单文件重跑又全绿（用例执行顺序敏感）。
 - 原因：beforeEach 的 localStorage.clear() + resetConsoleState() 都不清 in-memory store 的 draft/saved（resetConsoleState 只清连接态面）；同文件前序用例经 upsertSaved 留下的 draft（含 token）被新用例的 useState(draft) 继承，validate 直接通过。

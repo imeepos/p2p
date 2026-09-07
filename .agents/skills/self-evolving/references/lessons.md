@@ -4,6 +4,7 @@
 
 _none yet — be the first._
 - 2026-09-05：任务书 scope 行与交付 goal 行矛盾（如债3 明写「facade 装配期」却限「只动三 crate」）时，修复是按 goal 实现 + 每个越线文件列入 commit 正文 + 提交后验收前向协调方单列「范围说明，请裁决」——先斩后奏但全程透明，比卡死等裁决或隐瞒改动都省轮次（BASE1 获「放行」且论证被要求保留进汇报）。
+- 2026-09-07：当「客户端测试全绿 + 服务端测试全绿 + 真机必挂」同时成立时，修复是找两层测试的传输层盲区（CORS 预检/Origin/协议升级）——stub 掉 fetch 的前端测试和裸 TCP 的后端测试各自证明不了「浏览器对真服务」这段路，跨进程契约要专门补真机 E2E 或模拟对端传输语义的用例。
 - 2026-09-04：当要在带机械校验区间的文档（如 p2pctl-ai-guide 的 AI-DOCS-SYNC 区间）回填内容时，修复是区间内只加纯文字、新章节放区间标记外——区间正则把散文里的 `--词`/`<大写>`/`[大写]`（连 `[CAPTURE_PERMISSION_DENIED]` 这种错误码）都抽成参数与 `--help` 双向比对，多一个 token 整个门禁红。
 - 2026-09-05：Tauri app.emit 在前端 listen 装好之前发出即永久丢失（事件不缓存），E2E 断言"前端已感知"前必须先等就绪门（监听装好后向前端日志写标记行，脚本轮询到标记再开写）。
 - 2026-09-05：集成不熟的依赖库先 cargo fetch + grep registry 源码确认真实签名再写码，别凭文档记忆写完再修（notify-debouncer-mini 0.5 三个假设全错：new_debouncer 只有 2 参、DebouncedEvent.path 是单数、Debouncer<T> 泛型是 Watcher 不是 handler）。
