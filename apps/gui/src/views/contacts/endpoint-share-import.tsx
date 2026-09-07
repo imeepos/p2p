@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { CircleCheck, Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { useShareJoin, type ShareJoinConnection } from "@/acp/use-share-join";
 
 /** 分享链接导入区（§8 guest 导入的弹窗形态）：wsUrl 字段识别到

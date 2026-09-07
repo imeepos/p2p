@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { MessageSquareIcon, MoveIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { initialOf } from "@/lib/conversation-entry";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { usePeerOnline } from "@/stores/node-store";
