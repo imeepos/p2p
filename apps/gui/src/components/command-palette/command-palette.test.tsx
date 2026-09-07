@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { MENU_ENTRIES } from "@/config/menu.def";
 import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import "@/i18n";
 import { useNodeStore } from "@/stores/node-store";
@@ -41,11 +42,16 @@ describe("CommandPalette", () => {
     );
   });
 
-  it("底部渲染修正后的快捷键说明（1..4，与热键实现一致）", async () => {
+  it("底部快捷键说明与 rail 注册数同源（不硬编码 1..4）", async () => {
     renderPalette(true);
     await screen.findByRole("dialog");
     expect(screen.getByText("Cmd/Ctrl+K 打开命令面板")).toBeTruthy();
-    expect(screen.getByText("Cmd/Ctrl+1..4 切换一级入口")).toBeTruthy();
+    // R2-25：提示数字取 menu.def 注册数（热键实现同一上界），rail 扩到 6
+    // 后不再出现过期的「1..4」
+    expect(
+      screen.getByText("Cmd/Ctrl+1.." + MENU_ENTRIES.length + " 切换一级入口"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/1..4 切换/)).toBeNull();
     expect(screen.getByText("Esc 关闭")).toBeTruthy();
   });
 

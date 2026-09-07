@@ -14,6 +14,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { MENU_ENTRIES } from "@/config/menu.def";
 import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import { useEscapeKey } from "@/hooks/use-hotkeys";
 import { useNodeStore, selectPeerList } from "@/stores/node-store";
@@ -175,13 +176,15 @@ function PaletteItems({ onClose }: { onClose: () => void }) {
   );
 }
 
-// 底部快捷键说明与实现保持一致：Cmd/Ctrl+K 打开、1..9 切前九个页面、Esc 关闭
+// 底部快捷键说明与实现同源：Cmd/Ctrl+K 打开、1..N 切 rail 入口（N 取
+// menu.def 注册数，与 useNumberRouteHotkeys 的越界上界同源，R2-25）、
+// Esc 关闭；rail 增减入口不再产生过期提示。
 function PaletteFooter() {
   const { t } = useTranslation();
   return (
     <div className="text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-3 py-2 text-xs">
       <span>{t("palette.hints.open")}</span>
-      <span>{t("palette.hints.navigate")}</span>
+      <span>{t("palette.hints.navigate", { count: MENU_ENTRIES.length })}</span>
       <span>{t("palette.hints.close")}</span>
     </div>
   );

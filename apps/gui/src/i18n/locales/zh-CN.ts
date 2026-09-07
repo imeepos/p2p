@@ -790,10 +790,11 @@ const zhCN = {
     copyAddress: "复制地址",
     copied: "已复制到剪贴板",
     open: "命令面板",
-    hint: "Cmd/Ctrl+K 打开；Cmd/Ctrl+1..8 切换页面；Esc 关闭",
+    // R2-25：navigate 上限与 rail 注册数同源（组件以 {{count}} 注入
+    // menu.def 长度）；palette.hint「Cmd/Ctrl+1..8」无引用死键已删。
     hints: {
       open: "Cmd/Ctrl+K 打开命令面板",
-      navigate: "Cmd/Ctrl+1..4 切换一级入口",
+      navigate: "Cmd/Ctrl+1..{{count}} 切换一级入口",
       close: "Esc 关闭",
     },
   },
