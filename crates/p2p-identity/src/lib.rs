@@ -105,5 +105,7 @@ mod tests {
 }
 
 mod seed;
+pub mod signed;
 
 pub use seed::{load as load_seed, load_or_generate as load_or_generate_seed, save as save_seed};
+pub use signed::{Signed, VerifyError};
