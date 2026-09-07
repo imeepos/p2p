@@ -5,7 +5,7 @@ import "@/i18n";
 import i18n from "@/i18n";
 
 import { makeLlmShareMockPair } from "./mock-backend";
-import { OfferPanel } from "./offer-panel";
+import { OfferPanel, resetOfferLoadWarnForTest } from "./offer-panel";
 import type { LlmOfferStatus, LlmShareBackend } from "./types";
 
 const t = i18n.t.bind(i18n);
@@ -132,5 +132,31 @@ describe("LLM3 offer 面板（契约 §16.1 必填集 / §16.2-5 五态两级）
     fillValidForm();
     submitPublish();
     expect(await screen.findByRole("alert")).toHaveTextContent("boom");
+  });
+
+  // R2-03 回归：未发布是常态非故障，空态走中文出路文案，不露内部英文报错
+  it("未发布空态走中文出路文案，不显示内部报错原文，console 静默", async () => {
+    resetOfferLoadWarnForTest();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { backend } = makeLlmShareMockPair();
+    render(<OfferPanel backend={backend} />);
+    expect(await screen.findByText(t("llmShare.offer.emptyTitle"))).toBeTruthy();
+    expect(await screen.findByText(t("llmShare.offer.emptyHint"))).toBeTruthy();
+    expect(screen.queryByText(/never published/u)).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  // R2-26 回归：真实错误整个会话仅 console 提示一次，但错误原文始终可见
+  it("真实错误显示错误原文，console 告警会话级单次", async () => {
+    resetOfferLoadWarnForTest();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(<OfferPanel backend={rejectAll()} />);
+    expect((await screen.findAllByText("boom"))[0]).toBeTruthy();
+    const second = render(<OfferPanel backend={rejectAll()} />);
+    expect((await screen.findAllByText("boom"))[0]).toBeTruthy();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+    second.unmount();
+    warnSpy.mockRestore();
   });
 });

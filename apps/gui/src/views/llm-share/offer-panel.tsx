@@ -19,6 +19,7 @@ import {
   type OfferErrors,
   type OfferFormValues,
 } from "./offer-form";
+import { isOfferNotPublished } from "./offer-errors";
 import type { LlmOfferStatus, LlmOfferView, LlmShareBackend } from "./types";
 
 // §16.2-5：expired/not_yet_valid = 常态中性；peer_mismatch/bad_signature =
@@ -109,6 +110,14 @@ export function OfferStatusCard({ offer }: { offer: LlmOfferView }) {
   );
 }
 
+// R2-26：console 降噪——未发布空态静默，真实错误整个会话仅提示一次
+let loadWarned = false;
+
+/** 测试专用：重置会话级告警标记（模块单例用例隔离入口，resetToastDedupForTest 惯例） */
+export function resetOfferLoadWarnForTest(): void {
+  loadWarned = false;
+}
+
 export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
   const { t } = useTranslation();
   const [values, setValues] = useState<OfferFormValues>(EMPTY_OFFER_FORM);
@@ -118,18 +127,30 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
   const [publishError, setPublishError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // R2-03：未发布是常态非故障——空态静默走中文出路文案；仅真实错误才
+  // 原样露出并告警（会话级单次，console 不逐次刷屏）。
+  const reportLoadError = useCallback((error: unknown) => {
+    if (isOfferNotPublished(error)) {
+      setLoadError(null);
+      return;
+    }
+    if (!loadWarned) {
+      loadWarned = true;
+      console.warn("[llm-share] offer show 失败", error);
+    }
+    setLoadError(errorText(error));
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
       const view = await backend.offerShow();
       setOffer(view);
       setLoadError(null);
     } catch (error) {
-      // 可观测：从未发布属常态空态，其余错误同样原样露出
-      console.warn("[llm-share] offer show 失败", error);
-      setLoadError(errorText(error));
+      reportLoadError(error);
       setOffer(null);
     }
-  }, [backend]);
+  }, [backend, reportLoadError]);
 
   // 挂载拉取走 effect 内联 IIFE（react-hooks/set-state-in-effect 合规形态，
   // use-gui-config 先例）；refresh 供按钮手动刷新复用。
@@ -143,14 +164,13 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
           setLoadError(null);
         }
       } catch (error) {
-        console.warn("[llm-share] offer show 失败", error);
-        if (!cancelled) setLoadError(errorText(error));
+        if (!cancelled) reportLoadError(error);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [backend]);
+  }, [backend, reportLoadError]);
 
   const set = (field: keyof OfferFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
