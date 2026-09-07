@@ -1415,6 +1415,7 @@ dependencies = [
  "clap",
  "futures",
  "llm-share-ledger",
+ "llm-share-link",
  "llm-share-offer",
  "llm-share-proxy",
  "p2p",

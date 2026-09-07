@@ -11,7 +11,9 @@ pub mod borrow_dial;
 pub mod borrow_report;
 pub mod ledger;
 pub mod offer;
+pub mod provider;
 pub mod receipt;
+pub mod share;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
