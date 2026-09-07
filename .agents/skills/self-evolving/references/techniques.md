@@ -405,3 +405,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-07 UX-R2A 页面驱动 React 受控组件：Input/Textarea 用原生 value setter + input 事件，onBlur 用 FocusEvent('focusout', {bubbles:true})（React onBlur 走 focusout 委托，派发 blur 无效）；Radix AlertDialog 里点确认按钮必须 querySelector('[role=alertdialog]') 作用域内找，行内同名按钮在文档序更前会截胡。
 - 2026-09-07 UX-R2A vitest forks worker「Timeout waiting for worker to respond」是负载抖动不是代码问题：pkill 残留 vitest/node worker 后重跑即绿；长时间多轮跑测后先 ps 清场再跑门禁。
 - 2026-09-07 UX-R2A vite 程序化 createServer 做隔离走查实例：root 指向 apps/gui 复用仓库 vite.config，cacheDir/server.port 覆盖即可；vite 包 import 不动 node_modules 顶层软链时用 apps/gui/node_modules/vite/dist/node/index.js 绝对路径。
+
+## 远程服务器排障（2026-09-07）
+- 138 服务器 = 43.240.223.138（.env 里 LINUX_SSH_138=ops@43.240.223.138；ssh config 有 public-box:25446 / public-box-2222 别名，备用端口可能反而不通）
+- 服务器上只有 ops 用户；本机公网 IP 用 curl -4 ifconfig.me（不带 -4 拿到 IPv6，与 fail2ban 记录对不上）
+- macOS 无 sshpass 时用自带 expect 验证密码 SSH 登录；批量远程诊断用 ssh '多行脚本' 一次跑完，sudo -n 免交互
