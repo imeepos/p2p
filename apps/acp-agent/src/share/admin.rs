@@ -33,7 +33,7 @@ pub struct AdminToken {
 impl AdminToken {
     pub fn issue(path: PathBuf) -> io::Result<Self> {
         let value = super::generate_token();
-        write_private_file(&path, value.as_bytes())?;
+        acp_common::write_private_file(&path, value.as_bytes())?;
         Ok(Self { value, file: path })
     }
 }
@@ -113,26 +113,6 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: AdminDeps) {
         }
     };
     super::api::route(&mut tcp, &deps, &method, &target, &body).await;
-}
-
-fn write_private_file(path: &std::path::Path, bytes: &[u8]) -> io::Result<()> {
-    #[cfg(unix)]
-    {
-        use std::io::Write;
-        use std::os::unix::fs::OpenOptionsExt;
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(path)?;
-        file.write_all(bytes)?;
-        file.flush()
-    }
-    #[cfg(not(unix))]
-    {
-        std::fs::write(path, bytes)
-    }
 }
 
 /// 读请求头（至 "\r\n\r\n"），带护栏与超时；EOF/超限即坏请求。

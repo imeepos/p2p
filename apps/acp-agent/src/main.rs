@@ -69,7 +69,7 @@ async fn start_admin(
         .map_err(|err| format!("admin token file: {err}"))?;
     let server = acp_agent::share::admin::AdminServer::start(
         config.admin_port,
-        token.value,
+        token.value.clone(),
         acp_agent::share::admin::AdminDeps {
             service: deps.shares.clone(),
             link: acp_agent::LinkContext {
@@ -84,7 +84,62 @@ async fn start_admin(
         "{}",
         acp_agent::share::admin::ready_line(server.addr.port(), &token.file)
     );
+    publish_local_descriptor(config, node, server.addr.port(), &token.value);
     Ok(())
+}
+
+/// 本机自描述落盘（2026-09-07 用户裁决：GUI 免手填 admin token）：写到用户级
+/// 约定路径 ~/.dsh/acp/local-agent.json（0600），GUI 自动登记本机管理端点。
+/// 失败仅告警不阻断 admin 通道（显式可观测，不静默）。
+fn publish_local_descriptor(
+    config: &acp_agent::AgentConfig,
+    node: &p2p::Node,
+    admin_port: u16,
+    token_value: &str,
+) {
+    let Some(home) = acp_common::user_home_dir() else {
+        tracing::warn!("用户主目录不可得，跳过本机描述文件：GUI 将无法自动发现 admin 端点");
+        return;
+    };
+    let descriptor = build_local_descriptor(
+        &config.agent_name,
+        &node.local_peer_id().to_string(),
+        admin_port,
+        token_value,
+    );
+    if let Err(err) = acp_common::write_descriptor(&home, &descriptor) {
+        tracing::warn!(error = %err, "本机描述文件写入失败");
+    }
+}
+
+fn build_local_descriptor(
+    agent_name: &str,
+    peer: &str,
+    admin_port: u16,
+    token_value: &str,
+) -> acp_common::LocalAgentDescriptor {
+    acp_common::LocalAgentDescriptor {
+        version: acp_common::DESCRIPTOR_VERSION,
+        admin_url: format!("http://127.0.0.1:{admin_port}"),
+        token: token_value.to_owned(),
+        peer: peer.to_owned(),
+        agent_name: agent_name.to_owned(),
+        written_at_unix: acp_common::unix_now(),
+    }
+}
+
+#[cfg(test)]
+mod descriptor_tests {
+    use super::build_local_descriptor;
+
+    #[test]
+    fn descriptor_carries_loopback_admin_url_and_version() {
+        let descriptor = build_local_descriptor("home-agent", "12D3KooW", 8123, "tok");
+        assert_eq!(descriptor.admin_url, "http://127.0.0.1:8123");
+        assert_eq!(descriptor.version, acp_common::DESCRIPTOR_VERSION);
+        assert_eq!(descriptor.peer, "12D3KooW");
+        assert_eq!(descriptor.token, "tok");
+    }
 }
 
 fn node_identity_dir(paths: &acp_common::AcpPaths) -> PathBuf {

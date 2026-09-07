@@ -6,6 +6,7 @@
 
 pub mod chunk;
 pub mod consts;
+pub mod descriptor;
 pub mod error;
 pub mod handshake;
 pub mod paths;
@@ -13,6 +14,10 @@ pub mod policy;
 pub mod share;
 
 pub use chunk::{frames, LineReassembler};
+pub use descriptor::{
+    descriptor_path, read_descriptor, user_home_dir, write_descriptor, write_private_file,
+    DescriptorError, LocalAgentDescriptor, DESCRIPTOR_FILE, DESCRIPTOR_SUBDIR, DESCRIPTOR_VERSION,
+};
 pub use error::ErrorCode;
 pub use handshake::{parse_client_hello, parse_server_hello, ClientHello, Ready, ServerHello};
 pub use paths::AcpPaths;
@@ -25,6 +30,8 @@ pub use share::{
 
 #[cfg(test)]
 mod chunk_tests;
+#[cfg(test)]
+mod descriptor_tests;
 #[cfg(test)]
 mod error_tests;
 #[cfg(test)]
