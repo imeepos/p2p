@@ -422,3 +422,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-08 llm-share UX 轮：表单「区段级错误展示」绝不能硬编码单一错误键（本次 SpareRows 把 errors.spare 恒显为 errSpareRequired，真实 errPositiveInt 被吞）——必须透传真实错误键；测试断言要区分具体错误文案，只数 alert 数量或「包含任一错误」都抓不到这类显示层撒谎缺陷。
 - 2026-09-08 llm-share UX 轮：把常驻表单改成「按钮展开」后，测试助手必须 async 化（CTA/表单随异步加载出现，getByTestId 有竞态，统一 findByTestId + await）；改组件交互形态时先 grep 渲染同一组件的其他测试文件（本次 peer-id-field.test 渲染 AllowlistPanel，漏改了一轮才发现）。
 - 2026-09-08 llm-share UX 轮：并行会话推进期间主树 main 会前移——feature 收尾先 git merge main 反向同步并重跑门禁；ff-only 合并前用 git rev-parse main origin/main 核对双指针一致（本次 main 会话中途从 a40e464 前移到 7772200）。
+- 2026-09-08 设计稿轮：设计类需求必须先读已实现 GUI 的真实令牌与组件再喂图像模型——色值取 index.css（#07c160/#fa5151/10px ring 卡）、结构取目标页面组件、文案取 zh-CN.ts 原文；第一版凭「通用 SaaS 风格」自由发挥被用户点名返工（要根据当前已实现 GUI 风格、参考现有页面功能，别瞎发挥）。
+- 2026-09-08 设计稿轮：run_code 的 JS 模板字符串会吃 bash 的 ${...}——`${OPENAI_API_KEY: -6}` 触发 JS 插值报错、`${#VAR}` 被解析成私有字段；shell 逻辑一律写成脚本文件再 `bash x.sh` 执行，run_code 里只放无 $ 变量的简单命令。
