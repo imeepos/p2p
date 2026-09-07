@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-09-07T03:38:45.034Z",
+  "updatedAt": "2026-09-07T08:00:18.593Z",
   "project": "p2p-base",
   "phase": "E10-RS-IM-CLI-parallel",
   "coordinatorSession": "session-7af45e36-f764-40a1-b2a7-2ef1c30d424b",
@@ -801,6 +801,19 @@
       "acceptanceCommand": "cd /Users/imeepos/ext512/p2p/apps/gui && pnpm lint && pnpm typecheck && pnpm vitest run && pnpm build && pnpm check:i18n && echo R2F-C-GATE-GREEN",
       "goal": "docs 链接反馈/页内导航、跳过版本可取消、ACP 失败指引真实路径、权限请求最小可见（裁决：不回挂不删 AcpView）",
       "note": "已合入 main（协调者五门禁独立复跑全绿 + 页面抽查通过：A=白名单移出确认链路/rail 7 入口/中文空态，C=docs 链接 toast+复制）；反向同步零冲突；worktree/本地与远端分支三清",
+      "mergedMain": true
+    },
+    {
+      "id": "R2-REALFLOW",
+      "title": "R2 真实流程终验（真实节点/双身份 llm-share 闭环/ACP 权限自然路径/事件流）",
+      "priority": "P0",
+      "status": "done",
+      "branch": "feat/uxr2-realflow",
+      "ownerSession": "session-3b8adc4c-172b-4b23-a501-f9554425dfe3",
+      "scope": "仅 docs/notes/2026-09-07-uxr2-realflow-verify.md 与 .agents 喂回；apps/ scripts/ crates/ 零改动",
+      "acceptanceCommand": "test -f /Users/imeepos/ext512/p2p/docs/notes/2026-09-07-uxr2-realflow-verify.md && git -C /Users/imeepos/ext512/p2p log --oneline -3 -- docs/notes/2026-09-07-uxr2-realflow-verify.md | grep -q . && echo R2-REALFLOW-REPORT-OK",
+      "goal": "任务书红线：真实数据与真实流程验证。逐项标注 实测通过/不通过/环境受限，禁止推断当实测",
+      "note": "报告 033313e+bd555b8 已在 main；真机双机 llm-share 闭环（102 出借方/桌面 GUI 借入方）8 过/0 不过/1 受限（R2-24 需 dsh acp profile，最小复现条件已记录）；真实数据新发现 RF-1/RF-2 已修复合入（2c541c2，协调者逐行审阅追认：契约补齐+适配层+45 行测试+gui-contract 同步）；协调者主树全量门禁复跑：前端 193 文件/1148 用例+i18n 1216+MAKE-CHECK-OK（含 CLI-PARITY/AI-DOCS）",
       "mergedMain": true
     }
   ],

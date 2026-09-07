@@ -418,3 +418,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - React 受控输入：AXUIElementSetAttributeValue 设值成功但被受控值回弹；逐字符 CGEvent（US 键位表+shift 符号映射）可真实触发 onChange；JSON/特殊文本用写剪贴板+Cmd+V 最稳。
 - AppleScript 递归 dump AX 树：tell 块内调用自定义 handler 必须 my handler(...)，且按 unix id 过滤 process 在同名多实例时不可靠。
 - 2026-09-06 R2 复核：裸 CDP（Node ≥22 全局 WebSocket）配方补遗——PUT /json/new?about:blank 开靶（老版本回退 GET）；evaluate 只接受表达式，箭头函数源码必须自动包 `"(" + SRC + ")()"` 再求值（漏包=取回函数对象、detail 全 {} 假阴）；交互用 el.click() 与 scrollTop 直写 + dispatchEvent(new Event('scroll')) 双保险（原生 scroll 事件本就异步触发）；hash 路由间 Page.navigate 不触发 loadEventFired，就绪判定靠轮询目标 UI 而非等 load。
+
+## 2026-09-07 协调者长任务轮询节奏（run_code 墙钟与 talk 凭证）
+- run_code 整体有 600s 墙钟上限：bash 内 sleep 470+ 这种单块轮询可行（配 timeoutMs 540），「循环内多次 sleep+poll」必撞上限整体被斩、已产出输出也一并丢失。
+- session_link_talk 的 talkTimeoutMs 设 ≥600s 时超时以异常抛出、claimToken 随之丢失；设 ≤480s 则超时返回 delivered=true/replied=false + claimToken，事后用 session_link_collect 收割。collect 报「凭证无法识别」= 目标回合还没走到消息可见边界，稍后重试即可，别放弃 token。
+- 判断被委派会话是否卡死别用 ps 全量计数：跨项目孤儿（别的仓库同名二进制）会污染计数；按「启动时间过滤 + /tmp 专属目录新文件 + git 提交推进」三信号交叉判断。

@@ -25,3 +25,11 @@ i18n 约定：各卡只增改本卡键区块，合并冲突在 feature 侧消化
 ## 收官流程
 
 各卡交付报告落 docs/notes/2026-09-07-uxr2{a,b,c}-delivery.md → 协调者机械验收（四门禁+gui-agent 抽查，不采信自报）→ ff-only 合并 → worktree/分支清理 → 真实流程终验（单独派卡）。
+
+## 收官（2026-09-07 补）
+
+- 三卡 R2F-A/B/C 全部机械验收合入（主树五门禁 + 所有权核对 + 页面抽查），worktree/分支/远端三清，会话归档。
+- 真实流程终验（R2-REALFLOW）：真机双机闭环（102 出借方 + 桌面 GUI 借入方，Ed25519 签名对账）8 过 / 0 不过 / 1 受限（R2-24 自然路径需 dsh acp profile 环境，最小复现条件已记录于报告）。报告：docs/notes/2026-09-07-uxr2-realflow-verify.md。
+- 终验新发现 RF-1（净差字段缺失）/RF-2（messages 契约三方不一致）由终验会话修复合入（2c541c2），协调者逐行审阅追认：含 45 行新增测试与 gui-contract §16.1 同步；GC1（dc7caec）控制面 llm-share 注册追认（含 control_channel 测试）。注意：终验任务书原为「零代码改动」，实际产生了代码提交——后续同类派单应显式区分「发现即修的小修授权」边界。
+- 遗留清理：终验会话孤儿 tauri dev（19:09 起，PID 98379 链）与应用窗口进程已由协调者清杀；gc1 重复分支（远端旧态）核实为 main 严格子集内容后删除。
+- 最终门禁（main @ bd555b8）：lint 0 / tsc 0 / vitest 193 文件 1148 用例 / build ✓ / i18n zh=en=1216 / MAKE-CHECK-OK（CLI-PARITY-OK、AI-DOCS-OK、cargo 全量测试与 clippy 绿）。

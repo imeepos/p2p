@@ -72,3 +72,7 @@
 ## 2026-09-07 git commit --amend 永远作用于 HEAD：amend 前必须核对 HEAD 就是目标提交
 - 事故：想修 HEAD~1 的 docs 提交内容，直接 --amend 把报告改动折进了 HEAD 的 test 提交，两个提交粒度全脏（本轮实录，reset --soft 重排修复）。
 - 红线：amend 前先 git log --oneline -1 自证 HEAD；错 amend 未推送时 git reset --soft 共同祖先保改动重排，已推送则严禁 amend。
+
+## 2026-09-07 禁止用模糊模式批量 kill 进程——会误杀自己的后台任务
+- 事故：协调者清理遗留进程用 pgrep -f "ext512/p2p/apps" 批杀，把命令行恰好含该路径的后台 make check 门禁任务一并 SIGKILL（bash-702 击杀实录），门禁被迫重启。
+- 红线：批量 kill 前必须先 pgrep -af 列出并人工核对清单；后台 job（bash-xxx）命令行常含工作路径，模式匹配必中自己；按 PID 点杀或先杀父进程树（tauri dev 的应用窗口是子进程，杀父后还要查子）。
