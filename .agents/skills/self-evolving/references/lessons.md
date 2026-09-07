@@ -424,3 +424,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-08 llm-share UX 轮：并行会话推进期间主树 main 会前移——feature 收尾先 git merge main 反向同步并重跑门禁；ff-only 合并前用 git rev-parse main origin/main 核对双指针一致（本次 main 会话中途从 a40e464 前移到 7772200）。
 - 2026-09-08 设计稿轮：设计类需求必须先读已实现 GUI 的真实令牌与组件再喂图像模型——色值取 index.css（#07c160/#fa5151/10px ring 卡）、结构取目标页面组件、文案取 zh-CN.ts 原文；第一版凭「通用 SaaS 风格」自由发挥被用户点名返工（要根据当前已实现 GUI 风格、参考现有页面功能，别瞎发挥）。
 - 2026-09-08 设计稿轮：run_code 的 JS 模板字符串会吃 bash 的 ${...}——`${OPENAI_API_KEY: -6}` 触发 JS 插值报错、`${#VAR}` 被解析成私有字段；shell 逻辑一律写成脚本文件再 `bash x.sh` 执行，run_code 里只放无 $ 变量的简单命令。
+- 2026-09-08 本地 ACP 回环轮：线协议两端各自单侧测试全绿 ≠ 真机能通——acp-console 握手/泵是裸 ndjson 字节、acp-agent 是 varint 帧，同仓库两侧测试各自为政从未跑过真传输，接缝缺陷靠「跨进程真传输的集成测试」（两端都是真件）才能拦，mock 夹具只能证单侧行为。
+- 2026-09-08 本地 ACP 回环轮：mock 夹具若按「实现的现状」抄写而非按「契约的另一端」实现，缺陷会被夹具固化成永绿的假象（AgentMock 裸 read_line 复刻了 console 的裸写错误）；写 mock 先问协议文档怎么说。
+- 2026-09-08 本地 ACP 回环轮：常驻部署的二进制（launchd/侧栏 sidecar）会与仓库漂移——「功能缺失」先 diff 运行实例与仓库 HEAD（新端点 404、新 flag 不识别都是老化信号），再决定写代码还是先部署。
+- 2026-09-08 本地 ACP 回环轮：临时/测试实例禁止写用户级共享单槽文件（如 ~/.dsh/acp/local-agent.json），必须留 --descriptor-disabled 式禁用开关，否则冒烟覆盖生产描述、GUI 读到死端口。
+- 2026-09-08 本地 ACP 回环轮：worktree 内 bash grep 偶发无输出（疑符号链接/路径解析问题），排查别死磕一条命令——换 SDK grep 工具或 python 逐行扫描立刻现形。

@@ -9,6 +9,8 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::net::TcpStream;
 
+use crate::workspaces::WorkspaceStoreError;
+
 use super::admin::{reply, reply_json, AdminDeps};
 
 /// 路由分发：鉴权已在管道层完成，这里只做端点匹配。cors = 白名单内请求 Origin。
@@ -21,12 +23,17 @@ pub(super) async fn route(
     cors: Option<&str>,
 ) {
     let share_prefix = "/shares/";
+    let ws_prefix = "/workspaces/";
     match (method, target) {
         ("POST", "/shares") => create_share(tcp, deps, body, cors).await,
         ("GET", "/shares") => list_shares(tcp, deps, cors).await,
         ("GET", "/workspaces") => list_workspaces(tcp, deps, cors).await,
+        ("POST", "/workspaces") => create_workspace(tcp, deps, body, cors).await,
         ("DELETE", path) if path.starts_with(share_prefix) => {
             revoke_share(tcp, deps, path.trim_start_matches(share_prefix), cors).await;
+        }
+        ("DELETE", path) if path.starts_with(ws_prefix) => {
+            delete_workspace(tcp, deps, path.trim_start_matches(ws_prefix), cors).await;
         }
         _ => reply(tcp, 404, "Not Found", "{\"error\":\"not-found\"}", cors).await,
     }
@@ -173,6 +180,7 @@ async fn revoke_share(tcp: &mut TcpStream, deps: &AdminDeps, share_id: &str, cor
 async fn list_workspaces(tcp: &mut TcpStream, deps: &AdminDeps, cors: Option<&str>) {
     let rows: Vec<serde_json::Value> = deps
         .workspaces
+        .rows()
         .iter()
         .map(|ws| {
             json!({
@@ -183,6 +191,66 @@ async fn list_workspaces(tcp: &mut TcpStream, deps: &AdminDeps, cors: Option<&st
         })
         .collect();
     reply_json(tcp, 200, "OK", &json!({ "workspaces": rows }), cors).await;
+}
+
+/// POST /workspaces：新增具名工作区（实时生效并持久化 acp-workspaces.json）。
+async fn create_workspace(tcp: &mut TcpStream, deps: &AdminDeps, body: &[u8], cors: Option<&str>) {
+    #[derive(Deserialize)]
+    struct WorkspaceBody {
+        id: String,
+        name: String,
+        dir: String,
+    }
+    let parsed: WorkspaceBody = match serde_json::from_slice(body) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            tracing::warn!(error = %err, "admin: invalid workspace body");
+            reply(
+                tcp,
+                400,
+                "Bad Request",
+                "{\"error\":\"invalid-json\"}",
+                cors,
+            )
+            .await;
+            return;
+        }
+    };
+    match deps.workspaces.add(&parsed.id, &parsed.name, &parsed.dir) {
+        Ok(def) => {
+            println!("{{\"kind\":\"workspace-added\",\"id\":\"{}\"}}", def.id);
+            let row = json!({ "id": def.id, "name": def.name, "dir": def.dir });
+            reply_json(tcp, 200, "OK", &json!({ "workspace": row }), cors).await;
+        }
+        Err(err) => reply_workspace_error(tcp, err, cors).await,
+    }
+}
+
+/// DELETE /workspaces/{id}：移除具名工作区（legacy 兜底行不可删）。
+async fn delete_workspace(tcp: &mut TcpStream, deps: &AdminDeps, id: &str, cors: Option<&str>) {
+    match deps.workspaces.remove(id) {
+        Ok(()) => {
+            println!("{{\"kind\":\"workspace-removed\",\"id\":\"{id}\"}}");
+            reply_json(tcp, 200, "OK", &json!({ "deleted": true, "id": id }), cors).await;
+        }
+        Err(err) => reply_workspace_error(tcp, err, cors).await,
+    }
+}
+
+/// 工作区管理错误映射：配置类 4xx 定位 UI 文案，存储类 5xx 显式留痕。
+async fn reply_workspace_error(tcp: &mut TcpStream, err: WorkspaceStoreError, cors: Option<&str>) {
+    tracing::warn!(error = %err, "admin: workspace mutation rejected");
+    let (status, code) = match &err {
+        WorkspaceStoreError::EmptyField | WorkspaceStoreError::BadId => (400, "invalid-field"),
+        WorkspaceStoreError::DuplicateId(_) => (409, "duplicate-id"),
+        WorkspaceStoreError::InvalidDir(_) => (422, "invalid-dir"),
+        WorkspaceStoreError::Unknown(_) => (404, "unknown-workspace"),
+        WorkspaceStoreError::LegacyDefault => (400, "legacy-default"),
+        WorkspaceStoreError::Corrupt { .. }
+        | WorkspaceStoreError::Io(_)
+        | WorkspaceStoreError::Json(_) => (500, "store"),
+    };
+    reply_json(tcp, status, "Error", &json!({ "error": code }), cors).await;
 }
 
 #[derive(Deserialize)]

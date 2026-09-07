@@ -14,6 +14,8 @@ mod admin_cors_tests;
 #[cfg(test)]
 mod admin_tests;
 #[cfg(test)]
+mod admin_ws_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod tests_redeem;
@@ -29,6 +31,7 @@ use uuid::Uuid;
 
 use crate::audit::AuditSink;
 use crate::config::AgentConfig;
+use crate::workspaces::WorkspaceStore;
 
 /// 链接组装要素（设计 §5）：本机 PeerId 与对外监听地址（含中继），
 /// 由节点既有自省面取得，main 装配期注入。
@@ -44,7 +47,8 @@ pub struct ShareService {
     policy_path: PathBuf,
     policy: Arc<StdRwLock<acp_common::PolicyTable>>,
     audit: Arc<dyn AuditSink>,
-    config: AgentConfig,
+    /// 工作区动态表（与 SessionDeps 同源；admin 增删后分享校验即时生效）。
+    workspaces: Arc<WorkspaceStore>,
 }
 
 /// 创建结果：token 原文只在返回值出现一次（进创建响应与链接，禁止落盘）。
@@ -70,6 +74,7 @@ impl ShareService {
     /// 打开台账：缺失 = 首启空账（留告警）；损坏/版本不符 = 显式报错拒启。
     pub fn open(
         config: &AgentConfig,
+        workspaces: Arc<WorkspaceStore>,
         policy: Arc<StdRwLock<acp_common::PolicyTable>>,
         audit: Arc<dyn AuditSink>,
     ) -> Result<Self, ShareStoreError> {
@@ -88,7 +93,7 @@ impl ShareService {
             policy_path: config.policy_path(),
             policy,
             audit,
-            config: config.clone(),
+            workspaces,
         })
     }
 
@@ -100,7 +105,7 @@ impl ShareService {
             return Err(ShareCreateError::OwnerScope);
         }
         if spec.scope == Scope::Workspace {
-            match self.config.workspace(spec.workspace.as_deref()) {
+            match self.workspaces.resolve(spec.workspace.as_deref()) {
                 None if spec.workspace.is_none() => {
                     return Err(ShareCreateError::WorkspaceUnconfigured);
                 }

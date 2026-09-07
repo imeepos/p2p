@@ -80,6 +80,14 @@ cwd 监狱 + 每连接一个 `dsh --profile acp` 子进程监督，断线续连�
 POST /connect-share）导入即获得受限 ACP endpoint；全链路 E2E 见
 crates/p2p-itest/tests/share_link_wave.rs，运维见 docs/ops/acp-guide.md §8。
 
+本地回环（本机 agent 一键跑通）：`scripts/ops/acp-local-setup.sh` 构建部署
+三件套到 ~/.dsh/bin、装 dsh acp profile 自托管启动 shim（解 launcher 缺
+ctx.appExit/appReady 的启动阻塞）、对本机 console 写 scope=owner 授权并重启
+服务；`scripts/ops/acp-local-smoke.sh` 机械验收全链（握手→initialize→
+session/new→prompt + admin 工作区 CRUD，口径 ACP-LOCAL-SMOKE-OK）。具名
+工作区为运行期动态表（admin POST/DELETE /workspaces 实时生效），GUI 管理
+页 /acp-manage；详见 docs/ops/acp-guide.md §9。
+
 ## 快速上手
 
 ```bash

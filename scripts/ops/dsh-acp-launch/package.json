@@ -1,0 +1,11 @@
+{
+  "name": "@local/dsh-acp-launch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Self-hosted stdio launcher for the dsh acp profile (provides ctx.appExit/appReady)",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs"
+  }
+}

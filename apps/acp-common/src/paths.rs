@@ -5,6 +5,7 @@ use std::path::PathBuf;
 
 pub const POLICY_FILE: &str = "acp-policy.json";
 pub const SHARES_FILE: &str = "acp-shares.json";
+pub const WORKSPACES_FILE: &str = "acp-workspaces.json";
 pub const ADMIN_TOKEN_FILE: &str = "acp-admin-token";
 pub const LOG_DIR: &str = "acp-logs";
 
@@ -33,6 +34,11 @@ impl AcpPaths {
     /// 本地 admin HTTP Bearer token 文件（acp-share 设计 §5，0600）。
     pub fn admin_token(&self) -> PathBuf {
         self.root.join(ADMIN_TOKEN_FILE)
+    }
+
+    /// 具名工作区动态表文件（admin 工作区管理面的持久化层）。
+    pub fn workspaces(&self) -> PathBuf {
+        self.root.join(WORKSPACES_FILE)
     }
 
     /// 子进程 stderr 滚动日志目录（设计 §4.2-5）。

@@ -136,3 +136,64 @@ export async function revokeShare(
   const url = adminUrl.replace(/\/+$/, "") + "/shares/" + encodeURIComponent(shareId);
   await adminJson(url, adminToken, { method: "DELETE" });
 }
+
+/** admin 工作区管理错误：code 为 agent 端错误词法码，UI 层据此映射文案。 */
+export class WorkspaceAdminError extends Error {
+  readonly code: string;
+  readonly status: number;
+  constructor(code: string, status: number) {
+    super("workspace admin error " + code + " (HTTP " + status + ")");
+    this.code = code;
+    this.status = status;
+  }
+}
+
+async function workspaceAdminJson(
+  url: string,
+  token: string,
+  init?: RequestInit,
+): Promise<Record<string, unknown>> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      Authorization: "Bearer " + token,
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+  const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!res.ok) {
+    const code = typeof body?.error === "string" ? body.error : "store";
+    throw new WorkspaceAdminError(code, res.status);
+  }
+  return body ?? {};
+}
+
+/** 新增具名工作区（agent 实时生效并持久化，无需重启）。 */
+export async function addWorkspace(
+  adminUrl: string,
+  adminToken: string,
+  body: { id: string; name: string; dir: string },
+): Promise<AcpWorkspace> {
+  const url = adminUrl.replace(/\/+$/, "") + "/workspaces";
+  const data = await workspaceAdminJson(url, adminToken, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+  const row = data.workspace as Record<string, unknown> | undefined;
+  return {
+    id: asString(row?.id),
+    name: asString(row?.name),
+    dir: asString(row?.dir),
+  };
+}
+
+/** 删除具名工作区（legacy 兜底行不可删，agent 侧 400 拒绝）。 */
+export async function removeWorkspace(
+  adminUrl: string,
+  adminToken: string,
+  id: string,
+): Promise<void> {
+  const url = adminUrl.replace(/\/+$/, "") + "/workspaces/" + encodeURIComponent(id);
+  await workspaceAdminJson(url, adminToken, { method: "DELETE" });
+}

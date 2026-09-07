@@ -108,7 +108,10 @@ pub async fn owner_rig(tag: &str, tweak: impl FnOnce(&mut AgentConfig)) -> Owner
                 addrs: quic_addrs,
             },
             // share_link_wave 不涉多工作区定向，空清单即可（GET /workspaces 返回空）
-            workspaces: Vec::new(),
+            workspaces: Arc::new(
+                acp_agent::workspaces::WorkspaceStore::open(&[], None, cfg.paths().workspaces())
+                    .expect("ws store"),
+            ),
         },
     )
     .await
