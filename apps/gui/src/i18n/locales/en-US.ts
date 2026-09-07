@@ -431,6 +431,7 @@ const enUS: typeof zhCN = {
       back: "Back to conversation list",
       loading: "Loading conversations…",
       self: "Me",
+      inactiveToggle: "Show exited/dissolved groups ({{count}})",
     },
     preview: {
       image: "[Image]",

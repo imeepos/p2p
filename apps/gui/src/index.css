@@ -39,10 +39,8 @@
   --success: oklch(0.627 0.17 149.2);
   --warning: oklch(0.769 0.16 70.08);
   --info: oklch(0.588 0.125 240);
-  /* WeChat 桌面风格令牌（WX1）：侧栏深灰、会话区浅灰、气泡白/绿、角标红 */
-  --wx-rail: #2e2e2e;
-  --wx-rail-icon: #9ca3af;
-  --wx-rail-icon-active: #07c160;
+  /* WeChat 桌面风格令牌（WX1）：会话区浅灰、气泡白/绿、角标红；
+     rail 已改语义 --sidebar/--muted 令牌随主题自适应 */
   --wx-chat-bg: #f5f5f5;
   --wx-list-bg: #ffffff;
   --wx-hover: #f0f0f0;
@@ -86,9 +84,6 @@
   --success: oklch(0.7 0.17 149.2);
   --warning: oklch(0.8 0.16 70.08);
   --info: oklch(0.746 0.16 232.661);
-  --wx-rail: #232323;
-  --wx-rail-icon: #8a8a8a;
-  --wx-rail-icon-active: #07c160;
   --wx-chat-bg: #191919;
   --wx-list-bg: #202020;
   --wx-hover: #2a2a2a;
@@ -132,9 +127,6 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
-  --color-wx-rail: var(--wx-rail);
-  --color-wx-rail-icon: var(--wx-rail-icon);
-  --color-wx-rail-icon-active: var(--wx-rail-icon-active);
   --color-wx-chat-bg: var(--wx-chat-bg);
   --color-wx-list-bg: var(--wx-list-bg);
   --color-wx-hover: var(--wx-hover);

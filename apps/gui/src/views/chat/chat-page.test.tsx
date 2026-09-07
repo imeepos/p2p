@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -9,11 +9,13 @@ import type {
 } from "@/lib/ipc-types";
 import { useAcpStore } from "@/acp/acp-store";
 import { useGroupStore } from "@/stores/group-store";
+import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import {
   ENDPOINT_ID,
   GROUP_ID,
   PEER,
   PEER_B,
+  groupFixture,
   seedAll,
   renderAt,
   type MediaMocks,
@@ -116,7 +118,7 @@ describe("三来源条目同列混排（§2.2）", () => {
 describe("路由化选中态（§2.1 深链）", () => {
   it("?peer= 直落 1:1 会话：历史装载、输入条就位、头部显昵称", async () => {
     renderAt("/chat?peer=" + PEER);
-    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 50));
+    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 20));
     await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
     expect(screen.getByTestId("chat-conversation-header").textContent).toContain("小圆");
   });
@@ -158,5 +160,40 @@ describe("路由化选中态（§2.1 深链）", () => {
     renderAt("/chat?kind=group");
     await screen.findByTestId("conversation-row-friend-" + PEER);
     expect(screen.getByText("选择或发起会话")).toBeTruthy();
+  });
+});
+
+describe("已退出/已解散群聊默认隐藏（IM 开关可显）", () => {
+  const LEFT_ID = "99999999-2222-3333-4444-555555555555";
+
+  beforeEach(() => {
+    localStorage.clear();
+    useUiPrefsStore.setState({ showInactiveGroups: false });
+  });
+
+  function seedLeftGroup(): void {
+    const left = { ...groupFixture(), groupId: LEFT_ID, name: "旧群", state: "left" as const, tsMs: 400 };
+    mocks.groupList.mockResolvedValue([groupFixture(), left]);
+    useGroupStore.setState({
+      groups: [groupFixture(), left],
+      lastMessageByGroup: { ...useGroupStore.getState().lastMessageByGroup, [LEFT_ID]: null },
+    });
+  }
+
+  it("默认不渲染非 active 群条目，侧栏底部出开关", async () => {
+    seedLeftGroup();
+    renderAt();
+    await screen.findByTestId("conversation-row-friend-" + PEER);
+    expect(screen.queryByTestId("conversation-row-group-" + LEFT_ID)).toBeNull();
+    expect(screen.getByTestId("conversation-row-group-" + GROUP_ID)).toBeTruthy();
+    expect(screen.getByTestId("inactive-groups-toggle")).toBeTruthy();
+  });
+
+  it("打开开关后非 active 群条目恢复显示", async () => {
+    seedLeftGroup();
+    renderAt();
+    await screen.findByTestId("conversation-row-friend-" + PEER);
+    fireEvent.click(screen.getByTestId("inactive-groups-switch"));
+    expect(await screen.findByTestId("conversation-row-group-" + LEFT_ID)).toBeTruthy();
   });
 });

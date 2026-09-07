@@ -244,7 +244,7 @@ describe("GUI chat event and history boundaries", () => {
         <ChatPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 50), { timeout: WAIT_TIMEOUT });
+    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 20), { timeout: WAIT_TIMEOUT });
     expect(screen.getByTestId("chat-input")).toBeTruthy();
     expect(screen.getByRole("region", { name: "会话" })).toBeTruthy();
     expect(screen.queryAllByTestId("message-status")).toHaveLength(0);

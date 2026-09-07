@@ -19,7 +19,8 @@ import type {
 import { reduceChatMessage } from "./chat-events";
 import { createGroupInviteSlice, errorOf, type GroupInviteSlice } from "./chat-group-invite-slice";
 
-const HISTORY_SIZE = 50;
+// 打开会话只拉最新一页（20 条）；更早历史经 loadOlder 滚近顶部游标分页加载。
+const HISTORY_SIZE = 20;
 let subscriptionStarted = false;
 
 // IMC3：群邀请切片经组合并入（切片实现在本文件外，行数红线）。

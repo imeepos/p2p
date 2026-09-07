@@ -15,6 +15,7 @@ import { useGroupStore } from "@/stores/group-store";
 import { NARROW_CHAT_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 
 import { AgentConversation } from "./agent-conversation";
+import { InactiveGroupsToggle } from "./inactive-groups-toggle";
 import { FriendConversation } from "./friend-conversation";
 import { GroupPendingPanel } from "./group-pending-panel";
 import { GroupMemberPanel } from "@/views/group/group-member-panel";
@@ -125,6 +126,8 @@ export function ChatPage() {
   const showConversation = !narrow || !!selectedId;
   const listLoading = !friendsLoaded && !friendsError && !groupsLoaded;
   const group = groupParam ? (groups.find((g) => g.groupId === groupParam) ?? null) : null;
+  // 已退出/已解散群聊计数：驱动侧栏底部显隐开关（默认隐藏，见 ui-prefs-store）
+  const inactiveGroupCount = groups.filter((g) => g.state !== "active").length;
 
   return (
     <div data-testid="chat-page" className="flex min-h-0 flex-1 gap-0">
@@ -147,6 +150,7 @@ export function ChatPage() {
             }}
             onSelect={selectEntry}
           />
+          <InactiveGroupsToggle hiddenCount={inactiveGroupCount} />
         </section>
       ) : null}
       {showConversation ? (

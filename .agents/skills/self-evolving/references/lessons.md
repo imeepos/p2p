@@ -208,6 +208,8 @@ _none yet — be the first._
 - 2026-09-04：AGENTS.md 写"远端名是 gitea 不是 origin"，但本仓库实测 git remote 只有 origin——仓库级惯例文件会过时或张冠李戴，涉及远端操作前先 git remote 实测再动手。
 - 2026-09-04：git worktree add 不能检出已被其他 worktree 占用的分支（fatal: already used by worktree）；验证钩子/临时检出用 --detach，不占分支名。
 - 2026-09-04：post-checkout 触发面：HEAD 级检出（分支切换/新 worktree/clone）都触发（flag=1 或 old=全零），git checkout -- <path> 路径级不触发（flag=0）——钩子内按 flag 过滤可避免路径检出误动作。
+- 2026-09-07 rail 轮：ff-merge 后并行会话会继续推进 main，收尾核验「我的提交是否还活着」用 git merge-base --is-ancestor <commit> main，别用 git log 头部比对——头部早就是别人的提交了（本轮 main 在我合并后 1 分钟内被 chat-paged-view 会话推进两个提交，ancestry 校验确认两个 fix 提交均在）。
+- 2026-09-07 rail 轮：设计系统已有语义令牌（shadcn 的 --sidebar/--muted 系列）时要先找令牌再写死颜色——本轮侧栏「黑底不随主题」的根因就是 WX1 风格引入了固定色 --wx-rail，绕过了已有主题机制；删固定令牌 + 改语义类（bg-sidebar/text-muted-foreground/hover:bg-sidebar-accent）零 JS 改动即双主题自适应。
 - 2026-09-04 N2：git stash pop 或外部脚本改写文件后，edit 工具必报 file changed
   since it was read——先重读再改，别凭记忆构造 old_string。
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
@@ -398,3 +400,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 搜索框的命中语料必须与界面展示同源（N1 实录）：过滤命中内部串而行内渲染 i18n 摘要，用户按所见词搜索必零命中；检索文本 = 展示串 + 完整标识 + 内部字段兜底三层拼装。
 - 乐观占位的派生展示必须按 status 分支：群占位 acks 为空会让「已送达 0/n」在发送中与失败态恒真（W1-01）；状态行任何统计类插值都要先问 pending/failed 下它还成立吗。
 - 错误提示的复制详情不能只做在 toast 一条通道（C1）：行内/弹框内联错误要沉淀共享件（如 CommandErrorText），否则每个新对话框都会回潮成裸 p 原文不可复制。
+- 2026-09-07：接到「某功能缺失」类需求先全库 grep 现有实现与测试名再动手——聊天分页早已存在（store HISTORY_SIZE + loadOlder + 后端 limit），真实缺口只是 twin 组件不同步（群流有 UX5 前插锚定、1:1 流没有）与初始页偏大；把「用户观感问题」翻译成「哪个既有环节没对齐」比重写快得多。
+- 2026-09-07：改共享常量（如 HISTORY_SIZE）必须先 `grep -rn 'null, 50\|length: 50'` 找全测试断言点——9 处散在 6 个测试文件里，漏一处就是红门禁；vitest 输出里的 stderr 报错日志是错误路径用例的预期产物，别当成失败。
+- 2026-09-07 IM 隐群开关轮：run_code 里手工展开 Promise.all([write,edit,…]) 多工具批次漏闭合括号即 "Expected ',' got ';'" 整批未执行——批次化改 jobs 数组存 thunk + for-await 逐个跑，结构扁平、错点单一生、失败面小。
+- 2026-09-07 IM 隐群开关轮：bash 多行命令串偶发整体静默空输出（exit 0 无 stdout），同语义改单行 && 链即恢复——run_code 跑批优先单行 && 链；空输出先原样重试一次再排查，别基于空结果下结论。
+- 2026-09-07 IM 隐群开关轮：pre-push hook 文案（如「纯删除引用推送，跳过门禁」）与实际 push 行为可能不符，push 成败以 git rev-parse <分支> origin/<分支> 哈希核对为准，别信 hook 打印。
