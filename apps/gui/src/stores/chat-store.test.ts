@@ -88,7 +88,7 @@ describe("chat-store 历史加载错误态（IM-T50）", () => {
 
   it("loadOlder 失败落 olderError；成功后清除且旧页并入", async () => {
     mocks.history
-      .mockResolvedValueOnce(Array.from({ length: 50 }, (_, i) => text(`m${i}`, "页", i + 1)))
+      .mockResolvedValueOnce(Array.from({ length: 20 }, (_, i) => text(`m${i}`, "页", i + 1)))
       .mockRejectedValueOnce(new Error("older boom"))
       .mockResolvedValueOnce([text("old", "更早", 0)]);
     await useChatStore.getState().selectPeer(PEER);

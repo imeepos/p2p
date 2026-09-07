@@ -116,7 +116,7 @@ describe("三来源条目同列混排（§2.2）", () => {
 describe("路由化选中态（§2.1 深链）", () => {
   it("?peer= 直落 1:1 会话：历史装载、输入条就位、头部显昵称", async () => {
     renderAt("/chat?peer=" + PEER);
-    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 50));
+    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 20));
     await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
     expect(screen.getByTestId("chat-conversation-header").textContent).toContain("小圆");
   });

@@ -158,13 +158,13 @@ describe("IM-T52 滚动体系结构契约（P1 双栏）", () => {
     list.scrollTop = 120;
     fireEvent.click(rowButton(b));
     await waitFor(() =>
-      expect(mocks.history).toHaveBeenCalledWith(b.peerId, null, 50),
+      expect(mocks.history).toHaveBeenCalledWith(b.peerId, null, 20),
     );
     expect(list.scrollTop).toBe(120);
 
     fireEvent.click(rowButton(a));
     await waitFor(() =>
-      expect(mocks.history).toHaveBeenCalledWith(a.peerId, null, 50),
+      expect(mocks.history).toHaveBeenCalledWith(a.peerId, null, 20),
     );
     expect(list.scrollTop).toBe(120);
   });

@@ -19,7 +19,8 @@ import {
   swapGroupPending,
 } from "./group-local";
 
-const HISTORY_SIZE = 50;
+// 打开群会话只拉最新一页（20 条）；更早历史经 loadOlder 滚近顶部游标分页加载。
+const HISTORY_SIZE = 20;
 let subscriptionStarted = false;
 
 function errorOf(error: unknown): string {
