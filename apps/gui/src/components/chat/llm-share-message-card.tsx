@@ -8,7 +8,6 @@ import type { I18nKey } from "@/i18n/types";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { findLlmShareLinkInText } from "@/lib/llm-share-link-model";
-import { resolveLlmShareBackend } from "@/views/llm-share/backend";
 import { setBorrowPrefill } from "@/views/llm-share/borrow-prefill";
 import type { LlmShareBackend } from "@/views/llm-share/types";
 import { errorText } from "@/views/shared/form-flow";
@@ -42,6 +41,13 @@ type CardPhase =
   | { state: "joined" }
   | { state: "denied"; code: string | null };
 
+// 运行时惰性解析（避免静态导入把 views/llm-share/backend → lib/ipc 拉进聊天渲染链：
+// 聊天测试 vi.mock @/lib/ipc 不含 useMockIpc 导出，静态导入会使全部聊天套件崩）。
+async function resolveShareBackend(): Promise<LlmShareBackend> {
+  const mod = await import("@/views/llm-share/backend");
+  return mod.resolveLlmShareBackend();
+}
+
 // 聊天消息内的 llm-share 分享链接卡片（scheme dsh-llm-share://，独立域不复用 ACP）：
 // 点击 → shareRedeem(link)（借方拨号兑换）→ 成功 toast + 跳 /llm-share?peer=&model=
 // 预填借用表单；业务拒绝码原样透出不本地化改写。backend 缺省运行时解析（测试可注入）。
@@ -49,12 +55,12 @@ export function LlmShareMessageCard({ link, backend }: { link: string; backend?:
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [phase, setPhase] = useState<CardPhase>({ state: "idle" });
-  const resolvedBackend = backend ?? resolveLlmShareBackend();
 
   const join = async () => {
     setPhase({ state: "joining" });
     try {
-      const result = await resolvedBackend.shareRedeem(link);
+      const resolved = backend ?? (await resolveShareBackend());
+      const result = await resolved.shareRedeem(link);
       const model = result.offer.models[0] ?? "";
       // 借出方 offer 快照（redeem 应答内嵌）→ borrow 预填：targetPeer/model/模型候选源
       setBorrowPrefill({ peer: result.offer.peer, model, models: result.offer.models });
