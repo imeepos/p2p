@@ -49,6 +49,7 @@ chat_group_invites_list	mapped	group invites list
 chat_group_invite_accept	mapped	group invites accept	
 chat_group_invite_reject	mapped	group invites reject	
 acp_console_status	exempt		GUI 壳专属伴生进程托管快照（契约 §15 v10）：acp-console 由 GUI 启动 spawn 的本地子进程，CLI 无常驻进程面可对等，提供对等子命令无意义（同 frontend_log_append 豁免先例）
+acp_local_descriptor	exempt		GUI 分享流专属自动化（2026-09-07 用户裁决）：读用户级 ~/.dsh/acp/local-agent.json 自描述免手填 admin token，仅服务 Tauri 壳内分享创建；CLI 场景无此交互，对等子命令待真实需求另行裁决
 llm_share_offer_publish	mapped	llm-share offer publish	
 llm_share_offer_show	mapped	llm-share offer show	
 llm_share_allow_list	mapped	llm-share allowlist	
