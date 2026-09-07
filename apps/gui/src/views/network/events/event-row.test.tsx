@@ -94,7 +94,7 @@ describe("EventRowDetail 负载折叠与复制（R2-16）", () => {
 
   it("「复制详情」写入完整 JSON 负载（折叠态同样可复制）", async () => {
     await expandDetail();
-    const writeText = vi.fn(async () => undefined);
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
     fireEvent.click(screen.getByTestId("event-detail-copy"));
     await waitFor(() => expect(writeText).toHaveBeenCalled());
