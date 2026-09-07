@@ -1,6 +1,6 @@
 // IM-T47 渲染矩阵：kind ∈ {text,image,audio,video,file} × {me 发送成功, me 发送失败, them 入站}
 // 共 15 格 + 补缺口（列表摘要/混合排序/未知 kind 防御/状态角标共存）。只加测试不改生产。
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatFriendJson, ChatKind, ChatMessageJson, ChatSendReport, NodeEventHandler } from "@/lib/ipc-types";
@@ -19,6 +19,8 @@ import {
   seedSummaries,
 } from "@/test/chat-render-matrix-fixtures";
 import { useChatStore } from "@/stores/chat-store";
+import { ConversationRow } from "@/components/chat/conversation-row";
+import { friendEntry } from "@/lib/conversation-entry";
 
 const { mocks, toastSpies } = vi.hoisted(() => ({
   mocks: {
@@ -65,6 +67,27 @@ const emit = (event: Parameters<NodeEventHandler>[0]): void => {
 };
 const PEER = MATRIX_PEER;
 
+// WX1 回归：直接渲染单行会话（selectedId 无关），断言视觉/aria/dateTime。
+function renderWxRow(
+  id: string,
+  overrides: { tsMs: number; status: "failed" | "pending" },
+  active: boolean,
+): ReturnType<typeof render> {
+  const friend = friendJson(peerId(id), "行" + id);
+  const last = textMessage(id, peerId(id), "预览消息", {
+    sender: "me",
+    tsMs: overrides.tsMs,
+    status: overrides.status,
+  });
+  const entry = friendEntry({
+    friend,
+    last,
+    unread: 0,
+    joinSeq: 0,
+    labels: { image: "[图片]", audio: "[语音]", video: "[视频]", file: "[文件]", self: "我" },
+  });
+  return render(<ConversationRow entry={entry} active={active} onSelect={() => {}} />);
+}
 interface MediaRow {
   kind: ChatKind;
   fileName: string;
@@ -324,5 +347,44 @@ describe("渲染矩阵·补缺口", () => {
     expect(badge?.className).toContain("text-red-600");
     expect(badge?.className).toContain("dark:text-red-300");
     expect(badge?.className).not.toContain("text-destructive");
+  });
+
+  it("会话行 WX1 视觉：选中态样式、time dateTime、失败/发送中状态图标带 aria", () => {
+    const pidF = peerId("row-f");
+    const first = renderWxRow("row-f", { tsMs: 4000, status: "failed" }, true);
+    // 选中行：绿底白字（WX1 选中态；样式挂在 li > button 上）
+    const activeBtn = first.container.querySelector("button");
+    expect(activeBtn?.className).toContain("bg-primary");
+    expect(activeBtn?.className).toContain("text-white");
+    // time 带 dateTime 机器可读（W1-14）
+    const time = first.container.querySelector("time");
+    expect(time?.getAttribute("dateTime")).toBe(new Date(4000).toISOString());
+    // 失败状态图标 aria 标签（W1-14）
+    const failIcon = first.container.querySelector(`[data-testid="conversation-sendstate-${pidF}"]`);
+    expect(failIcon?.getAttribute("role")).toBe("img");
+    expect(failIcon?.getAttribute("aria-label")).toBe("失败");
+    first.unmount();
+    // 发送中图标 aria 标签（未选中行灰态）
+    const pidP = peerId("row-p");
+    const second = renderWxRow("row-p", { tsMs: 3000, status: "pending" }, false);
+    const pendIcon = second.container.querySelector(`[data-testid="conversation-sendstate-${pidP}"]`);
+    expect(pendIcon?.getAttribute("aria-label")).toBe("发送中…");
+  });
+
+  it("1:1 重发流：失败文本点重发走原文本与原 replyTo 重发（useRetrySend 链路）", async () => {
+    const gate = deferred<ChatSendReport>();
+    mocks.send.mockImplementation(() => gate.promise);
+    const failed = textMessage("rt-1", PEER, "没发出去", { sender: "me", status: "failed" }) as ChatMessageJson & { replyTo: string };
+    failed.replyTo = "orig-9";
+    seedConversation([failed]);
+    mountChat();
+    await screen.findByTestId("chat-input");
+    fireEvent.click(screen.getByTestId("message-retry-rt-1"));
+    // chat-store sendText：chatSend(peer, "text", text, undefined, replyTo)
+    expect(mocks.send).toHaveBeenCalledWith(PEER, "text", "没发出去", undefined, "orig-9");
+    await act(async () =>
+      gate.resolve(sendReport(textMessage("rt-1", PEER, "没发出去", { status: "delivered" }))),
+    );
+    expect(within(bubbleArea()).getByTestId("message-status").textContent).toBe("已送达");
   });
 });
