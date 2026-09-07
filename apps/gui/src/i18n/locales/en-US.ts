@@ -1504,6 +1504,7 @@ const enUS: typeof zhCN = {
       columnGrantedAt: "Granted at",
       unlimitedModels: "All models",
       actionFailed: "Action failed",
+      count: "{{count}} borrowers",
     },
     borrow: {
       formTargetPeer: "Lender PeerId",

@@ -190,10 +190,19 @@ export function Composer({
   // 空内容/超长/发送中禁用（灰态）；可发送时按钮转微信绿。
   const sendActive = canSend && !disabled;
   return (
-    <div className="shrink-0 border-t border-border/60 bg-background px-3 pt-1 pb-2.5">
+    <div
+      className="shrink-0 border-t border-border/60 bg-background px-3 pt-1 pb-2.5"
+      onKeyDown={(event) => {
+        if (emojiOpen && event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          setEmojiOpen(false);
+        }
+      }}
+    >
       {replyTarget ? <ReplyPreview target={replyTarget} onCancel={onReplyCancel} /> : null}
       {emojiOpen ? (
-        <div className="mb-2">
+        <div className="mb-2" id="chat-emoji-picker">
           <EmojiPicker onPick={insertEmoji} />
         </div>
       ) : null}
@@ -204,6 +213,8 @@ export function Composer({
           size="icon"
           className="text-muted-foreground hover:text-foreground size-7 rounded-md"
           aria-label={t("chat.emoji")}
+          aria-expanded={emojiOpen}
+          aria-controls="chat-emoji-picker"
           disabled={disabled}
           onClick={() => setEmojiOpen((open) => !open)}
         >
@@ -276,7 +287,7 @@ export function Composer({
           disabled={!canSend || disabled}
           data-testid={ids.send}
         >
-          {t("chat.send")}
+          {sending ? t("settings.saveBar.saving") : t("chat.send")}
         </Button>
       </div>
     </div>

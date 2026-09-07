@@ -1480,6 +1480,7 @@ const zhCN = {
       columnGrantedAt: "授权时间",
       unlimitedModels: "不限模型",
       actionFailed: "操作失败",
+      count: "共 {{count}} 条借方",
     },
     borrow: {
       formTargetPeer: "出借方 PeerId",
