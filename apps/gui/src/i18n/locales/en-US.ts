@@ -167,7 +167,7 @@ const enUS: typeof zhCN = {
       reset: "Clear filters",
     },
     count: "{{count}} peers in total",
-    searchPlaceholder: "Search PeerId or address",
+    searchPlaceholder: "Search name, PeerId or address",
     moreAddrs: "+{{count}} more addresses",
     source: {
       mdns: "LAN",

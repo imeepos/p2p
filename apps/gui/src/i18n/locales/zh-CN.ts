@@ -162,7 +162,7 @@ const zhCN = {
       reset: "清除筛选",
     },
     count: "共 {{count}} 个节点",
-    searchPlaceholder: "搜索 PeerId 或地址",
+    searchPlaceholder: "搜索名称、PeerId 或地址",
     moreAddrs: "还有 {{count}} 个地址",
     source: {
       mdns: "局域网",
