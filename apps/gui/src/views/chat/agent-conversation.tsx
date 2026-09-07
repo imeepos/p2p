@@ -10,7 +10,7 @@ import {
   emptyInteraction,
 } from "@/acp/interaction-model";
 import type { AcpCloseInfo, PermissionOption } from "@/acp/protocol";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { Button } from "@/components/ui/button";
 import { PromptComposer } from "@/acp/components/prompt-composer";
 import { Transcript } from "@/acp/components/transcript";
