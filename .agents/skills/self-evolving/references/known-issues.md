@@ -361,3 +361,5 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-07 Radix Button asChild 下 data-testid 落在子元素本体
 - 症状：getByTestId("agent-edit-link").querySelector("a") 取到 null——asChild 把 props 合并到子元素，testid 就在渲染出的 <a> 上。
 - 修法：断言直接对 getByTestId(...) 本身做 tagName/href 检查。
+
+- 2026-09-07 UX-R2A 症状：vitest 单文件跑绿、全量跑出现「scrollIntoView is not a function」Unhandled Rejection 且计为 Errors——原因：其他测试文件触发了带 scrollIntoView 的校验路径而各自 jsdom 无 stub。修法：helper 内能力探测降级（typeof element.scrollIntoView === 'function'），或每个涉及文件 beforeEach stub HTMLElement.prototype.scrollIntoView（settings-focus-error.test 先例）。
