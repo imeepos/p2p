@@ -145,4 +145,22 @@ describe("data-watch（W1 前端单监听器）", () => {
     expect(useDataWatchStore.getState().degraded).toBe(true);
     expect(useDataWatchStore.getState().reason).toBe("bridge-closed");
   });
+
+  it("mock IPC 模式不安装监听不落盘，仅单次提示（终验遗留项 b）", async () => {
+    vi.stubEnv("VITE_MOCK_IPC", "1");
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await startDataWatch();
+      expect(listenMock).not.toHaveBeenCalled();
+      expect(invokeMock).not.toHaveBeenCalled();
+      expect(infoSpy).toHaveBeenCalledTimes(1);
+      expect(infoSpy.mock.calls[0][0]).toContain("[data-watch]");
+      expect(errorSpy).not.toHaveBeenCalled();
+    } finally {
+      infoSpy.mockRestore();
+      errorSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
 });

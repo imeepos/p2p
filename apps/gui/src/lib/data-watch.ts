@@ -158,6 +158,13 @@ async function logBoot(): Promise<void> {
 export async function startDataWatch(): Promise<void> {
   if (started) return;
   started = true;
+  // 终验遗留项 b（2026-09-07）：浏览器 mock 态无 Tauri runtime，invoke/listen
+  // 必然抛错并连炸两条 console.error。mock 下外部写入感知本就无处生效，
+  // 单次提示后停用（保可观测信号，不留每 boot 双报错噪音）。
+  if (import.meta.env.VITE_MOCK_IPC === "1") {
+    console.info("[data-watch] mock IPC 模式：外部写入感知停用（单次提示）");
+    return;
+  }
   void logBoot();
   try {
     const unChanged = await listen<DataChangedPayload>("data-changed", (event) => {
