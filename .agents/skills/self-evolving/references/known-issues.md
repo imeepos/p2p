@@ -381,3 +381,21 @@ failed: early eof（客户端侧超时中止）。
 - 症状：bash 工具里 node -e 动态 import 内建模块与 .mjs 脚本（含 import 内建）永久挂起、零输出；纯 console.log 正常；python/swift/cargo 正常；早期同会话 pnpm dev 又能起，后期 pnpm vitest 挂起。
 - 绕法：浏览器 CDP 改走 python 标准库 + Chrome --remote-debugging-pipe（fd3/fd4，NUL 分隔 JSON；pass_fds+preexec_fn 里 dup2 到 3/4）；桌面 GUI 验证改走 Swift AX 驱动；单测复核让仓库自身门禁承担，报告如实标注证据层级。
 - 另：run_code 里用 JS 模板字面量拼 shell 命令时，内容含 $() 、${VAR}、反引号或 ASCII 单引号都会炸解析/截断——长 shell 串一律单引号拼接 + 内容先经 tools.write 落盘再引用。
+
+## 2026-09-06 DSH bash 内 ~/.vite-plus/bin/{node,pnpm} shim 挂起（与 2026-09-07 node 挂起条同族）
+
+- 症状：bash 里 `node -v`、`pnpm -v` 永不返回，整条命令超时 SIGTERM（结果 exitCode=null、timedOut=true），输出停在 shim 调用点之前。
+- 原因：~/.vite-plus/bin/node 与 bin/pnpm 是指向 ~/.vite-plus/current/bin/vp 的 Mach-O 启动器（pnpm 脚本头 `#!/usr/bin/env node` 二跳仍命中坏 shim），在该执行环境内阻塞不退出；nvm 的真实 node 无此问题。
+- 修法：显式绝对路径用 ~/.nvm/versions/node/v24.14.1/bin/node；起 vite 用 `node <app>/node_modules/vite/bin/vite.js` 或程序化 createServer，勿直跑 node_modules/.bin 下的 env-node shim。同轮实证：nvm node 跑 .mjs（含 node:fs import）正常——先换真实二进制，再考虑上条 2026-09-07 的 pipe 方案。
+
+## 2026-09-06 裸 CDP evaluate 传箭头函数源码未自动调用，断言大面积假阴
+
+- 症状：17 项断言 16 项 FAIL 且 detail 全打印 {}；经 waitFor（正确包了一层）的项反而 PASS——假阴模式高度规律。
+- 原因：Runtime.evaluate 只吃表达式字符串；把箭头函数「源码」直接当表达式求值得到的是函数对象，returnByValue 序列化成 {}，后续 x===true / x===null 全 false，且全程零抛错不报异常。
+- 修法：驱动层统一约定「入参即函数源码，evalJs 内部自动 `"(" + SRC + ")()"` 再求值」；断言 detail 全 {} 先怀疑驱动层取回函数对象，别急着怀疑被测代码。
+
+## 2026-09-06 同 chrome profile 重跑吃到上轮 localStorage 写入，基线断言假红
+
+- 症状：storage-clean-before-skip 断言 FAIL（键值=0.2.0），一度误疑 mock/应用层。
+- 原因：上一轮驱动脚本 bug 误触「跳过此版本」，skipped-version 持久化进 user-data-dir 的 localStorage；同 profile 重跑基线自然不干净。
+- 修法：基线敏感断言（空→写入→清空）正式跑前 pkill chrome + rm -rf 其 user-data-dir 全新起；轮次间污染就作废重跑，不打补丁。

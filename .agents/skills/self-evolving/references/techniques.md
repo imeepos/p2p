@@ -417,3 +417,4 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - System Events 会把同 bundle id 的多个 app 实例 AX 树解析到同一实例（两份 p2p-console 时拿到错误窗口内容）——必须用 AXUIElementCreateApplication(pid) 直连（swiftc 小工具）。
 - React 受控输入：AXUIElementSetAttributeValue 设值成功但被受控值回弹；逐字符 CGEvent（US 键位表+shift 符号映射）可真实触发 onChange；JSON/特殊文本用写剪贴板+Cmd+V 最稳。
 - AppleScript 递归 dump AX 树：tell 块内调用自定义 handler 必须 my handler(...)，且按 unix id 过滤 process 在同名多实例时不可靠。
+- 2026-09-06 R2 复核：裸 CDP（Node ≥22 全局 WebSocket）配方补遗——PUT /json/new?about:blank 开靶（老版本回退 GET）；evaluate 只接受表达式，箭头函数源码必须自动包 `"(" + SRC + ")()"` 再求值（漏包=取回函数对象、detail 全 {} 假阴）；交互用 el.click() 与 scrollTop 直写 + dispatchEvent(new Event('scroll')) 双保险（原生 scroll 事件本就异步触发）；hash 路由间 Page.navigate 不触发 loadEventFired，就绪判定靠轮询目标 UI 而非等 load。

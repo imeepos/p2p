@@ -388,3 +388,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-07 UX-R2A EntityCombobox 是「只能选候选」型选择器，无自由输入能力：需要「选择器+自由文本兜底」时按 dial 带入同款形态（选择器回填旁边的 Input），别想着让 combobox 兼容手打。
 - 2026-09-07 UX-R2A 跨卡复用纪律的可操作口径：只 import 不 edit 不算触碰红线（CopyButton/isValidFriendPeerId 均跨目录 import 复用），但 import 前确认目标文件确实通用（无本卡业务耦合）。
 - 2026-09-07 UX-R2A 并行会话推进 main 后，在自己分支上跑 git diff main..HEAD 的 diffstat 会出现「他卡新增文件显示为被删」的假象：判断自己改动看 merge-base..HEAD，别被吓到去「恢复」别人的文件。
+- 2026-09-06 VERIFY 轮：断言大面积假阴且 detail 全是 {} 时先怀疑驱动层（evaluate 取回函数对象未调用），再怀疑被测代码。
+- 2026-09-06 VERIFY 轮：浏览器态基线断言（空→写入→清空）正式跑前作废旧 chrome profile 换全新 user-data-dir，同 profile 重跑必吃上轮残留。
+- 2026-09-06 VERIFY 轮：复核前先读仓库 docs/notes/ 同类交付报告，端口/CDP 端口/mock 开关的可用配方直接白拿。
