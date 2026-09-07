@@ -378,6 +378,11 @@ const zhCN = {
     title: "消息中心",
     description: "入群邀请与好友邀请统一处理",
     badgeAria: "{{count}} 条待处理邀请",
+    view: { pending: "待处理", history: "历史消息" },
+    history: {
+      friendEmpty: "好友邀请暂无历史记录",
+      friendEmptyDesc: "好友邀请收件箱仅保留待处理条目，处理后即从列表移除",
+    },
     section: { groups: "入群邀请", friends: "好友邀请" },
     direction: { in: "收到的", out: "发出的" },
     state: {

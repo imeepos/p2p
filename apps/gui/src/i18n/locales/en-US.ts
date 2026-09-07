@@ -388,6 +388,12 @@ const enUS: typeof zhCN = {
     title: "Messages",
     description: "Group invites and friend invites in one place",
     badgeAria: "{{count}} pending invites",
+    view: { pending: "Pending", history: "History" },
+    history: {
+      friendEmpty: "No friend invite history",
+      friendEmptyDesc:
+        "The friend invite inbox keeps pending items only; resolved items are removed",
+    },
     section: { groups: "Group invites", friends: "Friend invites" },
     direction: { in: "Received", out: "Sent" },
     state: {

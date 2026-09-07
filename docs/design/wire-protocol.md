@@ -65,6 +65,7 @@
 | `/p2p-base/circuit/1` | 中继电路数据桥接（密文透传） | 已实现（crates/p2p-relay/src/circuit.rs、state.rs） |
 | `/repair/mcp/1` | repair-helper 与 repair-bridge 的 MCP stdio 字节隧道 | repair-bridge 哑泵（T20） |
 | `/dsh-acp/1` | ACP 桥握手 + ndjson 字节透传（acp-agent/acp-console） | 常量已登记；桥随 ACP 波落地（acp-over-p2p-design.md） |
+| /llm-share/redeem/1 | 分享链接兑换：请求 {token}，响应 ok/结构化拒绝码（llm-share-link-design v2） | 已登记；实现随 llm-share-link 波落地 |
 
 业务协议 ID（如 `/myapp/chat/1`）与内置 ID 使用完全相同的注册与路由机制，无特权差别。
 
