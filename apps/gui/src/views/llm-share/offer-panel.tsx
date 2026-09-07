@@ -20,17 +20,29 @@ import {
   type OfferFormValues,
 } from "./offer-form";
 import { isOfferNotPublished, warnOfferLoadOnce } from "./offer-errors";
+import { focusFirstInvalidField } from "./focus-first-error";
 import { OfferStatusCard } from "./offer-status-card";
 import type { LlmOfferView, LlmShareBackend } from "./types";
 
-function FieldError({ messageKey }: { messageKey?: I18nKey }) {
+function FieldError({ messageKey, htmlId }: { messageKey?: I18nKey; htmlId?: string }) {
   const { t } = useTranslation();
   if (!messageKey) return null;
   return (
-    <p role="alert" className="text-destructive text-xs">
+    <p role="alert" id={htmlId} className="text-destructive text-xs">
       {t(messageKey)}
     </p>
   );
+}
+
+// R2-12：字段 id → 错误键映射（聚焦顺序 = 表单视觉顺序；limits 归属 RPM 输入）
+function fieldErrorOf(errors: OfferErrors): Partial<Record<string, I18nKey>> {
+  return {
+    "llm-offer-models": errors.models,
+    "llm-offer-spare": errors.spare,
+    "llm-offer-period": errors.periodEnds,
+    "llm-offer-maxperreq": errors.maxPerReq,
+    "llm-offer-rpm": errors.limits,
+  };
 }
 
 export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
@@ -91,6 +103,9 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
     event.preventDefault();
     const validation = validateOfferForm(values);
     setErrors(validation.errors);
+    // R2-12：校验失败聚焦第一个错误字段（与 aria-invalid 同源判定）
+    const fieldErrors = fieldErrorOf(validation.errors);
+    focusFirstInvalidField(Object.keys(fieldErrors), (id) => fieldErrors[id] != null);
     if (!validation.req) return;
     setBusy(true);
     setPublishError(null);
@@ -123,8 +138,10 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                 value={values.modelsText}
                 onChange={(e) => set("modelsText")(e.target.value)}
                 placeholder={t("llmShare.offer.formModelsPlaceholder")}
+                aria-invalid={errors.models ? true : undefined}
+                aria-describedby={errors.models ? "llm-offer-models-error" : undefined}
               />
-              <FieldError messageKey={errors.models} />
+              <FieldError messageKey={errors.models} htmlId="llm-offer-models-error" />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="llm-offer-spare">{t("llmShare.offer.formSpare")}</Label>
@@ -134,8 +151,10 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                 value={values.spareText}
                 onChange={(e) => set("spareText")(e.target.value)}
                 placeholder={t("llmShare.offer.formSparePlaceholder")}
+                aria-invalid={errors.spare ? true : undefined}
+                aria-describedby={errors.spare ? "llm-offer-spare-error" : undefined}
               />
-              <FieldError messageKey={errors.spare} />
+              <FieldError messageKey={errors.spare} htmlId="llm-offer-spare-error" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
@@ -145,8 +164,10 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                   type="date"
                   value={values.periodEnds}
                   onChange={(e) => set("periodEnds")(e.target.value)}
+                  aria-invalid={errors.periodEnds ? true : undefined}
+                  aria-describedby={errors.periodEnds ? "llm-offer-period-error" : undefined}
                 />
-                <FieldError messageKey={errors.periodEnds} />
+                <FieldError messageKey={errors.periodEnds} htmlId="llm-offer-period-error" />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-offer-maxperreq">{t("llmShare.offer.formMaxPerReq")}</Label>
@@ -155,14 +176,22 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                   value={values.maxPerReqText}
                   onChange={(e) => set("maxPerReqText")(e.target.value)}
                   placeholder={t("llmShare.offer.formMaxPerReqPlaceholder")}
+                  aria-invalid={errors.maxPerReq ? true : undefined}
+                  aria-describedby={errors.maxPerReq ? "llm-offer-maxperreq-error" : undefined}
                 />
-                <FieldError messageKey={errors.maxPerReq} />
+                <FieldError messageKey={errors.maxPerReq} htmlId="llm-offer-maxperreq-error" />
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-offer-rpm">{t("llmShare.offer.formRpm")}</Label>
-                <Input id="llm-offer-rpm" value={values.rpm} onChange={(e) => set("rpm")(e.target.value)} />
+                <Input
+                  id="llm-offer-rpm"
+                  value={values.rpm}
+                  onChange={(e) => set("rpm")(e.target.value)}
+                  aria-invalid={errors.limits ? true : undefined}
+                  aria-describedby={errors.limits ? "llm-offer-limits-error" : undefined}
+                />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-offer-concurrency">{t("llmShare.offer.formConcurrency")}</Label>
@@ -177,7 +206,21 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
                 <Input id="llm-offer-ttl" value={values.ttl} onChange={(e) => set("ttl")(e.target.value)} />
               </div>
             </div>
-            <FieldError messageKey={errors.limits} />
+            {/* R2-15：留存自述渲染（可选输入 + 用途说明），此前键在而字段缺渲染 */}
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="llm-offer-retention">{t("llmShare.offer.formRetention")}</Label>
+              <Input
+                id="llm-offer-retention"
+                value={values.retention}
+                onChange={(e) => set("retention")(e.target.value)}
+                placeholder="none"
+                aria-describedby="llm-offer-retention-hint"
+              />
+              <p id="llm-offer-retention-hint" className="text-muted-foreground text-xs">
+                {t("llmShare.offer.formRetentionHint")}
+              </p>
+            </div>
+            <FieldError messageKey={errors.limits} htmlId="llm-offer-limits-error" />
             {publishError ? (
               <p role="alert" className="text-destructive text-xs">
                 {t("llmShare.offer.publishFailed")}: {publishError}

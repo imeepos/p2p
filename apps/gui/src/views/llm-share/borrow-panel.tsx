@@ -21,6 +21,7 @@ import {
 } from "./borrow-form";
 import { BorrowReportCard } from "./borrow-report";
 import { notifyLedgerMutated } from "./ledger-sync";
+import { focusFirstInvalidField } from "./focus-first-error";
 import { PeerIdField } from "./peer-id-field";
 import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
 import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";
@@ -102,6 +103,14 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
     event.preventDefault();
     const validation = validateBorrowForm(values);
     setErrors(validation.errors);
+    // R2-12：校验失败聚焦第一个错误字段（与 aria-invalid 同源判定）
+    const fieldErrors: Partial<Record<string, unknown>> = {
+      "llm-borrow-peer": validation.errors.targetPeer,
+      "llm-borrow-model": validation.errors.model,
+      "llm-borrow-maxtokens": validation.errors.maxTokens,
+      "llm-borrow-messages": validation.errors.messages,
+    };
+    focusFirstInvalidField(Object.keys(fieldErrors), (id) => fieldErrors[id] != null);
     if (!validation.req) return;
     const id = reqId ?? newReqId();
     if (id !== reqId) setReqId(id);
@@ -163,9 +172,11 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                   id="llm-borrow-model"
                   value={values.model}
                   onChange={(e) => set("model")(e.target.value)}
+                  aria-invalid={errors.model ? true : undefined}
+                  aria-describedby={errors.model ? "llm-borrow-model-error" : undefined}
                 />
                 {errors.model ? (
-                  <p role="alert" className="text-destructive text-xs">
+                  <p role="alert" id="llm-borrow-model-error" className="text-destructive text-xs">
                     {t(errors.model)}
                   </p>
                 ) : null}
@@ -178,13 +189,16 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                   value={values.maxTokensText}
                   onChange={(e) => set("maxTokensText")(e.target.value)}
                   placeholder={t("llmShare.borrow.formMaxTokensPlaceholder")}
-                  aria-describedby="llm-borrow-maxtokens-hint"
+                  aria-describedby={
+                    errors.maxTokens ? "llm-borrow-maxtokens-error" : "llm-borrow-maxtokens-hint"
+                  }
+                  aria-invalid={errors.maxTokens ? true : undefined}
                 />
                 <p id="llm-borrow-maxtokens-hint" className="text-muted-foreground text-xs">
                   {t("llmShare.borrow.formMaxTokensHint")}
                 </p>
                 {errors.maxTokens ? (
-                  <p role="alert" className="text-destructive text-xs">
+                  <p role="alert" id="llm-borrow-maxtokens-error" className="text-destructive text-xs">
                     {t(errors.maxTokens)}
                   </p>
                 ) : null}
@@ -198,13 +212,16 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                 value={values.messages}
                 onChange={(e) => set("messages")(e.target.value)}
                 placeholder={t("llmShare.borrow.formMessagesPlaceholder")}
-                aria-describedby="llm-borrow-messages-hint"
+                aria-describedby={
+                  errors.messages ? "llm-borrow-messages-error" : "llm-borrow-messages-hint"
+                }
+                aria-invalid={errors.messages ? true : undefined}
               />
               <p id="llm-borrow-messages-hint" className="text-muted-foreground text-xs">
                 {t("llmShare.borrow.formMessagesHint")}
               </p>
               {errors.messages ? (
-                <p role="alert" className="text-destructive text-xs">
+                <p role="alert" id="llm-borrow-messages-error" className="text-destructive text-xs">
                   {t(errors.messages)}
                 </p>
               ) : null}
@@ -212,6 +229,12 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
             {submitError ? (
               <p role="alert" className="text-destructive text-xs">
                 {submitError}
+              </p>
+            ) : null}
+            {/* R2-14：LLM 调用为长耗时动作，处理中给行内状态反馈（aria-live） */}
+            {busy ? (
+              <p role="status" aria-live="polite" className="text-muted-foreground text-xs" data-testid="borrow-calling">
+                {t("llmShare.borrow.calling")}
               </p>
             ) : null}
             <div className="flex gap-2">

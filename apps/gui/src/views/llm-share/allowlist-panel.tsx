@@ -24,6 +24,7 @@ import { EmptyState } from "@/views/shared/empty-state";
 import { PeerNameCell } from "@/views/shared/peer-name-cell";
 import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
 
+import { focusFirstInvalidField } from "./focus-first-error";
 import { PeerIdField } from "./peer-id-field";
 
 import type { LlmAllowEntry, LlmShareBackend } from "./types";
@@ -136,7 +137,10 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
   const handleAllow = (event: FormEvent) => {
     event.preventDefault();
     setPeerTouched(true);
-    if (peerErrorKey) return;
+    // R2-12：与 aria-invalid 同源判定，聚焦错误字段（当前仅 PeerId 一项）
+    const error = peerErrorKeyOf(form.peerId, true);
+    focusFirstInvalidField(["llm-allow-peer"], () => error != null);
+    if (error) return;
     void runAction(async () => {
       await backend.allow({
         peerId: form.peerId.trim(),
