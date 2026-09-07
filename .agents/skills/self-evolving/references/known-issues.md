@@ -7,6 +7,12 @@
 - 原因：beforeEach 的 localStorage.clear() + resetConsoleState() 都不清 in-memory store 的 draft/saved（resetConsoleState 只清连接态面）；同文件前序用例经 upsertSaved 留下的 draft（含 token）被新用例的 useState(draft) 继承，validate 直接通过。
 - 修法：依赖表单初值的用例必须在用例内显式 setState/填充被测字段（哪怕值是空串），或 beforeEach 显式 useAcpStore.setState({ draft: EMPTY_DRAFT, saved: [] })；「单文件重跑绿、全量红（或反之）」先怀疑 store 模块级状态残留而非代码逻辑。
 
+## 2026-09-07 UX-R2C：run_code 里给 edit/write 传 JSX/引号密集内容，模板字面量与转义引号都会炸解析
+- 症状：同一段 edit 调用，反引号模板串传 new_string 报 Unterminated template；单引号串加反斜杠转义引号报 Expected unicode escape / Expected comma got hash；三种报错都不指向真实原因。
+- 原因：run_code 的 code 传输层对特定转义序列/多行模板敏感，报错与真实内容无关；CJK+JSX+引号混排必炸。
+- 修法：数组按行存内容（行内裸双引号，外层单引号），join 换行后传参；绝不内嵌反引号模板、绝不反斜杠转义引号。另：read 后立刻 edit 同一文件（worktree 路径变化即视为未读）。
+
+
 ## 2026-09-07 UX-K：Radix Tabs 用 fireEvent.click 不切换，且非激活 Content 以 hidden 空壳留在 DOM
 - 症状：弹窗内 Tabs 点触发器后 aria-selected 仍 false；断言「内容存在」却通过（getByTestId 命中 hidden 空壳），下游子元素断言才失败，误导排查方向。
 - 原因：@radix-ui/react-tabs 1.1.x 触发器在 onMouseDown 里 onValueChange（click 不是激活事件）；TabsContent 非激活时不卸载而是 hidden+不渲染 children。
