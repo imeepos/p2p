@@ -32,7 +32,8 @@ chat_invite_cancel	mapped	chat friends invites cancel
 chat_friend_update	mapped	chat friends update	
 chat_history	mapped	chat history	
 chat_send	mapped	chat send	
-chat_media_file	mapped	chat media file	
+chat_media_file	mapped	chat media file
+chat_media_export	exempt		桌面壳专属：来源为本端落盘附件、目标路径出自系统保存对话框、进度走 IPC Channel，CLI 无文件对话框与 webview 进度通道，提供对等子命令无意义（同 acp_console_status 豁免先例）
 group_create	mapped	group create	
 group_list	mapped	group list	
 group_invite	mapped	group invite	

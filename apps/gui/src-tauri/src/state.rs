@@ -47,6 +47,7 @@ pub struct StartedNode {
 
 /// 全局应用状态：Tauri managed。
 pub struct AppState {
+    app_data_dir: PathBuf,
     running: Mutex<Option<RunningNode>>,
     config: ConfigStore,
     profile: ProfileStore,
@@ -56,11 +57,17 @@ pub struct AppState {
 impl AppState {
     pub fn new(app_data_dir: PathBuf) -> Self {
         Self {
+            app_data_dir: app_data_dir.clone(),
             running: Mutex::new(None),
             config: ConfigStore::new(app_data_dir.clone()),
             profile: ProfileStore::new(app_data_dir.clone()),
             chat: chat::ChatSlot::new(app_data_dir),
         }
+    }
+
+    /// 应用数据目录（chat 媒体落盘根；媒体导出来源校验用）。
+    pub(crate) fn data_dir(&self) -> &Path {
+        &self.app_data_dir
     }
 
     /// node_start：已运行 Err；成功后占槽并注册 echo handler、订阅事件。
