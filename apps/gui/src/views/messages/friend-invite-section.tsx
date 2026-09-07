@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { UserRoundPlus } from "lucide-react";
 
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { CopyButton } from "@/components/feedback/copy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,8 @@ export function FriendInviteSection() {
   const locale = i18n.language as Locale;
   const navigate = useNavigate();
   const invites = useChatStore((s) => s.invites);
+  const invitesError = useChatStore((s) => s.invitesError);
+  const loadInvites = useChatStore((s) => s.loadInvites);
   const acceptInvite = useChatStore((s) => s.acceptInvite);
   const rejectInvite = useChatStore((s) => s.rejectInvite);
   const cancelInvite = useChatStore((s) => s.cancelInvite);
@@ -86,8 +89,19 @@ export function FriendInviteSection() {
   return (
     <section data-testid="messages-friend-section" className="flex flex-col gap-2">
       <h2 className="text-sm font-semibold">{t("messages.section.friends")}</h2>
-      {rows.length === 0 ? (
+      {invitesError ? (
+        <CommandErrorText
+          message={invitesError}
+          prefix={t("messages.error.listLoadFailed")}
+          testId="messages-friend-list-error"
+        />
+      ) : rows.length === 0 ? (
         <EmptyState icon={UserRoundPlus} title={t("messages.empty.friends")} />
+      ) : null}
+      {invitesError ? (
+        <Button type="button" variant="outline" size="sm" onClick={() => void loadInvites()}>
+          {t("picker.retry")}
+        </Button>
       ) : null}
       <div className="flex flex-col gap-2">
         {rows.map((invite) => {

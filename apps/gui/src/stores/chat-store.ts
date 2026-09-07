@@ -26,6 +26,7 @@ let subscriptionStarted = false;
 // errorOf 由切片模块导出共用，避免双份定义。
 export interface ChatStoreState extends GroupInviteSlice {
   invites: FriendInviteJson[];
+  invitesError: string | null;
   friends: ChatFriendJson[];
   friendsLoaded: boolean;
   friendsError: string | null;
@@ -68,6 +69,7 @@ export interface ChatStoreState extends GroupInviteSlice {
 export const useChatStore = create<ChatStoreState>()((set, get) => ({
   ...createGroupInviteSlice(set, get),
   invites: [],
+  invitesError: null,
   friends: [],
   friendsLoaded: false,
   friendsError: null,
@@ -84,9 +86,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   loadInvites: async () => {
     try {
       const invites = await ipc.chatInvitesList();
-      set({ invites });
+      set({ invites, invitesError: null });
     } catch (error) {
-      console.warn("[chat] 拉取邀请列表失败", error);
+      const detail = errorOf(error);
+      console.error("[chat] 拉取邀请列表失败", detail);
+      set({ invitesError: detail });
     }
   },
 
