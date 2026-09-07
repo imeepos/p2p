@@ -30,7 +30,9 @@ async fn spawn(tag: &str) -> (SocketAddr, String) {
     std::fs::create_dir_all(&cfg.data_dir).expect("tmp dir");
     let audit = Arc::new(CaptureAudit::new());
     let policy = Arc::new(StdRwLock::new(PolicyTable::new()));
-    let service = ShareService::open(&cfg, policy, audit).expect("service");
+    let workspaces =
+        std::sync::Arc::new(crate::workspaces::WorkspaceStore::open_for_config(&cfg).unwrap());
+    let service = ShareService::open(&cfg, workspaces.clone(), policy, audit).expect("service");
     let token = AdminToken::issue(cfg.paths().admin_token()).expect("token file");
     let value = token.value.clone();
     let server = AdminServer::start(
@@ -42,7 +44,7 @@ async fn spawn(tag: &str) -> (SocketAddr, String) {
                 peer: "PEER_CORS_TEST".to_owned(),
                 addrs: vec!["/ip4/127.0.0.1/udp/4001/quic-v1".to_owned()],
             },
-            workspaces: Vec::new(),
+            workspaces,
         },
     )
     .await

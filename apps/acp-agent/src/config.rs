@@ -72,6 +72,8 @@ pub struct AgentConfig {
     pub admin_port: u16,
     /// 关闭本地 admin HTTP（设计 §5 --admin-disabled）。
     pub admin_disabled: bool,
+    /// 关闭本机自描述落盘（临时/测试实例必须置位，防覆盖生产 local-agent.json）。
+    pub descriptor_disabled: bool,
 }
 
 impl Default for AgentConfig {
@@ -96,6 +98,7 @@ impl Default for AgentConfig {
             mcp_definitions_path: None,
             admin_port: 0,
             admin_disabled: false,
+            descriptor_disabled: false,
         }
     }
 }

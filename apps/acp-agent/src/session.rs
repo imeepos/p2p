@@ -19,6 +19,7 @@ use crate::conn;
 use crate::gate::{ConnGate, ConnGuard, GateLimits};
 use crate::pump::{read_wire_line, wire_error, write_wire_line};
 use crate::share::{RedeemOutcome, ShareService};
+use crate::workspaces::WorkspaceStore;
 
 /// 握手读超时：无超时则慢速流可在占坑后永久挂起。
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -30,6 +31,8 @@ pub struct SessionDeps {
     pub gate: Arc<ConnGate>,
     pub slots: Arc<SlotBook>,
     pub audit: Arc<dyn AuditSink>,
+    /// 工作区动态表（admin 增删实时生效；jail 与分享校验同源）。
+    pub workspaces: Arc<WorkspaceStore>,
 }
 
 /// 装配期存储错误：策略表与分享台账任一损坏都拒启（禁止静默回退）。
@@ -39,6 +42,8 @@ pub enum AssembleError {
     Policy(#[from] acp_common::PolicyStoreError),
     #[error("share ledger load: {0}")]
     Shares(#[from] acp_common::ShareStoreError),
+    #[error("workspace store load: {0}")]
+    Workspaces(#[from] crate::workspaces::WorkspaceStoreError),
 }
 
 impl SessionDeps {
@@ -50,7 +55,9 @@ impl SessionDeps {
     ) -> Result<Arc<Self>, AssembleError> {
         let table = crate::policy::load(&config.policy_path())?;
         let policy = Arc::new(StdRwLock::new(table));
-        let shares = ShareService::open(&config, policy.clone(), audit.clone())?;
+        let workspaces = Arc::new(WorkspaceStore::open_for_config(&config)?);
+        let shares =
+            ShareService::open(&config, workspaces.clone(), policy.clone(), audit.clone())?;
         Ok(Arc::new(Self {
             policy,
             shares: Arc::new(shares),
@@ -58,6 +65,7 @@ impl SessionDeps {
             slots: Arc::new(SlotBook::new()),
             config,
             audit,
+            workspaces,
         }))
     }
 }

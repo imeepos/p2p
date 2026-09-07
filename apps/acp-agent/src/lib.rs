@@ -20,9 +20,13 @@ pub(crate) mod router;
 pub mod session;
 pub mod share;
 pub mod subprocess;
+pub mod workspaces;
+#[cfg(test)]
+mod workspaces_tests;
 
 pub use audit::{AuditEvent, AuditSink, CaptureAudit, TracingAudit};
 pub use config::{AgentConfig, ConfigError, WorkspaceDef, DEFAULT_WORKSPACE_ID};
 pub use handler::AcpHandler;
 pub use session::SessionDeps;
 pub use share::{LinkContext, RedeemOutcome, ShareService};
+pub use workspaces::{WorkspaceStore, WorkspaceStoreError};
