@@ -1175,8 +1175,15 @@ const zhCN = {
     inviteBadge: {
       aria: "{{count}} 条待处理好友邀请",
     },
+    tree: {
+      toggle: "展开或收起分区",
+      search: "搜索",
+    },
     inviteInbox: {
       title: "待处理好友邀请",
+      treeTitle: "新的朋友",
+      empty: "暂无新的朋友",
+      pendingIn: "请求添加你为好友",
       nicknameLabel: "备注昵称（可选）",
       accept: "接受",
       reject: "拒绝",
@@ -1184,6 +1191,21 @@ const zhCN = {
       rejectFailed: "拒绝邀请失败：",
       rejectFailedToast: "拒绝邀请失败",
       nicknameTooLong: "昵称 trim 后不能超过 64 字符",
+    },
+    detail: {
+      emptyTitle: "选择一个联系人",
+      emptyHint: "从左侧列表选择好友、群聊或 Agent 查看资料",
+      peerId: "ID",
+      remark: "备注",
+      noRemark: "未设置",
+      group: "分组",
+      members: "成员数",
+      role: "角色",
+      status: "状态",
+      source: "来源",
+      sourceInvite: "好友邀请",
+      addTime: "添加时间",
+      pendingIn: "待你接受",
     },
     friends: {
       empty: "还没有好友",
