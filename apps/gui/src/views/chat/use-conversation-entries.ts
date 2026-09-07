@@ -8,12 +8,13 @@ import {
   agentEntry,
   friendEntry,
   groupEntry,
-  sortEntries,
   visibleGroups,
   type ConversationEntry,
   type PreviewLabels,
 } from "@/lib/conversation-entry";
+import { applyConversationPrefs } from "@/lib/conversation-overlay";
 import { useChatStore } from "@/stores/chat-store";
+import { useConversationPrefsStore } from "@/stores/conversation-prefs-store";
 import { useGroupStore } from "@/stores/group-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 
@@ -53,6 +54,8 @@ export function useConversationEntries(): ConversationEntry[] {
   const unreadByEndpoint = useAcpStore((s) => s.unreadByEndpoint);
   const promptPendingBySession = useAcpStore((s) => s.promptPendingBySession);
   const showInactiveGroups = useUiPrefsStore((s) => s.showInactiveGroups);
+  const convFlags = useConversationPrefsStore((s) => s.flags);
+  const dismissedAt = useConversationPrefsStore((s) => s.dismissedAt);
 
   return useMemo(() => {
     const labels: PreviewLabels = {
@@ -110,11 +113,16 @@ export function useConversationEntries(): ConversationEntry[] {
         labels,
       });
     });
-    return sortEntries([...friendEntries, ...groupEntries, ...agentEntries]);
+    // 右键菜单偏好在列表层统一覆盖：删除/不显示过滤、标为未读抬底、置顶分区
+    return applyConversationPrefs(
+      [...friendEntries, ...groupEntries, ...agentEntries],
+      { flags: convFlags, dismissedAt },
+    );
   }, [
     t, friends, lastMessageByPeer, unreadByPeer, groups, groupFriends,
     lastMessageByGroup, unreadByGroup, selfPeerId, saved, phase,
     activeEndpointId, activeSessionId, transcripts, lastInteractionByEndpoint,
     unreadByEndpoint, promptPendingBySession, showInactiveGroups,
+    convFlags, dismissedAt,
   ]);
 }

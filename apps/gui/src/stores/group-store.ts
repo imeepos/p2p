@@ -50,6 +50,8 @@ export interface GroupStoreState {
   loadGroups: () => Promise<void>;
   ensureFriends: () => Promise<void>;
   selectGroup: (groupId: string) => Promise<void>;
+  /** 右键菜单「标为已读」：不改选中态仅清未读 */
+  markGroupRead: (groupId: string) => void;
   loadOlder: (groupId: string) => Promise<void>;
   sendText: (groupId: string, text: string, replyTo?: string | null) => Promise<GroupSendReport>;
   sendMedia: (
@@ -152,6 +154,11 @@ export const useGroupStore = create<GroupStoreState>()((set, get) => ({
     } finally {
       set((s) => ({ historyLoading: { ...s.historyLoading, [groupId]: false } }));
     }
+  },
+
+  markGroupRead: (groupId) => {
+    if (!get().unreadByGroup[groupId]) return;
+    set((s) => ({ unreadByGroup: { ...s.unreadByGroup, [groupId]: 0 } }));
   },
 
   loadOlder: async (groupId) => {

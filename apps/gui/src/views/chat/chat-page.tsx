@@ -11,6 +11,7 @@ import { usePendingInviteItems } from "@/views/chat/use-pending-invites";
 import { ChatEmptyState } from "@/views/chat/chat-empty-state";
 import type { ConversationEntry } from "@/lib/conversation-entry";
 import { useChatStore } from "@/stores/chat-store";
+import { conversationKey, useConversationPrefsStore } from "@/stores/conversation-prefs-store";
 import { useGroupStore } from "@/stores/group-store";
 import { NARROW_CHAT_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 
@@ -50,6 +51,7 @@ export function ChatPage() {
   const selectGroup = useGroupStore((s) => s.selectGroup);
   const subscribeGroupEvents = useGroupStore((s) => s.subscribeEvents);
   const [manageOpen, setManageOpen] = useState(false);
+  const setManualUnread = useConversationPrefsStore((s) => s.setManualUnread);
 
   useEffect(() => {
     void loadFriends();
@@ -108,6 +110,8 @@ export function ChatPage() {
   }, [kindParam, peerParam, groupParam, agentParam, entries, setSearchParams]);
 
   const selectEntry = (entry: ConversationEntry) => {
+    // 打开即已读：清「标为未读」旗标（store 未读由 selectPeer/selectGroup 清零）
+    setManualUnread(conversationKey(entry.kind, entry.id), false);
     const key = entry.kind === "friend" ? "peer" : entry.kind === "group" ? "group" : "agent";
     setSearchParams(
       (prev) => {
