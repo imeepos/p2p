@@ -366,7 +366,15 @@ const enUS: typeof zhCN = {
       chatGroupInvite: "Group invite: {{name}} ({{state}})",
     },
     outcome: { ok: "ok", fail: "failed" },
-    detail: { payload: "Raw payload", receivedAt: "Received at" },
+    // R2-16: raw payload collapsed by default with "copy details" (F27 style)
+    detail: {
+      payload: "Raw payload",
+      receivedAt: "Received at",
+      showJson: "Expand JSON",
+      hideJson: "Collapse JSON",
+      copyDetails: "Copy details",
+      copied: "Details copied",
+    },
   },
   messages: {
     title: "Messages",

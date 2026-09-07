@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -34,6 +34,17 @@ function renderRow(payload: NodeEventJson = event) {
   return { onToggle, view };
 }
 
+const JSON_TEXT = /"type": "dial_failed"/;
+
+async function expandDetail() {
+  render(<Harness payload={event} />);
+  fireEvent.click(screen.getByTestId("event-row-details"));
+  expect(screen.getByTestId("event-row-details")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+}
+
 describe("EventRow 展开反馈（F16）", () => {
   it("收起态：data-state=closed，无详情负载", () => {
     renderRow();
@@ -49,7 +60,7 @@ describe("EventRow 展开反馈（F16）", () => {
     expect(onToggle).toHaveBeenCalledWith(event);
   });
 
-  it("行尾「详情」按钮展开：data-state=open + aria-expanded + 负载可见", () => {
+  it("行尾「详情」按钮展开：data-state=open + aria-expanded", () => {
     render(<Harness payload={event} />);
     const details = screen.getByTestId("event-row-details");
     expect(details).toHaveAttribute("aria-expanded", "false");
@@ -57,19 +68,52 @@ describe("EventRow 展开反馈（F16）", () => {
     const row = screen.getByTestId("event-row-details").closest("[data-state]");
     expect(row).toHaveAttribute("data-state", "open");
     expect(details).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByText(/"type": "dial_failed"/)).toBeInTheDocument();
+  });
+});
+
+// R2-16 回归：原始负载 JSON 默认折叠，提供展开切换与「复制详情」。
+describe("EventRowDetail 负载折叠与复制（R2-16）", () => {
+  it("详情展开后原始负载默认折叠，不直排 JSON 原文", async () => {
+    await expandDetail();
+    expect(screen.getByText("原始负载")).toBeInTheDocument();
+    expect(screen.queryByText(JSON_TEXT)).toBeNull();
   });
 
-  it("收起再展开状态一致：负载内容不变", () => {
-    render(<Harness payload={event} />);
-    const details = screen.getByTestId("event-row-details");
-    const payloadOf = () =>
-      screen.getByText(/"type": "dial_failed"/).textContent;
-    fireEvent.click(details);
+  it("「展开 JSON/收起 JSON」切换可见性与 aria-expanded", async () => {
+    await expandDetail();
+    const toggle = screen.getByTestId("event-detail-json-toggle");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(JSON_TEXT)).toBeNull();
+    fireEvent.click(toggle);
+    expect(screen.getByText(JSON_TEXT)).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("收起 JSON")).toBeInTheDocument();
+    fireEvent.click(toggle);
+    expect(screen.queryByText(JSON_TEXT)).toBeNull();
+  });
+
+  it("「复制详情」写入完整 JSON 负载（折叠态同样可复制）", async () => {
+    await expandDetail();
+    const writeText = vi.fn(async () => undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    fireEvent.click(screen.getByTestId("event-detail-copy"));
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    const written = String(writeText.mock.calls[0]?.[0]);
+    expect(JSON.parse(written)).toMatchObject({
+      type: "dial_failed",
+      reason: "timeout",
+    });
+  });
+
+  it("收起再展开状态一致：负载内容不变", async () => {
+    await expandDetail();
+    fireEvent.click(screen.getByTestId("event-detail-json-toggle"));
+    const payloadOf = () => screen.getByText(JSON_TEXT).textContent;
     const first = payloadOf();
-    fireEvent.click(details);
-    expect(screen.queryByText(/"type": "dial_failed"/)).toBeNull();
-    fireEvent.click(details);
+    fireEvent.click(screen.getByTestId("event-row-details"));
+    expect(screen.queryByText(JSON_TEXT)).toBeNull();
+    fireEvent.click(screen.getByTestId("event-row-details"));
+    fireEvent.click(screen.getByTestId("event-detail-json-toggle"));
     expect(payloadOf()).toBe(first);
   });
 });

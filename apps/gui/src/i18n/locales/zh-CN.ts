@@ -356,7 +356,15 @@ const zhCN = {
       chatGroupInvite: "入群邀请：{{name}}（{{state}}）",
     },
     outcome: { ok: "成功", fail: "失败" },
-    detail: { payload: "原始负载", receivedAt: "接收时间" },
+    // R2-16：原始负载默认折叠 +「复制详情」（F27 口径）
+    detail: {
+      payload: "原始负载",
+      receivedAt: "接收时间",
+      showJson: "展开 JSON",
+      hideJson: "收起 JSON",
+      copyDetails: "复制详情",
+      copied: "详情已复制",
+    },
   },
   messages: {
     title: "消息中心",
