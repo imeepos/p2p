@@ -432,3 +432,4 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - src-tauri 接 apps/ 下 crate 的 path 依赖是 ../../../apps/<crate>（src-tauri 在 apps/gui/ 下，三层 ../ 只到仓库根）。
 - eslint react-hooks/set-state-in-effect 强制生效：effect 内直接 setState 重置状态会红；用仓库惯用的「渲染期状态调整」（cached 值比对 + 条件 setState）替代。
 - vite 首跑后 node_modules 由主树共享（pnpm-workspace），worktree 里 GUI vitest 无需重新 install。
+- 纠正前条「worktree 无需 install」：新 worktree 的 apps/gui 下并没有 node_modules，tsc/vitest/eslint 直接报缺依赖；要先软链两处——根 node_modules 与 apps/gui/node_modules 指回主树对应目录（2026-09-07 WX1 会话实测，typecheck/test/build 全过）。
