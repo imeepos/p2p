@@ -250,4 +250,24 @@ describe("回复消息 GUI", () => {
     expect(quote.className).toContain("line-clamp-2");
     expect(quote.className).toContain("overflow-wrap");
   });
+
+  it("回复按钮锚定气泡列空白侧：绝不悬出行边界（横向滚动条零容忍）", async () => {
+    await mountWithHistory([
+      textMessage("hb-them", PEER, "他们的消息", { sender: "them", tsMs: 1000 }),
+      textMessage("hb-me", PEER, "我的消息", { sender: "me", tsMs: 2000, status: "delivered" }),
+    ]);
+    const themBtn = screen.getByTestId("message-reply-hb-them");
+    const meBtn = screen.getByTestId("message-reply-hb-me");
+    // 按钮必须挂在气泡列（relative）内部，锚定后落在行内空白侧；
+    // 旧实现锚定整行 left-full，me 侧按钮越出滚动域右缘撑出横向滚动条。
+    for (const btn of [themBtn, meBtn]) {
+      const column = btn.parentElement;
+      expect(column?.className).toContain("relative");
+      expect(column?.className).toContain("max-w-[65%]");
+    }
+    expect(themBtn.className).toContain("left-full");
+    expect(themBtn.className).not.toContain("right-full");
+    expect(meBtn.className).toContain("right-full");
+    expect(meBtn.className).not.toContain("left-full");
+  });
 });

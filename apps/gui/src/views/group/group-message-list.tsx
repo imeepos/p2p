@@ -193,7 +193,7 @@ export function GroupMessageList({
       ref={scrollRef}
       onScroll={onScroll}
       data-testid="group-message-scroll"
-      className="scroll-slim min-h-0 flex-1 overflow-y-auto px-4 py-3"
+      className="scroll-slim min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-3"
     >
       {historyError ? (
         <div
@@ -226,7 +226,7 @@ export function GroupMessageList({
           <EmptyState icon={MessagesSquare} title={t("chat.noMessages")} />
         </div>
       ) : null}
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-y-2.5" data-testid="group-message-column">
         {messages.map((message, index) => (
           <Fragment key={message.id}>
             {needsTimeDivider(index > 0 ? messages[index - 1] : null, message) ? (
