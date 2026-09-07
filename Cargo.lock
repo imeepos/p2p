@@ -3,6 +3,18 @@
 version = 4
 
 [[package]]
+name = "a2a"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "p2p-identity",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "acp-agent"
 version = "0.1.0"
 dependencies = [
@@ -1446,7 +1458,10 @@ dependencies = [
  "bs58",
  "ed25519-dalek",
  "rand 0.8.8",
+ "serde",
+ "serde_json",
  "sha2",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

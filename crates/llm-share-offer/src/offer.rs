@@ -107,35 +107,12 @@ impl Offer {
     }
 }
 
-/// pubkey/sig 入 JSON 用 base58 字符串（对齐 PeerId 展示），而非整数数组。
-mod b58 {
-    use serde::{de::Error, ser::Serializer, Deserialize, Deserializer};
+/// 签名原语与 b58 serde 经 p2p-identity::signed 共用（docs/design/a2a-over-p2p-design.md §4.2）。
+use p2p_identity::signed as signed_helpers;
 
-    pub fn serialize<S, const N: usize>(v: &[u8; N], s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        s.serialize_str(&bs58::encode(v).into_string())
-    }
-
-    pub fn deserialize<'de, D, const N: usize>(d: D) -> Result<[u8; N], D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let raw = bs58::decode(String::deserialize(d)?)
-            .into_vec()
-            .map_err(D::Error::custom)?;
-        raw.try_into()
-            .map_err(|_| D::Error::custom("base58 payload length mismatch"))
-    }
-}
-
-/// 签名前像：canonical(offer) 后拼 issued_at 小端 8 字节，时刻入签防旧声明重放
-///（对齐 rendezvous 注册的 H1 纪律）。
+/// 签名前像：canonical(offer) 后拼 issued_at 小端 8 字节（H1 纪律，委托共享助手）。
 fn signing_payload(offer: &Offer, issued_at: u64) -> Result<Vec<u8>, OfferError> {
-    let mut payload = offer.canonical_bytes()?;
-    payload.extend_from_slice(&issued_at.to_le_bytes());
-    Ok(payload)
+    signed_helpers::payload_bytes(offer, issued_at).map_err(|e| OfferError::Encoding(e.to_string()))
 }
 
 /// 签名声明信封：签名覆盖声明本体与签发时刻，pubkey 绑定声明内 peer。
@@ -144,9 +121,9 @@ pub struct SignedOffer {
     pub offer: Offer,
     /// 签发时刻（unix 秒），入签。
     pub issued_at: u64,
-    #[serde(with = "b58")]
+    #[serde(with = "signed_helpers::b58")]
     pub pubkey: [u8; 32],
-    #[serde(with = "b58")]
+    #[serde(with = "signed_helpers::b58")]
     pub sig: [u8; 64],
 }
 
