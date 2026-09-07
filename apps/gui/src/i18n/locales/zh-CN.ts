@@ -429,6 +429,9 @@ const zhCN = {
       newSession: "新建会话",
       connectFailed: "连接失败",
       agentOpening: "正在打开本机 agent 会话…",
+      editInContacts: "去编辑本 Agent",
+      permissionPending: "有 {{count}} 条待应答权限请求",
+      permissionPendingAction: "去处理",
     },
     peerOnline: "在线",
     peerOffline: "离线",
@@ -1100,7 +1103,7 @@ const zhCN = {
         lastError: "最近错误：{{error}}",
       },
       waitingDiscovery: "正在通过 console 发现面定位本机 agent 节点…",
-      resolveFailed: "未能从 console 发现面定位本机 agent 节点：可在「高级设置」手动补 Peer ID",
+      resolveFailed: "未能从 console 发现面定位本机 agent 节点：请在「通讯录 → Agent → 本机 agent → 编辑」补全 Peer ID",
       connectSkipped: "当前已连接其他 agent：本机 agent 已登记，断开后可从通讯录连接",
       sessionOpenFailed: "本机 agent 自动开会话失败：可手动新建会话",
     },
@@ -1457,7 +1460,7 @@ const zhCN = {
   },
   // UX-G F06：ACP 连接失败人话映射（原因 + 下一步动作），错误码走可复制详情
   uxgAcp: {
-    endpointIncomplete: "缺少 Token 或 Peer ID：请在连接卡里补全（Token 在高级设置），保存后重新连接",
+    endpointIncomplete: "缺少 Token 或 Peer ID：请在「通讯录 → Agent → 本机 agent → 编辑」补全，保存后重新连接",
     initializeFailed: "agent 握手失败：请确认 agent 地址与 Token 正确且 agent 已启动，再重试连接",
     sessionNewFailed: "新建会话失败：agent 可能刚重启，请重新连接后再新建会话",
     sessionResumeFailed: "恢复会话失败：原会话可能已过期，请新建会话继续",

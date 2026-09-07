@@ -439,6 +439,9 @@ const enUS: typeof zhCN = {
       newSession: "New session",
       connectFailed: "Connect failed",
       agentOpening: "Opening the local agent session…",
+      editInContacts: "Edit this agent",
+      permissionPending: "{{count}} permission request(s) awaiting response",
+      permissionPendingAction: "Review",
     },
     peerOnline: "Online",
     peerOffline: "Offline",
@@ -1124,7 +1127,7 @@ const enUS: typeof zhCN = {
         lastError: "Last error: {{error}}",
       },
       waitingDiscovery: "Locating the local agent node via the console discovery list…",
-      resolveFailed: "Could not locate the local agent node in the console discovery list; fill the Peer ID under Advanced",
+      resolveFailed: "Could not locate the local agent node in the console discovery list; fill the Peer ID under Contacts → Agents → local agent → Edit",
       connectSkipped: "Another agent is connected: the local agent is registered; connect it from Contacts after disconnecting",
       sessionOpenFailed: "Failed to open a session on the local agent automatically; create one manually",
     },
@@ -1482,7 +1485,7 @@ const enUS: typeof zhCN = {
   // UX-G F06: human-readable ACP connect failure copy (reason + next step),
   // internal codes live only in the copyable detail
   uxgAcp: {
-    endpointIncomplete: "Missing token or peer ID: fill them in on the connection card (token is under advanced settings), then reconnect",
+    endpointIncomplete: "Missing token or peer ID: fill them in under Contacts → Agents → local agent → Edit, then reconnect",
     initializeFailed: "Agent handshake failed: check the agent address and token and make sure the agent is running, then retry",
     sessionNewFailed: "Failed to create a session: the agent may have restarted, reconnect and try again",
     sessionResumeFailed: "Failed to resume the session: it may have expired, create a new session to continue",

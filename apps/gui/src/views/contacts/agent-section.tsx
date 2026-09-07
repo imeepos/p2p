@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Bot, MessageSquareIcon, Settings2Icon, Trash2Icon, UserRoundXIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,23 @@ export function AgentSection() {
   const [addOpen, setAddOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
+  // R2-23/R2-24 深链：/contacts?agentDetail=<id> 直开对应 Agent 详情抽屉
+  // （连接失败补配置与权限待应答的直达落点）。只读参数：命中才开，不改
+  // 现有行为；未命中留 warn 观测信号，不静默。
+  const deepLinkAgentId = searchParams.get("agentDetail");
+  useEffect(() => {
+    if (!deepLinkAgentId) return;
+    const known = useAcpStore
+      .getState()
+      .saved.some((e) => (e.endpointId ?? e.wsUrl) === deepLinkAgentId);
+    if (!known) {
+      console.warn("[contacts] agentDetail 深链未命中已登记端点: " + deepLinkAgentId);
+      return;
+    }
+    setDetailId(deepLinkAgentId);
+  }, [deepLinkAgentId]);
 
   const disable = async (endpoint: AcpEndpoint) => {
     const id = endpoint.endpointId!;

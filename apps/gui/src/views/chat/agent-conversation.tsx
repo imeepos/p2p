@@ -74,11 +74,13 @@ function ConsoleGuideCard({ status }: { status: AcpConsoleStatus }) {
   );
 }
 
-// F06：连接失败行内出「原因 + 下一步动作」人话；内部码收进可复制详情
-function ConnectFailureNotice({ lastError, closeInfo, wsUrl }: {
+// F06：连接失败行内出「原因 + 下一步动作」人话；内部码收进可复制详情。
+// R2-23：指引指向真实编辑路径并给通讯录编辑抽屉直达（agentDetail 深链）
+function ConnectFailureNotice({ lastError, closeInfo, wsUrl, endpointId }: {
   lastError: string | null;
   closeInfo: AcpCloseInfo | null;
   wsUrl: string;
+  endpointId: string;
 }) {
   const { t } = useTranslation();
   const detail = acpErrorDetail({ lastError, closeInfo, wsUrl });
@@ -97,6 +99,11 @@ function ConnectFailureNotice({ lastError, closeInfo, wsUrl }: {
           data-testid="agent-connect-error-copy"
         />
       ) : null}
+      <Button asChild size="sm" variant="outline" data-testid="agent-edit-link">
+        <Link to={"/contacts?agentDetail=" + encodeURIComponent(endpointId)}>
+          {t("chat.agentPane.editInContacts")}
+        </Link>
+      </Button>
     </div>
   );
 }
@@ -216,6 +223,7 @@ export function AgentConversation({ endpointId }: { endpointId: string }) {
           lastError={lastError}
           closeInfo={closeInfo}
           wsUrl={endpoint.wsUrl}
+          endpointId={endpointId}
         />
       ) : null}
     </div>

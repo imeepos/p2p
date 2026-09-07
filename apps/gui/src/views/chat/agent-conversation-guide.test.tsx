@@ -112,11 +112,26 @@ describe("agent 会话 console 引导卡与直落（UX3）", () => {
     renderConversation();
     const text = screen.getByTestId("agent-connect-error-text").textContent ?? "";
     expect(text).toContain("缺少 Token");
-    expect(text).toContain("高级设置");
+    expect(text).toContain("通讯录");
+    expect(text).not.toContain("高级设置");
+    expect(text).not.toContain("连接卡");
     expect(text).not.toContain("[endpointIncomplete]");
     const copy = screen.getByTestId("agent-connect-error-copy");
     expect(copy.getAttribute("title")).toContain("error=endpointIncomplete");
     expect(copy.getAttribute("title")).toContain("ws://127.0.0.1:8787");
+  });
+
+  it("R2-23 连接失败卡出编辑直达：指向 contacts?agentDetail 深链", () => {
+    seedLocalEndpoint();
+    useAcpStore.setState({ console: readyStatus() });
+    useAcpStore.setState({ lastError: "endpointIncomplete" });
+    renderConversation();
+    // asChild：testid 即渲染出的 <a> 本体
+    const editLink = screen.getByTestId("agent-edit-link");
+    expect(editLink.tagName).toBe("A");
+    expect(editLink.getAttribute("href")).toBe(
+      "/contacts?agentDetail=" + encodeURIComponent(LOCAL_AGENT_ENDPOINT_ID),
+    );
   });
 
   it("自动流程就绪后 /chat?agent=<本机id> 直落会话：transcript 就位零二次点击", async () => {
