@@ -392,3 +392,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-06 VERIFY 轮：断言大面积假阴且 detail 全是 {} 时先怀疑驱动层（evaluate 取回函数对象未调用），再怀疑被测代码。
 - 2026-09-06 VERIFY 轮：浏览器态基线断言（空→写入→清空）正式跑前作废旧 chrome profile 换全新 user-data-dir，同 profile 重跑必吃上轮残留。
 - 2026-09-06 VERIFY 轮：复核前先读仓库 docs/notes/ 同类交付报告，端口/CDP 端口/mock 开关的可用配方直接白拿。
+- 2026-09-07 UX-C1 波：改组件行为前先 grep 存量测试是否已锁定该行为（本次 setConfigOption 失败 toast 已被 store 层 notifyActionFailure+测试断言锁定且 promise 不 reject）——组件层再套 toast 会双 toast、改 store 会红存量测试；正确解法是组件侧做乐观值+失败回滚，提示交给既有层。
+- 2026-09-07 UX-C1 波：给「匹配/总数」类计数读数做真伪判别时，先排除 store 列表在两次读取间被事件刷新（群花名册同步会重写好友列表）——读数异常先打印 store 原始数组对账，别急着判渲染 bug。
