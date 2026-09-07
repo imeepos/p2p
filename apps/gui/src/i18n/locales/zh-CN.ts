@@ -419,6 +419,7 @@ const zhCN = {
       back: "返回会话列表",
       loading: "正在加载会话…",
       self: "我",
+      inactiveToggle: "显示已退出/已解散的群聊（{{count}}）",
     },
     preview: {
       image: "[图片]",
