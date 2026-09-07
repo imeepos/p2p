@@ -534,6 +534,11 @@ LlmBorrowReport{status: done|stream_broken|rejected, receipt{reqId, appended, es
 
 v12 加法（2026-09-07）：上游配置第五面板——本地自用 provider 配置列表（名称/baseUrl/apiKey/模型，仅存 GUI localStorage，键 p2p-gui-llm-providers；不触 §16.2-4 账本文件）。分享动作 = offerPublish（按配置模型）+ allow（好友按同批模型放行）；apiKey 不进任何 IPC 请求与展示（列表只出掩码），即「分享可用性而非密钥」。
 
+v12 取代注记（2026-09-08，llm-share-link 波）：§16.6 v13 将其取代——provider 配置存储从
+localStorage 上移为本机持久化（providers.json + 0600 密钥文件），分享动作改为 dsh-llm-share://
+临时链接（share_redeem 兑换进 allowlist）。旧 localStorage 数据一次性幂等迁移；provider-share-form
+手动分享入口移除。v12 的命令面/语义以 §16.6 为准，本段保留为历史。
+
 ### 16.4 cli-parity 迁移
 
 GUI 命令 live 行与 PR4 borrow 注释行升级同一提交串落地，中间态守卫不红；ai-docs-sync 联动由 GUI 轨验收把关。
@@ -541,3 +546,37 @@ GUI 命令 live 行与 PR4 borrow 注释行升级同一提交串落地，中间�
 ### 16.5 §3 加法
 
 GuiConfig 增 lanOnly?: boolean（serde default，缺省 false；PR4 已落 serde 双向兼容）；设置页 lanOnly 开关纳入实现卡。
+
+### 16.6 v13 加法（2026-09-08，llm-share-link 波；取代 v12，设计=docs/design/llm-share-link-design.md v2）
+
+双协议 provider + 聊天分享链接全链。语义红线：
+
+1. provider 配置本机持久化：providers.json（只存 id/name/baseUrl/protocol/models/createdAt + apiKeyRef，
+   不存明文 key）+ 0600 密钥文件 keys/<id>.key；apiKey 明文仅入参、禁进日志/wire/台账/链接/argv；
+   http:// baseUrl 显式告警；provider_remove 级联删 key 文件；localStorage 旧数据一次性幂等迁移。
+2. 分享=临时链接：dsh-llm-share://v1?peer&addr&token&exp&sid&models；token=128-bit CSPRNG hex，
+   台账只存 sha256，原文只在 share_create 响应出现一次；models 必填非空且 ⊆ offer.models；
+   maxActivations 固定 1；exp 默认 24h 上限 7d。
+3. 兑换=认证 PeerId 进 allowlist（source=share:<shareId>，模型集限定，expires_at=链接 exp）；
+   兑换激活锁内 read-check-write 防 TOCTOU；手工条目优先、redeem 不覆盖、同 peer 模型取交集；
+   revoke 按 source 级联删 allowlist 条目；allowlist 条目到期经 admit 惰性清理。
+4. 出借方常驻 serve：node_start 装配（offer+providers 启动快照）、node_stop 卸载；
+   serve_status.assembled:false 是常态非故障；入站身份取握手认证 PeerId（handle_inbound），
+   帧内自报不信；幂等索引持久化（ledger.json append Receipt，启动重建 settled 防 req_id 双记账）。
+5. 新增命令面 8 条（表）：
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| llm_share_provider_list | - | { providers: LlmProviderView[] } | apiKey 只出掩码；损坏存档=显式报错回空不静默 |
+| llm_share_provider_save | config{id?, name, baseUrl, protocol:openai\|claude, apiKey, models[]} | LlmProviderView | id 缺省生成；apiKey 明文仅入参落 0600 密钥文件；name/baseUrl/models 必填显性报错 |
+| llm_share_provider_remove | providerId | { removed: true } | 不存在=显式报错非错误态；级联删 key 文件 |
+| llm_share_share_create | req{providerId, models?, expiresAt?, maxActivations?, note?} | { link, shareId, expiresAt, models } | models 缺省=provider 全模型且须 ⊆ offer.models；maxActivations 固定 1；token 原文只在这条响应出现一次 |
+| llm_share_share_list | - | { shares: LlmShareEntry[] } | 永不含 token/明文 key；status 推导 active/expired/revoked/exhausted |
+| llm_share_share_revoke | shareId | { revoked: true } | 按 source=share:<id> 级联删 allowlist 条目；不存在/已撤销=显式报错 |
+| llm_share_share_redeem | link | LlmShareRedeemResult{offer:{peer,models,spare,periodEnds}, shareId, owner} | 业务拒绝码 share-revoked/expired/exhausted/bound-other/invalid 原样透出非 Err；scheme/peer/token 缺失=参数错误显式 Err |
+| llm_share_serve_status | - | LlmServeStatus{ assembled, providerId?, models[], lastError? } | assembled:false 是常态非故障；lastError 供面板显式告警 |
+
+6. CLI 对等：7 条 mapped（provider list/save/remove、share create/list/revoke/redeem，逻辑进
+   crates/p2p-cli 共享事实源，apps/cli clap 映射 + ai-guide 条目同卡）；serve_status exempt
+   （serve 生命周期跟随 GUI 常驻节点，无 CLI 常驻进程面，登记 cli-parity.tsv 带 reason，
+   acp_console_status 先例）。

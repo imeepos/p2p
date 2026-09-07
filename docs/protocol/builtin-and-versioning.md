@@ -27,6 +27,7 @@
 | /im/invite/1 | crates/p2p-chat/src/wire_invite.rs | 已实现（邀请制加好友生命周期） |
 | /llm-share/proxy/1 | crates/llm-share-proxy/src/wire.rs | 已实现（E10 额度共享代理） |
 | /llm-share/offer/1 | crates/llm-share-offer | 已实现（能力声明发布） |
+| /llm-share/redeem/1 | crates/llm-share-link | 已登记（llm-share-link-design v2；实现随波落地） |
 | /repair/mcp/1 | crates/repair-bridge/src/lib.rs:6 | 已实现（MCP stdio 字节隧道哑泵） |
 
 测试专用 ID（/itest/echo/1、/p2p-lab/echo/1、/test/echo/1 等）仅存在于测试代码，
