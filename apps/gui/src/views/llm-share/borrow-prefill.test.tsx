@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
+
 import "@/i18n";
 import i18n from "@/i18n";
 
@@ -81,7 +83,9 @@ describe("borrow 预填（§6 第 5 步：redeem 后 query peer/model 预填并�
     setBorrowPrefill({ peer: PEER, model: "m1", models: ["m1"] });
     const first = render(
       <MemoryRouter>
-        <BorrowPanel backend={backend} />
+        <ConfirmProvider>
+          <BorrowPanel backend={backend} />
+        </ConfirmProvider>
       </MemoryRouter>,
     );
     const input = (await screen.findByLabelText(
@@ -92,7 +96,9 @@ describe("borrow 预填（§6 第 5 步：redeem 后 query peer/model 预填并�
     cleanup();
     render(
       <MemoryRouter>
-        <BorrowPanel backend={backend} />
+        <ConfirmProvider>
+          <BorrowPanel backend={backend} />
+        </ConfirmProvider>
       </MemoryRouter>,
     );
     const again = (await screen.findByLabelText(

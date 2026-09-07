@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 
 import type { I18nKey } from "@/i18n/types";
 
@@ -43,18 +44,31 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const [reqId, setReqId] = useState<string | null>(null);
   const [lastReq, setLastReq] = useState<LlmBorrowReq | null>(null);
   const [targetTouched, setTargetTouched] = useState(false);
-  // R2-06 升级：model 候选源 = 出借方 offer 快照（shareRedeem 应答内嵌，借方本地
-  // allowlist 为空），不再依赖本地白名单；无快照时降级自由输入不阻塞。
+  // W4：预填源 = 出借方 offer 快照（shareRedeem 应答内嵌，借方本地 allowlist 为空）
+  // + query peer/model（防刷新重放：消费即清）。无快照时降级自由输入不阻塞。
   const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
-    const prefill = consumeBorrowPrefill();
-    if (!prefill) return;
-    setValues((v) => ({ ...v, targetPeer: prefill.peer, model: prefill.model }));
+    const stored = consumeBorrowPrefill();
+    const peerParam = searchParams.get("peer");
+    const modelParam = searchParams.get("model");
+    if (!peerParam && !modelParam && !stored) return;
+    if (peerParam || modelParam) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("peer");
+      next.delete("model");
+      setSearchParams(next, { replace: true });
+    }
+    setValues((v) => ({
+      ...v,
+      targetPeer: peerParam ?? stored?.peer ?? v.targetPeer,
+      model: modelParam ?? stored?.model ?? v.model,
+    }));
     setModelOptions(
-      prefill.models.map((model) => ({ value: model, label: model })),
+      (stored?.models ?? []).map((model) => ({ value: model, label: model })),
     );
-  }, []);
+  }, [searchParams, setSearchParams]);
 
   const set = (field: keyof BorrowFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));

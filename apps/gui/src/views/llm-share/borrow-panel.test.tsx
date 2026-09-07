@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
@@ -14,9 +15,11 @@ const PEER = "52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd";
 
 function renderPanel(backend: Parameters<typeof BorrowPanel>[0]["backend"]) {
   return render(
-    <ConfirmProvider>
-      <BorrowPanel backend={backend} />
-    </ConfirmProvider>,
+    <MemoryRouter>
+      <ConfirmProvider>
+        <BorrowPanel backend={backend} />
+      </ConfirmProvider>
+    </MemoryRouter>,
   );
 }
 
