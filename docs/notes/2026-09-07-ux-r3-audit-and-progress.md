@@ -37,7 +37,13 @@
 - W1-17：WX1 新增面（会话行视觉/重发流/mark_failed toast）回归测试防线补齐。
 - 注释清理：palette-nav.ts / use-hotkeys.ts 过期计数注释。
 
+## 实际页面走查（第一波合并后，2026-09-07）
+
+- 已跑 scripts/ops/ui-regression.sh（真实桌面 GUI + p2pctl gui 控制通道）：11 行走查中 10 页导航与页面内容断言全部通过（dashboard/peers/discovery/relay/events/diagnostics/chat/settings/group->chat/acp->chat），contacts 缺口断言 PASS。
+- 各页唯一失败步骤均为 `p2pctl gui screenshot`：运行中的桌面实例（并行会话所有，pid 97840）返回 CAPTURE_PERMISSION_DENIED（macOS 屏幕录制权限 HTTP 403）——环境限制非代码回归，截图取证待有权限实例后补。
+- 本轮代码级验收：分支全量门禁 eslint/tsc/vitest（197 文件 1185 用例）/vite build/i18n-diff 全绿后方合并；S5（邀请加载失败+撤回处理中）、聊天输入条、白名单表三波各自带专项用例。
+
 ## 验证口径
 
 - 分支门禁：eslint / tsc -b / vitest 全量（当前基线 1150+ 用例）/ pnpm build / bash scripts/check/i18n-diff.sh。
-- 页面实测：VITE_MOCK_IPC=1 + scripts/gui-agent.mjs 逐页走查（本轮走查记录为后续轮次待办，先以全量用例+构建门禁托底）。
+- 页面实测：scripts/ops/ui-regression.sh（真实桌面）；截图取证受并行实例权限限制时以导航+DOM 断言托底，权限恢复后补像素证据。
