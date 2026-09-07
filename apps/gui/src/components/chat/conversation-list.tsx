@@ -2,12 +2,18 @@ import { MessageCircle, SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ConversationContextMenu } from "@/components/chat/conversation-context-menu";
 import { ConversationRow } from "@/components/chat/conversation-row";
 import { InvitePlaceholderRow } from "@/components/chat/invite-placeholder-row";
 import { AsyncButton } from "@/components/feedback/async-button";
 import { Input } from "@/components/ui/input";
 import { filterEntries } from "@/lib/conversation-entry";
 import type { ConversationEntry } from "@/lib/conversation-entry";
+import type { ContextMenuAnchor } from "@/components/ui/context-menu";
+import {
+  conversationKey,
+  useConversationPrefsStore,
+} from "@/stores/conversation-prefs-store";
 import type { PendingInviteItem } from "@/views/chat/use-pending-invites";
 import { EmptyState } from "@/views/shared/empty-state";
 
@@ -38,6 +44,10 @@ export function ConversationList({
 }: ConversationListProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
+  const [menu, setMenu] = useState<{ entry: ConversationEntry; anchor: ContextMenuAnchor } | null>(
+    null,
+  );
+  const convFlags = useConversationPrefsStore((s) => s.flags);
   const visible = useMemo(() => filterEntries(entries, query), [entries, query]);
   // 占位与真实条目共用搜索词：title/id 子串过滤，保持列表语义一致
   const visiblePending = useMemo(() => {
@@ -113,6 +123,13 @@ export function ConversationList({
               entry={entry}
               active={entry.id === selectedId}
               onSelect={onSelect}
+              muted={convFlags[conversationKey(entry.kind, entry.id)]?.muted === true}
+              onContextMenu={(event) => {
+                // 阻止浏览器默认菜单与外层关闭监听（stopPropagation 截断冒泡）
+                event.preventDefault();
+                event.stopPropagation();
+                setMenu({ entry, anchor: { x: event.clientX, y: event.clientY } });
+              }}
             />
           ))}
           {visiblePending.map((item) => (
@@ -120,6 +137,11 @@ export function ConversationList({
           ))}
         </ul>
       )}
+      <ConversationContextMenu
+        entry={menu?.entry ?? null}
+        anchor={menu?.anchor ?? null}
+        onClose={() => setMenu(null)}
+      />
     </div>
   );
 }

@@ -94,17 +94,17 @@ beforeEach(() => {
 });
 
 describe("IM-V2 network overview evidence", () => {
-  it("D1 顶栏停止按钮运行中为中性边框，无红色 destructive", () => {
+  it("D1 顶栏紧凑化：不再有节点启停文字按钮（启停走概览状态卡）", () => {
     useNodeStore.setState(runningStatus());
     const { container } = render(
       <MemoryRouter><Topbar /></MemoryRouter>,
     );
-    const stop = [...container.querySelectorAll("header button")].find((b) =>
-      b.textContent.includes("停止"),
+    const texts = [...container.querySelectorAll("header button")].map((b) =>
+      b.textContent,
     );
-    expect(stop).toBeTruthy();
-    expect(stop!.className).not.toContain("bg-destructive");
-    expect(stop!.className).toContain("border");
+    expect(texts.join()).not.toContain("停止");
+    expect(texts.join()).not.toContain("开始");
+    expect(texts.join()).not.toContain("运行中");
   });
 
   it("D2 概览两行状态/指标卡统一最小高度，且同为标签在上垂直栈", () => {

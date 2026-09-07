@@ -48,6 +48,8 @@ export interface ChatStoreState extends GroupInviteSlice {
   cancelInvite: (peer: string) => Promise<void>;
   loadFriends: () => Promise<void>;
   selectPeer: (peer: string) => Promise<void>;
+  /** 右键菜单「标为已读」：不改选中态仅清未读（§2.3 选中清零的旁路入口） */
+  markPeerRead: (peer: string) => void;
   loadOlder: (peer: string) => Promise<void>;
   sendText: (
     peer: string,
@@ -181,6 +183,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         historyLoading: { ...s.historyLoading, [peer]: false },
       }));
     }
+  },
+
+  markPeerRead: (peer) => {
+    if (!get().unreadByPeer[peer]) return;
+    set((s) => ({ unreadByPeer: { ...s.unreadByPeer, [peer]: 0 } }));
   },
 
   loadOlder: async (peer) => {
