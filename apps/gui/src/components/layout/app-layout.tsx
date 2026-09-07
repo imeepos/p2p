@@ -5,7 +5,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import { CommandPalette } from "@/components/command-palette/command-palette";
 import { IconRail } from "@/components/layout/icon-rail";
 import { StatusBar } from "@/components/layout/status-bar";
-import { Topbar } from "@/components/layout/topbar";
 import {
   useCommandHotkey,
   useNumberRouteHotkeys,
@@ -60,7 +59,6 @@ export function AppLayout() {
     <div className="flex h-dvh w-full overflow-hidden">
       <IconRail />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <DataLinkBanner />
           <AutoStartNotice />

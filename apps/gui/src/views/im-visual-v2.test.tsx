@@ -25,7 +25,7 @@ vi.mock("@/lib/ipc", () => ({
 }));
 
 import "@/i18n";
-import type { MetricsJson, NodeStatus } from "@/lib/ipc-types";
+import type { MetricsJson } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
@@ -38,7 +38,6 @@ import { OverviewDialChainCard } from "./network/overview/overview-dial-chain-ca
 import { PeersTableCard } from "./network/peers/peers-table-card";
 import { PeersToolbar, type StatusFilter } from "./network/peers/peers-toolbar";
 import { OverviewRecentEventsCard } from "./network/overview/overview-recent-events-card";
-import { Topbar } from "@/components/layout/topbar";
 import { StatCard } from "@/components/page/stat-card";
 import { MdnsCard } from "./network/discovery/mdns-card";
 import { RendezvousCard } from "./network/discovery/rendezvous-card";
@@ -55,15 +54,6 @@ function guiConfig(overrides: Partial<Record<string, unknown>> = {}) {
     quicPort: 3400, tcpPort: 3401, enableMdns: true, dataDir: "/tmp/p2p",
     bootstrap: [], relayAddrs: [], advertisedAddrs: [],
     observationPort: null, observationAddrs: [], ...overrides,
-  };
-}
-
-function runningStatus(): { status: NodeStatus } {
-  return {
-    status: {
-      running: true, peerId: "12D3KooWX".repeat(4), listenAddrs: [],
-      uptimeSecs: 0, startedAtMs: null, config: guiConfig(),
-    },
   };
 }
 
@@ -94,19 +84,6 @@ beforeEach(() => {
 });
 
 describe("IM-V2 network overview evidence", () => {
-  it("D1 顶栏紧凑化：不再有节点启停文字按钮（启停走概览状态卡）", () => {
-    useNodeStore.setState(runningStatus());
-    const { container } = render(
-      <MemoryRouter><Topbar /></MemoryRouter>,
-    );
-    const texts = [...container.querySelectorAll("header button")].map((b) =>
-      b.textContent,
-    );
-    expect(texts.join()).not.toContain("停止");
-    expect(texts.join()).not.toContain("开始");
-    expect(texts.join()).not.toContain("运行中");
-  });
-
   it("D2 概览两行状态/指标卡统一最小高度，且同为标签在上垂直栈", () => {
     const { container } = render(
       <MemoryRouter><OverviewView /></MemoryRouter>,
