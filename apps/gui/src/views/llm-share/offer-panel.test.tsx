@@ -11,6 +11,10 @@ import type { LlmOfferStatus, LlmShareBackend } from "./types";
 
 const t = i18n.t.bind(i18n);
 
+// R2-08：发布成功 toast 反馈（toast 模块整体 mock，专断言调用）
+const { toastSuccessMock } = vi.hoisted(() => ({ toastSuccessMock: vi.fn() }));
+vi.mock("@/components/feedback/toast", () => ({ toastSuccess: toastSuccessMock }));
+
 function rejectAll(): LlmShareBackend {
   const fail = () => Promise.reject(new Error("boom"));
   return {
@@ -160,4 +164,44 @@ describe("LLM3 offer 面板（契约 §16.1 必填集 / §16.2-5 五态两级）
     second.unmount();
     warnSpy.mockRestore();
   });
+
+  // R2-08 回归：发布成功补 toast 确认，不再仅状态卡静默出现
+  it("发布成功触发成功 toast", async () => {
+    const { backend } = makeLlmShareMockPair({ now: () => 1788549300 });
+    render(<OfferPanel backend={backend} />);
+    fillValidForm();
+    submitPublish();
+    await screen.findByTestId("offer-status");
+    expect(toastSuccessMock).toHaveBeenCalledWith(t("llmShare.offer.publishSuccess"));
+  });
+
+  // R2-09 回归：剩余时间人性化——live 显时长、过期显「已过期」语义
+  it("剩余时间显人性化时长而非裸秒", async () => {
+    const { backend, mock } = makeLlmShareMockPair({ now: () => 1788549300 });
+    mock.offerPublish({ models: ["gpt-4o"], spare: { "gpt-4o": 5 }, periodEnds: "2026-09-30" });
+    const view = render(<OfferPanel backend={backend} />);
+    const remaining = await vi.waitFor(() => {
+      const el = view.container.querySelector('[data-testid="offer-remaining"]');
+      if (!el) throw new Error("remaining cell not rendered yet");
+      return el;
+    });
+    expect(remaining.textContent).toMatch(/小时|分|秒/u);
+    expect(remaining.textContent).not.toBe("3600");
+  });
+
+  it.each<LlmOfferStatus>(["expired", "not_yet_valid"])(
+    "%s 态剩余时间给状态语义而非 0 秒",
+    async (status) => {
+      const { backend, mock } = makeLlmShareMockPair({ forceOfferStatus: status });
+      mock.offerPublish({ models: ["gpt-4o"], spare: { "gpt-4o": 5 }, periodEnds: "2026-09-30" });
+      const view = render(<OfferPanel backend={backend} />);
+      const remaining = await vi.waitFor(() => {
+        const el = view.container.querySelector('[data-testid="offer-remaining"]');
+        if (!el) throw new Error("remaining cell not rendered yet");
+        return el;
+      });
+      expect(remaining.textContent?.length).toBeGreaterThan(0);
+      expect(remaining.textContent).not.toBe("0");
+    },
+  );
 });

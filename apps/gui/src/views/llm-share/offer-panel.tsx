@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import type { I18nKey } from "@/i18n/types";
 
+import { toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { errorText } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
-import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 
 import {
   EMPTY_OFFER_FORM,
@@ -20,25 +20,8 @@ import {
   type OfferFormValues,
 } from "./offer-form";
 import { isOfferNotPublished, warnOfferLoadOnce } from "./offer-errors";
-import type { LlmOfferStatus, LlmOfferView, LlmShareBackend } from "./types";
-
-// §16.2-5：expired/not_yet_valid = 常态中性；peer_mismatch/bad_signature =
-// 醒目警示（danger 徽章 + role=alert + destructive 描边）。
-const STATUS_TONE: Record<LlmOfferStatus, StatusTone> = {
-  live: "success",
-  expired: "neutral",
-  not_yet_valid: "neutral",
-  peer_mismatch: "danger",
-  bad_signature: "danger",
-};
-
-const STATUS_KEY: Record<LlmOfferStatus, I18nKey> = {
-  live: "llmShare.offer.statusLive",
-  expired: "llmShare.offer.statusExpired",
-  not_yet_valid: "llmShare.offer.statusNotYetValid",
-  peer_mismatch: "llmShare.offer.statusPeerMismatch",
-  bad_signature: "llmShare.offer.statusBadSignature",
-};
+import { OfferStatusCard } from "./offer-status-card";
+import type { LlmOfferView, LlmShareBackend } from "./types";
 
 function FieldError({ messageKey }: { messageKey?: I18nKey }) {
   const { t } = useTranslation();
@@ -47,66 +30,6 @@ function FieldError({ messageKey }: { messageKey?: I18nKey }) {
     <p role="alert" className="text-destructive text-xs">
       {t(messageKey)}
     </p>
-  );
-}
-
-function OfferFieldRow({ label, value }: { label: string; value: string }) {
-  return (
-    <>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="truncate font-mono" title={value}>
-        {value}
-      </dd>
-    </>
-  );
-}
-
-export function OfferStatusCard({ offer }: { offer: LlmOfferView }) {
-  const { t } = useTranslation();
-  const warning = offer.status === "peer_mismatch" || offer.status === "bad_signature";
-  const spare = Object.entries(offer.spare)
-    .map(([m, n]) => `${m}=${n}`)
-    .join(", ");
-  return (
-    <div
-      data-testid="offer-status"
-      data-status={offer.status}
-      className={
-        warning
-          ? "border-destructive/40 rounded-md border p-3 text-sm"
-          : "rounded-md border p-3 text-sm"
-      }
-    >
-      <div className="flex items-center gap-2">
-        <StatusBadge tone={STATUS_TONE[offer.status]} dot>
-          {t(STATUS_KEY[offer.status])}
-        </StatusBadge>
-        <span className="text-muted-foreground text-xs">
-          {t("llmShare.offer.labelStatus")}
-        </span>
-      </div>
-      {warning ? (
-        <p role="alert" className="text-destructive mt-2 text-xs">
-          {t("llmShare.offer.securityWarning")}
-        </p>
-      ) : null}
-      <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-        <OfferFieldRow label={t("llmShare.offer.labelPeer")} value={offer.peer} />
-        <OfferFieldRow
-          label={t("llmShare.offer.labelModels")}
-          value={offer.models.join(", ")}
-        />
-        <OfferFieldRow label={t("llmShare.offer.labelSpare")} value={spare} />
-        <OfferFieldRow
-          label={t("llmShare.offer.labelPeriodEnds")}
-          value={offer.periodEnds}
-        />
-        <OfferFieldRow
-          label={t("llmShare.offer.labelRemaining")}
-          value={String(offer.remainingSecs)}
-        />
-      </dl>
-    </div>
   );
 }
 
@@ -175,6 +98,8 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
       const view = await backend.offerPublish(validation.req);
       setOffer(view);
       setLoadError(null);
+      // R2-08：保存类操作对齐全站 toast 反馈，不再仅状态卡静默出现
+      toastSuccess(t("llmShare.offer.publishSuccess"));
     } catch (error) {
       console.error("[llm-share] offer publish 失败", error);
       setPublishError(errorText(error));
