@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
 import { errorText } from "@/views/shared/form-flow";
 import { StatusBadge } from "@/views/shared/status-badge";
 
+import { subscribeLedgerMutated } from "./ledger-sync";
 import type { LlmLedgerEntry, LlmLedgerFilter, LlmShareBackend } from "./types";
 
 interface FilterValues {
@@ -63,7 +64,14 @@ function EntryRow({ entry }: { entry: LlmLedgerEntry }) {
   );
 }
 
-export function LedgerEntriesCard({ backend }: { backend: LlmShareBackend }) {
+export function LedgerEntriesCard({
+  backend,
+  onQueried,
+}: {
+  backend: LlmShareBackend;
+  /** 每次查询完成后回调：流水卡「查询」联动净差卡重拉（R2-01） */
+  onQueried?: () => void;
+}) {
   const { t } = useTranslation();
   const [filters, setFilters] = useState<FilterValues>(EMPTY_FILTER);
   const [rows, setRows] = useState<LlmLedgerEntry[] | null>(null);
@@ -82,6 +90,19 @@ export function LedgerEntriesCard({ backend }: { backend: LlmShareBackend }) {
       }
     },
     [backend],
+  );
+
+  // 借用入账事件联动重拉：按当前生效过滤条件重查，最新 ref 避免 effect 闭包过期
+  const latest = useRef({ query, filters });
+  useEffect(() => {
+    latest.current = { query, filters };
+  });
+  useEffect(
+    () =>
+      subscribeLedgerMutated(() => {
+        void latest.current.query(latest.current.filters);
+      }),
+    [],
   );
 
   useEffect(() => {
@@ -127,7 +148,15 @@ export function LedgerEntriesCard({ backend }: { backend: LlmShareBackend }) {
           </div>
         </div>
         <div>
-          <Button type="button" size="sm" variant="outline" onClick={() => void query(filters)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              void query(filters);
+              onQueried?.();
+            }}
+          >
             {t("llmShare.ledger.applyFilter")}
           </Button>
         </div>

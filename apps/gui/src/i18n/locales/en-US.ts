@@ -1410,6 +1410,7 @@ const enUS: typeof zhCN = {
     },
     ledger: {
       balanceTitle: "Net balance (lender + period)",
+      balanceRefresh: "Refresh",
       listTitle: "Ledger entries",
       filterLender: "Filter lender",
       filterBorrower: "Filter borrower",

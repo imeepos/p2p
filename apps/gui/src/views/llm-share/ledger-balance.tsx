@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { Scale, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Scale } from "lucide-react";
 
 import type { I18nKey } from "@/i18n/types";
 
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { errorText } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 
+import { subscribeLedgerMutated } from "./ledger-sync";
 import type { LlmBalanceDirection, LlmBalanceGroup, LlmShareBackend } from "./types";
 
 // 双边账本·净差视图（§16.1 balance）：按 lender+period 分组，
@@ -54,29 +56,42 @@ function BalanceRow({ row }: { row: LlmBalanceGroup }) {
   );
 }
 
-export function LedgerBalanceCard({ backend }: { backend: LlmShareBackend }) {
+export function LedgerBalanceCard({
+  backend,
+  reloadSignal = 0,
+}: {
+  backend: LlmShareBackend;
+  reloadSignal?: number;
+}) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<LlmBalanceGroup[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const groups = await backend.ledgerBalance();
-        if (!cancelled) {
-          setRows(groups);
-          setError(null);
-        }
-      } catch (e) {
-        console.warn("[llm-share] balance 读取失败", e);
-        if (!cancelled) setError(errorText(e));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    try {
+      const groups = await backend.ledgerBalance();
+      setRows(groups);
+      setError(null);
+    } catch (e) {
+      console.warn("[llm-share] balance 读取失败", e);
+      setError(errorText(e));
+    }
   }, [backend]);
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  });
+
+  // 挂载首拉；借用入账事件（R2-01）与流水卡「查询」联动信号共用同一 load
+  useEffect(() => {
+    void loadRef.current();
+  }, []);
+
+  useEffect(() => {
+    if (reloadSignal > 0) void loadRef.current();
+  }, [reloadSignal]);
+
+  useEffect(() => subscribeLedgerMutated(() => void loadRef.current()), []);
 
   return (
     <Card data-testid="ledger-balance">
@@ -84,6 +99,18 @@ export function LedgerBalanceCard({ backend }: { backend: LlmShareBackend }) {
         <CardTitle className="text-sm">{t("llmShare.ledger.balanceTitle")}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => void load()}
+            data-testid="balance-refresh"
+          >
+            <RefreshCw aria-hidden className="size-3.5" />
+            {t("llmShare.ledger.balanceRefresh")}
+          </Button>
+        </div>
         {error ? <p role="alert" className="text-destructive text-xs">{error}</p> : null}
         {rows === null ? null : rows.length === 0 ? (
           <EmptyState icon={Scale} title={t("llmShare.ledger.emptyBalance")} />

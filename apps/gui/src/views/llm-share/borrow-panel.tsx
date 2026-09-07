@@ -17,6 +17,7 @@ import {
   type BorrowFormValues,
 } from "./borrow-form";
 import { BorrowReportCard } from "./borrow-report";
+import { notifyLedgerMutated } from "./ledger-sync";
 import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";
 
 // borrow 快捷面板：提交前二次确认对话框明示真实成本（§16.2-6）；
@@ -52,6 +53,8 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
     try {
       const result = await backend.borrow(req);
       setReport(result);
+      // R2-01：真实入账（含估算入账）即广播，净差/流水卡联动重拉
+      if (result.receipt.appended) notifyLedgerMutated();
     } catch (error) {
       console.error("[llm-share] borrow 失败", error);
       setSubmitError(errorText(error));

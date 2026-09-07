@@ -1386,6 +1386,7 @@ const zhCN = {
     },
     ledger: {
       balanceTitle: "净差视图（lender + 账期）",
+      balanceRefresh: "刷新",
       listTitle: "流水明细",
       filterLender: "lender 过滤",
       filterBorrower: "borrower 过滤",
