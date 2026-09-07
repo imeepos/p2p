@@ -32,6 +32,8 @@ export interface GroupStoreState {
   groupsError: string | null;
   friends: ChatFriendJson[];
   friendsLoaded: boolean;
+  friendsLoading: boolean;
+  friendsError: string | null;
   selfPeerId: string | null;
   selectedGroupId: string | null;
   messagesByGroup: Record<string, GroupMessageJson[]>;
@@ -71,6 +73,8 @@ export const useGroupStore = create<GroupStoreState>()((set, get) => ({
   groupsError: null,
   friends: [],
   friendsLoaded: false,
+  friendsLoading: false,
+  friendsError: null,
   selfPeerId: null,
   selectedGroupId: null,
   messagesByGroup: {},
@@ -104,14 +108,18 @@ export const useGroupStore = create<GroupStoreState>()((set, get) => ({
   },
 
   // 群视图专用轻量好友簿（昵称解析/邀请勾选）；不拉 1:1 消息摘要。
+  // 错误可见化：失败置 friendsError（loaded 同步置位避免死循环重试），
+  // 有错时再调本方法即为重试。
   ensureFriends: async () => {
-    if (get().friendsLoaded) return;
+    if (get().friendsLoading) return;
+    if (get().friendsLoaded && !get().friendsError) return;
+    set({ friendsLoading: true });
     try {
       const friends = await ipc.chatFriendsList();
-      set({ friends, friendsLoaded: true });
+      set({ friends, friendsLoaded: true, friendsError: null, friendsLoading: false });
     } catch (error) {
       console.error("[group] 好友簿加载失败", error);
-      set({ friendsLoaded: true });
+      set({ friendsError: errorOf(error), friendsLoaded: true, friendsLoading: false });
     }
   },
 

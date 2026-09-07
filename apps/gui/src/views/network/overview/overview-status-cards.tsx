@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useCallback, useState } from "react";
 
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { StatCard } from "@/components/page/stat-card";
 import { Button } from "@/components/ui/button";
 import type { Locale } from "@/i18n";

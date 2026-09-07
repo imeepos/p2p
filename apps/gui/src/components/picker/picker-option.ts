@@ -6,11 +6,8 @@ export interface PickerOption {
   hint?: string;
 }
 
-// PeerId 缩略：头 12 + 尾 8（头长对齐 PEER_ID_PREFIX_LEN 口径），中段省略。
-export function shortPeerId(peerId: string, head = 12, tail = 8): string {
-  if (peerId.length <= head + tail + 1) return peerId;
-  return peerId.slice(0, head) + "\u2026" + peerId.slice(-tail);
-}
+// 缩略统一走全站 6+4 口径（R2-17），不再保留第二套头12尾8实现。
+export { shortPeerId } from "@/lib/peer-name";
 
 // 即时搜索：名称/标识不区分大小写的包含匹配，空查询返回全量。
 export function filterOptions(options: PickerOption[], query: string): PickerOption[] {

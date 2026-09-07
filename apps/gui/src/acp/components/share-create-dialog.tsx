@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toastError } from "@/components/feedback/toast";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { ShareCreateFields } from "./share-create-fields";
 import { ShareSendTargets } from "./share-send-targets";
 import { useAcpStore } from "@/acp/acp-store";

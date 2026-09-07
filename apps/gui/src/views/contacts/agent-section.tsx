@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Bot, MessageSquareIcon, Settings2Icon, Trash2Icon, UserRoundXIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { useAcpStore } from "@/acp/acp-store";
 import {
   forgetEndpointMeta,
@@ -17,6 +18,8 @@ import { EmptyState } from "@/views/shared/empty-state";
 
 import { EndpointAddDialog } from "./endpoint-add-dialog";
 import { AgentDetailDrawer } from "./agent-detail-drawer";
+import { matchesQuery } from "./contacts-sections";
+import { SectionHeader } from "./section-search";
 
 // Agent 区（§3.1）：行 = 别名 + wsUrl host + 连接态 + 权限档摘要；行内
 // 操作：发消息（/chat?agent=）、详情（右滑抽屉）、停用/删除（§3.3 危险区
@@ -32,6 +35,7 @@ export function AgentSection() {
   const lastTestBy = useEndpointMetaStore((s) => s.lastTest);
   const policies = useEndpointMetaStore((s) => s.policies);
   const [addOpen, setAddOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [commandError, setCommandError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
 
@@ -92,6 +96,14 @@ export function AgentSection() {
     }
   };
 
+  // P2#8 检索：别名/host/PeerId/endpointId/wsUrl 子串匹配，大小写不敏感
+  const filtered = saved.filter((endpoint) =>
+    matchesQuery(
+      [endpoint.alias, wsHostOf(endpoint.wsUrl), endpoint.endpointId, endpoint.peer, endpoint.wsUrl],
+      query,
+    ),
+  );
+
   return (
     <section
       id="agents"
@@ -99,18 +111,27 @@ export function AgentSection() {
       data-testid="contacts-section-agents"
       className="bg-card ring-border ring-1 flex flex-col gap-2 rounded-lg p-4"
     >
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{t("contacts.section.agents")}</h2>
-        <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)} data-testid="contacts-agent-add">
-          <Bot aria-hidden className="size-4" />
-          {t("contacts.agents.add")}
-        </Button>
-      </div>
+      <SectionHeader
+        id="agents"
+        title={t("contacts.section.agents")}
+        query={query}
+        onQueryChange={setQuery}
+        placeholder={t("contacts.agents.searchPlaceholder")}
+        matched={filtered.length}
+        total={saved.length}
+        addLabel={t("contacts.agents.add")}
+        addIcon={Bot}
+        onAdd={() => setAddOpen(true)}
+        addTestId="contacts-agent-add"
+      />
 
       {commandError ? (
-        <p className="text-destructive text-xs" role="alert" data-testid="contacts-agent-error">
-          {commandError}
-        </p>
+        <div className="flex items-center gap-1" data-testid="contacts-agent-error-row">
+          <p className="text-destructive text-xs" role="alert" data-testid="contacts-agent-error">
+            {commandError}
+          </p>
+          <CopyButton value={commandError} className="size-5" />
+        </div>
       ) : null}
 
       {saved.length === 0 ? (
@@ -125,7 +146,7 @@ export function AgentSection() {
           }
         />
       ) : (
-        saved.map((endpoint) => {
+        filtered.map((endpoint) => {
           const id = endpoint.endpointId ?? endpoint.wsUrl;
           const disabled = disabledBy[id] === true;
           const testFailed = lastTestBy[id] === "failed";
@@ -177,18 +198,24 @@ export function AgentSection() {
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  disabled={disabled}
-                >
-                  <Link to={"/chat?agent=" + id} data-testid={"contact-agent-message-" + id} aria-disabled={disabled}>
+                {disabled ? (
+                  <span
+                    aria-disabled
+                    title={t("contacts.agents.messageDisabled")}
+                    className="text-muted-foreground inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium opacity-60"
+                    data-testid={"contact-agent-message-" + id}
+                  >
                     <MessageSquareIcon aria-hidden className="size-4" />
                     {t("contacts.agents.message")}
-                  </Link>
-                </Button>
+                  </span>
+                ) : (
+                  <Button type="button" variant="ghost" size="sm" asChild>
+                    <Link to={"/chat?agent=" + id} data-testid={"contact-agent-message-" + id}>
+                      <MessageSquareIcon aria-hidden className="size-4" />
+                      {t("contacts.agents.message")}
+                    </Link>
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
@@ -229,7 +256,7 @@ export function AgentSection() {
                   data-testid={"contact-agent-remove-" + id}
                 >
                   <Trash2Icon aria-hidden className="size-4" />
-                  {t("contacts.friends.remove")}
+                  {t("contacts.agents.removeConfirmAction")}
                 </Button>
               </div>
             </div>

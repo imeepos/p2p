@@ -13,7 +13,9 @@ import { useChatStore } from "@/stores/chat-store";
 import { useNodeStore, usePeerOnline } from "@/stores/node-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { ShareCreateDialog } from "@/acp/components/share-create-dialog";
-import { toastSuccess } from "@/components/feedback/toast";
+import { toastError, toastSuccess } from "@/components/feedback/toast";
+import { errorText } from "@/views/shared/form-flow";
+import { isFailedSendReport, notifyFailedSendReport } from "@/components/chat/send-notify";
 
 // WX1 微信风格会话区：居中标题 + 右侧动作；气泡带外侧头像（本机走资料头像）。
 // key=peer 挂载（引用预览随会话切换自动复位）。
@@ -50,8 +52,22 @@ export function FriendConversation({ peer }: { peer: string }) {
   };
 
   const sendShareLink = async (link: string) => {
-    await sendText(peer, link);
-    toastSuccess(t("acp.share.sent"));
+    // W1-02 + P2#11：mark_failed 不抛错会假成功，IPC reject 也要显式报错——
+    // 报告级失败走失败信号，命令级异常走 toast 带原因
+    try {
+      const report = await sendText(peer, link);
+      if (isFailedSendReport(report)) {
+        notifyFailedSendReport(report);
+        return;
+      }
+      toastSuccess(t("acp.share.sent"));
+    } catch (error) {
+      console.error("[chat] 发送分享链接失败", peer, error);
+      toastError(t("chat.shareSendFailed"), {
+        description: errorText(error),
+        context: "chat_send_text",
+      });
+    }
   };
 
   return (

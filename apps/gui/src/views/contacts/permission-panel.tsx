@@ -40,12 +40,15 @@ function hasRejectOption(req: PermissionRequestView): boolean {
   return req.options.some((o) => typeof o.kind === "string" && o.kind.startsWith("reject"));
 }
 
-/** 单个应答选项：分级样式；allow_always 单击只弹确认框，确认后才应答（P1 两步门槛） */
+/** 单个应答选项：分级样式；allow_always 单击只弹确认框，确认后才应答（P1 两步门槛）；
+ *  onRespond 包装提交入口（P2#10 置 pending 禁整组按钮），确认框取消不置 pending */
 function OptionButton(props: {
   req: PermissionRequestView;
   optionId: string;
   name: string;
   kind: string;
+  disabled: boolean;
+  onRespond: (apply: () => void) => void;
 }) {
   const { t } = useTranslation();
   const respond = useAcpStore((s) => s.respondPermission);
@@ -55,7 +58,7 @@ function OptionButton(props: {
   const apply = () => respond(props.req.requestId, props.optionId);
   const onClick = () => {
     if (!grade.needsConfirm) {
-      apply();
+      props.onRespond(apply);
       return;
     }
     void confirm({
@@ -65,7 +68,7 @@ function OptionButton(props: {
       cancelText: t("acp.cancel"),
       destructive: true,
     }).then((ok) => {
-      if (ok) apply();
+      if (ok) props.onRespond(apply);
     });
   };
 
@@ -75,6 +78,7 @@ function OptionButton(props: {
       variant={grade.variant}
       className={grade.tone ? TONE_CLASS[grade.tone] : undefined}
       onClick={onClick}
+      disabled={props.disabled}
       data-perm-action={grade.action}
       data-testid={"acp-permission-option-" + props.req.requestId + "-" + props.optionId}
     >
@@ -86,6 +90,12 @@ function OptionButton(props: {
 function PendingActions({ req }: { req: PermissionRequestView }) {
   const { t } = useTranslation();
   const respond = useAcpStore((s) => s.respondPermission);
+  // P2#10 应答提交期间禁用整组档位按钮，防双应答
+  const [submitting, setSubmitting] = useState(false);
+  const onRespond = (apply: () => void) => {
+    setSubmitting(true);
+    apply();
+  };
   return (
     <div className="flex flex-wrap gap-2">
       {req.options.map((opt) => (
@@ -95,6 +105,8 @@ function PendingActions({ req }: { req: PermissionRequestView }) {
           optionId={opt.optionId}
           name={opt.name}
           kind={opt.kind}
+          disabled={submitting}
+          onRespond={onRespond}
         />
       ))}
       {hasRejectOption(req) ? null : (
@@ -102,7 +114,8 @@ function PendingActions({ req }: { req: PermissionRequestView }) {
           size="sm"
           variant="outline"
           className={TONE_CLASS.danger}
-          onClick={() => respond(req.requestId, null)}
+          disabled={submitting}
+          onClick={() => onRespond(() => respond(req.requestId, null))}
           data-perm-action="reject"
           data-testid={"acp-permission-reject-" + req.requestId}
         >

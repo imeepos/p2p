@@ -154,7 +154,8 @@ describe("GroupConversation 消息渲染", () => {
 
   it("本端消息靠右（senderId===本机）且 acks 计数展示「已送达 k/n」", async () => {
     mocks.groupHistory.mockResolvedValue([
-      gmsg("mine", SELF, "我发的", { status: "pending", acks: [ALICE] }),
+      // W1-01 后 pending 显「发送中」，计数只对已落账状态展示
+      gmsg("mine", SELF, "我发的", { status: "sent", acks: [ALICE] }),
       gmsg("theirs", BOB, "别人发的"),
     ]);
     await renderWithGroup();
@@ -201,7 +202,8 @@ describe("GroupConversation 发送", () => {
       undefined,
       undefined,
     );
-    await waitFor(() => expect(screen.getByText("已送达 0/2")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("发送中…")).toBeTruthy());
+    expect(screen.queryByText("已送达 0/2")).toBeNull();
     expect(screen.getByText("你好群")).toBeTruthy();
   });
 });

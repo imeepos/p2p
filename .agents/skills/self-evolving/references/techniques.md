@@ -433,3 +433,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - eslint react-hooks/set-state-in-effect 强制生效：effect 内直接 setState 重置状态会红；用仓库惯用的「渲染期状态调整」（cached 值比对 + 条件 setState）替代。
 - vite 首跑后 node_modules 由主树共享（pnpm-workspace），worktree 里 GUI vitest 无需重新 install。
 - 纠正前条「worktree 无需 install」：新 worktree 的 apps/gui 下并没有 node_modules，tsc/vitest/eslint 直接报缺依赖；要先软链两处——根 node_modules 与 apps/gui/node_modules 指回主树对应目录（2026-09-07 WX1 会话实测，typecheck/test/build 全过）。
+
+- 2026-09-07 worktree 软链 node_modules 后 pnpm run 仍会触发 verify-deps 自动 install 并炸（软链树上 .modules.yaml 归属主树路径）：门禁直接调 node_modules/.bin/<bin>（vitest/eslint/tsc/vite）绕开 pnpm 依赖状态检查，WX1 轮的「软链即可」结论只对直接调二进制成立。
+- 2026-09-07 run_code 的 bash 前台命令约 1 分钟被截断且 stdout 静默丢失（本会话两次假象：命令在跑但结果不回）；>60s 的 vitest/cargo 一律后台 job + 重定向落盘 + job_output 收集，结论从日志文件读，不信任前台回显。
+- 2026-09-07 fireEvent.keyDown 断言事件穿透：React 合成 stopPropagation 只拦 React 树内冒泡，拦不住 document 级监听（Radix Dialog 的 Esc 关闭路径）；验「Esc 不连带关弹窗」要挂 document keydown spy 断言不被调用，只断言 React 外层 onKeyDown 不响是不够的。
+- 再纠正：软链好后别用 pnpm exec/pnpm test 起 vitest——pnpm 的 verify-deps-before-run 会因根 node_modules 是 symlink 报 ERR_PNPM_UNSAFE_MODULES_DIR 并试图重装；直接 node 起真实入口绕开：cd apps/gui && node node_modules/vitest/vitest.mjs run <files>（2026-09-07 llm-provider-share 会话实测）。

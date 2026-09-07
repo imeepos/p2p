@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import type { I18nKey } from "@/i18n/types";
 
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 
 import type { LlmBorrowReport, LlmRejectCode } from "./types";

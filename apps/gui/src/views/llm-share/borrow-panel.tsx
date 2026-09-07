@@ -5,6 +5,7 @@ import type { I18nKey } from "@/i18n/types";
 
 import { EntityCombobox, type PickerOption } from "@/components/picker";
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -161,8 +162,11 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                 options={modelOptions}
                 value={modelOptions.some((option) => option.value === values.model) ? values.model : null}
                 onChange={(next) => {
-                  if (next) set("model")(next);
+                  set("model")(next ?? "");
                 }}
+                placeholder={t("llmShare.borrow.modelPickPlaceholder")}
+                searchPlaceholder={t("llmShare.borrow.modelPickSearch")}
+                emptyText={t("llmShare.borrow.modelPickEmpty")}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -227,9 +231,7 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
               ) : null}
             </div>
             {submitError ? (
-              <p role="alert" className="text-destructive text-xs">
-                {submitError}
-              </p>
+              <CommandErrorText message={submitError} />
             ) : null}
             {/* R2-14：LLM 调用为长耗时动作，处理中给行内状态反馈（aria-live） */}
             {busy ? (

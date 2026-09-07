@@ -11,13 +11,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { toastError, toastSuccess } from "@/components/feedback/toast";
 import type { GroupJson } from "@/lib/ipc-types";
 import { useGroupStore } from "@/stores/group-store";
 import { EmptyState } from "@/views/shared/empty-state";
+import { errorText } from "@/views/shared/form-flow";
 
 import { GroupStateBadge } from "@/views/group/group-list";
 import { GroupInvitePicker } from "@/views/group/group-invite-picker";
 import { GroupAddDialog } from "./group-add-dialog";
+import { matchesQuery } from "./contacts-sections";
+import { SectionHeader } from "./section-search";
 // F09：建群表单内嵌 GroupAddDialog 默认页签，不再单独挂 GroupCreateDialog。
 
 // 群区（§3.1）：行 = 群名 + 成员数 + 我的角色 + 四态徽标；行内操作：
@@ -32,7 +36,10 @@ export function GroupSection() {
   const leave = useGroupStore((s) => s.leave);
   const [addOpen, setAddOpen] = useState(false);
   const [inviteGroup, setInviteGroup] = useState<GroupJson | null>(null);
-  const [commandError, setCommandError] = useState<string | null>(null);
+  // P2#8 检索：群名/群 ID 子串匹配，大小写不敏感（节内 state）
+  const [query, setQuery] = useState("");
+  // 退群在途按群锁定，防连点重复发 IPC
+  const [leavingId, setLeavingId] = useState<string | null>(null);
 
   const leaveGroup = async (group: GroupJson) => {
     const ok = await confirm({
@@ -43,14 +50,18 @@ export function GroupSection() {
       destructive: true,
     });
     if (!ok) return;
+    setLeavingId(group.groupId);
     try {
       await leave(group.groupId);
+      toastSuccess(t("contacts.groups.leaveSuccess"));
     } catch (error) {
       console.error("[contacts] 退群失败", group.groupId, error);
-      setCommandError(
-        t("contacts.groups.leaveFailed") +
-          (error instanceof Error ? error.message : String(error)),
-      );
+      toastError(t("contacts.groups.leaveFailed"), {
+        description: errorText(error),
+        context: "group_leave",
+      });
+    } finally {
+      setLeavingId(null);
     }
   };
 
@@ -61,6 +72,7 @@ export function GroupSection() {
     if (active(a) !== active(b)) return active(a) ? -1 : 1;
     return b.tsMs - a.tsMs;
   });
+  const filtered = sorted.filter((g) => matchesQuery([g.name, g.groupId], query));
 
   return (
     <section
@@ -69,19 +81,19 @@ export function GroupSection() {
       data-testid="contacts-section-groups"
       className="bg-card ring-border ring-1 flex flex-col gap-2 rounded-lg p-4"
     >
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{t("contacts.section.groups")}</h2>
-        <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)} data-testid="contacts-group-add">
-          <UsersRoundIcon aria-hidden className="size-4" />
-          {t("contacts.groups.add")}
-        </Button>
-      </div>
-
-      {commandError ? (
-        <p className="text-destructive text-xs" role="alert" data-testid="contacts-group-error">
-          {commandError}
-        </p>
-      ) : null}
+      <SectionHeader
+        id="groups"
+        title={t("contacts.section.groups")}
+        query={query}
+        onQueryChange={setQuery}
+        placeholder={t("contacts.groups.searchPlaceholder")}
+        matched={filtered.length}
+        total={sorted.length}
+        addLabel={t("contacts.groups.add")}
+        addIcon={UsersRoundIcon}
+        onAdd={() => setAddOpen(true)}
+        addTestId="contacts-group-add"
+      />
 
       {!groupsLoaded && groups.length === 0 ? (
         <p className="text-muted-foreground px-1 py-2 text-sm">{t("group.loading")}</p>
@@ -96,8 +108,12 @@ export function GroupSection() {
             </Button>
           }
         />
+      ) : filtered.length === 0 ? (
+        <p className="text-muted-foreground px-1 py-2 text-sm" data-testid="contacts-groups-no-match">
+          {t("contacts.noMatch")}
+        </p>
       ) : (
-        sorted.map((group) => (
+        filtered.map((group) => (
           <div
             key={group.groupId}
             className="hover:bg-accent/50 flex items-center gap-3 rounded-md px-2 py-2"
@@ -131,6 +147,13 @@ export function GroupSection() {
                 variant="ghost"
                 size="sm"
                 disabled={!isOwner(group) || !active(group)}
+                title={
+                  !active(group)
+                    ? t("contacts.groups.inviteDisabledInactive")
+                    : !isOwner(group)
+                      ? t("contacts.groups.inviteDisabledNotOwner")
+                      : undefined
+                }
                 onClick={() => setInviteGroup(group)}
                 data-testid={"contact-group-invite-" + group.groupId}
               >
@@ -141,7 +164,7 @@ export function GroupSection() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={!active(group)}
+                disabled={!active(group) || leavingId === group.groupId}
                 onClick={() => void leaveGroup(group)}
                 data-testid={"contact-group-leave-" + group.groupId}
               >

@@ -12,6 +12,12 @@ import type { I18nKey } from "@/i18n/types";
 import type { AcpEndpoint } from "@/acp/protocol";
 import { StatusBadge } from "@/views/shared/status-badge";
 
+import {
+  hasEndpointFormErrors,
+  validateEndpointForm,
+  type EndpointFormErrors,
+} from "./endpoint-rules";
+import { EndpointFieldError } from "./endpoint-advanced-fields";
 import { useEndpointTest } from "./use-endpoint-test";
 
 const PHASE_TONE = {
@@ -37,6 +43,7 @@ function Field(props: {
   onChange: (v: string) => void;
   testId: string;
   type?: "text" | "password";
+  placeholder?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -46,6 +53,7 @@ function Field(props: {
         type={props.type ?? "text"}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
+        placeholder={props.placeholder}
         data-testid={props.testId}
         autoComplete="off"
       />
@@ -73,11 +81,41 @@ export function DrawerConnection({
   const { start, testing } = useEndpointTest();
   const [editing, setEditing] = useState(false);
   const [draft, setDraftLocal] = useState<AcpEndpoint>(endpoint);
+  const [errors, setErrors] = useState<EndpointFormErrors | null>(null);
 
   const phaseKey = PHASE_KEY[isActive ? phase : "idle"] as I18nKey;
   const outcome = testing ? null : lastTest;
 
   const startTest = () => start(editing ? draft : endpoint);
+
+  // P2#7 取消编辑：丢弃草稿恢复原 endpoint 值并退出编辑态
+  const cancelEdit = () => {
+    setDraftLocal(endpoint);
+    setErrors(null);
+    setEditing(false);
+  };
+
+  // P2#6 保存前同款预校验（endpoint-add-dialog save 路径口径：token 可空），
+  // 非法则行内报错不保存
+  const save = () => {
+    const next = validateEndpointForm(
+      {
+        wsUrl: draft.wsUrl,
+        token: draft.token,
+        peer: draft.peer,
+        alias: draft.alias ?? "",
+        adminUrl: draft.adminUrl,
+      },
+      { requireToken: false },
+    );
+    if (hasEndpointFormErrors(next)) {
+      setErrors(next);
+      return;
+    }
+    setErrors(null);
+    onSave({ ...endpoint, ...draft });
+    setEditing(false);
+  };
 
   return (
     <div className="flex flex-col gap-3" data-testid="contacts-drawer-connection">
@@ -88,18 +126,26 @@ export function DrawerConnection({
           </StatusBadge>
         </span>
         {editing ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              onSave({ ...endpoint, ...draft });
-              setEditing(false);
-            }}
-            data-testid="contacts-drawer-save"
-          >
-            {t("contacts.drawer.save")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={cancelEdit}
+              data-testid="contacts-drawer-cancel"
+            >
+              {t("common.actions.cancel")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={save}
+              data-testid="contacts-drawer-save"
+            >
+              {t("contacts.drawer.save")}
+            </Button>
+          </div>
         ) : (
           <Button
             type="button"
@@ -107,6 +153,7 @@ export function DrawerConnection({
             size="sm"
             onClick={() => {
               setDraftLocal(endpoint);
+              setErrors(null);
               setEditing(true);
             }}
             data-testid="contacts-drawer-edit"
@@ -123,7 +170,9 @@ export function DrawerConnection({
             value={draft.wsUrl}
             onChange={(v) => setDraftLocal((p) => ({ ...p, wsUrl: v }))}
             testId="contacts-drawer-wsurl"
+            placeholder={t("contacts.endpoint.wsUrlPlaceholder")}
           />
+          <EndpointFieldError code={errors?.wsUrl} testidPrefix="contacts-drawer-error" />
           <Field
             id="drawer-token"
             label={t("contacts.endpoint.tokenLabel")}
@@ -131,14 +180,18 @@ export function DrawerConnection({
             onChange={(v) => setDraftLocal((p) => ({ ...p, token: v }))}
             testId="contacts-drawer-token"
             type="password"
+            placeholder={t("contacts.endpoint.tokenPlaceholder")}
           />
+          <EndpointFieldError code={errors?.token} testidPrefix="contacts-drawer-error" />
           <Field
             id="drawer-peer"
             label={t("contacts.endpoint.peerLabel")}
             value={draft.peer}
             onChange={(v) => setDraftLocal((p) => ({ ...p, peer: v }))}
             testId="contacts-drawer-peer"
+            placeholder={t("contacts.endpoint.peerPlaceholder")}
           />
+          <EndpointFieldError code={errors?.peer} testidPrefix="contacts-drawer-error" />
         </div>
       ) : (
         <div className="flex flex-col gap-1 text-sm">

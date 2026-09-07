@@ -75,7 +75,7 @@ describe("添加好友弹窗：发现清单选择器（F03）", () => {
     });
     expect(friendPickOptions([{ peerId: PEER }, { peerId: PEER2 }], useChatStore.getState().friends)).toEqual([
       { value: PEER, label: "小圆", hint: expect.any(String) },
-      { value: PEER2, label: PEER2.slice(0, 12) + "…" + PEER2.slice(-8), hint: expect.any(String) },
+      { value: PEER2, label: PEER2.slice(0, 6) + "…" + PEER2.slice(-4), hint: expect.any(String) },
     ]);
   });
 });

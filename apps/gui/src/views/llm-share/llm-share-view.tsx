@@ -8,6 +8,7 @@ import { AllowlistPanel } from "./allowlist-panel";
 import { BorrowPanel } from "./borrow-panel";
 import { LedgerPanel } from "./ledger-panel";
 import { OfferPanel } from "./offer-panel";
+import { ProviderPanel } from "./provider-panel";
 import type { LlmShareBackend } from "./types";
 
 function PanelSection({
@@ -15,7 +16,12 @@ function PanelSection({
   testid,
   children,
 }: {
-  titleKey: "llmShare.panels.offer" | "llmShare.panels.allowlist" | "llmShare.panels.borrow" | "llmShare.panels.ledger";
+  titleKey:
+    | "llmShare.panels.offer"
+    | "llmShare.panels.providers"
+    | "llmShare.panels.allowlist"
+    | "llmShare.panels.borrow"
+    | "llmShare.panels.ledger";
   testid: string;
   children: ReactNode;
 }) {
@@ -28,8 +34,8 @@ function PanelSection({
   );
 }
 
-// /llm-share 四面板页（契约 §16.3）：offer 发布 / allowlist 管理 / borrow
-// 快捷 / 双边账本。自持一份 ConfirmProvider（borrow 二次确认依赖，与
+// /llm-share 五面板页（契约 §16.3）：offer 发布 / 上游配置 / allowlist 管理 /
+// borrow 快捷 / 双边账本。自持一份 ConfirmProvider（borrow 二次确认依赖，与
 // main.tsx 全站 Provider 嵌套无害，acp-view 先例）。
 export function LlmShareView({ backend }: { backend: LlmShareBackend }) {
   return (
@@ -39,6 +45,9 @@ export function LlmShareView({ backend }: { backend: LlmShareBackend }) {
         <div className="grid gap-6 xl:grid-cols-2">
           <PanelSection titleKey="llmShare.panels.offer" testid="section-offer">
             <OfferPanel backend={backend} />
+          </PanelSection>
+          <PanelSection titleKey="llmShare.panels.providers" testid="section-providers">
+            <ProviderPanel backend={backend} />
           </PanelSection>
           <PanelSection titleKey="llmShare.panels.allowlist" testid="section-allowlist">
             <AllowlistPanel backend={backend} />

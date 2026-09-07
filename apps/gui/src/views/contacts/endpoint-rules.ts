@@ -4,6 +4,9 @@
 // 可空（§3.2 原始「token（可空）」口径，先存后连），连接类动作必填
 // （2026-09-07 用户裁决，部分回调 aaa72f2 的收紧）；adminUrl 可选但填了
 // 必须合法（分享管理面）。
+import { EMPTY_DRAFT } from "@/acp/endpoint-storage";
+import type { AcpEndpoint } from "@/acp/protocol";
+import type { AcpConsoleStatus } from "@/lib/ipc-types";
 import { isValidPeerId, MAX_NICKNAME_CHARS } from "@/lib/chat-limits";
 
 export type EndpointFieldError =
@@ -94,6 +97,29 @@ export function validateEndpointForm(
     errors.adminUrl = "adminUrlInvalid";
   }
   return errors;
+}
+
+/** 打开瞬间播种（渲染期状态调整，不落 effect）：console ready 时以本机控制台值
+ *  预填连接面（未动过的字段才覆盖），补管理地址缺省，并预选首个发现目标 */
+export function seedForm(
+  draft: AcpEndpoint,
+  consoleStatus: AcpConsoleStatus | null,
+): AcpEndpoint {
+  const seeded = { ...draft };
+  const ready = consoleStatus?.phase === "ready" ? consoleStatus : null;
+  if (ready) {
+    if (!seeded.wsUrl.trim() || seeded.wsUrl === EMPTY_DRAFT.wsUrl) {
+      seeded.wsUrl = ready.wsUrl ?? seeded.wsUrl;
+    }
+    if (!seeded.token.trim()) seeded.token = ready.token ?? seeded.token;
+    if (!seeded.statusUrl?.trim()) seeded.statusUrl = ready.statusUrl;
+    if (!seeded.adminUrl?.trim()) seeded.adminUrl = ready.adminUrl;
+  }
+  if (!seeded.adminUrl?.trim()) {
+    const derived = defaultAdminUrl(seeded.wsUrl);
+    if (derived) seeded.adminUrl = derived;
+  }
+  return seeded;
 }
 
 /** 分享导入端点稳定 id：按 peer 幂等，重复导入同一链接即刷新连接面（§8） */

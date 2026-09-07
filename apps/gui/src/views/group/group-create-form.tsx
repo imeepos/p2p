@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { UserRoundPlus } from "lucide-react";
 
 import { EntityMultiSelect, shortPeerId, type PickerOption } from "@/components/picker";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,8 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const friends = useGroupStore((s) => s.friends);
+  const friendsLoading = useGroupStore((s) => s.friendsLoading);
+  const friendsError = useGroupStore((s) => s.friendsError);
   const ensureFriends = useGroupStore((s) => s.ensureFriends);
   const upsertGroup = useGroupStore((s) => s.upsertGroup);
   const selectGroup = useGroupStore((s) => s.selectGroup);
@@ -80,7 +83,8 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
     }
   };
 
-  if (friends.length === 0) {
+  // 加载中/失败不落死表单：选择器三态就地呈现；真无好友才给下一步动作
+  if (!friendsLoading && !friendsError && friends.length === 0) {
     // F09：空好友簿不给死表单，给下一步动作
     return (
       <EmptyState
@@ -115,11 +119,15 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
         ) : null}
       </div>
       <div className="flex flex-col gap-1">
-        <Label>{t("group.create.membersLabel")}</Label>
+        <Label htmlFor="group-create-friends-search">{t("group.create.membersLabel")}</Label>
         <EntityMultiSelect
+          id="group-create-friends-search"
           options={memberOptions}
           selected={selected}
           onChange={setSelected}
+          loading={friendsLoading}
+          error={friendsError}
+          onRetry={() => void ensureFriends()}
           warning={
             overCap
               ? t("group.manage.inviteOverCap", {
@@ -136,10 +144,11 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
         ) : null}
       </div>
       {commandError ? (
-        <p className="text-destructive text-xs" role="alert" data-testid="group-create-error">
-          {t("group.create.failed")}
-          {commandError}
-        </p>
+        <CommandErrorText
+          message={commandError}
+          prefix={t("group.create.failed")}
+          testId="group-create-error"
+        />
       ) : null}
       <Button type="button" onClick={() => void submit()} disabled={!canSubmit} data-testid="group-create-submit">
         {submitting ? t("group.create.submitting") : t("group.create.submit")}

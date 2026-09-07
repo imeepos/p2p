@@ -95,7 +95,8 @@ describe("GroupInviteDialog", () => {
   it("群信息/邀请人/备注/成员数口径齐备", () => {
     renderDialog({ message: cardMessage, invite });
     expect(screen.getByTestId("group-invite-dialog-group").textContent).toBe("项目组");
-    expect(screen.getByTestId("group-invite-dialog-owner").textContent).toContain("owner-peer");
+    // W1-04：群主走人可读标签（好友昵称+缩略）；非好友回退缩略 ID
+    expect(screen.getByTestId("group-invite-dialog-owner").textContent).toBe("owner-…-xyz");
     expect(screen.getByTestId("group-invite-dialog-inviter").textContent).toBe("阿北");
     expect(screen.getByTestId("group-invite-dialog-note").textContent).toBe("周末副本");
     expect(screen.getByText("成员数以同意进群后的群名单为准")).toBeTruthy();

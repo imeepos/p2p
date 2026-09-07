@@ -76,3 +76,6 @@
 ## 2026-09-07 禁止用模糊模式批量 kill 进程——会误杀自己的后台任务
 - 事故：协调者清理遗留进程用 pgrep -f "ext512/p2p/apps" 批杀，把命令行恰好含该路径的后台 make check 门禁任务一并 SIGKILL（bash-702 击杀实录），门禁被迫重启。
 - 红线：批量 kill 前必须先 pgrep -af 列出并人工核对清单；后台 job（bash-xxx）命令行常含工作路径，模式匹配必中自己；按 PID 点杀或先杀父进程树（tauri dev 的应用窗口是子进程，杀父后还要查子）。
+
+- 禁止凭记忆重构 edit 的 old_string 锚点：本会话同一天三次把右括号冒号锚点抄错、注释一字之差不匹配，全部 old_string not found 返工；锚点必须从最近一次 read 的原文逐字复制，改完立即 read 回核（2026-09-07 UX-R3 实录）。
+- 禁止给 run_code 调用漏带外层 description 参数（报 invalid arguments 只会指向子工具，实际是 run_code 自身缺参）；以及 JSON 键名笔误（如 new_string 多打引号）——提交前扫一眼调用参数骨架（2026-09-07 同日三犯）。

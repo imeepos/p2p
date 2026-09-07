@@ -220,7 +220,7 @@ describe("GUI chat event and history boundaries", () => {
       () => expect(within(screen.getByTestId("message-scroll")).getAllByText("重复入站")).toHaveLength(1),
       { timeout: WAIT_TIMEOUT },
     );
-    expect(screen.getByText("等待对方上线")).toBeTruthy();
+    expect(screen.getByText("发送中…")).toBeTruthy();
   }, VIEW_TIMEOUT);
 
   it("renders failed and pending status without an exception", async () => {

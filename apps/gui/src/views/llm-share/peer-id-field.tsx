@@ -44,7 +44,8 @@ export function PeerIdField({
         options={options}
         value={options.some((option) => option.value === value) ? value : null}
         onChange={(next) => {
-          if (next) onValueChange(next);
+          // null = 触发器清空叉：同步清自由文本兜底，两输入保持同值
+          onValueChange(next ?? "");
         }}
       />
       <Label htmlFor={inputId}>{label}</Label>

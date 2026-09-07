@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { MessageSquareIcon, MoveIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { initialOf } from "@/lib/conversation-entry";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { usePeerOnline } from "@/stores/node-store";
@@ -33,7 +34,16 @@ export function FriendRow({ friend, onMove, onRemove }: FriendRowProps) {
       </span>
       <PeerStatusDot online={online} testId={"contact-friend-online-" + friend.peerId} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{name}</p>
+        {/* P3#15 无昵称时展示的是 PeerId 缩略：hover 显全文并支持复制 */}
+        <p
+          className="flex items-center gap-1 truncate text-sm font-medium"
+          title={friend.nickname ? undefined : friend.peerId}
+        >
+          {name}
+          {friend.nickname ? null : (
+            <CopyButton value={friend.peerId} className="size-5 shrink-0" />
+          )}
+        </p>
         <p className="text-muted-foreground truncate text-xs">
           {friend.note ? friend.note + " · " : ""}
           {friend.group ? friend.group : t("chat.group.ungrouped")}

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { EntityCombobox } from "@/components/picker";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toastSuccess } from "@/components/feedback/toast";
 import { markLocalWrite } from "@/lib/data-watch";
 import { ipc } from "@/lib/ipc";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";
@@ -47,12 +49,12 @@ function FieldError({ code, errorId }: { code?: FriendFieldError; errorId: strin
 // 后端拒绝：错误原文（Rust/mock 可读 Err）原样展示在表单内，不翻译不吞。
 function CommandError({ message }: { message: string | null }) {
   const { t } = useTranslation();
-  if (!message) return null;
   return (
-    <p className="text-destructive text-xs" role="alert" data-testid="friend-add-error">
-      {t("chat.addFriend.failed")}
-      {message}
-    </p>
+    <CommandErrorText
+      message={message}
+      prefix={t("chat.addFriend.failed")}
+      testId="friend-add-error"
+    />
   );
 }
 
@@ -113,6 +115,7 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
       markLocalWrite("chat");
       await loadFriends();
       await loadInvites();
+      toastSuccess(t("contacts.friends.addSuccess"));
       handleOpenChange(false);
     } catch (error) {
       console.error("[chat] 添加好友失败", error);
@@ -141,6 +144,7 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
               value={options.some((option) => option.value === peerId) ? peerId : null}
               onChange={(value) => {
                 if (value) setPeerId(value);
+                else setPeerId("");
               }}
               testId="friend-add-picker"
             />

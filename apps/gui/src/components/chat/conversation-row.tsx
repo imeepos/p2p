@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { AvatarBox } from "@/components/chat/avatar-box";
 import { Badge } from "@/components/ui/badge";
-import { formatTimeShort } from "@/lib/format";
+import { formatConversationTime } from "@/lib/format";
 import { formatUnreadCount } from "@/lib/conversation-entry";
 import type { ConversationEntry } from "@/lib/conversation-entry";
 import type { Locale } from "@/i18n";
@@ -98,7 +98,7 @@ export function ConversationRow({ entry, active, onSelect }: ConversationRowProp
                   active ? "text-white/75" : "text-muted-foreground",
                 )}
               >
-                {formatTimeShort(entry.lastTsMs, locale)}
+                {formatConversationTime(entry.lastTsMs, locale)}
               </time>
             ) : null}
           </span>

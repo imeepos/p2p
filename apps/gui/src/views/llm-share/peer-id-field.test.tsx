@@ -60,6 +60,19 @@ describe("R2-05 PeerId 关联输入：节点选择器 + base58/32 字节即时�
     expect(input.value).toBe(PEER_B);
   });
 
+  it("白名单：选择器清空叉同步清空自由文本兜底（null 不被丢弃）", async () => {
+    seedNodePeers([PEER, PEER_B]);
+    const { backend } = makeLlmShareMockPair();
+    renderWithConfirm(<AllowlistPanel backend={backend} />);
+    fireEvent.click(screen.getByTestId("llm-allow-peer-pick"));
+    fireEvent.click(await screen.findByTestId("llm-allow-peer-pick-panel"));
+    fireEvent.click(screen.getByRole("option", { name: new RegExp(PEER_B.slice(0, 6)) }));
+    const input = screen.getByLabelText(t("llmShare.allowlist.formPeerId")) as HTMLInputElement;
+    expect(input.value).toBe(PEER_B);
+    fireEvent.click(screen.getByTestId("llm-allow-peer-pick-clear"));
+    expect((screen.getByLabelText(t("llmShare.allowlist.formPeerId")) as HTMLInputElement).value).toBe("");
+  });
+
   it("白名单：失焦即时报格式错误；非法值提交被拦截不触达后端", async () => {
     const { backend } = makeLlmShareMockPair();
     const allowSpy = vi.spyOn(backend, "allow");

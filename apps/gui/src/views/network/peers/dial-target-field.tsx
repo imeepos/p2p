@@ -53,6 +53,7 @@ export function DialTargetField({
           onChange={(value) => {
             if (value) onPickPeer(value);
           }}
+          clearable={false}
           testId="dial-peer-picker"
         />
       </div>

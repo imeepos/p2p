@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { UsersRound } from "lucide-react";
 
 import { AsyncButton } from "@/components/feedback/async-button";
-import { CopyButton } from "@/components/monitor/copy-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/format";
 import type { GroupInviteJson } from "@/lib/ipc-types";
