@@ -4,15 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AvatarFileError, fileToAvatarDataUrl } from "@/lib/avatar";
 import type { NodeProfile } from "@/lib/ipc-types";
@@ -25,6 +17,7 @@ import { useProfileStore } from "@/stores/profile-store";
 import { errorText } from "@/views/shared/form-flow";
 import { LoadFailedNotice } from "@/views/shared/load-state";
 import { useUnsavedGuard } from "@/views/shared/use-unsaved-guard";
+import { SettingsGroup, SettingsRow } from "./settings-row";
 
 const AVATAR_INPUT_ACCEPT = "image/png,image/jpeg,image/webp";
 
@@ -34,18 +27,18 @@ function AvatarPreview({ src, alt }: { src: string | null; alt: string }) {
       <img
         src={src}
         alt={alt}
-        className="bg-muted size-16 shrink-0 rounded-full object-cover"
+        className="bg-muted size-14 shrink-0 rounded-full object-cover"
       />
     );
   }
   return (
-    <span className="bg-muted text-muted-foreground flex size-16 shrink-0 items-center justify-center rounded-full">
-      <CircleUserRoundIcon aria-hidden className="size-8" />
+    <span className="bg-muted text-muted-foreground flex size-14 shrink-0 items-center justify-center rounded-full">
+      <CircleUserRoundIcon aria-hidden className="size-7" />
     </span>
   );
 }
 
-// 节点资料卡：name/description/avatar 可视化编辑；与网络配置表单解耦，
+// 节点资料组：name/description/avatar 可视化编辑；与网络配置表单解耦，
 // 资料保存即时生效、无需重启节点（契约 v6 §11）。
 export function ProfileCard() {
   const { t } = useTranslation();
@@ -128,94 +121,106 @@ export function ProfileCard() {
   };
 
   return (
-    <Card className="col-span-12 lg:col-span-6">
-      <CardHeader>
-        <CardTitle>{t("settings.cards.profile")}</CardTitle>
-        <CardDescription>{t("settings.profile.hint")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {loadError !== null && !loaded ? (
-          <LoadFailedNotice onRetry={retryLoad} messageKey="settings.profile.loadFailed" />
-        ) : (
-          <>
-            <div className="flex flex-col gap-1.5">
-              {/* IM-V2 R3 S1：头像圆标与标签/按钮行同轴居中，说明文字整行
-                  下移，消除三行侧列与 64px 圆标的基线视差 */}
-              <div className="flex items-center gap-4">
-                <AvatarPreview src={current.avatar} alt={t("settings.profile.avatarAlt")} />
-                <div className="flex flex-col gap-1.5">
-                  <Label>{t("settings.profile.avatar")}</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => fileRef.current?.click()}
-                    >
-                      <ImageUpIcon aria-hidden />
-                      {t("settings.profile.avatarUpload")}
-                    </Button>
-                    {current.avatar ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setDraft({ ...current, avatar: null })}
-                      >
-                        <Trash2Icon aria-hidden />
-                        {t("settings.profile.avatarRemove")}
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-              {/* 说明文字对比度 WCAG AA（text-gray-600 级） */}
-              <p className="text-xs text-gray-600 dark:text-gray-300">
-                {t("settings.profile.avatarHint")}
-              </p>
-              <input
-                ref={fileRef}
-                type="file"
-                accept={AVATAR_INPUT_ACCEPT}
-                className="hidden"
-                onChange={(e) => void onPickFile(e)}
+    <SettingsGroup
+      title={t("settings.cards.profile")}
+      description={t("settings.profile.hint")}
+    >
+      {loadError !== null && !loaded ? (
+        <div className="py-3">
+          <LoadFailedNotice
+            onRetry={retryLoad}
+            messageKey="settings.profile.loadFailed"
+          />
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center justify-between gap-6 py-3">
+            <div className="flex min-w-0 items-center gap-4">
+              <AvatarPreview
+                src={current.avatar}
+                alt={t("settings.profile.avatarAlt")}
               />
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate text-sm font-medium">
+                  {current.name || t("settings.profile.unnamed")}
+                </span>
+                <span className="text-muted-foreground text-xs leading-5">
+                  {t("settings.profile.avatarHint")}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="profile-name">{t("settings.profile.name")}</Label>
+            <div className="flex shrink-0 gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => fileRef.current?.click()}
+              >
+                <ImageUpIcon aria-hidden />
+                {t("settings.profile.avatarUpload")}
+              </Button>
+              {current.avatar ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setDraft({ ...current, avatar: null })}
+                >
+                  <Trash2Icon aria-hidden />
+                  {t("settings.profile.avatarRemove")}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          <SettingsRow
+            htmlFor="profile-name"
+            label={t("settings.profile.name")}
+            control={
               <Input
                 id="profile-name"
+                className="w-56"
                 value={current.name}
                 maxLength={NAME_MAX_CHARS}
                 placeholder={t("settings.profile.namePlaceholder")}
                 onChange={(e) => setDraft({ ...current, name: e.target.value })}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="profile-description">
-                {t("settings.profile.description")}
-              </Label>
+            }
+          />
+          <SettingsRow
+            htmlFor="profile-description"
+            label={t("settings.profile.description")}
+            control={
               <Textarea
                 id="profile-description"
+                className="h-20 w-80"
                 value={current.description}
                 maxLength={DESCRIPTION_MAX_CHARS}
                 placeholder={t("settings.profile.descriptionPlaceholder")}
-                onChange={(e) => setDraft({ ...current, description: e.target.value })}
+                onChange={(e) =>
+                  setDraft({ ...current, description: e.target.value })
+                }
               />
-            </div>
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                size="sm"
-                disabled={!dirty || saving}
-                onClick={() => void onSave()}
-              >
-                {saving ? t("settings.profile.saving") : t("settings.profile.save")}
-              </Button>
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+            }
+          />
+          <div className="flex justify-end py-3">
+            <Button
+              type="button"
+              size="sm"
+              disabled={!dirty || saving}
+              onClick={() => void onSave()}
+            >
+              {saving ? t("settings.profile.saving") : t("settings.profile.save")}
+            </Button>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept={AVATAR_INPUT_ACCEPT}
+            className="hidden"
+            onChange={(e) => void onPickFile(e)}
+          />
+        </>
+      )}
+    </SettingsGroup>
   );
 }

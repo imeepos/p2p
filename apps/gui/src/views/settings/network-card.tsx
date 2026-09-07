@@ -1,19 +1,12 @@
 import { useFormContext, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useNodeStore } from "@/stores/node-store";
 import type { I18nKey } from "@/i18n/types";
 import type { SettingsFormValues } from "./config-schema";
+import { SettingsGroup, SettingsRow } from "./settings-row";
 
 // 从监听地址提取实际生效端口：QUIC 记 /端口 或 /u端口，TCP 固定 /t端口。
 function effectivePort(listenAddrs: string[], tcp: boolean): number | null {
@@ -32,9 +25,9 @@ interface PortFieldProps {
   effective: number | null;
 }
 
-// 端口输入：0（随机）不裸显，输入框置空并展示随机端口语义；节点运行中
-// 就近展示当前实际生效端口。校验失败就地 role=alert 提示，口径同
-// dial-target-field 的 F14 实现：失焦触发，已有错误随输入复验即改即消。
+// 端口行：0（随机）不裸显，输入框置空并展示随机端口语义；节点运行中
+// 就近展示当前实际生效端口。校验失败就地 role=alert 提示（失焦触发，
+// 已有错误随输入复验即改即消），口径同 dial-target-field 的 F14 实现。
 function PortField({ name, htmlId, label, effective }: PortFieldProps) {
   const { t } = useTranslation();
   const {
@@ -49,52 +42,60 @@ function PortField({ name, htmlId, label, effective }: PortFieldProps) {
   const errorId = `${htmlId}-error`;
 
   return (
-    <div className="flex flex-col gap-1">
-      <Label htmlFor={htmlId}>{label}</Label>
-      <Input
-        id={htmlId}
-        type="number"
-        inputMode="numeric"
-        min={0}
-        max={65535}
-        placeholder={t("settings.network.randomPortPlaceholder")}
-        value={isRandom ? "" : String(value)}
-        aria-invalid={errorCode != null ? true : undefined}
-        aria-describedby={errorCode != null ? errorId : undefined}
-        onChange={(event) => {
-          const parsed = Number(event.target.value);
-          const next =
-            event.target.value === "" || Number.isNaN(parsed) ? 0 : parsed;
-          setValue(name, next, { shouldDirty: true });
-          if (errors[name] != null) void trigger(name);
-        }}
-        onBlur={() => void trigger(name)}
-      />
-      {errorCode != null ? (
-        <p
-          id={errorId}
-          role="alert"
-          className="text-destructive text-xs"
-          data-testid={errorId}
-        >
-          {t(`common.validation.${errorCode}` as I18nKey)}
-        </p>
-      ) : null}
-      {isRandom ? (
-        <p className="text-muted-foreground text-xs">
-          {t("settings.network.randomPortHint")}
-        </p>
-      ) : null}
-      {effective !== null ? (
-        <p className="text-muted-foreground text-xs">
-          {t("settings.network.effectivePort", { port: effective })}
-        </p>
-      ) : null}
-    </div>
+    <SettingsRow
+      htmlFor={htmlId}
+      label={label}
+      description={
+        <>
+          {isRandom ? (
+            <span className="block">{t("settings.network.randomPortHint")}</span>
+          ) : null}
+          {effective !== null ? (
+            <span className="block">
+              {t("settings.network.effectivePort", { port: effective })}
+            </span>
+          ) : null}
+        </>
+      }
+      error={
+        errorCode != null ? (
+          <p
+            id={errorId}
+            role="alert"
+            className="text-destructive text-xs"
+            data-testid={errorId}
+          >
+            {t(`common.validation.${errorCode}` as I18nKey)}
+          </p>
+        ) : null
+      }
+      control={
+        <Input
+          id={htmlId}
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={65535}
+          className="w-40"
+          placeholder={t("settings.network.randomPortPlaceholder")}
+          value={isRandom ? "" : String(value)}
+          aria-invalid={errorCode != null ? true : undefined}
+          aria-describedby={errorCode != null ? errorId : undefined}
+          onChange={(event) => {
+            const parsed = Number(event.target.value);
+            const next =
+              event.target.value === "" || Number.isNaN(parsed) ? 0 : parsed;
+            setValue(name, next, { shouldDirty: true });
+            if (errors[name] != null) void trigger(name);
+          }}
+          onBlur={() => void trigger(name)}
+        />
+      }
+    />
   );
 }
 
-// 网络卡：quic/tcp 端口（0 = 随机）与 mDNS 开关。
+// 网络组：quic/tcp 端口（0 = 随机）与 mDNS / 局域网开关。
 export function NetworkCard() {
   const { t } = useTranslation();
   const { setValue } = useFormContext<SettingsFormValues>();
@@ -104,59 +105,50 @@ export function NetworkCard() {
   const listenAddrs = status?.running ? status.listenAddrs : [];
 
   return (
-    <Card className="col-span-12 lg:col-span-6">
-      <CardHeader>
-        <CardTitle>{t("settings.cards.network")}</CardTitle>
-        <CardDescription>{t("settings.network.hint")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <PortField
-          name="quicPort"
-          htmlId="settings-quic-port"
-          label={t("settings.network.quicPort")}
-          effective={effectivePort(listenAddrs, false)}
-        />
-        <PortField
-          name="tcpPort"
-          htmlId="settings-tcp-port"
-          label={t("settings.network.tcpPort")}
-          effective={effectivePort(listenAddrs, true)}
-        />
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <Label htmlFor="settings-mdns">{t("settings.network.mdns")}</Label>
-            {/* 长描述限宽 + 行高统一（IM-V2 S4）：与短标签行同一节奏 */}
-            <p className="text-muted-foreground max-w-sm text-xs leading-5">
-              {t("settings.network.mdnsHint")}
-            </p>
-          </div>
+    <SettingsGroup
+      title={t("settings.cards.network")}
+      description={t("settings.network.hint")}
+    >
+      <PortField
+        name="quicPort"
+        htmlId="settings-quic-port"
+        label={t("settings.network.quicPort")}
+        effective={effectivePort(listenAddrs, false)}
+      />
+      <PortField
+        name="tcpPort"
+        htmlId="settings-tcp-port"
+        label={t("settings.network.tcpPort")}
+        effective={effectivePort(listenAddrs, true)}
+      />
+      <SettingsRow
+        htmlFor="settings-mdns"
+        label={t("settings.network.mdns")}
+        description={t("settings.network.mdnsHint")}
+        control={
           <Switch
             id="settings-mdns"
-            className="shrink-0"
             checked={enableMdns}
             onCheckedChange={(next) =>
               setValue("enableMdns", next, { shouldDirty: true })
             }
           />
-        </div>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* 契约 v11 §16.5：lanOnly=仅监听局域网发现（serde 缺省 false） */}
-            <Label htmlFor="settings-lan-only">{t("settings.network.lanOnly")}</Label>
-            <p className="text-muted-foreground max-w-sm text-xs leading-5">
-              {t("settings.network.lanOnlyHint")}
-            </p>
-          </div>
+        }
+      />
+      <SettingsRow
+        htmlFor="settings-lan-only"
+        label={t("settings.network.lanOnly")}
+        description={t("settings.network.lanOnlyHint")}
+        control={
           <Switch
             id="settings-lan-only"
-            className="shrink-0"
             checked={lanOnly}
             onCheckedChange={(next) =>
               setValue("lanOnly", next, { shouldDirty: true })
             }
           />
-        </div>
-      </CardContent>
-    </Card>
+        }
+      />
+    </SettingsGroup>
   );
 }
