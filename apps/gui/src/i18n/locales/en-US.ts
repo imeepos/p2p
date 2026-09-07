@@ -1284,6 +1284,11 @@ const enUS: typeof zhCN = {
     description: "P2P wire protocol integration docs (body text zh-CN single source)",
     toc: "Documents",
     empty: "This document has no content",
+    link: {
+      degradedTitle: "This link cannot be opened inside the app",
+      blockedCopied: "Document path copied: {{path}}",
+      externalCopied: "Link copied; open it in your system browser: {{path}}",
+    },
     settings: {
       entry: "Protocol Docs",
       entryDescription:

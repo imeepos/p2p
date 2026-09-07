@@ -1260,6 +1260,11 @@ const zhCN = {
     description: "P2P 标准通信协议接入文档（正文中文单源）",
     toc: "文档目录",
     empty: "该文档暂无内容",
+    link: {
+      degradedTitle: "该链接暂不支持在应用内打开",
+      blockedCopied: "文档路径已复制：{{path}}",
+      externalCopied: "链接已复制，请在系统浏览器打开：{{path}}",
+    },
     settings: {
       entry: "协议文档",
       entryDescription:

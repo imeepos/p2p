@@ -1,21 +1,53 @@
+import { createContext, useContext, type ReactNode } from "react";
 import type { ComponentPropsWithoutRef } from "react";
 
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-// 文档内链接（相对路径/跨文档/外链）当前无应用内落地页：拦截默认导航，
-// 避免 webview 整页跳转丢壳；console.warn 留可观测信号不静默吞。
+import { PROTOCOL_DOCS } from "@/config/docs-registry";
+
+import {
+  linkDisplayLabel,
+  openBlockedLink,
+  openExternalLink,
+  resolveDocLink,
+} from "./docs-links";
+
+// R2-20 跨文跳转回调经 context 下发：components 映射保持模块级单例，
+// docs-view 传入的回调随渲染更新（react-markdown 重渲染即生效）。
+const DocNavContext = createContext<(docId: string) => void>(() => {});
+
+function flattenText(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(flattenText).join("");
+  return "";
+}
+
 function MarkdownLink({ children, href }: ComponentPropsWithoutRef<"a">) {
+  const onOpenDoc = useContext(DocNavContext);
+  const anchorText = flattenText(children);
+  const link = resolveDocLink(href, PROTOCOL_DOCS);
+  const label = link ? linkDisplayLabel(link, anchorText) : anchorText;
   return (
     <a
       href={href}
+      title={href ?? undefined}
       className="text-primary underline underline-offset-2 break-words"
+      data-doc-link={link?.kind ?? "none"}
       onClick={(event) => {
+        if (!link) {
+          event.preventDefault();
+          console.warn("[docs] 文档链接无落地目标: " + (href ?? "<empty>"));
+          return;
+        }
         event.preventDefault();
-        console.warn("[docs] 文档链接暂不支持应用内跳转: " + (href ?? "<empty>"));
+        if (link.kind === "doc") onOpenDoc(link.docId);
+        else if (link.kind === "external") void openExternalLink(link.href);
+        else void openBlockedLink(link);
       }}
     >
-      {children}
+      {label}
     </a>
   );
 }
@@ -115,12 +147,21 @@ const COMPONENTS: Components = {
 };
 
 // 协议文档 markdown 渲染块：单篇全文渲染，滚动由容器（docs-view 右栏）承担。
-export function DocsMarkdown({ source }: { source: string }) {
+// onOpenDoc：站内跨文链接的落地回调（docs-view 切目录+回顶）。
+export function DocsMarkdown({
+  source,
+  onOpenDoc,
+}: {
+  source: string;
+  onOpenDoc: (docId: string) => void;
+}) {
   return (
-    <div className="text-sm">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
-        {source}
-      </ReactMarkdown>
-    </div>
+    <DocNavContext.Provider value={onOpenDoc}>
+      <div className="text-sm">
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
+          {source}
+        </ReactMarkdown>
+      </div>
+    </DocNavContext.Provider>
   );
 }

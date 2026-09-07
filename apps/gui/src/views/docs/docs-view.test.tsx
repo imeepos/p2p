@@ -1,10 +1,30 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PROTOCOL_DOCS } from "@/config/docs-registry";
 import i18n from "@/i18n";
 
 import { DocsView } from "./docs-view";
+
+// R2-20 链接交互断言素材：总览篇内的真实链接（源文件自身，随文档更新不脆）
+function overviewLinkHref(markdown: string, suffix: string): string {
+  const line = markdown
+    .split("\n")
+    .find((raw) => raw.includes("](" + suffix + ")"));
+  if (line === undefined) {
+    throw new Error("doc fixture without link to " + suffix + ": test precondition broken");
+  }
+  return suffix;
+}
+
+function stubClipboard(): { writeText: ReturnType<typeof vi.fn> } {
+  const writeText = vi.fn(() => Promise.resolve());
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  return { writeText };
+}
 
 // DOC2 验收基线：断言真实 docs/protocol 文件内容渲染进 DOM（禁占位文本）。
 // 断言素材全部从 ?raw 真实文档动态提取——文档更新测试不脆，且天然排除
@@ -69,5 +89,36 @@ describe("/docs 协议文档页（DOC2）", () => {
     expect(
       screen.getByRole("navigation", { name: i18n.t("docs.toc") }),
     ).toBeInTheDocument();
+  });
+
+  it("R2-20 跨文链接点击切换到目标篇（人话标题，应用内跳转）", () => {
+    const overview = PROTOCOL_DOCS[0];
+    const target = PROTOCOL_DOCS.find((d) => d.id === "wire-format")!;
+    overviewLinkHref(overview.markdown, "wire-format.md");
+    const { container } = render(<DocsView />);
+    const link = screen.getByRole("link", { name: target.title });
+    expect(link.getAttribute("title")).toBe("wire-format.md");
+    fireEvent.click(link);
+    expect(
+      screen.getByRole("heading", { level: 1, name: firstH1(target.markdown) }),
+    ).toBeInTheDocument();
+    expect(container.textContent).toContain(realBodyLine(target.markdown));
+    // 目录 aria-current 随跨文跳转同步到目标篇
+    expect(
+      screen.getByRole("button", { name: target.title }).getAttribute("aria-current"),
+    ).toBe("page");
+  });
+
+  it("R2-20 不可达仓库路径链接：渲染短名+title 保留原路径，点击复制路径给反馈", async () => {
+    const overview = PROTOCOL_DOCS[0];
+    const href = overviewLinkHref(overview.markdown, "../design/wire-protocol.md");
+    const { writeText } = stubClipboard();
+    render(<DocsView />);
+    const link = screen.getByRole("link", { name: "wire-protocol" });
+    expect(link.getAttribute("title")).toBe(href);
+    expect(link.getAttribute("href")).toBe(href);
+    expect(link.textContent).not.toBe(href);
+    fireEvent.click(link);
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(href));
   });
 });

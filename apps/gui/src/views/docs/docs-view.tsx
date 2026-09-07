@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { BookOpen } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -11,11 +11,20 @@ import { DocsMarkdown } from "./docs-markdown";
 // /docs 协议文档页（DOC2 双栏）：左侧五篇目录切换，右侧内容滚动渲染。
 // 正文单源自仓库 docs/protocol/ raw 引入（config/docs-registry.ts），
 // 页面 chrome 走 zh/en i18n；目录标题为文档自身 H1（正文不翻译）。
+// R2-20：文内跨篇链接切换目录并回顶；不可达路径给反馈+复制（docs-links）。
 export function DocsView() {
   const { t } = useTranslation();
   const [activeId, setActiveId] = useState(PROTOCOL_DOCS[0].id);
   const active =
     PROTOCOL_DOCS.find((doc) => doc.id === activeId) ?? PROTOCOL_DOCS[0];
+
+  const contentRef = useRef<HTMLElement | null>(null);
+  const openDoc = useCallback((docId: string) => {
+    setActiveId(docId);
+    // 跨文落地从目标篇开头读，沿用目录切换的回顶语义
+    // （scrollTop 直写：jsdom 无 Element.scrollTo，行为等价）
+    if (contentRef.current) contentRef.current.scrollTop = 0;
+  }, []);
 
   return (
     <>
@@ -49,11 +58,12 @@ export function DocsView() {
           </ul>
         </nav>
         <section
+          ref={contentRef}
           aria-label={active.title}
           className="min-w-0 flex-1 overflow-y-auto rounded-lg border bg-card p-4"
         >
           {active.markdown.trim().length > 0 ? (
-            <DocsMarkdown source={active.markdown} />
+            <DocsMarkdown source={active.markdown} onOpenDoc={openDoc} />
           ) : (
             <EmptyState icon={BookOpen} title={t("docs.empty")} />
           )}
