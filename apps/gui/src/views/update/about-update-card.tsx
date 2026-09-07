@@ -75,6 +75,7 @@ export function AboutUpdateCard() {
   const checkedAtMs = useUpdateStore((s) => s.result?.checkedAtMs ?? null);
   const skippedVersion = useUpdateStore((s) => s.skippedVersion);
   const skipCurrentVersion = useUpdateStore((s) => s.skipCurrentVersion);
+  const unskipVersion = useUpdateStore((s) => s.unskipVersion);
   const downloadPhase = useUpdateStore((s) => s.downloadPhase);
   const checkNow = useManualCheck();
 
@@ -112,8 +113,17 @@ export function AboutUpdateCard() {
           </span>
         ) : null}
         {skippedVersion ? (
-          <span className="text-muted-foreground text-xs">
+          <span className="text-muted-foreground flex items-center gap-2 text-xs">
             {t("update.about.skipped", { version: skippedVersion })}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              data-testid="update-unskip"
+              onClick={unskipVersion}
+            >
+              {t("update.about.unskip")}
+            </Button>
           </span>
         ) : null}
         {status === "available" && result ? (

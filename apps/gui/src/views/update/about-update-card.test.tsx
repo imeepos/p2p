@@ -166,6 +166,20 @@ describe("AboutUpdateCard 有更新详情", () => {
     expect(screen.getByText(/已跳过版本 0\.2\.0/)).toBeInTheDocument();
     expect(screen.getByText("发现新版本 0.2.0")).toBeInTheDocument();
   });
+
+  it("R2-22 已跳过行有取消跳过入口：点击清状态与持久化，提示行消失", () => {
+    localStorage.setItem("p2p-console.skipped-version", "0.2.0");
+    resetStore({
+      status: "available",
+      result: availableResult(),
+      skippedVersion: "0.2.0",
+    });
+    render(<AboutUpdateCard />);
+    fireEvent.click(screen.getByRole("button", { name: "取消跳过" }));
+    expect(useUpdateStore.getState().skippedVersion).toBeNull();
+    expect(localStorage.getItem("p2p-console.skipped-version")).toBeNull();
+    expect(screen.queryByText(/已跳过版本/)).toBeNull();
+  });
 });
 
 describe("AboutUpdateCard 下载安装", () => {

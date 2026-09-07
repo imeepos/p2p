@@ -789,6 +789,7 @@ const enUS: typeof zhCN = {
       checkNow: "Check for updates",
       skip: "Skip this version",
       skipped: "Version {{version}} skipped; you will not be reminded",
+      unskip: "Unskip",
     },
     errors: {
       openPageFailed: "Failed to open the release page",

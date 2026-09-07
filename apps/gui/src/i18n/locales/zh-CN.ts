@@ -769,6 +769,7 @@ const zhCN = {
       checkNow: "检查更新",
       skip: "跳过此版本",
       skipped: "已跳过版本 {{version}}，将不再提醒",
+      unskip: "取消跳过",
     },
     errors: {
       openPageFailed: "打开发布页失败",
