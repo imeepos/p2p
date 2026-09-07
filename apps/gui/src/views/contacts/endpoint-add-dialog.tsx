@@ -18,10 +18,12 @@ import { EMPTY_DRAFT, newEndpointId } from "@/acp/endpoint-storage";
 import { useAcpStore } from "@/acp/acp-store";
 import { useEndpointMetaStore } from "@/acp/endpoint-meta";
 import type { AcpEndpoint } from "@/acp/protocol";
+import { findShareLinkInText } from "@/acp/share-model";
 import { useDiscoveryPoll } from "@/acp/use-discovery-poll";
 
-import { defaultAdminUrl, hasEndpointFormErrors, targetOptions, validateEndpointForm, wsUrlHistory } from "./endpoint-rules";
+import { defaultAdminUrl, hasEndpointFormErrors, shareEndpointId, targetOptions, validateEndpointForm, wsUrlHistory } from "./endpoint-rules";
 import { AdvancedFields, EndpointFieldError, EndpointTargetPicker, WsUrlField } from "./endpoint-advanced-fields";
+import { EndpointShareImport } from "./endpoint-share-import";
 import { useEndpointTest } from "./use-endpoint-test";
 
 interface EndpointAddDialogProps {
@@ -67,6 +69,8 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [form, setForm] = useState<AcpEndpoint>(draft);
   const [fieldErrors, setFieldErrors] = useState<ReturnType<typeof validateEndpointForm> | null>(null);
+  // wsUrl 字段识别到分享链接时的导入态（§8）：非 null 即切导入流
+  const [shareLink, setShareLink] = useState<string | null>(null);
   const idRef = useRef<string | null>(null);
 
   // 打开瞬间播种一次（渲染期状态调整，不落 effect）；发现面轮询仅弹窗打开期间运行
@@ -80,6 +84,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
       setForm(seeded);
       setFieldErrors(null);
       setAdvancedOpen(false);
+      setShareLink(null);
     }
   }
   const ready = consoleStatus?.phase === "ready" ? consoleStatus : null;
@@ -89,6 +94,16 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   });
 
   const patch = (field: keyof AcpEndpoint) => (value: string) => {
+    // wsUrl 字段识别到分享链接（§8 guest 导入）：整段粘贴即切入导入流，
+    // 不落手工表单（链接不是 ws:// URL，落表单只会吃到格式错误）
+    if (field === "wsUrl") {
+      const link = findShareLinkInText(value);
+      if (link) {
+        setShareLink(link);
+        setFieldErrors(null);
+        return;
+      }
+    }
     setForm((prev) => ({ ...prev, [field]: value }));
     setFieldErrors(null);
   };
@@ -150,6 +165,28 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
     navigate("/chat?agent=" + stamped.endpointId);
   };
 
+  // 本机连接面（console ready 时直传导入流，免经 store draft 中转）
+  const shareConn = ready?.wsUrl && ready.token
+    ? { statusUrl: ready.statusUrl ?? "", token: ready.token }
+    : null;
+
+  /** 分享导入成功（§8）：按分享 peer 落 saved endpoint（稳定 id 幂等重导
+   *  入即刷新）；连接面 = 本机 console，凭据在 console 策略表，对话经本机
+   *  agent 桥接拨号到对方（ws peer 参数语义）。 */
+  const onShareJoined = (peer: string) => {
+    const stamped = upsertSaved({
+      endpointId: shareEndpointId(peer),
+      peer,
+      wsUrl: form.wsUrl,
+      token: form.token,
+      statusUrl: form.statusUrl,
+      adminUrl: form.adminUrl,
+      alias: form.alias ?? "",
+    });
+    onOpenChange(false);
+    onSaved(stamped);
+  };
+
   const history = wsUrlHistory(saved);
   const candidates = targetOptions(directory, saved);
   const activeId = idRef.current;
@@ -170,6 +207,15 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
               {t("contacts.endpoint.localAgentHint")}
             </p>
           ) : null}
+          {shareLink ? (
+            <EndpointShareImport
+              link={shareLink}
+              conn={shareConn}
+              onJoined={onShareJoined}
+              onExit={() => setShareLink(null)}
+            />
+          ) : (
+            <>
           <WsUrlField
             form={form}
             fieldErrors={fieldErrors}
@@ -236,17 +282,23 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
               </span>
             ) : null}
           </div>
+            </>
+          )}
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.actions.cancel")}
           </Button>
-          <Button type="button" variant="outline" onClick={save} disabled={testing} data-testid="contacts-endpoint-save">
-            {t("contacts.endpoint.save")}
-          </Button>
-          <Button type="button" onClick={addAndOpen} disabled={testing} data-testid="contacts-endpoint-add-open">
-            {testing ? t("contacts.endpoint.opening") : t("contacts.endpoint.addAndOpen")}
-          </Button>
+          {!shareLink ? (
+            <>
+              <Button type="button" variant="outline" onClick={save} disabled={testing} data-testid="contacts-endpoint-save">
+                {t("contacts.endpoint.save")}
+              </Button>
+              <Button type="button" onClick={addAndOpen} disabled={testing} data-testid="contacts-endpoint-add-open">
+                {testing ? t("contacts.endpoint.opening") : t("contacts.endpoint.addAndOpen")}
+              </Button>
+            </>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

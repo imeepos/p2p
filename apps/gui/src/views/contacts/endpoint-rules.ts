@@ -96,6 +96,11 @@ export function validateEndpointForm(
   return errors;
 }
 
+/** 分享导入端点稳定 id：按 peer 幂等，重复导入同一链接即刷新连接面（§8） */
+export function shareEndpointId(peer: string): string {
+  return "acp-share-" + peer;
+}
+
 /** 历史值下拉（§3.4 三律之三）：已保存 endpoint 的 wsUrl 去重、最近保存在前 */
 export function wsUrlHistory(saved: Array<{ wsUrl: string }>): string[] {
   const seen = new Set<string>();
