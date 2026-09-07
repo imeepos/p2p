@@ -13,6 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatDateTime } from "@/lib/format";
+import type { Locale } from "@/i18n";
 import { errorText } from "@/views/shared/form-flow";
 import { StatusBadge } from "@/views/shared/status-badge";
 
@@ -36,7 +38,8 @@ function filterOf(values: FilterValues): LlmLedgerFilter {
 }
 
 function EntryRow({ entry }: { entry: LlmLedgerEntry }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language as Locale;
   return (
     <TableRow data-testid="ledger-row">
       <TableCell className="max-w-36 truncate font-mono text-xs" title={entry.reqId}>
@@ -59,6 +62,9 @@ function EntryRow({ entry }: { entry: LlmLedgerEntry }) {
         ) : (
           <span className="text-muted-foreground text-xs">-</span>
         )}
+      </TableCell>
+      <TableCell className="text-xs" data-testid="ledger-row-ts">
+        {formatDateTime(entry.ts * 1000, locale)}
       </TableCell>
     </TableRow>
   );
@@ -164,24 +170,33 @@ export function LedgerEntriesCard({
         {rows === null ? null : rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t("llmShare.ledger.emptyList")}</p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("llmShare.ledger.columnReqId")}</TableHead>
-                <TableHead>{t("llmShare.ledger.columnPeriod")}</TableHead>
-                <TableHead>{t("llmShare.ledger.columnLender")}</TableHead>
-                <TableHead>{t("llmShare.ledger.columnBorrower")}</TableHead>
-                <TableHead>{t("llmShare.ledger.columnModel")}</TableHead>
-                <TableHead>{t("llmShare.ledger.columnTokens")}</TableHead>
-                <TableHead>{t("llmShare.ledger.columnEstimated")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((entry) => (
-                <EntryRow key={entry.reqId} entry={entry} />
-              ))}
-            </TableBody>
-          </Table>
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t("llmShare.ledger.columnReqId")}</TableHead>
+                  <TableHead>{t("llmShare.ledger.columnPeriod")}</TableHead>
+                  <TableHead>{t("llmShare.ledger.columnLender")}</TableHead>
+                  <TableHead>{t("llmShare.ledger.columnBorrower")}</TableHead>
+                  <TableHead>{t("llmShare.ledger.columnModel")}</TableHead>
+                  <TableHead>{t("llmShare.ledger.columnTokens")}</TableHead>
+                  <TableHead>{t("llmShare.ledger.columnEstimated")}</TableHead>
+                  <TableHead>{t("llmShare.ledger.columnTs")}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((entry) => (
+                  <EntryRow key={entry.reqId} entry={entry} />
+                ))}
+              </TableBody>
+            </Table>
+            <p className="text-muted-foreground text-xs" data-testid="ledger-stats">
+              {t("llmShare.ledger.statsLine", {
+                count: rows.length,
+                tokens: rows.reduce((sum, entry) => sum + entry.tokens, 0),
+              })}
+            </p>
+          </>
         )}
       </CardContent>
     </Card>

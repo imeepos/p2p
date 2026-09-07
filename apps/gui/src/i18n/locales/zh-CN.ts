@@ -1426,6 +1426,8 @@ const zhCN = {
       columnTokens: "tokens（入/出）",
       columnEstimated: "估算",
       columnTs: "时间",
+      statsLine: "共 {{count}} 条 · 合计 {{tokens}} tokens",
+      balanceDetail: "出借 {{lentOut}} · 借入 {{borrowed}} · {{entries}} 笔",
       verifyTitle: "收据验核",
       verifyReqId: "收据请求 ID",
       advancedToggle: "高级字段",

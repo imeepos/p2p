@@ -1451,6 +1451,8 @@ const enUS: typeof zhCN = {
       columnTokens: "tokens (in/out)",
       columnEstimated: "Estimated",
       columnTs: "Time",
+      statsLine: "{{count}} entries · {{tokens}} tokens in total",
+      balanceDetail: "lent {{lentOut}} · borrowed {{borrowed}} · {{entries}} entries",
       verifyTitle: "Receipt verify",
       verifyReqId: "Receipt request ID",
       advancedToggle: "Advanced fields",
