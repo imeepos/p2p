@@ -19,6 +19,8 @@ interface GroupInvitePickerProps {
 export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
   const { t } = useTranslation();
   const friends = useGroupStore((s) => s.friends);
+  const friendsLoading = useGroupStore((s) => s.friendsLoading);
+  const friendsError = useGroupStore((s) => s.friendsError);
   const ensureFriends = useGroupStore((s) => s.ensureFriends);
   const invite = useGroupStore((s) => s.invite);
   const [selected, setSelected] = useState<string[]>([]);
@@ -56,13 +58,17 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
   return (
     <div className="flex flex-col gap-2 rounded-md border p-2" data-testid="group-invite-picker">
       <p className="text-xs font-medium">{t("group.manage.inviteTitle")}</p>
-      {candidates.length === 0 ? (
+      {/* 加载/失败由选择器三态就地呈现；真无候选才给空态文案 */}
+      {!friendsLoading && !friendsError && candidates.length === 0 ? (
         <p className="text-muted-foreground text-xs">{t("group.manage.inviteEmpty")}</p>
       ) : (
         <EntityMultiSelect
           options={options}
           selected={selected}
           onChange={setSelected}
+          loading={friendsLoading}
+          error={friendsError}
+          onRetry={() => void ensureFriends()}
           warning={
             overCap
               ? t("group.manage.inviteOverCap", {

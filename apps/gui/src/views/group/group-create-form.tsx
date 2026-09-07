@@ -29,6 +29,8 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const friends = useGroupStore((s) => s.friends);
+  const friendsLoading = useGroupStore((s) => s.friendsLoading);
+  const friendsError = useGroupStore((s) => s.friendsError);
   const ensureFriends = useGroupStore((s) => s.ensureFriends);
   const upsertGroup = useGroupStore((s) => s.upsertGroup);
   const selectGroup = useGroupStore((s) => s.selectGroup);
@@ -80,7 +82,8 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
     }
   };
 
-  if (friends.length === 0) {
+  // 加载中/失败不落死表单：选择器三态就地呈现；真无好友才给下一步动作
+  if (!friendsLoading && !friendsError && friends.length === 0) {
     // F09：空好友簿不给死表单，给下一步动作
     return (
       <EmptyState
@@ -120,6 +123,9 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
           options={memberOptions}
           selected={selected}
           onChange={setSelected}
+          loading={friendsLoading}
+          error={friendsError}
+          onRetry={() => void ensureFriends()}
           warning={
             overCap
               ? t("group.manage.inviteOverCap", {
