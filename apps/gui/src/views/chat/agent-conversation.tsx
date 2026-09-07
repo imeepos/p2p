@@ -179,12 +179,12 @@ export function AgentConversation({ endpointId }: { endpointId: string }) {
   if (connected) {
     return (
       <div data-testid="agent-conversation" className="flex min-h-0 flex-1 flex-col">
-        <div className="shrink-0 border-b px-4 py-2 text-sm font-medium">
+        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border/60 px-4 text-sm font-medium">
           <span className="inline-flex items-center gap-2">
             <Bot aria-hidden className="size-4" />
             {title}
           </span>
-          <span className="text-muted-foreground ml-2 text-xs">{endpoint.wsUrl}</span>
+          <span className="text-muted-foreground min-w-0 truncate text-xs">{endpoint.wsUrl}</span>
         </div>
         <PendingPermissionBanner endpointId={endpointId} />
         {activeSessionId === null ? (
