@@ -151,6 +151,50 @@ function savedId(): string {
     );
   });
 
+  it("token 分径：保存可空（先存后连）；连接必填且错误与字段同屏（自动展开高级区）", async () => {
+    setWsFactory(createMockWsFactory());
+    renderSection();
+    fireEvent.click(screen.getByTestId("contacts-agent-add"));
+    await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
+    fireEvent.change(screen.getByTestId("contacts-endpoint-wsurl"), {
+      target: { value: "ws://127.0.0.1:8787" },
+    });
+    fireEvent.change(screen.getByTestId("contacts-endpoint-peer"), {
+      target: { value: PEER },
+    });
+    // 显式清空 token：同文件前序用例的草稿会跨用例残留（resetConsoleState 不清 draft）
+    fireEvent.change(screen.getByTestId("contacts-endpoint-token"), {
+      target: { value: "" },
+    });
+    // 连接路径：缺 token 显式报错，高级区自动展开（错误与字段同屏，可观测）
+    fireEvent.click(screen.getByTestId("contacts-endpoint-test"));
+    expect(screen.getByTestId("contacts-endpoint-error-tokenRequired")).toBeTruthy();
+    expect(screen.getByTestId("contacts-endpoint-advanced").hidden).toBe(false);
+    // 保存路径：token 可空，先存后连（§3.2 原始口径，2026-09-07 裁决回归）
+    fireEvent.click(screen.getByTestId("contacts-endpoint-save"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("contacts-endpoint-dialog")).toBeNull(),
+    );
+    await waitFor(() => expect(screen.getByTestId("contact-agent-" + savedId())).toBeTruthy());
+  });
+
+  it("console ready 时弹窗顶部显本机自动接入提示（引导远端场景，无需手填本机）", async () => {
+    setWsFactory(createMockWsFactory());
+    useAcpStore.setState({
+      console: {
+        phase: "ready",
+        wsUrl: "ws://127.0.0.1:9987",
+        token: "local-token",
+        statusUrl: "http://127.0.0.1:9987",
+        restarts: 0,
+      },
+    });
+    renderSection();
+    fireEvent.click(screen.getByTestId("contacts-agent-add"));
+    await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
+    expect(screen.getByTestId("contacts-endpoint-local-hint")).toBeTruthy();
+  });
+
   /** 打开弹窗并按测试所需填主字段（peer 必填口径） */
   async function openAndFill(wsFactory: Parameters<typeof setWsFactory>[0]) {
     setWsFactory(wsFactory);

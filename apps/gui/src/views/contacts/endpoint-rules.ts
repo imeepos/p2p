@@ -1,7 +1,9 @@
 // agent endpoint 表单预校验（app-shell-redesign §3.4）：wsUrl 做 URL 格式
 // 校验，错误码稳定经 i18n（contacts.endpoint.errors.<code>）；peer 沿用
-// base58 32 字节口径；别名同昵称 trim ≤64 口径；token 必填（console 随机
-// 发布，粘贴一次后随草稿复用）；adminUrl 可选但填了必须合法（分享管理面）。
+// base58 32 字节口径；别名同昵称 trim ≤64 口径；token 分径校验——保存路径
+// 可空（§3.2 原始「token（可空）」口径，先存后连），连接类动作必填
+// （2026-09-07 用户裁决，部分回调 aaa72f2 的收紧）；adminUrl 可选但填了
+// 必须合法（分享管理面）。
 import { isValidPeerId, MAX_NICKNAME_CHARS } from "@/lib/chat-limits";
 
 export type EndpointFieldError =
@@ -60,18 +62,26 @@ export function hasEndpointFormErrors(errors: EndpointFormErrors): boolean {
   );
 }
 
-export function validateEndpointForm(form: {
-  wsUrl: string;
-  token: string;
-  peer: string;
-  alias: string;
-  adminUrl?: string;
-}): EndpointFormErrors {
+export interface ValidateEndpointOptions {
+  /** 连接类动作（测试连接/添加并开始对话）要求 token；保存路径可空（先存后连） */
+  requireToken: boolean;
+}
+
+export function validateEndpointForm(
+  form: {
+    wsUrl: string;
+    token: string;
+    peer: string;
+    alias: string;
+    adminUrl?: string;
+  },
+  options: ValidateEndpointOptions,
+): EndpointFormErrors {
   const errors: EndpointFormErrors = {};
   const wsUrl = form.wsUrl.trim();
   if (wsUrl.length === 0) errors.wsUrl = "wsUrlRequired";
   else if (!isValidWsUrl(wsUrl)) errors.wsUrl = "wsUrlInvalid";
-  if (form.token.trim().length === 0) errors.token = "tokenRequired";
+  if (options.requireToken && form.token.trim().length === 0) errors.token = "tokenRequired";
   const peer = form.peer.trim();
   // peer 保持可空（§3.2 分享管理可先存后连）；非空按 base58 口径校验。
   // 连接类动作（测试连接/添加并开始对话）的目标必选由弹窗 requireTarget 前置拦截
