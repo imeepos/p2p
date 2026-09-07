@@ -19,7 +19,7 @@
 - mock 实例：程序化 `createServer` 复用仓库 vite.config.ts（仓库零改动），cacheDir 隔离 `/tmp/uxr2/.vite`，端口 5176，shell 显式 `VITE_MOCK_IPC=1`（规避 apps/gui/.env.development.local 的 VITE_MOCK_IPC=0 覆盖）；启动与 Chrome 均 unset HTTP_PROXY/HTTPS_PROXY/ALL_PROXY + `NO_PROXY='*'`，Chrome 加 `--no-proxy-server`。
 - 驱动：scripts/gui-agent.mjs 的 /tmp 专属副本（/tmp/uxr2/agent.mjs，调试端口 9236），单 Chrome 会话内按场景顺序 nav/eval/snap，注入页侧辅助函数做表单填充（React 受控组件原生 setter + input 事件）与 DOM 断言；每场景独立 Chrome 进程，走完即杀。
 - 造数：llm-share 数据以真实 UI 表单驱动（白名单加入 → 借用（二次确认）→ 账本/收据验核），全链不绕 UI；事件流数据来自 mock 节点自动启动的真实事件管线。
-- 证据：DOM 断言 JSON 存 /tmp/uxr2/s1-out.json … s10-out.json（10 场景），截图 /tmp/uxr2/shots/s*.png（26 张）。所有 P0/P1 均为页面实测（DOM 断言 + 截图）；【代码推断】条目均已注明。
+- 证据：DOM 断言 JSON 存 /tmp/uxr2/s1-out.json … s10-out.json（10 场景），截图 /tmp/uxr2/shots/s*.png（32 张）。所有 P0/P1 均为页面实测（DOM 断言 + 截图）；【代码推断】条目均已注明。
 - 域标记沿用 R1：1 操作路径 / 2 按钮反馈链 / 3 表单 / 4 表格 / 5 选择器；本轮按任务书另加两条通用线：6 文案（用户语言，不得泄漏内部术语）与 7 空态（必须给出路）。优先级口径沿用 R1：P0=反馈链路断裂、删除无确认、选择器不可用/不一致、高频操作路径过长、表格显示内部编号；P1=明显摩擦或一致性缺陷；P2=打磨项。
 
 ## Findings（26 条）
@@ -92,6 +92,6 @@
 ## 复核产物索引
 
 - DOM 断言：/tmp/uxr2/s1-out.json … /tmp/uxr2/s10-out.json（10 场景，含逐步 label/value）
-- 截图：/tmp/uxr2/shots/ 下 s1-llmshare-init、s1-offer-empty-errors、s2-allow-short-peer、s2-allow-real-peer、s2-borrow-confirm、s2-borrow-report、s2-ledger-after-query、s2-borrow-rejected、s2-after-deny、s3-borrow-rejected、s3-offer-published、s3-offer-expired、s4-docs-overview、s4-docs-second、s4-update-available、s5-download-installed、s5-events、s5-diagnostics、s5-overview、s6-stop-confirm、s6-stopped、s7-acp-initial、s7b-agent-initial、s7b-agent-after-connect、s8-agent-edit、s8b-agent-advanced（共 26 张 png）
+- 截图：/tmp/uxr2/shots/ 共 32 张 png（s1–s10 全场景：llm-share 初始/校验错误/白名单增删/借用确认/借用报告/账本联动/拒绝路径/offer 发布与过期/docs/更新下载与安装/事件/诊断/概览启停/ACP 与 chat agent 形态/Agent 编辑弹窗/净差行），逐张文件名以目录清单为准
 - 走查驱动（仓库零改动）：/tmp/uxr2/agent.mjs、/tmp/uxr2/dev-server.mjs、/tmp/uxr2/s*.mjs
 - 走查实例：vite dev @ http://localhost:5176（cacheDir /tmp/uxr2/.vite，VITE_MOCK_IPC=1）；收尾已停 dev server 与全部调试 Chrome，进程零残留。
