@@ -5,6 +5,8 @@ pub mod audit;
 pub(crate) mod child;
 pub mod cli;
 pub mod config;
+#[cfg(test)]
+mod config_tests;
 pub(crate) mod conn;
 pub mod gate;
 pub mod handler;
@@ -20,7 +22,7 @@ pub mod share;
 pub mod subprocess;
 
 pub use audit::{AuditEvent, AuditSink, CaptureAudit, TracingAudit};
-pub use config::{AgentConfig, ConfigError};
+pub use config::{AgentConfig, ConfigError, WorkspaceDef, DEFAULT_WORKSPACE_ID};
 pub use handler::AcpHandler;
 pub use session::SessionDeps;
 pub use share::{LinkContext, RedeemOutcome, ShareService};

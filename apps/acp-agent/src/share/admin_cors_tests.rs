@@ -42,6 +42,7 @@ async fn spawn(tag: &str) -> (SocketAddr, String) {
                 peer: "PEER_CORS_TEST".to_owned(),
                 addrs: vec!["/ip4/127.0.0.1/udp/4001/quic-v1".to_owned()],
             },
+            workspaces: Vec::new(),
         },
     )
     .await

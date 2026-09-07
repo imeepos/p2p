@@ -11,14 +11,23 @@ use tokio::net::TcpStream;
 use super::admin::{AdminDeps, AdminServer, AdminToken};
 use super::{LinkContext, ShareService};
 use crate::audit::CaptureAudit;
-use crate::config::AgentConfig;
+use crate::config::{AgentConfig, WorkspaceDef};
 
 async fn spawn(tag: &str) -> (SocketAddr, String, AgentConfig, Arc<CaptureAudit>) {
+    spawn_with(tag, Vec::new()).await
+}
+
+/// 可注入工作区清单的装配（GET /workspaces 与定向分享测试用）。
+async fn spawn_with(
+    tag: &str,
+    workspaces: Vec<WorkspaceDef>,
+) -> (SocketAddr, String, AgentConfig, Arc<CaptureAudit>) {
     let cfg = AgentConfig {
         data_dir: std::env::temp_dir()
             .join(format!("acp-admin-{tag}-{}", std::process::id()))
             .to_string_lossy()
             .into_owned(),
+        workspaces,
         ..AgentConfig::default()
     };
     let _ = std::fs::remove_dir_all(&cfg.data_dir);
@@ -37,6 +46,7 @@ async fn spawn(tag: &str) -> (SocketAddr, String, AgentConfig, Arc<CaptureAudit>
                 peer: "PEER_ADMIN_TEST".to_owned(),
                 addrs: vec!["/ip4/127.0.0.1/udp/4001/quic-v1".to_owned()],
             },
+            workspaces: cfg.workspace_rows(),
         },
     )
     .await
@@ -212,4 +222,50 @@ fn ready_line_matches_frozen_shape() {
         parsed["admin"]["token_file"],
         "/tmp/acp-data/acp-admin-token"
     );
+}
+
+#[tokio::test]
+async fn workspaces_endpoint_and_targeted_share_roundtrip() {
+    let dir = std::env::temp_dir().join(format!("acp-admin-ws-{}", std::process::id()));
+    let (addr, token, _cfg, _audit) = spawn_with(
+        "wsapi",
+        vec![WorkspaceDef {
+            id: "ws1".to_owned(),
+            name: "p2p".to_owned(),
+            dir: dir.to_string_lossy().into_owned(),
+        }],
+    )
+    .await;
+    let (status, body) = http(addr, "GET", "/workspaces", Some(&token), None).await;
+    assert_eq!(status, 200, "{body}");
+    let parsed: serde_json::Value = serde_json::from_str(&body).expect("json");
+    assert_eq!(parsed["workspaces"][0]["id"], "ws1");
+    assert_eq!(parsed["workspaces"][0]["name"], "p2p");
+
+    let (status, body) = http(
+        addr,
+        "POST",
+        "/shares",
+        Some(&token),
+        Some(r#"{"scope":"workspace","ttl_secs":60,"workspace":"ws1","note":"ws share"}"#),
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    let parsed: serde_json::Value = serde_json::from_str(&body).expect("json");
+    assert_eq!(parsed["scope"], "workspace");
+    assert!(parsed["link"]
+        .as_str()
+        .unwrap_or("")
+        .starts_with("dsh-acp-share://"));
+
+    let (status, body) = http(
+        addr,
+        "POST",
+        "/shares",
+        Some(&token),
+        Some(r#"{"scope":"workspace","ttl_secs":60,"workspace":"nope"}"#),
+    )
+    .await;
+    assert_eq!(status, 422, "未知工作区必须 422: {body}");
+    assert!(body.contains("workspace-unknown"), "{body}");
 }

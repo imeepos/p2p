@@ -36,7 +36,12 @@ pub(crate) async fn fresh(
     _guard: crate::gate::ConnGuard,
 ) -> io::Result<()> {
     audit_supersede(&deps, &peer_id).await;
-    let cwd = match jail::resolve(&deps.config, grant.scope, &peer_id) {
+    let cwd = match jail::resolve(
+        &deps.config,
+        grant.scope,
+        &peer_id,
+        grant.workspace.as_deref(),
+    ) {
         Ok(cwd) => cwd,
         Err(err) => {
             deps.audit.record(AuditEvent::CwdDenied {

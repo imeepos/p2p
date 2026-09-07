@@ -44,6 +44,7 @@ pub fn rig(tag: &str) -> Rig {
 pub fn spec(scope: Scope, ttl: u64, max: u32) -> ShareSpec {
     ShareSpec {
         scope,
+        workspace: None,
         allow_mcp: vec!["fs".to_owned()],
         ask_route: AskRoute::RemoteGui,
         max_activations: max,
