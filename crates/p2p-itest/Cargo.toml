@@ -19,6 +19,7 @@ tokio-util = { workspace = true, features = ["codec"] }
 acp-agent = { path = "../../apps/acp-agent" }
 acp-common = { path = "../../apps/acp-common" }
 acp-console = { path = "../../apps/acp-console" }
+a2a = { path = "../a2a" }
 llm-share-ledger = { path = "../llm-share-ledger" }
 llm-share-offer = { path = "../llm-share-offer" }
 llm-share-proxy = { path = "../llm-share-proxy" }
@@ -34,5 +35,6 @@ p2p-transport = { path = "../p2p-transport" }
 repair-bridge = { path = "../repair-bridge" }
 repair-helper = { path = "../repair-helper" }
 repair-enforce = { path = "../repair-enforce" }
+bs58.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
