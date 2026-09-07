@@ -10,6 +10,7 @@ import {
   groupEntry,
   previewOfMessage,
   sortEntries,
+  visibleGroups,
   wsHostOf,
   type ConversationEntry,
   type PreviewLabels,
@@ -281,5 +282,23 @@ describe("wsHostOf", () => {
   it("解析 host，非法 URL 返回 null", () => {
     expect(wsHostOf("ws://127.0.0.1:8787")).toBe("127.0.0.1:8787");
     expect(wsHostOf("not-a-url")).toBeNull();
+  });
+});
+
+describe("visibleGroups（已退群默认隐藏）", () => {
+  const mk = (id: string, state: GroupJson["state"]): GroupJson => ({
+    groupId: id, name: id, owner: "o", members: ["o"], rev: 1, state, tsMs: 500,
+  });
+
+  it("默认仅放行 active；开关打开全量显示；空列表安全", () => {
+    const groups = [
+      mk("G1", "active"),
+      mk("G2", "left"),
+      mk("G3", "kicked"),
+      mk("G4", "disbanded"),
+    ];
+    expect(visibleGroups(groups, false).map((g) => g.groupId)).toEqual(["G1"]);
+    expect(visibleGroups(groups, true).map((g) => g.groupId)).toEqual(["G1", "G2", "G3", "G4"]);
+    expect(visibleGroups([], false)).toEqual([]);
   });
 });
