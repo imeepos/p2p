@@ -297,6 +297,25 @@ fn navigate_switches_route_and_rejects_unknown() {
 }
 
 #[test]
+fn navigate_accepts_llm_share_route() {
+    let env = setup("llmshare");
+    let (code, body) = call(
+        &env,
+        "POST",
+        "/navigate",
+        Some(&env.token),
+        Some(json!({ "route": "llm-share" })),
+    );
+    assert_eq!(code, 200, "llm-share 必须在合法路由清单内: {body}");
+    assert_eq!(body["data"]["path"], "#/llm-share", "{body}");
+    let (_, health) = call(&env, "GET", "/health", Some(&env.token), None);
+    assert_eq!(
+        health["data"]["route"], "llm-share",
+        "navigate 后 health 必须反映 llm-share"
+    );
+}
+
+#[test]
 fn invoke_whitelist_forward_and_reject() {
     let env = setup("inv");
     let (code, body) = call(

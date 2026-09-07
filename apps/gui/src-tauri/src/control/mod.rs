@@ -24,7 +24,7 @@ use tauri::{AppHandle, Listener, Manager, Runtime, WebviewWindow};
 use crate::control::capture::FrameSource;
 
 /// navigate 合法路由名（与 App.tsx / menu.def.ts 对齐，"/" 记作 dashboard）。
-pub const ROUTES: [&str; 10] = [
+pub const ROUTES: [&str; 11] = [
     "dashboard",
     "peers",
     "discovery",
@@ -35,6 +35,7 @@ pub const ROUTES: [&str; 10] = [
     "events",
     "settings",
     "diagnostics",
+    "llm-share",
 ];
 
 /// GC3 页面协议回执事件：前端 page-bridge → server（requestId 关联）。

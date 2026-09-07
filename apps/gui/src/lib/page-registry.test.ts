@@ -64,7 +64,7 @@ beforeEach(() => {
 });
 
 describe("PAGE_REGISTRY 注册表校验", () => {
-  it("登记全部 10 个路由页面", () => {
+  it("登记全部 11 个路由页面", () => {
     expect(Object.keys(PAGE_REGISTRY).sort()).toEqual([
       "acp",
       "chat",
@@ -73,6 +73,7 @@ describe("PAGE_REGISTRY 注册表校验", () => {
       "discovery",
       "events",
       "group",
+      "llm-share",
       "peers",
       "relay",
       "settings",
@@ -82,7 +83,12 @@ describe("PAGE_REGISTRY 注册表校验", () => {
   it.each(Object.entries(PAGE_REGISTRY))("页面 %s descriptor 结构合法", (page, entry) => {
     expect(entry.descriptor.name).toBe(page);
     expect(entry.descriptor.description.trim().length).toBeGreaterThan(0);
-    expect(entry.descriptor.actions.length).toBeGreaterThan(0);
+    if (page === "llm-share") {
+      // llm-share 只读观测页：动作留空，严禁写路径
+      expect(entry.descriptor.actions).toEqual([]);
+    } else {
+      expect(entry.descriptor.actions.length).toBeGreaterThan(0);
+    }
     expect(typeof entry.execute).toBe("function");
     const names = entry.descriptor.actions.map((action) => action.name);
     expect(new Set(names).size).toBe(names.length);
@@ -164,6 +170,17 @@ describe("describePage", () => {
     if (!("code" in result)) {
       const rows = (result.descriptor.state as { peers: Array<{ peerId: string }> }).peers;
       expect(rows.map((row) => row.peerId)).toEqual(["visible"]);
+    }
+  });
+
+  it("llm-share 只读页 describe 成功（无 state 快照）", () => {
+    const result = describePage("llm-share");
+    expect("code" in result).toBe(false);
+    if (!("code" in result)) {
+      expect(result.descriptor.name).toBe("llm-share");
+      expect(result.descriptor.description.trim().length).toBeGreaterThan(0);
+      expect(result.descriptor.actions).toEqual([]);
+      expect("state" in result.descriptor).toBe(false);
     }
   });
 

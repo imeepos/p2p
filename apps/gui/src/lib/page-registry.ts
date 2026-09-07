@@ -11,6 +11,7 @@ import { eventsPage } from "./pages/events-page";
 import { relayPage } from "./pages/relay-page";
 import { acpPage } from "./pages/acp-page";
 import { groupPage } from "./pages/group-page";
+import { llmSharePage } from "./pages/llm-share-page";
 
 export const PAGE_SCHEMA_VERSION = 1;
 
@@ -54,7 +55,7 @@ export type PageActionResult =
   | { ok: true; data: unknown }
   | { ok: false; error: PageProtocolError };
 
-/** 已注册页面（GC3c 起 8 路由全量 + ACP 控制台 + 群聊：dashboard/peers/discovery/relay/chat/group/acp/events/settings/diagnostics） */
+/** 已注册页面（GC3c 起 8 路由全量 + ACP 控制台 + 群聊 + llm-share 只读面：dashboard/peers/discovery/relay/chat/group/acp/events/settings/diagnostics/llm-share） */
 export const PAGE_REGISTRY: Readonly<Record<string, PageEntry>> = {
   dashboard: dashboardPage,
   peers: peersPage,
@@ -66,6 +67,7 @@ export const PAGE_REGISTRY: Readonly<Record<string, PageEntry>> = {
   settings: settingsPage,
   diagnostics: diagnosticsPage,
   acp: acpPage,
+  "llm-share": llmSharePage,
 };
 
 /** 当前页 descriptor（含可选 state 快照）；未注册页返回结构化错误 */

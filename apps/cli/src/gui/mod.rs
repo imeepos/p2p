@@ -35,7 +35,7 @@ pub enum GuiCommand {
         #[command(subcommand)]
         command: RecordCommand,
     },
-    /// 按路由名切换 GUI 页面（dashboard/peers/discovery/relay/chat/events/settings/diagnostics）
+    /// 按路由名切换 GUI 页面（dashboard/peers/discovery/relay/chat/group/acp/events/settings/diagnostics/llm-share）
     Navigate {
         /// 路由名（服务端白名单校验）
         route: String,
