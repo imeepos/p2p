@@ -13,11 +13,12 @@ export interface BorrowFormValues {
   maxTokensText: string;
 }
 
+// maxTokens 给厂值缺省：可改但不必填想，借用路径少一步输入
 export const EMPTY_BORROW_FORM: BorrowFormValues = {
   targetPeer: "",
   model: "",
   messages: "",
-  maxTokensText: "",
+  maxTokensText: "1024",
 };
 
 export type BorrowField = "targetPeer" | "model" | "messages" | "maxTokens";

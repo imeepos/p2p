@@ -77,13 +77,13 @@ describe("LLM3 borrow 面板（§16.2-3/6 二次确认 + reqId 幂等复用）",
     expect(await screen.findByTestId("borrow-report")).toBeTruthy();
   });
 
-  it("必填校验拦截：四字段错误内联展示，后端零调用", async () => {
+  it("必填校验拦截：错误内联展示，后端零调用（maxTokens 有厂值缺省不再必填）", async () => {
     const { backend } = makeLlmShareMockPair();
     const spy = vi.spyOn(backend, "borrow");
     renderPanel(backend);
     fireEvent.submit(formOf(screen.getByRole("button", { name: t("llmShare.borrow.submit") })));
     const alerts = await screen.findAllByRole("alert");
-    expect(alerts).toHaveLength(4);
+    expect(alerts).toHaveLength(3);
     expect(spy).not.toHaveBeenCalled();
   });
 
