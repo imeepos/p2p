@@ -57,6 +57,20 @@ describe("IconRail（1.1 rail 规格）", () => {
     });
   });
 
+  it("设置入口唯一：头像入口已删，rail 内仅 nav 持有链接", () => {
+    renderRail("/chat");
+    const aside = screen.getByRole("complementary");
+    const settingsLinks = within(aside)
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("href") === "/settings");
+    expect(settingsLinks).toHaveLength(1);
+    const nav = screen.getByRole("navigation");
+    const outsideNav = within(aside)
+      .getAllByRole("link")
+      .filter((link) => !nav.contains(link));
+    expect(outsideNav).toHaveLength(0);
+  });
+
   it("rail 随主题自适应：底色用语义 sidebar 令牌，不再固定深色 wx-rail", () => {
     renderRail("/chat");
     const aside = screen.getByRole("complementary");
