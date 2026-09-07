@@ -863,12 +863,18 @@ const enUS: typeof zhCN = {
       empty: "No errors — the page is healthy",
       clear: "Clear buffer",
       cleared: "Error buffer cleared",
+      kind: {
+        error: "Runtime error",
+        unhandledrejection: "Unhandled rejection",
+        console: "Console error",
+      },
     },
     tail: {
       title: "Persisted log tail",
       description:
         "Last 50 lines of frontend.log, read live via Tauri IPC (fails loudly without the Tauri runtime).",
       empty: "Log is empty",
+      copy: "Copy log",
     },
   },
   acp: {

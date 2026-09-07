@@ -25,6 +25,8 @@ export function DiagnosticsView() {
   const [logPath, setLogPath] = useState<string | null>(null);
   const [tail, setTail] = useState<string[]>([]);
   const [version, setVersion] = useState(0);
+  // N16：暂停轮询——阅读/复制日志时不被 5s 刷新打断，恢复立即拉一次
+  const [paused, setPaused] = useState(false);
 
   // load 只做异步取数（.then 内 setState），供 effect 与定时器直接调用。
   const load = useCallback(() => {
@@ -82,16 +84,25 @@ export function DiagnosticsView() {
   useEffect(() => {
     if (!desktop) return;
     load();
+    if (paused) return;
     const timer = window.setInterval(load, AUTO_REFRESH_MS);
     return () => window.clearInterval(timer);
-  }, [desktop, load]);
+  }, [desktop, load, paused]);
+
+  const togglePause = useCallback(() => setPaused((v) => !v), []);
 
   return (
     <>
       <PageHeader titleKey="diagnostics.title" descriptionKey="diagnostics.description" />
       <EnvCard logPath={logPath} desktop={desktop} />
       <ErrorBufferCard version={version} onRefresh={refresh} onClear={clearAll} />
-      <LogTailCard tail={tail} desktop={desktop} onRefresh={refresh} />
+      <LogTailCard
+        tail={tail}
+        desktop={desktop}
+        paused={paused}
+        onTogglePause={togglePause}
+        onRefresh={refresh}
+      />
     </>
   );
 }

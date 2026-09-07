@@ -840,11 +840,17 @@ const zhCN = {
       empty: "暂无错误——页面运行正常",
       clear: "清空缓冲",
       cleared: "错误缓冲已清空",
+      kind: {
+        error: "运行错误",
+        unhandledrejection: "未处理的 Promise 拒绝",
+        console: "控制台错误",
+      },
     },
     tail: {
       title: "持久化日志尾部",
       description: "frontend.log 末 50 行，经 Tauri IPC 实时读取（无 Tauri 运行时将显式报错）。",
       empty: "日志暂无内容",
+      copy: "复制日志",
     },
   },
     acp: {
