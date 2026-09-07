@@ -366,7 +366,15 @@ const enUS: typeof zhCN = {
       chatGroupInvite: "Group invite: {{name}} ({{state}})",
     },
     outcome: { ok: "ok", fail: "failed" },
-    detail: { payload: "Raw payload", receivedAt: "Received at" },
+    // R2-16: raw payload collapsed by default with "copy details" (F27 style)
+    detail: {
+      payload: "Raw payload",
+      receivedAt: "Received at",
+      showJson: "Expand JSON",
+      hideJson: "Collapse JSON",
+      copyDetails: "Copy details",
+      copied: "Details copied",
+    },
   },
   messages: {
     title: "Messages",
@@ -802,10 +810,11 @@ const enUS: typeof zhCN = {
     copyAddress: "Copy address",
     copied: "Copied to clipboard",
     open: "Command palette",
-    hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..8 to switch pages; Esc to close",
+    // R2-25: navigate bound to rail entry count ({{count}} injected from
+    // menu.def); dead unreferenced palette.hint key removed.
     hints: {
       open: "Cmd/Ctrl+K opens the command palette",
-      navigate: "Cmd/Ctrl+1..4 switches between the rail entries",
+      navigate: "Cmd/Ctrl+1..{{count}} switches between the rail entries",
       close: "Esc closes",
     },
   },

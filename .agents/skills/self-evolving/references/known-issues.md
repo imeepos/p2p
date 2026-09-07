@@ -344,3 +344,7 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-07 harness edit 工具 JSON 参数顺序敏感：old_string 必须放参数对象第一位
 - 症状：tools.edit 传参把 new_string 放在 old_string 之前时报 "missing required property old_string"，两次复现；调序后同样的字符串内容即成功。
 - 修法：调 edit 工具时把 old_string 写在对象字面量第一位（file_path 之后紧随），别依赖键序无关假设；批量 edit 时拆成多次调用，失败重试先查参数顺序。
+
+## 2026-09-07 vitest vi.fn 零参签名在 tsc 严格元组下无法索引 mock.calls[0][0]
+- 症状：vi.fn(async () => undefined) 后写 writeText.mock.calls[0]?.[0] 报 TS2493（Tuple type '[]' has no element at index '0'）；vitest 运行全绿但 typecheck 红。
+- 修法：显式标注形参 vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined)（诊断页 F27 用例既有写法）；要断言入参的 mock 别用零参箭头签名。
