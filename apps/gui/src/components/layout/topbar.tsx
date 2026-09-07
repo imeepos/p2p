@@ -204,8 +204,16 @@ export function Topbar() {
   const { t } = useTranslation();
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4">
-      <span className="text-sm font-semibold tracking-tight">
+    // macOS Overlay 标题栏（tauri.conf titleBarStyle）：顶栏即唯一标题栏，
+    // header 与应用名带拖拽区属性；右侧按钮区不带属性保持可点击。
+    <header
+      data-tauri-drag-region
+      className="flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4"
+    >
+      <span
+        data-tauri-drag-region
+        className="text-sm font-semibold tracking-tight"
+      >
         {t("common.appName")}
       </span>
       <div className="flex items-center gap-2">

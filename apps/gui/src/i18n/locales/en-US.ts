@@ -1212,8 +1212,15 @@ const enUS: typeof zhCN = {
     inviteBadge: {
       aria: "{{count}} pending friend invites",
     },
+    tree: {
+      toggle: "Expand or collapse section",
+      search: "Search",
+    },
     inviteInbox: {
       title: "Pending friend invites",
+      treeTitle: "New Friends",
+      empty: "No new friend requests",
+      pendingIn: "Requests to add you as a friend",
       nicknameLabel: "Nickname (optional)",
       accept: "Accept",
       reject: "Reject",
@@ -1221,6 +1228,21 @@ const enUS: typeof zhCN = {
       rejectFailed: "Reject invite failed: ",
       rejectFailedToast: "Reject invite failed",
       nicknameTooLong: "Nickname must be at most 64 characters after trim",
+    },
+    detail: {
+      emptyTitle: "Select a contact",
+      emptyHint: "Pick a friend, group or Agent from the list to view its profile",
+      peerId: "ID",
+      remark: "Remark",
+      noRemark: "Not set",
+      group: "Group",
+      members: "Members",
+      role: "Role",
+      status: "Status",
+      source: "Source",
+      sourceInvite: "Friend invite",
+      addTime: "Added",
+      pendingIn: "Waiting for you",
     },
     friends: {
       empty: "No friends yet",
@@ -1254,7 +1276,6 @@ const enUS: typeof zhCN = {
       leaveFailed: "Leave group failed: ",
       leaveSuccess: "Left the group",
       inviteDisabledNotOwner: "Only the group owner can invite members",
-      inviteDisabledInactive: "Group is not active; inviting is unavailable",
       searchPlaceholder: "Search group name or ID…",
     },
     groupAdd: {

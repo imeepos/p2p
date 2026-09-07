@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDownIcon, ChevronRightIcon, UserPlusIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, UserPlusIcon, UserRoundPlusIcon } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { AsyncButton } from "@/components/feedback/async-button";
@@ -15,25 +15,36 @@ import { collapseKeyOf, groupSections, loadCollapsedGroups, saveCollapsedGroups 
 import { ChatFriendMoveDialog } from "./chat-friend-move-dialog";
 import { ChatFriendRemoveDialog } from "./chat-friend-remove-dialog";
 import { ChatFriendAddDialog } from "./chat-friend-add-dialog";
-import { FriendRow } from "./friend-row";
+import { CONTACT_ROW_CLS, ContactAvatar } from "./contact-avatar";
+import { useContactsPane } from "./contacts-sections";
 import { matchesQuery } from "./contacts-sections";
-import { SectionHeader } from "./section-search";
+import { TreeSection } from "./contacts-tree";
+import { FriendRow } from "./friend-row";
 
-// 好友区（§3.1）：分组折叠交互随迁移保留（不再是页面级结构）；顶部
-// out 邀请「待对方同意」条目可撤回；节头「添加」开加好友对话框。
+// 好友节（§3.1，双栏改版）：树分节锚点 + 计数；检索走全局 Context 词；
+// out 邀请「待对方同意」条目可撤回；分组折叠交互保留；行内动作悬停显隐。
 export function FriendSection() {
   const { t } = useTranslation();
+  const pane = useContactsPane();
   const friends = useChatStore((s) => s.friends);
   const invites = useChatStore((s) => s.invites) ?? [];
   const friendsError = useChatStore((s) => s.friendsError);
   const loadFriends = useChatStore((s) => s.loadFriends);
   const cancelInvite = useChatStore((s) => s.cancelInvite);
-  // 跨卡 URL 契约：#/contacts?add=<peerId> 挂载即开添加好友弹窗并预填；
-  // 弹窗关闭时清掉参数，避免重挂载重复弹出。
+  // 跨卡 URL 契约：#/contacts?add=<peerId> 开添加好友弹窗并预填；弹窗
+  // 关闭时清掉参数，避免重挂载重复弹出。参数后到（左栏按钮）也响应。
   const [searchParams, setSearchParams] = useSearchParams();
   const addParam = searchParams.get("add");
   const [addOpen, setAddOpen] = useState(() => addParam !== null);
-  const [addSeed] = useState(() => addParam ?? "");
+  const [addSeed, setAddSeed] = useState(() => addParam ?? "");
+  const [lastAddParam, setLastAddParam] = useState(addParam);
+  if (addParam !== lastAddParam) {
+    setLastAddParam(addParam);
+    if (addParam !== null) {
+      setAddOpen(true);
+      setAddSeed(addParam);
+    }
+  }
 
   const handleAddOpenChange = (open: boolean) => {
     setAddOpen(open);
@@ -42,8 +53,6 @@ export function FriendSection() {
   const [moveTarget, setMoveTarget] = useState<ChatFriendJson | null>(null);
   const [removeTarget, setRemoveTarget] = useState<ChatFriendJson | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsedGroups());
-  // P2#8 检索：昵称/备注/PeerId 子串匹配，大小写不敏感（节内 state）
-  const [query, setQuery] = useState("");
 
   const toggleGroup = (name: string | null) => {
     setCollapsed((prev) => {
@@ -56,44 +65,61 @@ export function FriendSection() {
     });
   };
 
-  const outgoing = invites.filter((i: FriendInviteJson) => i.direction === "out");
-  const filtered = friends.filter((f) => matchesQuery([f.nickname, f.note, f.peerId], query));
+  const outgoing = invites.filter(
+    (i: FriendInviteJson) => i.direction === "out" && matchesQuery([i.nickname, i.peerId], pane.query),
+  );
+  const filtered = friends.filter((f) => matchesQuery([f.nickname, f.note, f.peerId], pane.query));
+  const expanded = !pane.isSectionCollapsed("friends");
+  const rowCls = CONTACT_ROW_CLS + " hover:bg-accent/60";
 
   return (
-    <section
+    <TreeSection
       id="friends"
-      aria-label={t("contacts.section.friends")}
-      data-testid="contacts-section-friends"
-      className="bg-card ring-border ring-1 flex flex-col gap-2 rounded-lg p-4"
+      wrapperTestId="contacts-section-friends"
+      title={t("contacts.section.friends")}
+      expanded={expanded}
+      onToggle={() => pane.toggleSection("friends")}
+      toggleTestId="contacts-tree-toggle-friends"
+      active={pane.activeSection === "friends"}
+      onGo={() => pane.gotoSection("friends")}
+      anchorTestId="contacts-anchor-friends"
+      anchorLabel={t("contacts.anchor.goto", { section: t("contacts.section.friends") })}
+      count={
+        <span className="text-muted-foreground shrink-0 text-xs" data-testid="contacts-count-friends">
+          {t("contacts.countOf", { matched: filtered.length, total: friends.length })}
+        </span>
+      }
+      actions={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          onClick={() => setAddOpen(true)}
+          data-testid="contacts-friend-add-inline"
+          title={t("contacts.friends.add")}
+          aria-label={t("contacts.friends.add")}
+        >
+          <UserPlusIcon aria-hidden className="size-4" />
+        </Button>
+      }
     >
-      <SectionHeader
-        id="friends"
-        title={t("contacts.section.friends")}
-        query={query}
-        onQueryChange={setQuery}
-        placeholder={t("contacts.friends.searchPlaceholder")}
-        matched={filtered.length}
-        total={friends.length}
-        addLabel={t("contacts.friends.add")}
-        addIcon={UserPlusIcon}
-        onAdd={() => setAddOpen(true)}
-        addTestId="contacts-friend-add"
-      />
-
       {outgoing.map((invite) => (
         <div
           key={invite.peerId}
-          className="flex items-center gap-2 rounded-md border border-dashed px-2 py-1.5"
+          className={rowCls}
           data-testid={"contacts-invite-out-" + invite.peerId}
         >
-          <span className="text-muted-foreground text-xs">
-            {t("chat.invite.outgoing", { name: invite.nickname })} · {t("contacts.friends.pendingOut")}
-          </span>
+          <ContactAvatar initial={invite.nickname.slice(0, 1) || "?"} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{invite.nickname}</p>
+            <p className="text-muted-foreground truncate text-xs">{t("contacts.friends.pendingOut")}</p>
+          </div>
           <AsyncButton
             type="button"
             variant="ghost"
             size="sm"
-            className="ml-auto"
+            className="h-7 px-2 text-xs"
             action={() => cancelInvite(invite.peerId)}
             onSuccess={() => toastSuccess(t("contacts.friends.cancelInviteSuccess"))}
             onError={(error) =>
@@ -119,14 +145,9 @@ export function FriendSection() {
         </div>
       ) : friends.length === 0 && outgoing.length === 0 ? (
         <EmptyState
-          icon={UserPlusIcon}
+          icon={UserRoundPlusIcon}
           title={t("contacts.friends.empty")}
           description={t("contacts.friends.emptyHint")}
-          action={
-            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-              {t("contacts.friends.add")}
-            </Button>
-          }
         />
       ) : filtered.length === 0 && friends.length > 0 ? (
         <p className="text-muted-foreground px-1 py-2 text-sm" data-testid="contacts-friends-no-match">
@@ -140,7 +161,7 @@ export function FriendSection() {
             <div key={key ?? "__ungrouped__"} className="flex flex-col gap-0.5">
               <button
                 type="button"
-                className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 px-1 py-1 text-xs font-medium"
+                className="text-muted-foreground hover:text-foreground flex w-full items-center gap-1 rounded px-1 py-1 text-xs font-medium"
                 aria-expanded={!isCollapsed}
                 onClick={() => toggleGroup(section.name)}
                 data-testid={"contacts-friend-group-" + key}
@@ -150,7 +171,8 @@ export function FriendSection() {
                 ) : (
                   <ChevronDownIcon aria-hidden className="size-3.5" />
                 )}
-                {section.name ?? t("chat.group.ungrouped")}（{section.friends.length}）
+                {section.name ?? t("chat.group.ungrouped")}
+                <span className="ml-auto">{section.friends.length}</span>
               </button>
               {!isCollapsed
                 ? section.friends.map((friend) => (
@@ -174,6 +196,6 @@ export function FriendSection() {
       />
       <ChatFriendMoveDialog friend={moveTarget} onOpenChange={(open) => !open && setMoveTarget(null)} />
       <ChatFriendRemoveDialog friend={removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)} />
-    </section>
+    </TreeSection>
   );
 }

@@ -284,6 +284,8 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-05 T19：并行会话高频推进 main 时收尾四步的竞态压缩法：分支先推远端保平安 → fetch+merge origin/main → 查增量性质（docs-only 可免全量重验，涉码必重跑验收）→ 验收绿后同一口气 push+ff-only；脏文件是否挡 ff 用 `git diff --name-only main <branch> | grep <脏文件>` 判交 intersects，无交集即不碰他人 WIP。
 - 2026-09-05 协调会话挂起恢复轮的接管时序（E10-T19）：协调方被挂起 2h 期间，执行会话自行苏醒并完成反向同步+终验+收尾四步+推送——两次催收无回音不等于死亡，可能只是 harness 挂起。接管动作（代 push/代合并/代清理）前必须最后一刻再核会话与分支动态；且所有权未决时协调方不要往执行者分支上提交（我曾在它挂起时代做了 merge main，它苏醒后需自行核实我的提交并纳入终验，双方都冒了险）。协调代劳要么完整接管四步一步到位，要么只做无所有权副作用的准备（装依赖/预构建/探针）。
 - 2026-09-07 UX 终验：vite 独立实例零仓库改动拉起法——createRequire(仓库 package.json).resolve("vite/package.json") 定位包目录后 import dist/node/index.js，inline config 覆盖 cacheDir+port（与 5173 并行实例隔离优化器）；「一条命令闭环」里 server 起一次、首个场景承担冷启动预热（首载 transform >90s，LOAD 超时给 180s）、全部场景跑完再杀，cacheDir 落 /tmp 跨轮复用 deps 缓存。
+- 2026-09-08 通讯录双栏轮：worktree 免 pnpm install 的 deps 复用——根与子包 node_modules 各 symlink 回主树对应目录，跑门禁用 node node_modules/vitest/vitest.mjs 或 typescript/bin/tsc -b 直调（绕开 pnpm verify-deps-before-run 在 symlink 树上误触发的整库 install）。
+- 2026-09-08 通讯录双栏轮：edit 的已读快照按「路径」而非内容判定——主树读过的文件在 worktree 里改同名文件仍报 has not been read，worktree 编辑前必须对 worktree 全路径重读。tools.write 的 content 若经 run_code 的 JS 模板串转手，内嵌 JSX 的美元花括号会被宿主插值报 Expected ','（本条即为现场再犯后补记）——长 JSX/脚本内容一律直接作为 write 的 JSON 字符串参数传。
 - 2026-09-07 rail 轮：run_code 里对文件做字符串 surgery 时，JSON 参数内的 \n 会被解码成真实换行——正则字面量因此跨行直接 SyntaxError（报错还是误导性的 "Unmatched )"）；同理普通引号字符串里也不能出现解码后的裸换行。多行文本处理改用 edit/write 工具传字面量（它们的参数天然支持真实换行），或先用 read 取行数组再 join 处理，别在 JS 源码层玩转义。
 - 2026-09-07 UX 终验：mock 态页面内造数走 vite 模块同源性——页内 `await import('/src/lib/mock-ipc.ts')` 与应用拿到同一模块实例，mockBackend.chatFriendAdd 直建好友；但 UI 表单校验比 mock 严（PeerId 需 base58 解码=32 字节，不止 43-45 位正则），页内 b58 编码 32 个随机字节生成合法 PeerId；同理 chatFriendAdd 直建的是好友，UI「添加好友」走的是邀请制（pending），两条通路别混。
 - 2026-09-07 DSH harness：给 bash 的命令写进 run_code 时禁止模板字符串内嵌 ${var}（会被 JS 先求值报 "i is not defined"）——用数组 join("\n") 拼命令行。
@@ -441,4 +443,5 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-07 DOM 断言 undefined≠null：querySelector 没找到元素时 optional chaining 得 undefined，属性存在但值缺失才是 null——断言挂了先分清「元素没查到（testid 拼错/取值域错）」还是「属性没渲染」，别急着怀疑组件库透传（lucide-react rest props 全透传，role/aria-label 均可落 svg）。
 - 2026-09-07 git push 偶发 "repository exists" 尾部报错多为 SSH 瞬时抖动（机器高负载下）：先原样重试一次再看，别急着改 remote 配置。
 - 2026-09-07 多会话并行期 ff-merge 大概率撞车：合并前 fetch + 查 main..origin/main，撞了回 worktree merge main 重跑受影响门禁再推——不要用 --no-ff 绕过，ff-only 纪律保 revert 可行。
+- 2026-09-08 评审某页面设计前定位代码：别在仓库根用宽 pattern（`llm.?share`+多扩展名 include）grep——大仓会产出 50KB+ spill 且 9 成是测试/i18n/IPC 噪音；先 `ls + wc -l` 目标视图目录拿结构清单，再读主 view 文件，最后用窄 grep 补 i18n 文案（locales 直接读 llmShare 段）。
 - 再纠正：软链好后别用 pnpm exec/pnpm test 起 vitest——pnpm 的 verify-deps-before-run 会因根 node_modules 是 symlink 报 ERR_PNPM_UNSAFE_MODULES_DIR 并试图重装；直接 node 起真实入口绕开：cd apps/gui && node node_modules/vitest/vitest.mjs run <files>（2026-09-07 llm-provider-share 会话实测）。
