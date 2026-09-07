@@ -5,6 +5,7 @@ import type { I18nKey } from "@/i18n/types";
 
 import { EntityCombobox, type PickerOption } from "@/components/picker";
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -93,7 +94,12 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
       if (result.receipt.appended) notifyLedgerMutated();
     } catch (error) {
       console.error("[llm-share] borrow 失败", error);
-      setSubmitError(errorText(error));
+      const text = errorText(error);
+      setSubmitError(text);
+      toastError(t("llmShare.borrow.submitFailed"), {
+        description: text,
+        context: "llm.borrow",
+      });
     } finally {
       setBusy(false);
     }

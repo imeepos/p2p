@@ -1,10 +1,10 @@
-import { CircleSlash } from "lucide-react";
+import { CircleSlash, Loader2Icon } from "lucide-react";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { I18nKey } from "@/i18n/types";
 
-import { toastSuccess } from "@/components/feedback/toast";
+import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -117,7 +117,12 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
       toastSuccess(t("llmShare.offer.publishSuccess"));
     } catch (error) {
       console.error("[llm-share] offer publish 失败", error);
-      setPublishError(errorText(error));
+      const text = errorText(error);
+      setPublishError(text);
+      toastError(t("llmShare.offer.publishFailed"), {
+        description: text,
+        context: "llm.offer_publish",
+      });
     } finally {
       setBusy(false);
     }
@@ -228,9 +233,10 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
             ) : null}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={busy}>
-                {t("llmShare.offer.publish")}
+                {busy ? <Loader2Icon aria-hidden className="size-4 animate-spin" /> : null}
+                {busy ? t("llmShare.offer.publishing") : t("llmShare.offer.publish")}
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => void refresh()}>
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void refresh()}>
                 {t("llmShare.offer.refresh")}
               </Button>
             </div>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { EntityCombobox, type PickerOption } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,10 @@ import {
 import { formatDateTime } from "@/lib/format";
 import type { Locale } from "@/i18n";
 import { errorText } from "@/views/shared/form-flow";
+import { shortPeerId } from "@/lib/peer-name";
+import { PeerNameCell } from "@/views/shared/peer-name-cell";
 import { StatusBadge } from "@/views/shared/status-badge";
+import { usePeerPickerOptions } from "./peer-options";
 
 import { subscribeLedgerMutated } from "./ledger-sync";
 import type { LlmLedgerEntry, LlmLedgerFilter, LlmShareBackend } from "./types";
@@ -37,6 +41,22 @@ function filterOf(values: FilterValues): LlmLedgerFilter {
   return filter;
 }
 
+// 过滤候选：流水里出现过的 peer 与在册对端取并集（已知名优先，其余缩略）
+function peerFilterOptions(
+  peerOptions: PickerOption[],
+  rows: LlmLedgerEntry[] | null,
+): PickerOption[] {
+  const known = new Map(peerOptions.map((o) => [o.value, o]));
+  for (const row of rows ?? []) {
+    for (const peer of [row.lender, row.borrower]) {
+      if (!known.has(peer)) {
+        known.set(peer, { value: peer, label: shortPeerId(peer), hint: shortPeerId(peer) });
+      }
+    }
+  }
+  return [...known.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
 function EntryRow({ entry }: { entry: LlmLedgerEntry }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
@@ -46,11 +66,11 @@ function EntryRow({ entry }: { entry: LlmLedgerEntry }) {
         {entry.reqId}
       </TableCell>
       <TableCell className="text-xs">{entry.period}</TableCell>
-      <TableCell className="max-w-28 truncate font-mono text-xs" title={entry.lender}>
-        {entry.lender}
+      <TableCell className="max-w-32">
+        <PeerNameCell peerId={entry.lender} />
       </TableCell>
-      <TableCell className="max-w-28 truncate font-mono text-xs" title={entry.borrower}>
-        {entry.borrower}
+      <TableCell className="max-w-32">
+        <PeerNameCell peerId={entry.borrower} />
       </TableCell>
       <TableCell className="text-xs">{entry.model}</TableCell>
       <TableCell className="font-mono text-xs">
@@ -79,9 +99,11 @@ export function LedgerEntriesCard({
   onQueried?: () => void;
 }) {
   const { t } = useTranslation();
+  const peerOptions = usePeerPickerOptions();
   const [filters, setFilters] = useState<FilterValues>(EMPTY_FILTER);
   const [rows, setRows] = useState<LlmLedgerEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const filterOptions = peerFilterOptions(peerOptions, rows);
 
   const query = useCallback(
     async (values: FilterValues) => {
@@ -142,11 +164,23 @@ export function LedgerEntriesCard({
         <div className="grid grid-cols-3 items-end gap-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor="llm-ledger-lender">{t("llmShare.ledger.filterLender")}</Label>
-            <Input id="llm-ledger-lender" value={filters.lender} onChange={(e) => set("lender")(e.target.value)} />
+            <EntityCombobox
+              id="llm-ledger-lender"
+              testId="llm-ledger-lender"
+              options={filterOptions}
+              value={filters.lender || null}
+              onChange={(v) => set("lender")(v ?? "")}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="llm-ledger-borrower">{t("llmShare.ledger.filterBorrower")}</Label>
-            <Input id="llm-ledger-borrower" value={filters.borrower} onChange={(e) => set("borrower")(e.target.value)} />
+            <EntityCombobox
+              id="llm-ledger-borrower"
+              testId="llm-ledger-borrower"
+              options={filterOptions}
+              value={filters.borrower || null}
+              onChange={(v) => set("borrower")(v ?? "")}
+            />
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="llm-ledger-period">{t("llmShare.ledger.filterPeriod")}</Label>

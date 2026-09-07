@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import type { I18nKey } from "@/i18n/types";
 
-import { toastSuccess } from "@/components/feedback/toast";
+import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,7 +85,12 @@ export function ProviderShareForm({ config, backend, onShared, onCancel }: Provi
       onShared();
     } catch (error) {
       console.error("[llm-share] provider 配置分享失败", error);
-      setActionError(errorText(error));
+      const text = errorText(error);
+      setActionError(text);
+      toastError(t("llmShare.providers.shareFailed"), {
+        description: text,
+        context: "llm.provider_share",
+      });
     } finally {
       setBusy(false);
     }

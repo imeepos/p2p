@@ -12,8 +12,14 @@ import type { LlmOfferStatus, LlmShareBackend } from "./types";
 const t = i18n.t.bind(i18n);
 
 // R2-08：发布成功 toast 反馈（toast 模块整体 mock，专断言调用）
-const { toastSuccessMock } = vi.hoisted(() => ({ toastSuccessMock: vi.fn() }));
-vi.mock("@/components/feedback/toast", () => ({ toastSuccess: toastSuccessMock }));
+const { toastSuccessMock, toastErrorMock } = vi.hoisted(() => ({
+  toastSuccessMock: vi.fn(),
+  toastErrorMock: vi.fn(),
+}));
+vi.mock("@/components/feedback/toast", () => ({
+  toastSuccess: toastSuccessMock,
+  toastError: toastErrorMock,
+}));
 
 function rejectAll(): LlmShareBackend {
   const fail = () => Promise.reject(new Error("boom"));

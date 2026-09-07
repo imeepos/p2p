@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { I18nKey } from "@/i18n/types";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { EntityMultiSelect, type PickerOption } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,11 +32,11 @@ import type { LlmAllowEntry, LlmShareBackend } from "./types";
 
 interface AllowFormValues {
   peerId: string;
-  models: string;
+  models: string[];
   note: string;
 }
 
-const EMPTY_ALLOW_FORM: AllowFormValues = { peerId: "", models: "", note: "" };
+const EMPTY_ALLOW_FORM: AllowFormValues = { peerId: "", models: [], note: "" };
 
 // R2-05：PeerId 即时校验（F14 时机：首次失焦前不打断输入），提交兜底拦截
 function peerErrorKeyOf(value: string, touched: boolean): I18nKey | null {
@@ -44,13 +45,6 @@ function peerErrorKeyOf(value: string, touched: boolean): I18nKey | null {
   if (!trimmed) return "llmShare.allowlist.errPeerRequired";
   if (!isValidFriendPeerId(trimmed)) return "llmShare.allowlist.errPeerInvalid";
   return null;
-}
-
-function parseAllowModels(text: string): string[] {
-  return text
-    .split(/[,\n，、]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
 }
 
 function AllowRow({ entry, onDeny }: { entry: LlmAllowEntry; onDeny: (peerId: string) => void }) {
@@ -81,6 +75,8 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const [entries, setEntries] = useState<LlmAllowEntry[] | null>(null);
+  // 模型候选 = 本机已放行模型集（条目 models 并集），留空=不限模型
+  const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [form, setForm] = useState<AllowFormValues>(EMPTY_ALLOW_FORM);
@@ -108,6 +104,8 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
         if (!cancelled) {
           setEntries(view.entries);
           setLoadError(null);
+          const models = [...new Set(view.entries.flatMap((e) => e.models))];
+          setModelOptions(models.map((model) => ({ value: model, label: model })));
         }
       } catch (error) {
         console.warn("[llm-share] allowlist 读取失败", error);
@@ -145,7 +143,7 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
       await backend.allow({
         peerId: form.peerId.trim(),
         // models 留空 = 不限模型（ai-guide allow 语义），后端决定缺省形状
-        models: parseAllowModels(form.models),
+        models: form.models,
         note: form.note.trim() || undefined,
       });
       setForm(EMPTY_ALLOW_FORM);
@@ -191,12 +189,13 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-allow-models">{t("llmShare.allowlist.formModels")}</Label>
-                <Input
-                  id="llm-allow-models"
-                  value={form.models}
-                  onChange={(e) => set("models")(e.target.value)}
-                  placeholder={t("llmShare.allowlist.formModelsOptional")}
+                <EntityMultiSelect
+                  testId="llm-allow-models"
+                  options={modelOptions}
+                  selected={form.models}
+                  onChange={(next) => setForm((v) => ({ ...v, models: next }))}
                 />
+                <p className="text-muted-foreground text-xs">{t("llmShare.allowlist.formModelsOptional")}</p>
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-allow-note">{t("llmShare.allowlist.formNote")}</Label>
