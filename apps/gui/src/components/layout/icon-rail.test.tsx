@@ -78,10 +78,11 @@ describe("IconRail（1.1 rail 规格）", () => {
     expect(aside.className).not.toContain("wx-rail");
   });
 
-  it("macOS Overlay 标题栏：nav 顶部为红绿灯让位（pt-10，类名即约定）", () => {
+  it("标题栏红绿灯已上移至同色条：nav 顶部常规留白（pt-4，类名即约定）", () => {
     renderRail("/chat");
     const nav = screen.getByRole("navigation");
-    expect(nav.className).toContain("pt-10");
+    expect(nav.className).toContain("pt-4");
+    expect(nav.className).not.toContain("pt-10");
   });
 
   it("选中态高亮当前路由，其余不高亮", () => {
