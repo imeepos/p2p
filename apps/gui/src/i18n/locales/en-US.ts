@@ -474,6 +474,9 @@ const enUS: typeof zhCN = {
     attachTooLarge: "Attachment cannot exceed 64 MiB",
     cancelSend: "Cancel send",
     download: "Download",
+    downloadSaving: "Saving…",
+    downloadSaved: "Saved",
+    downloadFailed: "Save failed",
     mediaRetryHint: "Please pick the file and send it again",
     nodeStopped: {
       hint: "The node is not running, so chat is unavailable; start the node to send and receive messages.",
