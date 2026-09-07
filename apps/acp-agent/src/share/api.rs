@@ -11,37 +11,45 @@ use tokio::net::TcpStream;
 
 use super::admin::{reply, reply_json, AdminDeps};
 
-/// 路由分发：鉴权已在管道层完成，这里只做端点匹配。
+/// 路由分发：鉴权已在管道层完成，这里只做端点匹配。cors = 白名单内请求 Origin。
 pub(super) async fn route(
     tcp: &mut TcpStream,
     deps: &AdminDeps,
     method: &str,
     target: &str,
     body: &[u8],
+    cors: Option<&str>,
 ) {
     let share_prefix = "/shares/";
     match (method, target) {
-        ("POST", "/shares") => create_share(tcp, deps, body).await,
-        ("GET", "/shares") => list_shares(tcp, deps).await,
+        ("POST", "/shares") => create_share(tcp, deps, body, cors).await,
+        ("GET", "/shares") => list_shares(tcp, deps, cors).await,
         ("DELETE", path) if path.starts_with(share_prefix) => {
-            revoke_share(tcp, deps, path.trim_start_matches(share_prefix)).await;
+            revoke_share(tcp, deps, path.trim_start_matches(share_prefix), cors).await;
         }
-        _ => reply(tcp, 404, "Not Found", "{\"error\":\"not-found\"}").await,
+        _ => reply(tcp, 404, "Not Found", "{\"error\":\"not-found\"}", cors).await,
     }
 }
 
 /// POST /shares：创建（设计 §5）。scope=workspace 未配 workspace-dir → 422。
-async fn create_share(tcp: &mut TcpStream, deps: &AdminDeps, body: &[u8]) {
+async fn create_share(tcp: &mut TcpStream, deps: &AdminDeps, body: &[u8], cors: Option<&str>) {
     let parsed: AdminCreateBody = match serde_json::from_slice(body) {
         Ok(parsed) => parsed,
         Err(err) => {
             tracing::warn!(error = %err, "admin: invalid create body");
-            reply(tcp, 400, "Bad Request", "{\"error\":\"invalid-json\"}").await;
+            reply(
+                tcp,
+                400,
+                "Bad Request",
+                "{\"error\":\"invalid-json\"}",
+                cors,
+            )
+            .await;
             return;
         }
     };
     if parsed.ttl_secs == 0 {
-        reply(tcp, 400, "Bad Request", "{\"error\":\"invalid-ttl\"}").await;
+        reply(tcp, 400, "Bad Request", "{\"error\":\"invalid-ttl\"}", cors).await;
         return;
     }
     if parsed.max_activations.is_some_and(|max| max == 0) {
@@ -50,6 +58,7 @@ async fn create_share(tcp: &mut TcpStream, deps: &AdminDeps, body: &[u8]) {
             400,
             "Bad Request",
             "{\"error\":\"invalid-max-activations\"}",
+            cors,
         )
         .await;
         return;
@@ -83,7 +92,7 @@ async fn create_share(tcp: &mut TcpStream, deps: &AdminDeps, body: &[u8]) {
                 "created_at": created.entry.created_at,
                 "scope": created.entry.scope,
             });
-            reply_json(tcp, 200, "OK", &body).await;
+            reply_json(tcp, 200, "OK", &body, cors).await;
         }
         Err(err) => {
             tracing::warn!(error = %err, "admin: share create rejected");
@@ -92,13 +101,13 @@ async fn create_share(tcp: &mut TcpStream, deps: &AdminDeps, body: &[u8]) {
                 super::ShareCreateError::WorkspaceUnconfigured => (422, "workspace-unconfigured"),
                 super::ShareCreateError::Store(_) => (500, "store"),
             };
-            reply_json(tcp, status, "Error", &json!({ "error": code })).await;
+            reply_json(tcp, status, "Error", &json!({ "error": code }), cors).await;
         }
     }
 }
 
 /// GET /shares：脱敏列表（无 token 原文/哈希，含 activations/exp/bound/revoke）。
-async fn list_shares(tcp: &mut TcpStream, deps: &AdminDeps) {
+async fn list_shares(tcp: &mut TcpStream, deps: &AdminDeps, cors: Option<&str>) {
     let now = unix_now();
     let shares: Vec<serde_json::Value> = deps
         .service
@@ -121,11 +130,11 @@ async fn list_shares(tcp: &mut TcpStream, deps: &AdminDeps) {
             })
         })
         .collect();
-    reply_json(tcp, 200, "OK", &json!({ "shares": shares })).await;
+    reply_json(tcp, 200, "OK", &json!({ "shares": shares }), cors).await;
 }
 
 /// DELETE /shares/{share_id}：撤销（设计 §3 级联语义）。
-async fn revoke_share(tcp: &mut TcpStream, deps: &AdminDeps, share_id: &str) {
+async fn revoke_share(tcp: &mut TcpStream, deps: &AdminDeps, share_id: &str, cors: Option<&str>) {
     match deps.service.revoke(share_id) {
         Ok(report) => {
             println!(
@@ -138,14 +147,21 @@ async fn revoke_share(tcp: &mut TcpStream, deps: &AdminDeps, share_id: &str) {
                 "already_revoked": report.already_revoked,
                 "policy_removed": report.policy_removed,
             });
-            reply_json(tcp, 200, "OK", &body).await;
+            reply_json(tcp, 200, "OK", &body, cors).await;
         }
         Err(super::RevokeError::Unknown(_)) => {
-            reply(tcp, 404, "Not Found", "{\"error\":\"unknown-share\"}").await;
+            reply(tcp, 404, "Not Found", "{\"error\":\"unknown-share\"}", cors).await;
         }
         Err(err) => {
             tracing::error!(error = %err, "admin: share revoke failed");
-            reply(tcp, 500, "Internal Server Error", "{\"error\":\"store\"}").await;
+            reply(
+                tcp,
+                500,
+                "Internal Server Error",
+                "{\"error\":\"store\"}",
+                cors,
+            )
+            .await;
         }
     }
 }

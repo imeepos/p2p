@@ -7,6 +7,8 @@ pub mod admin;
 pub mod api;
 
 #[cfg(test)]
+mod admin_cors_tests;
+#[cfg(test)]
 mod admin_tests;
 #[cfg(test)]
 mod tests;

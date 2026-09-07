@@ -24,6 +24,22 @@ pub struct AdminDeps {
     pub link: LinkContext,
 }
 
+/// 浏览器来源白名单：Tauri WebView 生产 origin + vite dev origin。
+/// 授权边界仍是 loopback + Bearer；白名单外 origin 一律不发 CORS 头，
+/// 浏览器会拒绝读取响应（纵深防御，不替代 Bearer）。
+const CORS_ALLOWED_ORIGINS: [&str; 5] = [
+    "tauri://localhost",
+    "http://tauri.localhost",
+    "https://tauri.localhost",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+];
+
+/// 请求 Origin 命中白名单则返回之（用于回显 ACAO），否则 None。
+fn cors_origin(origin: Option<&str>) -> Option<&str> {
+    origin.filter(|o| CORS_ALLOWED_ORIGINS.contains(o))
+}
+
 /// Bearer 凭据：随机生成，落 <data-dir>/acp-admin-token（0600）。
 pub struct AdminToken {
     pub value: String,
@@ -92,7 +108,26 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: AdminDeps) {
     let head = String::from_utf8_lossy(&buf[..head_end]).into_owned();
     // head 之后的同批字节是 body 前缀，read_head 不得丢弃。
     let mut pending: Vec<u8> = buf[head_end + 4..].to_vec();
-    let (method, target, bearer, content_length) = parse_head(&head);
+    let (method, target, bearer, content_length, origin) = parse_head(&head);
+    let cors = cors_origin(origin.as_deref());
+    // 浏览器跨源预检按规范不带凭据，必须先于 Bearer 校验处理；预检不授予任何资源。
+    if method == "OPTIONS" {
+        match cors {
+            Some(allowed) => reply_preflight(&mut tcp, allowed).await,
+            None => {
+                tracing::warn!(%target, "admin: preflight from non-allowed origin");
+                reply(
+                    &mut tcp,
+                    403,
+                    "Forbidden",
+                    "{\"error\":\"origin-not-allowed\"}",
+                    None,
+                )
+                .await;
+            }
+        }
+        return;
+    }
     if bearer.as_deref() != Some(token.as_str()) {
         tracing::warn!(%target, "admin: unauthorized request");
         reply(
@@ -100,6 +135,7 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: AdminDeps) {
             401,
             "Unauthorized",
             "{\"error\":\"unauthorized\"}",
+            cors,
         )
         .await;
         return;
@@ -108,11 +144,18 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: AdminDeps) {
         Ok(body) => body,
         Err(err) => {
             tracing::warn!(error = %err, "admin: bad request body");
-            reply(&mut tcp, 400, "Bad Request", "{\"error\":\"invalid-body\"}").await;
+            reply(
+                &mut tcp,
+                400,
+                "Bad Request",
+                "{\"error\":\"invalid-body\"}",
+                cors,
+            )
+            .await;
             return;
         }
     };
-    super::api::route(&mut tcp, &deps, &method, &target, &body).await;
+    super::api::route(&mut tcp, &deps, &method, &target, &body, cors).await;
 }
 
 /// 读请求头（至 "\r\n\r\n"），带护栏与超时；EOF/超限即坏请求。
@@ -170,8 +213,16 @@ async fn read_body(
     Ok(std::mem::take(pending))
 }
 
-/// 解析请求行 + Authorization/Content-Length 头：只取方法、路径、Bearer 与体长。
-fn parse_head(head: &str) -> (String, String, Option<String>, Option<usize>) {
+/// 解析请求行 + Authorization/Content-Length/Origin 头：方法、路径、Bearer、体长、来源。
+fn parse_head(
+    head: &str,
+) -> (
+    String,
+    String,
+    Option<String>,
+    Option<usize>,
+    Option<String>,
+) {
     let mut lines = head.split("\r\n");
     let request_line = lines.next().unwrap_or("");
     let mut parts = request_line.split_whitespace();
@@ -179,6 +230,7 @@ fn parse_head(head: &str) -> (String, String, Option<String>, Option<usize>) {
     let path = parts.next().unwrap_or_default().to_string();
     let mut bearer = None;
     let mut content_length = None;
+    let mut origin = None;
     for line in lines.take_while(|l| !l.is_empty()) {
         let Some((name, value)) = line.split_once(':') else {
             continue;
@@ -190,8 +242,11 @@ fn parse_head(head: &str) -> (String, String, Option<String>, Option<usize>) {
         if name.eq_ignore_ascii_case("content-length") {
             content_length = value.parse().ok();
         }
+        if name.eq_ignore_ascii_case("origin") {
+            origin = Some(value.to_string());
+        }
     }
-    (method, path, bearer, content_length)
+    (method, path, bearer, content_length, origin)
 }
 
 pub(super) async fn reply_json(
@@ -199,13 +254,24 @@ pub(super) async fn reply_json(
     status: u16,
     reason: &str,
     body: &serde_json::Value,
+    cors: Option<&str>,
 ) {
-    reply(tcp, status, reason, &body.to_string()).await;
+    reply(tcp, status, reason, &body.to_string(), cors).await;
 }
 
-pub(super) async fn reply(tcp: &mut TcpStream, status: u16, reason: &str, body: &str) {
+pub(super) async fn reply(
+    tcp: &mut TcpStream,
+    status: u16,
+    reason: &str,
+    body: &str,
+    cors: Option<&str>,
+) {
+    let cors_headers = match cors {
+        Some(origin) => format!("Access-Control-Allow-Origin: {origin}\r\nVary: Origin\r\n"),
+        None => String::new(),
+    };
     let resp = format!(
-        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "HTTP/1.1 {status} {reason}\r\n{cors_headers}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     );
     if let Err(err) = tcp.write_all(resp.as_bytes()).await {
@@ -215,4 +281,16 @@ pub(super) async fn reply(tcp: &mut TcpStream, status: u16, reason: &str, body: 
     if let Err(err) = tcp.shutdown().await {
         tracing::debug!(error = %err, "admin: shutdown failed");
     }
+}
+
+/// CORS 预检应答：不授予任何资源，仅告知浏览器跨源放行的方法与头。
+async fn reply_preflight(tcp: &mut TcpStream, origin: &str) {
+    let resp = format!(
+        "HTTP/1.1 204 No Content\r\nAccess-Control-Allow-Origin: {origin}\r\nAccess-Control-Allow-Methods: GET, POST, DELETE, OPTIONS\r\nAccess-Control-Allow-Headers: Authorization, Content-Type\r\nAccess-Control-Max-Age: 600\r\nVary: Origin\r\nConnection: close\r\n\r\n"
+    );
+    if let Err(err) = tcp.write_all(resp.as_bytes()).await {
+        tracing::warn!(error = %err, "admin: preflight write failed");
+        return;
+    }
+    let _ = tcp.shutdown().await;
 }
