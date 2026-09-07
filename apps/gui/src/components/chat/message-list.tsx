@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlertCircle, MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -113,6 +113,8 @@ export function MessageList({
   const { t, i18n } = useTranslation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickBottomRef = useRef(true);
+  const lastFirstIdRef = useRef<string | null>(null);
+  const lastScrollHeightRef = useRef(0);
   const highlightTimerRef = useRef<number | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   // 加载失败信号（IM-T50）：按本组件 peer 从 store 读取；重试直接复用
@@ -135,6 +137,26 @@ export function MessageList({
     const el = scrollRef.current;
     if (el && stickBottomRef.current) el.scrollTop = el.scrollHeight;
   }, [messages, peer]);
+
+  // 向上翻页前插补偿（UX5）：WebKit 无滚动锚定，前插更早历史后视口内容
+  // 整体跳位。以「首条消息 id 变化且旧首条仍在列表」识别前插，在布局提交
+  // 阶段把 scrollTop 平移高度增量，视口锚定不跳；与群消息流同款。
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const firstId = messages[0]?.id ?? null;
+    const prevFirstId = lastFirstIdRef.current;
+    const prepended =
+      prevFirstId !== null &&
+      firstId !== prevFirstId &&
+      messages.some((m) => m.id === prevFirstId);
+    if (prepended && !stickBottomRef.current) {
+      const delta = el.scrollHeight - lastScrollHeightRef.current;
+      if (delta > 0) el.scrollTop += delta;
+    }
+    lastFirstIdRef.current = firstId;
+    lastScrollHeightRef.current = el.scrollHeight;
+  }, [messages]);
 
   useEffect(() => {
     return () => {
