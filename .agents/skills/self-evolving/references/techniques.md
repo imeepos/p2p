@@ -410,3 +410,10 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 138 服务器 = 43.240.223.138（.env 里 LINUX_SSH_138=ops@43.240.223.138；ssh config 有 public-box:25446 / public-box-2222 别名，备用端口可能反而不通）
 - 服务器上只有 ops 用户；本机公网 IP 用 curl -4 ifconfig.me（不带 -4 拿到 IPv6，与 fail2ban 记录对不上）
 - macOS 无 sshpass 时用自带 expect 验证密码 SSH 登录；批量远程诊断用 ssh '多行脚本' 一次跑完，sudo -n 免交互
+
+## 2026-09-07 桌面 GUI 真机自动化（UX-R2 真实流程终验）
+
+- 桌面 WKWebView 无 CDP：GC1 控制通道（p2pctl gui navigate/page/screenshot/invoke）+ Swift 按 pid 直连 AXUIElement 组合可完成真实点击/表单/读数闭环。
+- System Events 会把同 bundle id 的多个 app 实例 AX 树解析到同一实例（两份 p2p-console 时拿到错误窗口内容）——必须用 AXUIElementCreateApplication(pid) 直连（swiftc 小工具）。
+- React 受控输入：AXUIElementSetAttributeValue 设值成功但被受控值回弹；逐字符 CGEvent（US 键位表+shift 符号映射）可真实触发 onChange；JSON/特殊文本用写剪贴板+Cmd+V 最稳。
+- AppleScript 递归 dump AX 树：tell 块内调用自定义 handler 必须 my handler(...)，且按 unix id 过滤 process 在同名多实例时不可靠。

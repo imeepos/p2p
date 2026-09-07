@@ -375,3 +375,9 @@ failed: early eof（客户端侧超时中止）。
 - 真因：sshd 加固后 PasswordAuthentication no（只许密钥），且 WinSCP 里配的是 root（PermitRootLogin prohibit-password 也拒）；ops 账号密码为锁定态(L)
 - 修法：查 auth.log 确认是认证被拒而非端口封禁 → 改 PasswordAuthentication yes → chpasswd 给 ops 设密码 → sshd -t + reload → expect 实测密码登录
 - 坑：fail2ban 封禁列表为空、ufw 放行 22 时，连不上几乎都不是端口问题，先看 auth.log
+
+## 2026-09-07 沙箱内 node 子进程内建模块导入挂起
+
+- 症状：bash 工具里 node -e 动态 import 内建模块与 .mjs 脚本（含 import 内建）永久挂起、零输出；纯 console.log 正常；python/swift/cargo 正常；早期同会话 pnpm dev 又能起，后期 pnpm vitest 挂起。
+- 绕法：浏览器 CDP 改走 python 标准库 + Chrome --remote-debugging-pipe（fd3/fd4，NUL 分隔 JSON；pass_fds+preexec_fn 里 dup2 到 3/4）；桌面 GUI 验证改走 Swift AX 驱动；单测复核让仓库自身门禁承担，报告如实标注证据层级。
+- 另：run_code 里用 JS 模板字面量拼 shell 命令时，内容含 $() 、${VAR}、反引号或 ASCII 单引号都会炸解析/截断——长 shell 串一律单引号拼接 + 内容先经 tools.write 落盘再引用。
