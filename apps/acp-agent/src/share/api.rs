@@ -24,6 +24,12 @@ pub(super) async fn route(
 ) {
     let share_prefix = "/shares/";
     let ws_prefix = "/workspaces/";
+    // A2A 管理面（a2a-over-p2p-design §3）：--a2a-disabled 时 ctx 为 None，路由落 404。
+    if let Some(ctx) = &deps.a2a_admin {
+        if crate::a2a::admin::route(tcp, ctx, method, target, body, cors).await {
+            return;
+        }
+    }
     match (method, target) {
         ("POST", "/shares") => create_share(tcp, deps, body, cors).await,
         ("GET", "/shares") => list_shares(tcp, deps, cors).await,

@@ -74,6 +74,8 @@ pub enum AuditEvent {
         share_id: String,
         kind: ShareDenyKind,
     },
+    /// A2A 拒绝（a2a-over-p2p-design §9）：协议违规/卡片不可见/发布失败。
+    A2aDenied { peer: String, detail: String },
 }
 
 impl AuditEvent {
@@ -94,6 +96,7 @@ impl AuditEvent {
             Self::SlotSuperseded { .. } => "slot-superseded",
             Self::ShareRedeemed { .. } => "share-redeemed",
             Self::ShareRedeemDenied { kind, .. } => kind.audit_key(),
+            Self::A2aDenied { .. } => "a2a-denied",
         }
     }
 
@@ -113,7 +116,8 @@ impl AuditEvent {
             | Self::WindowExpired { peer, .. }
             | Self::SlotSuperseded { peer, .. }
             | Self::ShareRedeemed { peer, .. }
-            | Self::ShareRedeemDenied { peer, .. } => peer,
+            | Self::ShareRedeemDenied { peer, .. }
+            | Self::A2aDenied { peer, .. } => peer,
         }
     }
 
@@ -207,6 +211,9 @@ impl AuditSink for TracingAudit {
                 kind,
             } => {
                 tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, share_id, code = event.code(), "share redeem denied: {kind:?}");
+            }
+            AuditEvent::A2aDenied { peer, detail } => {
+                tracing::warn!(target: "a2a_audit", ts, event = event.kind(), peer, detail, "a2a denied");
             }
         }
     }

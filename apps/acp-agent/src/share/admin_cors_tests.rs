@@ -45,6 +45,7 @@ async fn spawn(tag: &str) -> (SocketAddr, String) {
                 addrs: vec!["/ip4/127.0.0.1/udp/4001/quic-v1".to_owned()],
             },
             workspaces,
+            a2a_admin: None,
         },
     )
     .await
