@@ -410,3 +410,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-07 表情面板轮：新 worktree 缺 node_modules 时别 symlink 主树的（vite/tsc 缓存与并发测试互踩），直接在 apps/gui 跑 pnpm install --frozen-lockfile --prefer-offline，store 硬链接秒级完成（本次 1.6s）。
 - 2026-09-07 表情面板轮：全量 vitest 偶发 1 例失败（1210/1211）而直接涉及的两个测试文件双轮全绿，原样重跑全量即 1211/1211——先按「受影响文件是否红」定位嫌疑面，flaky 单例先重跑拿结论，别急着给自己的改动翻案或补丁。
 - 2026-09-08 评审页面「是否混乱」先数三样：同一后端动作的 UI 入口数（重复入口互相覆盖比字段多更致混乱）、角色/任务流是否混排、以及每列承载的表格列数——别从视觉密度入手，视觉挤往往是 IA 错位的下游症状。
+- 2026-09-08 右键菜单轮：react-hooks 新规则 set-state-in-effect 禁止 effect 体内同步 setState，「量尺寸后钳制定位」类代码整段报红——修法 = 渲染期 props 调整模式（`if (anchor !== renderedAnchor) setState`）复位锚点 + requestAnimationFrame 回调里 setState（回调内合法）；用 effect 直接改 DOM 样式会被下次渲染覆写，别用。
+- 2026-09-08 右键菜单轮：`A && B && C > log` 的重定向只绑最后一段 C——前面门禁的输出只进 job stdout，而流式 job_output 读一次即消费、丢中段；每个门禁段各自 `> 独立日志 2>&1` 落盘，最后统一 grep 各日志拿 RC。
