@@ -2,6 +2,8 @@
 //! 文件 <data-dir>/llm-share/allowlist.json；缺失视为空表（首授场景），
 //! 损坏显式报错；语义默认拒绝——表无条目即不可用。
 //! allow=upsert（granted_at 每次刷新），deny=删条目（不存在明确报错）。
+//! v2（llm-share-link 设计 §4-3）：条目增 source（"share:<shareId>"）与 expires_at，
+//! 供分享兑换落条目与 revoke 按 source 级联删除（手工条目不受级联）。
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -16,12 +18,18 @@ use super::write_json_atomic;
 pub const FILE_NAME: &str = "allowlist.json";
 const FORMAT_VERSION: u8 = 1;
 
-/// 单个借方条目：models 为空 = 不限模型。
+/// 单个借方条目：models 为空 = 不限模型；source/expires_at 为分享兑换注入口。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AllowEntry {
     pub models: Vec<String>,
     #[serde(default)]
     pub note: String,
+    /// 条目来源（"share:<shareId>"）；None = 手工条目，不受分享撤销级联。
+    #[serde(default)]
+    pub source: Option<String>,
+    /// 授权到期（Unix 秒）；None = 不过期。
+    #[serde(default)]
+    pub expires_at: Option<u64>,
     pub granted_at: String,
 }
 
@@ -46,6 +54,8 @@ impl AllowlistFile {
         peer_id: &str,
         models: Vec<String>,
         note: &str,
+        source: Option<&str>,
+        expires_at: Option<u64>,
         granted_at: &str,
     ) -> bool {
         let created = !self.entries.contains_key(peer_id);
@@ -54,6 +64,8 @@ impl AllowlistFile {
             AllowEntry {
                 models,
                 note: note.to_owned(),
+                source: source.map(str::to_owned),
+                expires_at,
                 granted_at: granted_at.to_owned(),
             },
         );
@@ -104,6 +116,10 @@ pub struct AllowReport {
     pub peer_id: String,
     pub models: Vec<String>,
     pub note: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<u64>,
     pub granted_at: String,
 }
 
@@ -122,6 +138,10 @@ pub struct AllowlistEntry {
     pub peer_id: String,
     pub models: Vec<String>,
     pub note: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<u64>,
     pub granted_at: String,
 }
 
@@ -138,6 +158,8 @@ pub fn allow(
     peer_id: &str,
     models_raw: &[String],
     note: Option<&str>,
+    source: Option<&str>,
+    expires_at: Option<u64>,
     granted_at: &str,
 ) -> Result<AllowReport, String> {
     validate_peer_id(peer_id)?;
@@ -145,13 +167,15 @@ pub fn allow(
     let note = note.unwrap_or_default();
     let file = path(data_dir);
     let mut list = load_or_empty(&file)?;
-    let created = list.upsert(peer_id, models.clone(), note, granted_at);
+    let created = list.upsert(peer_id, models.clone(), note, source, expires_at, granted_at);
     save(&file, &list)?;
     Ok(AllowReport {
         created,
         peer_id: peer_id.to_owned(),
         models,
         note: note.to_owned(),
+        source: source.map(str::to_owned),
+        expires_at,
         granted_at: granted_at.to_owned(),
     })
 }
@@ -184,93 +208,27 @@ pub fn list(data_dir: &str) -> Result<AllowlistReport, String> {
                 peer_id,
                 models: entry.models,
                 note: entry.note,
+                source: entry.source,
+                expires_at: entry.expires_at,
                 granted_at: entry.granted_at,
             })
             .collect(),
     })
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn temp_dir(tag: &str) -> std::path::PathBuf {
-        let dir = std::env::temp_dir().join(format!("p2pcli-allow-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        dir
+/// 按来源删除条目（分享撤销级联）：只删 source 匹配项，手工条目不动；
+/// 返回移除数，>0 才落盘。
+pub fn remove_by_source(data_dir: &str, source: &str) -> Result<usize, String> {
+    let file = path(data_dir);
+    let mut list = load_or_empty(&file)?;
+    let before = list.entries.len();
+    list.entries.retain(|_, entry| entry.source.as_deref() != Some(source));
+    let removed = before - list.entries.len();
+    if removed > 0 {
+        save(&file, &list)?;
     }
-
-    #[test]
-    fn roundtrip_and_upsert_semantics() {
-        let dir = temp_dir("roundtrip");
-        let file = dir.join(FILE_NAME);
-        let peer = bs58::encode([1u8; 32]).into_string();
-        let mut list = AllowlistFile::new();
-        assert!(list.upsert(&peer, vec!["gpt-4o".into()], "n", "2026-09-04T00:00:00Z"));
-        assert!(!list.upsert(&peer, vec![], "", "2026-09-04T01:00:00Z"));
-        save(&file, &list).unwrap();
-        assert!(!file.with_extension("json.tmp").exists());
-        let loaded = load_or_empty(&file).unwrap();
-        assert_eq!(loaded.v, FORMAT_VERSION);
-        assert_eq!(loaded.entries[&peer].models, Vec::<String>::new());
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn missing_file_loads_empty_and_corrupt_errors() {
-        let dir = temp_dir("missing");
-        let file = dir.join(FILE_NAME);
-        assert!(load_or_empty(&file).unwrap().entries.is_empty());
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(&file, "{ not json").unwrap();
-        assert!(load_or_empty(&file).is_err());
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn deny_missing_entry_is_explicit_error() {
-        let dir = temp_dir("deny");
-        let peer = bs58::encode([2u8; 32]).into_string();
-        assert!(deny(dir.to_str().unwrap(), &peer).is_err());
-        allow(
-            dir.to_str().unwrap(),
-            &peer,
-            &[],
-            None,
-            "2026-09-04T00:00:00Z",
-        )
-        .unwrap();
-        assert!(deny(dir.to_str().unwrap(), &peer).unwrap().removed);
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn allow_validates_peer_and_models() {
-        let dir = temp_dir("validate");
-        assert!(allow(dir.to_str().unwrap(), "bad-peer", &[], None, "t").is_err());
-        let peer = bs58::encode([3u8; 32]).into_string();
-        assert!(allow(dir.to_str().unwrap(), &peer, &["  ".to_owned()], None, "t").is_err());
-        let report = allow(
-            dir.to_str().unwrap(),
-            &peer,
-            &[" gpt-4o ".to_owned(), "gpt-4o".to_owned()],
-            Some("nb"),
-            "t",
-        )
-        .unwrap();
-        assert_eq!(report.models, vec!["gpt-4o".to_owned()]);
-    }
-
-    #[test]
-    fn list_reports_entries_in_stable_order() {
-        let dir = temp_dir("list");
-        let a = bs58::encode([4u8; 32]).into_string();
-        let b = bs58::encode([5u8; 32]).into_string();
-        allow(dir.to_str().unwrap(), &b, &[], None, "t").unwrap();
-        allow(dir.to_str().unwrap(), &a, &[], None, "t").unwrap();
-        let report = list(dir.to_str().unwrap()).unwrap();
-        assert_eq!(report.peers.len(), 2);
-        assert_eq!(report.peers[0].peer_id, a, "BTreeMap 序稳定输出");
-        let _ = std::fs::remove_dir_all(&dir);
-    }
+    Ok(removed)
 }
+
+#[cfg(test)]
+mod tests;
