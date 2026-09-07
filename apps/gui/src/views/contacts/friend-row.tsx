@@ -4,10 +4,15 @@ import { MessageSquareIcon, MoveIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/feedback/copy-button";
+import { cn, } from "@/lib/utils";
 import { initialOf } from "@/lib/conversation-entry";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { usePeerOnline } from "@/stores/node-store";
 import { PeerStatusDot } from "@/components/chat/peer-status";
+
+import { CONTACT_ROW_CLS, ContactAvatar, ROW_ACTIONS_CLS } from "./contact-avatar";
+import { selectionKey } from "./contacts-detail-model";
+import { useContactsPane } from "./contacts-sections";
 
 interface FriendRowProps {
   friend: ChatFriendJson;
@@ -15,66 +20,73 @@ interface FriendRowProps {
   onRemove: (friend: ChatFriendJson) => void;
 }
 
-// 好友行（§3.1）：头像首字 + 昵称 + 备注 + 分组名 + 在线状态点（复用
-// peer-status）；行内操作：发消息（/chat?peer=）、移动分组、删除。
+// 好友行（§3.1，双栏改版）：圆角方首字头像 + 昵称 + 备注/分组 + 在线点；
+// 点选行切换右栏资料卡；行内动作（发消息/移动分组/删除）悬停显隐，
+// 移动/删除仍由分区自持对话框承接（与资料卡入口同组件）。
 export function FriendRow({ friend, onMove, onRemove }: FriendRowProps) {
   const { t } = useTranslation();
+  const pane = useContactsPane();
   const online = usePeerOnline(friend.peerId);
   const name = friend.nickname || friend.peerId.slice(0, 8);
+  const selected = pane.selectedKey === selectionKey({ kind: "friend", peerId: friend.peerId });
   return (
     <div
-      className="hover:bg-accent/50 flex items-center gap-3 rounded-md px-2 py-2"
+      className={cn(CONTACT_ROW_CLS, selected ? "bg-accent" : "hover:bg-accent/60")}
       data-testid={"contact-friend-" + friend.peerId}
     >
-      <span
-        aria-hidden
-        className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left"
+        onClick={() => pane.select({ kind: "friend", peerId: friend.peerId })}
+        title={friend.nickname ? undefined : friend.peerId}
       >
-        {initialOf(name)}
-      </span>
-      <PeerStatusDot online={online} testId={"contact-friend-online-" + friend.peerId} />
-      <div className="min-w-0 flex-1">
-        {/* P3#15 无昵称时展示的是 PeerId 缩略：hover 显全文并支持复制 */}
-        <p
-          className="flex items-center gap-1 truncate text-sm font-medium"
-          title={friend.nickname ? undefined : friend.peerId}
-        >
-          {name}
-          {friend.nickname ? null : (
-            <CopyButton value={friend.peerId} className="size-5 shrink-0" />
-          )}
-        </p>
-        <p className="text-muted-foreground truncate text-xs">
-          {friend.note ? friend.note + " · " : ""}
-          {friend.group ? friend.group : t("chat.group.ungrouped")}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <Button type="button" variant="ghost" size="sm" asChild>
-          <Link to={"/chat?peer=" + friend.peerId} data-testid={"contact-friend-message-" + friend.peerId}>
+        <ContactAvatar initial={initialOf(name)} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5 text-sm font-medium">
+            <span className="truncate">{name}</span>
+            <PeerStatusDot online={online} testId={"contact-friend-online-" + friend.peerId} />
+          </span>
+          <span className="text-muted-foreground block truncate text-xs">
+            {friend.note ? friend.note + " · " : ""}
+            {friend.group ? friend.group : t("chat.group.ungrouped")}
+          </span>
+        </span>
+      </button>
+      {friend.nickname ? null : <CopyButton value={friend.peerId} className="size-5 shrink-0" />}
+      <div className={ROW_ACTIONS_CLS}>
+        <Button type="button" variant="ghost" size="icon" className="size-7" asChild>
+          <Link
+            to={"/chat?peer=" + friend.peerId}
+            data-testid={"contact-friend-message-" + friend.peerId}
+            title={t("contacts.friends.message")}
+            aria-label={t("contacts.friends.message")}
+          >
             <MessageSquareIcon aria-hidden className="size-4" />
-            {t("contacts.friends.message")}
           </Link>
         </Button>
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="icon"
+          className="size-7"
           onClick={() => onMove(friend)}
           data-testid={"contact-friend-move-" + friend.peerId}
+          title={t("contacts.friends.move")}
+          aria-label={t("contacts.friends.move")}
         >
           <MoveIcon aria-hidden className="size-4" />
-          {t("contacts.friends.move")}
         </Button>
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="icon"
+          className="size-7"
           onClick={() => onRemove(friend)}
           data-testid={"contact-friend-remove-" + friend.peerId}
+          title={t("contacts.friends.remove")}
+          aria-label={t("contacts.friends.remove")}
         >
           <Trash2Icon aria-hidden className="size-4" />
-          {t("contacts.friends.remove")}
         </Button>
       </div>
     </div>
