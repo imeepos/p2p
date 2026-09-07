@@ -1063,6 +1063,8 @@ const enUS: typeof zhCN = {
       linkLabel: "Share link",
       sendToChat: "Send to current chat",
       sent: "Sent as a text message",
+      localCandidateLabel: "Local agent (auto-discovered)",
+      localAutoHint: "Local agent admin endpoint auto-discovered ({{url}}); no manual setup needed",
       createFailed: "Failed to create share",
       createRejectedWorkspace: "Creation rejected (422): scope=workspace requires the agent to run with --workspace-dir",
       validation: {

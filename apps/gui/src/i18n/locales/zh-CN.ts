@@ -1039,6 +1039,8 @@ const zhCN = {
       linkLabel: "分享链接",
       sendToChat: "发送到当前聊天",
       sent: "已作为文本消息发送",
+      localCandidateLabel: "本机 agent（自动发现）",
+      localAutoHint: "已自动接入本机 agent 管理端点（{{url}}），无需手动填写",
       createFailed: "分享创建失败",
       createRejectedWorkspace: "创建被拒绝（422）：scope=workspace 需要 agent 配置 --workspace-dir",
       validation: {
