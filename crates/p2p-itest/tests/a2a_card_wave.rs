@@ -70,8 +70,17 @@ async fn host_rig(tag: &str) -> HostRig {
     let policy_path = cfg.policy_path();
     std::fs::create_dir_all(policy_path.parent().expect("policy parent")).expect("mkdir policy");
     let policy = Arc::new(std::sync::RwLock::new(acp_common::PolicyTable::new()));
-    let service = acp_agent::ShareService::open(&cfg, policy, Arc::new(CaptureAudit::new()))
-        .expect("service");
+    let ws_store = Arc::new(
+        acp_agent::workspaces::WorkspaceStore::open(&[], None, cfg.paths().workspaces())
+            .expect("ws store"),
+    );
+    let service = acp_agent::ShareService::open(
+        &cfg,
+        ws_store.clone(),
+        policy,
+        Arc::new(CaptureAudit::new()),
+    )
+    .expect("service");
     let server = AdminServer::start(
         0,
         token.value.clone(),
@@ -81,7 +90,7 @@ async fn host_rig(tag: &str) -> HostRig {
                 peer: node.local_peer_id().to_string(),
                 addrs: node.listen_addrs(),
             },
-            workspaces: vec![],
+            workspaces: ws_store,
             a2a_admin: Some(Arc::new(host_a2a::A2aAdminCtx {
                 agents: agents.clone(),
                 subscribers: subscribers.clone(),
