@@ -5,7 +5,8 @@ import "@/i18n";
 import i18n from "@/i18n";
 
 import { makeLlmShareMockPair } from "./mock-backend";
-import { OfferPanel, resetOfferLoadWarnForTest } from "./offer-panel";
+import { resetOfferLoadWarnForTest } from "./offer-errors";
+import { OfferPanel } from "./offer-panel";
 import type { LlmOfferStatus, LlmShareBackend } from "./types";
 
 const t = i18n.t.bind(i18n);

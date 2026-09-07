@@ -19,7 +19,7 @@ import {
   type OfferErrors,
   type OfferFormValues,
 } from "./offer-form";
-import { isOfferNotPublished } from "./offer-errors";
+import { isOfferNotPublished, warnOfferLoadOnce } from "./offer-errors";
 import type { LlmOfferStatus, LlmOfferView, LlmShareBackend } from "./types";
 
 // §16.2-5：expired/not_yet_valid = 常态中性；peer_mismatch/bad_signature =
@@ -110,14 +110,6 @@ export function OfferStatusCard({ offer }: { offer: LlmOfferView }) {
   );
 }
 
-// R2-26：console 降噪——未发布空态静默，真实错误整个会话仅提示一次
-let loadWarned = false;
-
-/** 测试专用：重置会话级告警标记（模块单例用例隔离入口，resetToastDedupForTest 惯例） */
-export function resetOfferLoadWarnForTest(): void {
-  loadWarned = false;
-}
-
 export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
   const { t } = useTranslation();
   const [values, setValues] = useState<OfferFormValues>(EMPTY_OFFER_FORM);
@@ -134,10 +126,7 @@ export function OfferPanel({ backend }: { backend: LlmShareBackend }) {
       setLoadError(null);
       return;
     }
-    if (!loadWarned) {
-      loadWarned = true;
-      console.warn("[llm-share] offer show 失败", error);
-    }
+    warnOfferLoadOnce(error);
     setLoadError(errorText(error));
   }, []);
 

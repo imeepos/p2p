@@ -8,3 +8,18 @@ export function isOfferNotPublished(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return NOT_PUBLISHED_RE.test(message);
 }
+
+// R2-26：console 降噪——真实错误整个会话仅提示一次。独立于组件文件导出，
+// 避免 react-refresh 混导出。
+let loadWarned = false;
+
+/** 测试专用：重置会话级告警标记（模块单例用例隔离入口，resetToastDedupForTest 惯例） */
+export function resetOfferLoadWarnForTest(): void {
+  loadWarned = false;
+}
+
+export function warnOfferLoadOnce(error: unknown): void {
+  if (loadWarned) return;
+  loadWarned = true;
+  console.warn("[llm-share] offer show 失败", error);
+}
