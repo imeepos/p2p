@@ -125,6 +125,17 @@ beforeEach(() => {
 });
 
 describe("消息中心两组列表", () => {
+  it("分区头：类型图标色 chip + 待处理计数角标（群=primary 绿，好友=info 蓝）", async () => {
+    renderPage();
+    await screen.findByTestId("messages-group-row-gi-1");
+    // 群分区：pending 1 条（gi-1），gi-2 已终态不计入
+    const groupCount = screen.getByTestId("messages-section-count-primary");
+    expect(groupCount.textContent).toBe("1");
+    // 好友分区：收件箱即待处理集，in+out 共 2 条
+    const friendCount = screen.getByTestId("messages-section-count-info");
+    expect(friendCount.textContent).toBe("2");
+  });
+
   it("入组列表：方向/状态徽章、备注齐备，out+accepted 无行内按钮", async () => {
     renderPage();
     const rowIn = await screen.findByTestId("messages-group-row-gi-1");

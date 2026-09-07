@@ -12,6 +12,8 @@ import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
 
+import { MessageSectionHeader } from "./section-header";
+
 // 入群邀请列表（IMC3 需求 2）：每条含方向/状态徽章/时间/备注；in 向待处理
 // 行内同意/拒绝；行点击跳对应群会话（roster 未达由会话页加载态兜底）；
 // 操作失败原文上浮不静默。
@@ -88,7 +90,12 @@ export function GroupInviteSection() {
 
   return (
     <section data-testid="messages-group-section" className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold">{t("messages.section.groups")}</h2>
+      <MessageSectionHeader
+        icon={UsersRound}
+        title={t("messages.section.groups")}
+        tone="primary"
+        count={rows.filter((invite) => invite.state === "pending").length}
+      />
       {listError ? (
         <p className="text-destructive text-xs" role="alert" data-testid="messages-group-list-error">
           {t("messages.error.listLoadFailed") + listError}

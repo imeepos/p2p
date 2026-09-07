@@ -15,6 +15,8 @@ import { shortPeerId } from "@/lib/peer-name";
 import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
+
+import { MessageSectionHeader } from "./section-header";
 import { nicknameCharCount } from "@/views/contacts/chat-friend-rules";
 
 // 好友邀请列表（IMC3 需求 2）：方向/状态徽章/时间/备注；in 向待处理行内
@@ -90,7 +92,12 @@ export function FriendInviteSection() {
 
   return (
     <section data-testid="messages-friend-section" className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold">{t("messages.section.friends")}</h2>
+      <MessageSectionHeader
+        icon={UserRoundPlus}
+        title={t("messages.section.friends")}
+        tone="info"
+        count={rows.length}
+      />
       {invitesError ? (
         <CommandErrorText
           message={invitesError}
