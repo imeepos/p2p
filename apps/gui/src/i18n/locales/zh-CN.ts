@@ -24,6 +24,12 @@ const zhCN = {
       close: "关闭",
       startFailed: "节点启动失败",
       stopFailed: "节点停止失败",
+      hangingUp: "挂断中…",
+      dialing: "拨号中…",
+      pinging: "Ping 中…",
+      refreshing: "刷新中…",
+      saving: "保存中…",
+      confirming: "确认中…",
     },
     feedback: {
       copyDetail: "复制详情",

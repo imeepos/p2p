@@ -26,6 +26,12 @@ const enUS: typeof zhCN = {
       close: "Close",
       startFailed: "Failed to start node",
       stopFailed: "Failed to stop node",
+      hangingUp: "Hanging up…",
+      dialing: "Dialing…",
+      pinging: "Pinging…",
+      refreshing: "Refreshing…",
+      saving: "Saving…",
+      confirming: "Confirming…",
     },
     feedback: {
       copyDetail: "Copy details",
