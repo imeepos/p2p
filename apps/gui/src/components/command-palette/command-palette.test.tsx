@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import "@/i18n";
+import { useNodeStore } from "@/stores/node-store";
 import { CommandPalette, LLM_SHARE_PALETTE_COUNT } from "./command-palette";
 import { requestOpenCommandPalette } from "./palette-bus";
 
@@ -62,5 +63,33 @@ describe("CommandPalette", () => {
     await screen.findByRole("dialog");
     fireEvent.click(screen.getAllByRole("option")[1]);
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  // R2-17 回归：节点项缩略与全站同口径（前 6…后 4 + 悬停完整），不再 16 位前缀。
+  it("节点项渲染共享缩略口径并保留整行点击复制语义", async () => {
+    const fullPeerId = "vKLTAv6c8dEfGhIjKlMnOpQrStUvWxyzAbCdEfGhIjkl";
+    useNodeStore.setState({
+      peers: {
+        p1: {
+          peerId: fullPeerId,
+          addrs: ["/ip4/127.0.0.1/tcp/4001"],
+          source: "mdns",
+          connected: true,
+          lastSeenMs: 1,
+          hops: [],
+        },
+      },
+    });
+    try {
+      renderPalette(true);
+      await screen.findByRole("dialog");
+      const cell = screen.getByTitle(fullPeerId);
+      expect(cell).toHaveTextContent(
+        fullPeerId.slice(0, 6) + "…" + fullPeerId.slice(-4),
+      );
+      expect(screen.getByText("复制 PeerId")).toBeInTheDocument();
+    } finally {
+      useNodeStore.setState({ peers: {} });
+    }
   });
 });

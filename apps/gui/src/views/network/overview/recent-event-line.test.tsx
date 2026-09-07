@@ -19,16 +19,21 @@ describe("RecentEventLine tooltip 本地化", () => {
   it("tooltip 用 i18n 摘要且带完整 PeerId，不再是原始协议串", () => {
     render(<RecentEventLine event={EVENT} locale="zh-CN" now={Date.now()} />);
     const span = screen.getByTitle(
-      `发现节点 ${PEER_ID}（192.168.1.5/u40001）`,
+      "发现节点 " + PEER_ID + "（192.168.1.5/u40001）",
     );
     expect(span).toBeInTheDocument();
     expect(document.querySelector('[title^="peer_discovered"]')).toBeNull();
   });
 
-  it("行内摘要保持截断 PeerId", () => {
+  // R2-17 回归：概览最近事件与事件页同一缩略口径（前 6…后 4），
+  // 不再出现 8 位前缀第三种截断。
+  it("行内摘要 PeerId 缩略与事件页同口径（前 6…后 4）", () => {
     render(<RecentEventLine event={EVENT} locale="zh-CN" now={Date.now()} />);
     expect(
-      screen.getByText(`发现节点 ${PEER_ID.slice(0, 8)}（192.168.1.5/u40001）`),
+      screen.getByText(
+        "发现节点 aaaaaa…" + PEER_ID.slice(-4) + "（192.168.1.5/u40001）",
+      ),
     ).toBeInTheDocument();
+    expect(screen.queryByText("发现节点 " + PEER_ID.slice(0, 8))).toBeNull();
   });
 });

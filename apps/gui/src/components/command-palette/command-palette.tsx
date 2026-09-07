@@ -18,6 +18,7 @@ import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import { useEscapeKey } from "@/hooks/use-hotkeys";
 import { useNodeStore, selectPeerList } from "@/stores/node-store";
 import { errorText } from "@/views/shared/form-flow";
+import { PeerIdShort } from "@/views/shared/peer-id-short";
 import { subscribeOpenCommandPalette } from "./palette-bus";
 
 const MAX_PEER_ITEMS = 8;
@@ -119,7 +120,8 @@ function PeerGroup({ peers, onCopy }: { peers: PeerRow[]; onCopy: CopyFn }) {
           keywords={[peer.peerId, ...peer.addrs]}
           onSelect={() => void onCopy(peer.peerId, t("palette.copied"))}
         >
-          <span className="font-mono text-xs">{peer.peerId.slice(0, 16)}</span>
+          {/* R2-17：节点项缩略与全站同口径（前 6…后 4 + 悬停完整），整行点击即复制 */}
+          <PeerIdShort peerId={peer.peerId} className="font-mono text-xs" />
           <span className="text-muted-foreground ml-auto text-xs">
             {t("palette.copyPeerId")}
           </span>
