@@ -19,6 +19,7 @@ pub mod ginvite;
 pub mod group;
 pub mod history;
 pub mod llm_share;
+pub mod media_export;
 pub mod profile;
 pub mod proto;
 pub mod state;
@@ -66,6 +67,7 @@ pub fn run() {
             chat::chat_history,
             chat::chat_send,
             chat::chat_media_file,
+            media_export::chat_media_export,
             ginvite::chat_group_invite_send,
             ginvite::chat_group_invites_list,
             ginvite::chat_group_invite_accept,
@@ -93,6 +95,8 @@ pub fn run() {
             llm_share::llm_share_receipt_verify,
         ])
         .plugin(tauri_plugin_opener::init())
+        // 媒体附件导出（契约 §12 加法）：系统保存对话框选目标路径
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {

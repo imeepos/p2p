@@ -477,6 +477,9 @@ const zhCN = {
     attachTooLarge: "附件不能超过 64 MiB",
     cancelSend: "取消发送",
     download: "下载",
+    downloadSaving: "保存中…",
+    downloadSaved: "已保存",
+    downloadFailed: "保存失败",
     mediaRetryHint: "请重新选择文件发送",
     nodeStopped: {
       hint: "节点未运行，聊天功能不可用；启动节点后即可收发消息。",

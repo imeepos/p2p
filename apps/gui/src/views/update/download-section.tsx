@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
 
+import { DownloadProgress } from "@/components/feedback/download-progress";
 import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { useUpdateStore } from "@/stores/update-store";
 
-import { DownloadProgress } from "./download-progress";
 import { openReleasePage } from "./release-links";
 
 // 契约 v8 §13：下载安装操作段，设置卡与提醒对话框共用。

@@ -49,6 +49,8 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 # 系统浏览器打开发布页（命令内 Rust 侧调用，不经前端 ACL）
 tauri-plugin-opener = "2"
+# 媒体附件导出保存对话框（契约 §12 加法，2026-09-07）：下载改"选目录另存 + 后台拷贝"
+tauri-plugin-dialog = "2"
 # 应用内下载安装更新（契约 v8 加法，G-U3）：官方 updater 插件（minisign 签名校验）
 tauri-plugin-updater = "2"
 # 更新安装完成后重启应用（relaunch）

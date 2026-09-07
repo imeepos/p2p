@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Locale } from "@/i18n";
 import { formatBytes } from "@/lib/format";
 
-// 下载进度条：有 totalBytes 展示百分比与字节对，缺则不定进度（animate-pulse）。
+// 下载进度条（update 与 chat 媒体导出共用）：有 totalBytes 展示百分比与字节对，缺则不定进度（animate-pulse）。
 export function DownloadProgress({
   downloadedBytes,
   totalBytes,

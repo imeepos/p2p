@@ -1,5 +1,14 @@
 # Self-Evolving Notes
 
+## 2026-09-08 聊天附件下载改保存对话框 + 后台导出进度（feat/chat-media-export）
+
+- 哪个坑浪费了最多时间？
+  业务实现一次过；时间花在三处门禁摩擦：① main 上 clippy 1.98.1 新 lint items_after_test_module 本就红，先误以为是自己引入；② hardcoded-copy 门禁连行尾中文注释都拦；③ toastSuccess 封装签名与 sonner 原生不同。三处均有明确报错，单轮修复。
+- skill 有没有提前警告我？
+  部分：lessons 有「管道命令 exit code 被 tail 吞」「run_code 模板串转义」直接避坑（本次媒体下载组件含 `${}` 内嵌的 TSX 改用普通串拼接一次写成）；没有覆盖「基线门禁自身红」与「本仓封装 API 签名漂移」，已喂回 lessons。
+- 重来一次会怎么做？
+  worktree 建好第一时间并行跑 pnpm install + 基线 clippy，把门禁存量红前置暴露；Tauri 命令核心逻辑收 impl Fn 回调参数脱离 runtime 直测（本次 export_media 一次成型，值得沿用）。
+
 ## 2026-09-07 rail 多主题适配 + 删除重复设置入口（fix/rail-theme-and-avatar）
 
 - 哪个坑浪费了最多时间？

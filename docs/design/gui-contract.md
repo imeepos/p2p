@@ -216,6 +216,7 @@ GUI 列表按组分节展示、未分组虚拟组置底，CLI friends --group �
 | chat_history | peer: string, beforeId?: string | null, limit?: number | ChatMessageJson[] | 按 time desc 分页，limit 默认 50 上限 100；beforeId 游标=严格更早 |
 | chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput, replyTo?: string \| null | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB；replyTo 提供时须非空字符串（不校验被引用消息存在性，离线引用允许） |
 | chat_media_file | peer: string, messageId: string | { path: string; mime: string; name: string } | 返回附件落盘绝对路径（仅本端展示用）；消息非 media 或不存在 → Err |
+| chat_media_export | sourceUrl: string, destPath: string, onProgress: Channel<{ receivedBytes: number; totalBytes: number }> | { destPath: string; totalBytes: number } | 媒体导出（2026-09-07 加法，详见 §12.5）：sourceUrl 为 chat_media_file/group_media_file 返回的 asset URL，destPath 为保存对话框产物；分块拷贝并经 Channel 回报进度 |
 | chat_friend_invite
 | chat_invites_list | - | FriendInviteJson[] | 邀请列表（out 待对方同意 / in 待本机处理） |
 | chat_invite_accept | peerId: string, nickname: string | ChatFriendJson | 同意来邀：本侧立即建好友并回投 ACCEPT；nickname 空串 = 沿用邀请内对端自称；无来邀 → Err |
@@ -279,7 +280,20 @@ interface ChatSendReport {
   messages/<peer>.jsonl / media/<peer>/<msgId>_<sanitizedName>），介质权限与原子写对齐 §11 纪律。
 - 媒体预览：`chat_media_file` 返回 path 后，前端经 Tauri asset protocol（assetProtocol
   scope 须含 chat/media 目录，src-tauri 侧接线）内联展示 image/audio/video；file 展示
-  名称/大小并提供下载锚点。系统级"打开默认应用"不在本轮契约内。
+  名称/大小。下载入口见 §12.5（保存对话框导出，替代早期锚点直开）。系统级"打开默认应用"不在本轮契约内。
+
+### 12.5 媒体导出（2026-09-07 加法）
+
+- 命令：`chat_media_export(sourceUrl, destPath, onProgress)`（§12.1 表同）。
+- 来源解析：src-tauri 内部把 asset URL 还原为本端落盘绝对路径（`util::to_asset_url`
+  逆变换），并 canonicalize 校验必须位于应用数据目录内——前端永不直传路径，防任意文件外拷。
+- 目标路径：前端经 tauri-plugin-dialog `save()` 系统保存对话框取得（默认文件名 = 附件
+  原始名），取消（null）则不发命令。
+- 进度：64KiB 分块拷贝，每 ≥256KiB 经 `Channel` 回报一次 + 收尾必发终态；前端全局
+  download-store 记任务（key = sourceUrl），气泡内联进度条展示，切会话/页面不丢。
+- 失败语义：来源越界/不可读/写目标失败 → Err 可读中文；进度回报失败（前端已离开）
+  仅告警不中断导出。
+- CLI 对等：cli-parity.tsv 登记为 exempt（对话框与 Channel 为桌面壳专属，无 CLI 等价面）。
 - 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase，Option 序列化 null）；
   B 侧 TS 类型与上表逐字一致；mock 与真实实现同签名。
 

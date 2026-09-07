@@ -107,6 +107,8 @@ pub async fn owner_rig(tag: &str, tweak: impl FnOnce(&mut AgentConfig)) -> Owner
                 peer: peer.to_string(),
                 addrs: quic_addrs,
             },
+            // share_link_wave 不涉多工作区定向，空清单即可（GET /workspaces 返回空）
+            workspaces: Vec::new(),
         },
     )
     .await
