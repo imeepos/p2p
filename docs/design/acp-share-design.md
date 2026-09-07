@@ -80,9 +80,18 @@ acp-agent 新增本地 admin HTTP：只绑 127.0.0.1，Bearer token 鉴权；tok
 
 | 端点 | 语义 |
 |---|---|
-| POST /shares | 创建：入参 {scope, allow_mcp?, ask_route?, ttl_secs, max_activations?, note?}；出参含 share_id + **token 原文** + 链接要素（peer/addr 列表）。scope=workspace 而未配 --workspace-dir → 创建即 422 拒绝 |
+| POST /shares | 创建：入参 {scope, workspace?, allow_mcp?, ask_route?, ttl_secs, max_activations?, note?}；出参含 share_id + **token 原文** + 链接要素（peer/addr 列表）。scope=workspace 而无可解析工作区 → 创建即 422（workspace-unconfigured=未配任何工作区 / workspace-unknown=定向 id 不存在） |
+| GET /shares | 列表（脱敏：无 token 原文/哈希，含 activations/exp/bound_peer/revoke 状态与定向 workspace id） |
+| GET /workspaces | 本机工作区清单 [{id,name,dir}]（多工作区分享的 GUI 数据源） |
+| DELETE /shares/{share_id} | 撤销（§3 级联语义） |
 | GET /shares | 列表（脱敏：无 token 原文/哈希，含 activations/exp/bound_peer/revoke 状态） |
 | DELETE /shares/{share_id} | 撤销（§3 级联语义） |
+
+多工作区（2026-09-07 加法）：agent 配置 `workspaces: [{id,name,dir}]` 表；
+legacy `--workspace-dir` 等价 id=default 的隐式表项。scope=workspace 的分享可
+定向具体工作区（workspace 字段，缺省=默认）；兑换激活后工作区 id 随策略条目
+生效，jail 按 id 解析子进程 cwd，未知 id 拒绝 spawn。台账/策略表 v1 文件
+向后兼容（追加字段 serde default）。
 
 链接生成要素由 agent 组装：peer=本机 PeerId；addr=对外监听地址（含中继可达地址）。
 本机 PeerId 与监听地址的获取沿节点既有自省面，不新增底座接口。

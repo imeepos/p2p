@@ -45,6 +45,7 @@ fn test_grant(scope: Scope) -> PeerPolicy {
         note: String::new(),
         granted_at: "2026-01-01T00:00:00Z".to_owned(),
         fingerprint: "itest".to_owned(),
+        workspace: None,
     }
 }
 

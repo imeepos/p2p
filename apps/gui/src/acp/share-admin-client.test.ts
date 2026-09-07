@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createShare, listShares, revokeShare } from "./share-admin-client";
+import { createShare, listShares, listWorkspaces, revokeShare } from "./share-admin-client";
 
 const ADMIN = "http://127.0.0.1:9910/";
 const TOK = "admin-token";
@@ -111,5 +111,29 @@ describe("revokeShare DELETE /shares/{id} 契约", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://127.0.0.1:9910/shares/sid%201");
     expect(init.method).toBe("DELETE");
+  });
+});
+
+describe("listWorkspaces GET /workspaces（多工作区加法）", () => {
+  it("解析 id/name/dir 行；旧 agent 404 → 空表回落", async () => {
+    const fetchMock = vi.fn(async (_url: string) =>
+      jsonResponse(true, {
+        workspaces: [
+          { id: "ws1", name: "p2p", dir: "/home/me/p2p" },
+          { id: "", name: "bad", dir: "/x" },
+        ],
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const rows = await listWorkspaces(ADMIN, TOK);
+    expect(rows).toEqual([{ id: "ws1", name: "p2p", dir: "/home/me/p2p" }]);
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toBe("http://127.0.0.1:9910/workspaces");
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(false, { error: "not-found" }, 404)),
+    );
+    expect(await listWorkspaces(ADMIN, TOK)).toEqual([]);
   });
 });

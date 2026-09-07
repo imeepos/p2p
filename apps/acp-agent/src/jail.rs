@@ -13,6 +13,8 @@ use crate::config::AgentConfig;
 pub enum JailError {
     #[error("workspace scope granted but workspace_dir not configured")]
     WorkspaceUnconfigured,
+    #[error("workspace not configured: {id}")]
+    WorkspaceUnknown { id: String },
     #[error("jail dir {path} unavailable: {source}")]
     Io {
         path: String,
@@ -23,10 +25,12 @@ pub enum JailError {
 }
 
 /// scope -> 子进程 cwd；None = 继承桥 cwd（owner 全 root，仅限 loopback 授予场景）。
+/// workspace = 分享定向的工作区 id（None = 默认工作区；未知 id 显式拒绝）。
 pub fn resolve(
     cfg: &AgentConfig,
     scope: Scope,
     peer_id: &str,
+    workspace: Option<&str>,
 ) -> Result<Option<PathBuf>, JailError> {
     match scope {
         Scope::Owner => Ok(None),
@@ -36,13 +40,13 @@ pub fn resolve(
             require_prefix(&jail, &root)?;
             Ok(Some(jail))
         }
-        Scope::Workspace => {
-            let dir = cfg
-                .workspace_dir
-                .as_ref()
-                .ok_or(JailError::WorkspaceUnconfigured)?;
-            Ok(Some(ensure_dir(Path::new(dir))?))
-        }
+        Scope::Workspace => match cfg.workspace(workspace) {
+            None => Err(match workspace {
+                Some(id) => JailError::WorkspaceUnknown { id: id.to_owned() },
+                None => JailError::WorkspaceUnconfigured,
+            }),
+            Some(ws) => Ok(Some(ensure_dir(Path::new(&ws.dir))?)),
+        },
     }
 }
 
@@ -113,7 +117,7 @@ mod tests {
             ),
             ..AgentConfig::default()
         };
-        let cwd = resolve(&cfg, Scope::Sandbox, "peer/other").expect("sandbox jail");
+        let cwd = resolve(&cfg, Scope::Sandbox, "peer/other", None).expect("sandbox jail");
         let cwd = cwd.expect("sandbox resolves to a path");
         assert!(cwd.ends_with("peer_other"));
         assert!(cwd.is_dir());
@@ -122,7 +126,7 @@ mod tests {
     #[test]
     fn workspace_without_config_rejects() {
         let cfg = AgentConfig::default();
-        let err = resolve(&cfg, Scope::Workspace, "peer").expect_err("must reject");
+        let err = resolve(&cfg, Scope::Workspace, "peer", None).expect_err("must reject");
         assert!(matches!(err, JailError::WorkspaceUnconfigured));
     }
 
@@ -133,7 +137,24 @@ mod tests {
             workspace_dir: Some(dir.to_string_lossy().into_owned()),
             ..AgentConfig::default()
         };
-        let cwd = resolve(&cfg, Scope::Workspace, "peer").expect("workspace jail");
+        let cwd = resolve(&cfg, Scope::Workspace, "peer", None).expect("workspace jail");
         assert_eq!(cwd.expect("path"), dir.canonicalize().expect("canonical"));
+    }
+
+    #[test]
+    fn workspace_by_id_locks_named_dir() {
+        let dir = std::env::temp_dir().join("jail-test-ws-named");
+        let cfg = AgentConfig {
+            workspaces: vec![crate::WorkspaceDef {
+                id: "ws1".to_owned(),
+                name: "named".to_owned(),
+                dir: dir.to_string_lossy().into_owned(),
+            }],
+            ..AgentConfig::default()
+        };
+        let cwd = resolve(&cfg, Scope::Workspace, "peer", Some("ws1")).expect("named jail");
+        assert_eq!(cwd.expect("path"), dir.canonicalize().expect("canonical"));
+        let err = resolve(&cfg, Scope::Workspace, "peer", Some("nope")).expect_err("must reject");
+        assert!(matches!(err, JailError::WorkspaceUnknown { id } if id == "nope"));
     }
 }

@@ -11,6 +11,7 @@ import { CapabilitiesCard } from "@/views/contacts/capabilities-card";
 import { ConfigPanel } from "@/views/contacts/config-panel";
 import { ConnectionCard } from "@/acp/components/connection-card";
 import { ConnectionDirectory } from "@/acp/components/connection-directory";
+import { LocalAcpCard } from "@/acp/components/local-acp-card";
 import { ShareJoinCard } from "@/acp/components/share-join-card";
 import { ShareManageCard } from "@/acp/components/share-manage-card";
 import { PermissionPanel } from "@/views/contacts/permission-panel";
@@ -20,6 +21,7 @@ import { Transcript } from "@/acp/components/transcript";
 import { UsageBar } from "@/acp/components/usage-bar";
 import { EmptyState } from "@/views/shared/empty-state";
 import { Button } from "@/components/ui/button";
+import type { I18nKey } from "@/i18n/types";
 
 function ReconnectBanner() {
   const { t } = useTranslation();
@@ -65,6 +67,17 @@ function SessionLostNotice() {
 }
 
 const REATTACH_AUTO_DISMISS_MS = 8_000;
+
+/** 信息架构分区标题（本地/远程两区，用户裁决 2026-09-07） */
+function SectionHeader(props: { titleKey: I18nKey; hintKey: I18nKey; testId: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="col-span-12 flex items-baseline gap-2" data-testid={props.testId}>
+      <h3 className="text-sm font-semibold">{t(props.titleKey)}</h3>
+      <span className="text-muted-foreground truncate text-xs">{t(props.hintKey)}</span>
+    </div>
+  );
+}
 
 /** 续连横幅：dsh/bridge/reattach 通知折射（apps/acp-agent/README.md 桥约定）。
  *  约 8 秒自动消失，也可手动关闭；补放 0 条（仅续连成功）与 N 条文案区分。 */
@@ -174,12 +187,27 @@ export function AcpView() {
       {phase === "online" ? (
         <CapabilitiesCard />
       ) : (
-        <div className="col-span-12 grid gap-4 lg:grid-cols-2">
-          <ConnectionCard />
-          <ConnectionDirectory />
-          <ShareManageCard />
-          <ShareJoinCard />
-        </div>
+        <>
+          <SectionHeader
+            testId="acp-section-local"
+            titleKey="acp.section.local"
+            hintKey="acp.section.localHint"
+          />
+          <div className="col-span-12 grid gap-4 lg:grid-cols-2">
+            <LocalAcpCard />
+            <ShareManageCard />
+          </div>
+          <SectionHeader
+            testId="acp-section-remote"
+            titleKey="acp.section.remote"
+            hintKey="acp.section.remoteHint"
+          />
+          <div className="col-span-12 grid gap-4 lg:grid-cols-2">
+            <ConnectionCard />
+            <ConnectionDirectory />
+            <ShareJoinCard />
+          </div>
+        </>
       )}
       <div className="col-span-12 grid grid-cols-12 gap-4">
         <div className="col-span-12 lg:col-span-3">

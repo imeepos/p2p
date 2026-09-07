@@ -10,6 +10,7 @@ use crate::policy::{AskRoute, Scope};
 fn spec(ttl: u64, max: u32) -> ShareSpec {
     ShareSpec {
         scope: Scope::Sandbox,
+        workspace: None,
         allow_mcp: vec!["fs".to_owned()],
         ask_route: AskRoute::RemoteGui,
         max_activations: max,

@@ -40,6 +40,9 @@ pub struct PeerPolicy {
     pub granted_at: String,
     /// TOFU 指纹确认面（§6 授权行）。
     pub fingerprint: String,
+    /// scope=workspace 的定向工作区 id（追加字段，旧文件缺省 = None = 默认工作区）。
+    #[serde(default)]
+    pub workspace: Option<String>,
 }
 
 impl PeerPolicy {

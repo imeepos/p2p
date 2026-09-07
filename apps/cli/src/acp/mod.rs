@@ -160,6 +160,7 @@ fn allow_policy(args: &AllowArgs) -> CliResult<AllowReport> {
     table.grant(
         args.peer_id.as_str(),
         PeerPolicy {
+            workspace: None,
             scope: args.scope.into(),
             allow_mcp: allow_mcp.clone(),
             ask_route: args.ask_route.into(),

@@ -144,6 +144,7 @@ pub(crate) fn create_share(args: &ShareCreateArgs) -> CliResult<ShareCreateRepor
     let entry = ShareEntry::new(
         ShareSpec {
             scope,
+            workspace: None,
             allow_mcp,
             ask_route: args.ask_route.into(),
             max_activations: args.max_activations,

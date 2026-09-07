@@ -59,6 +59,8 @@ export function findShareLinkInText(text: string): string | null {
 export interface ShareEntry {
   share_id: string;
   scope: ShareScope;
+  /** 定向工作区 id（多工作区加法；null/缺省 = 默认工作区） */
+  workspace?: string | null;
   allow_mcp: string[];
   max_activations: number;
   activations: number;
@@ -94,6 +96,8 @@ export function ttlSecs(key: ShareTtlKey): number {
 
 export interface ShareCreateInput {
   scope: ShareScope;
+  /** scope=workspace 时定向的工作区 id；缺省 = agent 默认工作区 */
+  workspaceId?: string | null;
   ttl: ShareTtlKey;
   maxActivations: number;
   note: string;
@@ -130,12 +134,14 @@ export function hasShareCreateErrors(errors: ShareCreateErrors): boolean {
 
 /** POST /shares 请求体（§5 契约：scope/ttl_secs 必填，其余字段显式带默认） */
 export function shareCreateBody(input: ShareCreateInput): Record<string, unknown> {
-  return {
+  const body: Record<string, unknown> = {
     scope: input.scope,
     ttl_secs: ttlSecs(input.ttl),
     max_activations: input.maxActivations,
     note: input.note.trim(),
   };
+  if (input.workspaceId) body.workspace = input.workspaceId;
+  return body;
 }
 
 export interface ShareLinkParts {
