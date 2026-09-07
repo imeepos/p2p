@@ -2,6 +2,11 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-07 聊天消息多才冒横向滚动条：罪魁是 opacity-0 的 hover 按钮越出滚动域
+- 症状：聊天消息流「消息多的时候」出横向滚动条；连续两条消息视觉上贴叠成一泡。横向 scrollbar 与消息数量的相关性把排查引向内容宽度（图片/长文本），全都不是。
+- 原因：两件事叠加。① CSS 规定 overflow-y 非 visible 时 overflow-x 的 visible 隐式算作 auto——只写 overflow-y-auto 的滚动域其实横竖都可滚；② 悬停回复按钮 absolute left-full 锚定整行，me 侧越出滚动域右缘 12px（padding 只有 16px），而 opacity-0 不影响 scrollable overflow——看不见的元素照样撑出滚动条；竖向滚动条出现（消息变多）收窄 8px 内容宽只是让存量溢出显形。纵向贴叠则是消息列 flex-col 没写 gap。
+- 修法：滚动域显式 overflow-x-hidden 兜底（横向滚动机制上不可能）；越界元素改锚到行内的定位锚点（气泡列加 relative）落在空白侧；消息列补 gap-y-2.5。排查口诀：滚动域内 grep absolute + left-full/right-full/-right-/-left- 负偏移，每个都要问「越出 padding box 没有」；opacity-0/visibility-hidden 不豁免 overflow。
+
 ## 2026-09-07 分享创建失败：GUI 测试 stub fetch + agent 测试裸 TCP，CORS 预检缝两侧测试都探不到
 - 症状：GUI「生成链接」必弹「分享创建失败」；同 URL 用 curl 直打 200 成功；GUI/agent 两侧测试全绿。
 - 原因：WebView fetch 带 Authorization 头必先发无凭据 OPTIONS 预检，admin HTTP 管道层把预检当未授权请求 401 挡掉。前端测试 vi.stubGlobal("fetch") 把浏览器传输语义（CORS/预检/Origin）整体 mock 掉；agent 测试用裸 TCP 客户端不发 Origin 不做预检。两侧各自 100% 绿，缝在两个测试视角的交集盲区。
