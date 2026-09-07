@@ -86,7 +86,6 @@ const enUS: typeof zhCN = {
     },
   },
   dashboard: {
-    title: "Dashboard",
     description: "Node status, metrics and recent events overview",
     cards: {
       status: "Node status",

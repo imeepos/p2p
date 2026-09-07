@@ -83,7 +83,6 @@ const zhCN = {
     },
   },
   dashboard: {
-    title: "仪表盘",
     description: "节点状态、指标与最近事件总览",
     cards: {
       status: "节点状态",
