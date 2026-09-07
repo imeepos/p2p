@@ -132,7 +132,7 @@ pub fn run() {
             }
             // UX2 acp-console 托管（契约 §15）：定位失败转 unavailable 留痕不阻断
             // 主功能；phase 变更经 acp-console 事件推送；RunEvent::Exit 收尾终止子进程。
-            let console = console::Manager::spawn();
+            let console = console::Manager::spawn(dir.clone());
             app.manage(console);
             console::spawn_forwarder(
                 app.handle().clone(),

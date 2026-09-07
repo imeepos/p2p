@@ -33,11 +33,11 @@ pub struct Manager {
 
 impl Manager {
     /// GUI setup 入口：定位成功启动监督；失败转 unavailable 留 lastError（§15）。
-    pub fn spawn() -> Self {
+    pub fn spawn(app_data_dir: PathBuf) -> Self {
         match locate::locate() {
             Ok(bin) => {
                 tracing::info!("acp-console 定位成功: {}", bin.display());
-                Self::start(bin)
+                Self::start(bin, app_data_dir)
             }
             Err(e) => {
                 tracing::error!("acp-console 定位失败（GUI 主功能继续运行）: {e}");
@@ -47,9 +47,13 @@ impl Manager {
         }
     }
 
-    fn start(bin: PathBuf) -> Self {
+    fn start(bin: PathBuf, app_data_dir: PathBuf) -> Self {
         let (status_tx, status) = watch::channel(AcpConsoleStatus::initial());
-        let handle = handle::start(SpawnSpec::production(bin), Limits::production(), status_tx);
+        let handle = handle::start(
+            SpawnSpec::production(bin, &app_data_dir),
+            Limits::production(),
+            status_tx,
+        );
         Self {
             status,
             handle: Some(handle),

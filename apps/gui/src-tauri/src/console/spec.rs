@@ -1,6 +1,6 @@
 //! 监督参数与退避计算（gui-contract.md §15）：参数可注入，测试用毫秒级退避加速观测。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// stop 轮询间隔：子进程被杀后其孤儿可能持有 stdout 写端使 EOF 迟到，
@@ -25,7 +25,7 @@ impl Limits {
     }
 }
 
-/// 子进程 spawn 规格（产线：随机端口，实际端口从 stdout ready 行读取）。
+/// 子进程 spawn 规格（产线：随机端口 + 显式数据目录，实际端口从 stdout ready 行读取）。
 #[derive(Clone, Debug)]
 pub(crate) struct SpawnSpec {
     pub bin: PathBuf,
@@ -33,14 +33,44 @@ pub(crate) struct SpawnSpec {
 }
 
 impl SpawnSpec {
-    pub(crate) fn production(bin: PathBuf) -> Self {
+    /// 显式 --data-dir：GUI 从 /Applications 启动时子进程 cwd 为只读根，
+    /// acp-console 默认数据目录 ./acp-console-data 会创建失败（2026-09-07 实证）。
+    pub(crate) fn production(bin: PathBuf, app_data_dir: &Path) -> Self {
         Self {
             bin,
-            args: ["--ws-port", "0", "--status-port", "0"]
-                .iter()
-                .map(|s| (*s).to_string())
-                .collect(),
+            args: [
+                "--data-dir",
+                &app_data_dir.join("acp-console-data").to_string_lossy(),
+                "--ws-port",
+                "0",
+                "--status-port",
+                "0",
+            ]
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SpawnSpec;
+
+    #[test]
+    fn production_args_carry_explicit_data_dir() {
+        let spec = SpawnSpec::production(
+            std::path::PathBuf::from("/opt/app/acp-console"),
+            std::path::Path::new("/tmp/app-data"),
+        );
+        assert_eq!(spec.bin, std::path::PathBuf::from("/opt/app/acp-console"));
+        let joined = spec.args.join(" ");
+        assert!(
+            joined.contains("--data-dir /tmp/app-data/acp-console-data"),
+            "{joined}"
+        );
+        assert!(joined.contains("--ws-port 0"));
+        assert!(joined.contains("--status-port 0"));
     }
 }
 
