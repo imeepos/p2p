@@ -1,8 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import { useEffect, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
+
 import type { I18nKey } from "@/i18n/types";
 
+import { EntityCombobox, type PickerOption } from "@/components/picker";
 import { useConfirm } from "@/components/feedback/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +42,26 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const [reqId, setReqId] = useState<string | null>(null);
   const [lastReq, setLastReq] = useState<LlmBorrowReq | null>(null);
   const [targetTouched, setTargetTouched] = useState(false);
+  // R2-06：model 实为可枚举输入——本机白名单已放行的模型集即现成选项源
+  const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const view = await backend.allowList();
+        if (cancelled) return;
+        const models = [...new Set(view.entries.flatMap((e) => e.models))];
+        setModelOptions(models.map((model) => ({ value: model, label: model })));
+      } catch (error) {
+        // 选项源读取失败不阻塞自由输入：留告警信号即可
+        console.warn("[llm-share] 借用模型候选读取失败", error);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [backend]);
 
   const set = (field: keyof BorrowFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
@@ -123,6 +147,18 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
               errorId="llm-borrow-peer-error"
               placeholder={t("llmShare.borrow.formTargetPeerPlaceholder")}
             />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="llm-borrow-model-pick">{t("llmShare.borrow.formModelPick")}</Label>
+              <EntityCombobox
+                id="llm-borrow-model-pick"
+                testId="llm-borrow-model-pick"
+                options={modelOptions}
+                value={modelOptions.some((option) => option.value === values.model) ? values.model : null}
+                onChange={(next) => {
+                  if (next) set("model")(next);
+                }}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor="llm-borrow-model">{t("llmShare.borrow.formModel")}</Label>
@@ -144,7 +180,12 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                   inputMode="numeric"
                   value={values.maxTokensText}
                   onChange={(e) => set("maxTokensText")(e.target.value)}
+                  placeholder={t("llmShare.borrow.formMaxTokensPlaceholder")}
+                  aria-describedby="llm-borrow-maxtokens-hint"
                 />
+                <p id="llm-borrow-maxtokens-hint" className="text-muted-foreground text-xs">
+                  {t("llmShare.borrow.formMaxTokensHint")}
+                </p>
                 {errors.maxTokens ? (
                   <p role="alert" className="text-destructive text-xs">
                     {t(errors.maxTokens)}
@@ -159,7 +200,12 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                 rows={3}
                 value={values.messages}
                 onChange={(e) => set("messages")(e.target.value)}
+                placeholder={t("llmShare.borrow.formMessagesPlaceholder")}
+                aria-describedby="llm-borrow-messages-hint"
               />
+              <p id="llm-borrow-messages-hint" className="text-muted-foreground text-xs">
+                {t("llmShare.borrow.formMessagesHint")}
+              </p>
               {errors.messages ? (
                 <p role="alert" className="text-destructive text-xs">
                   {t(errors.messages)}
