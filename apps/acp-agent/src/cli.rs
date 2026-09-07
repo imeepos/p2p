@@ -58,6 +58,9 @@ pub struct Cli {
     /// 关闭本地 admin HTTP
     #[arg(long)]
     pub admin_disabled: bool,
+    /// 关闭本机自描述文件落盘（临时/测试实例必须关闭，防覆盖生产描述）
+    #[arg(long)]
+    pub descriptor_disabled: bool,
 }
 
 pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
@@ -112,6 +115,9 @@ pub fn assemble(cli: &Cli) -> Result<AgentConfig, ConfigError> {
     }
     if cli.admin_disabled {
         cfg.admin_disabled = true;
+    }
+    if cli.descriptor_disabled {
+        cfg.descriptor_disabled = true;
     }
     cfg.load_mcp_definitions()?;
     cfg.validate()?;

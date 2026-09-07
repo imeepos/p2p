@@ -54,7 +54,7 @@ echo "[1] console ready peer=$CONSOLE_PEER ws=$WS_URL"
 "$PCTL" acp allow "$CONSOLE_PEER" --scope sandbox --data-dir "$WORK/agent" --note smoke >/dev/null \
   || fail "p2pctl acp allow 失败"
 "$AGENT_BIN" --data-dir "$WORK/agent" --quic-port "$AGENT_PORT" --admin-port "$ADMIN_PORT" \
-  --command "$STUB_BIN" >"$WORK/agent.out" 2>"$WORK/agent.err" &
+  --descriptor-disabled --command "$STUB_BIN" >"$WORK/agent.out" 2>"$WORK/agent.err" &
 AGENT_PID=$!
 AGENT_PEER=""
 for _ in $(seq 1 50); do

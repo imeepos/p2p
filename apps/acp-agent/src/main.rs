@@ -65,6 +65,9 @@ async fn start_admin(
         eprintln!("acp-agent: admin http disabled (--admin-disabled)");
         return Ok(());
     }
+    if config.descriptor_disabled {
+        eprintln!("acp-agent: local descriptor disabled (--descriptor-disabled)");
+    }
     let token = acp_agent::share::admin::AdminToken::issue(paths.admin_token())
         .map_err(|err| format!("admin token file: {err}"))?;
     let server = acp_agent::share::admin::AdminServer::start(
@@ -98,6 +101,9 @@ fn publish_local_descriptor(
     admin_port: u16,
     token_value: &str,
 ) {
+    if config.descriptor_disabled {
+        return;
+    }
     let Some(home) = acp_common::user_home_dir() else {
         tracing::warn!("用户主目录不可得，跳过本机描述文件：GUI 将无法自动发现 admin 端点");
         return;
