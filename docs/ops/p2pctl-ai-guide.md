@@ -47,7 +47,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 |---|---|---|
 | cargo 在 PATH（`$HOME/.cargo/bin`） | 二进制构建（cargo build/clippy/test） | `cargo: command not found`（退出 127）；先 `export PATH=$HOME/.cargo/bin:$PATH` |
 | macOS 屏幕录制授权 | gui screenshot/record、scripts/ops/ui-regression.sh | 退出 1：CAPTURE_PERMISSION_DENIED（HTTP 403），PNG/GIF 不产出；GUI 重编译后 TCC 授权记录可能失效需重新授权（系统设置 > 隐私与安全性 > 屏幕录制），OS 级授权须人完成 |
-| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、acp share list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show | —— |
+| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、acp share list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show、llm-share provider list/save/remove、llm-share share create/list/revoke | —— |
 | 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance、llm-share borrow | 退出 1：节点身份加载失败；offer publish 不代生成身份；正向门面是 p2pctl identity init（幂等，显式创建后即可重试） |
 | agent 节点身份已存在（<acp-data-dir>/identity/key.seed，由 acp-agent 首启生成） | acp share create | 退出 1：分享链接需要 agent 身份；CLI 不代生成，先启动一次 acp-agent |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1：超时未送达 status=Pending / 对端身份不符快速失败 status=Failed（均保留本机记录，见 chat send 条目与附录A）；peer 域退出 1 |
@@ -103,7 +103,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 【工具认知】
 - 可执行文件：apps/cli/target/debug/p2pctl（先 export PATH=$HOME/.cargo/bin:$PATH 再 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在；cargo 不在 PATH 会报 command not found）。
-- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 75 个叶子命令（以 ai-docs-sync 每次实测汇总行为准）。
+- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 81 个叶子命令（以 ai-docs-sync 每次实测汇总行为准）。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
 - 退出码：0 成功；1 运行失败（stderr 前缀 "p2pctl: 运行失败: "）；2 用法错误。失败时先读 stderr 再决定下一步，不要盲目重试。
@@ -1270,6 +1270,113 @@ appended=true
 ```
 --json：同字段 camelCase（status/lender/model/reqId/period/code/message/input/output/estimated/disputeWindowSecs/sseFrames/ledgerFile/receiptFile/appended + sse 原文数组）。status 三态：done / stream_broken（estimated=true、disputeWindowSecs=72h，非命令错误照常 0 退出）/ rejected（code 保持 wire snake_case 语义，如 NotAllowlisted）。
 退出码：结构化拒绝 rejected → 1（报告先输出，上游零调用、账本零产生）；本机身份缺失/连接或查号失败/参数互斥缺失 → 1；done 与 stream_broken → 0；req_id 重放 → 0 且 appended=false（返回原收据不双记账）。
+
+### p2pctl llm-share provider list
+用途：列出全部 provider 配置（脱敏：apiKey 只出掩码，永不回显明文）。前置：无（离线可跑；存档缺失视为空）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本（空）：
+```
+暂无 provider（用 llm-share provider save 添加）
+```
+--json（空）：
+```
+{"providers":[]}
+```
+--json（有条目）字段：id/name/baseUrl/protocol/models/createdAt/apiKeyMasked。
+退出码：provider 存档损坏 → 1（可读报错，禁止静默回退空表）；某 provider 密钥文件缺失/不可读 → 1（显式报错不静默）。
+
+### p2pctl llm-share provider save
+用途：保存 provider 配置（契约 §16.6 v13）。id 缺省生成 UUID；apiKey 明文只落 0600 密钥文件 keys/<id>.key（providers.json 只存 apiKeyRef 不存明文）；写路径 tmp+rename 原子落盘。前置：无（离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --id | string | 否 | UUID v4 生成 |
+| --name | string | 是 | —— |
+| --base-url | string（上游 base URL） | 是 | —— |
+| --protocol | openai 或 claude | 否 | openai |
+| --api-key | string | 否 | 从 stdin 读一行 |
+| --model | string（可重复，至少一个非空） | 是 | 无 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+apiKey 输入：--api-key 或 stdin（缺省从 stdin 读一行）；显式给 --api-key 时命令行提示「会出现在 shell 历史/进程列表，敏感环境改用 stdin」。
+--json：LlmProviderView（id/name/baseUrl/protocol/models/createdAt/apiKeyMasked）；文本同字段 key=value 行。
+退出码：--name/--base-url 缺失（clap）→ 2；name/baseUrl/apiKey/模型任一空 → 1；模型已被其它 provider 占用（模型→provider 唯一映射）→ 1；存档损坏 → 1。
+
+### p2pctl llm-share provider remove
+用途：移除 provider 配置并级联删除密钥文件 keys/<id>.key。前置：无（离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PROVIDER_ID> | 位置参数 string（list 输出中的 id） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已移除 provider id=…（密钥文件级联删除）
+```
+--json：
+```
+{"removed":true,"providerId":"…"}
+```
+退出码：provider 不存在 → 1（显式报错非错误态，对齐 deny 语义）；存档损坏/密钥文件删除失败 → 1。
+
+### p2pctl llm-share share create
+用途：为 provider 生成一次性分享链接 dsh-llm-share://（token=128-bit CSPRNG hex，原文只出现在本次输出的 link 里一次，台账只存 sha256；exp 默认 24h、上限 7d；激活固定 1 次）。前置：本机身份已初始化（peer 取本机身份）+ 已保存 provider + 已发布 offer（分享模型须 ⊆ offer.models）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --provider | string（provider id） | 是 | —— |
+| --model | string（可重复） | 否 | provider 全部模型 |
+| --expires-at | int（Unix 秒） | 否 | now + 24h |
+| --note | string | 否 | 空 |
+| --addr | string（可重复；链接候选地址，QUIC/TCP/中继） | 否 | 无 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已创建分享链接 share_id=…
+link=dsh-llm-share://v1?peer=…&addr=…&token=<32hex>&exp=…&sid=…&models=…
+expires_at=…
+models=…
+```
+--json：{"link":"…","shareId":"…","expiresAt":0,"models":["…"]}
+退出码：本机身份缺失 → 1；provider 不存在 → 1；未发布 offer 或模型不在 offer.models → 1；--expires-at 不晚于当前或超过 now+7d → 1；分享台账损坏 → 1。
+
+### p2pctl llm-share share list
+用途：列出分享台账全部条目（脱敏：无 token 原文与哈希；status 徽章 active/expired/revoked/exhausted）。前置：无（离线可跑；文件缺失视为空账）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本（空）：
+```
+分享台账为空（用 llm-share share create 创建）
+```
+--json（空）：
+```
+{"shares":[]}
+```
+--json（有条目）字段：shareId/providerId/models/activations/expiresAt/revoked/boundPeer/note/createdAt/status。
+退出码：分享台账损坏 → 1（可读报错，禁止静默回退空账）。
+
+### p2pctl llm-share share revoke
+用途：撤销分享（置 revoked + 原子写；按 source=share:<shareId> 级联删 allowlist 条目，手工条目不级联）。前置：无（离线可跑）；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <SHARE_ID> | 位置参数 string（share create 输出中的 shareId） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已撤销分享 share_id=…（allowlist 级联移除 N 条 share 来源条目）
+```
+--json：
+```
+{"shareId":"…","revoked":true,"allowlistRemoved":1}
+```
+语义：share_id 不存在或已撤销=显式报错（契约 §16.6，非幂等）。
+退出码：分享不存在/已撤销 → 1；分享台账/allowlist 损坏 → 1。
+
 ### p2pctl group create
 用途：建群。校验成员 ⊆ 好友簿、≤32、不含本机；群名 trim 后 1..=64 字符。建群后对每个初始成员推 roster（成员离线经 goutbox 补投，命令不失败）。
 | 参数 | 类型 | 必填 | 默认 |
