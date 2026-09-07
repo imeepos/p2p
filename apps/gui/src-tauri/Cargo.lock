@@ -3,6 +3,18 @@
 version = 4
 
 [[package]]
+name = "acp-common"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.8",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
 name = "adler2"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3372,6 +3384,7 @@ dependencies = [
 name = "p2p-console"
 version = "0.1.6"
 dependencies = [
+ "acp-common",
  "base64 0.22.1",
  "block2",
  "bs58",
