@@ -366,7 +366,15 @@ const enUS: typeof zhCN = {
       chatGroupInvite: "Group invite: {{name}} ({{state}})",
     },
     outcome: { ok: "ok", fail: "failed" },
-    detail: { payload: "Raw payload", receivedAt: "Received at" },
+    // R2-16: raw payload collapsed by default with "copy details" (F27 style)
+    detail: {
+      payload: "Raw payload",
+      receivedAt: "Received at",
+      showJson: "Expand JSON",
+      hideJson: "Collapse JSON",
+      copyDetails: "Copy details",
+      copied: "Details copied",
+    },
   },
   messages: {
     title: "Messages",
@@ -802,10 +810,11 @@ const enUS: typeof zhCN = {
     copyAddress: "Copy address",
     copied: "Copied to clipboard",
     open: "Command palette",
-    hint: "Cmd/Ctrl+K to open; Cmd/Ctrl+1..8 to switch pages; Esc to close",
+    // R2-25: navigate bound to rail entry count ({{count}} injected from
+    // menu.def); dead unreferenced palette.hint key removed.
     hints: {
       open: "Cmd/Ctrl+K opens the command palette",
-      navigate: "Cmd/Ctrl+1..4 switches between the rail entries",
+      navigate: "Cmd/Ctrl+1..{{count}} switches between the rail entries",
       close: "Esc closes",
     },
   },
@@ -1205,9 +1214,10 @@ const enUS: typeof zhCN = {
     endpoint: {
       title: "Add agent endpoint",
       description: "Fill in the WS URL and test the connection; saving is allowed even if the test fails (a warning badge shows in the row)",
+      localAgentHint: "Your local agent is connected automatically; this form is for agents on other devices",
       wsUrlLabel: "WS URL",
       tokenLabel: "Token",
-      tokenPlaceholder: "Paste the token from the acp-console ready line on startup",
+      tokenPlaceholder: "Connection token provided by the remote agent owner",
       peerLabel: "Agent PeerId (optional)",
       aliasLabel: "Alias (defaults to host:port)",
       adminSectionLabel: "Share management (optional)",
@@ -1232,7 +1242,7 @@ const enUS: typeof zhCN = {
         targetRequired: "Pick a target node from the discovery list",
         wsUrlRequired: "wsUrl is required",
         wsUrlInvalid: "Invalid wsUrl: must be a valid URL starting with ws:// or wss://",
-        tokenRequired: "Token is required: see the acp-console ready line on startup",
+        tokenRequired: "A token is required to connect: ask the remote owner and paste it (you can save first and fill it later)",
         peerInvalid: "Invalid PeerId: must be valid base58 decoding to 32 bytes",
         aliasTooLong: "Alias must be at most 64 characters after trim",
         adminUrlInvalid: "Invalid admin URL: must be a valid URL starting with http:// or https://",

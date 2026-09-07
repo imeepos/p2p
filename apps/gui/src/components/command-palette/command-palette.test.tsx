@@ -2,8 +2,10 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { MENU_ENTRIES } from "@/config/menu.def";
 import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import "@/i18n";
+import { useNodeStore } from "@/stores/node-store";
 import { CommandPalette, LLM_SHARE_PALETTE_COUNT } from "./command-palette";
 import { requestOpenCommandPalette } from "./palette-bus";
 
@@ -40,11 +42,16 @@ describe("CommandPalette", () => {
     );
   });
 
-  it("底部渲染修正后的快捷键说明（1..4，与热键实现一致）", async () => {
+  it("底部快捷键说明与 rail 注册数同源（不硬编码 1..4）", async () => {
     renderPalette(true);
     await screen.findByRole("dialog");
     expect(screen.getByText("Cmd/Ctrl+K 打开命令面板")).toBeTruthy();
-    expect(screen.getByText("Cmd/Ctrl+1..4 切换一级入口")).toBeTruthy();
+    // R2-25：提示数字取 menu.def 注册数（热键实现同一上界），rail 扩到 6
+    // 后不再出现过期的「1..4」
+    expect(
+      screen.getByText("Cmd/Ctrl+1.." + MENU_ENTRIES.length + " 切换一级入口"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/1..4 切换/)).toBeNull();
     expect(screen.getByText("Esc 关闭")).toBeTruthy();
   });
 
@@ -62,5 +69,33 @@ describe("CommandPalette", () => {
     await screen.findByRole("dialog");
     fireEvent.click(screen.getAllByRole("option")[1]);
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  // R2-17 回归：节点项缩略与全站同口径（前 6…后 4 + 悬停完整），不再 16 位前缀。
+  it("节点项渲染共享缩略口径并保留整行点击复制语义", async () => {
+    const fullPeerId = "vKLTAv6c8dEfGhIjKlMnOpQrStUvWxyzAbCdEfGhIjkl";
+    useNodeStore.setState({
+      peers: {
+        p1: {
+          peerId: fullPeerId,
+          addrs: ["/ip4/127.0.0.1/tcp/4001"],
+          source: "mdns",
+          connected: true,
+          lastSeenMs: 1,
+          hops: [],
+        },
+      },
+    });
+    try {
+      renderPalette(true);
+      await screen.findByRole("dialog");
+      const cell = screen.getByTitle(fullPeerId);
+      expect(cell).toHaveTextContent(
+        fullPeerId.slice(0, 6) + "…" + fullPeerId.slice(-4),
+      );
+      expect(screen.getByText("复制 PeerId")).toBeInTheDocument();
+    } finally {
+      useNodeStore.setState({ peers: {} });
+    }
   });
 });

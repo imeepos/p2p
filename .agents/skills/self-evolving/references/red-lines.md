@@ -68,3 +68,7 @@
 - worktree 缺 node_modules 时 pnpm install 可能挂死（零输出）；lockfile 同基线时 ln -s 主树 node_modules 秒级可用，先 rm 半成品克隆再链（2026-09-06 LSG3）。
 - 2026-09-07 UX-E：渲染期状态迁移播种（open!==seededOpen）引用的 setter 必须在该块之前声明——把 useState 惰性初值留在块后会 TDZ 直接崩掉整个路由（本次走查当场抓到）；迁移块与惰性初值要成对审读。
 - 2026-09-07 UX-E：多选选择器验证"连点同一首个选项"= 选中再取消（净零），断言已选计数必须点不同项；react-hooks 编译规则禁止渲染期造组件/渲染后改局部变量，测试 harness 提为顶层组件经 DOM 断言。
+
+## 2026-09-07 git commit --amend 永远作用于 HEAD：amend 前必须核对 HEAD 就是目标提交
+- 事故：想修 HEAD~1 的 docs 提交内容，直接 --amend 把报告改动折进了 HEAD 的 test 提交，两个提交粒度全脏（本轮实录，reset --soft 重排修复）。
+- 红线：amend 前先 git log --oneline -1 自证 HEAD；错 amend 未推送时 git reset --soft 共同祖先保改动重排，已推送则严禁 amend。

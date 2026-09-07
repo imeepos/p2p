@@ -356,7 +356,15 @@ const zhCN = {
       chatGroupInvite: "入群邀请：{{name}}（{{state}}）",
     },
     outcome: { ok: "成功", fail: "失败" },
-    detail: { payload: "原始负载", receivedAt: "接收时间" },
+    // R2-16：原始负载默认折叠 +「复制详情」（F27 口径）
+    detail: {
+      payload: "原始负载",
+      receivedAt: "接收时间",
+      showJson: "展开 JSON",
+      hideJson: "收起 JSON",
+      copyDetails: "复制详情",
+      copied: "详情已复制",
+    },
   },
   messages: {
     title: "消息中心",
@@ -782,10 +790,11 @@ const zhCN = {
     copyAddress: "复制地址",
     copied: "已复制到剪贴板",
     open: "命令面板",
-    hint: "Cmd/Ctrl+K 打开；Cmd/Ctrl+1..8 切换页面；Esc 关闭",
+    // R2-25：navigate 上限与 rail 注册数同源（组件以 {{count}} 注入
+    // menu.def 长度）；palette.hint「Cmd/Ctrl+1..8」无引用死键已删。
     hints: {
       open: "Cmd/Ctrl+K 打开命令面板",
-      navigate: "Cmd/Ctrl+1..4 切换一级入口",
+      navigate: "Cmd/Ctrl+1..{{count}} 切换一级入口",
       close: "Esc 关闭",
     },
   },
@@ -1181,9 +1190,10 @@ const zhCN = {
     endpoint: {
       title: "添加 Agent endpoint",
       description: "填写 WS 地址并测试连接；未通过测试也可保存，行内会显警告徽标",
+      localAgentHint: "本机 agent 已自动接入，无需在此填写；此表单用于添加其他设备上的 agent",
       wsUrlLabel: "WS 地址",
       tokenLabel: "Token",
-      tokenPlaceholder: "粘贴 acp-console 启动输出 ready 行的 token",
+      tokenPlaceholder: "向对方 agent 索取的连接 Token",
       peerLabel: "Agent PeerId（可空）",
       aliasLabel: "别名（缺省用 host:port）",
       adminSectionLabel: "分享管理（可选）",
@@ -1208,7 +1218,7 @@ const zhCN = {
         targetRequired: "请从发现清单选择目标节点",
         wsUrlRequired: "wsUrl 不能为空",
         wsUrlInvalid: "wsUrl 非法：需为 ws:// 或 wss:// 开头的合法 URL",
-        tokenRequired: "Token 不能为空：见 acp-console 启动输出 ready 行",
+        tokenRequired: "连接需要 Token：请向对方索取后填入（可先保存，稍后补填）",
         peerInvalid: "PeerId 非法：需为合法 base58 且解码后为 32 字节",
         aliasTooLong: "别名 trim 后不能超过 64 字符",
         adminUrlInvalid: "管理地址非法：需为 http:// 或 https:// 开头的合法 URL",

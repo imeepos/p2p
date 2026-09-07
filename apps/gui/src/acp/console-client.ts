@@ -2,6 +2,7 @@
 // /reattach 续连票据查询与 /discovery 发现清单拉取。Bearer 鉴权；响应一律容错
 // 解析——console 不可达/坏形响应折化为明确的 unavailable/空清单，绝不抛出打断重连。
 import type { AcpConsoleStatus } from "@/lib/ipc-types";
+import { isTauriRuntime } from "@/lib/tauri-env";
 import type { AcpEndpoint } from "./protocol";
 import type { DiscoveryPeer } from "./directory-model";
 
@@ -25,6 +26,26 @@ function bearerHeaders(token: string): HeadersInit {
   return { Authorization: "Bearer " + token };
 }
 
+// R2-26：非 Tauri（浏览器 mock/预览）没有 acp-console 进程，status 面不可达
+// 是常态而非故障，逐次 warn 每会话刷屏；按 F26 control-bridge 口径降级为
+// 单次 info 提示。Tauri 态照常 warn（真故障必须可观测）。
+let statusFaceDegradedNotified = false;
+
+function warnStatusUnreachable(url: string, error: unknown): void {
+  if (!isTauriRuntime()) {
+    if (statusFaceDegradedNotified) return;
+    statusFaceDegradedNotified = true;
+    console.info("[acp] 非 Tauri 环境，console status 面不可达（按无 console 处理）");
+    return;
+  }
+  console.warn("[acp] console status 不可达", url, error);
+}
+
+/** 测试隔离：复位降级提示的单次标记 */
+export function resetStatusFaceNoticeForTest(): void {
+  statusFaceDegradedNotified = false;
+}
+
 async function getJson(url: string, token: string): Promise<unknown | null> {
   try {
     const res = await fetch(url, {
@@ -34,7 +55,7 @@ async function getJson(url: string, token: string): Promise<unknown | null> {
     if (!res.ok) return null;
     return await res.json();
   } catch (error) {
-    console.warn("[acp] console status 不可达", url, error);
+    warnStatusUnreachable(url, error);
     return null;
   }
 }
