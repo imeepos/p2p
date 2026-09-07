@@ -195,6 +195,8 @@ describe("ChatView 表情与附件", () => {
 
     const input = screen.getByTestId("chat-input") as HTMLTextAreaElement;
     expect(input.value).toContain("😀");
+    // 选择成功后面板自动收起
+    expect(screen.queryByRole("menu")).toBeNull();
   });
 
   it("选择附件走 chatSend(media)，占位气泡后替换为真实消息", async () => {

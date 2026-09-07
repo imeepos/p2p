@@ -120,6 +120,8 @@ export function Composer({
     const end = el?.selectionEnd ?? text.length;
     const next = text.slice(0, start) + emoji + text.slice(end);
     setText(next);
+    // 选择成功即收起面板，焦点经下方 rAF 回落输入框
+    setEmojiOpen(false);
     requestAnimationFrame(() => {
       if (el) {
         el.focus();
