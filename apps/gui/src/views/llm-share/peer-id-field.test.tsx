@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
@@ -16,7 +17,12 @@ const PEER_B = "7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk";
 const FAKE = "alice-fake-peer";
 
 function renderWithConfirm(ui: React.ReactElement) {
-  return render(<ConfirmProvider>{ui}</ConfirmProvider>);
+  // BorrowPanel 依赖 useSearchParams（W4 预填），需 Router 上下文
+  return render(
+    <MemoryRouter>
+      <ConfirmProvider>{ui}</ConfirmProvider>
+    </MemoryRouter>,
+  );
 }
 
 function seedNodePeers(peerIds: string[]) {

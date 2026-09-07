@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
@@ -47,10 +48,12 @@ describe("R2-01 借用入账 → 账本三卡联动", () => {
     const { backend, mock } = makeLlmShareMockPair();
     mock.allow({ peerId: PEER });
     render(
-      <ConfirmProvider>
-        <BorrowPanel backend={backend} />
-        <LedgerPanel backend={backend} />
-      </ConfirmProvider>,
+      <MemoryRouter>
+        <ConfirmProvider>
+          <BorrowPanel backend={backend} />
+          <LedgerPanel backend={backend} />
+        </ConfirmProvider>
+      </MemoryRouter>,
     );
     expect(await screen.findByText(t("llmShare.ledger.emptyBalance"))).toBeTruthy();
     fillBorrowForm();
@@ -65,10 +68,12 @@ describe("R2-01 借用入账 → 账本三卡联动", () => {
     const { backend } = makeLlmShareMockPair();
     const balanceSpy = vi.spyOn(backend, "ledgerBalance");
     render(
-      <ConfirmProvider>
-        <BorrowPanel backend={backend} />
-        <LedgerPanel backend={backend} />
-      </ConfirmProvider>,
+      <MemoryRouter>
+        <ConfirmProvider>
+          <BorrowPanel backend={backend} />
+          <LedgerPanel backend={backend} />
+        </ConfirmProvider>
+      </MemoryRouter>,
     );
     await screen.findByText(t("llmShare.ledger.emptyBalance"));
     const afterMount = balanceSpy.mock.calls.length;
@@ -81,10 +86,12 @@ describe("R2-01 借用入账 → 账本三卡联动", () => {
   it("拒绝路径不入账，净差卡保持空态（不误刷新成有数据）", async () => {
     const { backend } = makeLlmShareMockPair({ rejectCode: "not_allowlisted" });
     render(
-      <ConfirmProvider>
-        <BorrowPanel backend={backend} />
-        <LedgerPanel backend={backend} />
-      </ConfirmProvider>,
+      <MemoryRouter>
+        <ConfirmProvider>
+          <BorrowPanel backend={backend} />
+          <LedgerPanel backend={backend} />
+        </ConfirmProvider>
+      </MemoryRouter>,
     );
     fillBorrowForm();
     await submitThroughConfirm();
