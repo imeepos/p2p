@@ -396,3 +396,4 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-07 gui-agent 走查 SPA：页面内 mock 状态不跨调用存活，每个场景在单次 eval 内闭环（导航+操作+断言一次跑完）；启动竞态会吞掉早期的 location.hash 赋值——轮询循环里反复 set hash 自愈，失败分支回传 bodySnippet 便于诊断。
 - 2026-09-07 UX-E 多步 SPA 走查用自写单会话 CDP 驱动（gui-agent 每次调用都是新 Chrome，多步交互必须合并进一次会话）：CDP /json/new?url= 建的 tab 停在 about:blank 不导航，必须显式 Page.navigate + 轮询 readyState；boot 判据 = readyState complete && mock 注入存在 && root innerHTML>1000；React 受控输入用原生 value setter + dispatch input 事件；blur 类校验显式 dispatchEvent focusout(bubbles)。每次改源码都会触发 HMR full reload 打断走查——走查前确保源码已冻结。
 - 2026-09-07 UX-E vite 6 没有 --cacheDir CLI：隔离缓存用 --config /tmp/xxx.mjs wrapper（import 官方 vite.config 后展开覆盖 cacheDir），零仓库污染。
+- 2026-09-07 模块级「单次提示」降级 flag（如 console 不可达单次 info）：测试里前置 describe 的失败样例会提前消费额度，断言用例必须 beforeEach 调导出的 resetXxxForTest() 复位，否则 info 计数恒为 0 假失败；Tauri 态分支用临时 window.__TAURI_INTERNALS__ = {} 注入（isTauriRuntime 是调用时读取，非模块加载时）。
