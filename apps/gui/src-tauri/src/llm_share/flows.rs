@@ -66,7 +66,15 @@ pub fn allow(
     note: Option<&str>,
 ) -> Result<LlmAllowlistView, String> {
     let granted_at = p2p_cli::llm_share::rfc3339_now();
-    allowlist::allow(&store.data_dir(), peer_id, models, note, &granted_at)?;
+    allowlist::allow(
+        &store.data_dir(),
+        peer_id,
+        models,
+        note,
+        None,
+        None,
+        &granted_at,
+    )?;
     allow_list(store)
 }
 
