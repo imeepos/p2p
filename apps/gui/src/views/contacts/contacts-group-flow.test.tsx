@@ -127,7 +127,8 @@ describe("创建群 → 邀请 → 入群流程（P2 验收 3）", () => {
     // F09：打开「添加群聊」默认页签即建群表单，一跳直达（无二选一中转）
     await waitFor(() => expect(screen.getByTestId("group-create-name")).toBeTruthy());
     fireEvent.change(screen.getByTestId("group-create-name"), { target: { value: "新群" } });
-    fireEvent.click(screen.getByTestId("group-create-friend-" + PEER_B));
+    // F23:成员选择为统一多选选择器,选项行按昵称定位(role=option)
+    fireEvent.click(screen.getByRole("option", { name: /小圆/ }));
     fireEvent.click(screen.getByTestId("group-create-submit"));
     await waitFor(() => expect(mocks.groupCreate).toHaveBeenCalledWith("新群", [PEER_B]));
     await waitFor(() => expect(screen.getByTestId("contact-group-g-1")).toBeTruthy());

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { UserRoundPlus } from "lucide-react";
 
+import { EntityMultiSelect, shortPeerId, type PickerOption } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,10 +20,11 @@ interface GroupCreateFormProps {
   onDone: () => void;
 }
 
-// 建群表单（设计 §5）：好友簿勾选成员 → 命名 → groupCreate。F09 起被
+// 建群表单（设计 §5）：好友簿选成员 → 命名 → groupCreate。F09 起被
 // GroupCreateDialog 与联系人「添加群聊」弹窗共用，两处一跳直达。
 // F10：文案说用户语言（1-64 个字），trim 内部规则交给校验不上文案。
-// 前置校验与 mock/后端同口径：群名非空、至少一名好友、上限 32（含本机）。
+// F23：成员列表复用统一多选选择器（即时搜索 + 已选区置顶），与
+// group-invite-picker 同一交互口径；上限 32（含本机）。前置校验同 mock/后端。
 export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -31,7 +33,7 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
   const upsertGroup = useGroupStore((s) => s.upsertGroup);
   const selectGroup = useGroupStore((s) => s.selectGroup);
   const [name, setName] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string[]>([]);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,20 +41,16 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
     void ensureFriends();
   }, [ensureFriends]);
 
+  const memberOptions: PickerOption[] = friends.map((friend) => ({
+    value: friend.peerId,
+    label: groupDisplayName(friend.peerId, friends),
+    hint: shortPeerId(friend.peerId),
+  }));
   const trimmedName = name.trim();
   const nameTooLong = Array.from(trimmedName).length > MAX_GROUP_NAME_CHARS;
-  const overCap = 1 + selected.size > MAX_GROUP_MEMBERS;
+  const overCap = 1 + selected.length > MAX_GROUP_MEMBERS;
   const canSubmit =
-    trimmedName.length > 0 && !nameTooLong && selected.size > 0 && !overCap && !submitting;
-
-  const toggle = (peerId: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(peerId)) next.delete(peerId);
-      else next.add(peerId);
-      return next;
-    });
-  };
+    trimmedName.length > 0 && !nameTooLong && selected.length > 0 && !overCap && !submitting;
 
   const goAddFriend = () => {
     // 跨卡 URL 契约：#/contacts?add= 挂载即开添加好友弹窗
@@ -65,7 +63,7 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
     setSubmitting(true);
     setCommandError(null);
     try {
-      const group: GroupJson = await ipc.groupCreate(trimmedName, [...selected]);
+      const group: GroupJson = await ipc.groupCreate(trimmedName, selected);
       upsertGroup(group);
       try {
         await selectGroup(group.groupId);
@@ -118,39 +116,23 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
       </div>
       <div className="flex flex-col gap-1">
         <Label>{t("group.create.membersLabel")}</Label>
-        <div
-          data-testid="group-create-friends"
-          className="scroll-slim max-h-56 overflow-y-auto rounded-md border p-1"
-        >
-          {friends.map((friend) => (
-            <label
-              key={friend.peerId}
-              className="hover:bg-accent flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm"
-            >
-              <input
-                type="checkbox"
-                className="size-4"
-                checked={selected.has(friend.peerId)}
-                onChange={() => toggle(friend.peerId)}
-                data-testid={`group-create-friend-${friend.peerId}`}
-              />
-              <span className="truncate">{groupDisplayName(friend.peerId, friends)}</span>
-              <span className="text-muted-foreground ml-auto truncate text-xs">
-                {friend.peerId.slice(0, 12)}
-              </span>
-            </label>
-          ))}
-        </div>
-        {selected.size === 0 ? (
+        <EntityMultiSelect
+          options={memberOptions}
+          selected={selected}
+          onChange={setSelected}
+          warning={
+            overCap
+              ? t("group.manage.inviteOverCap", {
+                  count: 1 + selected.length,
+                  max: MAX_GROUP_MEMBERS,
+                })
+              : null
+          }
+          warningTestId="group-create-overcap"
+          testId="group-create-friends"
+        />
+        {selected.length === 0 ? (
           <p className="text-xs text-muted-foreground">{t("group.create.memberRequired")}</p>
-        ) : null}
-        {overCap ? (
-          <p className="text-destructive text-xs" data-testid="group-create-overcap">
-            {t("group.manage.inviteOverCap", {
-              count: 1 + selected.size,
-              max: MAX_GROUP_MEMBERS,
-            })}
-          </p>
         ) : null}
       </div>
       {commandError ? (

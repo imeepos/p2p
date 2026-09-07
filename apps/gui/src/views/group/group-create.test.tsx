@@ -41,6 +41,12 @@ vi.mock("@/lib/ipc", () => ({
 import "@/i18n";
 import { GroupView } from "./group-view";
 
+// F23 起成员列表为统一多选选择器(EntityMultiSelect):选项行 role=option,
+// 可访问名含昵称主行;按昵称定位与真实用户读屏一致。
+function memberOption(label: RegExp | string) {
+  return screen.getByRole("option", { name: label instanceof RegExp ? label : new RegExp(label) });
+}
+
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 function peerId(seed: string): string {
@@ -116,8 +122,8 @@ describe("GroupCreateDialog 建群流程", () => {
       expect(screen.getByTestId("group-create-friends").textContent).toContain("小爱"),
     );
 
-    fireEvent.click(screen.getByTestId("group-create-friend-" + ALICE));
-    fireEvent.click(screen.getByTestId("group-create-friend-" + BOB));
+    fireEvent.click(memberOption(/小爱/));
+    fireEvent.click(memberOption(/小博/));
     fireEvent.change(screen.getByTestId("group-create-name"), {
       target: { value: "  新项目组  " },
     });
@@ -157,12 +163,12 @@ describe("GroupCreateDialog 建群流程", () => {
     });
     expect(submit.disabled).toBe(true); // 仍未选人
 
-    fireEvent.click(screen.getByTestId("group-create-friend-" + ALICE));
+    fireEvent.click(memberOption(/小爱/));
     expect(submit.disabled).toBe(false);
 
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    fireEvent.click(screen.getByTestId("group-create-friend-" + ALICE)); // 取消勾选
-    fireEvent.click(screen.getByTestId("group-create-friend-" + BOB));
+    fireEvent.click(memberOption(/小爱/)); // 取消勾选
+    fireEvent.click(memberOption(/小博/));
     mocks.groupCreate.mockRejectedValueOnce(new Error("建群命令失败"));
     fireEvent.click(submit);
     await waitFor(() =>
@@ -172,5 +178,61 @@ describe("GroupCreateDialog 建群流程", () => {
     );
     expect(screen.getByTestId("group-create-dialog")).toBeTruthy();
     errSpy.mockRestore();
+  });
+});
+
+// F23:建群表单内嵌成员列表补即时搜索与已选区置顶(与 group-invite-picker
+// 共用 EntityMultiSelect 口径)。终验缺口:此前无检索、已选不可见。
+describe("F23 建群成员列表即时搜索与已选置顶", () => {
+  async function openCreateForm() {
+    render(
+      <MemoryRouter>
+        <GroupView />
+      </MemoryRouter>,
+    );
+    fireEvent.click(await screen.findByTestId("group-create"));
+    await waitFor(() =>
+      expect(screen.getByTestId("group-create-friends").textContent).toContain("小爱"),
+    );
+  }
+
+  it("搜索框即时过滤:输入昵称只剩匹配项,清空恢复全量", async () => {
+    await openCreateForm();
+    const search = screen.getByTestId("group-create-friends-search");
+    fireEvent.change(search, { target: { value: "小爱" } });
+    expect(memberOption(/小爱/)).toBeTruthy();
+    expect(screen.queryByRole("option", { name: /小博/ })).toBeNull();
+    fireEvent.change(search, { target: { value: "" } });
+    expect(memberOption(/小博/)).toBeTruthy();
+  });
+
+  it("按 PeerId 片段搜索同样即时过滤", async () => {
+    await openCreateForm();
+    const search = screen.getByTestId("group-create-friends-search");
+    fireEvent.change(search, { target: { value: ALICE.slice(0, 10) } });
+    expect(memberOption(/小爱/)).toBeTruthy();
+    expect(screen.queryByRole("option", { name: /小博/ })).toBeNull();
+  });
+
+  it("已选区置顶:chip 区在候选列表之前,计数播报,可单个移除", async () => {
+    await openCreateForm();
+    fireEvent.click(memberOption(/小爱/));
+    fireEvent.click(memberOption(/小博/));
+    const selectedArea = screen.getByTestId("group-create-friends-selected");
+    const listbox = screen.getByRole("listbox");
+    // 置顶 = chip 区在 DOM 序上先于候选列表
+    expect(
+      selectedArea.compareDocumentPosition(listbox) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(selectedArea.textContent).toContain("已选 2 项");
+    expect(selectedArea.textContent).toContain("小爱");
+    fireEvent.click(screen.getByTestId("group-create-friends-remove-" + ALICE));
+    expect(screen.getByTestId("group-create-friends-selected").textContent).toContain(
+      "已选 1 项",
+    );
+    expect(screen.getByTestId("group-create-friends-selected").textContent).not.toContain(
+      "小爱",
+    );
   });
 });
