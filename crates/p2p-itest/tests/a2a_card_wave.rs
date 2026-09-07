@@ -1,8 +1,6 @@
-//! A2A2a card 链 E2E（a2a-over-p2p-design §11 A2A2a 验收）：
-//! 真 facade Node QUIC loopback 双节点——宿主 A 经真 admin HTTP 管理本地 agent，
-//! 访客 B 开 /a2a/1 card 相流：list 仅见 public（可见性 fail-closed）、取卡验签
-//! 入 AgentBook、subscribe 应答含快照、admin 删除后订阅侧收到 removed 推送。
-//! 卡片链不涉及子进程（task 相在 A2A2b，届时用回声桩）。
+//! A2A2a card 链 E2E（a2a-over-p2p-design §11 验收）：真 Node QUIC loopback
+//! 双节点——宿主经 admin HTTP 管理 agent，访客 list 仅见 public、验签入簿、
+//! subscribe 应答含快照、删除后收 removed 推送。卡片链不涉子进程。
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
