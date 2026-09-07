@@ -380,3 +380,4 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-07 协调轮 并行会话在共享主树各跑 pnpm 会互相打碎 node_modules（typescript 凭空消失、ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY）：验收前 CI=true pnpm install --frozen-lockfile 重建一次再跑门禁；门禁假红先怀疑依赖正被改动。
 - 2026-09-07 协调轮 多分支并行收尾时 ff-only 会把合并串行化（每卡都要再反向同步一次）；main 侧改用 --no-ff 合并提交（仓库已有先例），i18n 尾部追加冲突按双侧保留解。
 - 2026-09-07 协调轮 并行会话会把未提交的 skill 笔记滞留共享主树，卡住下一次 ff-merge：先单独 chore(skill) 提交保全内容，再走 --no-ff 合并解 union 冲突，绝不 stash 丢弃他人反思。
+- 2026-09-07 UX-R2C 「这表单太难用/要填的太多」类反馈，先查后端已自动化能力与 UI 文案是否脱节（本次本机 agent 托管早已全自动接入，弹窗文案还在教用户手动抄 acp-console 启动输出），方向常常是删流程改文案而不是加字段做智能预填。

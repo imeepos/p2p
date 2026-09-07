@@ -2,6 +2,11 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-07 UX-R2C：acp-store 的 draft 跨测试用例残留，新用例假定空白初值即踩
+- 症状：endpoint 弹窗新用例不填 token 点「测试连接」，预期报 tokenRequired 却直接发起连接，DOM 里找不到错误码；单文件重跑又全绿（用例执行顺序敏感）。
+- 原因：beforeEach 的 localStorage.clear() + resetConsoleState() 都不清 in-memory store 的 draft/saved（resetConsoleState 只清连接态面）；同文件前序用例经 upsertSaved 留下的 draft（含 token）被新用例的 useState(draft) 继承，validate 直接通过。
+- 修法：依赖表单初值的用例必须在用例内显式 setState/填充被测字段（哪怕值是空串），或 beforeEach 显式 useAcpStore.setState({ draft: EMPTY_DRAFT, saved: [] })；「单文件重跑绿、全量红（或反之）」先怀疑 store 模块级状态残留而非代码逻辑。
+
 ## 2026-09-07 UX-K：Radix Tabs 用 fireEvent.click 不切换，且非激活 Content 以 hidden 空壳留在 DOM
 - 症状：弹窗内 Tabs 点触发器后 aria-selected 仍 false；断言「内容存在」却通过（getByTestId 命中 hidden 空壳），下游子元素断言才失败，误导排查方向。
 - 原因：@radix-ui/react-tabs 1.1.x 触发器在 onMouseDown 里 onValueChange（click 不是激活事件）；TabsContent 非激活时不卸载而是 hidden+不渲染 children。
