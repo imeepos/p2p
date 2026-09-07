@@ -21,11 +21,17 @@ function TrendSeries({ points, valueKey, labelKey, tone }: TrendSeriesProps) {
     tMs: point.tMs,
     value: point[valueKey],
   }));
+  // R2-18：读屏可达——sparkline aria-label 带指标名 + 当前值
+  // （与卡内「当前 N」徽标同一 i18n 模板），不再只有指标名。
+  const last = sparkPoints[sparkPoints.length - 1];
+  const ariaLabel = last
+    ? t(labelKey) + "，" + t("dashboard.trend.now", { count: last.value })
+    : t(labelKey);
 
   return (
     <div className="flex flex-col gap-1">
       <span className="text-muted-foreground text-xs">{t(labelKey)}</span>
-      <Sparkline points={sparkPoints} tone={tone} label={t(labelKey)} />
+      <Sparkline points={sparkPoints} tone={tone} label={ariaLabel} />
     </div>
   );
 }
