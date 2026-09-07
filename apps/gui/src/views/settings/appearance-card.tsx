@@ -1,17 +1,10 @@
 import { useTranslation } from "react-i18next";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { changeLocale, SUPPORTED_LOCALES, type Locale } from "@/i18n";
 import type { I18nKey } from "@/i18n/types";
 import { useTheme, type Theme } from "@/theme/theme-provider";
+import { SettingsGroup, SettingsRow } from "./settings-row";
 
 const THEME_OPTIONS: Theme[] = ["light", "dark", "system"];
 
@@ -41,20 +34,19 @@ function OptionButton({
   );
 }
 
-// 外观卡：复用一等能力（主题三选一 + 语言切换），不属于节点配置表单。
+// 通用组：复用一等能力（主题三选一 + 语言切换），不属于节点配置表单。
 export function AppearanceCard() {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
 
   return (
-    <Card className="col-span-12 lg:col-span-6">
-      <CardHeader>
-        <CardTitle>{t("settings.cards.appearance")}</CardTitle>
-        <CardDescription>{t("settings.appearance.hint")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label>{t("common.theme.label")}</Label>
+    <SettingsGroup
+      title={t("settings.cards.appearance")}
+      description={t("settings.appearance.hint")}
+    >
+      <SettingsRow
+        label={t("common.theme.label")}
+        control={
           <div className="flex gap-2">
             {THEME_OPTIONS.map((option) => (
               <OptionButton
@@ -66,9 +58,11 @@ export function AppearanceCard() {
               </OptionButton>
             ))}
           </div>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>{t("common.language.label")}</Label>
+        }
+      />
+      <SettingsRow
+        label={t("common.language.label")}
+        control={
           <div className="flex gap-2">
             {SUPPORTED_LOCALES.map((locale) => (
               <OptionButton
@@ -84,8 +78,8 @@ export function AppearanceCard() {
               </OptionButton>
             ))}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        }
+      />
+    </SettingsGroup>
   );
 }
