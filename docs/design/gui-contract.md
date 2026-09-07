@@ -518,6 +518,8 @@ LlmBorrowReport{status: done|stream_broken|rejected, receipt{reqId, appended, es
 
 /llm-share 独立路由页四面板（offer 发布/allowlist 管理/borrow 快捷/双边账本视图）；rail 四入口不动（/docs 先例：命令面板+设置页入口可达）；设置页增 llm-share 入口卡。
 
+v12 加法（2026-09-07）：上游配置第五面板——本地自用 provider 配置列表（名称/baseUrl/apiKey/模型，仅存 GUI localStorage，键 p2p-gui-llm-providers；不触 §16.2-4 账本文件）。分享动作 = offerPublish（按配置模型）+ allow（好友按同批模型放行）；apiKey 不进任何 IPC 请求与展示（列表只出掩码），即「分享可用性而非密钥」。
+
 ### 16.4 cli-parity 迁移
 
 GUI 命令 live 行与 PR4 borrow 注释行升级同一提交串落地，中间态守卫不红；ai-docs-sync 联动由 GUI 轨验收把关。
