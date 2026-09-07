@@ -50,7 +50,8 @@ function discoveredEvent(n: number): NodeEventJson {
 }
 
 function summaryOf(n: number): string {
-  return "发现节点 aaaaaaaa（192.168.1." + n + "/u4000" + n + "）";
+  // R2-17：与事件页同口径（前 6…后 4），不再是 8 位前缀
+  return "发现节点 aaaaaa…aaaa（192.168.1." + n + "/u4000" + n + "）";
 }
 
 beforeEach(() => {
