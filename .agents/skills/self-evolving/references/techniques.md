@@ -447,3 +447,5 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-07 多会话并行期 ff-merge 大概率撞车：合并前 fetch + 查 main..origin/main，撞了回 worktree merge main 重跑受影响门禁再推——不要用 --no-ff 绕过，ff-only 纪律保 revert 可行。
 - 2026-09-08 评审某页面设计前定位代码：别在仓库根用宽 pattern（`llm.?share`+多扩展名 include）grep——大仓会产出 50KB+ spill 且 9 成是测试/i18n/IPC 噪音；先 `ls + wc -l` 目标视图目录拿结构清单，再读主 view 文件，最后用窄 grep 补 i18n 文案（locales 直接读 llmShare 段）。
 - 再纠正：软链好后别用 pnpm exec/pnpm test 起 vitest——pnpm 的 verify-deps-before-run 会因根 node_modules 是 symlink 报 ERR_PNPM_UNSAFE_MODULES_DIR 并试图重装；直接 node 起真实入口绕开：cd apps/gui && node node_modules/vitest/vitest.mjs run <files>（2026-09-07 llm-provider-share 会话实测）。
+- 2026-09-08 右键菜单轮：测试里 mock 带动态 import 的 Tauri API（@tauri-apps/api/webviewWindow）时，工厂 class 在构造函数里 queueMicrotask 自发 `tauri://created`，once 句柄同步注册后微任务即触发——`await openXxx()` 直接收敛，无需真实窗口；失败路径用 hoisted 状态位切换自发事件为 tauri://error，两条路径都能在 jsdom 里确定性测到。
+- 2026-09-08 右键菜单轮：store 测试要验证「同一用例内二次重载模块」时 beforeEach 的 vi.resetModules 不够，须在用例内显式再调一次 vi.resetModules() 后重新动态 import，否则拿到的是首次求值的同一单例（ui-prefs-store.test 的 freshStore 模式只在跨用例生效）。
