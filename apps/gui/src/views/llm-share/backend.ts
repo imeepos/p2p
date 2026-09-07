@@ -8,8 +8,13 @@ import type {
   LlmBorrowReport,
   LlmLedgerEntry,
   LlmOfferView,
+  LlmProviderView,
   LlmReceiptVerifyResult,
+  LlmServeStatus,
   LlmShareBackend,
+  LlmShareCreateResult,
+  LlmShareEntry,
+  LlmShareRedeemResult,
 } from "./types";
 
 // llm-share 数据接缝（契约 §16.1 九命令，命令名逐字 snake_case）：live 分支
@@ -28,6 +33,16 @@ const liveBackend: LlmShareBackend = {
   ledgerBalance: () => invoke<LlmBalanceGroup[]>("llm_share_ledger_balance"),
   receiptVerify: (req) =>
     invoke<LlmReceiptVerifyResult>("llm_share_receipt_verify", { req }),
+  // 契约 §16.6 v13 加法（8 条）：live 分支逐字 snake_case invoke；运行期
+  // 后端命令由 W3 落地，测试全走 mock 分支。
+  providerList: () => invoke<{ providers: LlmProviderView[] }>("llm_share_provider_list"),
+  providerSave: (config) => invoke<LlmProviderView>("llm_share_provider_save", { config }),
+  providerRemove: (providerId) => invoke<{ removed: true }>("llm_share_provider_remove", { providerId }),
+  shareCreate: (req) => invoke<LlmShareCreateResult>("llm_share_share_create", { req }),
+  shareList: () => invoke<{ shares: LlmShareEntry[] }>("llm_share_share_list"),
+  shareRevoke: (shareId) => invoke<{ revoked: true }>("llm_share_share_revoke", { shareId }),
+  shareRedeem: (link) => invoke<LlmShareRedeemResult>("llm_share_share_redeem", { link }),
+  serveStatus: () => invoke<LlmServeStatus>("llm_share_serve_status"),
 };
 
 const backend: LlmShareBackend = useMockIpc

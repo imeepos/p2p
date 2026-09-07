@@ -33,6 +33,14 @@ function rejectAll(): LlmShareBackend {
     ledgerList: fail,
     ledgerBalance: fail,
     receiptVerify: fail,
+    providerList: fail,
+    providerSave: fail,
+    providerRemove: fail,
+    shareCreate: fail,
+    shareList: fail,
+    shareRevoke: fail,
+    shareRedeem: fail,
+    serveStatus: fail,
   };
 }
 
