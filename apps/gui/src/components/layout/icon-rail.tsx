@@ -13,9 +13,9 @@ import { selectPendingInviteBadgeCount } from "@/stores/chat-group-invite-slice"
 import { useChatStore } from "@/stores/chat-store";
 import { useProfileStore } from "@/stores/profile-store";
 
-// WX1 微信桌面风格侧栏：深灰底 + 顶部本机头像 + 大号图标，选中态绿色图标
-// （不再用底色块）。角标红点（--wx-badge）。聊天入口附未读合计、通讯录附
-// 好友邀请、消息中心附待处理邀请（角标来源与原版一致）。
+// 侧栏 rail：底色与图标用语义 --sidebar/--muted 令牌，随亮暗主题自适应
+// （不再固定深灰底）。角标红点（--wx-badge）。聊天入口附未读合计、
+// 通讯录附好友邀请、消息中心附待处理邀请（角标来源一致）。
 function SelfAvatar() {
   const { t } = useTranslation();
   const profile = useProfileStore((s) => s.profile);
@@ -68,9 +68,8 @@ function RailLink({
           aria-label={label}
           className={({ isActive }) =>
             cn(
-              "focus-visible:ring-ring/50 relative flex size-10 items-center justify-center rounded-md text-wx-rail-icon hover:bg-white/10 hover:text-white focus-visible:ring-[3px] focus-visible:outline-none",
-              isActive &&
-                "text-wx-rail-icon-active hover:text-wx-rail-icon-active",
+              "focus-visible:ring-ring/50 relative flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-[3px] focus-visible:outline-none",
+              isActive && "text-primary hover:text-primary",
             )
           }
         >
@@ -116,7 +115,7 @@ export function IconRail() {
     return undefined;
   };
   return (
-    <aside className="bg-wx-rail flex h-full w-14 shrink-0 flex-col items-center">
+    <aside className="bg-sidebar flex h-full w-14 shrink-0 flex-col items-center border-r border-sidebar-border">
       <SelfAvatar />
       <nav className="flex w-full flex-1 flex-col items-center gap-1.5 px-1.5 pb-2">
         {top.map((entry) => {

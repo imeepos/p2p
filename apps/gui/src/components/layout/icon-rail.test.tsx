@@ -57,6 +57,13 @@ describe("IconRail（1.1 rail 规格）", () => {
     });
   });
 
+  it("rail 随主题自适应：底色用语义 sidebar 令牌，不再固定深色 wx-rail", () => {
+    renderRail("/chat");
+    const aside = screen.getByRole("complementary");
+    expect(aside.className).toContain("bg-sidebar");
+    expect(aside.className).not.toContain("wx-rail");
+  });
+
   it("选中态高亮当前路由，其余不高亮", () => {
     renderRail("/network/peers");
     const links = railLinks();
