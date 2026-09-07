@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { AlertCircle, MessageSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AsyncButton } from "@/components/feedback/async-button";
+import type { Locale } from "@/i18n";
 import type { ChatMessageJson } from "@/lib/ipc-types";
 import { matchInviteForMessage } from "@/lib/group-invite-match";
 import { useChatStore } from "@/stores/chat-store";
@@ -10,7 +11,9 @@ import { EmptyState } from "@/views/shared/empty-state";
 
 import { GroupInviteDialog, type GroupInviteTarget } from "./group-invite-dialog";
 import { GroupInviteCard } from "./group-invite-card";
-import { MessageBubble } from "./message-bubble";
+import { MessageBubble, type BubbleAvatar } from "./message-bubble";
+import { TimeDivider } from "./time-divider";
+import { needsTimeDivider } from "./time-divider-rule";
 
 const LOAD_OLDER_THRESHOLD_PX = 48;
 const HIGHLIGHT_MS = 1600;
@@ -86,6 +89,9 @@ interface MessageListProps {
   onReply?: (message: ChatMessageJson) => void;
   /** 失败文本重发入口（IM-T51）：透传给 me+failed+text 气泡。 */
   onRetry?: (message: ChatMessageJson) => void;
+  /** WX1：气泡外侧头像（可选，缺省保持无头像布局）。 */
+  selfAvatar?: BubbleAvatar;
+  peerAvatar?: BubbleAvatar;
 }
 
 // 消息流容器：向上滚动接近顶部时触发加载更早页（beforeId 游标由 store 管理）；
@@ -101,8 +107,10 @@ export function MessageList({
   onCancelPending,
   onReply,
   onRetry,
+  selfAvatar,
+  peerAvatar,
 }: MessageListProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickBottomRef = useRef(true);
   const highlightTimerRef = useRef<number | null>(null);
@@ -196,32 +204,40 @@ export function MessageList({
           <EmptyState icon={MessageSquare} title={t("chat.noMessages")} />
         </div>
       ) : null}
-      <div className="flex flex-col gap-2">
-        {messages.map((message) => {
+      <div className="flex flex-col">
+        {messages.map((message, index) => {
+          const divider = needsTimeDivider(index > 0 ? messages[index - 1] : null, message) ? (
+            <TimeDivider tsMs={message.tsMs} locale={i18n.language as Locale} />
+          ) : null;
           if (message.kind === "groupInvite") {
             return (
-              <GroupInviteCard
-                key={message.id}
-                message={message}
-                invite={matchInviteForMessage(message, groupInvites)}
-                onOpenConfirm={(invite) => setInviteTarget({ message, invite })}
-              />
+              <Fragment key={message.id}>
+                {divider}
+                <GroupInviteCard
+                  message={message}
+                  invite={matchInviteForMessage(message, groupInvites)}
+                  onOpenConfirm={(invite) => setInviteTarget({ message, invite })}
+                />
+              </Fragment>
             );
           }
           const replyTo = message.replyTo ?? null;
           const quoted = replyTo ? resolveQuoted(replyTo) ?? null : null;
           return (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              onCancelPending={onCancelPending}
-              quoted={quoted}
-              quotedMissing={replyTo !== null && !quoted}
-              highlighted={highlightId === message.id}
-              onReply={onReply}
-              onQuoteOpen={openQuote}
-              onRetry={onRetry}
-            />
+            <Fragment key={message.id}>
+              {divider}
+              <MessageBubble
+                message={message}
+                onCancelPending={onCancelPending}
+                quoted={quoted}
+                quotedMissing={replyTo !== null && !quoted}
+                highlighted={highlightId === message.id}
+                onReply={onReply}
+                onQuoteOpen={openQuote}
+                onRetry={onRetry}
+                avatar={message.sender === "me" ? selfAvatar : peerAvatar}
+              />
+            </Fragment>
           );
         })}
       </div>

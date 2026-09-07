@@ -1,10 +1,13 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { MessagesSquare } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AsyncButton } from "@/components/feedback/async-button";
-import { MessageBubble } from "@/components/chat/message-bubble";
+import { MessageBubble, type BubbleAvatar } from "@/components/chat/message-bubble";
+import { TimeDivider } from "@/components/chat/time-divider";
+import { needsTimeDivider } from "@/components/chat/time-divider-rule";
 import type { ChatFriendJson, ChatMessageJson, GroupMessageJson } from "@/lib/ipc-types";
+import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
 
 import { groupDisplayName, toBubbleMessage } from "./group-names";
@@ -25,6 +28,8 @@ interface GroupMessageListProps {
   onRetryHistory: () => Promise<unknown>;
   onCancelPending: (messageId: string) => void;
   onReply?: (message: GroupMessageJson) => void;
+  /** WX1：me 气泡外侧头像（可选）。 */
+  selfAvatar?: BubbleAvatar;
 }
 
 interface ItemProps {
@@ -37,6 +42,7 @@ interface ItemProps {
   onCancelPending: (messageId: string) => void;
   onReply?: (message: GroupMessageJson) => void;
   onQuoteOpen: (bubble: ChatMessageJson) => void;
+  selfAvatar?: BubbleAvatar;
 }
 
 // 单条群气泡：昵称标签（them）与送达计数（me，acks 推导「已送达 k/n」）
@@ -51,6 +57,7 @@ function GroupBubbleItem({
   onCancelPending,
   onReply,
   onQuoteOpen,
+  selfAvatar,
 }: ItemProps) {
   const { t } = useTranslation();
   const view = toBubbleMessage(message, selfPeerId);
@@ -59,6 +66,11 @@ function GroupBubbleItem({
     <MessageBubble
       message={view}
       senderLabel={isMe ? undefined : groupDisplayName(message.senderId, friends)}
+      avatar={
+        isMe
+          ? selfAvatar
+          : { label: groupDisplayName(message.senderId, friends), seed: message.senderId }
+      }
       statusOverride={
         isMe
           ? t("group.delivery", { acked: message.acks.length, total: totalRecipients })
@@ -89,8 +101,9 @@ export function GroupMessageList({
   onRetryHistory,
   onCancelPending,
   onReply,
+  selfAvatar,
 }: GroupMessageListProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const stickBottomRef = useRef(true);
   const lastFirstIdRef = useRef<string | null>(null);
@@ -205,20 +218,25 @@ export function GroupMessageList({
           <EmptyState icon={MessagesSquare} title={t("chat.noMessages")} />
         </div>
       ) : null}
-      <div className="flex flex-col gap-2">
-        {messages.map((message) => (
-          <GroupBubbleItem
-            key={message.id}
-            message={message}
-            selfPeerId={selfPeerId}
-            friends={friends}
-            totalRecipients={totalRecipients}
-            highlighted={highlightId === message.id}
-            quoted={resolveQuoted(message)}
-            onCancelPending={onCancelPending}
-            onReply={onReply}
-            onQuoteOpen={openQuote}
-          />
+      <div className="flex flex-col">
+        {messages.map((message, index) => (
+          <Fragment key={message.id}>
+            {needsTimeDivider(index > 0 ? messages[index - 1] : null, message) ? (
+              <TimeDivider tsMs={message.tsMs} locale={i18n.language as Locale} />
+            ) : null}
+            <GroupBubbleItem
+              message={message}
+              selfPeerId={selfPeerId}
+              friends={friends}
+              totalRecipients={totalRecipients}
+              highlighted={highlightId === message.id}
+              quoted={resolveQuoted(message)}
+              onCancelPending={onCancelPending}
+              onReply={onReply}
+              onQuoteOpen={openQuote}
+              selfAvatar={selfAvatar}
+            />
+          </Fragment>
         ))}
       </div>
     </div>

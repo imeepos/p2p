@@ -285,7 +285,8 @@ describe("渲染矩阵·补缺口", () => {
       message: { id: "unk2", tsMs: 2000, media: chatMedia("hologram.card", "application/x-sticker", 7, null), ...unknownBase },
     });
     expect(await within(bubbleArea()).findByText("hologram.card")).toBeTruthy(); // 信息卡降级展示
-    expect(bubbleArea().querySelectorAll("time").length).toBe(2);
+    // WX1：时间改由居中分割线呈现，相邻 5min 内消息共享首条分割线（1 个 time）
+    expect(bubbleArea().querySelectorAll("time").length).toBe(1);
   });
 
   it("媒体消息状态角标（pending/failed）与类型内容共存显示", () => {
@@ -313,14 +314,15 @@ describe("渲染矩阵·补缺口", () => {
     expect(area.querySelector("video")?.className).toContain("max-w-full");
   });
 
-  it("failed 角标 AA 色：me 气泡内用双主题红类而非 text-destructive", () => {
+  it("failed 角标 AA 色：WX1 绿泡上用双主题红类而非 text-destructive", () => {
     seedConversation([
       mediaMessage("cf-1", PEER, "file", chatMedia("bad.zip", "application/zip", 1, "/data/bad.zip"), { status: "failed" }),
     ]);
     mountChat();
     const badge = bubbleArea().querySelector('[data-testid="message-status"]');
-    expect(badge?.className).toContain("text-red-300");
-    expect(badge?.className).toContain("dark:text-red-700");
+    // WX1：浅色泡 #95ec69 配 red-600、暗色泡 #3eb575 配 red-300
+    expect(badge?.className).toContain("text-red-600");
+    expect(badge?.className).toContain("dark:text-red-300");
     expect(badge?.className).not.toContain("text-destructive");
   });
 });

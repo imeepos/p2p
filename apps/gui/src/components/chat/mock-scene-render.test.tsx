@@ -87,7 +87,8 @@ describe("mock 场景注入渲染（IM-T50）", () => {
     // mock 占位路径非内联资源：图片退化为信息卡展示文件名
     expect(screen.getByText("photo.png")).toBeInTheDocument();
     const themNode = screen.getByText("对方文本消息").closest("[data-message-id]");
-    expect(themNode?.className).toContain("justify-start");
+    // WX1：them 行 flex-row 靠左（me 为 flex-row-reverse 靠右）
+    expect(themNode?.className).toContain("flex-row");
   });
 
   it("me 消息经 forceMockMessageStatus 推进 pending→failed 渲染失败角标", async () => {

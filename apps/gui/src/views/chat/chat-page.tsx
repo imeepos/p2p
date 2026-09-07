@@ -132,7 +132,7 @@ export function ChatPage() {
         <section
           aria-label={t("chat.conversations.searchPlaceholder")}
           data-testid="chat-list-pane"
-          className="flex min-h-0 w-[264px] shrink-0 flex-col rounded-lg border xl:w-[320px]"
+          className="bg-wx-list flex min-h-0 w-[264px] shrink-0 flex-col border-r border-border/60 xl:w-[320px]"
         >
           <ConversationList
             entries={entries}
@@ -153,7 +153,7 @@ export function ChatPage() {
         <section
           aria-label={t("chat.conversation")}
           data-testid="chat-conversation-pane"
-          className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border"
+          className="bg-wx-chat flex min-h-0 min-w-0 flex-1 flex-col"
         >
           {narrow && selectedId ? (
             <Button

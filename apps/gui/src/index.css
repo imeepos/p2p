@@ -11,7 +11,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: #07c160;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -39,6 +39,16 @@
   --success: oklch(0.627 0.17 149.2);
   --warning: oklch(0.769 0.16 70.08);
   --info: oklch(0.588 0.125 240);
+  /* WeChat 桌面风格令牌（WX1）：侧栏深灰、会话区浅灰、气泡白/绿、角标红 */
+  --wx-rail: #2e2e2e;
+  --wx-rail-icon: #9ca3af;
+  --wx-rail-icon-active: #07c160;
+  --wx-chat-bg: #f5f5f5;
+  --wx-list-bg: #f7f7f7;
+  --wx-hover: #f0f0f0;
+  --wx-bubble-me: #95ec69;
+  --wx-bubble-them: #ffffff;
+  --wx-badge: #fa5151;
 }
 
 .dark {
@@ -48,8 +58,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: #07c160;
+  --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -76,6 +86,15 @@
   --success: oklch(0.7 0.17 149.2);
   --warning: oklch(0.8 0.16 70.08);
   --info: oklch(0.746 0.16 232.661);
+  --wx-rail: #232323;
+  --wx-rail-icon: #8a8a8a;
+  --wx-rail-icon-active: #07c160;
+  --wx-chat-bg: #191919;
+  --wx-list-bg: #202020;
+  --wx-hover: #2a2a2a;
+  --wx-bubble-me: #3eb575;
+  --wx-bubble-them: #2c2c2c;
+  --wx-badge: #fa5151;
 }
 
 @theme inline {
@@ -113,6 +132,15 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-info: var(--info);
+  --color-wx-rail: var(--wx-rail);
+  --color-wx-rail-icon: var(--wx-rail-icon);
+  --color-wx-rail-icon-active: var(--wx-rail-icon-active);
+  --color-wx-chat-bg: var(--wx-chat-bg);
+  --color-wx-list-bg: var(--wx-list-bg);
+  --color-wx-hover: var(--wx-hover);
+  --color-wx-bubble-me: var(--wx-bubble-me);
+  --color-wx-bubble-them: var(--wx-bubble-them);
+  --color-wx-badge: var(--wx-badge);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -172,4 +200,33 @@
 [data-sonner-toast] [data-title],
 [data-sonner-toast] [data-description] {
   user-select: text;
+}
+
+/* WX1 微信风格气泡小尾巴：旋转 45° 的小方块探出气泡边缘 */
+.wx-bubble {
+  /* isolate 建立堆叠上下文：z-index:-1 的尾巴不会沉到会话区背景之下 */
+  isolation: isolate;
+  position: relative;
+}
+
+.wx-bubble-them::before,
+.wx-bubble-me::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  z-index: -1;
+}
+
+.wx-bubble-them::before {
+  left: -4px;
+  background: var(--wx-bubble-them);
+}
+
+.wx-bubble-me::before {
+  right: -4px;
+  background: var(--wx-bubble-me);
 }

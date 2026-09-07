@@ -1,9 +1,8 @@
 import { Reply } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { AvatarBox } from "@/components/chat/avatar-box";
 import { Button } from "@/components/ui/button";
-import type { Locale } from "@/i18n";
-import { formatTime } from "@/lib/format";
 import type { ChatMessageJson } from "@/lib/ipc-types";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +17,13 @@ const STATUS_KEYS = {
   delivered: "chat.status.delivered",
   failed: "chat.status.failed",
 } as const;
+
+export interface BubbleAvatar {
+  /** 回退首字符与稳定取色种子 */
+  label: string;
+  seed: string;
+  src?: string | null;
+}
 
 interface MessageBubbleProps {
   message: ChatMessageJson;
@@ -35,6 +41,8 @@ interface MessageBubbleProps {
   senderLabel?: string;
   /** 群聊扩展（G3）：me 气泡状态行覆盖（已送达 k/n）；不传走原状态文案。 */
   statusOverride?: string;
+  /** WX1：气泡外侧头像；不传保持无头像布局（兼容既有渲染矩阵）。 */
+  avatar?: BubbleAvatar;
 }
 
 // 回复入口：悬停/键盘聚焦可见，位于气泡外侧；不干扰气泡本体点击。
@@ -67,8 +75,8 @@ function ReplyButton({
   );
 }
 
-// 单条气泡：me 靠右 / them 靠左；文本换行保留；媒体走 MediaContent。
-// 状态角标仅 me 消息展示（文字，禁 emoji）；pending 占位可取消（附件未发送）。
+// WX1 微信风格气泡：me 靠右绿泡 / them 靠左白泡，各带指向头像的小尾巴；
+// 头像在气泡外侧（可选，兼容不传场景）。发送状态仅 me 消息展示（泡内小字）。
 // 引用块（IM-T46B）：replyTo 指向本地可解析消息时渲染摘要，缺失时占位文案。
 export function MessageBubble({
   message,
@@ -81,9 +89,9 @@ export function MessageBubble({
   onRetry,
   senderLabel,
   statusOverride,
+  avatar,
 }: MessageBubbleProps) {
-  const { t, i18n } = useTranslation();
-  const locale = i18n.language as Locale;
+  const { t } = useTranslation();
   const isMe = message.sender === "me";
   const pendingPlaceholder =
     isMe && message.status === "pending" && message.kind !== "text";
@@ -91,79 +99,95 @@ export function MessageBubble({
 
   return (
     <div
-      className={cn("group relative flex w-full", isMe ? "justify-end" : "justify-start")}
+      className={cn(
+        "group relative flex w-full items-start gap-2.5",
+        isMe ? "flex-row-reverse" : "flex-row",
+      )}
       data-message-id={message.id}
       data-highlighted={highlighted ? "true" : undefined}
     >
-      <div
-        className={cn(
-          "max-w-[75%] rounded-lg px-3 py-2 text-sm",
-          isMe ? "bg-primary text-primary-foreground" : "bg-muted",
-          highlighted && "ring-2 ring-primary",
-        )}
-      >
-        {quoted ? (
-          <QuoteBlock
-            kind={quoted.kind}
-            summary={replySummaryOf(quoted)}
-            missing={false}
-            tone={tone}
-            onOpen={() => onQuoteOpen?.(message)}
-          />
-        ) : null}
-        {quotedMissing ? (
-          <QuoteBlock
-            summary={null}
-            missing={true}
-            tone={tone}
-            onOpen={() => onQuoteOpen?.(message)}
-          />
-        ) : null}
+      {avatar ? (
+        <AvatarBox
+          label={avatar.label}
+          seed={avatar.seed}
+          src={avatar.src}
+          size="md"
+          className="mt-0.5"
+        />
+      ) : null}
+      <div className={cn("flex min-w-0 max-w-[65%] flex-col", isMe && "items-end")}>
         {!isMe && senderLabel ? (
-          <div className="text-xs font-medium opacity-80" data-testid="group-sender-label">
+          <div
+            className="text-muted-foreground mb-0.5 px-0.5 text-xs"
+            data-testid="group-sender-label"
+          >
             {senderLabel}
           </div>
         ) : null}
-        {message.kind === "text" && message.text ? (
-          <TextWithShareLink text={message.text} />
-        ) : null}
-        {message.media ? <MediaContent media={message.media} /> : null}
-        <div className="mt-1 flex items-center gap-2 text-xs opacity-80">
-          <time>{formatTime(message.tsMs, locale)}</time>
+        <div
+          className={cn(
+            "wx-bubble rounded-lg px-3 py-2 text-sm shadow-sm",
+            isMe ? "wx-bubble-me bg-wx-bubble-me" : "wx-bubble-them bg-wx-bubble-them",
+            highlighted && "ring-2 ring-primary",
+          )}
+        >
+          {quoted ? (
+            <QuoteBlock
+              kind={quoted.kind}
+              summary={replySummaryOf(quoted)}
+              missing={false}
+              tone={tone}
+              onOpen={() => onQuoteOpen?.(message)}
+            />
+          ) : null}
+          {quotedMissing ? (
+            <QuoteBlock
+              summary={null}
+              missing={true}
+              tone={tone}
+              onOpen={() => onQuoteOpen?.(message)}
+            />
+          ) : null}
+          {message.kind === "text" && message.text ? (
+            <TextWithShareLink text={message.text} />
+          ) : null}
+          {message.media ? <MediaContent media={message.media} /> : null}
           {isMe ? (
-            <span
-              data-testid="message-status"
-              className={cn(
-                message.status === "failed" &&
-                  "font-medium text-red-300 dark:text-red-700",
-              )}
-            >
-              {statusOverride ?? t(STATUS_KEYS[message.status])}
-            </span>
-          ) : null}
-          {pendingPlaceholder && onCancelPending ? (
-            <button
-              type="button"
-              onClick={() => onCancelPending(message.id)}
-              className="underline underline-offset-2"
-            >
-              {t("chat.cancelSend")}
-            </button>
-          ) : null}
-          {isMe && message.status === "failed" && message.kind === "text" && onRetry ? (
-            <button
-              type="button"
-              data-testid={`message-retry-${message.id}`}
-              className="underline underline-offset-2"
-              onClick={() => onRetry(message)}
-            >
-              {t("chat.retry")}
-            </button>
-          ) : null}
-          {isMe && message.status === "failed" && message.kind !== "text" ? (
-            <span data-testid={`media-retry-hint-${message.id}`}>
-              {t("chat.mediaRetryHint")}
-            </span>
+            <div className="mt-1 flex items-center justify-end gap-2 text-[11px] opacity-70">
+              <span
+                data-testid="message-status"
+                className={cn(
+                  message.status === "failed" &&
+                    "font-medium text-red-600 opacity-100 dark:text-red-300",
+                )}
+              >
+                {statusOverride ?? t(STATUS_KEYS[message.status])}
+              </span>
+              {pendingPlaceholder && onCancelPending ? (
+                <button
+                  type="button"
+                  onClick={() => onCancelPending(message.id)}
+                  className="underline underline-offset-2"
+                >
+                  {t("chat.cancelSend")}
+                </button>
+              ) : null}
+              {isMe && message.status === "failed" && message.kind === "text" && onRetry ? (
+                <button
+                  type="button"
+                  data-testid={`message-retry-${message.id}`}
+                  className="underline underline-offset-2"
+                  onClick={() => onRetry(message)}
+                >
+                  {t("chat.retry")}
+                </button>
+              ) : null}
+              {isMe && message.status === "failed" && message.kind !== "text" ? (
+                <span data-testid={`media-retry-hint-${message.id}`}>
+                  {t("chat.mediaRetryHint")}
+                </span>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>

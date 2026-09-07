@@ -13,6 +13,7 @@ import {
 import { useNodeAutoStart } from "@/hooks/use-node-auto-start";
 import { useNodeStore } from "@/stores/node-store";
 import { useUpdateStore } from "@/stores/update-store";
+import { cn } from "@/lib/utils";
 import { DataLinkBanner } from "@/views/network/data-link-banner";
 import { AutoStartNotice } from "@/views/shared/auto-start-notice";
 import { UpdateNotice } from "@/views/update/update-notice";
@@ -52,6 +53,9 @@ export function AppLayout() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
+  // WX1：聊天页全出血（会话列表/记录贴边铺满），其余页面维持卡片栅格
+  const fullBleed = location.pathname.startsWith("/chat");
+
   return (
     <div className="flex h-dvh w-full overflow-hidden">
       <IconRail />
@@ -61,12 +65,18 @@ export function AppLayout() {
           <DataLinkBanner />
           <AutoStartNotice />
           <div
-            className="grid min-h-0 flex-1 grid-cols-12 gap-4 p-6"
+            className={cn(
+              "grid min-h-0 flex-1 grid-cols-12",
+              fullBleed ? "overflow-hidden" : "gap-4 p-6",
+            )}
             aria-label={t("common.appName")}
           >
             <div
               key={location.pathname}
-              className="motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 col-span-12 flex min-h-0 flex-col gap-4"
+              className={cn(
+                "motion-safe:animate-in motion-safe:fade-in motion-safe:duration-300 col-span-12 flex min-h-0 flex-col",
+                fullBleed ? "" : "gap-4",
+              )}
             >
               <Outlet />
             </div>

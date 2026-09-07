@@ -4,17 +4,19 @@ import { Share2 } from "lucide-react";
 
 import { Composer } from "@/components/chat/composer";
 import { MessageList } from "@/components/chat/message-list";
+import type { BubbleAvatar } from "@/components/chat/message-bubble";
 import { NodeStoppedCard } from "@/components/chat/node-stopped-card";
 import { PeerStatusDot } from "@/components/chat/peer-status";
 import { useRetrySend } from "@/components/chat/use-retry-send";
 import type { ChatMessageJson } from "@/lib/ipc-types";
 import { useChatStore } from "@/stores/chat-store";
 import { useNodeStore, usePeerOnline } from "@/stores/node-store";
+import { useProfileStore } from "@/stores/profile-store";
 import { ShareCreateDialog } from "@/acp/components/share-create-dialog";
 import { toastSuccess } from "@/components/feedback/toast";
 
-// 1:1 会话记录区（§2.1 右栏 friend 形态）：复用 message-list/composer，
-// 不重写消息渲染。key=peer 挂载（引用预览随会话切换自动复位）。
+// WX1 微信风格会话区：居中标题 + 右侧动作；气泡带外侧头像（本机走资料头像）。
+// key=peer 挂载（引用预览随会话切换自动复位）。
 // 会话工具条「分享 ACP」（acp-share §8）：生成链接后作为普通文本消息发出，
 // 链接即正文，不改 IM 线协议。
 export function FriendConversation({ peer }: { peer: string }) {
@@ -35,8 +37,17 @@ export function FriendConversation({ peer }: { peer: string }) {
   const nodeStatus = useNodeStore((s) => s.status);
   const nodeStopped = nodeStatus !== null && !nodeStatus.running;
   const retrySend = useRetrySend(peer);
+  const profile = useProfileStore((s) => s.profile);
   const [replyTarget, setReplyTarget] = useState<ChatMessageJson | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+
+  const peerName = selectedFriend?.nickname || peer.slice(0, 8);
+  const peerAvatar: BubbleAvatar = { label: peerName, seed: peer };
+  const selfAvatar: BubbleAvatar = {
+    label: profile.name.trim() || "P2P",
+    seed: "self",
+    src: profile.avatar,
+  };
 
   const sendShareLink = async (link: string) => {
     await sendText(peer, link);
@@ -45,21 +56,23 @@ export function FriendConversation({ peer }: { peer: string }) {
 
   return (
     <>
-      <div data-testid="chat-conversation-header" className="shrink-0 border-b px-4 py-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <span>{selectedFriend?.nickname || peer.slice(0, 8)}</span>
+      <div
+        data-testid="chat-conversation-header"
+        className="relative flex h-12 shrink-0 items-center border-b border-border/60 px-4"
+      >
+        <div className="absolute left-1/2 flex -translate-x-1/2 items-center gap-2 text-sm font-medium">
+          <span title={peer}>{peerName}</span>
           <PeerStatusDot online={online} testId="chat-header-status" withLabel />
-          <button
-            type="button"
-            className="text-muted-foreground hover:text-foreground ml-auto inline-flex items-center gap-1 text-xs"
-            onClick={() => setShareOpen(true)}
-            data-testid="chat-share-acp"
-          >
-            <Share2 aria-hidden className="size-3.5" />
-            {t("acp.share.dialogTitle")}
-          </button>
         </div>
-        <div className="text-muted-foreground text-xs">{peer}</div>
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs hover:bg-wx-hover"
+          onClick={() => setShareOpen(true)}
+          data-testid="chat-share-acp"
+        >
+          <Share2 aria-hidden className="size-3.5" />
+          {t("acp.share.dialogTitle")}
+        </button>
       </div>
       <MessageList
         peer={peer}
@@ -70,6 +83,8 @@ export function FriendConversation({ peer }: { peer: string }) {
         onCancelPending={(id) => cancelPending(peer, id)}
         onReply={setReplyTarget}
         onRetry={(message) => void retrySend(message)}
+        selfAvatar={selfAvatar}
+        peerAvatar={peerAvatar}
       />
       {nodeStopped ? <NodeStoppedCard /> : null}
       <Composer

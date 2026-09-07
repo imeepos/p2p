@@ -55,11 +55,11 @@ export function ConversationList({
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b p-2">
+      <div className="px-2.5 pt-2.5 pb-1.5">
         <div className="relative">
           <SearchIcon
             aria-hidden
-            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-4 -translate-y-1/2"
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2"
           />
           <Input
             value={query}
@@ -67,7 +67,7 @@ export function ConversationList({
             placeholder={t("chat.conversations.searchPlaceholder")}
             aria-label={t("chat.conversations.searchPlaceholder")}
             data-testid="conversation-search"
-            className="pl-8"
+            className="border-transparent bg-wx-hover focus-visible:bg-background focus-visible:border-primary/50 h-8 rounded-md pl-8 text-xs"
           />
         </div>
       </div>
@@ -104,7 +104,7 @@ export function ConversationList({
         />
       ) : (
         <ul
-          className="scroll-slim min-h-0 flex-1 divide-y overflow-y-auto"
+          className="scroll-slim min-h-0 flex-1 overflow-y-auto"
           data-testid="conversation-items"
         >
           {visible.map((entry) => (

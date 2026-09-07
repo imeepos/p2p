@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ImagePlus, Send, Smile, X } from "lucide-react";
+import { ImagePlus, Smile, X } from "lucide-react";
 
 import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
@@ -185,34 +185,39 @@ export function Composer({
     })();
   };
 
+  // WX1 微信风格输入条：图标工具行在上、无边框输入区居中、发送按钮沉底右。
+  // 空内容/超长/发送中禁用（灰态）；可发送时按钮转微信绿。
+  const sendActive = canSend && !disabled;
   return (
-    <div className="shrink-0 border-t p-3">
+    <div className="shrink-0 border-t border-border/60 bg-background px-3 pt-1 pb-2.5">
       {replyTarget ? <ReplyPreview target={replyTarget} onCancel={onReplyCancel} /> : null}
       {emojiOpen ? (
         <div className="mb-2">
           <EmojiPicker onPick={insertEmoji} />
         </div>
       ) : null}
-      <div className="flex items-end gap-2">
+      <div className="flex items-center gap-0.5">
         <Button
           type="button"
           variant="ghost"
           size="icon"
+          className="text-muted-foreground hover:text-foreground size-7 rounded-md"
           aria-label={t("chat.emoji")}
           disabled={disabled}
           onClick={() => setEmojiOpen((open) => !open)}
         >
-          <Smile className="size-4" />
+          <Smile className="size-4.5" />
         </Button>
         <Button
           type="button"
           variant="ghost"
           size="icon"
+          className="text-muted-foreground hover:text-foreground size-7 rounded-md"
           aria-label={t("chat.attach")}
           disabled={sending || disabled}
           onClick={() => fileRef.current?.click()}
         >
-          <ImagePlus className="size-4" />
+          <ImagePlus className="size-4.5" />
         </Button>
         <input
           ref={fileRef}
@@ -221,47 +226,58 @@ export function Composer({
           data-testid="chat-file-input"
           onChange={(event) => pickFile(event.target.files?.[0])}
         />
-        <Textarea
-          ref={textareaRef}
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={onKeyDown}
-          {...compositionHandlers}
-          placeholder={t("chat.inputPlaceholder")}
-          aria-label={t("chat.inputPlaceholder")}
-          data-testid={ids.input}
-          disabled={disabled}
-          className={cn("min-h-10 flex-1", tooLong && "border-destructive")}
-        />
+      </div>
+      <Textarea
+        ref={textareaRef}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={onKeyDown}
+        {...compositionHandlers}
+        placeholder={t("chat.inputPlaceholder")}
+        aria-label={t("chat.inputPlaceholder")}
+        data-testid={ids.input}
+        disabled={disabled}
+        className={cn(
+          "min-h-16 resize-none border-0 bg-transparent px-1 py-1.5 shadow-none focus-visible:ring-0 dark:bg-transparent",
+          tooLong && "text-destructive",
+        )}
+      />
+      <div className="flex min-h-8 items-center gap-2">
+        {showCharCount || tooLong ? (
+          <>
+            {tooLong ? (
+              <p className="text-destructive text-xs" role="alert" data-testid="chat-text-too-long">
+                {t("chat.textTooLong")}
+              </p>
+            ) : null}
+            <span
+              data-testid="chat-char-count"
+              aria-live="polite"
+              className={cn(
+                "text-muted-foreground ml-auto shrink-0 text-xs tabular-nums",
+                tooLong && "text-destructive",
+              )}
+            >
+              {t("chat.charCount", { count: charCount, max: MAX_TEXT_CHARS })}
+            </span>
+          </>
+        ) : null}
         <Button
           type="button"
+          size="sm"
+          className={cn(
+            "ml-auto min-w-18",
+            sendActive
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "bg-secondary text-muted-foreground border-border/60 border",
+          )}
           onClick={() => void send()}
           disabled={!canSend || disabled}
           data-testid={ids.send}
         >
-          <Send className="size-4" />
           {t("chat.send")}
         </Button>
       </div>
-      {showCharCount || tooLong ? (
-        <div className="mt-1 flex items-center justify-between gap-2 text-xs">
-          {tooLong ? (
-            <p className="text-destructive" role="alert" data-testid="chat-text-too-long">
-              {t("chat.textTooLong")}
-            </p>
-          ) : null}
-          <span
-            data-testid="chat-char-count"
-            aria-live="polite"
-            className={cn(
-              "text-muted-foreground ml-auto shrink-0 tabular-nums",
-              tooLong && "text-destructive",
-            )}
-          >
-            {t("chat.charCount", { count: charCount, max: MAX_TEXT_CHARS })}
-          </span>
-        </div>
-      ) : null}
     </div>
   );
 }
