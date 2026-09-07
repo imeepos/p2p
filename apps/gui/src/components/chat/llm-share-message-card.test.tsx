@@ -98,14 +98,13 @@ describe("llm-share 聊天卡片（scheme dsh-llm-share://，独立域）", () =
   });
 
   it("业务拒绝码原样透出：revoked 显示对应文案不本地化改写", async () => {
-    const { mock } = makeLlmShareMockPair();
-    const entry = mock.seedShare({
+    const { backend, mock } = makeLlmShareMockPair();
+    mock.seedShare({
       token: TOKEN,
       models: ["gpt-4o"],
       revoked: true,
     });
-    void entry;
-    renderCard(linkOf(), makeLlmShareMockPair().backend);
+    renderCard(linkOf(), backend);
     fireEvent.click(screen.getByTestId("chat-llm-share-join"));
     expect(await screen.findByTestId("chat-llm-share-denied")).toBeTruthy();
     expect(screen.getByTestId("chat-llm-share-denied").textContent).toContain(
