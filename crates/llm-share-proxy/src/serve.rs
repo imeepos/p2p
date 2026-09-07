@@ -195,6 +195,13 @@ impl LenderProxy {
         usage: Usage,
         estimated: bool,
     ) -> Receipt {
+        // hint 取自请求实际路由（admit 已校验 req.model 在 cfg.models，同源不另开状态）。
+        let upstream_hint = self
+            .cfg
+            .models
+            .get(&req.model)
+            .map(|r| r.upstream.protocol_hint())
+            .unwrap_or("openai");
         let mut receipt = Receipt {
             v: 1,
             req_id: req.req_id.clone(),
@@ -204,7 +211,7 @@ impl LenderProxy {
             model: req.model.clone(),
             usage,
             estimated,
-            upstream_hint: "openai".into(),
+            upstream_hint: upstream_hint.into(),
             ts: now_secs(),
             sig: String::new(),
         };
