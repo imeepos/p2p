@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { peerDialMock } = vi.hoisted(() => ({ peerDialMock: vi.fn() }));
@@ -32,15 +32,19 @@ beforeEach(() => {
 });
 
 describe("拨号目标结构化（F11）与端口即时校验（F14）", () => {
-  it("端口失焦即时校验：非法端口就地提示且提交禁用，修正后恢复", () => {
+  it("端口失焦即时校验：非法端口就地提示且提交禁用，修正后恢复", async () => {
     render(<PeerDialDialog open onOpenChange={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: PEER_ID } });
     fireEvent.change(screen.getByLabelText("地址"), { target: { value: "192.168.1.9" } });
     const port = screen.getByTestId("dial-port");
     fireEvent.change(port, { target: { value: "99999" } });
-    // 失焦前不提示（输入中不打断）
+    // 失焦前不提示（输入中不打断）；失焦口径同 settings-port-blur：
+    // 真实交互同款 focus-then-blur 事件对（headless 程序化 blur 无事件，UX-J）
     expect(screen.queryByTestId("dial-port-error")).toBeNull();
-    fireEvent.blur(port);
+    await act(async () => {
+      port.focus();
+      port.blur();
+    });
     const error = screen.getByTestId("dial-port-error");
     expect(error.getAttribute("role")).toBe("alert");
     expect(port.getAttribute("aria-invalid")).toBe("true");

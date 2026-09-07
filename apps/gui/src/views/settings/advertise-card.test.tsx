@@ -47,8 +47,10 @@ describe("AdvertiseCard（F13/F14）", () => {
     const port = screen.getByLabelText("观测端口") as HTMLInputElement;
     fireEvent.change(port, { target: { value: "99999" } });
     expect(screen.queryByRole("alert")).toBeNull();
+    // 真实交互同款 focus-then-blur 事件对（headless 程序化 blur 无事件，UX-J）
     await act(async () => {
-      fireEvent.blur(port);
+      port.focus();
+      port.blur();
     });
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toContain("观测端口需为 1-65535");

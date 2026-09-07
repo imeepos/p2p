@@ -23,9 +23,14 @@ function Harness() {
   );
 }
 
+// 终验 F14 复盘：headless Chrome 里程序化 focus()+blur() 对 React 派发不出
+// 任何焦点事件（UX-J known-issues），走查端因此误报「失焦无校验」。单测必须
+// 以真实交互同款 focus-then-blur 事件对断言（jsdom 下 blur() 冒泡 focusout，
+// 与用户点击别处走同一条 React 委托路径），裸 fireEvent.blur 不再作失焦口径。
 async function blur(input: HTMLElement) {
   await act(async () => {
-    fireEvent.blur(input);
+    input.focus();
+    input.blur();
   });
 }
 
