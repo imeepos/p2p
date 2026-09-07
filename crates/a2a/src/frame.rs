@@ -153,11 +153,7 @@ impl TaskRequest {
         Self::new(
             "tasks/create",
             id,
-            serde_json::to_value(TaskCreateParams {
-                agent_id: agent_id.into(),
-                message,
-            })
-            .expect("params serializable"),
+            serde_json::json!({ "agentId": agent_id, "message": message }),
         )
     }
 
@@ -165,34 +161,16 @@ impl TaskRequest {
         Self::new(
             "tasks/send",
             id,
-            serde_json::to_value(TaskSendParams {
-                task_id: task_id.into(),
-                message,
-            })
-            .expect("params serializable"),
+            serde_json::json!({ "taskId": task_id, "message": message }),
         )
     }
 
     pub fn get(task_id: &str, id: u64) -> Self {
-        Self::new(
-            "tasks/get",
-            id,
-            serde_json::to_value(TaskIdParams {
-                task_id: task_id.into(),
-            })
-            .expect("params serializable"),
-        )
+        Self::new("tasks/get", id, serde_json::json!({ "taskId": task_id }))
     }
 
     pub fn cancel(task_id: &str, id: u64) -> Self {
-        Self::new(
-            "tasks/cancel",
-            id,
-            serde_json::to_value(TaskIdParams {
-                task_id: task_id.into(),
-            })
-            .expect("params serializable"),
-        )
+        Self::new("tasks/cancel", id, serde_json::json!({ "taskId": task_id }))
     }
 }
 

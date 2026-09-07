@@ -7,6 +7,11 @@ pub mod card;
 pub mod frame;
 pub mod task;
 
+#[cfg(test)]
+mod card_tests;
+#[cfg(test)]
+mod task_tests;
+
 /// 协议 ID（wire-protocol §3：/命名空间/名字/版本，JSON 编码）。
 /// 自 crate 定义（llm-share-offer 先例），wire-protocol §3.2 表登记。
 pub const PROTOCOL_ID: &str = "/a2a/1";
