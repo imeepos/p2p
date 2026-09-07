@@ -497,9 +497,9 @@ interface AcpConsoleStatus {
 | llm_share_allow_list | - | { entries: LlmAllowEntry[] } | 白名单清单 |
 | llm_share_allow | peerId, models?: string[], note? | LlmAllowlistView | models 缺省=不限模型（原话）；deny 不存在条目=显式报错非错误态 |
 | llm_share_deny | peerId | LlmAllowlistView | 移除白名单 |
-| llm_share_borrow | req{model, messages, maxTokens(必填), targetPeer(必填), reqId?} | LlmBorrowReport | targetPeer 无缺省路径，缺出借方=IPC 层显式报错；reqId 客户端生成 UUID 重试复用，缺省 IPC 层生成 |
+| llm_share_borrow | req{model, messages(纯文本或 OpenAI 数组 JSON，非数组由 IPC 层包装为单条用户消息), maxTokens(必填), targetPeer(必填), reqId?} | LlmBorrowReport | targetPeer 无缺省路径，缺出借方=IPC 层显式报错；reqId 客户端生成 UUID 重试复用，缺省 IPC 层生成 |
 | llm_share_ledger_list | filter{lender?, borrower?, period?} | LlmLedgerEntry[] | 账本流水 |
-| llm_share_ledger_balance | - | LlmBalanceGroup[]{lender, period, netAmount, direction} | 净差按 lender+period 切分，正负号=借贷方向 |
+| llm_share_ledger_balance | - | LlmBalanceGroup[]{lender, period, lentOut, borrowed, netAmount, entries, direction(lent/borrowed/flat)} | 净差按 lender+period 切分，正负号=借贷方向；lentOut/borrowed/entries 供明细行插值 |
 | llm_share_receipt_verify | reqId, lenderPubkey? | LlmReceiptVerifyResult | 缺省本机身份仅出借方自验；借方场景须传出借方公钥或从账本条目取 |
 
 LlmBorrowReport{status: done|stream_broken|rejected, receipt{reqId, appended, estimated, disputeWindowSecs}, sseCount, usage?, code?, message?}

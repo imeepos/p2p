@@ -153,13 +153,13 @@ impl From<LedgerEntryView> for LlmLedgerEntry {
     }
 }
 
-/// 净差方向（§16.1：正负号=借贷方向）。
+/// 净差方向（§16.1：正负号=借贷方向；wire 值与前端 LlmBalanceDirection 逐字对齐）。
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum LlmBalanceDirection {
-    LentOut,
+    Lent,
     Borrowed,
-    Even,
+    Flat,
 }
 
 /// 净差分组行（§16.1 LlmBalanceGroup）。
@@ -168,7 +168,10 @@ pub enum LlmBalanceDirection {
 pub struct LlmBalanceGroup {
     pub lender: String,
     pub period: String,
+    pub lent_out: u64,
+    pub borrowed: u64,
     pub net_amount: i64,
+    pub entries: usize,
     pub direction: LlmBalanceDirection,
 }
 
@@ -177,11 +180,14 @@ impl From<BalanceRow> for LlmBalanceGroup {
         Self {
             lender: r.lender,
             period: r.period,
+            lent_out: r.lent_out,
+            borrowed: r.borrowed,
             net_amount: r.net,
+            entries: r.entries,
             direction: match r.net {
-                n if n > 0 => LlmBalanceDirection::LentOut,
+                n if n > 0 => LlmBalanceDirection::Lent,
                 n if n < 0 => LlmBalanceDirection::Borrowed,
-                _ => LlmBalanceDirection::Even,
+                _ => LlmBalanceDirection::Flat,
             },
         }
     }

@@ -134,7 +134,7 @@ pub async fn borrow(
         lender: plan.target_peer,
         model: plan.model,
         prompt: None,
-        messages_json: Some(plan.messages),
+        messages_json: Some(messages_payload(&plan.messages)),
         max_tokens: Some(plan.max_tokens),
         addr: None,
         bootstrap: cfg.bootstrap.clone(),
@@ -145,6 +145,23 @@ pub async fn borrow(
         req_id: Some(plan.req_id),
     };
     borrow::run(&params).await.map(LlmBorrowReport::from)
+}
+
+/// 表单「消息」向 wire 契约的适配（§16.2-6）：表单承诺纯文本，OpenAI 数组
+/// JSON 也收——数组原样透传，其余（纯文本/非数组 JSON）一律包装为单条用户
+/// 消息，对齐 CLI --prompt 语义；GUI 侧不再出现「--messages 不是合法 JSON」。
+pub(crate) fn messages_payload(text: &str) -> String {
+    match serde_json::from_str::<serde_json::Value>(text) {
+        Ok(value) if value.is_array() => text.to_owned(),
+        _ => {
+            let content = serde_json::Value::String(text.to_owned());
+            let arr = serde_json::Value::Array(vec![serde_json::json!({
+                "role": "user",
+                "content": content,
+            })]);
+            serde_json::to_string(&arr).unwrap_or_default()
+        }
+    }
 }
 
 /// borrow 请求规约化结果（tests 直调覆盖必填缺省报错路径）。

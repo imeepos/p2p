@@ -114,7 +114,7 @@ fn smoke_ledger_list_and_balance_views() {
     assert_eq!(rows.len(), 2, "lender/borrower 两侧各一组");
     assert!(rows
         .iter()
-        .any(|r| r.net_amount > 0 && r.direction == LlmBalanceDirection::LentOut));
+        .any(|r| r.net_amount > 0 && r.direction == LlmBalanceDirection::Lent));
     assert!(rows
         .iter()
         .any(|r| r.net_amount < 0 && r.direction == LlmBalanceDirection::Borrowed));

@@ -169,15 +169,31 @@ fn serde_ledger_entry_and_balance_group_shapes() {
     .unwrap();
     assert_eq!(entry.tokens, 6912);
     let lent: LlmBalanceGroup = serde_json::from_str(
-        r#"{"lender":"l","period":"2026-09","netAmount":40,"direction":"lent_out"}"#,
+        r#"{"lender":"l","period":"2026-09","lentOut":40,"borrowed":0,"netAmount":40,"entries":1,"direction":"lent"}"#,
     )
     .unwrap();
-    assert_eq!(lent.direction, LlmBalanceDirection::LentOut);
+    assert_eq!(lent.direction, LlmBalanceDirection::Lent);
     let borrowed: LlmBalanceGroup = serde_json::from_str(
-        r#"{"lender":"l","period":"2026-09","netAmount":-6912,"direction":"borrowed"}"#,
+        r#"{"lender":"l","period":"2026-09","lentOut":0,"borrowed":6912,"netAmount":-6912,"entries":1,"direction":"borrowed"}"#,
     )
     .unwrap();
     assert_eq!(borrowed.direction, LlmBalanceDirection::Borrowed);
+    // 消费方契约（前端 ledger-balance.tsx 插值字段）：序列化键集逐字断言，防视图漂移
+    let wire = serde_json::to_value(&borrowed).unwrap();
+    for key in [
+        "lender",
+        "period",
+        "lentOut",
+        "borrowed",
+        "netAmount",
+        "entries",
+        "direction",
+    ] {
+        assert!(wire.get(key).is_some(), "缺消费方字段 {key}");
+    }
+    assert_eq!(wire["direction"], json!("borrowed"));
+    assert_eq!(wire["lentOut"], json!(0));
+    assert_eq!(wire["entries"], json!(1));
 }
 
 #[test]
@@ -189,4 +205,27 @@ fn serde_receipt_verify_result_shape() {
         serde_json::to_value(&result).unwrap(),
         serde_json::from_str::<serde_json::Value>(text).unwrap()
     );
+}
+
+#[test]
+fn messages_payload_plain_text_wraps_as_user_message() {
+    let wire = crate::llm_share::flows::messages_payload("realflow plain text probe");
+    let value: serde_json::Value = serde_json::from_str(&wire).unwrap();
+    assert_eq!(
+        value,
+        json!([{ "role": "user", "content": "realflow plain text probe" }])
+    );
+}
+
+#[test]
+fn messages_payload_array_json_passes_through_unchanged() {
+    let raw = r#"[{"role":"user","content":"already-openai"}]"#;
+    assert_eq!(crate::llm_share::flows::messages_payload(raw), raw);
+}
+
+#[test]
+fn messages_payload_non_array_json_still_wraps() {
+    let wire = crate::llm_share::flows::messages_payload(r#"{"role":"user"}"#);
+    let value: serde_json::Value = serde_json::from_str(&wire).unwrap();
+    assert!(value.is_array(), "非数组 JSON 也须包装为消息数组");
 }
