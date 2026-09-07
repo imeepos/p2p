@@ -43,6 +43,14 @@ main @ ec1b783：vitest 157 文件 919 用例全绿（冷启高负载下会出�
 - worktree/本地与远端分支已清理；三会话已归档。
 - 交付报告：docs/notes/2026-09-07-ux{ i-events-page, j-form-labels, k-flow-consistency }-delivery.md。
 
+## 终验收官（2026-09-07 08:38）
+
+- 终验报告：docs/notes/2026-09-07-ux-final-walkthrough.md（28 条逐条页面实测，28/28 有 DOM 断言+截图证据）。
+- 首轮结论：25 修复 / 2 部分(F21/F23) / 1 未修复(F14)；跨卡协同 F12→?dial=/?add= 全链实测贯通。
+- 返工单 fix/ux-rework-final @ 117911c 已合入 main：F14/F21 经真实交互复测定性为走查端假阴性（headless 程序化焦点事件不派发 / 纯图标按钮无文本断言漏检），测试口径已加固；F23 建群成员检索与已选置顶为真缺口已修；dashboard.title 旧键清理；mock 态 data-watch 噪音降级。
+- 最终门禁（main @ 117911c）：tsc 0、eslint 0、check:i18n zh=en=1170、vitest 183 文件 1080 用例全绿。
+- 会话全部归档，worktree/分支全部清理（本轨零残留）。
+
 ## 终验（2026-09-07 06:12 派）
 
 终验走查会话 session-991a45b9：对 28 条 finding 逐条页面实测，产出 docs/notes/2026-09-07-ux-final-walkthrough.md。未修复项将派返工单。
