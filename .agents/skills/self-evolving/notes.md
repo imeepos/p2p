@@ -190,3 +190,13 @@
 - 最耗时：环境三连坑——vite-plus node 挂起、worktree 缺 node_modules、vitest 负载假超时；门禁环境先探通再写码更省。
 - skill 预警：techniques 已有「bash 全新 shell 必须显式 cd」，但 node 工具链挂起与 hardcoded-copy 行尾注释是新坑，本次已喂回。
 - 重来一次：开工先跑通最小门禁（i18n-diff + 单测文件）再动手写码，环境问题前置暴露。
+
+## 2026-09-07 ACP 多工作区与分享打磨轮复盘
+
+- 哪个坑浪费了最多时间？
+  run_code 中对大文件的 write 偶发截断（admin_tests.rs、en-US.ts、zh-CN.ts），以及把长模板串和 bash 串混在同一调用导致解析失败；另有 workdir 传错导致 pnpm 在仓库根目录执行。一次 merge 时还把“当前分支 HEAD”误认成 main，导致冲突恢复返工。
+- skill 有没有提前警告我？
+  已有模板串转义、read 后 edit、workdir 自证和静默空输出经验，但没有明确“每次大文件 write 后必须立刻校验总行数/尾部”，也没有把 merge 前先 pwd + branch + status 作为不可跳过步骤。
+- 重来一次我会怎么做？
+  大文件优先用小范围 edit 或经过验证的临时脚本，写入后立即 read 尾部和 wc；每个 bash 命令显式在命令内 cd，并先输出 pwd/branch；merge 前先确认目标 worktree 与分支，冲突只在 feature worktree 消化，再做门禁。
+

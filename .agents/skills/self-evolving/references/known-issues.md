@@ -330,6 +330,12 @@ failed: early eof（客户端侧超时中止）。
 
 ## 2026-09-04 reset_min_uptime 恰等于探测死亡窗口：0% 探测成功的会话被判健康（线上日志分析）
 - 症状：三个 peer 会话寿命恒为 30.004-30.008s（3x10s 探测网格，首探即 early eof），每次重连都打 backoff reset: previous session healthy，退避永不升级，delay 恒 800ms、attempts 恒 1，30s 周期重连风暴无限循环。
+
+## 2026-09-07 run_code 大文件 write 偶发截断
+- 症状：write 工具返回成功或后续命令静默失败，但目标文件停在中间，出现 Unterminated string、unclosed delimiter 或大量测试突然失败。
+- 原因：大段模板内容经过运行时传输时可能被截断；同一 run_code 中后续 bash 解析错误也可能让前面的意图未执行，且 workdir 偶尔传错使验证落在仓库根目录。
+- 修法：大文件改用小范围 edit 或临时脚本；每次写后立刻 read 尾部、wc -l、typecheck；bash 内显式 cd 并输出 pwd/branch，解析错误后重新 read，不能假设前序 edit 已落盘。
+
 - 原因：mark_connected 以 uptime 不小于 reset_min_uptime(30s) 判健康，而会话寿命恰被 max_probe_misses x probe_interval = 3x10s 钉死在 30s——「活得够久」与「探测成功」完全脱钩，参数互撞使健康判定形同虚设；且 EOF（对端关流/连接已死）与超时不分，白等满 3 次才断链。
 - 修法：健康判定追加「本会话至少一次 probe 成功」；EOF 型探测失败立即断链不等满次数；新增超时参数时先核对与既有定时器网格（探测间隔/退避/保活）的倍数关系，避免语义相消。
 
