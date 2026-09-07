@@ -1053,6 +1053,7 @@ const zhCN = {
     },
     local: {
       card: "本地工作区",
+      manage: "本地 ACP 管理",
       refresh: "刷新工作区",
       shareAction: "分享",
       empty: "未发现本机 agent：启动 acp-agent 后这里会自动接入",
@@ -1180,6 +1181,7 @@ const zhCN = {
   },
   acpManage: {
     title: "本地 ACP 管理",
+    paletteGroup: "本地 ACP 管理",
     subtitle: "本机 agent 服务状态、工作区与会话管理",
     localCandidateLabel: "本机 agent",
     status: {

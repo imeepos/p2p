@@ -1077,6 +1077,7 @@ const enUS: typeof zhCN = {
     },
     local: {
       card: "Local workspaces",
+      manage: "Local ACP management",
       refresh: "Refresh workspaces",
       shareAction: "Share",
       empty: "No local agent found: start acp-agent and it will be picked up here",
@@ -1204,6 +1205,7 @@ const enUS: typeof zhCN = {
   },
   acpManage: {
     title: "Local ACP Management",
+    paletteGroup: "Local ACP Management",
     subtitle: "Local agent service status, workspaces, and sessions",
     localCandidateLabel: "Local agent",
     status: {
