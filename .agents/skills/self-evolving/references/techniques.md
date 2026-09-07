@@ -423,3 +423,12 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - run_code 整体有 600s 墙钟上限：bash 内 sleep 470+ 这种单块轮询可行（配 timeoutMs 540），「循环内多次 sleep+poll」必撞上限整体被斩、已产出输出也一并丢失。
 - session_link_talk 的 talkTimeoutMs 设 ≥600s 时超时以异常抛出、claimToken 随之丢失；设 ≤480s 则超时返回 delivered=true/replied=false + claimToken，事后用 session_link_collect 收割。collect 报「凭证无法识别」= 目标回合还没走到消息可见边界，稍后重试即可，别放弃 token。
 - 判断被委派会话是否卡死别用 ps 全量计数：跨项目孤儿（别的仓库同名二进制）会污染计数；按「启动时间过滤 + /tmp 专属目录新文件 + git 提交推进」三信号交叉判断。
+
+## 2026-09-07 worktree 特性开发工作流提效（acp 自描述文件特性全程）
+- edit 工具要求 read 与 edit 同一精确路径：worktree 副本即使内容与主树刚读过的一致，也必须重新 read worktree 路径，否则报 file has not been read。
+- edit 工具实际还要求 description 字段（工具目录未列出但 harness 强制），漏掉直接整批调用失败。
+- git fetch 可能挂死拖垮整条 && 链：网络操作一律独立执行 + 短超时，别和本地操作串联。
+- worktree 冷构建慢：export CARGO_TARGET_DIR=主树对应 crate 的 target 目录可复用依赖缓存（path-dep 本体重编，registry 依赖全命中）。
+- src-tauri 接 apps/ 下 crate 的 path 依赖是 ../../../apps/<crate>（src-tauri 在 apps/gui/ 下，三层 ../ 只到仓库根）。
+- eslint react-hooks/set-state-in-effect 强制生效：effect 内直接 setState 重置状态会红；用仓库惯用的「渲染期状态调整」（cached 值比对 + 条件 setState）替代。
+- vite 首跑后 node_modules 由主树共享（pnpm-workspace），worktree 里 GUI vitest 无需重新 install。
