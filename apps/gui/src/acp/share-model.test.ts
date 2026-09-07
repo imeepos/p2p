@@ -124,3 +124,18 @@ describe("buildShareLink 本地拼装兜底", () => {
     expect(round.token).toBe(TOKEN);
   });
 });
+
+describe("shareCreateBody 工作区定向", () => {
+  it("workspaceId 存在才进请求体；空值不带字段（默认工作区语义）", async () => {
+    const { shareCreateBody } = await import("./share-model");
+    expect(
+      shareCreateBody({ scope: "workspace", workspaceId: "ws1", ttl: "1h", maxActivations: 1, note: "" }),
+    ).toEqual({ scope: "workspace", ttl_secs: 3_600, max_activations: 1, note: "", workspace: "ws1" });
+    expect(shareCreateBody({ scope: "workspace", ttl: "1h", maxActivations: 1, note: "" })).toEqual({
+      scope: "workspace",
+      ttl_secs: 3_600,
+      max_activations: 1,
+      note: "",
+    });
+  });
+});

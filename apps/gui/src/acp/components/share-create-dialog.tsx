@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,12 @@ import {
 } from "@/components/ui/select";
 import { toastError } from "@/components/feedback/toast";
 import { CopyButton } from "@/components/monitor/copy-button";
+import { ShareCreateFields } from "./share-create-fields";
+import { ShareSendTargets } from "./share-send-targets";
 import { useAcpStore } from "@/acp/acp-store";
 import { adminEndpointCandidates } from "@/acp/admin-endpoints";
 import { useLocalAdminCandidate } from "@/acp/use-local-admin";
-import { createShare } from "@/acp/share-admin-client";
+import { createShare, listWorkspaces, type AcpWorkspace } from "@/acp/share-admin-client";
 import {
   hasShareCreateErrors,
   shareCreateBody,
@@ -34,24 +36,18 @@ import {
 } from "@/acp/share-model";
 import type { I18nKey } from "@/i18n/types";
 
-const TTL_KEYS: ShareTtlKey[] = ["1h", "24h", "7d"];
-
-const TTL_LABEL_KEY: Record<ShareTtlKey, I18nKey> = {
-  "1h": "acp.share.ttl1h",
-  "24h": "acp.share.ttl24h",
-  "7d": "acp.share.ttl7d",
-};
-
 interface ShareCreateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** 聊天页入口传入：把链接作为普通文本消息发进当前会话（§8） */
   onSendLink?: (link: string) => Promise<void>;
+  /** 本地工作区行入口预选的 workspace id。 */
+  initialWorkspaceId?: string;
 }
 
 /** owner 创建分享弹层（§8）：scope/有效期档位/激活次数/备注 → admin POST /shares
  *  → 展示链接 + 复制 + 发送到当前聊天。admin 端点候选来自 endpoint 登记。 */
-export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreateDialogProps) {
+export function ShareCreateDialog({ open, onOpenChange, onSendLink, initialWorkspaceId }: ShareCreateDialogProps) {
   const { t } = useTranslation();
   const saved = useAcpStore((s) => s.saved);
   const draft = useAcpStore((s) => s.draft);
@@ -64,6 +60,8 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
 
   const [endpointId, setEndpointId] = useState<string | null>(null);
   const [scope, setScope] = useState<ShareScope>("sandbox");
+  const [workspaces, setWorkspaces] = useState<AcpWorkspace[] | null>(null);
+  const [workspaceId, setWorkspaceId] = useState<string>("");
   const [ttl, setTtl] = useState<ShareTtlKey>("1h");
   const [activations, setActivations] = useState("1");
   const [note, setNote] = useState("");
@@ -79,6 +77,8 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
     if (open) {
       setEndpointId(null);
       setScope("sandbox");
+      setWorkspaces(null);
+      setWorkspaceId(initialWorkspaceId ?? "");
       setTtl("1h");
       setActivations("1");
       setNote("");
@@ -89,6 +89,28 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
   }
 
   const endpoint = candidates.find((c) => c.id === endpointId) ?? candidates[0] ?? localCandidate;
+
+  // 工作区清单（多工作区加法）：端点就绪且选中 workspace 范围后才拉取；
+  // 旧 agent 无此端点 → 空表回落默认工作区（body 不带 workspace 字段）。
+  const endpointUrl_ = endpoint?.url ?? null;
+  const endpointToken_ = endpoint?.token ?? "";
+  useEffect(() => {
+    if (!open || scope !== "workspace" || !endpointUrl_) return;
+    let dead = false;
+    listWorkspaces(endpointUrl_, endpointToken_)
+      .then((rows) => {
+        if (dead) return;
+        setWorkspaces(rows);
+        // 展示的默认项即定向目标：未显式选择时播种首行（所见即所分享）
+        setWorkspaceId((prev) => prev || rows[0]?.id || "");
+      })
+      .catch(() => {
+        if (!dead) setWorkspaces([]);
+      });
+    return () => {
+      dead = true;
+    };
+  }, [open, scope, endpointUrl_, endpointToken_]);
 
   const create = async () => {
     const maxActivations = Number(activations);
@@ -103,6 +125,7 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
     try {
       const out = await createShare(endpoint.url, endpoint.token, shareCreateBody({
         scope,
+        workspaceId: scope === "workspace" ? workspaceId || null : null,
         ttl,
         maxActivations,
         note,
@@ -168,86 +191,39 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink }: ShareCreat
                 </Select>
               </div>
             ) : null}
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <Label>{t("acp.share.scopeLabel")}</Label>
-                <Select value={scope} onValueChange={(v) => setScope(v as ShareScope)}>
-                  <SelectTrigger className="w-full" data-testid="acp-share-scope">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="sandbox">{t("acp.share.scopeSandbox")}</SelectItem>
-                    <SelectItem value="workspace">{t("acp.share.scopeWorkspace")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                {scope === "workspace" ? (
-                  <p className="text-muted-foreground text-xs">
-                    {t("acp.share.scopeWorkspaceHint")}
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label>{t("acp.share.ttlLabel")}</Label>
-                <Select value={ttl} onValueChange={(v) => setTtl(v as ShareTtlKey)}>
-                  <SelectTrigger className="w-full" data-testid="acp-share-ttl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TTL_KEYS.map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {t(TTL_LABEL_KEY[key])}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="acp-share-activations">{t("acp.share.activationsLabel")}</Label>
-                <Input
-                  id="acp-share-activations"
-                  type="number"
-                  min={1}
-                  value={activations}
-                  onChange={(e) => {
-                    setActivations(e.target.value);
-                    setErrors(null);
-                  }}
-                  data-testid="acp-share-activations"
-                />
-                {errors?.activations ? (
-                  <p className="text-destructive text-xs" data-testid="acp-share-error-activations">
-                    {t("acp.share.validation.activations")}
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="acp-share-note">{t("acp.share.noteLabel")}</Label>
-                <Input
-                  id="acp-share-note"
-                  value={note}
-                  onChange={(e) => {
-                    setNote(e.target.value);
-                    setErrors(null);
-                  }}
-                  placeholder={t("acp.share.notePlaceholder")}
-                  autoComplete="off"
-                  data-testid="acp-share-note"
-                />
-                {errors?.note ? (
-                  <p className="text-destructive text-xs" data-testid="acp-share-error-note">
-                    {t("acp.share.validation.noteTooLong")}
-                  </p>
-                ) : null}
-              </div>
-            </div>
+            <ShareCreateFields
+              scope={scope}
+              onScopeChange={setScope}
+              ttl={ttl}
+              onTtlChange={setTtl}
+              activations={activations}
+              onActivationsChange={(v) => {
+                setActivations(v);
+                setErrors(null);
+              }}
+              note={note}
+              onNoteChange={(v) => {
+                setNote(v);
+                setErrors(null);
+              }}
+              errors={errors}
+              onClearErrors={() => setErrors(null)}
+              workspaces={workspaces}
+              workspaceId={workspaceId}
+              onWorkspaceChange={setWorkspaceId}
+            />
+
             {link ? (
-              <div className="flex flex-col gap-1" data-testid="acp-share-link-area">
-                <Label>{t("acp.share.linkLabel")}</Label>
-                <div className="flex items-center gap-1">
-                  <Input readOnly value={link} className="font-mono text-xs" data-testid="acp-share-link" />
-                  <CopyButton value={link} data-testid="acp-share-copy" />
+              <>
+                <div className="flex flex-col gap-1" data-testid="acp-share-link-area">
+                  <Label>{t("acp.share.linkLabel")}</Label>
+                  <div className="flex items-center gap-1">
+                    <Input readOnly value={link} className="font-mono text-xs" data-testid="acp-share-link" />
+                    <CopyButton value={link} data-testid="acp-share-copy" />
+                  </div>
                 </div>
-              </div>
+                <ShareSendTargets link={link} />
+              </>
             ) : null}
           </div>
         )}

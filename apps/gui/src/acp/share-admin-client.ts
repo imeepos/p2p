@@ -5,6 +5,13 @@
 import type { ShareEntry, ShareLinkParts } from "./share-model";
 import { buildShareLink } from "./share-model";
 
+/** agent 本机工作区行（admin GET /workspaces；多工作区分享的 GUI 数据源） */
+export interface AcpWorkspace {
+  id: string;
+  name: string;
+  dir: string;
+}
+
 export interface ShareCreateResponse {
   shareId: string;
   /** token 原文：只出现在创建响应与链接里一次，绝不落日志 */
@@ -74,6 +81,20 @@ export async function createShare(
   return { shareId, token, link, expiresAtUnix: parts.expUnix };
 }
 
+/** 工作区清单；旧 agent（无此端点）返回 404 → 空列表（创建回退默认工作区） */
+export async function listWorkspaces(
+  adminUrl: string,
+  adminToken: string,
+): Promise<AcpWorkspace[]> {
+  const url = adminUrl.replace(/\/+$/, "") + "/workspaces";
+  const data: Record<string, unknown> = await adminJson(url, adminToken).catch(() => ({}));
+  const raw: unknown[] = Array.isArray(data.workspaces) ? data.workspaces : [];
+  return raw
+    .filter((w): w is Record<string, unknown> => !!w && typeof w === "object")
+    .map((w) => ({ id: asString(w.id), name: asString(w.name), dir: asString(w.dir) }))
+    .filter((w) => w.id !== "");
+}
+
 function toEntry(item: unknown): ShareEntry | null {
   if (!item || typeof item !== "object") return null;
   const r = item as Record<string, unknown>;
@@ -83,6 +104,7 @@ function toEntry(item: unknown): ShareEntry | null {
   return {
     share_id: shareId,
     scope,
+    workspace: asString(r.workspace) || null,
     allow_mcp: asStringArray(r.allow_mcp),
     max_activations: asNumber(r.max_activations) ?? 1,
     activations: asNumber(r.activations) ?? 0,

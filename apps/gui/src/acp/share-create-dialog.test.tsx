@@ -24,11 +24,14 @@ function stubCreatefetch(link: string) {
   return fetchMock;
 }
 
+/** 只取带 body 的 POST 调用（GET /workspaces 等查询不带 body，不参与创建契约断言） */
 function callsOf(fetchMock: ReturnType<typeof vi.fn>) {
-  return fetchMock.mock.calls.map(
-    ([url, init]) =>
-      [url, JSON.parse((init as RequestInit).body as string)] as [string, Record<string, unknown>],
-  );
+  return fetchMock.mock.calls
+    .filter(([, init]) => !!(init as RequestInit | undefined)?.body)
+    .map(
+      ([url, init]) =>
+        [url, JSON.parse((init as RequestInit).body as string)] as [string, Record<string, unknown>],
+    );
 }
 
 beforeEach(() => {
@@ -126,5 +129,40 @@ describe("ShareCreateDialog 表单校验与提交契约", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("ShareCreateDialog 多工作区定向（2026-09-07 加法）", () => {
+  it("scope=workspace 且 agent 有工作区清单：POST 体携带定向 workspace id", async () => {
+    const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+      if (String(url).endsWith("/workspaces")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            workspaces: [
+              { id: "ws1", name: "p2p", dir: "/home/me/p2p" },
+              { id: "ws2", name: "blog", dir: "/home/me/blog" },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ share_id: "sid-9", token: TOKEN32, link: LINK, expires_at_unix: 3_000 }),
+      };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ShareCreateDialog open onOpenChange={vi.fn()} />);
+    await pickOption("acp-share-scope", "工作区目录");
+    const picker = await screen.findByTestId("acp-share-workspace");
+    expect(picker).toBeTruthy();
+    fireEvent.click(screen.getByTestId("acp-share-create"));
+    await waitFor(() => {
+      expect(screen.getByTestId("acp-share-link")).toBeTruthy();
+    });
+    const posts = callsOf(fetchMock);
+    expect(posts[0][1]).toMatchObject({ scope: "workspace", workspace: "ws1" });
   });
 });
