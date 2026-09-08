@@ -95,12 +95,17 @@ token 锚定（网关抖动期与 edits 内容塌缩时的更稳替代，见下�
 
 ```bash
 set -a; source .env; set +a
-python3 tools/specs.py   # prompt 定义
-# 单图：见 tools/run.py（串行+重试封装）；或按上文参数直接 curl
+python3 tools/generate.py                    # 生成全部缺失页（串行+重试）
+python3 tools/generate.py --only 03-network  # 单页重出
+python3 tools/generate.py --mode edits       # 改用总板参考图 edits 通道
+python3 tools/generate.py --fallback-low     # 失败时允许 low 草稿降级
 ```
 
-脚本说明：`tools/imggen.py`（curl 传输层，密钥只经环境变量引用，不落盘）、
-`tools/run.py`（串行 runner）、`tools/specs.py`（prompt 源）。
-过程记录：`tools/FINALIZE-NOTE-lead-session.md`（收尾归属告知）。
+脚本说明：`tools/generate.py`（最终版串行 driver：01 走 generations 总板，
+页面默认 generations+内联锚定，`--mode edits` 可切参考图通道；密钥经临时
+curlrc 传入，不进进程参数、不落日志）、`tools/specs.py`（prompt 源）、
+`tools/takeover_log.json`（首轮接管生成的逐次尝试记录）。
+历史：`tools/FINALIZE-NOTE-lead-session.md`（收尾归属告知）；DSH 会话的
+imggen.py/run.py 赛马驱动与本次套图不配套，已移除（形状见 generate.py）。
 本套图与 DSH 会话的设计稿曾在同名 worktree 撞车（未跟踪文件互相覆盖），
 对方留告知后搬迁至 `gui-mockups-dsh` 自行收尾，告知由其撤回，特此存档说明。
