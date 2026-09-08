@@ -35,7 +35,18 @@ import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";
 export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const { t } = useTranslation();
   const confirm = useConfirm();
-  const [values, setValues] = useState<BorrowFormValues>(EMPTY_BORROW_FORM);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // W4：预填源 = 出借方 offer 快照（shareRedeem 应答内嵌，借方本地 allowlist 为空）
+  // + query peer/model。渲染期一次性派生初值（react-hooks v7 禁 effect 内同步
+  // setState）；query 消费即清防刷新重放，effect 只负责清参不写本地 state。
+  const [prefill] = useState(() => consumeBorrowPrefill());
+  const peerParam = searchParams.get("peer");
+  const modelParam = searchParams.get("model");
+  const [values, setValues] = useState<BorrowFormValues>(() => ({
+    ...EMPTY_BORROW_FORM,
+    targetPeer: peerParam ?? prefill?.peer ?? EMPTY_BORROW_FORM.targetPeer,
+    model: modelParam ?? prefill?.model ?? EMPTY_BORROW_FORM.model,
+  }));
   const [errors, setErrors] = useState<BorrowErrors>({});
   const [report, setReport] = useState<LlmBorrowReport | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -44,31 +55,17 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const [reqId, setReqId] = useState<string | null>(null);
   const [lastReq, setLastReq] = useState<LlmBorrowReq | null>(null);
   const [targetTouched, setTargetTouched] = useState(false);
-  // W4：预填源 = 出借方 offer 快照（shareRedeem 应答内嵌，借方本地 allowlist 为空）
-  // + query peer/model（防刷新重放：消费即清）。无快照时降级自由输入不阻塞。
-  const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [modelOptions] = useState<PickerOption[]>(() =>
+    (prefill?.models ?? []).map((model) => ({ value: model, label: model })),
+  );
 
   useEffect(() => {
-    const stored = consumeBorrowPrefill();
-    const peerParam = searchParams.get("peer");
-    const modelParam = searchParams.get("model");
-    if (!peerParam && !modelParam && !stored) return;
-    if (peerParam || modelParam) {
-      const next = new URLSearchParams(searchParams);
-      next.delete("peer");
-      next.delete("model");
-      setSearchParams(next, { replace: true });
-    }
-    setValues((v) => ({
-      ...v,
-      targetPeer: peerParam ?? stored?.peer ?? v.targetPeer,
-      model: modelParam ?? stored?.model ?? v.model,
-    }));
-    setModelOptions(
-      (stored?.models ?? []).map((model) => ({ value: model, label: model })),
-    );
-  }, [searchParams, setSearchParams]);
+    if (peerParam === null && modelParam === null) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("peer");
+    next.delete("model");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, peerParam, modelParam]);
 
   const set = (field: keyof BorrowFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
