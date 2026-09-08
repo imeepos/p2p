@@ -9,7 +9,7 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::tungstenite::Bytes;
 
 use acp_common::{frames, LineReassembler};
-use acp_console::dial::dial_and_handshake;
+use acp_console::dial::{dial_and_handshake, DialProto};
 use acp_console::state::{ConnPhase, StatusHub};
 use p2p_protocol::{read_frame, write_frame};
 use tokio::io::AsyncWriteExt;
@@ -38,9 +38,10 @@ async fn wait_phase(hub: &StatusHub, target: ConnPhase) -> acp_console::StateSna
 #[tokio::test]
 async fn dial_handshake_roundtrip_carries_bytes() {
     let rig = rig("dial", AgentMock::echo()).await;
-    let (peer, outcome, mut stream) = dial_and_handshake(&rig.console, rig.agent_peer, None, None)
-        .await
-        .unwrap();
+    let (peer, outcome, mut stream) =
+        dial_and_handshake(&rig.console, rig.agent_peer, DialProto::Acp, None, None)
+            .await
+            .unwrap();
     let conn = outcome.conn;
     assert_eq!(peer, rig.agent_peer);
     assert_eq!(rig.mock.hello().unwrap().conn, conn);

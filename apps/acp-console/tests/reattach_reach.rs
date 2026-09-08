@@ -10,7 +10,7 @@ use futures_util::SinkExt;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use uuid::Uuid;
 
-use acp_console::dial::dial_and_handshake;
+use acp_console::dial::{dial_and_handshake, DialProto};
 use acp_console::state::ConnPhase;
 
 use common::*;
@@ -74,9 +74,15 @@ async fn reattach_ticket_reachable_within_window_and_accepted_on_reconnect() {
 
     // 带票据重连：agent 实收握手行的 reattach 字段 == 桥签发票据
     let reattach = Uuid::parse_str(&bridge_ticket).unwrap();
-    let (_, _, _stream) = dial_and_handshake(&rig.console, rig.agent_peer, None, Some(reattach))
-        .await
-        .unwrap();
+    let (_, _, _stream) = dial_and_handshake(
+        &rig.console,
+        rig.agent_peer,
+        DialProto::Acp,
+        None,
+        Some(reattach),
+    )
+    .await
+    .unwrap();
     assert_eq!(rig.mock.hello().unwrap().reattach, Some(reattach));
     teardown(rig);
 }

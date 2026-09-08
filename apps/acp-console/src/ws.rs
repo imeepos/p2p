@@ -16,6 +16,7 @@ use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use uuid::Uuid;
 
 use crate::conn::{self, Authed};
+use crate::dial::{parse_proto, DialProto};
 use crate::state::StatusHub;
 use crate::ticket::TicketStore;
 
@@ -97,7 +98,8 @@ async fn serve_conn(tcp: TcpStream, token: String, deps: WsDeps) {
     }
 }
 
-/// 鉴权 + 连接参数解析：token 精确匹配；peer 必填且必须可解析；reattach/atoken 可选。
+/// 鉴权 + 连接参数解析：token 精确匹配；peer 必填且必须可解析；reattach/atoken/proto
+/// 可选（proto 缺省 acp，未知值显式拒绝——gui-contract §17 事件通道参数面）。
 fn authorize(params: &[(String, String)], token: &str) -> Result<Authed, String> {
     let given = param(params, "token").unwrap_or_default();
     if given.is_empty() {
@@ -113,6 +115,7 @@ fn authorize(params: &[(String, String)], token: &str) -> Result<Authed, String>
         .ok_or("missing peer")?;
     let peer: PeerId =
         crate::dial::parse_peer_id(peer_raw).map_err(|e| format!("bad peer: {e}"))?;
+    let proto: DialProto = parse_proto(param(params, "proto"))?;
     let reattach = match param(params, "reattach") {
         Some(raw) if !raw.is_empty() => {
             Some(Uuid::parse_str(raw).map_err(|_| "bad reattach (want uuid)".to_string())?)
@@ -122,6 +125,7 @@ fn authorize(params: &[(String, String)], token: &str) -> Result<Authed, String>
     let agent_token = param(params, "atoken").map(str::to_string);
     Ok(Authed {
         peer,
+        proto,
         reattach,
         agent_token,
     })
@@ -233,6 +237,25 @@ mod tests {
         assert!(authorize(&q("token=t&peer=!!"), "t")
             .unwrap_err()
             .contains("bad peer"));
+    }
+
+    #[test]
+    fn authorize_resolves_and_rejects_proto() {
+        let peer = PeerId::from_bytes([7u8; 32]).to_string();
+        let run = |query: String| authorize(&q(&format!("token=t&peer={peer}&{query}")), "t");
+        assert_eq!(run(String::new()).unwrap().proto, DialProto::Acp);
+        assert_eq!(run("proto=acp".into()).unwrap().proto, DialProto::Acp);
+        assert_eq!(run("proto=a2a".into()).unwrap().proto, DialProto::A2a);
+        let err = run("proto=bogus".into()).unwrap_err();
+        assert!(err.contains("bad proto"), "unexpected: {err}");
+    }
+
+    #[test]
+    fn parse_proto_defaults_to_acp() {
+        assert_eq!(parse_proto(None).unwrap(), DialProto::Acp);
+        assert_eq!(parse_proto(Some("")).unwrap(), DialProto::Acp);
+        assert_eq!(parse_proto(Some("a2a")).unwrap(), DialProto::A2a);
+        assert!(parse_proto(Some("acp/1")).is_err());
     }
 
     #[test]

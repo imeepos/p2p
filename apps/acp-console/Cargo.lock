@@ -3,6 +3,18 @@
 version = 4
 
 [[package]]
+name = "a2a"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "p2p-identity",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "acp-common"
 version = "0.1.0"
 dependencies = [
@@ -18,6 +30,7 @@ dependencies = [
 name = "acp-console"
 version = "0.1.0"
 dependencies = [
+ "a2a",
  "acp-common",
  "async-trait",
  "bs58",

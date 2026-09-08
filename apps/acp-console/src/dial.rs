@@ -2,6 +2,7 @@
 //! 传输层互认对端身份，实际 PeerId 与期望不符即拨号失败（PeerMismatch 显式上抛）；
 //! 握手帧经 acp-common 编解码：conn=随机 uuid、token 可选透传、reattach 可选。
 
+use std::fmt;
 use std::io;
 use std::time::Duration;
 
@@ -12,8 +13,51 @@ use p2p_protocol::{read_frame, write_frame};
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
+/// A2A 卡片/邀请事件通道协议 ID（单一真值源 = crates/a2a，wire-protocol §3.2 登记）。
+const A2A_PROTOCOL_ID: &str = a2a::PROTOCOL_ID;
+
 /// 握手往返护栏：loopback 毫秒级，广域经中继也在数秒内。
 pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// 拨号目标协议（WS query ?proto=）：acp=会话泵（缺省），a2a=卡片/邀请事件
+/// 通道（gui-contract §17）。未知值在 ws 鉴权层显式拒绝，不静默回落。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DialProto {
+    Acp,
+    A2a,
+}
+
+impl DialProto {
+    /// 协议 ID 面字符串（/dsh-acp/1、/a2a/1）。
+    fn id(self) -> &'static str {
+        match self {
+            DialProto::Acp => PROTOCOL_ID,
+            DialProto::A2a => A2A_PROTOCOL_ID,
+        }
+    }
+
+    pub fn to_protocol(self) -> Result<ProtocolId, DialError> {
+        ProtocolId::new(self.id()).map_err(|e| DialError::Dial(e.to_string()))
+    }
+}
+
+impl fmt::Display for DialProto {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            DialProto::Acp => "acp",
+            DialProto::A2a => "a2a",
+        })
+    }
+}
+
+/// ?proto= 参数解析：缺省 acp；未知值显式报错（可观测，禁静默回落）。
+pub fn parse_proto(raw: Option<&str>) -> Result<DialProto, String> {
+    match raw.unwrap_or("acp") {
+        "" | "acp" => Ok(DialProto::Acp),
+        "a2a" => Ok(DialProto::A2a),
+        other => Err(format!("bad proto: {other}")),
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum DialError {
@@ -52,10 +96,11 @@ pub struct HandshakeOutcome {
 pub async fn dial_and_handshake(
     node: &Node,
     expected: PeerId,
+    proto: DialProto,
     agent_token: Option<String>,
     reattach: Option<Uuid>,
 ) -> Result<(PeerId, HandshakeOutcome, BoxedStream), DialError> {
-    let protocol = ProtocolId::new(PROTOCOL_ID).map_err(|e| DialError::Dial(e.to_string()))?;
+    let protocol = proto.to_protocol()?;
     let stream = node
         .new_stream(expected, protocol)
         .await

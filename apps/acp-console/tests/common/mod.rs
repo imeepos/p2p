@@ -28,11 +28,13 @@ pub const STEP: Duration = Duration::from_secs(10);
 pub const TEST_WINDOW: Duration = Duration::from_millis(400);
 
 /// agent 模拟端点：握手应答 + 字节 echo；可配置拒绝码、签发票据与握手后半关闭探针。
+/// protocol 可切 /a2a/1（?proto=a2a 通道测试），行为面完全同 echo。
 pub struct AgentMock {
     deny: Option<String>,
     drop_after_ready: bool,
     half_close_after_ready: bool,
     issue_ticket: Option<String>,
+    protocol: &'static str,
     received: Mutex<Option<ClientHello>>,
     /// 全部握手历史（share 直拨等多次连接断言用）。
     history: Mutex<Vec<ClientHello>>,
@@ -45,43 +47,40 @@ impl AgentMock {
             drop_after_ready: false,
             half_close_after_ready: false,
             issue_ticket: None,
+            protocol: PROTOCOL_ID,
             received: Mutex::new(None),
             history: Mutex::new(Vec::new()),
+        }
+    }
+
+    /// echo 行为挂 /a2a/1 协议 ID（卡片事件通道对端桩）。
+    pub fn echo_a2a() -> Self {
+        Self {
+            protocol: a2a::PROTOCOL_ID,
+            ..Self::echo()
         }
     }
 
     pub fn denying(code: &str) -> Self {
         Self {
             deny: Some(code.to_string()),
-            drop_after_ready: false,
-            half_close_after_ready: false,
-            issue_ticket: None,
-            received: Mutex::new(None),
-            history: Mutex::new(Vec::new()),
+            ..Self::echo()
         }
     }
 
     /// 握手后就地流级 shutdown（探针：锁定底座半关闭 FIN→EOF 语义）。
     pub fn half_closing() -> Self {
         Self {
-            deny: None,
-            drop_after_ready: false,
             half_close_after_ready: true,
-            issue_ticket: None,
-            received: Mutex::new(None),
-            history: Mutex::new(Vec::new()),
+            ..Self::echo()
         }
     }
 
     /// echo + ready 帧签发续连票据（桥约定：票据进 ready，客户端携回重连）。
     pub fn echo_with_ticket(ticket: &str) -> Self {
         Self {
-            deny: None,
-            drop_after_ready: false,
-            half_close_after_ready: false,
             issue_ticket: Some(ticket.to_string()),
-            received: Mutex::new(None),
-            history: Mutex::new(Vec::new()),
+            ..Self::echo()
         }
     }
 
@@ -99,7 +98,7 @@ impl AgentMock {
 #[async_trait::async_trait]
 impl ProtocolHandler for AgentMock {
     fn protocol(&self) -> ProtocolId {
-        ProtocolId::new(PROTOCOL_ID).unwrap()
+        ProtocolId::new(self.protocol).unwrap()
     }
 
     async fn handle(&self, mut stream: BoxedStream) -> std::io::Result<()> {
@@ -176,10 +175,7 @@ async fn read_framed_line(stream: &mut BoxedStream) -> std::io::Result<String> {
 }
 
 /// 写一条帧化 ndjson 行（frames() 自带行尾换行帧）。
-async fn write_framed_line(
-    mut stream: BoxedStream,
-    line: &[u8],
-) -> std::io::Result<BoxedStream> {
+async fn write_framed_line(mut stream: BoxedStream, line: &[u8]) -> std::io::Result<BoxedStream> {
     for frame in frames(line) {
         write_frame(&mut stream, frame).await?;
     }
