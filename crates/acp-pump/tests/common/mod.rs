@@ -1,0 +1,153 @@
+//! 回环夹具：console 侧组件栈（真实双 Node loopback + WS 服务，端口 0）。
+//! agent 模拟端点见 agent_mock；只放装置与有界等待，断言留在各测试。
+//!
+//! 共享夹具按目标独立编译：单测试目标用不到的装置在此统一豁免 dead_code。
+#![allow(dead_code)]
+
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::Duration;
+
+use p2p::{Node, PeerId};
+
+use acp_pump::discovery::DiscoveryHub;
+use acp_pump::state::StatusHub;
+use acp_pump::ticket::TicketStore;
+use acp_pump::ws::{WsDeps, WsServer};
+
+mod agent_mock;
+pub use agent_mock::AgentMock;
+
+mod util;
+// 按目标独立编译：不触 HTTP 面的测试目标会报未用，沿本文件 dead_code 豁免先例。
+#[allow(unused_imports)]
+pub use util::*;
+
+/// 单步等待上限：必须留足服务端拨号护栏（dial::HANDSHAKE_TIMEOUT 10s）的余量，
+/// 否则并行负载下「服务端 10s 超时如实回执」与「客户端 10s 放弃」竞态互踩。
+pub const STEP: Duration = Duration::from_secs(20);
+/// 测试用续连窗口：短窗让 offline 迁移在测试内可见。
+pub const TEST_WINDOW: Duration = Duration::from_millis(400);
+
+/// console 侧组件栈 + 两端节点。
+pub struct Rig {
+    pub agent: Node,
+    pub agent_peer: PeerId,
+    pub console: Arc<Node>,
+    pub hub: Arc<StatusHub>,
+    pub disc: Arc<DiscoveryHub>,
+    pub tickets: Arc<TicketStore>,
+    pub mock: Arc<AgentMock>,
+    pub ws_addr: SocketAddr,
+    pub token: String,
+    pub data_dir: PathBuf,
+}
+
+/// 起一套回环装置：agent 节点（挂 mock）+ console 节点 + WS 服务（随机端口）。
+pub async fn rig(tag: &str, mock: AgentMock) -> Rig {
+    let _ = p2p_log::init(Default::default());
+    let base = std::env::temp_dir().join(format!("acp-pump-rig-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+
+    let mock = Arc::new(mock);
+    let agent = Node::builder()
+        .mdns(false)
+        .data_dir(base.join("agent-id"))
+        .build()
+        .await
+        .unwrap();
+    agent.handle_protocol(mock.clone() as Arc<dyn p2p::ProtocolHandler>);
+    let agent_peer = agent.local_peer_id();
+
+    let console = Arc::new(
+        Node::builder()
+            .mdns(false)
+            .data_dir(base.join("console-id"))
+            .build()
+            .await
+            .unwrap(),
+    );
+    for addr in agent.listen_addrs() {
+        if addr.contains("/t") {
+            console.add_peer_address(agent_peer, &addr).unwrap();
+        }
+    }
+    console.connect(agent_peer).await.unwrap();
+
+    let hub = Arc::new(StatusHub::new());
+    let disc = Arc::new(DiscoveryHub::default());
+    let tickets = Arc::new(TicketStore::new(&base));
+    let token = acp_pump::token::new_token();
+    let ws = WsServer::start(
+        0,
+        token.clone(),
+        WsDeps {
+            node: console.clone(),
+            hub: hub.clone(),
+            tickets: tickets.clone(),
+            window: TEST_WINDOW,
+        },
+    )
+    .await
+    .unwrap();
+
+    Rig {
+        agent,
+        agent_peer,
+        console,
+        hub,
+        disc,
+        tickets,
+        mock,
+        ws_addr: ws.addr,
+        token,
+        data_dir: base,
+    }
+}
+
+/// 客户端 WS 流类型：connect_async 经 MaybeTls 包裹。
+pub type WsStream =
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// 带 token 与目标 peer 的 WS 连接（成功路径）。
+pub async fn ws_connect(rig: &Rig) -> WsStream {
+    ws_try_connect_with(rig, &format!("token={}&peer={}", rig.token, rig.agent_peer))
+        .await
+        .expect("ws connect")
+}
+
+/// 自定义 query 串（可注入错 token / 缺参等坏形），保留原始错误供断言。
+pub async fn ws_try_connect_with(
+    rig: &Rig,
+    query: &str,
+) -> Result<
+    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+    tokio_tungstenite::tungstenite::Error,
+> {
+    let url = format!("ws://{}/?{query}", rig.ws_addr);
+    tokio_tungstenite::connect_async(url)
+        .await
+        .map(|(ws, _)| ws)
+}
+
+/// 关停两端节点并清理夹具目录。
+pub fn teardown(rig: Rig) {
+    rig.agent.shutdown();
+    rig.console.shutdown();
+    let _ = std::fs::remove_dir_all(&rig.data_dir);
+}
+
+/// status 端点依赖（与 run_console 同装配：hub + discovery + 票据 + 窗口 + 直拨面）。
+pub fn status_deps(rig: &Rig) -> acp_pump::status::StatusDeps {
+    acp_pump::status::StatusDeps {
+        hub: rig.hub.clone(),
+        discovery: rig.disc.clone(),
+        tickets: rig.tickets.clone(),
+        window: TEST_WINDOW,
+        node: rig.console.clone(),
+        ws_addr: rig.ws_addr,
+        ws_token: rig.token.clone(),
+    }
+}

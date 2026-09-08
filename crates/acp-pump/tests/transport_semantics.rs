@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use tokio::io::AsyncReadExt;
 
-use acp_console::dial::{dial_and_handshake, DialProto};
+use acp_pump::dial::{dial_and_handshake, DialProto};
 
 use common::*;
 

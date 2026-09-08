@@ -9,15 +9,15 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::tungstenite::Bytes;
 
 use acp_common::{frames, LineReassembler};
-use acp_console::dial::{dial_and_handshake, DialProto};
-use acp_console::state::{ConnPhase, StatusHub};
+use acp_pump::dial::{dial_and_handshake, DialProto};
+use acp_pump::state::{ConnPhase, StatusHub};
 use p2p_protocol::{read_frame, write_frame};
 use tokio::io::AsyncWriteExt;
 
 use common::*;
 
 /// 等待状态机进入指定相位（显式超时，禁无界等待）。
-async fn wait_phase(hub: &StatusHub, target: ConnPhase) -> acp_console::StateSnapshot {
+async fn wait_phase(hub: &StatusHub, target: ConnPhase) -> acp_pump::StateSnapshot {
     let mut rx = hub.subscribe();
     let deadline = tokio::time::Instant::now() + STEP;
     loop {
@@ -204,7 +204,7 @@ async fn ws_client_close_propagates_to_agent() {
 #[tokio::test]
 async fn status_endpoint_reports_snapshot_with_token() {
     let rig = rig("status", AgentMock::echo()).await;
-    let server = acp_console::status::StatusServer::start(0, rig.token.clone(), status_deps(&rig))
+    let server = acp_pump::status::StatusServer::start(0, rig.token.clone(), status_deps(&rig))
         .await
         .unwrap();
 

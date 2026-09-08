@@ -1,24 +1,15 @@
-//! acp-console 入口：装配 P2P 节点、本地 WS 服务、status 端点与发现转发，
-//! 就绪信息经 stdout JSON 行发布（{"kind":"ready",...}），等 ctrl_c 后关停。
+//! acp-console 入口（薄壳）：CLI 入参翻译成 ConsoleConfig 后调 acp-pump 装配。
+//! 实现一律在 acp-pump（INLINE-ACP-PUMP T1）；本文件将在 T5 随目录删除。
 
 #![forbid(unsafe_code)]
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 
+use acp_pump::config::parse_manual_peers;
+use acp_pump::console::run_console;
+use acp_pump::{share, ConsoleConfig};
 use clap::Parser;
-use serde::Serialize;
-
-use acp_console::config::{parse_manual_peers, ConsoleConfig};
-use acp_console::discovery::{self, DiscoveryHub};
-use acp_console::out;
-use acp_console::share;
-use acp_console::state::StatusHub;
-use acp_console::status::{StatusDeps, StatusServer};
-use acp_console::ticket::TicketStore;
-use acp_console::token;
-use acp_console::ws::{WsDeps, WsServer};
 
 #[derive(Parser)]
 #[command(
@@ -55,25 +46,9 @@ struct Args {
     share_link: Option<String>,
 }
 
-#[derive(Serialize)]
-struct ReadyLine {
-    ws: String,
-    status: String,
-    token: String,
-    peer: String,
-}
-
 fn main() -> Result<(), String> {
     let args = Args::parse();
     let _ = p2p_log::init(p2p_log::LogConfig::default());
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .map_err(|e| format!("tokio runtime: {e}"))?
-        .block_on(run(args))
-}
-
-async fn run(args: Args) -> Result<(), String> {
     let manual_peers = parse_manual_peers(&args.peers)?;
     let share_link = match args.share_link.as_deref() {
         Some(raw) => {
@@ -83,107 +58,19 @@ async fn run(args: Args) -> Result<(), String> {
     };
     // CLI 入参统一收敛进 ConsoleConfig（库面装配契约），main 只做翻译不做业务。
     let cfg = ConsoleConfig {
-        data_dir: args.data_dir.clone(),
-        bootstrap: args.bootstrap.clone(),
+        data_dir: args.data_dir,
+        bootstrap: args.bootstrap,
         mdns: !args.no_mdns,
-        manual_peers: manual_peers.clone(),
-        agent_token: args.agent_token.clone(),
+        manual_peers,
+        agent_token: args.agent_token,
         ws_port: args.ws_port,
         status_port: args.status_port,
         reattach_window: Duration::from_secs(args.window_secs),
         share_link,
     };
-    std::fs::create_dir_all(&cfg.data_dir)
-        .map_err(|e| format!("data dir {}: {e}", cfg.data_dir.display()))?;
-    let node = Arc::new(
-        p2p::Node::builder()
-            .mdns(cfg.mdns)
-            .bootstrap(cfg.bootstrap.clone())
-            .data_dir(cfg.data_dir.join("p2p-identity"))
-            .build()
-            .await
-            .map_err(|e| format!("p2p node build: {e}"))?,
-    );
-    let hub = Arc::new(StatusHub::new());
-    let disc = Arc::new(DiscoveryHub::default());
-    let tickets = Arc::new(TicketStore::new(&cfg.data_dir));
-    let window = cfg.reattach_window;
-
-    spawn_manual_registration(&node, &disc, &manual_peers);
-    tokio::spawn(discovery::forward_events(node.clone(), disc.clone()));
-
-    let local_token = token::new_token();
-    // WS 先起：status deps 需要 ws.addr（/connect-share 经本地 WS 复用连接编排）。
-    let ws = WsServer::start(
-        cfg.ws_port,
-        local_token.clone(),
-        WsDeps {
-            node: node.clone(),
-            hub: hub.clone(),
-            tickets: tickets.clone(),
-            window,
-        },
-    )
-    .await
-    .map_err(|e| format!("ws server: {e}"))?;
-    let status = StatusServer::start(
-        cfg.status_port,
-        local_token.clone(),
-        StatusDeps {
-            hub: hub.clone(),
-            discovery: disc.clone(),
-            tickets: tickets.clone(),
-            window,
-            node: node.clone(),
-            ws_addr: ws.addr,
-            ws_token: local_token.clone(),
-        },
-    )
-    .await
-    .map_err(|e| format!("status server: {e}"))?;
-
-    let ws_token = local_token.clone();
-    out::event(
-        "ready",
-        &ReadyLine {
-            ws: ws.addr.to_string(),
-            status: status.addr.to_string(),
-            token: local_token,
-            peer: node.local_peer_id().to_string(),
-        },
-    );
-    tracing::info!(ws = %ws.addr, status = %status.addr, "acp-console ready");
-
-    // 分享链接直拨（acp-share §7）：不阻塞就绪发布；结果经 stdout
-    // share-connect/state 事件行可观测，禁止静默。
-    if let Some(link) = cfg.share_link.clone() {
-        let node = node.clone();
-        let hub = hub.clone();
-        let disc = disc.clone();
-        let ws_addr = ws.addr;
-        tokio::spawn(async move {
-            share::connect_via_link(node, hub, disc, ws_addr, ws_token, &link).await;
-        });
-    }
-
-    tokio::signal::ctrl_c()
-        .await
-        .map_err(|e| format!("signal: {e}"))?;
-    tracing::info!("shutdown by signal");
-    node.shutdown();
-    Ok(())
-}
-
-/// 手动登记不阻塞就绪：rendezvous 查号可能等 bootstrap，失败已在内部留痕。
-fn spawn_manual_registration(
-    node: &Arc<p2p::Node>,
-    disc: &Arc<DiscoveryHub>,
-    manual: &[(String, Vec<String>)],
-) {
-    let node = node.clone();
-    let disc = disc.clone();
-    let manual = manual.to_vec();
-    tokio::spawn(async move {
-        discovery::apply_manual(&node, &disc, &manual).await;
-    });
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| format!("tokio runtime: {e}"))?
+        .block_on(run_console(cfg))
 }

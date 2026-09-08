@@ -5,7 +5,7 @@
 
 mod common;
 
-use acp_console::status::StatusServer;
+use acp_pump::status::StatusServer;
 use common::*;
 
 /// 合法 token：32 hex（128-bit）。

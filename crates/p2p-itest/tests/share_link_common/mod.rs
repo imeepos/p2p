@@ -170,9 +170,9 @@ pub enum DialVerdict {
 pub async fn dial_link(
     guest: &Guest,
     raw_link: &str,
-) -> Result<(acp_console::share::ShareLink, DialVerdict), String> {
+) -> Result<(acp_pump::share::ShareLink, DialVerdict), String> {
     let link =
-        acp_console::share::parse_share_link(raw_link).map_err(|e| format!("parse link: {e}"))?;
+        acp_pump::share::parse_share_link(raw_link).map_err(|e| format!("parse link: {e}"))?;
     for addr in &link.addrs {
         if addr.contains("/u") {
             guest
@@ -226,7 +226,7 @@ pub async fn dial_link(
 pub async fn dial_link_fresh_slot(
     guest: &Guest,
     raw_link: &str,
-) -> (acp_console::share::ShareLink, DialVerdict) {
+) -> (acp_pump::share::ShareLink, DialVerdict) {
     let deadline = tokio::time::Instant::now() + STEP;
     loop {
         let (link, verdict) = dial_link(guest, raw_link).await.expect("dial by link");

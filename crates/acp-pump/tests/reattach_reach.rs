@@ -10,14 +10,14 @@ use futures_util::SinkExt;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use uuid::Uuid;
 
-use acp_console::dial::{dial_and_handshake, DialProto};
-use acp_console::state::ConnPhase;
+use acp_pump::dial::{dial_and_handshake, DialProto};
+use acp_pump::state::ConnPhase;
 
 use common::*;
 
 /// 等待状态机进入指定相位：250ms 轮询快照（客户端断流后的窗口迁移伴随
 /// tungstenite 关闭握手，changed() 等待在该路径上不稳定，轮询为探针验证形态）。
-async fn wait_phase(hub: &acp_console::state::StatusHub, target: ConnPhase) {
+async fn wait_phase(hub: &acp_pump::state::StatusHub, target: ConnPhase) {
     let deadline = tokio::time::Instant::now() + STEP;
     loop {
         let snap = hub.snapshot();
@@ -36,8 +36,8 @@ async fn wait_phase(hub: &acp_console::state::StatusHub, target: ConnPhase) {
     }
 }
 
-async fn start_status(rig: &Rig) -> acp_console::status::StatusServer {
-    acp_console::status::StatusServer::start(0, rig.token.clone(), status_deps(rig))
+async fn start_status(rig: &Rig) -> acp_pump::status::StatusServer {
+    acp_pump::status::StatusServer::start(0, rig.token.clone(), status_deps(rig))
         .await
         .unwrap()
 }

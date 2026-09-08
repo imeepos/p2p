@@ -1,0 +1,31 @@
+[package]
+name = "acp-pump"
+version = "0.1.0"
+edition = "2021"
+description = "ACP over P2P 操作者侧泵领域库：本地 WS(127.0.0.1+token) ⇄ P2P 流哑泵 + 节点发现 + 连接状态机（设计 §3/§6）"
+
+[dependencies]
+# 桥共享纯库：握手帧编解码/错误码/常量（禁止复制实现）
+acp-common = { path = "../../apps/acp-common" }
+# A2A 协议 ID 真值源（?proto=a2a 卡片事件通道，gui-contract §17）
+a2a = { path = "../a2a" }
+# 底座复用入口（路径依赖）：facade 拨号面与日志装配
+p2p = { path = "../p2p" }
+p2p-swarm = { path = "../p2p-swarm" }
+p2p-log = { path = "../p2p-log" }
+# wire 帧面（varint 长度前缀）：握手与泵与 agent 同帧（设计 §4.2-1 切帧约定）
+p2p-protocol = { path = "../p2p-protocol" }
+bs58 = "0.5"
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+http = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "time", "signal", "sync"] }
+tokio-tungstenite = "0.30"
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+
+# 集成测试：模拟 agent 端点实现 ProtocolHandler（p2p 已 re-export，无需单独 path-dep）
+[dev-dependencies]
+async-trait = "0.1"

@@ -3,9 +3,7 @@ use std::time::Duration;
 
 use uuid::Uuid;
 
-use acp_console::ticket::{
-    ReattachTicket, TicketQuery, TicketStore, UsableTicket, TICKET_FILE_NAME,
-};
+use acp_pump::ticket::{ReattachTicket, TicketQuery, TicketStore, UsableTicket, TICKET_FILE_NAME};
 
 const WINDOW: Duration = Duration::from_secs(5);
 

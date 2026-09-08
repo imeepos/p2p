@@ -50,13 +50,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "acp-console"
+name = "acp-pump"
 version = "0.1.0"
 dependencies = [
  "a2a",
  "acp-common",
+ "async-trait",
  "bs58",
- "clap",
  "futures-util",
  "http",
  "p2p",
@@ -1490,7 +1490,7 @@ dependencies = [
  "a2a",
  "acp-agent",
  "acp-common",
- "acp-console",
+ "acp-pump",
  "async-trait",
  "bs58",
  "bytes",
