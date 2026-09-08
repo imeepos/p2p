@@ -14,7 +14,9 @@ import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
 
-import { MessageSectionHeader, type MessagesView } from "./section-header";
+import { SectionHeader } from "@/views/shared/section-header";
+
+import type { MessagesView } from "./messages-view";
 
 // 入群邀请列表（IMC3 需求 2）：每条含方向/状态徽章/时间/备注；in 向待处理
 // 行内同意/拒绝；行点击跳对应群会话（roster 未达由会话页加载态兜底）；
@@ -102,7 +104,7 @@ export function GroupInviteSection({ view }: { view: MessagesView }) {
 
   return (
     <section data-testid="messages-group-section" className="flex flex-col gap-2">
-      <MessageSectionHeader
+      <SectionHeader
         icon={UsersRound}
         title={t("messages.section.groups")}
         tone="primary"

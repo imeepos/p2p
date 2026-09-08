@@ -126,10 +126,10 @@ describe("消息中心两组列表", () => {
     renderPage();
     await screen.findByTestId("messages-group-row-gi-1");
     // 群分区：pending 1 条（gi-1），gi-2 已终态不计入
-    const groupCount = screen.getByTestId("messages-section-count-primary");
+    const groupCount = screen.getByTestId("section-count-primary");
     expect(groupCount.textContent).toBe("1");
     // 好友分区：收件箱即待处理集，in+out 共 2 条
-    const friendCount = screen.getByTestId("messages-section-count-info");
+    const friendCount = screen.getByTestId("section-count-info");
     expect(friendCount.textContent).toBe("2");
   });
 
@@ -152,7 +152,7 @@ describe("消息中心两组列表", () => {
     expect(rowOut.textContent).toContain("已同意");
     expect(screen.queryByTestId("messages-group-accept-gi-2")).toBeNull();
     expect(screen.queryByTestId("messages-group-row-gi-1")).toBeNull();
-    expect(screen.queryByTestId("messages-section-count-primary")).toBeNull();
+    expect(screen.queryByTestId("section-count-primary")).toBeNull();
   });
 
   it("历史视图：状态筛选 chips 过滤群终态，好友分区显示历史空态", async () => {

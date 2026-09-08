@@ -16,7 +16,9 @@ import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
 
-import { MessageSectionHeader, type MessagesView } from "./section-header";
+import { SectionHeader } from "@/views/shared/section-header";
+
+import type { MessagesView } from "./messages-view";
 import { nicknameCharCount } from "@/views/contacts/chat-friend-rules";
 
 // 好友邀请列表（IMC3 需求 2）：方向/状态徽章/时间/备注；in 向待处理行内
@@ -92,7 +94,7 @@ export function FriendInviteSection({ view }: { view: MessagesView }) {
 
   return (
     <section data-testid="messages-friend-section" className="flex flex-col gap-2">
-      <MessageSectionHeader
+      <SectionHeader
         icon={UserRoundPlus}
         title={t("messages.section.friends")}
         tone="info"

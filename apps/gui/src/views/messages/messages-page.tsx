@@ -6,7 +6,7 @@ import { useChatStore } from "@/stores/chat-store";
 
 import { FriendInviteSection } from "./friend-invite-section";
 import { GroupInviteSection } from "./group-invite-section";
-import type { MessagesView } from "./section-header";
+import type { MessagesView } from "./messages-view";
 
 // 消息中心（IMC3 需求 2，/messages）：入群邀请与好友邀请两组列表统一处理。
 // 入口：顶栏铃铛 + rail 常驻项（F15，徽标 = 两类 in 向 pending 之和，同源
