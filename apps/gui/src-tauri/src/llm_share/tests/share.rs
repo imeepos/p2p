@@ -124,9 +124,9 @@ fn v13_share_create_list_revoke_lifecycle() {
         !json.to_string().contains("tokenSha"),
         "台账视图不含 token 形态字段（§16.6 #2）"
     );
-    let revoked = flows_share::share_revoke(&store, &report.share_id).expect("revoke");
+    let revoked = flows_share::share_revoke(&store, None, &report.share_id).expect("revoke");
     assert!(revoked.revoked);
-    let err = flows_share::share_revoke(&store, &report.share_id).unwrap_err();
+    let err = flows_share::share_revoke(&store, None, &report.share_id).unwrap_err();
     assert!(err.contains("已撤销"), "{err}");
 }
 
@@ -161,6 +161,7 @@ fn v13_allow_passthrough_source_and_expires_at() {
     let (_t, store) = store("v13-allow");
     flows::allow(
         &store,
+        None,
         &peer(4),
         &["gpt-4o".into()],
         None,
@@ -194,11 +195,14 @@ async fn v13_serve_status_defaults_to_not_assembled() {
     let status = slot.status().await;
     assert!(!status.assembled, "assembled:false 是常态非故障（§16.6）");
     assert!(status.models.is_empty());
-    slot.set(crate::llm_share::serve::LlmServeStatus {
-        assembled: true,
-        provider_id: Some("p1".into()),
-        models: vec!["gpt-4o".into()],
-        last_error: None,
+    slot.replace(crate::llm_share::serve::Assembled {
+        status: crate::llm_share::serve::LlmServeStatus {
+            assembled: true,
+            provider_id: Some("p1".into()),
+            models: vec!["gpt-4o".into()],
+            last_error: None,
+        },
+        gate: None,
     })
     .await;
     assert!(slot.status().await.assembled);

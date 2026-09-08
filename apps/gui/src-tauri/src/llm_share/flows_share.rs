@@ -11,6 +11,7 @@ use p2p_cli::llm_share::share::{
 use p2p_cli::llm_share::share_redeem::{self, RedeemOutcome, RedeemParams};
 
 use super::inputs::{LlmProviderSaveInput, LlmShareCreateInput};
+use super::serve::gate::AllowlistGate;
 use super::share_views::{LlmProviderListView, LlmProviderRemoveView};
 use super::LlmShareStore;
 use crate::types::GuiConfig;
@@ -97,8 +98,17 @@ pub fn share_list(store: &LlmShareStore) -> Result<ShareListReport, String> {
 }
 
 /// llm_share_share_revoke：置 revoked + 按 source 级联删 allowlist 条目。
-pub fn share_revoke(store: &LlmShareStore, share_id: &str) -> Result<ShareRevokeReport, String> {
-    share::share_revoke(&store.data_dir(), share_id)
+/// serve 在装配时级联后回读门禁内存（文件仍走 p2p-cli 共享写路径）。
+pub fn share_revoke(
+    store: &LlmShareStore,
+    gate: Option<&AllowlistGate>,
+    share_id: &str,
+) -> Result<ShareRevokeReport, String> {
+    let report = share::share_revoke(&store.data_dir(), share_id)?;
+    if let Some(gate) = gate {
+        gate.refresh();
+    }
+    Ok(report)
 }
 
 /// llm_share_share_redeem：借方一次性拨号（p2p-cli 共享编排）；结构化拒绝码

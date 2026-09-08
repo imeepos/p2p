@@ -99,6 +99,10 @@ impl AppState {
                 node.shutdown();
                 history.stop_and_clear();
             })?;
+        // 出借方常驻 serve 装配（§16.6 v13）：chat install 之后；装配失败不阻断
+        // 节点启动（assembled:false + lastError 落槽可查询，不回滚）。
+        let llm_store = crate::llm_share::LlmShareStore::new(self.app_data_dir.clone());
+        crate::llm_share::serve::install(&self.llm_serve, &llm_store, &cfg, &node).await;
         *slot = Some(RunningNode {
             node,
             config: cfg.clone(),
@@ -130,6 +134,7 @@ impl AppState {
                 running.node.shutdown();
                 running.history.stop_and_clear();
                 self.chat.uninstall().await;
+                self.llm_serve.clear().await;
                 true
             }
             None => false,
@@ -205,6 +210,7 @@ impl AppState {
         };
         if was_running {
             self.chat.uninstall().await;
+            self.llm_serve.clear().await;
         }
         remove_seed(Path::new(&data_dir))?;
         Ok((self.status().await, was_running))
@@ -243,6 +249,13 @@ impl AppState {
     /// 出借方常驻 serve 装配状态（§16.6 v13 serve_status 命令面）。
     pub async fn llm_serve_status(&self) -> crate::llm_share::serve::LlmServeStatus {
         self.llm_serve.status().await
+    }
+
+    /// serve 在装配时的 allowlist 门禁句柄（命令面与 admit 同源）；未装配 None。
+    pub(crate) async fn llm_serve_gate(
+        &self,
+    ) -> Option<Arc<crate::llm_share::serve::gate::AllowlistGate>> {
+        self.llm_serve.gate().await
     }
 }
 

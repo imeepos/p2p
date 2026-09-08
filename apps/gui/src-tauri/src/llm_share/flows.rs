@@ -8,6 +8,7 @@ use p2p_cli::llm_share::{
 use uuid::Uuid;
 
 use super::inputs::{LlmBorrowRequest, LlmLedgerFilter, LlmOfferPublishInput};
+use super::serve::gate::AllowlistGate;
 use super::views::{
     LlmAllowlistView, LlmBalanceGroup, LlmBorrowReport, LlmLedgerEntry, LlmOfferView,
     LlmReceiptVerifyResult,
@@ -60,9 +61,11 @@ pub fn allow_list(store: &LlmShareStore) -> Result<LlmAllowlistView, String> {
 
 /// llm_share_allow：upsert（models 缺省=不限模型），返回变更后视图。
 /// source/expires_at 透传（§16.6 v13 allow 命令适配；缺省 None 语义不变，
-/// source 系分享兑换注入口，手工 allow 恒为 None）。
+/// source 系分享兑换注入口，手工 allow 恒为 None）。serve 在装配时经
+/// AllowlistGate 写入（内存+磁盘同源，admit 即时生效），否则纯文件写。
 pub fn allow(
     store: &LlmShareStore,
+    gate: Option<&AllowlistGate>,
     peer_id: &str,
     models: &[String],
     note: Option<&str>,
@@ -70,21 +73,36 @@ pub fn allow(
     expires_at: Option<u64>,
 ) -> Result<LlmAllowlistView, String> {
     let granted_at = p2p_cli::llm_share::rfc3339_now();
-    allowlist::allow(
-        &store.data_dir(),
-        peer_id,
-        models,
-        note,
-        source,
-        expires_at,
-        &granted_at,
-    )?;
+    match gate {
+        Some(gate) => {
+            gate.allow(peer_id, models, note, source, expires_at, &granted_at)?;
+        }
+        None => {
+            allowlist::allow(
+                &store.data_dir(),
+                peer_id,
+                models,
+                note,
+                source,
+                expires_at,
+                &granted_at,
+            )?;
+        }
+    }
     allow_list(store)
 }
 
-/// llm_share_deny：移出白名单；不存在条目显式 Err（默认拒绝语义非故障，§16.1）。
-pub fn deny(store: &LlmShareStore, peer_id: &str) -> Result<LlmAllowlistView, String> {
-    allowlist::deny(&store.data_dir(), peer_id)?;
+/// llm_share_deny：移出白名单；不存在条目显式 Err（默认拒绝语义非故障，
+/// §16.1）。serve 在装配时经 AllowlistGate（内存+磁盘同源）。
+pub fn deny(
+    store: &LlmShareStore,
+    gate: Option<&AllowlistGate>,
+    peer_id: &str,
+) -> Result<LlmAllowlistView, String> {
+    match gate {
+        Some(gate) => gate.deny(peer_id)?,
+        None => allowlist::deny(&store.data_dir(), peer_id)?,
+    };
     allow_list(store)
 }
 

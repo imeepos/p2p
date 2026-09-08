@@ -4,5 +4,6 @@
 
 mod common;
 mod matrix;
+mod serve;
 mod share;
 mod smoke;

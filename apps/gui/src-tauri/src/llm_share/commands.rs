@@ -48,18 +48,22 @@ pub async fn llm_share_allow_list(
 }
 
 /// llm_share_allow：upsert 白名单（models 缺省=不限模型，§16.1 原话；
-/// source/expires_at 透传缺省 None，§16.6 v13 语义不变）。
+/// source/expires_at 透传缺省 None，§16.6 v13 语义不变）。serve 在装配时
+/// 经 AllowlistGate 写入（admit 即时生效），否则纯文件写。
 #[tauri::command]
 pub async fn llm_share_allow(
     store: State<'_, LlmShareStore>,
+    state: State<'_, AppState>,
     peer_id: String,
     models: Option<Vec<String>>,
     note: Option<String>,
     source: Option<String>,
     expires_at: Option<u64>,
 ) -> Result<LlmAllowlistView, String> {
+    let gate = state.llm_serve_gate().await;
     flows::allow(
         &store,
+        gate.as_deref(),
         &peer_id,
         &models.unwrap_or_default(),
         note.as_deref(),
@@ -72,9 +76,11 @@ pub async fn llm_share_allow(
 #[tauri::command]
 pub async fn llm_share_deny(
     store: State<'_, LlmShareStore>,
+    state: State<'_, AppState>,
     peer_id: String,
 ) -> Result<LlmAllowlistView, String> {
-    flows::deny(&store, &peer_id)
+    let gate = state.llm_serve_gate().await;
+    flows::deny(&store, gate.as_deref(), &peer_id)
 }
 
 /// llm_share_borrow：借方一次性调用（真实成本动作；maxTokens/targetPeer 必填校验
@@ -178,9 +184,11 @@ pub async fn llm_share_share_list(
 #[tauri::command]
 pub async fn llm_share_share_revoke(
     store: State<'_, LlmShareStore>,
+    state: State<'_, AppState>,
     share_id: String,
 ) -> Result<ShareRevokeReport, String> {
-    flows_share::share_revoke(&store, &share_id)
+    let gate = state.llm_serve_gate().await;
+    flows_share::share_revoke(&store, gate.as_deref(), &share_id)
 }
 
 /// llm_share_share_redeem：借方兑换；结构化拒绝码原样透出（业务结果非 Err）。
