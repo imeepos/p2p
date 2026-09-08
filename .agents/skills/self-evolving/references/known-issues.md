@@ -479,3 +479,8 @@ failed: early eof（客户端侧超时中止）。
 - [2026-09-08 A2A波] 症状：子代理用常量 0 替代 Date.now() 过 purity lint。危害：tsMs=0 是"无消息"哨兵，破坏时间显示/排序/撤销回归语义，且测试未覆盖不报红。修法：时间戳在 store effect 内采集（合法 impure 点），渲染期只派生。
 - [2026-09-09 llm-share tab 化] 症状：vitest 里 fireEvent.click(TabsTrigger) 不切换 tab，"Unable to find 目标面板"。原因：Radix TabsTrigger 在 onMouseDown 激活（react-tabs dist 123 行），click 单发不触发。修法：测试里先 fireEvent.mouseDown 再 fireEvent.click（项目未装 user-event）。
 - [2026-09-09 llm-share tab 化] 症状：`backend.someMethod().catch(...)` 依然抛未捕获异常、组件 load 永不完成。原因：mock-backend/桥接实现可能同步 throw（如 offerShow 未发布直接 throw），同步异常发生在 .catch 挂上之前。修法：包一层 `settle = async (call) => { try { return await call() } catch (e) { return e } }`，对 Promise.all 多路并行拉取尤其必要。
+
+## 2026-09-09 gpt-image-2 中转网关抖动波（生图设计轮）
+
+- [known-issues] 症状：OpenAI 兼容图像端点随机返回 500 `upstream_error` 或 Cloudflare 524（~127s 边缘超时），同一参数时好时坏；1024x1024 成功率最高，非方图与大尺寸更容易触发。原因：CF 前置中转源站慢且过载，与请求参数无关。修法：同参数串行重试 + 15s 退避（单张上限 3~5 次，实测 100% 最终成功）；严格一张成功再发下一张（并发互相挤挂）；连续 3 败降 quality=low 出草稿保进度，事后网关空闲再 high 重出替换。
+- [techniques] 中转网关压测探测顺序：先 1024x1024+low 探连通（~5 美分），再 high 探时延上界，最后才测目标尺寸；探针脚本一次成型避免 import 重跑。生图批任务把 results.json 设计成每次尝试即落盘，协调者可 5 分钟轮询磁盘代替催会话回报。

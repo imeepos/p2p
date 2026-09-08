@@ -470,3 +470,7 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 控制台/配置要的是去头尾换行的单行 base64：`grep -v '^-' xxx.pem | tr -d '\n'`。
 - 密钥落盘前先查 .gitignore：.env 已忽略不等于 keys/ 目录被忽略，生成前一条
   `git check-ignore` 判定并补 `keys/`，防密钥材料进 git（本日实录：.gitignore 只有 .env）。
+
+## 2026-09-09 rail 移除协议文档入口轮
+- 本仓 DSH glob/grep 工具与 grep -rn 全树搜索均 30s 超时；bash PATH 无 rg（之前 `rg ... 2>/dev/null` 静默无输出实为 command not found 被吞）——检索用 /opt/homebrew/bin/rg 绝对路径 + 明确子目录（apps/gui/src），秒回；命令「零输出」先排除 not found 再下「无匹配」结论。
+- git worktree add 在本仓（1602 文件、外置卷）前台 120s 也会被杀留半成品（文件已部分落盘、worktree 未注册、分支已建）——重申 ACP3 结论：一律 run_in_background；中断清理三连：`git worktree prune` + `rm -rf <dir>` + `git branch -D <分支>`，再后台重建。

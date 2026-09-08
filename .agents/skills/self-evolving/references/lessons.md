@@ -439,3 +439,12 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-08（A2A3 波）对话框「打开瞬间播种」的条件三元要逐分支核对默认值：editing?.visibility === "public" ? "public" : "private" 把编辑 null 分支也落成 private——创建态默认值被编辑态表达式吞掉，测试断言 POST body 才现形。
 - 2026-09-08 W5b：run_code 内多行补丁脚本绝不在 JS 单引号串里嵌 python 多行转义——JS 会把 \n 还原成真实换行打断 python 字面量（SyntaxError EOL），且 stdout 被 tail 截断后静默无感知；唯一可靠姿势 = write 工具落脚本文件（python 内一律 chr(10) 拼接）再 bash 执行，每步 replace 前后 assert count。
 - 2026-09-08 W5b：测试文件逼近 300 行红线后再拆，成本（#[path] 模块编译、crate:: 作用域、E0255 同名冲突、line-limit 实红重跑全量门禁）远超开工前先定文件骨架；多用例任务先按职责分文件再落用例。
+
+- [2026-09-08 A2A波] 验收判据禁用管道尾命令：`make check | tail -4 && echo GREEN` 的 GREEN 是 tail 的退出码——已两次产出假绿；必须直读 RC。
+- [2026-09-08 A2A波] 子代理额度死亡=interrupt+显式 provider/model 重派单，WIP 在 worktree 天然持久；接续前先查产物（commit/dirty）避免双写。
+- [2026-09-08 A2A波] 共享 .devloop/loop-state.json 会被并行波整体重构（72卡→7卡），波次收口记录必须落 docs/notes/ 才是持久真相源。
+
+- 2026-09-09 生图设计轮：同一 worktree 路径被两个会话并行用于生成两套不同设计稿——生成类任务的落盘文件（PNG/脚本/specs）大多处于未跟踪状态，git status 完全看不出互撞，specs.py 被整体覆盖、PNG 按文件名互相顶替；判归属光看 git worktree list 不够，进入目录先找 COLLISION/FINALIZE 类 note 文件并 diff specs 内容。预防：worktree 路径必须带任务唯一后缀（gui-mockups-p2p / gui-mockups-dsh 这种），发现撞车后留 note 搬迁而不是抢目录。
+- 2026-09-09 生图设计轮：session_link_talk 返回空回复或超时 ≠ 工作会话死了，多数是它正在跑长任务（生图单张 60~130s、一整套 20~60 分钟）；磁盘产物（文件 mtime、results/log json）才是进度真相源。接管前先查产物，接管时在目标目录留 FINALIZE note 声明归属防双写——本次留 note 后顺利接管了无主套图。
+- 2026-09-09 生图设计轮：图像模型 edits 端点的内容漂移两种形态——(a) 输出变成参考图的近似复制品（06 首版把 Agents 页画成了总板），(b) 自由发挥丢弃 spec 关键分区（05 丢了邀请卡）。重试通常可修复（06 重试 1 次即正），验收必须逐张读图比对 spec，不能只看风格。
+- 2026-09-09 生图设计轮：写探测/工具脚本时模块级副作用会在 import 时重跑——probe 脚本被 import 复用导致 3 次多余 API 调用；一切有副作用的脚本主体必须包 `if __name__ == "__main__"`。
