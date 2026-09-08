@@ -4,7 +4,7 @@
 //! state（节点生命周期）/ events（事件转发）/ commands（11 个 IPC 命令）/
 //! frontend_log（契约 v3 加法：前端错误落盘，G-H 观测）/
 //! update（契约 v4 加法：在线更新检查，G-U1）/
-//! console（契约 v10 加法：acp-console 伴生进程托管，UX2）/
+//! console（契约 §15：acp 泵进程内装配，INLINE-ACP-PUMP T3）/
 //! llm_share（契约 v11 §16 加法：llm-share 命令面，LSG1）。
 
 pub mod acp_descriptor;
@@ -142,8 +142,8 @@ pub fn run() {
             if let Err(e) = watcher::spawn(app.handle().clone(), &dir) {
                 eprintln!("p2p-console: 数据目录监听降级: {e}");
             }
-            // UX2 acp-console 托管（契约 §15）：定位失败转 unavailable 留痕不阻断
-            // 主功能；phase 变更经 acp-console 事件推送；RunEvent::Exit 收尾终止子进程。
+            // acp 泵进程内装配（契约 §15）：装配失败转 disconnected 留痕不阻断
+            // 主功能；phase 变更经 acp-console 事件推送；RunEvent::Exit 收尾停泵。
             let console = console::Manager::spawn(dir.clone());
             app.manage(console);
             console::spawn_forwarder(

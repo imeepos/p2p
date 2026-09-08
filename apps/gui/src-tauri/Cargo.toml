@@ -19,6 +19,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 p2p = { path = "../../../crates/p2p" }
+# ACP 泵进程内装配（INLINE-ACP-PUMP T3）：Pump::start 句柄面替代 sidecar
+acp-pump = { path = "../../../crates/acp-pump" }
 # 本机 agent 自描述读取（2026-09-07 裁决：分享流免手填 admin token）
 acp-common = { path = "../../../apps/acp-common" }
 # p2p-cli 复用其 pub mod echo 的协议常量与 handler（协调者裁决：允许 path 依赖）
