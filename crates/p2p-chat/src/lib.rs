@@ -3,6 +3,7 @@
 
 mod addr_learn;
 mod advertised;
+mod boot;
 mod core;
 mod drain;
 mod events;
@@ -45,10 +46,7 @@ mod wire_tests;
 
 pub use identity_lock::try_lock_identity;
 
-use std::path::PathBuf;
 use std::sync::Arc;
-
-use p2p::Node;
 use tokio::sync::broadcast;
 
 pub use events::ChatEvent;
@@ -86,62 +84,12 @@ pub const PROFILE_PROTOCOL: &str = "/im/profile/1";
 /// CLI 缺省回空资料（未设置）。
 pub type LocalProfileFn = Arc<dyn Fn() -> PeerProfile + Send + Sync>;
 
-const EVENT_CAPACITY: usize = 128; // 1:1 与群各自独立事件通道
-
 pub struct Chat {
     pub(crate) core: Arc<ChatCore>,
     pub group: Group, // 群门面：group_* 命令经此调用（与 1:1 API 命名空间分离）
 }
 
 impl Chat {
-    pub fn new(node: Arc<Node>, data_dir: PathBuf) -> Result<Self, ChatError> {
-        Self::with_local_profile(node, data_dir, Arc::new(PeerProfile::default))
-    }
-
-    /// 带本机资料供给的装配：GUI 接 NodeProfile 持久层，/im/profile/1
-    /// 应答据此返回；其余装配路径与 Chat::new 完全一致。
-    pub fn with_local_profile(
-        node: Arc<Node>,
-        data_dir: PathBuf,
-        local_profile: LocalProfileFn,
-    ) -> Result<Self, ChatError> {
-        let store = store::Store::new(data_dir.join("chat"))?;
-        let (tx, _) = broadcast::channel(EVENT_CAPACITY);
-        let core = Arc::new(ChatCore {
-            node,
-            store,
-            events: tx.clone(),
-            send_locks: std::sync::Mutex::new(std::collections::HashMap::new()),
-            flush_tried: std::sync::Mutex::new(std::collections::HashMap::new()),
-            local_profile,
-        });
-        core.rearm_friend_addrs()?;
-        invite_api::rearm_invite_addrs(&core)?;
-        let proto =
-            p2p::ProtocolId::new(CHAT_PROTOCOL).map_err(|e| ChatError::Protocol(e.to_string()))?;
-        core.node
-            .handle_protocol(Arc::new(wire::ChatHandler::new(core.clone(), proto)));
-        let invite_proto = p2p::ProtocolId::new(INVITE_PROTOCOL)
-            .map_err(|e| ChatError::Protocol(e.to_string()))?;
-        core.node
-            .handle_protocol(Arc::new(invite_handler::InviteHandler::new(
-                core.clone(),
-                invite_proto,
-            )));
-        let profile_proto = p2p::ProtocolId::new(PROFILE_PROTOCOL)
-            .map_err(|e| ChatError::Protocol(e.to_string()))?;
-        core.node
-            .handle_protocol(Arc::new(profile_wire::ProfileHandler::new(
-                core.clone(),
-                profile_proto,
-            )));
-        let group = group::Group::mount(core.clone(), &data_dir)?;
-        outbox::spawn_outbox_task(core.clone(), group.core.clone());
-        outbox::spawn_outbox_sweeper(core.clone());
-        invite_api::spawn_invite_heal(core.clone());
-        Ok(Self { core, group })
-    }
-
     /// 查询对端节点资料（/im/profile/1）：对端未设置返回全空资料（非错误）。
     pub async fn peer_profile(&self, peer: &str) -> Result<PeerProfile, ChatError> {
         profile_api::peer_profile(&self.core, peer).await
