@@ -20,7 +20,8 @@ export interface ShareCreateResponse {
   expiresAtUnix: number | null;
 }
 
-async function adminJson(
+/** admin HTTP 统一入口（Bearer + 容错解析）；a2a 管理面客户端复用同一管道。 */
+export async function adminJson(
   url: string,
   token: string,
   init?: RequestInit,
