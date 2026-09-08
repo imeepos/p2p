@@ -4,6 +4,7 @@
 //! 授权语义：默认拒绝——表无条目即拒；allow=upsert（granted_at 每次刷新），
 //! deny=删条目；本卡不做交互确认（TOFU 指纹显式传入，交互面归 GUI 波）。
 
+pub mod console;
 pub mod render;
 pub mod share;
 pub mod store;
@@ -33,6 +34,8 @@ pub enum AcpCommand {
     List(ListArgs),
     /// 分享链接管理（acp-share 设计 §6：create/list/revoke）
     Share(share::ShareArgs),
+    /// 前台 ACP 泵（原 acp-console 独立 bin 收口，INLINE-ACP-PUMP T2）
+    Console(console::ConsoleArgs),
 }
 
 #[derive(Args)]
@@ -131,6 +134,7 @@ pub async fn run(command: AcpCommand) -> CliResult<()> {
         AcpCommand::Deny(args) => deny_cmd(args),
         AcpCommand::List(args) => list_cmd(args),
         AcpCommand::Share(args) => share::run(args.command),
+        AcpCommand::Console(args) => console::run(args).await,
     }
 }
 

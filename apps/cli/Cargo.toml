@@ -32,6 +32,9 @@ p2p-chat = { path = "../../crates/p2p-chat" }
 # acp 域（ACP5）：复用 acp-common 策略表 serde+原子文件存取与路径派生。
 acp-common = { path = "../acp-common" }
 
+# acp 泵域（INLINE-ACP-PUMP T2）：acp console 子命令复用泵装配库面。
+acp-pump = { path = "../../crates/acp-pump" }
+
 # acp share 域（AS1）：share_id 生成（台账主键，UUID v4）。
 uuid = { version = "1", features = ["v4"] }
 
