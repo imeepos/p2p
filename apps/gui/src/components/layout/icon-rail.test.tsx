@@ -24,7 +24,7 @@ function railLinks(): HTMLElement[] {
 afterEach(() => cleanup());
 
 describe("IconRail（1.1 rail 规格）", () => {
-  it("一级入口与 menu.def 注册一一对应（F15 起 6 项），顺序一致", () => {
+  it("一级入口与 menu.def 注册一一对应，顺序一致", () => {
     renderRail("/chat");
     const links = railLinks();
     expect(links).toHaveLength(MENU_ENTRIES.length);
@@ -34,13 +34,17 @@ describe("IconRail（1.1 rail 规格）", () => {
     });
   });
 
-  it("F15：消息中心与协议文档常驻 rail，设置仍沉底", () => {
+  it("F15：消息中心常驻 rail，设置仍沉底", () => {
     renderRail("/chat");
     const hrefs = railLinks().map((link) => link.getAttribute("href"));
     expect(hrefs).toContain("/messages");
-    expect(hrefs).toContain("/docs");
     expect(hrefs.indexOf("/messages")).toBeLessThan(hrefs.indexOf("/settings"));
-    expect(hrefs.indexOf("/docs")).toBeLessThan(hrefs.indexOf("/settings"));
+  });
+
+  it("2026-09-09：协议文档(/docs)已移出 rail 常驻，页面经 ⌘K/直链可达", () => {
+    renderRail("/chat");
+    const hrefs = railLinks().map((link) => link.getAttribute("href"));
+    expect(hrefs).not.toContain("/docs");
   });
 
   it("设置沉底：rail 末位入口是 /settings", () => {
