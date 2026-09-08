@@ -59,3 +59,58 @@ bash scripts/ops/llm-share-smoke.sh
 - 首次供给远端构建失败多为 crates.io 不可达（依赖下载）——102 需能出网到 crates.io（github 不通不影响，代码走 bundle）。
 - 断流收据 \u0060estimated: true\u0060 的前提是切断发生在 usage 帧之前（A6 语义：上游已给 usage 则按实际计费），mock 剧本已按此编排。
 - 坏状态快速自愈：任何一轮失败后直接重跑即可（每轮身份/账本/声明全部新建；远端代码经 bundle fetch+reset 强制对齐本仓库 HEAD）。
+
+
+## 7. 分享链接链路（llm-share-link，W5b 增补）
+
+> 双协议 provider 配置、链接生成→兑换→借用、serve_status 的操作序列；
+> itest 对应用例：`crates/p2p-itest/tests/llm_share_link_wave.rs`（B1/B4/B5）
+> 与 `llm_share_serve_wave.rs`（B6 双借方并发归属 / B7 重启幂等）。
+
+### 7.1 双协议 provider 配置（出借方）
+
+```bash
+# OpenAI 协议（请求直发上游 /chat/completions，Bearer 鉴权）
+p2pctl llm-share provider save --name openai-main \
+  --base-url https://api.openai.com/v1 --protocol openai \
+  --model gpt-4o
+# Claude 协议（proxy 做 OpenAI→Claude 请求与 SSE 响应双向翻译，x-api-key 鉴权）
+p2pctl llm-share provider save --name claude-main \
+  --base-url https://api.anthropic.com --protocol claude \
+  --model claude-sonnet-4
+p2pctl llm-share provider list   # apiKey 只出掩码
+```
+
+- `--api-key` 缺省从 stdin 读一行（避免进 shell 历史/进程列表）；落盘 0600（`<data-dir>/llm-share/keys/<id>.key`），provider remove 级联删密钥文件。
+- serve 装配要求「模型→provider 唯一映射」：两个 provider 声明同一模型时装配失败（`lastError` 可查，节点照常启动）。
+
+### 7.2 链接生成 → 兑换 → 借用
+
+```bash
+# 出借方：发布能力声明 + 生成一次性链接（token 原文只在本次响应出现一次）
+p2pctl llm-share offer publish --model gpt-4o --spare gpt-4o=1000000 \
+  --period-ends 2026-09-30
+p2pctl llm-share share create --provider <provider-id> \
+  --model gpt-4o --addr <ip>/u<quic-port> --note demo
+# → link: dsh-llm-share://peer=...&addr=...&token=...&exp=...&sid=...&model=...
+
+# 借方：兑换（一次性拨号；认证 PeerId 落出借方 allowlist，source=share:<id>）
+p2pctl llm-share share redeem "dsh-llm-share://..."
+# → Redeemed（回传 offer 快照预填借用）；拒绝码原样透出：
+#   share-revoked / expired / exhausted / bound-other / invalid
+
+# 借方：借用（兑换成功即获准，无需手工 allow）
+p2pctl llm-share borrow <lender-peer> --model gpt-4o --prompt "ping"
+```
+
+- 兑换语义：同 peer 二次兑换幂等成功不计数；异 peer → `bound-other`；撤销 → `share-revoked`
+  且 allowlist 条目按 `source=share:<id>` 级联移除（手工条目不动）；过期 → `expired`。
+- 台账脱敏：`share list` 永不含 token 原文/哈希；`shares.json` 只存 sha256；泄露面由 itest B5 机械断言
+  （P2P 帧双向与上游 HTTP 体不含 apiKey 明文，apiKey 仅出现在对上游鉴权头）。
+
+### 7.3 serve_status（GUI 常驻面板，CLI 无此面）
+
+- `llm_share_serve_status` → `{ assembled, providerId?, models[], lastError? }`；
+  `assembled:false` 是常态非故障（未发布 offer / provider 缺失 / 模型映射冲突），`lastError` 供面板显式告警。
+- 重启幂等：结算收据幂等 append 到 `<data-dir>/llm-share/ledger.json`；serve 重启重建 settled 索引后
+  同 req_id 重放被 `DuplicateReqId` 拒并回传原收据（双记账红线，itest B7 机械断言）。

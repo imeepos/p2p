@@ -24,18 +24,41 @@ const LINK_TIMEOUT: Duration = Duration::from_secs(30);
 const DISCOVER_POLL: Duration = Duration::from_millis(500);
 
 /// 一次性借方节点：随机端口、mdns 关、bootstrap 可选接线。
-pub async fn build_node(params: &BorrowParams) -> Result<Arc<Node>, String> {
+pub async fn build_node(node_dir: &str, bootstrap: &[String]) -> Result<Arc<Node>, String> {
     let mut builder = Node::builder()
         .mdns(false)
-        .data_dir(PathBuf::from(&params.node_dir));
-    if !params.bootstrap.is_empty() {
-        builder = builder.bootstrap(params.bootstrap.clone());
+        .data_dir(PathBuf::from(node_dir));
+    if !bootstrap.is_empty() {
+        builder = builder.bootstrap(bootstrap.to_vec());
     }
     let node = builder
         .build()
         .await
-        .map_err(|e| format!("节点装配失败（data-dir={}）: {e}", params.node_dir))?;
+        .map_err(|e| format!("节点装配失败（data-dir={node_dir}）: {e}"))?;
     Ok(Arc::new(node))
+}
+
+/// 进程退出前确保节点关停（错误路径同样断连，不残留监听）。
+pub struct NodeShutdown(Arc<Node>);
+
+impl NodeShutdown {
+    pub fn new(node: Arc<Node>) -> Self {
+        Self(node)
+    }
+
+    pub fn node(&self) -> &Node {
+        &self.0
+    }
+
+    pub fn raw(&self) -> Arc<Node> {
+        self.0.clone()
+    }
+}
+
+impl Drop for NodeShutdown {
+    fn drop(&mut self) {
+        self.0.shutdown();
+    }
 }
 
 /// 连接出借方：--addr 直连登记后建连；缺省先 rendezvous 查号再登记建连。
@@ -63,7 +86,7 @@ pub async fn connect_lender(
 
 /// rendezvous 查号：有界轮询直至拿到地址；bootstrap 未接线属确定性失败，
 /// 立即显式报错不打满等待窗。
-async fn discover(node: &Node, lender: &str, wait_secs: u64) -> Result<String, String> {
+pub async fn discover(node: &Node, lender: &str, wait_secs: u64) -> Result<String, String> {
     let deadline = tokio::time::Instant::now() + Duration::from_secs(wait_secs);
     loop {
         match node.query_peer(lender).await {

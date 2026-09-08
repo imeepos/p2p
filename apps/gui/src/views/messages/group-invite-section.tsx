@@ -3,15 +3,20 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { UsersRound } from "lucide-react";
 
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { AsyncButton } from "@/components/feedback/async-button";
 import { CopyButton } from "@/components/feedback/copy-button";
-import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/format";
-import type { GroupInviteJson } from "@/lib/ipc-types";
+import type { GroupInviteJson, GroupInviteState } from "@/lib/ipc-types";
 import { shortPeerId } from "@/lib/peer-name";
+import { cn } from "@/lib/utils";
 import { useChatStore } from "@/stores/chat-store";
 import type { Locale } from "@/i18n";
 import { EmptyState } from "@/views/shared/empty-state";
+
+import { SectionHeader } from "@/views/shared/section-header";
+
+import type { MessagesView } from "./messages-view";
 
 // 入群邀请列表（IMC3 需求 2）：每条含方向/状态徽章/时间/备注；in 向待处理
 // 行内同意/拒绝；行点击跳对应群会话（roster 未达由会话页加载态兜底）；
@@ -53,7 +58,7 @@ function StateBadge({ state }: { state: GroupInviteJson["state"] }) {
   );
 }
 
-export function GroupInviteSection() {
+export function GroupInviteSection({ view }: { view: MessagesView }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const navigate = useNavigate();
@@ -62,8 +67,18 @@ export function GroupInviteSection() {
   const acceptGroupInvite = useChatStore((s) => s.acceptGroupInvite);
   const rejectGroupInvite = useChatStore((s) => s.rejectGroupInvite);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  // 历史视图状态筛选（设计稿增量 3）：全部/已同意/已拒绝，默认全部。
+  const [statusFilter, setStatusFilter] = useState<GroupInviteState | "all">("all");
 
   const rows = [...invites].sort((a, b) => b.tsMs - a.tsMs);
+  const pendingRows = rows.filter((invite) => invite.state === "pending");
+  const historyRows = rows.filter((invite) => invite.state !== "pending");
+  const visibleRows =
+    view === "pending"
+      ? pendingRows
+      : statusFilter === "all"
+        ? historyRows
+        : historyRows.filter((invite) => invite.state === statusFilter);
 
   const act = async (invite: GroupInviteJson, kind: "accept" | "reject") => {
     setRowErrors((prev) => ({ ...prev, [invite.id]: "" }));
@@ -82,28 +97,50 @@ export function GroupInviteSection() {
           t(kind === "accept" ? "messages.error.acceptFailed" : "messages.error.rejectFailed") +
           detail,
       }));
+      // 抛给 AsyncButton 呈现 fail 态，避免失败亮成功勾
+      throw err;
     }
   };
 
   return (
     <section data-testid="messages-group-section" className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold">{t("messages.section.groups")}</h2>
+      <SectionHeader
+        icon={UsersRound}
+        title={t("messages.section.groups")}
+        tone="primary"
+        count={view === "pending" ? pendingRows.length : undefined}
+      />
       {listError ? (
         <p className="text-destructive text-xs" role="alert" data-testid="messages-group-list-error">
           {t("messages.error.listLoadFailed") + listError}
         </p>
       ) : null}
-      {rows.length === 0 && !listError ? (
+      {view === "history" ? (
+        <SegmentedControl
+          value={statusFilter}
+          onChange={setStatusFilter}
+          ariaLabel={t("messages.view.history")}
+          options={[
+            { value: "all", label: t("common.all"), count: historyRows.length },
+            { value: "accepted", label: t("messages.state.accepted") },
+            { value: "rejected", label: t("messages.state.rejected") },
+          ]}
+        />
+      ) : null}
+      {visibleRows.length === 0 && !listError ? (
         <EmptyState icon={UsersRound} title={t("messages.empty.groups")} />
       ) : null}
       <div className="flex flex-col gap-2">
-        {rows.map((invite) => {
+        {visibleRows.map((invite) => {
           const actionable = invite.direction === "in" && invite.state === "pending";
           return (
             <div
               key={invite.id}
               data-testid={"messages-group-row-" + invite.id}
-              className="bg-card ring-border ring-1 hover:ring-ring cursor-pointer rounded-lg p-3 transition-shadow"
+              className={cn(
+                "bg-card ring-border ring-1 hover:ring-ring cursor-pointer rounded-lg p-3 transition-shadow",
+                view === "history" && "opacity-80",
+              )}
               onClick={() => navigate("/chat?group=" + invite.groupId)}
             >
               <div className="flex flex-wrap items-center gap-2">
@@ -111,7 +148,10 @@ export function GroupInviteSection() {
                 <span className="text-sm font-medium">{invite.groupName}</span>
                 <span className="ml-auto flex items-center gap-2">
                   {actionable ? (
-                    <>
+                    <span
+                      className="inline-flex items-center gap-2"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       <AsyncButton
                         type="button"
                         size="sm"
@@ -120,19 +160,16 @@ export function GroupInviteSection() {
                       >
                         {t("messages.action.accept")}
                       </AsyncButton>
-                      <Button
+                      <AsyncButton
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void act(invite, "reject");
-                        }}
+                        action={() => act(invite, "reject")}
                         data-testid={"messages-group-reject-" + invite.id}
                       >
                         {t("messages.action.reject")}
-                      </Button>
-                    </>
+                      </AsyncButton>
+                    </span>
                   ) : null}
                   <StateBadge state={invite.state} />
                   <time className="text-muted-foreground text-xs">

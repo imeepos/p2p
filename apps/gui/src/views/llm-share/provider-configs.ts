@@ -1,21 +1,20 @@
 import type { I18nKey } from "@/i18n/types";
 
-import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
+import { parseModels } from "./offer-form";
+import type { LlmProviderProtocol, LlmProviderSaveReq } from "./types";
 
-import { parseModels, parsePositiveKv } from "./offer-form";
-import type { LlmOfferPublishReq } from "./types";
-
-// 本地自用的上游 provider 配置列表（GUI-local，localStorage 存档）：
-// 一条配置 = 名称 + OpenAI 兼容 baseUrl + apiKey + 模型清单。
-// 存档语义沿用 acp/endpoint-storage：损坏显式告警回空白，绝不静默。
-// 契约 §16.2-4 禁 GUI 直写账本/offer 文件——本列表只进 localStorage，
-// 密钥只存本机；「分享配置」分享的是 allowlist 放行 + 能力声明，非密钥本体。
+// provider 配置视图模型（契约 §16.6 v13）：存储归属从 localStorage 上移为后端
+// ProviderStore（providers.json + 0600 密钥文件）；本文件只做迁移源读取与表单校验。
+// apiKey：新建/编辑时临时持有明文；列表加载态为空串，展示走 apiKeyMasked（后端掩码）。
+// protocol：openai | claude，旧存档缺省 openai（校验兼容）。
 
 export interface ProviderConfig {
   id: string;
   name: string;
   baseUrl: string;
+  protocol: LlmProviderProtocol;
   apiKey: string;
+  apiKeyMasked?: string;
   models: string[];
   createdAt: number;
 }
@@ -23,6 +22,7 @@ export interface ProviderConfig {
 export interface ProviderFormValues {
   name: string;
   baseUrl: string;
+  protocol: LlmProviderProtocol;
   apiKey: string;
   modelsText: string;
 }
@@ -30,6 +30,7 @@ export interface ProviderFormValues {
 export const EMPTY_PROVIDER_FORM: ProviderFormValues = {
   name: "",
   baseUrl: "",
+  protocol: "openai",
   apiKey: "",
   modelsText: "",
 };
@@ -38,7 +39,7 @@ export type ProviderField = "name" | "baseUrl" | "apiKey" | "models";
 export type ProviderErrors = Partial<Record<ProviderField, I18nKey>>;
 
 const KEY = "llmShare.providers";
-const STORAGE_KEY = "p2p-gui-llm-providers";
+export const PROVIDER_STORAGE_KEY = "p2p-gui-llm-providers";
 
 export function newProviderId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -48,10 +49,16 @@ export function newProviderId(): string {
   return "pv-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-export function parseProviderForm(values: ProviderFormValues): {
+export interface ProviderParseResult {
   errors: ProviderErrors;
   config: Omit<ProviderConfig, "id" | "createdAt"> | null;
-} {
+}
+
+// apiKeyOptional=true（编辑已有配置）：留空 = 保留原密钥（后端更新语义），仅新增必填。
+export function parseProviderForm(
+  values: ProviderFormValues,
+  opts?: { apiKeyOptional?: boolean },
+): ProviderParseResult {
   const errors: ProviderErrors = {};
   const name = values.name.trim();
   const baseUrl = values.baseUrl.trim();
@@ -63,10 +70,12 @@ export function parseProviderForm(values: ProviderFormValues): {
   } else if (!isHttpUrl(baseUrl)) {
     errors.baseUrl = `${KEY}.errBaseUrlFormat` as I18nKey;
   }
-  if (!apiKey) errors.apiKey = `${KEY}.errApiKeyRequired` as I18nKey;
+  if (!apiKey && !opts?.apiKeyOptional) errors.apiKey = `${KEY}.errApiKeyRequired` as I18nKey;
   if (models.length === 0) errors.models = `${KEY}.errModelsRequired` as I18nKey;
   const config =
-    Object.keys(errors).length > 0 ? null : { name, baseUrl, apiKey, models };
+    Object.keys(errors).length > 0
+      ? null
+      : { name, baseUrl, protocol: values.protocol, apiKey, models };
   return { errors, config };
 }
 
@@ -79,6 +88,16 @@ function isHttpUrl(text: string): boolean {
   }
 }
 
+/** http:// baseUrl 显式告警（§7 安全红线：明文传输 API Key，https 优先） */
+export function baseUrlHttpWarningKey(baseUrl: string): I18nKey | null {
+  try {
+    const url = new URL(baseUrl.trim());
+    return url.protocol === "http:" ? "llmShare.providers.baseUrlHttpWarning" : null;
+  } catch {
+    return null;
+  }
+}
+
 // apiKey 只以掩码出现在列表里，防旁观泄露；过短键全遮。
 export function maskApiKey(apiKey: string): string {
   const trimmed = apiKey.trim();
@@ -86,128 +105,74 @@ export function maskApiKey(apiKey: string): string {
   return `${trimmed.slice(0, 3)}••••${trimmed.slice(-4)}`;
 }
 
-// ---- 分享给好友：peerId + spare/period 校验，产出 offerPublish 请求 ----
-
-export interface ShareFormValues {
-  peerId: string;
-  spareText: string;
-  periodEnds: string;
-  note: string;
-}
-
-export const EMPTY_SHARE_FORM: ShareFormValues = {
-  peerId: "",
-  spareText: "",
-  periodEnds: "",
-  note: "",
-};
-
-export type ShareField = "peerId" | "spare" | "periodEnds";
-export type ShareErrors = Partial<Record<ShareField, I18nKey>>;
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-export interface ShareValidation {
-  errors: ShareErrors;
-  peerId: string | null;
-  publishReq: LlmOfferPublishReq | null;
-}
-
-// 分享 = 按配置模型发布能力声明 + 把好友按同批模型放行（allow 由调用方组装）。
-// spare 逐模型必填（覆盖校验与 offer 表单同口径），密钥不参与任何请求。
-export function validateShareForm(
-  values: ShareFormValues,
-  models: string[],
-): ShareValidation {
-  const errors: ShareErrors = {};
-  const peerId = values.peerId.trim();
-  if (!peerId) {
-    errors.peerId = `${KEY}.shareErrPeerRequired` as I18nKey;
-  } else if (!isValidFriendPeerId(peerId)) {
-    errors.peerId = `${KEY}.shareErrPeerFormat` as I18nKey;
-  }
-  const parsed = parsePositiveKv(values.spareText);
-  const spare = "map" in parsed ? parsed.map : {};
-  if ("error" in parsed) {
-    // KV 形状/正整数错复用 offer 表单同款错误键（同一解析器）
-    errors.spare = parsed.error;
-  } else if (models.some((m) => spare[m] === undefined)) {
-    errors.spare = `${KEY}.shareErrSpareCoverage` as I18nKey;
-  }
-  if (!DATE_RE.test(values.periodEnds.trim())) {
-    errors.periodEnds = `${KEY}.shareErrPeriodRequired` as I18nKey;
-  }
-  const ok = Object.keys(errors).length === 0;
-  return {
-    errors,
-    peerId: ok ? peerId : null,
-    publishReq: ok
-      ? {
-          models,
-          spare,
-          periodEnds: values.periodEnds.trim(),
-          rpm: 10,
-          concurrency: 2,
-          ttlSecs: 3600,
-          retention: "none",
-        }
-      : null,
-  };
-}
-
-// 分享表单闲量预填：逐模型出 model= 行，数值留空待填（不替用户编造额度）。
-export function sparePrefillOf(models: string[]): string {
-  return models.map((m) => `${m}=`).join("\n");
-}
-
-// ---- localStorage 存取（仅本机，进不了任何共享面） ----
+// ---- localStorage 迁移源（契约 §16.6-1：一次性幂等迁移后 removeItem 旧键） ----
 
 export function loadProviderConfigs(): ProviderConfig[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(PROVIDER_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) throw new Error("providers 存档不是数组");
-    return parsed.filter(isProviderConfig);
+    const configs = parsed
+      .map(normalizeLegacyProvider)
+      .filter((c): c is ProviderConfig => c !== null);
+    if (configs.length !== parsed.length) {
+      console.warn("[llm-share] provider 存档含形状不符条目，已剔除");
+    }
+    return configs;
   } catch (error) {
     console.warn("[llm-share] provider 配置存档不可读，回空列表", error);
     return [];
   }
 }
 
-export function saveProviderConfigs(configs: ProviderConfig[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(configs));
-  } catch (error) {
-    console.warn("[llm-share] provider 配置存档不可写，仅本次生效", error);
-  }
-}
-
-function isProviderConfig(value: unknown): value is ProviderConfig {
-  if (typeof value !== "object" || value === null) return false;
+/** 旧存档归一：protocol 缺省 openai；形状不符返回 null（校验兼容不崩溃） */
+export function normalizeLegacyProvider(value: unknown): ProviderConfig | null {
+  if (typeof value !== "object" || value === null) return null;
   const v = value as Partial<ProviderConfig>;
-  return (
-    typeof v.id === "string" &&
-    typeof v.name === "string" &&
-    typeof v.baseUrl === "string" &&
-    typeof v.apiKey === "string" &&
-    Array.isArray(v.models) &&
-    v.models.every((m) => typeof m === "string") &&
-    typeof v.createdAt === "number"
-  );
+  if (
+    typeof v.id !== "string" ||
+    typeof v.name !== "string" ||
+    typeof v.baseUrl !== "string" ||
+    typeof v.apiKey !== "string" ||
+    !Array.isArray(v.models) ||
+    v.models.some((m) => typeof m !== "string") ||
+    typeof v.createdAt !== "number"
+  ) {
+    return null;
+  }
+  return {
+    id: v.id,
+    name: v.name,
+    baseUrl: v.baseUrl,
+    protocol: v.protocol === "claude" ? "claude" : "openai",
+    apiKey: v.apiKey,
+    models: [...v.models],
+    createdAt: v.createdAt,
+  };
 }
 
-export function upsertProviderConfig(
-  configs: ProviderConfig[],
-  config: ProviderConfig,
-): ProviderConfig[] {
-  const rest = configs.filter((c) => c.id !== config.id);
-  return [...rest, config].sort((a, b) => a.createdAt - b.createdAt);
-}
-
-export function removeProviderConfig(
-  configs: ProviderConfig[],
-  id: string,
-): ProviderConfig[] {
-  return configs.filter((c) => c.id !== id);
+/** 一次性幂等迁移：读取旧键逐条 providerSave（同 id upsert 幂等）→ 成功 removeItem；
+ *  失败保留旧键可重试（半迁移不丢源）；迁移后写路径不再落明文键。 */
+export async function migrateLegacyProvidersToStore(backend: {
+  providerSave: (req: LlmProviderSaveReq) => Promise<unknown>;
+}): Promise<void> {
+  try {
+    const configs = loadProviderConfigs();
+    if (configs.length === 0) return;
+    for (const config of configs) {
+      await backend.providerSave({
+        id: config.id,
+        name: config.name,
+        baseUrl: config.baseUrl,
+        protocol: config.protocol,
+        apiKey: config.apiKey,
+        models: config.models,
+      });
+    }
+    localStorage.removeItem(PROVIDER_STORAGE_KEY);
+  } catch (error) {
+    // 失败回滚：不删旧键（保留重试源），显式告警不静默
+    console.warn("[llm-share] provider 存档迁移失败，保留旧键待重试", error);
+  }
 }

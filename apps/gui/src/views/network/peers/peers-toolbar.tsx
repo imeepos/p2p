@@ -22,15 +22,18 @@ interface PeersToolbarProps {
   statusFilter: StatusFilter;
   onStatusFilterChange: (filter: StatusFilter) => void;
   onOpenDial: () => void;
+  /** 各过滤 tab 的命中计数（按当前搜索词统计）；缺省不显示计数 */
+  counts?: Partial<Record<StatusFilter, number>>;
 }
 
-// 工具栏：搜索框 + 状态过滤 tabs + 手动拨号入口。
+// 工具栏：搜索框 + 状态过滤 tabs（带命中计数）+ 手动拨号入口。
 export function PeersToolbar({
   query,
   onQueryChange,
   statusFilter,
   onStatusFilterChange,
   onOpenDial,
+  counts,
 }: PeersToolbarProps) {
   const { t } = useTranslation();
   const filters: StatusFilter[] = [
@@ -67,6 +70,14 @@ export function PeersToolbar({
               className="text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:border-primary dark:data-[state=active]:bg-primary dark:data-[state=active]:text-primary-foreground"
             >
               {t(FILTER_LABEL[filter])}
+              {counts?.[filter] !== undefined ? (
+                <span
+                  className="text-muted-foreground ml-1 text-xs tabular-nums"
+                  data-testid={"peers-tab-count-" + filter}
+                >
+                  {counts[filter]}
+                </span>
+              ) : null}
             </TabsTrigger>
           ))}
         </TabsList>

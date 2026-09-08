@@ -14,10 +14,14 @@ path = "src/main.rs"
 [dependencies]
 # 桥共享纯库：握手帧编解码/错误码/常量（禁止复制实现）
 acp-common = { path = "../acp-common" }
+# A2A 协议 ID 真值源（?proto=a2a 卡片事件通道，gui-contract §17）
+a2a = { path = "../../crates/a2a" }
 # 底座复用入口（路径依赖）：facade 拨号面与日志装配
 p2p = { path = "../../crates/p2p" }
 p2p-swarm = { path = "../../crates/p2p-swarm" }
 p2p-log = { path = "../../crates/p2p-log" }
+# wire 帧面（varint 长度前缀）：握手与泵与 agent 同帧（设计 §4.2-1 切帧约定）
+p2p-protocol = { path = "../../crates/p2p-protocol" }
 bs58 = "0.5"
 clap = { version = "4", features = ["derive"] }
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }

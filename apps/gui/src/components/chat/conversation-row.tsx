@@ -1,4 +1,5 @@
-import { Bot, CircleAlert, Clock3, UsersRound } from "lucide-react";
+import { BellOff, Bot, CircleAlert, Clock3, UsersRound } from "lucide-react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AvatarBox } from "@/components/chat/avatar-box";
@@ -54,9 +55,13 @@ export interface ConversationRowProps {
   entry: ConversationEntry;
   active: boolean;
   onSelect: (entry: ConversationEntry) => void;
+  /** 右键菜单入口（阻止默认浏览器菜单后上抛坐标）；未挂菜单的列表可缺省 */
+  onContextMenu?: (event: ReactMouseEvent<HTMLButtonElement>) => void;
+  /** 本机免打扰（右键菜单产物）：预览行显静音铃 */
+  muted?: boolean;
 }
 
-export function ConversationRow({ entry, active, onSelect }: ConversationRowProps) {
+export function ConversationRow({ entry, active, onSelect, onContextMenu, muted }: ConversationRowProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const showTime = entry.lastTsMs > 0;
@@ -81,6 +86,7 @@ export function ConversationRow({ entry, active, onSelect }: ConversationRowProp
       <button
         type="button"
         onClick={() => onSelect(entry)}
+        onContextMenu={(event) => onContextMenu?.(event)}
         aria-current={active || undefined}
         data-testid={`conversation-row-${entry.kind}-${entry.id}`}
         className={cn(
@@ -129,6 +135,17 @@ export function ConversationRow({ entry, active, onSelect }: ConversationRowProp
             >
               {entry.lastPreview ?? ""}
             </span>
+            {muted ? (
+              <BellOff
+                role="img"
+                aria-label={t("chat.conversations.mutedAria")}
+                data-testid={`conversation-muted-${entry.id}`}
+                className={cn(
+                  "size-3.5 shrink-0",
+                  active ? "text-white/80" : "text-muted-foreground",
+                )}
+              />
+            ) : null}
             {sendStateIcon}
             {entry.unread > 0 ? (
               <span

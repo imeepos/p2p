@@ -5,12 +5,14 @@
 mod common;
 
 use futures_util::{SinkExt, StreamExt};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio_tungstenite::tungstenite::protocol::Message;
 use tokio_tungstenite::tungstenite::Bytes;
 
-use acp_console::dial::dial_and_handshake;
+use acp_common::{frames, LineReassembler};
+use acp_console::dial::{dial_and_handshake, DialProto};
 use acp_console::state::{ConnPhase, StatusHub};
+use p2p_protocol::{read_frame, write_frame};
+use tokio::io::AsyncWriteExt;
 
 use common::*;
 
@@ -36,21 +38,31 @@ async fn wait_phase(hub: &StatusHub, target: ConnPhase) -> acp_console::StateSna
 #[tokio::test]
 async fn dial_handshake_roundtrip_carries_bytes() {
     let rig = rig("dial", AgentMock::echo()).await;
-    let (peer, outcome, mut stream) = dial_and_handshake(&rig.console, rig.agent_peer, None, None)
-        .await
-        .unwrap();
+    let (peer, outcome, mut stream) =
+        dial_and_handshake(&rig.console, rig.agent_peer, DialProto::Acp, None, None)
+            .await
+            .unwrap();
     let conn = outcome.conn;
     assert_eq!(peer, rig.agent_peer);
     assert_eq!(rig.mock.hello().unwrap().conn, conn);
 
-    stream.write_all(b"{\"jsonrpc\":\"2.0\"}\n").await.unwrap();
+    // 帧化契约：握手后的 ndjson 行同样按 varint 帧收发（设计 §4.2-1）。
+    for frame in frames(b"{\"jsonrpc\":\"2.0\"}") {
+        write_frame(&mut stream, frame).await.unwrap();
+    }
     stream.flush().await.unwrap();
-    let mut echo = [0u8; 18];
-    tokio::time::timeout(STEP, stream.read_exact(&mut echo))
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(&echo, b"{\"jsonrpc\":\"2.0\"}\n");
+    let mut reassembler = LineReassembler::new();
+    let echo = loop {
+        if let Some(line) = reassembler.take_line() {
+            break line;
+        }
+        let frame = tokio::time::timeout(STEP, read_frame(&mut stream))
+            .await
+            .unwrap()
+            .unwrap();
+        reassembler.push_frame(&frame).unwrap();
+    };
+    assert_eq!(echo, b"{\"jsonrpc\":\"2.0\"}\n");
     teardown(rig);
 }
 
@@ -89,7 +101,9 @@ async fn ws_p2p_byte_roundtrip() {
         .unwrap();
     assert_eq!(msg.into_data().as_ref(), b"hello-agent\n");
 
-    let payload: Vec<u8> = (0..200_000u32).map(|i| (i % 251) as u8).collect();
+    // 帧化契约：payload 是一条 ndjson 行（无内嵌换行 + 行尾换行），echo 逐行回写。
+    let mut payload: Vec<u8> = (0..200_000u32).map(|i| (33 + (i % 90)) as u8).collect();
+    payload.push(b'\n');
     ws.send(Message::Binary(Bytes::from(payload.clone())))
         .await
         .unwrap();

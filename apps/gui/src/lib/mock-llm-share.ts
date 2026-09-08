@@ -1,6 +1,7 @@
-// llm-share 命令面 mock（契约 v11 §16）：与真实实现同签名，独立文件（E9-Q0 T4 先例：
-// mock 不得静态打进 prod bundle——由 mock-ipc 仅在 VITE_MOCK_IPC=1 时动态加载）。
-// 相位/数据可测可控：控制器驱动 offer 五态、拒绝码四值与 stream_broken；失败路径显式抛错。
+// llm-share 命令面 mock（契约 v11 §16 九命令 + v13 §16.6 八命令扩展）。mock 不得静态打进
+// prod bundle（E9-Q0 T4）：由 mock-ipc 仅在 VITE_MOCK_IPC=1 时动态加载；失败路径显式抛错。
+import { createMockLlmShareExt } from "./mock-llm-share-ext";
+import { DONE_DISPUTE_SECS, recordBorrowReceipt, settleBorrowPhase } from "./mock-llm-share-borrow";
 import type {
   LlmAllowEntry,
   LlmAllowlistView,
@@ -18,8 +19,6 @@ import type {
 
 const B58_RE = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const STREAM_BROKEN_DISPUTE_SECS = 72 * 3600; // §16.2.2：估算账单 72h 争议窗
-const DONE_DISPUTE_SECS = 24 * 3600;
 const MOCK_OFFER_FILE = "/p2p-data/llm-share/offer.json";
 
 export interface LlmShareMockDeps {
@@ -60,39 +59,6 @@ function offerStatusFor(phase: LlmOfferStatus, remainingSecs: number): LlmOfferS
   return phase;
 }
 
-// borrow 结算：rejection 优先，其次 stream_broken，默认 done；数据面驱动三态。
-function settleBorrow(
-  state: LlmShareMockState,
-  reqId: string,
-): LlmBorrowReport {
-  if (state.rejection) {
-    return {
-      status: "rejected",
-      receipt: { reqId, appended: false, estimated: false, disputeWindowSecs: 0 },
-      sseCount: 0,
-      usage: null,
-      code: state.rejection,
-      message: `rejected: ${state.rejection}（上游零调用、流水零产生）`,
-    };
-  }
-  if (state.streamBroken) {
-    return {
-      status: "stream_broken",
-      receipt: { reqId, appended: true, estimated: true, disputeWindowSecs: STREAM_BROKEN_DISPUTE_SECS },
-      sseCount: 5,
-      usage: { input: 1234, output: 567 },
-      message: "流式响应中断：入账为估算账单，72h 争议窗内可发起争议（非失败）",
-    };
-  }
-  return {
-    status: "done",
-    receipt: { reqId, appended: true, estimated: false, disputeWindowSecs: DONE_DISPUTE_SECS },
-    sseCount: 9,
-    usage: { input: 1234, output: 567 },
-    message: null,
-  };
-}
-
 export function createMockLlmShare(deps: LlmShareMockDeps) {
   const state = initialState();
   const now = deps.nowMs ?? (() => Date.now());
@@ -111,36 +77,7 @@ export function createMockLlmShare(deps: LlmShareMockDeps) {
     return { entries: allowEntries(), lastOp: { op: "deny", peerId, ok, created: false, message } };
   }
 
-  function recordReceipt(req: LlmBorrowRequest, reqId: string, report: LlmBorrowReport, tsSecs: number): void {
-    const period = new Date(tsSecs * 1000).toISOString().slice(0, 7);
-    state.ledger.push({
-      reqId,
-      period,
-      lender: req.targetPeer,
-      borrower: deps.selfPeerId(),
-      model: req.model,
-      input: report.usage?.input ?? 0,
-      output: report.usage?.output ?? 0,
-      tokens: (report.usage?.input ?? 0) + (report.usage?.output ?? 0),
-      estimated: report.receipt.estimated,
-      ts: tsSecs,
-    });
-    state.receipts.set(reqId, {
-      verdict: "PASS",
-      reason: "验签通过",
-      reqId,
-      period,
-      lender: req.targetPeer,
-      borrower: deps.selfPeerId(),
-      model: req.model,
-      input: report.usage?.input ?? 0,
-      output: report.usage?.output ?? 0,
-      estimated: report.receipt.estimated,
-      ts: tsSecs,
-    });
-  }
-
-  const backend = {
+  const baseBackend = {
     async llmShareOfferPublish(offer: LlmOfferPublishInput): Promise<LlmOfferView> {
       if (!offer.models.length) throw new Error("models 至少一个（必填集）");
       if (new Set(offer.models).size !== offer.models.length) throw new Error("models 存在重复声明");
@@ -232,8 +169,10 @@ export function createMockLlmShare(deps: LlmShareMockDeps) {
         usage: { input: replay.input, output: replay.output },
         message: "req_id 重放：返回原收据，不双记账",
       };
-      const report = settleBorrow(state, reqId);
-      if (report.receipt.appended) recordReceipt(req, reqId, report, Math.floor(now() / 1000));
+      const report = settleBorrowPhase(state, reqId);
+      if (report.receipt.appended) {
+        recordBorrowReceipt(state, req, reqId, report, Math.floor(now() / 1000), deps.selfPeerId());
+      }
       return report;
     },
 
@@ -279,7 +218,7 @@ export function createMockLlmShare(deps: LlmShareMockDeps) {
     },
   };
 
-  const controller = {
+  const baseController = {
     setOfferPhase(phase: LlmOfferStatus | "none"): void {
       state.offerPhase = phase;
     },
@@ -294,7 +233,37 @@ export function createMockLlmShare(deps: LlmShareMockDeps) {
     },
   };
 
-  return { backend, controller };
+  // v13 扩展（provider/share/serve）：兑接 offer 快照与 allowlist 写入回调，
+  // 控制器相位合并（reset 双清），backend 展开合并后由 mock-ipc 整体接线。
+  const ext = createMockLlmShareExt({
+    selfPeerId: deps.selfPeerId,
+    offerModels: () => state.offer?.models ?? [],
+    nowSecs: () => Math.floor(now() / 1000),
+    redeemerPeerId: deps.selfPeerId,
+    redeemToAllowlist: (peer, models, source) => {
+      state.allowlist.set(peer, {
+        peerId: peer,
+        models: [...models],
+        note: source,
+        grantedAt: new Date(now()).toISOString(),
+      });
+    },
+    revokeSource: (source) => {
+      for (const [peerId, entry] of state.allowlist) {
+        if (entry.note === source) state.allowlist.delete(peerId);
+      }
+    },
+  });
+  const controller = {
+    ...baseController,
+    ...ext.controller,
+    reset: () => {
+      baseController.reset();
+      ext.controller.reset();
+    },
+  };
+
+  return { backend: { ...baseBackend, ...ext.backend }, controller };
 }
 
 export type MockLlmShareController = ReturnType<typeof createMockLlmShare>["controller"];

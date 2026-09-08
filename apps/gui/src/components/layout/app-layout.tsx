@@ -5,7 +5,6 @@ import { Outlet, useLocation } from "react-router-dom";
 import { CommandPalette } from "@/components/command-palette/command-palette";
 import { IconRail } from "@/components/layout/icon-rail";
 import { StatusBar } from "@/components/layout/status-bar";
-import { Topbar } from "@/components/layout/topbar";
 import {
   useCommandHotkey,
   useNumberRouteHotkeys,
@@ -57,11 +56,17 @@ export function AppLayout() {
   const fullBleed = location.pathname.startsWith("/chat");
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden">
-      <IconRail />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+    <div className="flex h-dvh w-full flex-col overflow-hidden">
+      {/* macOS Overlay 标题栏：28px 空白条，底色与 icon rail 同源（--sidebar 令牌）
+          随亮暗主题自适应；整条为拖拽区，红绿灯叠在左上 */}
+      <div
+        data-tauri-drag-region
+        className="bg-sidebar border-sidebar-border h-7 w-full shrink-0 border-b"
+      />
+      <div className="flex min-h-0 flex-1">
+        <IconRail />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
           <DataLinkBanner />
           <AutoStartNotice />
           <div
@@ -81,8 +86,9 @@ export function AppLayout() {
               <Outlet />
             </div>
           </div>
-        </main>
-        <StatusBar />
+          </main>
+          <StatusBar />
+        </div>
       </div>
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <UpdateNotice />

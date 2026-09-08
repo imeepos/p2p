@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { GroupJson } from "@/lib/ipc-types";
 import { useGroupStore } from "@/stores/group-store";
 
@@ -56,11 +58,15 @@ export function GroupMemberPanel({ group, open, onOpenChange }: GroupMemberPanel
       | "group.manage.disbandFailed"
       | "group.manage.renameFailed",
     action: () => Promise<unknown>,
+    doneKey?: "group.manage.renameDone",
   ) => {
     if (busy) return Promise.resolve();
     setBusy(true);
     setCommandError(null);
     return action()
+      .then(() => {
+        if (doneKey) toastSuccess(t(doneKey));
+      })
       .catch((error) => {
         console.error("[group] 成员面板操作失败", error);
         const reason = error instanceof Error ? error.message : String(error);
@@ -108,7 +114,11 @@ export function GroupMemberPanel({ group, open, onOpenChange }: GroupMemberPanel
   const renameGroup = () => {
     const trimmed = name.trim();
     if (!trimmed || trimmed === group.name) return;
-    void run("group.manage.renameFailed", () => rename(group.groupId, trimmed));
+    void run(
+      "group.manage.renameFailed",
+      () => rename(group.groupId, trimmed),
+      "group.manage.renameDone",
+    );
   };
 
   return (
@@ -221,25 +231,29 @@ function MemberPanelFooter({
         <GroupInvitePicker group={group} onDone={onToggleInvite} />
       ) : null}
       {isOwner && active ? (
-        <div className="flex items-center gap-2">
-          <Input
-            value={name}
-            onChange={(event) => onNameChange(event.target.value)}
-            aria-label={t("group.manage.renameLabel")}
-            data-testid="group-rename-input"
-            autoComplete="off"
-            className="flex-1"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={busy || name.trim() === group.name}
-            onClick={onRename}
-            data-testid="group-rename-save"
-          >
-            {t("group.manage.renameSubmit")}
-          </Button>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="group-rename-input">{t("group.manage.renameLabel")}</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="group-rename-input"
+              value={name}
+              onChange={(event) => onNameChange(event.target.value)}
+              aria-label={t("group.manage.renameLabel")}
+              data-testid="group-rename-input"
+              autoComplete="off"
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy || name.trim() === group.name}
+              onClick={onRename}
+              data-testid="group-rename-save"
+            >
+              {t("group.manage.renameSubmit")}
+            </Button>
+          </div>
         </div>
       ) : null}
       <div className="flex items-center gap-2">

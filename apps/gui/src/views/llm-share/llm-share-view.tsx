@@ -42,21 +42,22 @@ export function LlmShareView({ backend }: { backend: LlmShareBackend }) {
     <ConfirmProvider>
       <div className="flex min-h-0 flex-col gap-4">
         <PageHeader titleKey="llmShare.title" descriptionKey="llmShare.description" />
+        {/* 信息优先的动线：声明状态 → 白名单清单 → 上游配置 → 账本 → 借用动作 */}
         <div className="grid gap-6 xl:grid-cols-2">
           <PanelSection titleKey="llmShare.panels.offer" testid="section-offer">
             <OfferPanel backend={backend} />
           </PanelSection>
-          <PanelSection titleKey="llmShare.panels.providers" testid="section-providers">
-            <ProviderPanel backend={backend} />
-          </PanelSection>
           <PanelSection titleKey="llmShare.panels.allowlist" testid="section-allowlist">
             <AllowlistPanel backend={backend} />
           </PanelSection>
-          <PanelSection titleKey="llmShare.panels.borrow" testid="section-borrow">
-            <BorrowPanel backend={backend} />
+          <PanelSection titleKey="llmShare.panels.providers" testid="section-providers">
+            <ProviderPanel backend={backend} />
           </PanelSection>
           <PanelSection titleKey="llmShare.panels.ledger" testid="section-ledger">
             <LedgerPanel backend={backend} />
+          </PanelSection>
+          <PanelSection titleKey="llmShare.panels.borrow" testid="section-borrow">
+            <BorrowPanel backend={backend} />
           </PanelSection>
         </div>
       </div>

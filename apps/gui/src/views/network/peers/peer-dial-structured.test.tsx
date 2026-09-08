@@ -33,6 +33,8 @@ beforeEach(() => {
 
 describe("拨号目标结构化（F11）与端口即时校验（F14）", () => {
   it("端口失焦即时校验：非法端口就地提示且提交禁用，修正后恢复", async () => {
+    // 节点须运行中，否则提交因「未运行」整体禁用，屏蔽端口校验的可恢复断言
+    useNodeStore.setState({ status: { running: true } as never });
     render(<PeerDialDialog open onOpenChange={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: PEER_ID } });
     fireEvent.change(screen.getByLabelText("地址"), { target: { value: "192.168.1.9" } });

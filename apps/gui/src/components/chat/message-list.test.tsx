@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ChatMessageJson } from "@/lib/ipc-types";
 import i18n from "@/i18n";
@@ -135,5 +135,88 @@ describe("MessageList 历史加载错误态（IM-T50）", () => {
     expect(screen.getByText("Failed to load message history")).toBeInTheDocument();
     expect(screen.getByText("db locked")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+});
+
+// UX5 回归：1:1 历史向上翻页前插补偿，与群消息流同款。jsdom 无布局引擎，
+// 以高度桩模拟 scrollHeight 前后变化做数值断言。
+const heightMock = { value: 0 };
+const originalDescriptor = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  "scrollHeight",
+);
+
+beforeAll(() => {
+  Object.defineProperty(HTMLElement.prototype, "scrollHeight", {
+    configurable: true,
+    get: () => heightMock.value,
+  });
+});
+
+afterAll(() => {
+  if (originalDescriptor) {
+    Object.defineProperty(HTMLElement.prototype, "scrollHeight", originalDescriptor);
+  } else {
+    Reflect.deleteProperty(HTMLElement.prototype, "scrollHeight");
+  }
+});
+
+function listElement(
+  messages: ChatMessageJson[],
+  overrides: { hasMore?: boolean; onLoadOlder?: () => void } = {},
+) {
+  return (
+    <MessageList
+      peer={PEER}
+      messages={messages}
+      loadingOlder={false}
+      hasMore={overrides.hasMore ?? true}
+      onLoadOlder={overrides.onLoadOlder ?? (() => {})}
+      onCancelPending={() => {}}
+    />
+  );
+}
+
+describe("1:1 历史前插滚动补偿（UX5）", () => {
+  const base = [text("m1", "一", 1000), text("m2", "二", 2000), text("m3", "三", 3000)];
+
+  beforeEach(() => {
+    heightMock.value = 0;
+  });
+
+  it("向上翻页前插后 scrollTop 平移高度增量，视口锚定不跳", () => {
+    heightMock.value = 1000;
+    const onLoadOlder = vi.fn();
+    const { rerender } = render(listElement(base, { onLoadOlder }));
+    const el = screen.getByTestId("message-scroll");
+    el.scrollTop = 30;
+    fireEvent.scroll(el);
+    expect(onLoadOlder).toHaveBeenCalledTimes(1);
+    // 前插 m0：内容高度 1000 -> 1600，视口应平移 +600（30 -> 630）
+    heightMock.value = 1600;
+    rerender(listElement([text("m0", "零", 500), ...base], { onLoadOlder }));
+    expect(el.scrollTop).toBe(630);
+  });
+
+  it("底部追加新消息（非前插）：已离开底部时不补偿也不强制跳底", () => {
+    heightMock.value = 1000;
+    const { rerender } = render(listElement(base));
+    const el = screen.getByTestId("message-scroll");
+    el.scrollTop = 30;
+    fireEvent.scroll(el);
+    heightMock.value = 1600;
+    rerender(listElement([...base, text("m4", "新消息", 4000)]));
+    expect(el.scrollTop).toBe(30);
+  });
+
+  it("钉底态下新消息到达仍自动跟随到底", () => {
+    heightMock.value = 1000;
+    const { rerender } = render(listElement(base));
+    const el = screen.getByTestId("message-scroll");
+    el.scrollTop = 980;
+    fireEvent.scroll(el);
+    heightMock.value = 1600;
+    rerender(listElement([...base, text("m4", "新消息", 4000)]));
+    expect(el.scrollTop).toBe(1600);
   });
 });

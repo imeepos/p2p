@@ -284,6 +284,11 @@ pnpm run 在 monorepo 子包外的目录执行直接退出 1，输出没有任�
 - 2026-09-05 T19：并行会话高频推进 main 时收尾四步的竞态压缩法：分支先推远端保平安 → fetch+merge origin/main → 查增量性质（docs-only 可免全量重验，涉码必重跑验收）→ 验收绿后同一口气 push+ff-only；脏文件是否挡 ff 用 `git diff --name-only main <branch> | grep <脏文件>` 判交 intersects，无交集即不碰他人 WIP。
 - 2026-09-05 协调会话挂起恢复轮的接管时序（E10-T19）：协调方被挂起 2h 期间，执行会话自行苏醒并完成反向同步+终验+收尾四步+推送——两次催收无回音不等于死亡，可能只是 harness 挂起。接管动作（代 push/代合并/代清理）前必须最后一刻再核会话与分支动态；且所有权未决时协调方不要往执行者分支上提交（我曾在它挂起时代做了 merge main，它苏醒后需自行核实我的提交并纳入终验，双方都冒了险）。协调代劳要么完整接管四步一步到位，要么只做无所有权副作用的准备（装依赖/预构建/探针）。
 - 2026-09-07 UX 终验：vite 独立实例零仓库改动拉起法——createRequire(仓库 package.json).resolve("vite/package.json") 定位包目录后 import dist/node/index.js，inline config 覆盖 cacheDir+port（与 5173 并行实例隔离优化器）；「一条命令闭环」里 server 起一次、首个场景承担冷启动预热（首载 transform >90s，LOAD 超时给 180s）、全部场景跑完再杀，cacheDir 落 /tmp 跨轮复用 deps 缓存。
+- 2026-09-08 顶栏紧凑化轮：run_code 里 bash 长命令（>30s 的全量测试/lint）多次返回空输出（"completed with no output"）且无 exit 码——可靠做法是把输出重定向到 /tmp 文件再单独 cat 回读；同一命令偶发正常偶发为空，别当成命令失败重跑浪费 1 分钟。
+- 2026-09-08 顶栏紧凑化轮：改共享布局组件（Topbar）前，除组件自身测试外必须全仓 grep 断言其 DOM 内部结构的"视觉证据类"测试（本次 im-visual-v2.test.tsx D1 硬找 header 里的停止按钮文本+className，全量跑到第 200 个文件才炸）——改为先 grep 再动手，随设计变更同步改写断言语义。
+- 2026-09-08 通讯录双栏轮：worktree 免 pnpm install 的 deps 复用——根与子包 node_modules 各 symlink 回主树对应目录，跑门禁用 node node_modules/vitest/vitest.mjs 或 typescript/bin/tsc -b 直调（绕开 pnpm verify-deps-before-run 在 symlink 树上误触发的整库 install）。
+- 2026-09-08 通讯录双栏轮：edit 的已读快照按「路径」而非内容判定——主树读过的文件在 worktree 里改同名文件仍报 has not been read，worktree 编辑前必须对 worktree 全路径重读。tools.write 的 content 若经 run_code 的 JS 模板串转手，内嵌 JSX 的美元花括号会被宿主插值报 Expected ','（本条即为现场再犯后补记）——长 JSX/脚本内容一律直接作为 write 的 JSON 字符串参数传。
+- 2026-09-07 rail 轮：run_code 里对文件做字符串 surgery 时，JSON 参数内的 \n 会被解码成真实换行——正则字面量因此跨行直接 SyntaxError（报错还是误导性的 "Unmatched )"）；同理普通引号字符串里也不能出现解码后的裸换行。多行文本处理改用 edit/write 工具传字面量（它们的参数天然支持真实换行），或先用 read 取行数组再 join 处理，别在 JS 源码层玩转义。
 - 2026-09-07 UX 终验：mock 态页面内造数走 vite 模块同源性——页内 `await import('/src/lib/mock-ipc.ts')` 与应用拿到同一模块实例，mockBackend.chatFriendAdd 直建好友；但 UI 表单校验比 mock 严（PeerId 需 base58 解码=32 字节，不止 43-45 位正则），页内 b58 编码 32 个随机字节生成合法 PeerId；同理 chatFriendAdd 直建的是好友，UI「添加好友」走的是邀请制（pending），两条通路别混。
 - 2026-09-07 DSH harness：给 bash 的命令写进 run_code 时禁止模板字符串内嵌 ${var}（会被 JS 先求值报 "i is not defined"）——用数组 join("\n") 拼命令行。
 - 2026-09-05 ACP3：并行会话会 prune/打断彼此的 worktree——worktree add 用 run_in_background 跑（前台 ~60s 超时会杀掉 801 文件的 checkout 留半成品，本日两次实证），建成后立即 git worktree lock --reason 自保；每次操作后 git -C <wt> rev-parse --show-toplevel 核对没回落主树（输出主树路径=管理区被清的事故信号）。
@@ -440,4 +445,14 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-07 DOM 断言 undefined≠null：querySelector 没找到元素时 optional chaining 得 undefined，属性存在但值缺失才是 null——断言挂了先分清「元素没查到（testid 拼错/取值域错）」还是「属性没渲染」，别急着怀疑组件库透传（lucide-react rest props 全透传，role/aria-label 均可落 svg）。
 - 2026-09-07 git push 偶发 "repository exists" 尾部报错多为 SSH 瞬时抖动（机器高负载下）：先原样重试一次再看，别急着改 remote 配置。
 - 2026-09-07 多会话并行期 ff-merge 大概率撞车：合并前 fetch + 查 main..origin/main，撞了回 worktree merge main 重跑受影响门禁再推——不要用 --no-ff 绕过，ff-only 纪律保 revert 可行。
+- 2026-09-08 评审某页面设计前定位代码：别在仓库根用宽 pattern（`llm.?share`+多扩展名 include）grep——大仓会产出 50KB+ spill 且 9 成是测试/i18n/IPC 噪音；先 `ls + wc -l` 目标视图目录拿结构清单，再读主 view 文件，最后用窄 grep 补 i18n 文案（locales 直接读 llmShare 段）。
 - 再纠正：软链好后别用 pnpm exec/pnpm test 起 vitest——pnpm 的 verify-deps-before-run 会因根 node_modules 是 symlink 报 ERR_PNPM_UNSAFE_MODULES_DIR 并试图重装；直接 node 起真实入口绕开：cd apps/gui && node node_modules/vitest/vitest.mjs run <files>（2026-09-07 llm-provider-share 会话实测）。
+- 2026-09-08 右键菜单轮：测试里 mock 带动态 import 的 Tauri API（@tauri-apps/api/webviewWindow）时，工厂 class 在构造函数里 queueMicrotask 自发 `tauri://created`，once 句柄同步注册后微任务即触发——`await openXxx()` 直接收敛，无需真实窗口；失败路径用 hoisted 状态位切换自发事件为 tauri://error，两条路径都能在 jsdom 里确定性测到。
+- 2026-09-08 右键菜单轮：store 测试要验证「同一用例内二次重载模块」时 beforeEach 的 vi.resetModules 不够，须在用例内显式再调一次 vi.resetModules() 后重新动态 import，否则拿到的是首次求值的同一单例（ui-prefs-store.test 的 freshStore 模式只在跨用例生效）。
+- 2026-09-08 设计稿轮：gpt-image-2 出图管线三件套——提示词 txt + python3 重建 payload json + gen.sh（取 .env 第一对 key 调 /v1/images/generations，b64 解码落盘，docs/design/message-center 先例）；中文 UI 文案在提示词里逐串引号列出并注明 exact text rendering；出图后 read_image 直读审查文字渲染，一次生成两张互补视图（默认态+历史态）验证交互闭环。
+- 2026-09-08 设计稿轮：.env 同名键重复时 source 取最后一个——排障先 `grep -n "^KEY=" .env` 看重复，逐对配 base_url 测试（本仓第一对 openai.bowong.cc 可用、第二对 api.790053500.com 欠费）；图像 API 先发低成本探测（GET /models 或 low quality 小图）验证凭证再烧高质量大图。
+- dsh --profile acp 裸跑启动被拒（launcher 缺 ctx.appExit/appReady）：不动 harness 仓库，在 ~/.dsh/profiles/acp/cordis.patch.yml 用「disabled 原条目 + insert 自托管启动器」顶替 acp-app-startup（实现见 scripts/ops/dsh-acp-launch/index.mjs，自备 appExit/appReady 缺省 + 复刻原语义），acp 行靠 inject 反应式等待服务；入口名换模块（patch 改 name）可行，但 patch 不能改已存在条目的位置，insert 永远追加在尾部、靠 inject 反应式语义兜住顺序问题。注意 profile 目录按 DSH_HOME 解析（本机 ~/.dsh 与 ~/.dsh/dsh012-clean 双 home 并存，shim 两个都要装）。
+- 诊断常驻服务老化：对比「运行中二进制的端点面」与「仓库 HEAD 的端点面」（如 admin GET /workspaces 新端点 404 = 旧二进制），部署刷新用 scripts/ops/acp-local-setup.sh（构建+安装+shim+授权+kickstart+探针一条龙）。
+- 2026-09-08（W3 波）多行 Rust 代码经 run_code 写入：用「单引号 JS 字符串逐行 push + join」最稳；双引号数组内反斜杠转义与模板串屡触发解析错。单引号方案里 Rust 生命周期撇号先用类型别名规避。
+- 2026-09-08（W3 波）bash 工具不传 workdir 时落在会话工作目录（主树），与上一次调用的 cd 无关——曾把主树的 cargo check 误当 worktree 检查得到假绿。工作区命令必须显式传 workdir。
+- 2026-09-08（W3 波）read 工具有单次返回行数上限（totalLines 可能大于实际返回行数）：「读全文再写回」的追加方式会静默截断长文件（本次砍掉 techniques 172 行/known-issues 117 行，靠 git checkout HEAD~1 -- 恢复）。长文件追加一律用 bash cat >> heredoc。

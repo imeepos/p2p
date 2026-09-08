@@ -216,6 +216,7 @@ GUI 列表按组分节展示、未分组虚拟组置底，CLI friends --group �
 | chat_history | peer: string, beforeId?: string | null, limit?: number | ChatMessageJson[] | 按 time desc 分页，limit 默认 50 上限 100；beforeId 游标=严格更早 |
 | chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput, replyTo?: string \| null | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB；replyTo 提供时须非空字符串（不校验被引用消息存在性，离线引用允许） |
 | chat_media_file | peer: string, messageId: string | { path: string; mime: string; name: string } | 返回附件落盘绝对路径（仅本端展示用）；消息非 media 或不存在 → Err |
+| chat_media_export | sourceUrl: string, destPath: string, onProgress: Channel<{ receivedBytes: number; totalBytes: number }> | { destPath: string; totalBytes: number } | 媒体导出（2026-09-07 加法，详见 §12.5）：sourceUrl 为 chat_media_file/group_media_file 返回的 asset URL，destPath 为保存对话框产物；分块拷贝并经 Channel 回报进度 |
 | chat_friend_invite
 | chat_invites_list | - | FriendInviteJson[] | 邀请列表（out 待对方同意 / in 待本机处理） |
 | chat_invite_accept | peerId: string, nickname: string | ChatFriendJson | 同意来邀：本侧立即建好友并回投 ACCEPT；nickname 空串 = 沿用邀请内对端自称；无来邀 → Err |
@@ -279,7 +280,20 @@ interface ChatSendReport {
   messages/<peer>.jsonl / media/<peer>/<msgId>_<sanitizedName>），介质权限与原子写对齐 §11 纪律。
 - 媒体预览：`chat_media_file` 返回 path 后，前端经 Tauri asset protocol（assetProtocol
   scope 须含 chat/media 目录，src-tauri 侧接线）内联展示 image/audio/video；file 展示
-  名称/大小并提供下载锚点。系统级"打开默认应用"不在本轮契约内。
+  名称/大小。下载入口见 §12.5（保存对话框导出，替代早期锚点直开）。系统级"打开默认应用"不在本轮契约内。
+
+### 12.5 媒体导出（2026-09-07 加法）
+
+- 命令：`chat_media_export(sourceUrl, destPath, onProgress)`（§12.1 表同）。
+- 来源解析：src-tauri 内部把 asset URL 还原为本端落盘绝对路径（`util::to_asset_url`
+  逆变换），并 canonicalize 校验必须位于应用数据目录内——前端永不直传路径，防任意文件外拷。
+- 目标路径：前端经 tauri-plugin-dialog `save()` 系统保存对话框取得（默认文件名 = 附件
+  原始名），取消（null）则不发命令。
+- 进度：64KiB 分块拷贝，每 ≥256KiB 经 `Channel` 回报一次 + 收尾必发终态；前端全局
+  download-store 记任务（key = sourceUrl），气泡内联进度条展示，切会话/页面不丢。
+- 失败语义：来源越界/不可读/写目标失败 → Err 可读中文；进度回报失败（前端已离开）
+  仅告警不中断导出。
+- CLI 对等：cli-parity.tsv 登记为 exempt（对话框与 Channel 为桌面壳专属，无 CLI 等价面）。
 - 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase，Option 序列化 null）；
   B 侧 TS 类型与上表逐字一致；mock 与真实实现同签名。
 
@@ -520,6 +534,11 @@ LlmBorrowReport{status: done|stream_broken|rejected, receipt{reqId, appended, es
 
 v12 加法（2026-09-07）：上游配置第五面板——本地自用 provider 配置列表（名称/baseUrl/apiKey/模型，仅存 GUI localStorage，键 p2p-gui-llm-providers；不触 §16.2-4 账本文件）。分享动作 = offerPublish（按配置模型）+ allow（好友按同批模型放行）；apiKey 不进任何 IPC 请求与展示（列表只出掩码），即「分享可用性而非密钥」。
 
+v12 取代注记（2026-09-08，llm-share-link 波）：§16.6 v13 将其取代——provider 配置存储从
+localStorage 上移为本机持久化（providers.json + 0600 密钥文件），分享动作改为 dsh-llm-share://
+临时链接（share_redeem 兑换进 allowlist）。旧 localStorage 数据一次性幂等迁移；provider-share-form
+手动分享入口移除。v12 的命令面/语义以 §16.6 为准，本段保留为历史。
+
 ### 16.4 cli-parity 迁移
 
 GUI 命令 live 行与 PR4 borrow 注释行升级同一提交串落地，中间态守卫不红；ai-docs-sync 联动由 GUI 轨验收把关。
@@ -527,3 +546,76 @@ GUI 命令 live 行与 PR4 borrow 注释行升级同一提交串落地，中间�
 ### 16.5 §3 加法
 
 GuiConfig 增 lanOnly?: boolean（serde default，缺省 false；PR4 已落 serde 双向兼容）；设置页 lanOnly 开关纳入实现卡。
+
+### 16.6 v13 加法（2026-09-08，llm-share-link 波；取代 v12，设计=docs/design/llm-share-link-design.md v2）
+
+双协议 provider + 聊天分享链接全链。语义红线：
+
+1. provider 配置本机持久化：providers.json（只存 id/name/baseUrl/protocol/models/createdAt + apiKeyRef，
+   不存明文 key）+ 0600 密钥文件 keys/<id>.key；apiKey 明文仅入参、禁进日志/wire/台账/链接/argv；
+   http:// baseUrl 显式告警；provider_remove 级联删 key 文件；localStorage 旧数据一次性幂等迁移。
+2. 分享=临时链接：dsh-llm-share://v1?peer&addr&token&exp&sid&models；token=128-bit CSPRNG hex，
+   台账只存 sha256，原文只在 share_create 响应出现一次；models 必填非空且 ⊆ offer.models；
+   maxActivations 固定 1；exp 默认 24h 上限 7d。
+3. 兑换=认证 PeerId 进 allowlist（source=share:<shareId>，模型集限定，expires_at=链接 exp）；
+   兑换激活锁内 read-check-write 防 TOCTOU；手工条目优先、redeem 不覆盖、同 peer 模型取交集；
+   revoke 按 source 级联删 allowlist 条目；allowlist 条目到期经 admit 惰性清理。
+4. 出借方常驻 serve：node_start 装配（offer+providers 启动快照）、node_stop 卸载；
+   serve_status.assembled:false 是常态非故障；入站身份取握手认证 PeerId（handle_inbound），
+   帧内自报不信；幂等索引持久化（ledger.json append Receipt，启动重建 settled 防 req_id 双记账）。
+5. 新增命令面 8 条（表）：
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| llm_share_provider_list | - | { providers: LlmProviderView[] } | apiKey 只出掩码；损坏存档=显式报错回空不静默 |
+| llm_share_provider_save | config{id?, name, baseUrl, protocol:openai\|claude, apiKey, models[]} | LlmProviderView | id 缺省生成；apiKey 明文仅入参落 0600 密钥文件；name/baseUrl/models 必填显性报错 |
+| llm_share_provider_remove | providerId | { removed: true } | 不存在=显式报错非错误态；级联删 key 文件 |
+| llm_share_share_create | req{providerId, models?, expiresAt?, maxActivations?, note?} | { link, shareId, expiresAt, models } | models 缺省=provider 全模型且须 ⊆ offer.models；maxActivations 固定 1；token 原文只在这条响应出现一次 |
+| llm_share_share_list | - | { shares: LlmShareEntry[] } | 永不含 token/明文 key；status 推导 active/expired/revoked/exhausted |
+| llm_share_share_revoke | shareId | { revoked: true } | 按 source=share:<id> 级联删 allowlist 条目；不存在/已撤销=显式报错 |
+| llm_share_share_redeem | link | LlmShareRedeemResult{offer:{peer,models,spare,periodEnds}, shareId, owner} | 业务拒绝码 share-revoked/expired/exhausted/bound-other/invalid 原样透出非 Err；scheme/peer/token 缺失=参数错误显式 Err |
+| llm_share_serve_status | - | LlmServeStatus{ assembled, providerId?, models[], lastError? } | assembled:false 是常态非故障；lastError 供面板显式告警 |
+
+6. CLI 对等：7 条 mapped（provider list/save/remove、share create/list/revoke/redeem，逻辑进
+   crates/p2p-cli 共享事实源，apps/cli clap 映射 + ai-guide 条目同卡）；serve_status exempt
+   （serve 生命周期跟随 GUI 常驻节点，无 CLI 常驻进程面，登记 cli-parity.tsv 带 reason，
+   acp_console_status 先例）。
+
+## 17. A2A 智能体面（v14 加法，2026-09-08，A2A3 波；设计=docs/design/a2a-over-p2p-design.md §5.1/§7.4/§8）
+
+GUI /agents 页（发现/我的双视图）的数据面契约。IPC 命令表零加法：本机 agent 凭
+§15 AcpLocalDescriptor（adminUrl/token/peer），console 连接面凭 §15 AcpConsoleStatus
+（wsUrl/token）；node-event 判别联合（NodeEventJson）不动（拍板 Q6）。
+
+### 17.1 卡片/邀请事件通道（acp-console WS 独立事件通道）
+
+- 通道 = `ws://127.0.0.1:<ws_port>/?token=&peer=<宿主PeerId>&proto=a2a`（apps/acp-console
+  README 为 wire 契约权威）。console 按 `proto` 拨 `/a2a/1`（缺省 `acp` 拨 `/dsh-acp/1`，
+  未知值 401 显式拒绝），握手后纯字节泵，帧面真值源 = `crates/a2a` CardFrame（§5.1 表）。
+- GUI 通道纪律：连上先 `list` 拉全量再 `subscribe`；`cards`/`push` 按
+  `hostPeer/agentId` 键入簿，同键 version 升序才覆盖；`push.removed` 即除名；
+  `error` 帧原样上浮 UI（不静默）。断线按既有 WS 重连节奏重拨并重放 list+subscribe。
+- 邀请事件（A2A5）为同一通道的宿主→GUI 通知帧预留扩展位，不再加新协议 ID。
+
+### 17.2 本机 agent 管理面（「我的」视图，Bearer 鉴权，宿主 share admin 管道）
+
+| 方法/路径 | 请求体 | 应答 | 语义 |
+|---|---|---|---|
+| GET /a2a/agents | - | `{"agents":[AgentDef…]}` | 我发布的定义全集 |
+| POST /a2a/agents | `{agentId?, name, description, skills?, visibility}` | AgentDef | 创建即签名发布并广播 push；skills ≤10 条（id [a-z0-9-]）；name/description 非空 |
+| PUT /a2a/agents/{id} | `{visibility?}` 或 `{enabled?}` | AgentDef | 变更即重签广播；名称/描述/技能 v1 数据面不可改（GUI 编辑态只开放可见性） |
+| DELETE /a2a/agents/{id} | - | `{"removed":agentId}` | 下架即广播 removed（键 hostPeer/agentId） |
+
+- 错误面：400 invalid-json；404 unknown agent；422 校验拒绝（error 原文上浮 UI，禁静默）。
+- AgentDef（camelCase）：agentId/name/description/skills[{id,name,…}]/visibility(public|private|local)。
+
+### 17.3 GUI 语义约束（违约即验收红）
+
+1. 在线点为纯前端启发（卡过期时刻 = issued_at+ttl_secs）：剩余 TTL >50% 绿、≤50% 黄、
+   过期灰；真实心跳面接入前不得展示「在线/离线」文案，仅色点。
+2. 可见性徽章：public=绿、private=灰、local=灰（设计 §8.2）。
+3. 「聊天」（?a2a= 会话）已交付（A2A4）：点击导航到 /chat?a2a=<agentKey>，
+   右侧渲染 A2aConversation 组件（task 语义，与 ACP transcript 栈分家）。
+   「分享」（生成签名邀请）为 A2A5 交付面：A2A4 内为可点占位，触发 toast
+   显式说明功能未开通，不导航不静默。
+4. skills 输入 chip ≤10 条、trim+去重（拍板 Q9）；校验失败原位上浮。

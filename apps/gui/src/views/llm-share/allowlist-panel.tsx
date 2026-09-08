@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import type { I18nKey } from "@/i18n/types";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { EntityMultiSelect, type PickerOption } from "@/components/picker";
+import { toastSuccess } from "@/components/feedback/toast";
 import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,11 +34,11 @@ import type { LlmAllowEntry, LlmShareBackend } from "./types";
 
 interface AllowFormValues {
   peerId: string;
-  models: string;
+  models: string[];
   note: string;
 }
 
-const EMPTY_ALLOW_FORM: AllowFormValues = { peerId: "", models: "", note: "" };
+const EMPTY_ALLOW_FORM: AllowFormValues = { peerId: "", models: [], note: "" };
 
 // R2-05：PeerId 即时校验（F14 时机：首次失焦前不打断输入），提交兜底拦截
 function peerErrorKeyOf(value: string, touched: boolean): I18nKey | null {
@@ -45,13 +47,6 @@ function peerErrorKeyOf(value: string, touched: boolean): I18nKey | null {
   if (!trimmed) return "llmShare.allowlist.errPeerRequired";
   if (!isValidFriendPeerId(trimmed)) return "llmShare.allowlist.errPeerInvalid";
   return null;
-}
-
-function parseAllowModels(text: string): string[] {
-  return text
-    .split(/[,\n，、]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
 }
 
 function AllowRow({ entry, onDeny, busy }: { entry: LlmAllowEntry; onDeny: (peerId: string) => void; busy: boolean }) {
@@ -78,13 +73,18 @@ function AllowRow({ entry, onDeny, busy }: { entry: LlmAllowEntry; onDeny: (peer
   );
 }
 
+// 白名单面板：表格信息优先——首屏即「谁能借用」清单与统计；放行表单点
+// 「添加放行」才展开，提交成功后收起回列表（R2-08 成功 toast）。
 export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const [entries, setEntries] = useState<LlmAllowEntry[] | null>(null);
+  // 模型候选 = 本机已放行模型集（条目 models 并集），留空=不限模型
+  const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [form, setForm] = useState<AllowFormValues>(EMPTY_ALLOW_FORM);
+  const [formOpen, setFormOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [peerTouched, setPeerTouched] = useState(false);
   const peerErrorKey = peerErrorKeyOf(form.peerId, peerTouched);
@@ -109,6 +109,8 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
         if (!cancelled) {
           setEntries(view.entries);
           setLoadError(null);
+          const models = [...new Set(view.entries.flatMap((e) => e.models))];
+          setModelOptions(models.map((model) => ({ value: model, label: model })));
         }
       } catch (error) {
         console.warn("[llm-share] allowlist 读取失败", error);
@@ -146,10 +148,14 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
       await backend.allow({
         peerId: form.peerId.trim(),
         // models 留空 = 不限模型（ai-guide allow 语义），后端决定缺省形状
-        models: parseAllowModels(form.models),
+        models: form.models,
         note: form.note.trim() || undefined,
       });
       setForm(EMPTY_ALLOW_FORM);
+      setPeerTouched(false);
+      // R2-08：成功 toast + 收起表单回列表，新放行的一行直接可见
+      toastSuccess(t("llmShare.allowlist.allowSuccess"));
+      setFormOpen(false);
     });
   };
 
@@ -175,56 +181,86 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
   return (
     <div className="flex flex-col gap-3" data-testid="allowlist-panel">
       <Card>
-        <CardHeader>
-          <CardTitle className="text-sm">{t("llmShare.panels.allowlist")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="flex flex-col gap-3" onSubmit={handleAllow} noValidate>
-            <PeerIdField
-              label={t("llmShare.allowlist.formPeerId")}
-              inputId="llm-allow-peer"
-              value={form.peerId}
-              onValueChange={set("peerId")}
-              onBlur={() => setPeerTouched(true)}
-              errorKey={peerErrorKey}
-              errorId="llm-allow-peer-error"
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="llm-allow-models">{t("llmShare.allowlist.formModels")}</Label>
-                <Input
-                  id="llm-allow-models"
-                  value={form.models}
-                  onChange={(e) => set("models")(e.target.value)}
-                  placeholder={t("llmShare.allowlist.formModelsOptional")}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="llm-allow-note">{t("llmShare.allowlist.formNote")}</Label>
-                <Input
-                  id="llm-allow-note"
-                  value={form.note}
-                  onChange={(e) => set("note")(e.target.value)}
-                />
-              </div>
-            </div>
-            {actionError ? (
-              <CommandErrorText
-                message={actionError}
-                prefix={t("llmShare.allowlist.actionFailed") + "："}
-              />
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+          <div className="flex items-baseline gap-2">
+            <CardTitle className="text-sm">{t("llmShare.panels.allowlist")}</CardTitle>
+            {entries && entries.length > 0 ? (
+              <span className="text-muted-foreground text-xs" data-testid="allow-count">
+                {t("llmShare.allowlist.count", { count: entries.length })}
+              </span>
             ) : null}
-            <div>
-              <Button type="submit" size="sm" disabled={busy}>
-                {t("llmShare.allowlist.allow")}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      {entries && entries.length > 0 ? (
-        <Card>
-          <CardContent>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant={formOpen ? "outline" : "default"}
+            onClick={() => setFormOpen((open) => !open)}
+            data-testid="allow-add-toggle"
+          >
+            {t("llmShare.allowlist.addEntry")}
+          </Button>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {formOpen ? (
+            <form className="flex flex-col gap-3 rounded-md border border-dashed p-3" onSubmit={handleAllow} noValidate>
+              <PeerIdField
+                label={t("llmShare.allowlist.formPeerId")}
+                inputId="llm-allow-peer"
+                value={form.peerId}
+                onValueChange={set("peerId")}
+                onBlur={() => setPeerTouched(true)}
+                errorKey={peerErrorKey}
+                errorId="llm-allow-peer-error"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="llm-allow-models">{t("llmShare.allowlist.formModels")}</Label>
+                  <EntityMultiSelect
+                    testId="llm-allow-models"
+                    options={modelOptions}
+                    selected={form.models}
+                    onChange={(next) => setForm((v) => ({ ...v, models: next }))}
+                  />
+                  <p className="text-muted-foreground text-xs">{t("llmShare.allowlist.formModelsOptional")}</p>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="llm-allow-note">{t("llmShare.allowlist.formNote")}</Label>
+                  <Input
+                    id="llm-allow-note"
+                    value={form.note}
+                    onChange={(e) => set("note")(e.target.value)}
+                  />
+                </div>
+              </div>
+              {actionError ? (
+                <CommandErrorText
+                  message={actionError}
+                  prefix={t("llmShare.allowlist.actionFailed") + "："}
+                />
+              ) : null}
+              <div className="flex gap-2">
+                <Button type="submit" size="sm" disabled={busy}>
+                  {t("llmShare.allowlist.allow")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => setFormOpen(false)}
+                >
+                  {t("common.actions.cancel")}
+                </Button>
+              </div>
+            </form>
+          ) : null}
+          {actionError && !formOpen ? (
+            <CommandErrorText
+              message={actionError}
+              prefix={t("llmShare.allowlist.actionFailed") + "："}
+            />
+          ) : null}
+          {entries && entries.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -236,21 +272,20 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow><TableCell colSpan={5} className="text-muted-foreground text-xs">{t("llmShare.allowlist.count", { count: entries.length })}</TableCell></TableRow>
                 {entries.map((entry) => (
                   <AllowRow key={entry.peerId} entry={entry} onDeny={handleDeny} busy={busy} />
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      ) : (
-        <EmptyState
-          icon={ShieldOff}
-          title={t("llmShare.allowlist.emptyTitle")}
-          description={loadError ?? t("llmShare.allowlist.emptyHint")}
-        />
-      )}
+          ) : entries && formOpen ? null : (
+            <EmptyState
+              icon={ShieldOff}
+              title={t("llmShare.allowlist.emptyTitle")}
+              description={loadError ?? t("llmShare.allowlist.emptyHint")}
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

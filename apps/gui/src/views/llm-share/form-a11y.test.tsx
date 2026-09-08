@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
@@ -34,6 +35,9 @@ describe("R2-12 校验错误 aria 关联与聚焦第一个错误字段", () => {
   it("offer 空提交：字段 aria-invalid/describedby 关联且聚焦第一个错误", async () => {
     const { backend } = makeLlmShareMockPair();
     render(<OfferPanel backend={backend} />);
+    // UX：表单默认收起，先点 CTA 展开
+    await screen.findByTestId("offer-publish-cta");
+    fireEvent.click(screen.getByTestId("offer-publish-cta"));
     fireEvent.submit(submitOf(t("llmShare.offer.publish")));
     const models = screen.getByLabelText(t("llmShare.offer.formModels"));
     expect(models.getAttribute("aria-invalid")).toBe("true");
@@ -42,12 +46,14 @@ describe("R2-12 校验错误 aria 关联与聚焦第一个错误字段", () => {
     expect(document.activeElement?.id).toBe("llm-offer-models");
   });
 
-  it("borrow 空提交：聚焦出借方 PeerId，四字段均带 aria 关联", async () => {
+  it("borrow 空提交：聚焦出借方 PeerId，必填字段均带 aria 关联（maxTokens 有厂值缺省）", async () => {
     const { backend } = makeLlmShareMockPair();
     render(
-      <ConfirmProvider>
-        <BorrowPanel backend={backend} />
-      </ConfirmProvider>,
+      <MemoryRouter>
+        <ConfirmProvider>
+          <BorrowPanel backend={backend} />
+        </ConfirmProvider>
+      </MemoryRouter>,
     );
     fireEvent.submit(submitOf(t("llmShare.borrow.submit")));
     expect(document.activeElement?.id).toBe("llm-borrow-peer");
@@ -56,14 +62,13 @@ describe("R2-12 校验错误 aria 关联与聚焦第一个错误字段", () => {
     for (const id of [
       "llm-borrow-peer-error",
       "llm-borrow-model-error",
-      "llm-borrow-maxtokens-error",
       "llm-borrow-messages-error",
     ]) {
       expect(document.getElementById(id)).toBeTruthy();
     }
   });
 
-  it("allowlist 空提交：PeerId 即时报必填并聚焦", () => {
+  it("allowlist 空提交：PeerId 即时报必填并聚焦", async () => {
     const { backend } = makeLlmShareMockPair();
     const allowSpy = vi.spyOn(backend, "allow");
     render(
@@ -71,6 +76,8 @@ describe("R2-12 校验错误 aria 关联与聚焦第一个错误字段", () => {
         <AllowlistPanel backend={backend} />
       </ConfirmProvider>,
     );
+    // UX：表单默认收起，先点「添加放行」展开
+    fireEvent.click(await screen.findByTestId("allow-add-toggle"));
     fireEvent.submit(submitOf(t("llmShare.allowlist.allow")));
     const peer = screen.getByLabelText(t("llmShare.allowlist.formPeerId"));
     expect(peer.getAttribute("aria-invalid")).toBe("true");
@@ -90,9 +97,11 @@ describe("R2-14 借用处理中状态反馈", () => {
     });
     const slowBackend = { ...backend, borrow: () => deferred };
     render(
-      <ConfirmProvider>
-        <BorrowPanel backend={slowBackend} />
-      </ConfirmProvider>,
+      <MemoryRouter>
+        <ConfirmProvider>
+          <BorrowPanel backend={slowBackend} />
+        </ConfirmProvider>
+      </MemoryRouter>,
     );
     fireEvent.change(screen.getByLabelText(t("llmShare.borrow.formTargetPeer")), {
       target: { value: PEER },
@@ -125,15 +134,19 @@ describe("R2-15 留存自述字段渲染", () => {
     const { backend } = makeLlmShareMockPair({ now: () => 1788549300 });
     const spy = vi.spyOn(backend, "offerPublish");
     render(<OfferPanel backend={backend} />);
+    // UX：表单默认收起，留存自述归入高级折叠组
+    await screen.findByTestId("offer-publish-cta");
+    fireEvent.click(screen.getByTestId("offer-publish-cta"));
     fireEvent.change(screen.getByLabelText(t("llmShare.offer.formModels")), {
       target: { value: "gpt-4o" },
     });
-    fireEvent.change(screen.getByLabelText(t("llmShare.offer.formSpare")), {
-      target: { value: "gpt-4o=10" },
+    fireEvent.change(screen.getByLabelText("gpt-4o"), {
+      target: { value: "10" },
     });
     fireEvent.change(screen.getByLabelText(t("llmShare.offer.formPeriodEnds")), {
       target: { value: "2026-09-30" },
     });
+    fireEvent.click(screen.getByTestId("offer-advanced-toggle"));
     fireEvent.change(screen.getByLabelText(t("llmShare.offer.formRetention")), {
       target: { value: "ephemeral-30d" },
     });

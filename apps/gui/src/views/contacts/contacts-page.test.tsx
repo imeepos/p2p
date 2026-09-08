@@ -150,7 +150,7 @@ describe("通讯录三区渲染（§3.1）", () => {
     expect(screen.getByTestId("contact-friend-" + PEER).textContent).toContain("家人");
   });
 
-  it("群区行模型：群名 + 成员数 + 我的角色 + 置底徽标；非 owner 邀请禁用", async () => {
+  it("群区行模型：群名 + 成员数 + 我的角色；非 owner 邀请禁用；被踢群不进通讯录", async () => {
     const mine = groupOf("g-mine", "我的群", PEER);
     const joined = { ...groupOf("g-other", "别人的群", PEER_B), members: [PEER_B, PEER] };
     const kicked = { ...groupOf("g-kicked", "被踢的群", PEER_B), members: [PEER_B], state: "kicked" as const };
@@ -159,15 +159,8 @@ describe("通讯录三区渲染（§3.1）", () => {
     await waitFor(() => expect(screen.getByTestId("contact-group-g-mine")).toBeTruthy());
     expect(screen.getByTestId("contact-group-g-other").textContent).toContain("成员");
     expect(screen.getByTestId("contact-group-g-mine").textContent).toContain("群主");
-    expect(screen.getByTestId("contact-group-g-other").textContent).toContain("成员");
-    // 非 active 置底：kicked 行在 active 行之后
-    const rows = ["g-mine", "g-other", "g-kicked"].map((id) =>
-      screen.getByTestId("contact-group-" + id),
-    );
-    // compareDocumentPosition(b) 含 FOLLOWING 位 = b 在 a 之后
-    expect(
-      rows[0]!.compareDocumentPosition(rows[2]!) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    // 非 active（kicked）不进通讯录：不渲染对应行
+    expect(screen.queryByTestId("contact-group-g-kicked")).toBeNull();
     // 非 owner：邀请成员禁用；active：退群可用
     expect(
       (screen.getByTestId("contact-group-invite-g-other") as HTMLButtonElement).disabled,

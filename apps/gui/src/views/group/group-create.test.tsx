@@ -133,7 +133,7 @@ describe("GroupCreateDialog 建群流程", () => {
     // 名单 trim + 去重 + 好友 PeerId 原样（不含本机）
     expect(mocks.groupCreate).toHaveBeenCalledWith("新项目组", [ALICE, BOB]);
     await waitFor(() =>
-      expect(mocks.groupHistory).toHaveBeenCalledWith(NEW_ID, null, 50),
+      expect(mocks.groupHistory).toHaveBeenCalledWith(NEW_ID, null, 20),
     );
     await waitFor(() =>
       expect(

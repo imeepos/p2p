@@ -12,6 +12,9 @@ _none yet — be the first._
 - 2026-09-05：run_code 用模板串写长文件时，漏闭合反引号/转义混乱会在"解析 program"阶段就炸（Expected ',' got ';' / Unterminated template），与目标文件内容无关；先写 30 行小片验证模板串本身，再写全文件。
 - 2026-09-05：工具类管道命令 `make check 2>&1 | tail` 的 exit code 是 tail 的（恒 0），make 失败被吞；一律 `set -o pipefail` 或 `rc=$?; echo RC=$rc` 显式回传（验证两次才敢报绿）。
 - 2026-09-05：pnpm test -- --run <path> 对 script 形 vitest 并不能按路径过滤（全量照跑），子集调试用 `pnpm vitest run <path>`。_
+- 2026-09-08：本仓 TSX 代码行（含行尾注释）出现 CJK 即被 i18n hardcoded-copy 门禁拦下，注释独占一行才豁免；中文注释一律独立成行，绝不作行尾注释。
+- 2026-09-08：用本仓封装 API（如 toastSuccess）前先读封装签名——它是 sonner 的薄封装但二参退化为 string，按底层库签名写 `{ description }` 会被 tsc 拦。
+- 2026-09-08：开工前先在基线上跑一次 clippy/门禁再动手：rust-toolchain 锁 1.98.1 引入 items_after_test_module 新 lint 时 main 本身已红，不先验证会把存量红误判为自己改坏（存量红独立 chore 提交，不混进 feature）。
 - 2026-09-03：GUI types/node_event.rs 对 NodeEvent 无通配符穷举匹配，swarm 侧新增事件变体必须走 LifecycleEvent 独立通道加法（E6/E8 两次先例），加变体前先 grep 全部 recv 点匹配严格度。
 - 2026-09-03：run_code 写 Rust 代码文件时，JS 双引号串会被 Rust 内嵌双引号截断（Expected ',' got 'ident'）；全部行改用 JS 单引号串（Rust 源内几乎无单引号字符），且整文件构建+写入必须在同一次 run_code 调用内完成（跨调用无内存）。
 - 2026-09-03：会话宿主重启丢工作区后，靠协调者 wip 检查点提交 + 承接会话「审阅→补全→补 itest→过验收」流程恢复；恢复后先 git log/git status 对账，不盲信记忆中的文件状态。
@@ -208,6 +211,10 @@ _none yet — be the first._
 - 2026-09-04：AGENTS.md 写"远端名是 gitea 不是 origin"，但本仓库实测 git remote 只有 origin——仓库级惯例文件会过时或张冠李戴，涉及远端操作前先 git remote 实测再动手。
 - 2026-09-04：git worktree add 不能检出已被其他 worktree 占用的分支（fatal: already used by worktree）；验证钩子/临时检出用 --detach，不占分支名。
 - 2026-09-04：post-checkout 触发面：HEAD 级检出（分支切换/新 worktree/clone）都触发（flag=1 或 old=全零），git checkout -- <path> 路径级不触发（flag=0）——钩子内按 flag 过滤可避免路径检出误动作。
+- 2026-09-08：edit 替换 import 块时 old_string 只锚了块尾两行，new_string 却按整块重写并重发了块内上文已有的行——立刻产生双 import（tsc 必红）。改 import 块前先确认 old_string 的覆盖边界，new_string 只写净新增行，改完立刻 read 回看。
+- 2026-09-08：测试夹具给联合类型字段覆写字面量（state: "left"）先赋 const 再传 setState，字面量在声明处已放宽为 string——vitest 不查类型全绿，tsc build 才红（2026-09-04 键类型教训的同类：build 是唯一闸口）。沿用仓内 `as const` 先例或给夹具直接标目标类型。
+- 2026-09-07 rail 轮：ff-merge 后并行会话会继续推进 main，收尾核验「我的提交是否还活着」用 git merge-base --is-ancestor <commit> main，别用 git log 头部比对——头部早就是别人的提交了（本轮 main 在我合并后 1 分钟内被 chat-paged-view 会话推进两个提交，ancestry 校验确认两个 fix 提交均在）。
+- 2026-09-07 rail 轮：设计系统已有语义令牌（shadcn 的 --sidebar/--muted 系列）时要先找令牌再写死颜色——本轮侧栏「黑底不随主题」的根因就是 WX1 风格引入了固定色 --wx-rail，绕过了已有主题机制；删固定令牌 + 改语义类（bg-sidebar/text-muted-foreground/hover:bg-sidebar-accent）零 JS 改动即双主题自适应。
 - 2026-09-04 N2：git stash pop 或外部脚本改写文件后，edit 工具必报 file changed
   since it was read——先重读再改，别凭记忆构造 old_string。
 - 2026-09-04 N2：并行会话会在你验收窗口内推进 main（本次 ai-guide 会话把 main
@@ -398,3 +405,32 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 搜索框的命中语料必须与界面展示同源（N1 实录）：过滤命中内部串而行内渲染 i18n 摘要，用户按所见词搜索必零命中；检索文本 = 展示串 + 完整标识 + 内部字段兜底三层拼装。
 - 乐观占位的派生展示必须按 status 分支：群占位 acks 为空会让「已送达 0/n」在发送中与失败态恒真（W1-01）；状态行任何统计类插值都要先问 pending/failed 下它还成立吗。
 - 错误提示的复制详情不能只做在 toast 一条通道（C1）：行内/弹框内联错误要沉淀共享件（如 CommandErrorText），否则每个新对话框都会回潮成裸 p 原文不可复制。
+- 2026-09-07：接到「某功能缺失」类需求先全库 grep 现有实现与测试名再动手——聊天分页早已存在（store HISTORY_SIZE + loadOlder + 后端 limit），真实缺口只是 twin 组件不同步（群流有 UX5 前插锚定、1:1 流没有）与初始页偏大；把「用户观感问题」翻译成「哪个既有环节没对齐」比重写快得多。
+- 2026-09-07：改共享常量（如 HISTORY_SIZE）必须先 `grep -rn 'null, 50\|length: 50'` 找全测试断言点——9 处散在 6 个测试文件里，漏一处就是红门禁；vitest 输出里的 stderr 报错日志是错误路径用例的预期产物，别当成失败。
+- 2026-09-07 IM 隐群开关轮：run_code 里手工展开 Promise.all([write,edit,…]) 多工具批次漏闭合括号即 "Expected ',' got ';'" 整批未执行——批次化改 jobs 数组存 thunk + for-await 逐个跑，结构扁平、错点单一生、失败面小。
+- 2026-09-07 IM 隐群开关轮：bash 多行命令串偶发整体静默空输出（exit 0 无 stdout），同语义改单行 && 链即恢复——run_code 跑批优先单行 && 链；空输出先原样重试一次再排查，别基于空结果下结论。
+- 2026-09-07 IM 隐群开关轮：pre-push hook 文案（如「纯删除引用推送，跳过门禁」）与实际 push 行为可能不符，push 成败以 git rev-parse <分支> origin/<分支> 哈希核对为准，别信 hook 打印。
+- 2026-09-07 表情面板轮：新 worktree 缺 node_modules 时别 symlink 主树的（vite/tsc 缓存与并发测试互踩），直接在 apps/gui 跑 pnpm install --frozen-lockfile --prefer-offline，store 硬链接秒级完成（本次 1.6s）。
+- 2026-09-07 表情面板轮：全量 vitest 偶发 1 例失败（1210/1211）而直接涉及的两个测试文件双轮全绿，原样重跑全量即 1211/1211——先按「受影响文件是否红」定位嫌疑面，flaky 单例先重跑拿结论，别急着给自己的改动翻案或补丁。
+- 2026-09-08 评审页面「是否混乱」先数三样：同一后端动作的 UI 入口数（重复入口互相覆盖比字段多更致混乱）、角色/任务流是否混排、以及每列承载的表格列数——别从视觉密度入手，视觉挤往往是 IA 错位的下游症状。
+- 2026-09-08 右键菜单轮：react-hooks 新规则 set-state-in-effect 禁止 effect 体内同步 setState，「量尺寸后钳制定位」类代码整段报红——修法 = 渲染期 props 调整模式（`if (anchor !== renderedAnchor) setState`）复位锚点 + requestAnimationFrame 回调里 setState（回调内合法）；用 effect 直接改 DOM 样式会被下次渲染覆写，别用。
+- 2026-09-08 右键菜单轮：`A && B && C > log` 的重定向只绑最后一段 C——前面门禁的输出只进 job stdout，而流式 job_output 读一次即消费、丢中段；每个门禁段各自 `> 独立日志 2>&1` 落盘，最后统一 grep 各日志拿 RC。
+- 2026-09-08 设置页微信式改版轮：视图级测试里 configGet mock resolve 后 form.reset 在 microtask 才应用，waitFor(configGet 被调) 后立刻改输入会被 reset 竞态清掉 dirty（按钮仍 disabled，点击 no-op 无任何信号）——等输入回显出加载值（value===期望值）再交互，别等 mock 调用计数。
+- 2026-09-08 设置页微信式改版轮：closest(".items-center") 是自包含匹配——目标元素自己带 items-center 类时返回自身（textContent 为空制造「行里没内容」假象），要用更特异的 div.justify-back/div.items-center 跳过自匹配。
+- 2026-09-08 设置页微信式改版轮：新增视图级测试必须整备全部隐式上下文——分节常挂后 AppearanceCard 要 ThemeProvider、入口行要 MemoryRouter（useNavigate invariant），单卡测试时代不暴露；报「occurred in <组件X>」先查 X 的 hook 上下文缺谁。
+- 2026-09-08 设置页微信式改版轮：jsdom 无 scrollIntoView，未 stub 时 focusFirstInvalidField 在 RHF onInvalid 回调内抛 TypeError，onInvalid 里排在它之后的 setState 静默不执行——表现是「保存点击无反应」而非测试报错；新测试先抄 settings-focus-error 的 `HTMLElement.prototype.scrollIntoView = vi.fn()` setup。
+- 2026-09-08 llm-share UX 轮：表单「区段级错误展示」绝不能硬编码单一错误键（本次 SpareRows 把 errors.spare 恒显为 errSpareRequired，真实 errPositiveInt 被吞）——必须透传真实错误键；测试断言要区分具体错误文案，只数 alert 数量或「包含任一错误」都抓不到这类显示层撒谎缺陷。
+- 2026-09-08 llm-share UX 轮：把常驻表单改成「按钮展开」后，测试助手必须 async 化（CTA/表单随异步加载出现，getByTestId 有竞态，统一 findByTestId + await）；改组件交互形态时先 grep 渲染同一组件的其他测试文件（本次 peer-id-field.test 渲染 AllowlistPanel，漏改了一轮才发现）。
+- 2026-09-08 llm-share UX 轮：并行会话推进期间主树 main 会前移——feature 收尾先 git merge main 反向同步并重跑门禁；ff-only 合并前用 git rev-parse main origin/main 核对双指针一致（本次 main 会话中途从 a40e464 前移到 7772200）。
+- 2026-09-08 设计稿轮：设计类需求必须先读已实现 GUI 的真实令牌与组件再喂图像模型——色值取 index.css（#07c160/#fa5151/10px ring 卡）、结构取目标页面组件、文案取 zh-CN.ts 原文；第一版凭「通用 SaaS 风格」自由发挥被用户点名返工（要根据当前已实现 GUI 风格、参考现有页面功能，别瞎发挥）。
+- 2026-09-08 设计稿轮：run_code 的 JS 模板字符串会吃 bash 的 ${...}——`${OPENAI_API_KEY: -6}` 触发 JS 插值报错、`${#VAR}` 被解析成私有字段；shell 逻辑一律写成脚本文件再 `bash x.sh` 执行，run_code 里只放无 $ 变量的简单命令。
+- 2026-09-08 本地 ACP 回环轮：线协议两端各自单侧测试全绿 ≠ 真机能通——acp-console 握手/泵是裸 ndjson 字节、acp-agent 是 varint 帧，同仓库两侧测试各自为政从未跑过真传输，接缝缺陷靠「跨进程真传输的集成测试」（两端都是真件）才能拦，mock 夹具只能证单侧行为。
+- 2026-09-08 本地 ACP 回环轮：mock 夹具若按「实现的现状」抄写而非按「契约的另一端」实现，缺陷会被夹具固化成永绿的假象（AgentMock 裸 read_line 复刻了 console 的裸写错误）；写 mock 先问协议文档怎么说。
+- 2026-09-08 本地 ACP 回环轮：常驻部署的二进制（launchd/侧栏 sidecar）会与仓库漂移——「功能缺失」先 diff 运行实例与仓库 HEAD（新端点 404、新 flag 不识别都是老化信号），再决定写代码还是先部署。
+- 2026-09-08 本地 ACP 回环轮：临时/测试实例禁止写用户级共享单槽文件（如 ~/.dsh/acp/local-agent.json），必须留 --descriptor-disabled 式禁用开关，否则冒烟覆盖生产描述、GUI 读到死端口。
+- 2026-09-08 本地 ACP 回环轮：worktree 内 bash grep 偶发无输出（疑符号链接/路径解析问题），排查别死磕一条命令——换 SDK grep 工具或 python 逐行扫描立刻现形。
+
+- 2026-09-08: run_code 的 JS 模板字符串里写 markdown 代码块必须转义反引号；单引号字符串不能跨行——大文档用 bash heredoc（带引号定界符）写入最稳。
+- 2026-09-08: 并行会话会同窗合并 main——每次 push 前先 fetch + rebase；ff-merge 被拒唯一动作是回 worktree rebase 后重试。
+- 2026-09-08: itest 夹具里 use acp_agent::{a2a, ...} 会影子化外部 crate 名 a2a——用 as host_a2a 别名。
+

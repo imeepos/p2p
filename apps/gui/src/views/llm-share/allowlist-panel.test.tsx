@@ -22,6 +22,11 @@ function submitAllow() {
   fireEvent.submit(form);
 }
 
+// UX：放行表单默认收起，走查先点「添加放行」展开
+function openForm() {
+  fireEvent.click(screen.getByTestId("allow-add-toggle"));
+}
+
 function renderPanel(backend: LlmShareBackend) {
   return render(
     <ConfirmProvider>
@@ -51,6 +56,7 @@ describe("LLM3 allowlist 面板（契约 §16.2-7 默认拒绝原话 / ai-guide 
   it("allow 表单 models 缺省=不限模型，note 入列", async () => {
     const { backend, mock } = makeLlmShareMockPair();
     renderPanel(backend);
+    openForm();
     fireEvent.change(screen.getByLabelText(t("llmShare.allowlist.formPeerId")), {
       target: { value: PEER },
     });
@@ -69,6 +75,7 @@ describe("LLM3 allowlist 面板（契约 §16.2-7 默认拒绝原话 / ai-guide 
     const { backend, mock } = makeLlmShareMockPair();
     const denySpy = vi.spyOn(backend, "deny");
     renderPanel(backend);
+    openForm();
     fireEvent.change(screen.getByLabelText(t("llmShare.allowlist.formPeerId")), {
       target: { value: PEER },
     });
@@ -98,6 +105,7 @@ describe("LLM3 allowlist 面板（契约 §16.2-7 默认拒绝原话 / ai-guide 
     });
     const { backend } = makeLlmShareMockPair();
     renderPanel(backend);
+    openForm();
     fireEvent.change(screen.getByLabelText(t("llmShare.allowlist.formPeerId")), {
       target: { value: PEER },
     });

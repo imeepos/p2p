@@ -19,7 +19,8 @@ import {
   swapGroupPending,
 } from "./group-local";
 
-const HISTORY_SIZE = 50;
+// 打开群会话只拉最新一页（20 条）；更早历史经 loadOlder 滚近顶部游标分页加载。
+const HISTORY_SIZE = 20;
 let subscriptionStarted = false;
 
 function errorOf(error: unknown): string {
@@ -49,6 +50,8 @@ export interface GroupStoreState {
   loadGroups: () => Promise<void>;
   ensureFriends: () => Promise<void>;
   selectGroup: (groupId: string) => Promise<void>;
+  /** 右键菜单「标为已读」：不改选中态仅清未读 */
+  markGroupRead: (groupId: string) => void;
   loadOlder: (groupId: string) => Promise<void>;
   sendText: (groupId: string, text: string, replyTo?: string | null) => Promise<GroupSendReport>;
   sendMedia: (
@@ -151,6 +154,11 @@ export const useGroupStore = create<GroupStoreState>()((set, get) => ({
     } finally {
       set((s) => ({ historyLoading: { ...s.historyLoading, [groupId]: false } }));
     }
+  },
+
+  markGroupRead: (groupId) => {
+    if (!get().unreadByGroup[groupId]) return;
+    set((s) => ({ unreadByGroup: { ...s.unreadByGroup, [groupId]: 0 } }));
   },
 
   loadOlder: async (groupId) => {

@@ -38,6 +38,7 @@ pub(crate) async fn fresh(
     audit_supersede(&deps, &peer_id).await;
     let cwd = match jail::resolve(
         &deps.config,
+        &deps.workspaces,
         grant.scope,
         &peer_id,
         grant.workspace.as_deref(),

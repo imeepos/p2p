@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
@@ -16,7 +17,12 @@ const PEER_B = "7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk";
 const FAKE = "alice-fake-peer";
 
 function renderWithConfirm(ui: React.ReactElement) {
-  return render(<ConfirmProvider>{ui}</ConfirmProvider>);
+  // BorrowPanel 依赖 useSearchParams（W4 预填），需 Router 上下文
+  return render(
+    <MemoryRouter>
+      <ConfirmProvider>{ui}</ConfirmProvider>
+    </MemoryRouter>,
+  );
 }
 
 function seedNodePeers(peerIds: string[]) {
@@ -42,6 +48,11 @@ function submitForm(buttonName: string) {
   fireEvent.submit(form);
 }
 
+// UX：白名单放行表单默认收起，先点「添加放行」展开
+async function openAllowForm() {
+  fireEvent.click(await screen.findByTestId("allow-add-toggle"));
+}
+
 afterEach(() => {
   cleanup();
   useNodeStore.setState({ peers: {} });
@@ -52,6 +63,7 @@ describe("R2-05 PeerId 关联输入：节点选择器 + base58/32 字节即时�
     seedNodePeers([PEER, PEER_B]);
     const { backend } = makeLlmShareMockPair();
     renderWithConfirm(<AllowlistPanel backend={backend} />);
+    await openAllowForm();
     fireEvent.click(screen.getByTestId("llm-allow-peer-pick"));
     fireEvent.click(await screen.findByTestId("llm-allow-peer-pick-panel"));
     const option = screen.getByRole("option", { name: new RegExp(PEER_B.slice(0, 6)) });
@@ -64,6 +76,7 @@ describe("R2-05 PeerId 关联输入：节点选择器 + base58/32 字节即时�
     seedNodePeers([PEER, PEER_B]);
     const { backend } = makeLlmShareMockPair();
     renderWithConfirm(<AllowlistPanel backend={backend} />);
+    await openAllowForm();
     fireEvent.click(screen.getByTestId("llm-allow-peer-pick"));
     fireEvent.click(await screen.findByTestId("llm-allow-peer-pick-panel"));
     fireEvent.click(screen.getByRole("option", { name: new RegExp(PEER_B.slice(0, 6)) }));
@@ -77,6 +90,7 @@ describe("R2-05 PeerId 关联输入：节点选择器 + base58/32 字节即时�
     const { backend } = makeLlmShareMockPair();
     const allowSpy = vi.spyOn(backend, "allow");
     renderWithConfirm(<AllowlistPanel backend={backend} />);
+    await openAllowForm();
     const input = screen.getByLabelText(t("llmShare.allowlist.formPeerId"));
     fireEvent.change(input, { target: { value: FAKE } });
     expect(screen.queryByRole("alert")).toBeNull();
@@ -94,6 +108,7 @@ describe("R2-05 PeerId 关联输入：节点选择器 + base58/32 字节即时�
     const { backend } = makeLlmShareMockPair();
     const allowSpy = vi.spyOn(backend, "allow");
     renderWithConfirm(<AllowlistPanel backend={backend} />);
+    await openAllowForm();
     fireEvent.change(screen.getByLabelText(t("llmShare.allowlist.formPeerId")), {
       target: { value: PEER },
     });

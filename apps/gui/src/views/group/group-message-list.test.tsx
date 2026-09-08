@@ -152,3 +152,15 @@ describe("群发送状态反馈链（W1-01）", () => {
     expect(screen.getByTestId("message-status").textContent).toContain("已送达 1/2");
   });
 });
+
+describe("群消息流布局契约（横向滚动零容忍）", () => {
+  it("滚动域 overflow-x-hidden + 连续消息纵向间隔", () => {
+    render(listElement(BASE));
+    expect(screen.getByTestId("group-message-scroll").className).toContain(
+      "overflow-x-hidden",
+    );
+    expect(screen.getByTestId("group-message-column").className).toContain(
+      "gap-y-2.5",
+    );
+  });
+});

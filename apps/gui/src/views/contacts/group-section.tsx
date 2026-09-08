@@ -10,103 +10,151 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useConfirm } from "@/components/feedback/confirm-provider";
-import { toastError, toastSuccess } from "@/components/feedback/toast";
+import { visibleGroups, initialOf } from "@/lib/conversation-entry";
 import type { GroupJson } from "@/lib/ipc-types";
 import { useGroupStore } from "@/stores/group-store";
 import { EmptyState } from "@/views/shared/empty-state";
-import { errorText } from "@/views/shared/form-flow";
-
-import { GroupStateBadge } from "@/views/group/group-list";
+import { cn } from "@/lib/utils";
 import { GroupInvitePicker } from "@/views/group/group-invite-picker";
-import { GroupAddDialog } from "./group-add-dialog";
-import { matchesQuery } from "./contacts-sections";
-import { SectionHeader } from "./section-search";
-// F09：建群表单内嵌 GroupAddDialog 默认页签，不再单独挂 GroupCreateDialog。
 
-// 群区（§3.1）：行 = 群名 + 成员数 + 我的角色 + 四态徽标；行内操作：
-// 发消息（/chat?group=）、邀请成员（owner active）、退群（第三档单次
-// 确认）。left/kicked/disbanded 置底沿用 orderedGroups 语义。
+import { CONTACT_ROW_CLS, ContactAvatar, ROW_ACTIONS_CLS } from "./contact-avatar";
+import { selectionKey } from "./contacts-detail-model";
+import { matchesQuery, useContactsPane } from "./contacts-sections";
+import { TreeSection } from "./contacts-tree";
+import { GroupAddDialog } from "./group-add-dialog";
+import { useGroupLeave } from "./group-leave";
+
+// 群行（双栏改版）：点选联动右栏资料卡；行内动作（发消息/邀请成员/退群）
+// 悬停显隐，邀请与退群仍由节内对话框/确认承接。
+function GroupRow(props: {
+  group: GroupJson;
+  isOwner: boolean;
+  leaving: boolean;
+  onInvite: (group: GroupJson) => void;
+  onLeave: (group: GroupJson) => void;
+}) {
+  const { t } = useTranslation();
+  const pane = useContactsPane();
+  const { group, isOwner, leaving, onInvite, onLeave } = props;
+  const selected = pane.selectedKey === selectionKey({ kind: "group", groupId: group.groupId });
+  return (
+    <div
+      className={cn(CONTACT_ROW_CLS, selected ? "bg-accent" : "hover:bg-accent/60")}
+      data-testid={"contact-group-" + group.groupId}
+    >
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left"
+        onClick={() => pane.select({ kind: "group", groupId: group.groupId })}
+      >
+        <ContactAvatar initial={initialOf(group.name)} />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-medium">{group.name}</span>
+          <span className="text-muted-foreground block truncate text-xs">
+            {t("group.members", { count: group.members.length })} ·{" "}
+            {isOwner ? t("contacts.groups.role.owner") : t("contacts.groups.role.member")}
+          </span>
+        </span>
+      </button>
+      <div className={ROW_ACTIONS_CLS}>
+        <Button type="button" variant="ghost" size="icon" className="size-7" asChild>
+          <Link
+            to={"/chat?group=" + group.groupId}
+            data-testid={"contact-group-message-" + group.groupId}
+            title={t("contacts.groups.message")}
+            aria-label={t("contacts.groups.message")}
+          >
+            <MessageSquareIcon aria-hidden className="size-4" />
+          </Link>
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          disabled={!isOwner}
+          title={!isOwner ? t("contacts.groups.inviteDisabledNotOwner") : t("contacts.groups.invite")}
+          aria-label={t("contacts.groups.invite")}
+          onClick={() => onInvite(group)}
+          data-testid={"contact-group-invite-" + group.groupId}
+        >
+          <UserPlusIcon aria-hidden className="size-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          disabled={leaving}
+          onClick={() => onLeave(group)}
+          data-testid={"contact-group-leave-" + group.groupId}
+          title={t("contacts.groups.leave")}
+          aria-label={t("contacts.groups.leave")}
+        >
+          <UsersRoundIcon aria-hidden className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// 群节（§3.1，双栏改版）：只列在群（active），已退出/已解散/被踢不进通讯
+// 录；检索走全局 Context 词。F09 起建群表单内嵌 GroupAddDialog 默认页签。
 export function GroupSection() {
   const { t } = useTranslation();
-  const confirm = useConfirm();
+  const pane = useContactsPane();
   const groups = useGroupStore((s) => s.groups);
   const groupsLoaded = useGroupStore((s) => s.groupsLoaded);
   const selfPeerId = useGroupStore((s) => s.selfPeerId);
-  const leave = useGroupStore((s) => s.leave);
+  const { leaveGroup, leavingId } = useGroupLeave();
   const [addOpen, setAddOpen] = useState(false);
   const [inviteGroup, setInviteGroup] = useState<GroupJson | null>(null);
-  // P2#8 检索：群名/群 ID 子串匹配，大小写不敏感（节内 state）
-  const [query, setQuery] = useState("");
-  // 退群在途按群锁定，防连点重复发 IPC
-  const [leavingId, setLeavingId] = useState<string | null>(null);
 
-  const leaveGroup = async (group: GroupJson) => {
-    const ok = await confirm({
-      title: t("contacts.groups.leaveConfirmTitle"),
-      description: t("contacts.groups.leaveConfirmDesc", { group: group.name }),
-      confirmText: t("contacts.groups.leaveConfirm"),
-      cancelText: t("common.actions.cancel"),
-      destructive: true,
-    });
-    if (!ok) return;
-    setLeavingId(group.groupId);
-    try {
-      await leave(group.groupId);
-      toastSuccess(t("contacts.groups.leaveSuccess"));
-    } catch (error) {
-      console.error("[contacts] 退群失败", group.groupId, error);
-      toastError(t("contacts.groups.leaveFailed"), {
-        description: errorText(error),
-        context: "group_leave",
-      });
-    } finally {
-      setLeavingId(null);
-    }
-  };
-
-  const active = (group: GroupJson) => group.state === "active";
   const isOwner = (group: GroupJson) => selfPeerId !== null && group.owner === selfPeerId;
-  const sorted = [...groups].sort((a, b) => {
-    // active 在前，同态按最近 roster 时间倒序（group-names orderedGroups 同语义）
-    if (active(a) !== active(b)) return active(a) ? -1 : 1;
-    return b.tsMs - a.tsMs;
-  });
-  const filtered = sorted.filter((g) => matchesQuery([g.name, g.groupId], query));
+  // 非 active 群不进通讯录：复用会话列表同款可见性（默认仅 active），同态按
+  // 最近 roster 时间倒序（group-names orderedGroups 同语义）
+  const listed = visibleGroups(groups, false).sort((a, b) => b.tsMs - a.tsMs);
+  const filtered = listed.filter((g) => matchesQuery([g.name, g.groupId], pane.query));
 
   return (
-    <section
+    <TreeSection
       id="groups"
-      aria-label={t("contacts.section.groups")}
-      data-testid="contacts-section-groups"
-      className="bg-card ring-border ring-1 flex flex-col gap-2 rounded-lg p-4"
+      wrapperTestId="contacts-section-groups"
+      title={t("contacts.section.groups")}
+      expanded={!pane.isSectionCollapsed("groups")}
+      onToggle={() => pane.toggleSection("groups")}
+      toggleTestId="contacts-tree-toggle-groups"
+      active={pane.activeSection === "groups"}
+      onGo={() => pane.gotoSection("groups")}
+      anchorTestId="contacts-anchor-groups"
+      anchorLabel={t("contacts.anchor.goto", { section: t("contacts.section.groups") })}
+      count={
+        <span className="text-muted-foreground shrink-0 text-xs" data-testid="contacts-count-groups">
+          {t("contacts.countOf", { matched: filtered.length, total: listed.length })}
+        </span>
+      }
+      actions={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          onClick={() => setAddOpen(true)}
+          data-testid="contacts-group-add"
+          title={t("contacts.groups.add")}
+          aria-label={t("contacts.groups.add")}
+        >
+          <UsersRoundIcon aria-hidden className="size-4" />
+        </Button>
+      }
     >
-      <SectionHeader
-        id="groups"
-        title={t("contacts.section.groups")}
-        query={query}
-        onQueryChange={setQuery}
-        placeholder={t("contacts.groups.searchPlaceholder")}
-        matched={filtered.length}
-        total={sorted.length}
-        addLabel={t("contacts.groups.add")}
-        addIcon={UsersRoundIcon}
-        onAdd={() => setAddOpen(true)}
-        addTestId="contacts-group-add"
-      />
-
       {!groupsLoaded && groups.length === 0 ? (
         <p className="text-muted-foreground px-1 py-2 text-sm">{t("group.loading")}</p>
-      ) : sorted.length === 0 ? (
+      ) : listed.length === 0 ? (
         <EmptyState
           icon={UsersRoundIcon}
           title={t("contacts.groups.empty")}
           description={t("contacts.groups.emptyHint")}
-          action={
-            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-              {t("contacts.groups.add")}
-            </Button>
-          }
         />
       ) : filtered.length === 0 ? (
         <p className="text-muted-foreground px-1 py-2 text-sm" data-testid="contacts-groups-no-match">
@@ -114,64 +162,14 @@ export function GroupSection() {
         </p>
       ) : (
         filtered.map((group) => (
-          <div
+          <GroupRow
             key={group.groupId}
-            className="hover:bg-accent/50 flex items-center gap-3 rounded-md px-2 py-2"
-            data-testid={"contact-group-" + group.groupId}
-          >
-            <span
-              aria-hidden
-              className="bg-primary/10 text-primary flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
-            >
-              {Array.from(group.name)[0] ?? "?"}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 truncate text-sm font-medium">
-                {group.name}
-                {group.state !== "active" ? <GroupStateBadge state={group.state} /> : null}
-              </p>
-              <p className="text-muted-foreground truncate text-xs">
-                {t("group.members", { count: group.members.length })} ·{" "}
-                {isOwner(group) ? t("contacts.groups.role.owner") : t("contacts.groups.role.member")}
-              </p>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <Button type="button" variant="ghost" size="sm" asChild>
-                <Link to={"/chat?group=" + group.groupId} data-testid={"contact-group-message-" + group.groupId}>
-                  <MessageSquareIcon aria-hidden className="size-4" />
-                  {t("contacts.groups.message")}
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!isOwner(group) || !active(group)}
-                title={
-                  !active(group)
-                    ? t("contacts.groups.inviteDisabledInactive")
-                    : !isOwner(group)
-                      ? t("contacts.groups.inviteDisabledNotOwner")
-                      : undefined
-                }
-                onClick={() => setInviteGroup(group)}
-                data-testid={"contact-group-invite-" + group.groupId}
-              >
-                <UserPlusIcon aria-hidden className="size-4" />
-                {t("contacts.groups.invite")}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={!active(group) || leavingId === group.groupId}
-                onClick={() => void leaveGroup(group)}
-                data-testid={"contact-group-leave-" + group.groupId}
-              >
-                {t("contacts.groups.leave")}
-              </Button>
-            </div>
-          </div>
+            group={group}
+            isOwner={isOwner(group)}
+            leaving={leavingId === group.groupId}
+            onInvite={setInviteGroup}
+            onLeave={(g) => void leaveGroup(g)}
+          />
         ))
       )}
 
@@ -189,6 +187,6 @@ export function GroupSection() {
           ) : null}
         </DialogContent>
       </Dialog>
-    </section>
+    </TreeSection>
   );
 }

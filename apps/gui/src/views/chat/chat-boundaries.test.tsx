@@ -108,7 +108,7 @@ describe("GUI chat composer boundaries", () => {
     expect(screen.getByText(/超过 2000/)).toBeTruthy();
   }, 15_000);
 
-  it("toggles emoji panel on repeated clicks and inserts at selection", async () => {
+  it("inserts at selection, auto-closes panel after pick, toggles on clicks", async () => {
     await mountComposer();
     const input = screen.getByTestId("chat-input") as HTMLTextAreaElement;
     fireEvent.change(input, { target: { value: "ab" } });
@@ -118,10 +118,12 @@ describe("GUI chat composer boundaries", () => {
     expect(screen.getByRole("menu")).toBeTruthy();
     fireEvent.click(screen.getByRole("menuitem", { name: "😀" }));
     await waitFor(() => expect(input.value).toBe("a😀b"), { timeout: WAIT_TIMEOUT });
-    fireEvent.click(toggle);
+    // 选择成功后面板自动收起，无需再点开关
     expect(screen.queryByRole("menu")).toBeNull();
     fireEvent.click(toggle);
     expect(screen.getByRole("menu")).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(screen.queryByRole("menu")).toBeNull();
   }, 15_000);
 
   it("sends image/audio/video/file kinds incl. zero-byte and unknown MIME", async () => {
@@ -244,7 +246,7 @@ describe("GUI chat event and history boundaries", () => {
         <ChatPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 50), { timeout: WAIT_TIMEOUT });
+    await waitFor(() => expect(mocks.history).toHaveBeenCalledWith(PEER, null, 20), { timeout: WAIT_TIMEOUT });
     expect(screen.getByTestId("chat-input")).toBeTruthy();
     expect(screen.getByRole("region", { name: "会话" })).toBeTruthy();
     expect(screen.queryAllByTestId("message-status")).toHaveLength(0);

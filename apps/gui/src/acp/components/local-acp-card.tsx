@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FolderGit2, RefreshCw, Share2 } from "lucide-react";
+import { FolderGit2, RefreshCw, Settings2, Share2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +51,20 @@ export function LocalAcpCard() {
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-base">{t("acp.local.card")}</CardTitle>
         <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label={t("acp.local.manage")}
+            title={t("acp.local.manage")}
+            data-testid="acp-local-manage"
+            onClick={() => {
+              // HashRouter 场景（App 用 createHashRouter）；不用 Link 以保持
+              // 本卡在无 Router 的测试环境可渲染。
+              window.location.hash = "#/acp-manage";
+            }}
+          >
+            <Settings2 aria-hidden className="size-4" />
+          </Button>
           <Button
             size="icon"
             variant="ghost"

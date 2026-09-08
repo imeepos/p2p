@@ -34,10 +34,11 @@ export function SettingsSaveBar({
 }: SettingsSaveBarProps) {
   const { t } = useTranslation();
 
+  // 微信设置式底栏：贴在内容面板 footer（外层容器画分隔线），常驻各分节。
   return (
-    <>
+    <div className="flex flex-col gap-2 py-3">
       {running ? (
-        <div className="border-warning/50 bg-warning/10 col-span-12 flex items-start gap-3 rounded-md border p-3 text-sm">
+        <div className="border-warning/50 bg-warning/10 flex items-start gap-3 rounded-md border p-3 text-sm">
           <TriangleAlertIcon
             className="mt-0.5 size-4 shrink-0 text-warning"
             aria-hidden
@@ -61,7 +62,7 @@ export function SettingsSaveBar({
           </div>
         </div>
       ) : null}
-      <div className="bg-background/95 col-span-12 sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t py-3 backdrop-blur">
+      <div className="flex items-center justify-between gap-4">
         {/* IM-V2 S6：提示与保存同行（justify-between），对比度提至 AA */}
         {invalidCount > 0 ? (
           <p
@@ -89,6 +90,6 @@ export function SettingsSaveBar({
           {t("settings.saveBar.save")}
         </AsyncButton>
       </div>
-    </>
+    </div>
   );
 }

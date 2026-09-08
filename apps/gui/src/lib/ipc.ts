@@ -1,5 +1,6 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, Channel } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { save } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 
@@ -27,6 +28,14 @@ import type {
   LlmLedgerEntry,
   LlmOfferView,
   LlmReceiptVerifyResult,
+  LlmProviderView,
+  LlmServeStatus,
+  LlmShareCreateResult,
+  LlmShareEntry,
+  LlmShareRedeemResult,
+  MediaExportBackend,
+  MediaExportProgressPayload,
+  MediaExportResult,
   MetricsJson,
   MetricsPoint,
   NodeEventJson,
@@ -179,6 +188,23 @@ const tauriBackend: IpcBackend = {
       reqId,
       lenderPubkey: lenderPubkey ?? null,
     }),
+  // 契约 §16.6 v13 加法：invoke 名逐字 snake_case，可选参数统一传 null（serde Option）。
+  llmShareProviderList: () =>
+    invoke<{ providers: LlmProviderView[] }>("llm_share_provider_list"),
+  llmShareProviderSave: (config) =>
+    invoke<LlmProviderView>("llm_share_provider_save", { config }),
+  llmShareProviderRemove: (providerId) =>
+    invoke<{ removed: true }>("llm_share_provider_remove", { providerId }),
+  llmShareShareCreate: (req) =>
+    invoke<LlmShareCreateResult>("llm_share_share_create", { req }),
+  llmShareShareList: () =>
+    invoke<{ shares: LlmShareEntry[] }>("llm_share_share_list"),
+  llmShareShareRevoke: (shareId) =>
+    invoke<{ revoked: true }>("llm_share_share_revoke", { shareId }),
+  llmShareShareRedeem: (link) =>
+    invoke<LlmShareRedeemResult>("llm_share_share_redeem", { link }),
+  llmShareServeStatus: () =>
+    invoke<LlmServeStatus>("llm_share_serve_status"),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {
@@ -232,3 +258,24 @@ const tauriUpdateDownloadBackend: UpdateDownloadBackend = {
 export const updateDl: UpdateDownloadBackend = mockIpc
   ? (await import("./mock-update")).mockUpdateDownloadBackend
   : tauriUpdateDownloadBackend;
+
+// 契约 §12.5 加法（2026-09-07）：媒体导出面。保存对话框选目标 + chat_media_export
+// 后台拷贝（进度经 Channel 流式回报）；浏览器/dev 无插件环境走 mock。
+const tauriMediaExportBackend: MediaExportBackend = {
+  async pickSavePath(defaultFileName) {
+    return save({ defaultPath: defaultFileName });
+  },
+  exportMedia(sourceUrl, destPath, onProgress) {
+    const channel = new Channel<MediaExportProgressPayload>();
+    channel.onmessage = onProgress;
+    return invoke<MediaExportResult>("chat_media_export", {
+      sourceUrl,
+      destPath,
+      onProgress: channel,
+    });
+  },
+};
+
+export const mediaDl: MediaExportBackend = mockIpc
+  ? (await import("./mock-media-export")).mockMediaExportBackend
+  : tauriMediaExportBackend;

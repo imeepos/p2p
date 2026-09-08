@@ -19,7 +19,8 @@ import type {
 import { reduceChatMessage } from "./chat-events";
 import { createGroupInviteSlice, errorOf, type GroupInviteSlice } from "./chat-group-invite-slice";
 
-const HISTORY_SIZE = 50;
+// 打开会话只拉最新一页（20 条）；更早历史经 loadOlder 滚近顶部游标分页加载。
+const HISTORY_SIZE = 20;
 let subscriptionStarted = false;
 
 // IMC3：群邀请切片经组合并入（切片实现在本文件外，行数红线）。
@@ -47,6 +48,8 @@ export interface ChatStoreState extends GroupInviteSlice {
   cancelInvite: (peer: string) => Promise<void>;
   loadFriends: () => Promise<void>;
   selectPeer: (peer: string) => Promise<void>;
+  /** 右键菜单「标为已读」：不改选中态仅清未读（§2.3 选中清零的旁路入口） */
+  markPeerRead: (peer: string) => void;
   loadOlder: (peer: string) => Promise<void>;
   sendText: (
     peer: string,
@@ -180,6 +183,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         historyLoading: { ...s.historyLoading, [peer]: false },
       }));
     }
+  },
+
+  markPeerRead: (peer) => {
+    if (!get().unreadByPeer[peer]) return;
+    set((s) => ({ unreadByPeer: { ...s.unreadByPeer, [peer]: 0 } }));
   },
 
   loadOlder: async (peer) => {

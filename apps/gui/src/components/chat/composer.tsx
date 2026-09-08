@@ -10,6 +10,7 @@ import { fileToChatMedia, inferKind, resolveMime } from "@/lib/chat-media";
 import { guardMediaFile, MEDIA_GUARD_I18N_KEY } from "@/lib/chat-limits";
 import type { ChatKind, ChatMediaInput, ChatMessageJson, ChatSendReport } from "@/lib/ipc-types";
 import { useChatStore } from "@/stores/chat-store";
+import { useComposePrefillStore } from "@/stores/compose-prefill-store";
 import { cn } from "@/lib/utils";
 
 import { replyKindKey, replySummaryOf } from "./reply-summary";
@@ -100,7 +101,8 @@ export function Composer({
     sendText: (to, text, replyTo) => sendText1v1(to, text, replyTo),
     sendMedia: (to, kind, media, replyTo) => sendMedia1v1(to, kind, media, replyTo),
   };
-  const [text, setText] = useState("");
+  // 挂载即消费 ?compose= 预填（一次性；切换会话重挂载不再重复预填）
+  const [text, setText] = useState(() => useComposePrefillStore.getState().consume() ?? "");
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -120,6 +122,8 @@ export function Composer({
     const end = el?.selectionEnd ?? text.length;
     const next = text.slice(0, start) + emoji + text.slice(end);
     setText(next);
+    // 选择成功即收起面板，焦点经下方 rAF 回落输入框
+    setEmojiOpen(false);
     requestAnimationFrame(() => {
       if (el) {
         el.focus();

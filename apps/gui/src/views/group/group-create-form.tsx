@@ -144,7 +144,7 @@ export function GroupCreateForm({ onDone }: GroupCreateFormProps) {
         ) : null}
       </div>
       {commandError ? (
-        <CommandErrorText
+<CommandErrorText
           message={commandError}
           prefix={t("group.create.failed")}
           testId="group-create-error"

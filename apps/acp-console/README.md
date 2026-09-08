@@ -43,13 +43,15 @@ status/discovery 可见、reattach 票据照常落盘）。链接解析失败启
 ## 本地 WS 契约（GUI 波依赖）
 
 ```
-ws://127.0.0.1:<ws_port>/?token=<token>&peer=<base58PeerId>[&reattach=<uuid>][&atoken=<agent-token>]
+ws://127.0.0.1:<ws_port>/?token=<token>&peer=<base58PeerId>[&reattach=<uuid>][&atoken=<agent-token>][&proto=acp|a2a]
 ```
 
 - 鉴权：`token` 必填且精确匹配；绑定 127.0.0.1 + token 双条件（设计 §6 防 drive-by）。
   无 token / 错 token 在 HTTP 升级层以 **401** 拒绝并落审计日志（只记长度，不记材质）。
-- `peer` 必填：目标 agent 节点 PeerId。console 向其拨 `/dsh-acp/1` 流并交换握手帧
-  （conn=随机 uuid，`atoken` 可选透传，`reattach` 可选透传给 ACP4）。
+- `peer` 必填：目标 agent 节点 PeerId。console 向其拨 `proto` 指定的协议流并交换
+  握手帧（conn=随机 uuid，`atoken` 可选透传，`reattach` 可选透传给 ACP4）。
+- `proto`（A2A3 加法，gui-contract §17）：目标协议选择，缺省 `acp`；
+  `a2a` = 拨 `/a2a/1` 卡片/邀请事件通道；**未知值 401 显式拒绝，禁静默回落**。
 - 握手 `ready` → 进入 online，此后 **纯字节泵**：WS Binary/Text 帧 ⇄ P2P 流按原始
   字节双向透传（WS 读侧单消息上限 16 MiB，对齐 acp-common 单行护栏）。
 - 关闭语义（双向传播）：
@@ -57,6 +59,27 @@ ws://127.0.0.1:<ws_port>/?token=<token>&peer=<base58PeerId>[&reattach=<uuid>][&a
   - WS 客户端 Close → P2P 流写半 EOF；
   - agent 拒绝握手 → WS Close(**4403**, `denied:<code>`)；
   - 拨号/握手失败 → WS Close(**4500**, `dial-failed`)。
+
+## A2A 卡片/邀请事件通道（proto=a2a，A2A3 加法）
+
+`proto=a2a` 的 WS 连接即 GUI 的卡片事件通道：console 拨目标 peer 的 `/a2a/1` 流，
+握手 ready 后与 ACP 会话同一套纯字节泵语义（帧内容不解析、不改写）。帧面真值源
+= `crates/a2a`（docs/design/a2a-over-p2p-design.md §5.1）：
+
+| 方向 | 帧（JSON 行，serde `op` tag） | 语义 |
+|---|---|---|
+| GUI→宿主 | `{"op":"list","v":1,"id":1}` | 拉取对请求方可见卡片全集 |
+| GUI→宿主 | `{"op":"get","v":1,"id":2,"agentId":"…"}` | 单卡查询 |
+| GUI→宿主 | `{"op":"subscribe","v":1,"id":3}` | 订阅变更（幂等，应答含当前快照） |
+| 宿主→GUI | `{"op":"cards","v":1,"id":1,"cards":[SignedCard…]}` | 应答（id 回显） |
+| 宿主→GUI | `{"op":"ok","v":1,"id":3,"subscribed":true}` | subscribe 应答 |
+| 宿主→GUI | `{"op":"push","v":1,"id":0,"cards":[…],"removed":["hostPeer/agentId"…]}` | 变更推送（id=0 即通知） |
+| 宿主→GUI | `{"op":"error","v":1,"id":N,"code":"not-found|denied|bad-card","message":"…"}` | 错误应答 |
+
+- 邀请事件为 A2A5 预留扩展位：同一 `proto=a2a` 通道追加宿主→GUI 通知帧，通道
+  面不再加新协议 ID；node-event 判别联合（ipc-types.ts NodeEventJson）不动。
+- 每条 `proto=a2a` 连接独立占用一条 `/a2a/1` 流，状态机与 Close 语义与 acp 连接
+  完全一致（online/reattach-window/offline、4403/4500）。
 
 ## status 端点契约（查询方式拍板：本地 HTTP，GUI 轮询用）
 

@@ -14,6 +14,7 @@ export interface ChatEmptyStateProps {
   friendCount: number;
   groupCount: number;
   agentCount: number;
+  a2aCount: number;
   pendingInviteCount: number;
 }
 
@@ -21,11 +22,12 @@ export function ChatEmptyState({
   friendCount,
   groupCount,
   agentCount,
+  a2aCount,
   pendingInviteCount,
 }: ChatEmptyStateProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  if (friendCount + groupCount > 0) {
+  if (friendCount + groupCount + a2aCount > 0) {
     return (
       <EmptyState
         className="max-w-none flex-1"
@@ -38,7 +40,7 @@ export function ChatEmptyState({
   const hint =
     pendingInviteCount > 0
       ? t("chat.empty.hintInviting")
-      : agentCount > 0
+      : agentCount > 0 || a2aCount > 0
         ? t("chat.empty.hintAgentOnly")
         : t("chat.empty.hintListEmpty");
   return (

@@ -16,6 +16,7 @@ use crate::config::{
     default_bootstrap, default_observation_addrs, default_relay_addrs, ConfigStore,
 };
 use crate::history::{spawn_metrics_sampler, MetricsHistory, MetricsPoint};
+use crate::llm_share::serve::ServeSlot;
 use crate::profile::{NodeProfile, ProfileStore};
 use crate::proto;
 use crate::types::{GuiConfig, MetricsJson, NodeStatus};
@@ -47,20 +48,30 @@ pub struct StartedNode {
 
 /// 全局应用状态：Tauri managed。
 pub struct AppState {
+    app_data_dir: PathBuf,
     running: Mutex<Option<RunningNode>>,
     config: ConfigStore,
     profile: ProfileStore,
     chat: chat::ChatSlot,
+    /// 出借方常驻 serve 槽位（§16.6 v13：node_start 装配 / node_stop 卸载）。
+    llm_serve: ServeSlot,
 }
 
 impl AppState {
     pub fn new(app_data_dir: PathBuf) -> Self {
         Self {
+            app_data_dir: app_data_dir.clone(),
             running: Mutex::new(None),
             config: ConfigStore::new(app_data_dir.clone()),
             profile: ProfileStore::new(app_data_dir.clone()),
             chat: chat::ChatSlot::new(app_data_dir),
+            llm_serve: ServeSlot::new(),
         }
+    }
+
+    /// 应用数据目录（chat 媒体落盘根；媒体导出来源校验用）。
+    pub(crate) fn data_dir(&self) -> &Path {
+        &self.app_data_dir
     }
 
     /// node_start：已运行 Err；成功后占槽并注册 echo handler、订阅事件。
@@ -88,6 +99,10 @@ impl AppState {
                 node.shutdown();
                 history.stop_and_clear();
             })?;
+        // 出借方常驻 serve 装配（§16.6 v13）：chat install 之后；装配失败不阻断
+        // 节点启动（assembled:false + lastError 落槽可查询，不回滚）。
+        let llm_store = crate::llm_share::LlmShareStore::new(self.app_data_dir.clone());
+        crate::llm_share::serve::install(&self.llm_serve, &llm_store, &cfg, &node).await;
         *slot = Some(RunningNode {
             node,
             config: cfg.clone(),
@@ -119,6 +134,7 @@ impl AppState {
                 running.node.shutdown();
                 running.history.stop_and_clear();
                 self.chat.uninstall().await;
+                self.llm_serve.clear().await;
                 true
             }
             None => false,
@@ -194,6 +210,7 @@ impl AppState {
         };
         if was_running {
             self.chat.uninstall().await;
+            self.llm_serve.clear().await;
         }
         remove_seed(Path::new(&data_dir))?;
         Ok((self.status().await, was_running))
@@ -227,6 +244,18 @@ impl AppState {
     /// 取聊天实例；节点未启动返回可读中文 Err（契约 v7 §12）。
     pub async fn chat(&self) -> Result<Arc<p2p_chat::Chat>, String> {
         self.chat.get().await
+    }
+
+    /// 出借方常驻 serve 装配状态（§16.6 v13 serve_status 命令面）。
+    pub async fn llm_serve_status(&self) -> crate::llm_share::serve::LlmServeStatus {
+        self.llm_serve.status().await
+    }
+
+    /// serve 在装配时的 allowlist 门禁句柄（命令面与 admit 同源）；未装配 None。
+    pub(crate) async fn llm_serve_gate(
+        &self,
+    ) -> Option<Arc<crate::llm_share::serve::gate::AllowlistGate>> {
+        self.llm_serve.gate().await
     }
 }
 

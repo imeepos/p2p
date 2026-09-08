@@ -1,48 +1,191 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useSearchParams } from "react-router-dom";
-import { Bot, MessageSquareIcon, Settings2Icon, Trash2Icon, UserRoundXIcon } from "lucide-react";
+import { Bot, MessageSquareIcon, Settings2Icon, Trash2Icon, UserRoundCheckIcon, UserRoundXIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/feedback/copy-button";
 import { useAcpStore } from "@/acp/acp-store";
-import {
-  forgetEndpointMeta,
-  useEndpointMetaStore,
-} from "@/acp/endpoint-meta";
 import { tierCounts } from "@/acp/endpoint-policy";
+import { useEndpointMetaStore } from "@/acp/endpoint-meta";
 import type { AcpEndpoint } from "@/acp/protocol";
-import { useConfirm } from "@/components/feedback/confirm-provider";
 import { wsHostOf } from "@/lib/conversation-entry";
 import { EmptyState } from "@/views/shared/empty-state";
+import { cn } from "@/lib/utils";
 
 import { EndpointAddDialog } from "./endpoint-add-dialog";
 import { AgentDetailDrawer } from "./agent-detail-drawer";
-import { matchesQuery } from "./contacts-sections";
-import { SectionHeader } from "./section-search";
+import { useAgentOps } from "./agent-ops";
+import { CONTACT_ROW_CLS, ContactAvatar, ROW_ACTIONS_CLS } from "./contact-avatar";
+import { selectionKey } from "./contacts-detail-model";
+import { matchesQuery, useContactsPane } from "./contacts-sections";
+import { TreeSection } from "./contacts-tree";
 
-// Agent 区（§3.1）：行 = 别名 + wsUrl host + 连接态 + 权限档摘要；行内
-// 操作：发消息（/chat?agent=）、详情（右滑抽屉）、停用/删除（§3.3 危险区
-// 语义：停用第三档单次确认保留配置；删除第二档，红钮 + 后果明示）。
-export function AgentSection() {
+// Agent 行（§3.1，双栏改版）：点选联动右栏资料卡；行内动作（发消息/详情/
+// 停用/删除）悬停显隐，仍由节内抽屉/确认/错误条承接。
+function AgentRow(props: {
+  endpoint: AcpEndpoint;
+  onDetail: (id: string) => void;
+  onDisable: (endpoint: AcpEndpoint) => void;
+  onEnable: (endpoint: AcpEndpoint) => void;
+  onRemove: (endpoint: AcpEndpoint) => void;
+}) {
   const { t } = useTranslation();
-  const confirm = useConfirm();
-  const saved = useAcpStore((s) => s.saved);
+  const pane = useContactsPane();
   const phase = useAcpStore((s) => s.phase);
   const activeEndpointId = useAcpStore((s) => s.activeEndpointId);
-  const removeSavedById = useAcpStore((s) => s.removeSavedById);
   const disabledBy = useEndpointMetaStore((s) => s.disabled);
   const lastTestBy = useEndpointMetaStore((s) => s.lastTest);
   const policies = useEndpointMetaStore((s) => s.policies);
+  const { endpoint, onDetail, onDisable, onEnable, onRemove } = props;
+  const id = endpoint.endpointId ?? endpoint.wsUrl;
+  const disabled = disabledBy[id] === true;
+  const testFailed = lastTestBy[id] === "failed";
+  const counts = tierCounts(policies[id] ?? { defaults: {}, exceptions: [] });
+  const isActive = id === activeEndpointId;
+  const dot = !isActive
+    ? "bg-muted-foreground"
+    : phase === "online"
+      ? "bg-success"
+      : phase === "offline"
+        ? "bg-destructive"
+        : "bg-warning";
+  const name = endpoint.alias || wsHostOf(endpoint.wsUrl) || id;
+  const selected = pane.selectedKey === selectionKey({ kind: "agent", endpointId: id });
+  return (
+    <div
+      className={cn(CONTACT_ROW_CLS, selected ? "bg-accent" : "hover:bg-accent/60")}
+      data-testid={"contact-agent-" + id}
+    >
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left"
+        onClick={() => pane.select({ kind: "agent", endpointId: id })}
+      >
+        <ContactAvatar initial={name.slice(0, 1)} icon={<Bot aria-hidden className="size-4" />} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2 text-sm font-medium">
+            <span className="truncate">{name}</span>
+            {disabled ? (
+              <span className="bg-muted rounded px-1.5 py-0.5 text-xs" data-testid={"contact-agent-disabled-" + id}>
+                {t("contacts.agents.disabledBadge")}
+              </span>
+            ) : null}
+            {testFailed && !disabled ? (
+              <span
+                className="border-warning/50 text-warning rounded border px-1.5 py-0.5 text-xs"
+                data-testid={"contact-agent-warn-" + id}
+              >
+                {t("contacts.agents.untestedBadge")}
+              </span>
+            ) : null}
+          </span>
+          <span className="text-muted-foreground block truncate text-xs">
+            {wsHostOf(endpoint.wsUrl) ?? endpoint.wsUrl} ·{" "}
+            {t("contacts.agents.policySummary", {
+              allow: counts.allow,
+              ask: counts.ask,
+              deny: counts.deny,
+            })}
+          </span>
+        </span>
+      </button>
+      <span
+        aria-hidden
+        data-testid={"contact-agent-dot-" + id}
+        className={cn("size-2 shrink-0 rounded-full", dot)}
+      />
+      <div className={ROW_ACTIONS_CLS}>
+        {disabled ? (
+          <span
+            aria-disabled
+            title={t("contacts.agents.messageDisabled")}
+            className="text-muted-foreground inline-flex size-7 items-center justify-center rounded-md opacity-60"
+            data-testid={"contact-agent-message-" + id}
+          >
+            <MessageSquareIcon aria-hidden className="size-4" />
+          </span>
+        ) : (
+          <Button type="button" variant="ghost" size="icon" className="size-7" asChild>
+            <Link
+              to={"/chat?agent=" + id}
+              data-testid={"contact-agent-message-" + id}
+              title={t("contacts.agents.message")}
+              aria-label={t("contacts.agents.message")}
+            >
+              <MessageSquareIcon aria-hidden className="size-4" />
+            </Link>
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => onDetail(id)}
+          data-testid={"contact-agent-detail-" + id}
+          title={t("contacts.agents.detail")}
+          aria-label={t("contacts.agents.detail")}
+        >
+          <Settings2Icon aria-hidden className="size-4" />
+        </Button>
+        {disabled ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => onEnable(endpoint)}
+            data-testid={"contact-agent-enable-" + id}
+            title={t("contacts.agents.enable")}
+            aria-label={t("contacts.agents.enable")}
+          >
+            <UserRoundCheckIcon aria-hidden className="size-4" />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            onClick={() => onDisable(endpoint)}
+            data-testid={"contact-agent-disable-" + id}
+            title={t("contacts.agents.disable")}
+            aria-label={t("contacts.agents.disable")}
+          >
+            <UserRoundXIcon aria-hidden className="size-4" />
+          </Button>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-7"
+          onClick={() => onRemove(endpoint)}
+          data-testid={"contact-agent-remove-" + id}
+          title={t("contacts.agents.removeConfirmAction")}
+          aria-label={t("contacts.agents.removeConfirmAction")}
+        >
+          <Trash2Icon aria-hidden className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Agent 节（§3.1，双栏改版）：行 = 别名 + host + 连接态 + 权限档摘要；
+// R2-23/R2-24 深链 /contacts?agentDetail=<id> 直开详情抽屉保留在本节。
+export function AgentSection() {
+  const { t } = useTranslation();
+  const pane = useContactsPane();
+  const saved = useAcpStore((s) => s.saved);
   const [addOpen, setAddOpen] = useState(false);
-  const [query, setQuery] = useState("");
   const [commandError, setCommandError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const { disable, enable, remove } = useAgentOps();
 
-  // R2-23/R2-24 深链：/contacts?agentDetail=<id> 直开对应 Agent 详情抽屉
-  // （连接失败补配置与权限待应答的直达落点）。只读参数：命中才开，不改
-  // 现有行为；未命中留 warn 观测信号，不静默。渲染期同步（react-hooks
-  // 纪律，同 contacts-view hash 深链先例），不放 effect。
+  // 深链只读参数：命中才开抽屉，未命中留 warn 观测信号，不静默。渲染期
+  // 同步（react-hooks 纪律，同 contacts-view hash 深链先例），不放 effect。
   const deepLinkAgentId = searchParams.get("agentDetail");
   const resolveDeepLink = (id: string | null): string | null => {
     if (!id) return null;
@@ -59,72 +202,51 @@ export function AgentSection() {
     setDetailId(resolveDeepLink(deepLinkAgentId));
   }
 
-  const disable = async (endpoint: AcpEndpoint) => {
-    const id = endpoint.endpointId!;
-    const ok = await confirm({
-      title: t("contacts.agents.disable"),
-      description: t("contacts.agents.disabledHint"),
-      confirmText: t("contacts.agents.disable"),
-      cancelText: t("common.actions.cancel"),
-      destructive: true,
-    });
-    if (ok) useEndpointMetaStore.getState().setDisabled(id, true);
-  };
-
-  const enable = (endpoint: AcpEndpoint) => {
-    useEndpointMetaStore.getState().setDisabled(endpoint.endpointId!, false);
-  };
-
-  const remove = async (endpoint: AcpEndpoint) => {
-    const id = endpoint.endpointId!;
-    const ok = await confirm({
-      title: t("contacts.agents.removeConfirmTitle"),
-      description: t("contacts.agents.removeConfirmDescription", {
-        name: endpoint.alias || wsHostOf(endpoint.wsUrl) || id,
-      }),
-      confirmText: t("contacts.agents.removeConfirmAction"),
-      cancelText: t("common.actions.cancel"),
-      destructive: true,
-    });
-    if (!ok) return;
-    try {
-      removeSavedById(id);
-      forgetEndpointMeta(id);
-    } catch (error) {
-      console.error("[contacts] 删除 endpoint 失败", id, error);
-      setCommandError(error instanceof Error ? error.message : String(error));
-    }
+  const onRemove = async (endpoint: AcpEndpoint) => {
+    const error = await remove(endpoint);
+    if (error) setCommandError(error);
   };
 
   // P2#8 检索：别名/host/PeerId/endpointId/wsUrl 子串匹配，大小写不敏感
   const filtered = saved.filter((endpoint) =>
     matchesQuery(
       [endpoint.alias, wsHostOf(endpoint.wsUrl), endpoint.endpointId, endpoint.peer, endpoint.wsUrl],
-      query,
+      pane.query,
     ),
   );
 
   return (
-    <section
+    <TreeSection
       id="agents"
-      aria-label={t("contacts.section.agents")}
-      data-testid="contacts-section-agents"
-      className="bg-card ring-border ring-1 flex flex-col gap-2 rounded-lg p-4"
+      wrapperTestId="contacts-section-agents"
+      title={t("contacts.section.agents")}
+      expanded={!pane.isSectionCollapsed("agents")}
+      onToggle={() => pane.toggleSection("agents")}
+      toggleTestId="contacts-tree-toggle-agents"
+      active={pane.activeSection === "agents"}
+      onGo={() => pane.gotoSection("agents")}
+      anchorTestId="contacts-anchor-agents"
+      anchorLabel={t("contacts.anchor.goto", { section: t("contacts.section.agents") })}
+      count={
+        <span className="text-muted-foreground shrink-0 text-xs" data-testid="contacts-count-agents">
+          {t("contacts.countOf", { matched: filtered.length, total: saved.length })}
+        </span>
+      }
+      actions={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-6"
+          onClick={() => setAddOpen(true)}
+          data-testid="contacts-agent-add"
+          title={t("contacts.agents.add")}
+          aria-label={t("contacts.agents.add")}
+        >
+          <Bot aria-hidden className="size-4" />
+        </Button>
+      }
     >
-      <SectionHeader
-        id="agents"
-        title={t("contacts.section.agents")}
-        query={query}
-        onQueryChange={setQuery}
-        placeholder={t("contacts.agents.searchPlaceholder")}
-        matched={filtered.length}
-        total={saved.length}
-        addLabel={t("contacts.agents.add")}
-        addIcon={Bot}
-        onAdd={() => setAddOpen(true)}
-        addTestId="contacts-agent-add"
-      />
-
       {commandError ? (
         <div className="flex items-center gap-1" data-testid="contacts-agent-error-row">
           <p className="text-destructive text-xs" role="alert" data-testid="contacts-agent-error">
@@ -139,133 +261,22 @@ export function AgentSection() {
           icon={Bot}
           title={t("contacts.agents.empty")}
           description={t("contacts.agents.emptyHint")}
-          action={
-            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-              {t("contacts.agents.add")}
-            </Button>
-          }
         />
       ) : (
-        filtered.map((endpoint) => {
-          const id = endpoint.endpointId ?? endpoint.wsUrl;
-          const disabled = disabledBy[id] === true;
-          const testFailed = lastTestBy[id] === "failed";
-          const counts = tierCounts(policies[id] ?? { defaults: {}, exceptions: [] });
-          const isActive = id === activeEndpointId;
-          const dot = !isActive
-            ? "bg-muted-foreground"
-            : phase === "online"
-              ? "bg-success"
-              : phase === "offline"
-                ? "bg-destructive"
-                : "bg-warning";
-          const name = endpoint.alias || wsHostOf(endpoint.wsUrl) || id;
-          return (
-            <div
-              key={id}
-              className="hover:bg-accent/50 flex items-center gap-3 rounded-md px-2 py-2"
-              data-testid={"contact-agent-" + id}
-            >
-              <span
-                aria-hidden
-                data-testid={"contact-agent-dot-" + id}
-                className={"size-2 shrink-0 rounded-full " + dot}
-              />
-              <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-2 truncate text-sm font-medium">
-                  {name}
-                  {disabled ? (
-                    <span className="bg-muted rounded px-1.5 py-0.5 text-xs" data-testid={"contact-agent-disabled-" + id}>
-                      {t("contacts.agents.disabledBadge")}
-                    </span>
-                  ) : null}
-                  {testFailed && !disabled ? (
-                    <span
-                      className="border-warning/50 text-warning rounded border px-1.5 py-0.5 text-xs"
-                      data-testid={"contact-agent-warn-" + id}
-                    >
-                      {t("contacts.agents.untestedBadge")}
-                    </span>
-                  ) : null}
-                </p>
-                <p className="text-muted-foreground truncate text-xs">
-                  {wsHostOf(endpoint.wsUrl) ?? endpoint.wsUrl} ·{" "}
-                  {t("contacts.agents.policySummary", {
-                    allow: counts.allow,
-                    ask: counts.ask,
-                    deny: counts.deny,
-                  })}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {disabled ? (
-                  <span
-                    aria-disabled
-                    title={t("contacts.agents.messageDisabled")}
-                    className="text-muted-foreground inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium opacity-60"
-                    data-testid={"contact-agent-message-" + id}
-                  >
-                    <MessageSquareIcon aria-hidden className="size-4" />
-                    {t("contacts.agents.message")}
-                  </span>
-                ) : (
-                  <Button type="button" variant="ghost" size="sm" asChild>
-                    <Link to={"/chat?agent=" + id} data-testid={"contact-agent-message-" + id}>
-                      <MessageSquareIcon aria-hidden className="size-4" />
-                      {t("contacts.agents.message")}
-                    </Link>
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDetailId(id)}
-                  data-testid={"contact-agent-detail-" + id}
-                >
-                  <Settings2Icon aria-hidden className="size-4" />
-                  {t("contacts.agents.detail")}
-                </Button>
-                {disabled ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => enable(endpoint)}
-                    data-testid={"contact-agent-enable-" + id}
-                  >
-                    {t("contacts.agents.enable")}
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void disable(endpoint)}
-                    data-testid={"contact-agent-disable-" + id}
-                  >
-                    <UserRoundXIcon aria-hidden className="size-4" />
-                    {t("contacts.agents.disable")}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void remove(endpoint)}
-                  data-testid={"contact-agent-remove-" + id}
-                >
-                  <Trash2Icon aria-hidden className="size-4" />
-                  {t("contacts.agents.removeConfirmAction")}
-                </Button>
-              </div>
-            </div>
-          );
-        })
+        filtered.map((endpoint) => (
+          <AgentRow
+            key={endpoint.endpointId ?? endpoint.wsUrl}
+            endpoint={endpoint}
+            onDetail={setDetailId}
+            onDisable={(e) => void disable(e)}
+            onEnable={enable}
+            onRemove={(e) => void onRemove(e)}
+          />
+        ))
       )}
 
       <EndpointAddDialog open={addOpen} onOpenChange={setAddOpen} onSaved={() => {}} />
       <AgentDetailDrawer endpointId={detailId} onOpenChange={(open) => !open && setDetailId(null)} />
-    </section>
+    </TreeSection>
   );
 }

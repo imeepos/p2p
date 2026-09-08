@@ -58,6 +58,8 @@ pub fn allow_cmd(args: AllowArgs) -> CliResult<()> {
         &args.peer_id,
         &args.model,
         args.note.as_deref(),
+        None,
+        None,
         &rfc3339_now(),
     )
     .map_err(runtime_err)?;
@@ -80,13 +82,22 @@ fn render_allow(report: &AllowReport) -> String {
     } else {
         "条目已存在，本次为更新"
     };
-    format!(
-        "已加入 allowlist peer={}（{state}）\nmodels={}\nnote={}\ngranted_at={}",
-        report.peer_id,
-        join_models(&report.models),
-        report.note,
-        report.granted_at
-    )
+    let mut lines = vec![
+        format!(
+            "已加入 allowlist peer={}（{state}）\nmodels={}\nnote={}",
+            report.peer_id,
+            join_models(&report.models),
+            report.note
+        ),
+    ];
+    if let Some(source) = &report.source {
+        lines.push(format!("source={source}"));
+    }
+    if let Some(expires_at) = report.expires_at {
+        lines.push(format!("expires_at={expires_at}"));
+    }
+    lines.push(format!("granted_at={}", report.granted_at));
+    lines.join("\n")
 }
 
 fn render_deny(report: &DenyReport) -> String {
@@ -99,13 +110,19 @@ fn render_list(entries: &[AllowlistEntry]) -> String {
     }
     let mut lines = vec![format!("共 {} 条 allowlist 条目", entries.len())];
     for entry in entries {
-        lines.push(format!(
-            "{}  models={}  note={}  granted_at={}",
-            entry.peer_id,
-            join_models(&entry.models),
-            entry.note,
-            entry.granted_at
-        ));
+        let mut parts = vec![
+            entry.peer_id.clone(),
+            format!("models={}", join_models(&entry.models)),
+            format!("note={}", entry.note),
+        ];
+        if let Some(source) = &entry.source {
+            parts.push(format!("source={source}"));
+        }
+        if let Some(expires_at) = entry.expires_at {
+            parts.push(format!("expires_at={expires_at}"));
+        }
+        parts.push(format!("granted_at={}", entry.granted_at));
+        lines.push(parts.join("  "));
     }
     lines.join("\n")
 }

@@ -124,6 +124,15 @@ describe("IM-T52 滚动体系结构契约（P1 双栏）", () => {
     expect(messages.contains(list)).toBe(false);
   });
 
+  it("消息流横向滚动零容忍：滚动域 overflow-x-hidden，连续消息有纵向间隔", async () => {
+    await renderChat();
+    fireEvent.click(rowButton(a));
+    await waitFor(() => expect(screen.getByTestId("message-scroll")).toBeTruthy());
+    const messages = screen.getByTestId("message-scroll");
+    expect(messages.className).toContain("overflow-x-hidden");
+    expect(screen.getByTestId("message-column").className).toContain("gap-y-2.5");
+  });
+
   it("输入条钉在消息滚动域之外：DOM 序上位于消息列表之后", async () => {
     await renderChat();
     fireEvent.click(rowButton(a));
@@ -149,13 +158,13 @@ describe("IM-T52 滚动体系结构契约（P1 双栏）", () => {
     list.scrollTop = 120;
     fireEvent.click(rowButton(b));
     await waitFor(() =>
-      expect(mocks.history).toHaveBeenCalledWith(b.peerId, null, 50),
+      expect(mocks.history).toHaveBeenCalledWith(b.peerId, null, 20),
     );
     expect(list.scrollTop).toBe(120);
 
     fireEvent.click(rowButton(a));
     await waitFor(() =>
-      expect(mocks.history).toHaveBeenCalledWith(a.peerId, null, 50),
+      expect(mocks.history).toHaveBeenCalledWith(a.peerId, null, 20),
     );
     expect(list.scrollTop).toBe(120);
   });

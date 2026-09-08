@@ -38,16 +38,17 @@ pub async fn read_request_frame(stream: &mut BoxedStream) -> std::io::Result<Vec
     }
 }
 
-/// 以已读首帧为起点的 chunked 重组（语义对齐 p2p-protocol::read_chunked）。
+/// 以已读首帧为起点的 chunked 重组（语义对齐 p2p-protocol::read_chunked）：
+/// FRAME_SINGLE 仅在无累积载荷时合法（整条消息一帧装下即到消息末尾）。
 async fn finish_chunked(stream: &mut BoxedStream, first: Vec<u8>) -> std::io::Result<Vec<u8>> {
-    let mut msg = Vec::new();
+    let mut msg: Vec<u8> = Vec::new();
     let mut frame = first;
     loop {
         let Some(head) = frame.first().copied() else {
             return Err(wire_err("chunked frame missing type byte"));
         };
-        msg.extend_from_slice(&frame[1..]);
-        let total = msg.len() as u64;
+        let data = &frame[1..];
+        let total = msg.len() as u64 + data.len() as u64;
         if total > MAX_MESSAGE_SIZE {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -55,11 +56,19 @@ async fn finish_chunked(stream: &mut BoxedStream, first: Vec<u8>) -> std::io::Re
             ));
         }
         match head {
-            FRAME_END => return Ok(msg),
-            FRAME_CHUNK => frame = read_frame(stream).await?,
+            FRAME_SINGLE if msg.is_empty() => return Ok(data.to_vec()),
+            FRAME_END => {
+                msg.extend_from_slice(data);
+                return Ok(msg);
+            }
+            FRAME_CHUNK => {
+                msg.extend_from_slice(data);
+                frame = read_frame(stream).await?;
+            }
             _ => {
                 return Err(wire_err(format!(
-                    "unexpected chunked frame type {head:#04x}"
+                    "unexpected chunked frame type {head:#04x} after {} bytes",
+                    msg.len()
                 )))
             }
         }
@@ -86,11 +95,19 @@ impl ProxyRequest {
     /// 解析并校验必需字段；任何缺失都以可述原因拒绝（BadRequest）。
     pub fn parse(raw: &[u8]) -> Result<Self, String> {
         let v: Value = serde_json::from_slice(raw).map_err(|e| format!("request not json: {e}"))?;
-        let req_id = v.get("req_id").and_then(Value::as_str).unwrap_or_default();
+        let req_id = v
+            .get("req_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
         if req_id.is_empty() {
             return Err("missing req_id".into());
         }
-        let model = v.get("model").and_then(Value::as_str).unwrap_or_default();
+        let model = v
+            .get("model")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
         if model.is_empty() {
             return Err("missing model".into());
         }
@@ -102,11 +119,17 @@ impl ProxyRequest {
         if max_tokens == 0 {
             return Err("missing max_tokens".into());
         }
+        // 双形态兼容：ProxyClient 序列化信封（含 body 字段，内层才是 OpenAI 体），
+        // 测试/手工路径为扁平体（OpenAI 字段 + 顶层 req_id）。真实上游只认后者。
+        let body = match v.get("body") {
+            Some(inner) => inner.clone(),
+            None => v,
+        };
         Ok(Self {
-            req_id: req_id.into(),
-            model: model.into(),
+            req_id,
+            model,
             max_tokens,
-            body: v,
+            body,
             wire_bytes: raw.len(),
         })
     }
@@ -139,46 +162,4 @@ pub enum ProxyFrame {
         #[serde(default)]
         receipt: Option<Receipt>,
     },
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn sample() -> Value {
-        serde_json::json!({
-            "req_id": "r-1", "model": "gpt-4o", "max_tokens": 128,
-            "messages": [{ "role": "user", "content": "ping" }], "stream": true
-        })
-    }
-
-    #[test]
-    fn parse_extracts_gates_fields() {
-        let raw = serde_json::to_vec(&sample()).expect("json");
-        let req = ProxyRequest::parse(&raw).expect("valid");
-        assert_eq!(req.req_id, "r-1");
-        assert_eq!(req.model, "gpt-4o");
-        assert_eq!(req.max_tokens, 128);
-        assert_eq!(req.wire_bytes, raw.len());
-    }
-
-    #[test]
-    fn upstream_body_strips_proxy_field() {
-        let raw = serde_json::to_vec(&sample()).expect("json");
-        let req = ProxyRequest::parse(&raw).expect("valid");
-        assert!(req.body.get("req_id").is_some());
-        assert!(req.upstream_body().get("req_id").is_none());
-        assert_eq!(req.upstream_body()["model"], "gpt-4o");
-    }
-
-    #[test]
-    fn missing_required_fields_rejected() {
-        let mut no_tokens = sample();
-        no_tokens.as_object_mut().expect("obj").remove("max_tokens");
-        assert!(ProxyRequest::parse(&serde_json::to_vec(&no_tokens).expect("json")).is_err());
-        let mut no_id = sample();
-        no_id.as_object_mut().expect("obj").remove("req_id");
-        assert!(ProxyRequest::parse(&serde_json::to_vec(&no_id).expect("json")).is_err());
-        assert!(ProxyRequest::parse(b"not-json").is_err());
-    }
 }

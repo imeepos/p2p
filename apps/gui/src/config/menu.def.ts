@@ -12,6 +12,7 @@ import {
   Network,
   Settings,
   Share2,
+  Sparkles,
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
@@ -33,5 +34,8 @@ export const MENU_ENTRIES: readonly MenuEntry[] = [
   { path: "/docs", titleKey: "docs.title", icon: BookOpen },
   // R2-13：LLM 共享升 rail（此前仅命令面板+设置入口卡可达）
   { path: "/llm-share", titleKey: "llmShare.title", icon: Share2 },
+  // A2A3：智能体升 rail（a2a-over-p2p-design §8.1/拍板 Q7：llm-share 后、
+  // settings 前；Sparkles；注册序即快捷键 Cmd/Ctrl+8，上限 9 吻合）
+  { path: "/agents", titleKey: "agents.title", icon: Sparkles },
   { path: "/settings", titleKey: "settings.title", icon: Settings },
 ];

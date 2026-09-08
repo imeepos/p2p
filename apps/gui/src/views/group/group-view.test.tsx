@@ -158,7 +158,7 @@ describe("GroupView 会话选择", () => {
     await waitFor(() => expect(screen.getByText("项目组")).toBeTruthy());
     fireEvent.click(screen.getAllByTestId("group-row")[0]!);
     await waitFor(() =>
-      expect(mocks.groupHistory).toHaveBeenCalledWith("g-active", null, 50),
+      expect(mocks.groupHistory).toHaveBeenCalledWith("g-active", null, 20),
     );
     expect(screen.getByTestId("group-conversation-header").textContent).toContain(
       "项目组",
@@ -173,7 +173,7 @@ describe("GroupView 会话选择", () => {
     mocks.groupHistory.mockResolvedValue([]);
     renderView("/?g=g-b");
     await waitFor(() =>
-      expect(mocks.groupHistory).toHaveBeenCalledWith("g-b", null, 50),
+      expect(mocks.groupHistory).toHaveBeenCalledWith("g-b", null, 20),
     );
     await waitFor(() =>
       expect(

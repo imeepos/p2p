@@ -6,7 +6,11 @@ import { MENU_ENTRIES } from "@/config/menu.def";
 import { PALETTE_NAV_ENTRIES } from "@/config/palette-nav";
 import "@/i18n";
 import { useNodeStore } from "@/stores/node-store";
-import { CommandPalette, LLM_SHARE_PALETTE_COUNT } from "./command-palette";
+import {
+  ACP_MANAGE_PALETTE_COUNT,
+  CommandPalette,
+  LLM_SHARE_PALETTE_COUNT,
+} from "./command-palette";
 import { requestOpenCommandPalette } from "./palette-bus";
 
 // cmdk 依赖 ResizeObserver 测量与 scrollIntoView 滚动，jsdom 均未实现：
@@ -38,7 +42,9 @@ describe("CommandPalette", () => {
     renderPalette(true);
     expect(await screen.findByRole("dialog")).toBeTruthy();
     expect(screen.getAllByRole("option")).toHaveLength(
-      PALETTE_NAV_ENTRIES.length + LLM_SHARE_PALETTE_COUNT,
+      PALETTE_NAV_ENTRIES.length +
+        LLM_SHARE_PALETTE_COUNT +
+        ACP_MANAGE_PALETTE_COUNT,
     );
   });
 

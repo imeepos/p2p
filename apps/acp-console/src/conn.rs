@@ -14,7 +14,7 @@ use tokio_tungstenite::tungstenite::protocol::{CloseFrame, Message};
 use tokio_tungstenite::WebSocketStream;
 use uuid::Uuid;
 
-use crate::dial::{self, DialError, HandshakeOutcome};
+use crate::dial::{self, DialError, DialProto, HandshakeOutcome};
 use crate::pump::{self, PumpEnd};
 use crate::state::{ConnPhase, StatusHub};
 use crate::ticket::{ReattachTicket, TicketStore};
@@ -23,6 +23,8 @@ use crate::ticket::{ReattachTicket, TicketStore};
 #[derive(Debug)]
 pub struct Authed {
     pub peer: PeerId,
+    /// 目标协议：acp 会话泵（缺省）/ a2a 卡片事件通道（gui-contract §17）。
+    pub proto: DialProto,
     pub reattach: Option<Uuid>,
     pub agent_token: Option<String>,
 }
@@ -40,8 +42,16 @@ pub async fn run_connection(
     window: Duration,
 ) {
     let peer = authed.peer.to_string();
+    tracing::debug!(peer = %peer, proto = %authed.proto, "ws connection authorized");
     hub.transition(ConnPhase::Connecting, Some(peer.clone()), None, None);
-    match dial::dial_and_handshake(&node, authed.peer, authed.agent_token, authed.reattach).await {
+    let dial = dial::dial_and_handshake(
+        &node,
+        authed.peer,
+        authed.proto,
+        authed.agent_token,
+        authed.reattach,
+    );
+    match dial.await {
         Ok((_, outcome, stream)) => {
             let conn = outcome.conn;
             persist_ticket(&tickets, &peer, &outcome);

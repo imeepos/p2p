@@ -67,6 +67,8 @@ interface AcpConsoleState {
   lastError: string | null;
   /** 聊天页深链落定入口：记录聚焦并清零该端点未读（§2.3 选中清零） */
   setFocusedEndpoint: (endpointId: string | null) => void;
+  /** 右键菜单「标为已读」：不改聚焦态仅清未读 */
+  markEndpointRead: (endpointId: string) => void;
   setPromptDraft: (sessionId: string, text: string) => void;
   setDraft: (patch: Partial<AcpEndpoint>) => void;
   saveDraft: () => void;
@@ -139,6 +141,14 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
           : s.unreadByEndpoint,
       };
     });
+  },
+
+  markEndpointRead: (endpointId) => {
+    set((s) =>
+      s.unreadByEndpoint[endpointId]
+        ? { unreadByEndpoint: { ...s.unreadByEndpoint, [endpointId]: 0 } }
+        : s.unreadByEndpoint,
+    );
   },
 
   setPromptDraft: (sessionId, text) => {

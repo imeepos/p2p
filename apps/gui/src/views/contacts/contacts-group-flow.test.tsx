@@ -240,3 +240,39 @@ describe("创建群 → 邀请 → 入群流程（P2 验收 3）", () => {
     expect(screen.queryByTestId("contacts-group-invited-g-1")).toBeNull();
   });
 });
+
+// 非 active 群不进通讯录（已退出/已解散/被踢）：通讯录是「当前关系」目录，
+// 与会话列表同一可见性规则（visibleGroups 默认仅放行 active），历史回看
+// 走 chat 侧 inactive 开关与 /group 管理页。
+describe("非 active 群不进通讯录", () => {
+  it("已退出/已解散群不渲染，仅 active 群可见且计数不含隐藏行", async () => {
+    const activeGroup = groupOf("g-active", "在群", PEER, [PEER]);
+    const leftGroup = {
+      ...groupOf("g-left", "已退的群", PEER_B, [PEER_B, PEER]),
+      state: "left" as const,
+      tsMs: 3_000,
+    };
+    const disbandedGroup = {
+      ...groupOf("g-disb", "已解散的群", PEER_B, [PEER_B, PEER]),
+      state: "disbanded" as const,
+      tsMs: 2_000,
+    };
+    useGroupStore.setState({ groups: [leftGroup, disbandedGroup, activeGroup] });
+    renderSection();
+    await waitFor(() => expect(screen.getByTestId("contact-group-g-active")).toBeTruthy());
+    expect(screen.queryByTestId("contact-group-g-left")).toBeNull();
+    expect(screen.queryByTestId("contact-group-g-disb")).toBeNull();
+    expect(screen.getByTestId("contacts-count-groups").textContent).toBe("1/1");
+  });
+
+  it("全部群已退出/解散时显空态而非残留行", async () => {
+    const disbandedGroup = {
+      ...groupOf("g-disb", "已解散的群", PEER_B, [PEER_B, PEER]),
+      state: "disbanded" as const,
+    };
+    useGroupStore.setState({ groups: [disbandedGroup] });
+    renderSection();
+    await waitFor(() => expect(screen.getByText("还没有群聊")).toBeTruthy());
+    expect(screen.queryByTestId("contact-group-g-disb")).toBeNull();
+  });
+});

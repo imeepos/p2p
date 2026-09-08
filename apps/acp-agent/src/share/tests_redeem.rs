@@ -172,7 +172,13 @@ fn revoke_cascades_only_share_sourced_policy_entry() {
     let share_id = entry.share_id.to_string();
     entry.bound_peer = Some("peerB".to_owned());
     hand_ledger(&cfg, entry);
-    let service = ShareService::open(&cfg, policy.clone(), audit).expect("open");
+    let service = ShareService::open(
+        &cfg,
+        std::sync::Arc::new(crate::workspaces::WorkspaceStore::open_for_config(&cfg).unwrap()),
+        policy.clone(),
+        audit,
+    )
+    .expect("open");
 
     let report = service.revoke(&share_id).expect("revoke");
     assert!(!report.policy_removed, "非 share 来源条目不得级联删除");

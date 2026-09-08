@@ -5,6 +5,8 @@ import type { Locale } from "@/i18n";
 import { formatBytes } from "@/lib/format";
 import type { ChatMediaJson } from "@/lib/ipc-types";
 
+import { MediaDownload } from "./media-download";
+
 // 可内联资源：真实后端经 asset protocol 返回 http(s) 地址；本地 blob/data 兜底。
 function inlineSrc(path?: string | null): string | null {
   if (!path) return null;
@@ -15,9 +17,9 @@ interface MediaContentProps {
   media: ChatMediaJson;
 }
 
-// 图片/音频/视频可内联时直接渲染；占位路径（mock）退化为信息卡 + 下载锚点。
+// 图片/音频/视频可内联时直接渲染；占位路径（mock）退化为信息卡 + 导出入口（§12.5）。
 export function MediaContent({ media }: MediaContentProps) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const locale = i18n.language as Locale;
   const src = inlineSrc(media.path);
 
@@ -38,15 +40,7 @@ export function MediaContent({ media }: MediaContentProps) {
         <div className="truncate">{media.name}</div>
         <div className="text-xs opacity-70">
           {formatBytes(media.size, locale)}
-          {media.path ? (
-            <a
-              href={media.path}
-              download={media.name}
-              className="ml-2 underline underline-offset-2"
-            >
-              {t("chat.download")}
-            </a>
-          ) : null}
+          {media.path ? <MediaDownload media={media} /> : null}
         </div>
       </div>
     </div>

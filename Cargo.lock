@@ -3,15 +3,31 @@
 version = 4
 
 [[package]]
+name = "a2a"
+version = "0.1.0"
+dependencies = [
+ "bs58",
+ "p2p-identity",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "acp-agent"
 version = "0.1.0"
 dependencies = [
+ "a2a",
  "acp-common",
  "async-trait",
  "clap",
  "p2p",
+ "p2p-discovery",
+ "p2p-identity",
  "p2p-log",
  "p2p-protocol",
+ "p2p-transport",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -37,6 +53,7 @@ dependencies = [
 name = "acp-console"
 version = "0.1.0"
 dependencies = [
+ "a2a",
  "acp-common",
  "bs58",
  "clap",
@@ -44,6 +61,7 @@ dependencies = [
  "http",
  "p2p",
  "p2p-log",
+ "p2p-protocol",
  "p2p-swarm",
  "serde",
  "serde_json",
@@ -1210,6 +1228,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "llm-share-link"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.8",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
 name = "llm-share-offer"
 version = "0.1.0"
 dependencies = [
@@ -1403,6 +1433,7 @@ dependencies = [
  "clap",
  "futures",
  "llm-share-ledger",
+ "llm-share-link",
  "llm-share-offer",
  "llm-share-proxy",
  "p2p",
@@ -1446,24 +1477,31 @@ dependencies = [
  "bs58",
  "ed25519-dalek",
  "rand 0.8.8",
+ "serde",
+ "serde_json",
  "sha2",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
 name = "p2p-itest"
 version = "0.1.0"
 dependencies = [
+ "a2a",
  "acp-agent",
  "acp-common",
  "acp-console",
  "async-trait",
+ "bs58",
  "bytes",
  "futures",
  "llm-share-ledger",
+ "llm-share-link",
  "llm-share-offer",
  "llm-share-proxy",
  "p2p",
  "p2p-chat",
+ "p2p-cli",
  "p2p-discovery",
  "p2p-identity",
  "p2p-log",

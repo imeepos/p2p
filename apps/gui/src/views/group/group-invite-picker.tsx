@@ -97,7 +97,7 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
         </Button>
       </div>
       {commandError ? (
-        <CommandErrorText
+<CommandErrorText
           message={commandError}
           prefix={t("group.manage.inviteFailed")}
           testId="group-invite-error"

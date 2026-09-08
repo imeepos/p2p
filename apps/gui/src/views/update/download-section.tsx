@@ -1,13 +1,15 @@
 import { useTranslation } from "react-i18next";
 
+import { DownloadProgress } from "@/components/feedback/download-progress";
+import { toastError } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { useUpdateStore } from "@/stores/update-store";
 
-import { DownloadProgress } from "./download-progress";
 import { openReleasePage } from "./release-links";
 
 // 契约 v8 §13：下载安装操作段，设置卡与提醒对话框共用。
 // 相位驱动：idle=按钮 → downloading=进度条 → installed=重启入口；failed 可重试；
+// 失败除行内状态外补 toast（store 吞异常不抛，按终态判定，与手动检查同口径）；
 // 浏览器打开始终保留为逃生通道（签名/网络环境异常时仍可手动下载）。
 export function DownloadSection({ size = "default" }: { size?: "sm" | "default" }) {
   const { t } = useTranslation();
@@ -18,6 +20,17 @@ export function DownloadSection({ size = "default" }: { size?: "sm" | "default" 
   const downloadAndInstall = useUpdateStore((s) => s.downloadAndInstall);
   const relaunch = useUpdateStore((s) => s.relaunch);
   const releaseUrl = useUpdateStore((s) => s.result?.releaseUrl ?? null);
+
+  const startDownload = async () => {
+    await downloadAndInstall();
+    const state = useUpdateStore.getState();
+    if (state.downloadPhase === "failed") {
+      toastError(t("update.download.failed"), {
+        description: state.downloadError ?? undefined,
+        context: "update.download",
+      });
+    }
+  };
 
   const fallback = (
     <Button
@@ -57,7 +70,7 @@ export function DownloadSection({ size = "default" }: { size?: "sm" | "default" 
         <Button
           type="button"
           size={size}
-          onClick={() => void downloadAndInstall()}
+          onClick={() => void startDownload()}
         >
           {phase === "failed" ? t("update.download.retry") : t("update.download.button")}
         </Button>

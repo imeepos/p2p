@@ -1,24 +1,22 @@
-//! E10-T20 双节点 E2E（idle-token-sharing-plan §10 验收口径 A1-A7）：
-//! 真 facade Node TCP 互联 + 进程内 mock 上游，覆盖
-//! A1 流式问答语义一致 / A2 冻结不足结构化拒绝零上游 / A3 双边流水一致+收据验签+篡改必败 /
-//! A4 req_id 重放单笔 / A5 非 allowlist 拒+声明 TTL 过期不选路 / A6 断流 estimated 收据+争议窗口。
-//! A7 = 三 crate 测试 + workspace make check，由验收命令机械判定，不落本文件。
+//! E10-T20 双节点 E2E（idle-token-sharing-plan §10 验收口径 A1-A7 + B6）：
+//! 真 facade Node TCP 互联 + 进程内 mock 上游。
+//! A1 流式语义一致 / A2 冻结拒绝 / A3 双边流水+验签 / A4 重放单笔 /
+//! A5 非 allowlist 拒+TTL / A6 断流估算+争议 / B6 双借方并发归属。
+//! A7 = 三 crate 测试 + make check，由验收命令机械判定，不落本文件。
 
 mod llm_share_common;
 
-use std::collections::BTreeMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use llm_share_common::{
-    call, client_for, extra_node, proxy_request, rig, sse_data, usage_chunk, MockUpstream, Script,
-    STEP,
+    call, client_for, extra_node, proxy_request, rig, sample_offer, sse_data, usage_chunk,
+    MockUpstream, Script, STEP,
 };
 use llm_share_ledger::{DisputeTracker, Ledger};
-use llm_share_offer::{select_offers, Offer, OfferBook, RateLimit, SignedOffer, VerifyError};
+use llm_share_offer::{select_offers, OfferBook, SignedOffer, VerifyError};
 use llm_share_proxy::{ErrorCode, ProxyEvent};
 
-/// A1：B 以 OpenAI chat completions 请求经真链路代理获得流式回答，
-/// SSE 逐帧语义与直连 mock 上游一致，usage 与上游账单一致。
+/// A1：真链路代理流式回答，SSE 语义与直连上游一致，usage 与账单一致。
 #[tokio::test]
 async fn a1_streaming_roundtrip_matches_direct_upstream() {
     let payloads = [
@@ -77,8 +75,7 @@ async fn a2_freeze_insufficient_rejected_zero_upstream_calls() {
     assert_eq!(ledger.net(&rig.b_peer.to_string(), "2026-09"), 0, "零流水");
 }
 
-/// A3：一笔完整调用后双边账本流水一致，B 镜像入账可对账；
-/// 收据验签通过，篡改 usage 后验签必败。
+/// A3：双边账本流水一致可对账；收据验签通过，篡改 usage 必败。
 #[tokio::test]
 async fn a3_dual_ledger_consistency_receipt_sig_and_tamper() {
     let mock = MockUpstream::new(vec![Script::Canned(vec![usage_chunk(100, 50)])]);
@@ -140,8 +137,7 @@ async fn a4_replay_req_id_billed_once() {
     assert_eq!(ledger.net(&rig.b_peer.to_string(), "2026-09"), -15);
 }
 
-/// A5：非 allowlist PeerId 真实入站被三闸首闸拒（上游零增量、零流水）；
-/// 能力声明 TTL 过期后不再被选路（OfferBook 失效 + 选路器剔除 + 信封过期可验）。
+/// A5：非 allowlist 入站三闸首闸拒；能力声明 TTL 过期不选路、信封过期可验。
 #[tokio::test]
 async fn a5_non_allowlist_rejected_and_expired_offer_not_routed() {
     let mock = MockUpstream::new(vec![Script::Canned(vec![usage_chunk(10, 5)])]);
@@ -186,19 +182,7 @@ async fn a5_non_allowlist_rejected_and_expired_offer_not_routed() {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_secs();
-    let offer = Offer {
-        peer: rig.a_peer.to_string(),
-        models: vec!["gpt-4o".to_string()],
-        spare: BTreeMap::from([("gpt-4o".to_string(), 1_000_000)]),
-        period_ends: "2026-09-30".to_string(),
-        max_per_req: BTreeMap::new(),
-        rate_limit: RateLimit {
-            rpm: 60,
-            concurrency: 2,
-        },
-        ttl_secs: 1,
-        retention: "none".to_string(),
-    };
+    let offer = sample_offer(&rig.a_peer);
     let signed = SignedOffer::sign(&offer, &rig.keypair, now).expect("sign offer");
     let mut book = OfferBook::new();
     book.insert(signed.clone(), now).expect("insert offer");
@@ -219,8 +203,7 @@ async fn a5_non_allowlist_rejected_and_expired_offer_not_routed() {
     );
 }
 
-/// A6：上游断流产生 estimated=true 估算收据并如实入账；争议窗口接口可用，
-/// 争议未决不得终局。
+/// A6：断流产生 estimated=true 收据如实入账；争议未决不得终局。
 #[tokio::test]
 async fn a6_broken_stream_estimated_receipt_and_dispute() {
     let mock = MockUpstream::new(vec![Script::BrokenAfter(vec![sse_data(

@@ -79,3 +79,11 @@
 
 - 禁止凭记忆重构 edit 的 old_string 锚点：本会话同一天三次把右括号冒号锚点抄错、注释一字之差不匹配，全部 old_string not found 返工；锚点必须从最近一次 read 的原文逐字复制，改完立即 read 回核（2026-09-07 UX-R3 实录）。
 - 禁止给 run_code 调用漏带外层 description 参数（报 invalid arguments 只会指向子工具，实际是 run_code 自身缺参）；以及 JSON 键名笔误（如 new_string 多打引号）——提交前扫一眼调用参数骨架（2026-09-07 同日三犯）。
+
+## 2026-09-07 收尾四步禁止链成一条命令跑完——中断即丢步骤且无从察觉
+- 事故：push 分支→ff-only→worktree remove→branch -d→push --delete→push main 链成一条 bash，输出被截断且 exit=null；实际 push --delete 和 push main 根本没执行，远端残留 fix 分支（ls-remote 计数=1 实录），靠显式核验才补删。
+- 红线：收尾四步每步独立调用、每步带机械核验（分支推送后 ls-remote 计数=1；合并后 merge-base --is-ancestor；清理后 worktree list / ls-remote 计数=0）；exit=null 或输出截断一律当「未执行」处理重查，不许信链式命令的部分输出。
+
+## 2026-09-08 密钥掩码正则必须适配真实键格式，掩码后必须自证
+- 事故：掩码 sed 按 sk- 前缀写（`s/sk-xxx.../`），实际键是无前缀 64 位 hex，替换未命中，完整密钥整行打进会话日志（ext512/p2p .env 轮实录）。
+- 红线：对含密钥的行做掩码输出后，必须 grep -c 自证「已无完整键残留」（或 diff 前后行数）才允许继续；键格式未知时先用指纹（len+tail）确认格式再写掩码，掩码失效的输出立即作废重做。

@@ -46,6 +46,7 @@
 | `crates/llm-share-ledger` | E10 账本：Ed25519 签名收据、append-only 双边流水、预授权冻结硬闸、争议窗口、哈希链对账 |
 | `crates/llm-share-offer` | E10 能力声明：声明模型/签名注册发布/TTL 失效订阅簿/纯函数选路器 |
 | `crates/llm-share-proxy` | E10 代理：/llm-share/proxy/1 三闸准入、SSE 逐帧转发、预授权结算、拨号客户端 |
+| `crates/llm-share-link` | 分享链接纯逻辑：dsh-llm-share:// 链接组装/解析、CSPRNG token（台账只存 sha256）、shares.json 台账（兑换激活防 TOCTOU）、/llm-share/redeem/1 兑换帧 |
 
 依赖方向：facade -> swarm -> relay/discovery/protocol -> transport/security/mux -> identity；
 层间只经 trait 交互，任一层可替换（design §3）。
@@ -79,6 +80,14 @@ cwd 监狱 + 每连接一个 `dsh --profile acp` 子进程监督，断线续连�
 操控权做成临时/一次性 `dsh-acp-share://` 链接，guest `--share-link`（或 console
 POST /connect-share）导入即获得受限 ACP endpoint；全链路 E2E 见
 crates/p2p-itest/tests/share_link_wave.rs，运维见 docs/ops/acp-guide.md §8。
+
+本地回环（本机 agent 一键跑通）：`scripts/ops/acp-local-setup.sh` 构建部署
+三件套到 ~/.dsh/bin、装 dsh acp profile 自托管启动 shim（解 launcher 缺
+ctx.appExit/appReady 的启动阻塞）、对本机 console 写 scope=owner 授权并重启
+服务；`scripts/ops/acp-local-smoke.sh` 机械验收全链（握手→initialize→
+session/new→prompt + admin 工作区 CRUD，口径 ACP-LOCAL-SMOKE-OK）。具名
+工作区为运行期动态表（admin POST/DELETE /workspaces 实时生效），GUI 管理
+页 /acp-manage；详见 docs/ops/acp-guide.md §9。
 
 ## 快速上手
 

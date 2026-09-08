@@ -1,10 +1,12 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
 import i18n from "@/i18n";
 
+import { resetBorrowPrefill, setBorrowPrefill } from "./borrow-prefill";
 import { makeLlmShareMockPair } from "./mock-backend";
 import { BorrowPanel } from "./borrow-panel";
 
@@ -13,9 +15,11 @@ const PEER = "52REhUoptPD8V99TtwHzBoczLTDXGTy8dk9aaxVbiJwd";
 
 function renderPanel(backend: Parameters<typeof BorrowPanel>[0]["backend"]) {
   return render(
-    <ConfirmProvider>
-      <BorrowPanel backend={backend} />
-    </ConfirmProvider>,
+    <MemoryRouter>
+      <ConfirmProvider>
+        <BorrowPanel backend={backend} />
+      </ConfirmProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -55,7 +59,10 @@ function confirmDescription(): string {
   })}`;
 }
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  resetBorrowPrefill();
+});
 
 describe("LLM3 borrow 面板（§16.2-3/6 二次确认 + reqId 幂等复用）", () => {
   it("二次确认拦截：取消不触达后端；确认描述明示真实成本后才调用", async () => {
@@ -77,13 +84,13 @@ describe("LLM3 borrow 面板（§16.2-3/6 二次确认 + reqId 幂等复用）",
     expect(await screen.findByTestId("borrow-report")).toBeTruthy();
   });
 
-  it("必填校验拦截：四字段错误内联展示，后端零调用", async () => {
+  it("必填校验拦截：错误内联展示，后端零调用（maxTokens 有厂值缺省不再必填）", async () => {
     const { backend } = makeLlmShareMockPair();
     const spy = vi.spyOn(backend, "borrow");
     renderPanel(backend);
     fireEvent.submit(formOf(screen.getByRole("button", { name: t("llmShare.borrow.submit") })));
     const alerts = await screen.findAllByRole("alert");
-    expect(alerts).toHaveLength(4);
+    expect(alerts).toHaveLength(3);
     expect(spy).not.toHaveBeenCalled();
   });
 
@@ -139,16 +146,19 @@ describe("LLM3 borrow 面板（§16.2-3/6 二次确认 + reqId 幂等复用）",
     expect(await screen.findByRole("alert")).toHaveTextContent("connection refused");
   });
 
-  // R2-06 回归：model 选择器数据源 = 白名单已放行模型集，选中回填输入框
-  it("model 选择器候选来自白名单模型集，选中即回填", async () => {
-    const { backend, mock } = makeLlmShareMockPair();
-    mock.allow({ peerId: PEER, models: ["gpt-4o", "deepseek-v3"] });
+  // W4 回归：model 候选源 = 出借方 offer 快照（prefill 交接），不再依赖本地 allowlist
+  it("model 选择器候选来自 offer 快照，选中即回填；targetPeer 一并预填", async () => {
+    setBorrowPrefill({ peer: PEER, model: "", models: ["gpt-4o", "deepseek-v3"] });
+    const { backend } = makeLlmShareMockPair();
     renderPanel(backend);
     fireEvent.click(await screen.findByTestId("llm-borrow-model-pick"));
     fireEvent.click(await screen.findByTestId("llm-borrow-model-pick-panel"));
     fireEvent.click(screen.getByRole("option", { name: "deepseek-v3" }));
     const input = screen.getByLabelText(t("llmShare.borrow.formModel")) as HTMLInputElement;
     expect(input.value).toBe("deepseek-v3");
+    expect(
+      (screen.getByLabelText(t("llmShare.borrow.formTargetPeer")) as HTMLInputElement).value,
+    ).toBe(PEER);
   });
 
   it("maxTokens/messages 补占位与辅助说明", () => {

@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use tokio::io::AsyncReadExt;
 
-use acp_console::dial::dial_and_handshake;
+use acp_console::dial::{dial_and_handshake, DialProto};
 
 use common::*;
 
@@ -19,9 +19,10 @@ use common::*;
 #[tokio::test]
 async fn stream_shutdown_delivers_eof_to_peer() {
     let rig = rig("halfclose", AgentMock::half_closing()).await;
-    let (_, _, mut stream) = dial_and_handshake(&rig.console, rig.agent_peer, None, None)
-        .await
-        .unwrap();
+    let (_, _, mut stream) =
+        dial_and_handshake(&rig.console, rig.agent_peer, DialProto::Acp, None, None)
+            .await
+            .unwrap();
 
     let mut buf = Vec::new();
     let probe = tokio::time::timeout(Duration::from_secs(5), stream.read_to_end(&mut buf)).await;
@@ -38,9 +39,10 @@ async fn stream_shutdown_delivers_eof_to_peer() {
 #[tokio::test]
 async fn connection_death_terminates_stream_read() {
     let rig = rig("connloss", AgentMock::echo()).await;
-    let (_, _, mut stream) = dial_and_handshake(&rig.console, rig.agent_peer, None, None)
-        .await
-        .unwrap();
+    let (_, _, mut stream) =
+        dial_and_handshake(&rig.console, rig.agent_peer, DialProto::Acp, None, None)
+            .await
+            .unwrap();
     rig.agent.shutdown();
 
     let mut buf = Vec::new();

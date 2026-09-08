@@ -2,16 +2,62 @@
 //! 传输层互认对端身份，实际 PeerId 与期望不符即拨号失败（PeerMismatch 显式上抛）；
 //! 握手帧经 acp-common 编解码：conn=随机 uuid、token 可选透传、reattach 可选。
 
+use std::fmt;
+use std::io;
 use std::time::Duration;
 
 use acp_common::consts::{HANDSHAKE_VERSION, PROTOCOL_ID};
-use acp_common::{parse_server_hello, ClientHello, ServerHello};
+use acp_common::{frames, parse_server_hello, ClientHello, LineReassembler, ServerHello};
 use p2p::{BoxedStream, Node, PeerId, ProtocolId};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use p2p_protocol::{read_frame, write_frame};
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
+
+/// A2A 卡片/邀请事件通道协议 ID（单一真值源 = crates/a2a，wire-protocol §3.2 登记）。
+const A2A_PROTOCOL_ID: &str = a2a::PROTOCOL_ID;
 
 /// 握手往返护栏：loopback 毫秒级，广域经中继也在数秒内。
 pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// 拨号目标协议（WS query ?proto=）：acp=会话泵（缺省），a2a=卡片/邀请事件
+/// 通道（gui-contract §17）。未知值在 ws 鉴权层显式拒绝，不静默回落。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DialProto {
+    Acp,
+    A2a,
+}
+
+impl DialProto {
+    /// 协议 ID 面字符串（/dsh-acp/1、/a2a/1）。
+    fn id(self) -> &'static str {
+        match self {
+            DialProto::Acp => PROTOCOL_ID,
+            DialProto::A2a => A2A_PROTOCOL_ID,
+        }
+    }
+
+    pub fn to_protocol(self) -> Result<ProtocolId, DialError> {
+        ProtocolId::new(self.id()).map_err(|e| DialError::Dial(e.to_string()))
+    }
+}
+
+impl fmt::Display for DialProto {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            DialProto::Acp => "acp",
+            DialProto::A2a => "a2a",
+        })
+    }
+}
+
+/// ?proto= 参数解析：缺省 acp；未知值显式报错（可观测，禁静默回落）。
+pub fn parse_proto(raw: Option<&str>) -> Result<DialProto, String> {
+    match raw.unwrap_or("acp") {
+        "" | "acp" => Ok(DialProto::Acp),
+        "a2a" => Ok(DialProto::A2a),
+        other => Err(format!("bad proto: {other}")),
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum DialError {
@@ -50,10 +96,11 @@ pub struct HandshakeOutcome {
 pub async fn dial_and_handshake(
     node: &Node,
     expected: PeerId,
+    proto: DialProto,
     agent_token: Option<String>,
     reattach: Option<Uuid>,
 ) -> Result<(PeerId, HandshakeOutcome, BoxedStream), DialError> {
-    let protocol = ProtocolId::new(PROTOCOL_ID).map_err(|e| DialError::Dial(e.to_string()))?;
+    let protocol = proto.to_protocol()?;
     let stream = node
         .new_stream(expected, protocol)
         .await
@@ -74,36 +121,48 @@ async fn exchange_hello(
         token: agent_token,
         reattach,
     };
-    let mut line = hello
+    let line = hello
         .to_line()
         .map_err(|e| DialError::Malformed(e.to_string()))?;
-    line.push('\n');
-    stream
-        .write_all(line.as_bytes())
-        .await
-        .map_err(|e| DialError::Dial(format!("hello write: {e}")))?;
+    // wire 帧面（设计 §4.2-1）：握手行同样按 varint 长度前缀切帧，
+    // 与 agent read_wire_line 同帧；裸写字节会被对端当作帧长解析（历史缺陷）。
+    // frames() 自带行尾换行帧，无需手工 push('\n')。
+    for frame in frames(line.as_bytes()) {
+        write_frame(&mut stream, frame)
+            .await
+            .map_err(|e| DialError::Dial(format!("hello write: {e}")))?;
+    }
     stream
         .flush()
         .await
         .map_err(|e| DialError::Dial(format!("hello flush: {e}")))?;
-    read_hello(BufReader::new(stream), conn).await
+    read_hello(stream, conn).await
 }
 
 async fn read_hello(
-    mut reader: BufReader<BoxedStream>,
+    mut stream: BoxedStream,
     conn: Uuid,
 ) -> Result<(HandshakeOutcome, BoxedStream), DialError> {
-    let mut reply = String::new();
-    let n = tokio::time::timeout(HANDSHAKE_TIMEOUT, reader.read_line(&mut reply))
-        .await
-        .map_err(|_| DialError::Timeout(HANDSHAKE_TIMEOUT))?
-        .map_err(|e| DialError::Dial(format!("hello read: {e}")))?;
-    if n == 0 {
-        return Err(DialError::Dial(
-            "connection closed before server hello".into(),
-        ));
-    }
-    let stream = reader.into_inner();
+    // 帧内字节精确读：不经 BufReader（缓冲残字会随 into_inner 丢失）。
+    let mut reassembler = LineReassembler::new();
+    let reply = loop {
+        if let Some(line) = reassembler.take_line() {
+            break String::from_utf8_lossy(&line).into_owned();
+        }
+        let frame = match tokio::time::timeout(HANDSHAKE_TIMEOUT, read_frame(&mut stream)).await {
+            Err(_) => return Err(DialError::Timeout(HANDSHAKE_TIMEOUT)),
+            Ok(Err(e)) if e.kind() == io::ErrorKind::UnexpectedEof => {
+                return Err(DialError::Dial(
+                    "connection closed before server hello".into(),
+                ));
+            }
+            Ok(Err(e)) => return Err(DialError::Dial(format!("hello read: {e}"))),
+            Ok(Ok(frame)) => frame,
+        };
+        reassembler
+            .push_frame(&frame)
+            .map_err(|e| DialError::Malformed(e.to_string()))?;
+    };
     match parse_server_hello(reply.trim()) {
         Ok(ServerHello::Ready { ready }) => Ok((
             HandshakeOutcome {

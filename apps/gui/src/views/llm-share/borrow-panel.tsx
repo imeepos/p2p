@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 
 import type { I18nKey } from "@/i18n/types";
 
 import { EntityCombobox, type PickerOption } from "@/components/picker";
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { toastError } from "@/components/feedback/toast";
 import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +27,7 @@ import { notifyLedgerMutated } from "./ledger-sync";
 import { focusFirstInvalidField } from "./focus-first-error";
 import { PeerIdField } from "./peer-id-field";
 import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
+import { consumeBorrowPrefill } from "./borrow-prefill";
 import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";
 
 // borrow 快捷面板：提交前二次确认对话框明示真实成本（§16.2-6）；
@@ -32,7 +35,18 @@ import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";
 export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const { t } = useTranslation();
   const confirm = useConfirm();
-  const [values, setValues] = useState<BorrowFormValues>(EMPTY_BORROW_FORM);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // W4：预填源 = 出借方 offer 快照（shareRedeem 应答内嵌，借方本地 allowlist 为空）
+  // + query peer/model。渲染期一次性派生初值（react-hooks v7 禁 effect 内同步
+  // setState）；query 消费即清防刷新重放，effect 只负责清参不写本地 state。
+  const [prefill] = useState(() => consumeBorrowPrefill());
+  const peerParam = searchParams.get("peer");
+  const modelParam = searchParams.get("model");
+  const [values, setValues] = useState<BorrowFormValues>(() => ({
+    ...EMPTY_BORROW_FORM,
+    targetPeer: peerParam ?? prefill?.peer ?? EMPTY_BORROW_FORM.targetPeer,
+    model: modelParam ?? prefill?.model ?? EMPTY_BORROW_FORM.model,
+  }));
   const [errors, setErrors] = useState<BorrowErrors>({});
   const [report, setReport] = useState<LlmBorrowReport | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -41,26 +55,17 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const [reqId, setReqId] = useState<string | null>(null);
   const [lastReq, setLastReq] = useState<LlmBorrowReq | null>(null);
   const [targetTouched, setTargetTouched] = useState(false);
-  // R2-06：model 实为可枚举输入——本机白名单已放行的模型集即现成选项源
-  const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
+  const [modelOptions] = useState<PickerOption[]>(() =>
+    (prefill?.models ?? []).map((model) => ({ value: model, label: model })),
+  );
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const view = await backend.allowList();
-        if (cancelled) return;
-        const models = [...new Set(view.entries.flatMap((e) => e.models))];
-        setModelOptions(models.map((model) => ({ value: model, label: model })));
-      } catch (error) {
-        // 选项源读取失败不阻塞自由输入：留告警信号即可
-        console.warn("[llm-share] 借用模型候选读取失败", error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [backend]);
+    if (peerParam === null && modelParam === null) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("peer");
+    next.delete("model");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, peerParam, modelParam]);
 
   const set = (field: keyof BorrowFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
@@ -94,7 +99,12 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
       if (result.receipt.appended) notifyLedgerMutated();
     } catch (error) {
       console.error("[llm-share] borrow 失败", error);
-      setSubmitError(errorText(error));
+      const text = errorText(error);
+      setSubmitError(text);
+      toastError(t("llmShare.borrow.submitFailed"), {
+        description: text,
+        context: "llm.borrow",
+      });
     } finally {
       setBusy(false);
     }

@@ -1,8 +1,6 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink } from "react-router-dom";
 
-import { AvatarBox } from "@/components/chat/avatar-box";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { MENU_ENTRIES } from "@/config/menu.def";
 import { useIncomingInviteCount } from "@/hooks/use-incoming-invites";
@@ -11,46 +9,11 @@ import { formatUnreadCount } from "@/lib/conversation-entry";
 import { cn } from "@/lib/utils";
 import { selectPendingInviteBadgeCount } from "@/stores/chat-group-invite-slice";
 import { useChatStore } from "@/stores/chat-store";
-import { useProfileStore } from "@/stores/profile-store";
 
-// WX1 微信桌面风格侧栏：深灰底 + 顶部本机头像 + 大号图标，选中态绿色图标
-// （不再用底色块）。角标红点（--wx-badge）。聊天入口附未读合计、通讯录附
-// 好友邀请、消息中心附待处理邀请（角标来源与原版一致）。
-function SelfAvatar() {
-  const { t } = useTranslation();
-  const profile = useProfileStore((s) => s.profile);
-  const loadProfile = useProfileStore((s) => s.load);
-  const label = profile.name.trim() || "P2P";
-
-  useEffect(() => {
-    // 失败路径已入 profile-store loadError + console，此处吞掉即可
-    if (!useProfileStore.getState().loaded) {
-      loadProfile().catch(() => {});
-    }
-  }, [loadProfile]);
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <NavLink
-          to="/settings"
-          aria-label={t("settings.title")}
-          className="focus-visible:ring-ring/50 mt-2 mb-1 flex items-center justify-center rounded-md focus-visible:ring-[3px] focus-visible:outline-none"
-        >
-          <AvatarBox
-            label={label}
-            src={profile.avatar}
-            seed="self"
-            size="lg"
-            className="shadow-sm"
-          />
-        </NavLink>
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
-  );
-}
-
+// 侧栏 rail：底色与图标用语义 --sidebar/--muted 令牌，随亮暗主题自适应
+// （不再固定深灰底）。顶部不设头像入口：其唯一去向是 /settings，与沉底的
+// 设置图标重复（2026-09-07 用户裁定删除）。角标红点（--wx-badge）。
+// 聊天入口附未读合计、通讯录附好友邀请、消息中心附待处理邀请（角标来源一致）。
 function RailLink({
   path,
   titleKey,
@@ -68,9 +31,8 @@ function RailLink({
           aria-label={label}
           className={({ isActive }) =>
             cn(
-              "focus-visible:ring-ring/50 relative flex size-10 items-center justify-center rounded-md text-wx-rail-icon hover:bg-white/10 hover:text-white focus-visible:ring-[3px] focus-visible:outline-none",
-              isActive &&
-                "text-wx-rail-icon-active hover:text-wx-rail-icon-active",
+              "focus-visible:ring-ring/50 relative flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-[3px] focus-visible:outline-none",
+              isActive && "text-primary hover:text-primary",
             )
           }
         >
@@ -116,9 +78,9 @@ export function IconRail() {
     return undefined;
   };
   return (
-    <aside className="bg-wx-rail flex h-full w-14 shrink-0 flex-col items-center">
-      <SelfAvatar />
-      <nav className="flex w-full flex-1 flex-col items-center gap-1.5 px-1.5 pb-2">
+    <aside className="bg-sidebar flex h-full w-14 shrink-0 flex-col items-center border-r border-sidebar-border">
+      {/* 红绿灯已由 app-layout 顶部 28px 同色条承载：nav 顶部常规留白 */}
+      <nav className="flex w-full flex-1 flex-col items-center gap-1.5 px-1.5 pt-4 pb-2">
         {top.map((entry) => {
           const badge = badgeOf(entry.path);
           return (

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { PageHeader } from "@/components/page/page-header";
@@ -10,7 +10,7 @@ import { PeerDialDialog } from "./peer-dial-dialog";
 import { PeerDetailSheet } from "./peer-detail-sheet";
 import { PeersTableCard } from "./peers-table-card";
 import { PeersToolbar, type StatusFilter } from "./peers-toolbar";
-import { peerStatusKind } from "./peer-status";
+import { peerStatusKind, type PeerStatusKind } from "./peer-status";
 import { useTicker } from "@/views/network/use-ticker";
 
 const PING_TIMEOUT_MS = 8000;
@@ -74,6 +74,19 @@ export function PeersView() {
       matchesSearch(peer, query, peerKnownName(peer.peerId, friends)) &&
       (statusFilter === "all" || peerStatusKind(peer, now) === statusFilter),
   );
+
+  // tabs 计数只按搜索词统计（不受当前状态过滤影响，否则未选 tab 恒为 0）。
+  const tabCounts = useMemo(() => {
+    const matched = peers.filter((peer) => matchesSearch(peer, query, peerKnownName(peer.peerId, friends)));
+    const byKind = (kind: PeerStatusKind) =>
+      matched.filter((peer) => peerStatusKind(peer, now) === kind).length;
+    return {
+      all: matched.length,
+      connected: byKind("connected"),
+      discovered: byKind("discovered"),
+      offline: byKind("offline"),
+    } as const;
+  }, [peers, query, now, friends]);
   const detailPeer = peers.find((peer) => peer.peerId === detailId) ?? null;
   const onPing = (peer: { peerId: string }) => () =>
     ping(peer.peerId, PING_TIMEOUT_MS);
@@ -91,6 +104,7 @@ export function PeersView() {
         statusFilter={statusFilter}
         onStatusFilterChange={setStatusFilter}
         onOpenDial={() => setDialOpen(true)}
+        counts={tabCounts}
       />
 
       <PeersTableCard

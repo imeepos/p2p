@@ -168,7 +168,7 @@ describe("group-store 历史与发送", () => {
     await useGroupStore.getState().selectGroup(GROUP);
     await useGroupStore.getState().selectGroup(GROUP);
     expect(mocks.groupHistory).toHaveBeenCalledTimes(1);
-    expect(mocks.groupHistory).toHaveBeenCalledWith(GROUP, null, 50);
+    expect(mocks.groupHistory).toHaveBeenCalledWith(GROUP, null, 20);
     expect(useGroupStore.getState().messagesByGroup[GROUP].map((m) => m.id)).toEqual(["g1"]);
   });
 

@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import type { ChatMessageJson } from "@/lib/ipc-types";
 import { cn } from "@/lib/utils";
 
+import { findLlmShareLinkInText } from "@/lib/llm-share-link-model";
+
 import { MediaContent } from "./media-content";
+import { TextWithLlmShareLink } from "./llm-share-message-card";
 import { QuoteBlock } from "./quote-block";
 import { replySummaryOf } from "./reply-summary";
 import { TextWithShareLink } from "./share-message-card";
@@ -45,7 +48,8 @@ interface MessageBubbleProps {
   avatar?: BubbleAvatar;
 }
 
-// 回复入口：悬停/键盘聚焦可见，位于气泡外侧；不干扰气泡本体点击。
+// 回复入口：悬停/键盘聚焦可见，锚定气泡列、落在行内空白侧；
+// 绝不越出行边界（越界会撑出横向滚动条），不干扰气泡本体点击。
 function ReplyButton({
   message,
   isMe,
@@ -63,7 +67,7 @@ function ReplyButton({
       size="icon"
       className={cn(
         "absolute top-1/2 size-6 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100",
-        isMe ? "left-full ml-1" : "right-full mr-1",
+        isMe ? "right-full mr-1" : "left-full ml-1",
       )}
       aria-label={t("chat.reply.action")}
       title={t("chat.reply.action")}
@@ -73,6 +77,13 @@ function ReplyButton({
       <Reply aria-hidden className="size-3.5" />
     </Button>
   );
+}
+
+// 正文双 scheme 分发（W4）：llm-share 链接独立 finder 优先（dsh-llm-share://），
+// ACP 固定前缀其次；无链接走纯文本。两域渲染互不干扰。
+function BubbleText({ text }: { text: string }) {
+  if (findLlmShareLinkInText(text)) return <TextWithLlmShareLink text={text} />;
+  return <TextWithShareLink text={text} />;
 }
 
 // WX1 微信风格气泡：me 靠右绿泡 / them 靠左白泡，各带指向头像的小尾巴；
@@ -115,7 +126,7 @@ export function MessageBubble({
           className="mt-0.5"
         />
       ) : null}
-      <div className={cn("flex min-w-0 max-w-[65%] flex-col", isMe && "items-end")}>
+      <div className={cn("relative flex min-w-0 max-w-[65%] flex-col", isMe && "items-end")}>
         {!isMe && senderLabel ? (
           <div
             className="text-muted-foreground mb-0.5 px-0.5 text-xs"
@@ -149,7 +160,7 @@ export function MessageBubble({
             />
           ) : null}
           {message.kind === "text" && message.text ? (
-            <TextWithShareLink text={message.text} />
+            <BubbleText text={message.text} />
           ) : null}
           {message.media ? <MediaContent media={message.media} /> : null}
           {isMe ? (
@@ -190,8 +201,8 @@ export function MessageBubble({
             </div>
           ) : null}
         </div>
+        {onReply ? <ReplyButton message={message} isMe={isMe} onReply={onReply} /> : null}
       </div>
-      {onReply ? <ReplyButton message={message} isMe={isMe} onReply={onReply} /> : null}
     </div>
   );
 }
