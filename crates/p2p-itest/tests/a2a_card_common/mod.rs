@@ -16,6 +16,7 @@ use p2p_protocol::{read_frame, write_frame};
 /// 单步等待上限：本地 loopback 毫秒级，15s 为宽松护栏（share_link 同源）。
 pub const STEP: Duration = Duration::from_secs(15);
 
+#[allow(dead_code)]
 pub struct HostRig {
     pub node: Node,
     pub peer: String,
@@ -32,6 +33,7 @@ impl Drop for HostRig {
     }
 }
 
+#[allow(dead_code)]
 pub async fn host_rig(tag: &str) -> HostRig {
     let root = std::env::temp_dir().join(format!("a2a-card-e2e-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -126,6 +128,7 @@ pub async fn host_rig(tag: &str) -> HostRig {
     }
 }
 
+#[allow(dead_code)]
 pub fn parse_peer(s: &str) -> p2p::PeerId {
     let raw: [u8; 32] = bs58::decode(s)
         .into_vec()
@@ -136,6 +139,7 @@ pub fn parse_peer(s: &str) -> p2p::PeerId {
 }
 
 /// 访客节点：登记宿主地址后直连，开 /a2a/1 card 相流。
+#[allow(dead_code)]
 pub async fn guest_stream(
     guest: &Node,
     host_peer: &str,
@@ -150,11 +154,13 @@ pub async fn guest_stream(
     guest.new_stream(peer, protocol).await.expect("a2a stream")
 }
 
+#[allow(dead_code)]
 pub async fn send_frame(stream: &mut p2p::BoxedStream, frame: &CardFrame) {
     let bytes = serde_json::to_vec(frame).expect("frame encode");
     write_frame(stream, &bytes).await.expect("frame write");
 }
 
+#[allow(dead_code)]
 pub async fn read_frame_json(stream: &mut p2p::BoxedStream) -> CardFrame {
     let bytes = tokio::time::timeout(STEP, read_frame(stream))
         .await
@@ -164,12 +170,8 @@ pub async fn read_frame_json(stream: &mut p2p::BoxedStream) -> CardFrame {
 }
 
 /// admin GET 通用（手写 HTTP，Bearer 鉴权，loopback）。
-/// admin GET 通用（手写 HTTP，Bearer 鉴权，loopback）。
-pub async fn admin_get(
-    addr: SocketAddr,
-    token: &str,
-    path: &str,
-) -> (u16, String) {
+#[allow(dead_code)]
+pub async fn admin_get(addr: SocketAddr, token: &str, path: &str) -> (u16, String) {
     let mut tcp = tokio::net::TcpStream::connect(addr)
         .await
         .expect("admin connect");
@@ -198,12 +200,8 @@ pub async fn admin_get(
 }
 
 /// admin POST 通用（手写 HTTP，Bearer 鉴权，loopback）。
-pub async fn admin_post(
-    addr: SocketAddr,
-    token: &str,
-    path: &str,
-    body: &str,
-) -> (u16, String) {
+#[allow(dead_code)]
+pub async fn admin_post(addr: SocketAddr, token: &str, path: &str, body: &str) -> (u16, String) {
     let mut tcp = tokio::net::TcpStream::connect(addr)
         .await
         .expect("admin connect");
@@ -234,6 +232,7 @@ pub async fn admin_post(
 }
 
 /// admin DELETE /a2a/agents/{id}（share_link support 的 admin_call 同款手写 HTTP）。
+#[allow(dead_code)]
 pub async fn admin_delete(addr: SocketAddr, token: &str, agent_id: &str) -> (u16, String) {
     let mut tcp = tokio::net::TcpStream::connect(addr)
         .await
