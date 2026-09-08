@@ -1,7 +1,8 @@
-// console 托管事件编排（契约 v10 §15，UX3）：订阅 acp-console 状态面，ready 即
-// 幂等登记「本机 agent」端点并自动连接、自动开新会话（/chat?agent=<本机id> 零二次
-// 点击直落）。peer 不在契约 status 内，从 console 发现面解析（首条发现条目 = 本机
-// agent，单机默认拓扑）；解析不到走有界轮询并显式留痕，绝不静默、绝不连接风暴。
+// pump 进程内状态编排（契约 §15，INLINE-ACP-PUMP 起为 in-process 装配）：订阅
+// acp-console 状态面，connected 即幂等登记「本机 agent」端点并自动连接、自动开
+// 新会话（/chat?agent=<本机id> 零二次点击直落）。peer 不在契约 status 内，从
+// console 发现面解析（首条发现条目 = 本机 agent，单机默认拓扑）；解析不到走有
+// 界轮询并显式留痕，绝不静默、绝不连接风暴。
 import { ipc } from "@/lib/ipc";
 import type { AcpConsoleStatus } from "@/lib/ipc-types";
 import i18n from "@/i18n";
@@ -105,7 +106,7 @@ function startDiscoveryPoll(statusUrl: string, token: string): void {
   const tick = async (): Promise<void> => {
     pollAttempts += 1;
     const peers = await fetchDiscoveryPeers(statusUrl, token);
-    if (get().console?.phase !== "ready") {
+    if (get().console?.phase !== "connected") {
       stopDiscoveryPoll();
       return;
     }
@@ -135,10 +136,10 @@ function startDiscoveryPoll(statusUrl: string, token: string): void {
 
 function applyConsoleStatus(status: AcpConsoleStatus): void {
   useAcpStore.setState({ console: status });
-  if (status.phase !== "ready") {
+  if (status.phase !== "connected") {
     stopDiscoveryPoll();
-    // 终态/故障相位复位舞台：下一次 ready（含重启成功）重新走登记+连接
-    if (status.phase === "stopped" || status.phase === "failed" || status.phase === "unavailable") {
+    // 断开相位复位舞台：下一次 connected（泵重启成功）重新走登记+连接
+    if (status.phase === "disconnected") {
       stage = "idle";
       lastAutoKey = "";
     }
@@ -150,7 +151,7 @@ function applyConsoleStatus(status: AcpConsoleStatus): void {
   lastAutoKey = key;
   const draft = localAgentEndpointOf(status);
   if (!draft) {
-    console.warn("[acp] ready 快照缺连接面（wsUrl/token），本机 agent 登记挂起");
+    console.warn("[acp] connected 快照缺连接面（wsUrl/token），本机 agent 登记挂起");
     return;
   }
   const merge = mergeLocalAgent(get().saved, draft, i18n.t("acp.console.localAgentName"));
@@ -165,7 +166,7 @@ function applyConsoleStatus(status: AcpConsoleStatus): void {
   if (status.statusUrl && status.token) {
     startDiscoveryPoll(status.statusUrl, status.token);
   } else {
-    console.warn("[acp] ready 快照缺 statusUrl：无法解析本机 agent peer，自动流程挂起");
+    console.warn("[acp] connected 快照缺 statusUrl：无法解析本机 agent peer，自动流程挂起");
     setNotice("acp.console.resolveFailed");
   }
 }

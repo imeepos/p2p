@@ -125,16 +125,15 @@ export interface ConnectShareOutcome {
 // 相位重放；peer 不取自 status（契约无该字段），由 console 发现面解析后回填。
 export const LOCAL_AGENT_ENDPOINT_ID = "acp-local-agent";
 
-/** ready 状态 -> 本机 agent 端点草稿；非 ready 或缺连接面返回 null */
+/** connected 状态 -> 本机 agent 端点草稿；非 connected 或缺连接面返回 null */
 export function localAgentEndpointOf(status: AcpConsoleStatus | null): AcpEndpoint | null {
-  if (!status || status.phase !== "ready" || !status.wsUrl || !status.token) return null;
+  if (!status || status.phase !== "connected" || !status.wsUrl || !status.token) return null;
   return {
     endpointId: LOCAL_AGENT_ENDPOINT_ID,
     wsUrl: status.wsUrl,
     token: status.token,
     peer: "",
     statusUrl: status.statusUrl,
-    adminUrl: status.adminUrl,
   };
 }
 

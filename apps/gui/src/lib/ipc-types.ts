@@ -322,23 +322,16 @@ export interface GroupInviteJson {
   delivered: boolean;
 }
 
-// 契约 v10 §15 加法（UX3）：acp-console 托管状态（GUI 壳伴生进程面），逐字对齐冻结契约。
-export type AcpConsolePhase =
-  | "starting"
-  | "ready"
-  | "restarting"
-  | "failed"
-  | "unavailable"
-  | "stopped";
+// 契约 §15（INLINE-ACP-PUMP 起）：acp 泵 in-process 状态，逐字对齐冻结契约。
+// 进程监督语义（starting/restarting/failed/unavailable/stopped + restarts）已废。
+export type AcpConsolePhase = "connecting" | "connected" | "disconnected";
 
 export interface AcpConsoleStatus {
   phase: AcpConsolePhase;
-  wsUrl?: string; // ready 后：ws://127.0.0.1:<port>
-  token?: string; // ready 后：console WS 鉴权 token
-  statusUrl?: string; // ready 后：console status HTTP 地址
-  adminUrl?: string; // ready 后：agent admin HTTP 地址（ready 行携带才填）
-  restarts: number; // 已自动重启次数
-  lastError?: string; // 最近一次失败原因（可读中文）
+  wsUrl?: string; // connected 后：ws://127.0.0.1:<port>
+  token?: string; // connected 后：console WS 鉴权 token
+  statusUrl?: string; // connected 后：pump status HTTP 地址
+  lastError?: string; // 最近一次失败原因（可读）
 }
 
 export type AcpConsoleEventHandler = (status: AcpConsoleStatus) => void;

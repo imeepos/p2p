@@ -99,21 +99,20 @@ export function validateEndpointForm(
   return errors;
 }
 
-/** 打开瞬间播种（渲染期状态调整，不落 effect）：console ready 时以本机控制台值
- *  预填连接面（未动过的字段才覆盖），补管理地址缺省，并预选首个发现目标 */
+/** 打开瞬间播种（渲染期状态调整，不落 effect）：console connected 时以本机
+ *  控制台值预填连接面（未动过的字段才覆盖），补管理地址缺省，并预选首个发现目标 */
 export function seedForm(
   draft: AcpEndpoint,
   consoleStatus: AcpConsoleStatus | null,
 ): AcpEndpoint {
   const seeded = { ...draft };
-  const ready = consoleStatus?.phase === "ready" ? consoleStatus : null;
+  const ready = consoleStatus?.phase === "connected" ? consoleStatus : null;
   if (ready) {
     if (!seeded.wsUrl.trim() || seeded.wsUrl === EMPTY_DRAFT.wsUrl) {
       seeded.wsUrl = ready.wsUrl ?? seeded.wsUrl;
     }
     if (!seeded.token.trim()) seeded.token = ready.token ?? seeded.token;
     if (!seeded.statusUrl?.trim()) seeded.statusUrl = ready.statusUrl;
-    if (!seeded.adminUrl?.trim()) seeded.adminUrl = ready.adminUrl;
   }
   if (!seeded.adminUrl?.trim()) {
     const derived = defaultAdminUrl(seeded.wsUrl);
