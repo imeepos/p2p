@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageSquareIcon, Trash2Icon } from "lucide-react";
+import { MessageSquareIcon, PencilLineIcon, Trash2Icon } from "lucide-react";
 
 import { PeerStatusDot } from "@/components/chat/peer-status";
 import { CopyButton } from "@/components/feedback/copy-button";
@@ -8,6 +8,7 @@ import { initialOf } from "@/lib/conversation-entry";
 import type { ChatFriendJson } from "@/lib/ipc-types";
 import { usePeerOnline } from "@/stores/node-store";
 
+import { ChatFriendEditDialog } from "./chat-friend-edit-dialog";
 import { ChatFriendRemoveDialog } from "./chat-friend-remove-dialog";
 import { ContactAvatar } from "./contact-avatar";
 import {
@@ -19,13 +20,14 @@ import {
   DetailShell,
 } from "./detail-bits";
 
-// 好友资料卡（双栏改版）：头像 + 昵称 + 在线态；ID/备注字段；底部
-// 发消息 / 删除。删除对话框在卡内自持，与行内入口同组件。
+// 好友资料卡（双栏改版）：头像 + 昵称 + 在线态；ID/备注字段（备注可编辑）；
+// 底部 发消息 / 编辑资料 / 删除。编辑与删除对话框在卡内自持。
 export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
   const { t } = useTranslation();
   const online = usePeerOnline(friend.peerId);
   const name = friend.nickname || friend.peerId.slice(0, 8);
   const [removeOpen, setRemoveOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   return (
     <DetailShell
       avatar={<ContactAvatar initial={initialOf(name)} className="size-16 rounded-lg text-xl" />}
@@ -42,7 +44,15 @@ export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
           <CopyButton value={friend.peerId} className="size-5 shrink-0" />
         </DetailRow>
         <DetailRow label={t("contacts.detail.remark")}>
-          {friend.note || t("contacts.detail.noRemark")}
+          <button
+            type="button"
+            className="min-w-0 flex-1 truncate text-left hover:underline"
+            onClick={() => setEditOpen(true)}
+            data-testid="contacts-detail-remark-edit"
+            title={t("contacts.friends.editTitle")}
+          >
+            {friend.note || t("contacts.detail.noRemark")}
+          </button>
         </DetailRow>
       </DetailRows>
       <DetailActions>
@@ -53,6 +63,12 @@ export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
           to={"/chat?peer=" + friend.peerId}
         />
         <DetailAction
+          icon={PencilLineIcon}
+          label={t("contacts.friends.edit")}
+          testId="contacts-detail-edit"
+          onClick={() => setEditOpen(true)}
+        />
+        <DetailAction
           icon={Trash2Icon}
           label={t("contacts.friends.remove")}
           testId="contacts-detail-remove"
@@ -60,6 +76,10 @@ export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
           onClick={() => setRemoveOpen(true)}
         />
       </DetailActions>
+      <ChatFriendEditDialog
+        friend={editOpen ? friend : null}
+        onOpenChange={(open) => !open && setEditOpen(false)}
+      />
       <ChatFriendRemoveDialog
         friend={removeOpen ? friend : null}
         onOpenChange={(open) => !open && setRemoveOpen(false)}

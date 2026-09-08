@@ -47,6 +47,11 @@ export interface ChatStoreState extends GroupInviteSlice {
   rejectInvite: (peer: string) => Promise<void>;
   cancelInvite: (peer: string) => Promise<void>;
   loadFriends: () => Promise<void>;
+  /** 资料补丁（IM-T43）：显示名/备注编辑；成功后原地合并好友条目 */
+  updateFriend: (
+    peer: string,
+    patch: { nickname?: string | null; note?: string | null },
+  ) => Promise<ChatFriendJson>;
   selectPeer: (peer: string) => Promise<void>;
   /** 右键菜单「标为已读」：不改选中态仅清未读（§2.3 选中清零的旁路入口） */
   markPeerRead: (peer: string) => void;
@@ -145,6 +150,14 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
       console.error("[chat] 好友列表加载失败", error);
       set({ friendsError: errorOf(error), friendsLoaded: true });
     }
+  },
+
+  updateFriend: async (peer, patch) => {
+    const updated = await ipc.chatFriendUpdate(peer, patch);
+    set((s) => ({
+      friends: s.friends.map((f) => (f.peerId === peer ? updated : f)),
+    }));
+    return updated;
   },
 
   selectPeer: async (peer) => {

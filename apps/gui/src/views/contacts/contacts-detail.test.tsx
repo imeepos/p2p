@@ -39,6 +39,7 @@ vi.mock("@/lib/ipc", () => ({
 }));
 
 import "@/i18n";
+import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
 import { useGroupStore } from "@/stores/group-store";
 import { useAcpStore } from "@/acp/acp-store";
@@ -151,5 +152,64 @@ describe("通讯录双栏资料卡", () => {
     expect(screen.queryByTestId("contact-friend-" + PEER)).toBeNull();
     expect(screen.getByTestId("contact-friend-" + PEER_B)).toBeTruthy();
     expect(screen.getByTestId("contacts-count-friends").textContent).toBe("1/2");
+  });
+});
+
+describe("好友资料编辑（IM-T43 消费面）", () => {
+  it("编辑入口改显示名与备注：保存走 chat_friend_update 并回填资料卡", async () => {
+    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
+    vi.mocked(ipc.chatFriendUpdate).mockResolvedValue({
+      peerId: PEER,
+      nickname: "圆圆",
+      addrs: [],
+      note: "同事",
+      group: null,
+    });
+    renderContacts();
+    await waitFor(() => expect(detailPane().getByText("小圆")).toBeTruthy());
+    fireEvent.click(detailPane().getByTestId("contacts-detail-edit"));
+    const dialog = screen.getByTestId("friend-edit-dialog");
+    const nick = within(dialog).getByTestId("friend-edit-nickname") as HTMLInputElement;
+    const note = within(dialog).getByTestId("friend-edit-note") as HTMLTextAreaElement;
+    expect(nick.value).toBe("小圆");
+    expect(note.value).toBe("你好");
+    fireEvent.change(nick, { target: { value: "圆圆" } });
+    fireEvent.change(note, { target: { value: "同事" } });
+    fireEvent.click(within(dialog).getByTestId("friend-edit-submit"));
+    await waitFor(() =>
+      expect(vi.mocked(ipc.chatFriendUpdate).mock.calls[0]?.[0]).toBe(PEER),
+    );
+    const patch = vi.mocked(ipc.chatFriendUpdate).mock.calls[0]?.[1];
+    expect(patch?.nickname).toBe("圆圆");
+    expect(patch?.note).toBe("同事");
+    await waitFor(() => expect(detailPane().getByText("圆圆")).toBeTruthy());
+    expect(detailPane().getByText("同事")).toBeTruthy();
+  });
+
+  it("清空显示名提交：后端回退 PeerId 缩略语义，回填用返回值昵称", async () => {
+    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
+    vi.mocked(ipc.chatFriendUpdate).mockResolvedValue({
+      peerId: PEER,
+      nickname: PEER.slice(0, 8),
+      addrs: [],
+      note: null,
+      group: null,
+    });
+    renderContacts();
+    await waitFor(() => expect(detailPane().getByText("小圆")).toBeTruthy());
+    fireEvent.click(detailPane().getByTestId("contacts-detail-remark-edit"));
+    const dialog = screen.getByTestId("friend-edit-dialog");
+    fireEvent.change(within(dialog).getByTestId("friend-edit-nickname"), {
+      target: { value: "" },
+    });
+    fireEvent.click(within(dialog).getByTestId("friend-edit-submit"));
+    await waitFor(() =>
+      expect(vi.mocked(ipc.chatFriendUpdate).mock.calls[0]?.[0]).toBe(PEER),
+    );
+    await waitFor(() =>
+      expect(detailPane().getByText(PEER.slice(0, 8))).toBeTruthy(),
+    );
+    // 备注清空后显示「未设置」占位
+    expect(detailPane().getByText("未设置")).toBeTruthy();
   });
 });
