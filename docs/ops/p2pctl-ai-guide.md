@@ -103,7 +103,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 【工具认知】
 - 可执行文件：apps/cli/target/debug/p2pctl（先 export PATH=$HOME/.cargo/bin:$PATH 再 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在；cargo 不在 PATH 会报 command not found）。
-- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 81 个叶子命令（以 ai-docs-sync 每次实测汇总行为准）。
+- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 82 个叶子命令（以 ai-docs-sync 每次实测汇总行为准）。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
 - 退出码：0 成功；1 运行失败（stderr 前缀 "p2pctl: 运行失败: "）；2 用法错误。失败时先读 stderr 再决定下一步，不要盲目重试。
@@ -1376,6 +1376,36 @@ models=…
 ```
 语义：share_id 不存在或已撤销=显式报错（契约 §16.6，非幂等）。
 退出码：分享不存在/已撤销 → 1；分享台账/allowlist 损坏 → 1。
+
+### p2pctl llm-share share redeem
+用途：兑换 dsh-llm-share:// 分享链接（借方，W3）：一次性节点拨号（链接 addr 登记优先，缺省 rendezvous 查号）→ /llm-share/redeem/1 请求帧兑换（认证 PeerId 进出借方 allowlist：source=share:<shareId>、模型集限定、到期=链接 exp）→ 成功后拉取出借方 offer 快照预填。前置：本机身份已初始化（兑换绑定本机 PeerId）；链接无 addr 时须已配置 bootstrap。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <LINK> | 位置参数 string（dsh-llm-share:// 链接原文） | 是 | —— |
+| --timeout-secs | int | 否 | 30 |
+| --discover-secs | int | 否 | 10 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+status=redeemed
+share_id=…
+owner=…
+peer=…
+models=gpt-4o
+spare=gpt-4o=150
+period_ends=2026-09-30
+```
+--json（成功）：
+```
+{"status":"redeemed","offer":{"peer":"…","models":["…"],"spare":{"…":0},"periodEnds":"…"},"shareId":"…","owner":"…"}
+```
+--json（拒绝）：
+```
+{"status":"rejected","code":"share-revoked"}
+```
+语义：拒绝码 share-revoked/expired/exhausted/bound-other/invalid 照契约 §16.6 原样透出（业务结果非参数错误）；scheme/peer/token 缺失或 token 非 32 位小写 hex=参数错误；兑换绑定首 peer，同 peer 二次兑换幂等成功（异 peer=bound-other）。
+退出码：链接参数非法/协议违例/建连失败 → 1（stderr 前缀 REDEEM-FAIL）；业务拒绝码 → 1（stdout 有 status/code 可采集）。
 
 ### p2pctl group create
 用途：建群。校验成员 ⊆ 好友簿、≤32、不含本机；群名 trim 后 1..=64 字符。建群后对每个初始成员推 roster（成员离线经 goutbox 补投，命令不失败）。
