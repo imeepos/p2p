@@ -73,6 +73,15 @@ notify-debouncer-mini = "0.5"
 # borrow reqId 缺省生成（契约 §16.1：IPC 层生成 UUID v4）
 uuid = { version = "1", features = ["v4"] }
 
+# 出借方常驻 serve（契约 §16.6 v13，W3）：三闸记账复用 W1 交付，兑换/链接
+# 帧与台账消费 W2 crate，wire 帧原语与门禁 handler 依赖 p2p-protocol。
+llm-share-proxy = { path = "../../../crates/llm-share-proxy" }
+llm-share-link = { path = "../../../crates/llm-share-link" }
+llm-share-ledger = { path = "../../../crates/llm-share-ledger" }
+p2p-protocol = { path = "../../../crates/p2p-protocol" }
+futures = "0.3"
+async-trait = "0.1"
+
 [dev-dependencies]
 # 收据 stub 签名（receipt verify / ledger 冒烟用 §5.1 wire 类型）
 llm-share-ledger = { path = "../../../crates/llm-share-ledger" }

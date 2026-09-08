@@ -93,6 +93,14 @@ pub fn run() {
             llm_share::llm_share_ledger_list,
             llm_share::llm_share_ledger_balance,
             llm_share::llm_share_receipt_verify,
+            llm_share::llm_share_provider_list,
+            llm_share::llm_share_provider_save,
+            llm_share::llm_share_provider_remove,
+            llm_share::llm_share_share_create,
+            llm_share::llm_share_share_list,
+            llm_share::llm_share_share_revoke,
+            llm_share::llm_share_share_redeem,
+            llm_share::llm_share_serve_status,
         ])
         .plugin(tauri_plugin_opener::init())
         // 媒体附件导出（契约 §12 加法）：系统保存对话框选目标路径

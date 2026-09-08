@@ -125,7 +125,7 @@ fn save_cmd(args: SaveArgs) -> CliResult<()> {
         name: args.name,
         base_url: args.base_url,
         protocol: args.protocol.to_logic(),
-        api_key,
+        api_key: Some(api_key),
         models: args.model,
         created_at: now_secs(),
     };

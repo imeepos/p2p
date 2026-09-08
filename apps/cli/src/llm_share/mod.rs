@@ -66,7 +66,7 @@ pub async fn run(command: LlmShareCommand) -> CliResult<()> {
         LlmShareCommand::Ledger { command } => ledger::run(command),
         LlmShareCommand::Receipt { command } => receipt::run(command),
         LlmShareCommand::Provider { command } => provider::run(command),
-        LlmShareCommand::Share { command } => share::run(command),
+        LlmShareCommand::Share { command } => share::run(command).await,
     }
 }
 

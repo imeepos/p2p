@@ -14,14 +14,17 @@
 
 mod commands;
 mod flows;
+mod flows_share;
 mod inputs;
+pub mod serve;
+mod share_views;
 mod views;
 
 #[cfg(test)]
 mod tests;
 
 // glob re-export：连带 tauri 宏生成的隐藏 __cmd__* 项（generate_handler 按本模块
-// 路径解析，console 先例即命令定义在模块根；commands.rs 仅含九个命令壳）。
+// 路径解析，console 先例即命令定义在模块根；commands.rs 仅含命令壳）。
 pub use commands::*;
 
 use std::path::{Path, PathBuf};
@@ -34,6 +37,8 @@ use crate::types::GuiConfig;
 const DIR_NAME: &str = "llm-share";
 
 /// Tauri managed 状态：llm-share 域数据根（GUI app 数据目录）。
+/// Clone 供 serve 装配把句柄带入 handler（RedeemHandler 持副本）。
+#[derive(Clone)]
 pub struct LlmShareStore {
     root: PathBuf,
 }
@@ -87,6 +92,14 @@ impl LlmShareStore {
     /// 本机公钥 base58（receipt verify 缺省出借方自验同一签名根）。
     pub fn local_pubkey_base58(&self, cfg: &GuiConfig) -> Result<String, String> {
         Ok(bs58::encode(self.load_keypair(cfg)?.public()).into_string())
+    }
+
+    /// 分享台账 wire 文件：<root>/llm-share/shares.json（GUI 命令面与 serve
+    /// 兑换激活共用同一事实源，W3）。
+    pub fn shares_file(&self) -> PathBuf {
+        self.root
+            .join(DIR_NAME)
+            .join(llm_share_link::ledger::FILE_NAME)
     }
 
     /// 借方单笔收据 wire 文件：reqId → <root>/llm-share/receipt-<reqId>.json。

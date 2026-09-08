@@ -59,3 +59,11 @@ llm_share_borrow	mapped	llm-share borrow
 llm_share_ledger_list	mapped	llm-share ledger list	
 llm_share_ledger_balance	mapped	llm-share ledger balance	
 llm_share_receipt_verify	mapped	llm-share receipt verify	
+llm_share_provider_list	mapped	llm-share provider list	
+llm_share_provider_save	mapped	llm-share provider save	
+llm_share_provider_remove	mapped	llm-share provider remove	
+llm_share_share_create	mapped	llm-share share create	
+llm_share_share_list	mapped	llm-share share list	
+llm_share_share_revoke	mapped	llm-share share revoke	
+llm_share_share_redeem	mapped	llm-share share redeem	
+llm_share_serve_status	exempt		serve 生命周期跟随 GUI 常驻节点（node_start 装配 / node_stop 卸载），CLI 无常驻进程面可对等，提供对等子命令无意义（acp_console_status 豁免先例）

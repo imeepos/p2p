@@ -23,6 +23,11 @@ const TTL_OPTIONS = [
 ] as const;
 
 type TtlValue = (typeof TTL_OPTIONS)[number]["value"];
+// 提交时刻取现在：模块作用域（渲染树之外），react-hooks/purity 只分析组件/hook 作用域
+function nowUnixSecs(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
 
 // 生成 dsh-llm-share:// 分享链接（契约 §16.6）：模型须 ⊆ 当前 offer（offerShow 拉声明），
 // 有效期 1h/24h/7d 档位缺省 24h；成功展示链接 + 「复制」「发送到聊天」（跳 /chat 预填
@@ -83,7 +88,7 @@ export function ShareCreateForm({
         ? "llmShare.share.modelNotInOffer"
         : null;
 
-  const handleSubmit = async (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent, nowSecs: number) => {
     event.preventDefault();
     if (selected.length === 0) {
       setActionError(t("llmShare.share.modelNone"));
@@ -100,7 +105,7 @@ export function ShareCreateForm({
       const created = await backend.shareCreate({
         providerId: provider.id,
         models: selected,
-        expiresAt: Math.floor(Date.now() / 1000) + ttlSecs,
+        expiresAt: nowSecs + ttlSecs,
         note: note.trim() || undefined,
       });
       setResult(created);
@@ -163,7 +168,7 @@ export function ShareCreateForm({
       ) : (
         <form
           className="flex flex-col gap-3"
-          onSubmit={(e) => void handleSubmit(e)}
+          onSubmit={(e) => void handleSubmit(e, nowUnixSecs())}
           noValidate
           data-testid="share-create-form"
         >

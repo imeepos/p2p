@@ -104,31 +104,29 @@ pub fn mask_key(key: &str) -> String {
     }
 }
 
-/// provider 保存入参（apps/cli clap 层装配，本层校验）。
+/// provider 保存入参（apps 层装配，本层校验）。
 pub struct SaveParams {
     /// 缺省生成 UUID。
     pub id: Option<String>,
     pub name: String,
     pub base_url: String,
     pub protocol: Protocol,
-    pub api_key: String,
+    /// None = 保留既有密钥（GUI 更新场景：列表只回掩码无法回传明文；仅允许
+    /// 更新既有 provider）；Some(非空) = 覆盖写 0600 密钥文件。
+    pub api_key: Option<String>,
     pub models: Vec<String>,
     pub created_at: u64,
 }
 
-/// 保存 provider：必填校验 → 模型唯一映射校验 → 先落 0600 密钥 → 再原子写存档。
+/// 保存 provider：必填校验 → 模型唯一映射校验 → 密钥（覆盖或保留）→ 原子写存档。
 pub fn save(data_dir: &str, params: SaveParams) -> Result<ProviderConfig, String> {
     let name = params.name.trim().to_owned();
     let base_url = params.base_url.trim().to_owned();
-    let api_key = params.api_key.trim().to_owned();
     if name.is_empty() {
         return Err("provider 名称不能为空".to_owned());
     }
     if base_url.is_empty() {
         return Err("provider baseUrl 不能为空".to_owned());
-    }
-    if api_key.is_empty() {
-        return Err("apiKey 不能为空（--api-key 或 stdin 提供）".to_owned());
     }
     let models = normalize_models(&params.models)?;
     if models.is_empty() {
@@ -154,8 +152,23 @@ pub fn save(data_dir: &str, params: SaveParams) -> Result<ProviderConfig, String
             }
         }
     }
-    let key_file = key_path(data_dir, &id);
-    write_key_file(&key_file, &api_key)?;
+    match &params.api_key {
+        Some(api_key) => {
+            let api_key = api_key.trim();
+            if api_key.is_empty() {
+                return Err("apiKey 不能为空（--api-key 或 stdin 提供）".to_owned());
+            }
+            let key_file = key_path(data_dir, &id);
+            write_key_file(&key_file, api_key)?;
+        }
+        None => {
+            if !store.providers.contains_key(&id) {
+                return Err(format!(
+                    "provider 不存在：{id}（apiKey 留空仅允许更新既有 provider）"
+                ));
+            }
+        }
+    }
     let config = ProviderConfig {
         id: id.clone(),
         name,
