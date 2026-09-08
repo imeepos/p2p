@@ -11,6 +11,7 @@ import { ChatRoutePage } from "@/routes/chat-route";
 import { ContactsPage } from "@/routes/contacts-page";
 import { DocsPage } from "@/routes/docs-page";
 import { MessagesPage } from "@/views/messages/messages-page";
+import { AgentsPage } from "@/views/agents/agents-page";
 import { DiagnosticsPage } from "@/routes/diagnostics-page";
 import { DiscoveryPage } from "@/routes/discovery-page";
 import { EventsPage } from "@/routes/events-page";
@@ -57,6 +58,8 @@ const routes = createRoutesFromChildren(
     <Route path="docs" element={<DocsPage />} />
     {/* LSG3：LLM 共享四面板（append-only 登记，rail 常驻项，命令面板可达） */}
     <Route path="llm-share" element={<LlmSharePage />} />
+    {/* A2A3：智能体页（append-only 登记，设计 §8.1，rail 常驻项） */}
+    <Route path="agents" element={<AgentsPage />} />
     {/* 本地 ACP 管理页（append-only 登记，rail 不动，命令面板与 ACP 视图入口可达） */}
     <Route path="acp-manage" element={<AcpManagePage />} />
     <Route path="settings" element={guarded(<SettingsPage />)} />
