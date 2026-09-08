@@ -46,6 +46,7 @@
 | `crates/llm-share-ledger` | E10 账本：Ed25519 签名收据、append-only 双边流水、预授权冻结硬闸、争议窗口、哈希链对账 |
 | `crates/llm-share-offer` | E10 能力声明：声明模型/签名注册发布/TTL 失效订阅簿/纯函数选路器 |
 | `crates/llm-share-proxy` | E10 代理：/llm-share/proxy/1 三闸准入、SSE 逐帧转发、预授权结算、拨号客户端 |
+| `crates/llm-share-link` | 分享链接纯逻辑：dsh-llm-share:// 链接组装/解析、CSPRNG token（台账只存 sha256）、shares.json 台账（兑换激活防 TOCTOU）、/llm-share/redeem/1 兑换帧 |
 
 依赖方向：facade -> swarm -> relay/discovery/protocol -> transport/security/mux -> identity；
 层间只经 trait 交互，任一层可替换（design §3）。
