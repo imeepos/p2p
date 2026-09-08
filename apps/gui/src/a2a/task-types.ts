@@ -34,6 +34,8 @@ export interface A2aMessage {
   role: "user" | "agent";
   parts: A2aPart[];
   messageId?: string;
+  /** store 接收时刻（ms），仅 agent 侧消息由 store 填充。 */
+  receivedAtMs?: number;
 }
 
 export interface A2aTask {

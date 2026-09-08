@@ -231,7 +231,7 @@ function handleFrame(
         newMessages = [...task.messages];
         newMessages[existingIndex] = { ...existing, parts: mergedParts };
       } else {
-        newMessages = [...task.messages, notice.message];
+        newMessages = [...task.messages, { ...notice.message, receivedAtMs: Date.now() }];
       }
 
       const updated = { ...task, messages: newMessages };

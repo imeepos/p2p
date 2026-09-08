@@ -130,7 +130,7 @@ export function useConversationEntries(): ConversationEntry[] {
       if (lastMsg) {
         const textPart = lastMsg.parts.find((p) => p.type === "text");
         if (textPart && textPart.type === "text") {
-          lastMessages.set(agentKey, { text: textPart.text, tsMs: 0 });
+          lastMessages.set(agentKey, { text: textPart.text, tsMs: lastMsg.receivedAtMs ?? 0 });
         }
       }
       taskStates.set(agentKey, task.state);

@@ -51,7 +51,7 @@ export function A2aConversation({ agentKey, hostPeer, agentId, agentName }: A2aC
       sender: msg.role === "user" ? "me" : "them",
       kind: "text",
       text: textPart?.text || "",
-      tsMs: Date.now(),
+      tsMs: msg.receivedAtMs ?? 0,
       status: "delivered",
     };
   }, [agentKey]);
@@ -118,7 +118,7 @@ export function A2aConversation({ agentKey, hostPeer, agentId, agentName }: A2aC
             hasMore={false}
             onLoadOlder={() => {}}
             onCancelPending={() => {}}
-            selfAvatar={{ label: "我", seed: "self" }}
+            selfAvatar={{ label: t("chat.conversations.self" as I18nKey), seed: "self" }}
             peerAvatar={avatar}
           />
         )}
