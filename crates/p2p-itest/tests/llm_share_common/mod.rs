@@ -1,8 +1,10 @@
 //! T20 双节点 E2E 夹具（idle-token-sharing-plan §10）：真 facade Node TCP 互联 + 进程内
-//! mock 上游，不出网。入站对端经 ConnectionGate 捕获（底座冻结接缝，repair-helper 同源）；
-//! 借方以 Node 版 StreamFactory 拨号。断言留在 llm_share_wave.rs。
+//! mock 上游，不出网。出借方 ServeHandler 直采 swarm 分发的认证 PeerId
+//!（handle_inbound，底座冻结接缝），借方以 Node 版 StreamFactory 拨号。
+//! 断言留在 llm_share_wave.rs / llm_share_link_wave.rs。
+#![allow(dead_code)] // 共享夹具：各测试二进制按需取用，未取用项非缺陷
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -11,11 +13,12 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use futures::StreamExt;
+use llm_share_offer::{Offer, RateLimit};
 use llm_share_proxy::upstream::{SseByteStream, Upstream, UpstreamCall, UpstreamFailure};
 use llm_share_proxy::{
     LenderProxy, ModelRoute, ProxyClient, ProxyConfig, ProxyRequest, PROTOCOL_ID,
 };
-use p2p::{gate_fn, BoxedStream, ConnectionGate, Node, PeerId, ProtocolHandler, ProtocolId};
+use p2p::{BoxedStream, Node, PeerId, ProtocolHandler, ProtocolId};
 use p2p_identity::Keypair;
 use p2p_protocol::StreamFactory;
 
@@ -69,41 +72,10 @@ impl Upstream for MockUpstream {
     }
 }
 
-/// 入站对端观测：连接门禁在连接建立期捕获对端（最近入站 peer，单桥场景）。
-#[derive(Clone, Default)]
-pub struct InboundPeers {
-    inner: Arc<Mutex<Option<PeerId>>>,
-}
-
-impl InboundPeers {
-    fn record(&self, peer: PeerId) -> bool {
-        match self.inner.lock() {
-            Ok(mut slot) => {
-                *slot = Some(peer);
-                true
-            }
-            Err(_) => {
-                eprintln!("llm_share_e2e: inbound peers lock poisoned; connection denied");
-                false
-            }
-        }
-    }
-
-    fn last(&self) -> Option<PeerId> {
-        self.inner.lock().ok().and_then(|slot| *slot)
-    }
-
-    /// 放行一切连接并记录其对端。
-    fn gate(&self) -> Arc<dyn ConnectionGate> {
-        let this = self.clone();
-        Arc::new(gate_fn(move |peer| this.record(*peer)))
-    }
-}
-
-/// /llm-share/proxy/1 服务端接线：swarm 分发（协议 ID 已消费）后携认证借方喂 serve。
+/// /llm-share/proxy/1 服务端接线：handle_inbound 直采握手认证 PeerId，
+/// 禁信帧内自报身份；并发入站按流归属，无跨流串线。
 struct ServeHandler {
     proxy: Arc<LenderProxy>,
-    peers: InboundPeers,
     protocol: ProtocolId,
 }
 
@@ -113,14 +85,16 @@ impl ProtocolHandler for ServeHandler {
         self.protocol.clone()
     }
 
-    async fn handle(&self, stream: BoxedStream) -> io::Result<()> {
-        let borrower = self.peers.last().ok_or_else(|| {
-            io::Error::new(
-                io::ErrorKind::NotConnected,
-                "no inbound peer observed by gate",
-            )
-        })?;
-        self.proxy.serve(stream, borrower).await
+    async fn handle_inbound(&self, peer: PeerId, stream: BoxedStream) -> io::Result<()> {
+        self.proxy.serve(stream, peer).await
+    }
+
+    /// 裸流无认证身份上下文：代理记账必须有真实借方，fail-closed 不猜身份。
+    async fn handle(&self, _stream: BoxedStream) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::NotConnected,
+            "bare stream has no authenticated borrower",
+        ))
     }
 }
 
@@ -146,15 +120,15 @@ pub fn client_for(node: Arc<Node>) -> ProxyClient<NodeFactory> {
 }
 
 /// 起一个 mDNS 关闭的测试节点（身份取自 dir 内种子）。
-async fn spawn_node(dir: PathBuf) -> Arc<Node> {
+pub async fn spawn_node(dir: PathBuf) -> Arc<Node> {
     let builder = Node::builder().mdns(false).data_dir(dir);
     Arc::new(builder.build().await.expect("node"))
 }
 
 /// 单模型上游路由：base_url 指向 .invalid 域（mock 在进程内，绝不出网）。
-const UPSTREAM_URL: &str = "https://upstream.invalid/v1";
+pub const UPSTREAM_URL: &str = "https://upstream.invalid/v1";
 
-fn route(upstream: Arc<dyn Upstream>) -> ModelRoute {
+pub fn route(upstream: Arc<dyn Upstream>) -> ModelRoute {
     ModelRoute {
         base_url: UPSTREAM_URL.into(),
         api_key: "sk-test".into(),
@@ -162,26 +136,42 @@ fn route(upstream: Arc<dyn Upstream>) -> ModelRoute {
     }
 }
 
-/// 出借方装配：白名单只挂借方。
+/// 单模型 offer 样例（A5 过期断言等共用）：TTL 1s，周期末 2026-09-30。
+pub fn sample_offer(peer: &PeerId) -> Offer {
+    Offer {
+        peer: peer.to_string(),
+        models: vec!["gpt-4o".to_string()],
+        spare: BTreeMap::from([("gpt-4o".to_string(), 1_000_000)]),
+        period_ends: "2026-09-30".to_string(),
+        max_per_req: BTreeMap::new(),
+        rate_limit: RateLimit {
+            rpm: 60,
+            concurrency: 2,
+        },
+        ttl_secs: 1,
+        retention: "none".to_string(),
+    }
+}
+
+/// 出借方装配：白名单 = 主借方 + 测试自备对端。
 fn proxy_config(
     lender_id: String,
-    borrower: &PeerId,
-    upstream: Arc<dyn Upstream>,
+    allowlist: &[String],
+    models: HashMap<String, ModelRoute>,
     net_limit: u64,
 ) -> ProxyConfig {
-    let models = HashMap::from([("gpt-4o".to_string(), route(upstream))]);
     ProxyConfig {
         lender_id,
         period: "2026-09".into(),
         net_limit,
         max_concurrent: 4,
-        allowlist: [borrower.to_string()].into_iter().collect(),
+        allowlist: allowlist.iter().cloned().collect(),
         models,
     }
 }
 
-/// 双节点夹具：A=出借方（gate 捕获入站身份 + serve 接线），B=借方；身份经种子文件
-/// 预派生（先读 B 种子拿 PeerId 供 allowlist）。Drop 即关停并清临时目录。
+/// 双节点夹具：A=出借方（handle_inbound 认证身份 + serve 接线），B=借方；身份经
+/// 种子文件预派生（先读 B 种子拿 PeerId 供 allowlist）。Drop 即关停并清临时目录。
 pub struct Rig {
     pub a: Arc<Node>,
     pub keypair: Keypair,
@@ -202,7 +192,7 @@ impl Drop for Rig {
 }
 
 /// 登记对端 TCP 地址并建连（真链路互联；地址簿 + connect 同 chat_e2e 先例）。
-async fn link(node: &Node, target_peer: PeerId, target: &Node) {
+pub async fn link(node: &Node, target_peer: PeerId, target: &Node) {
     for addr in target
         .listen_addrs()
         .into_iter()
@@ -213,7 +203,13 @@ async fn link(node: &Node, target_peer: PeerId, target: &Node) {
     node.connect(target_peer).await.expect("connect");
 }
 
-pub async fn rig(tag: &str, mock: Arc<MockUpstream>, net_limit: u64) -> Rig {
+/// 通用装配：自定义模型路由 + 额外白名单（B 波双协议/多借方复用）。
+pub async fn rig_custom(
+    tag: &str,
+    models: HashMap<String, ModelRoute>,
+    extra_allow: Vec<String>,
+    net_limit: u64,
+) -> Rig {
     let _ = p2p_log::init(Default::default());
     let root = std::env::temp_dir().join(format!("llm-e2e-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
@@ -226,15 +222,14 @@ pub async fn rig(tag: &str, mock: Arc<MockUpstream>, net_limit: u64) -> Rig {
     let a = spawn_node(a_dir).await;
     let a_peer = a.local_peer_id();
     let b_peer = b_keypair.peer_id();
-    let peers = InboundPeers::default();
-    a.set_gate(peers.gate());
+    let mut allow = vec![b_peer.to_string()];
+    allow.extend(extra_allow);
     let proxy = Arc::new(LenderProxy::new(
-        proxy_config(a_peer.to_string(), &b_peer, mock.clone(), net_limit),
+        proxy_config(a_peer.to_string(), &allow, models, net_limit),
         keypair.clone(),
     ));
     a.handle_protocol(Arc::new(ServeHandler {
         proxy: proxy.clone(),
-        peers,
         protocol: ProtocolId::new(PROTOCOL_ID).expect("protocol id"),
     }));
     let b = spawn_node(b_dir).await;
@@ -250,6 +245,12 @@ pub async fn rig(tag: &str, mock: Arc<MockUpstream>, net_limit: u64) -> Rig {
         b_peer,
         root,
     }
+}
+
+/// A 波单模型装配：mock 上游单路由，白名单只有借方。
+pub async fn rig(tag: &str, mock: Arc<MockUpstream>, net_limit: u64) -> Rig {
+    let models = HashMap::from([("gpt-4o".to_string(), route(mock))]);
+    rig_custom(tag, models, Vec::new(), net_limit).await
 }
 
 /// 第三节点（A5 非白名单对端）：真实入站连接携带其自身身份。
