@@ -479,3 +479,7 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 重大纠偏（目标作废/换目标）禁止只发 session_link_send 排队：长轮次执行者不读新消息，会把接管误判为双写攻击并按 AGENTS.md 撤退协议开新 worktree 继续错误目标（本次实测，靠 interrupt_agent 止损）。正解：interrupt_agent 打断当前轮次 → 派发新任务书 → 磁盘核验旧产物已清理。
 - 监督长任务用「产物落盘节奏」而非消息回报：要求执行方每次尝试即写 results/log json，协调者 5 分钟轮询磁盘；文字回报在长轮次里既慢又可能为空。
 - 生图参数策略定式：先 low 探针定尺寸白名单（本次 1024x1024 / 1024x1536 / 1536x960 过、2560x1440 必挂、1536x1024 抖）→ 目标尺寸 high 串行 + 15s 退避重试（最终成功率 100%，单张最多 4 试）→ 失败张留到网关空闲窗口补跑，524 高发期等 5~10 分钟即恢复。
+
+## 2026-09-09 通讯录资料互通轮
+- src-tauri 独立 workspace 的 cargo check 冷跑 10 分钟起步且前台会超时：一律 run_in_background；被杀后重启通常已预热，9 秒完成。不要用主树 target 环境变量强行共享（env-hook 已设全局 CARGO_TARGET_DIR=~/.cargo-target，进程内改写反而分裂缓存）。
+- 反向同步撞上并行合入（ff-only 失败）时：worktree 内 `git merge main`（本次零冲突）→ 全量 make check → 推分支 → 主树 ff-only 重试，全程无人工决策点。
