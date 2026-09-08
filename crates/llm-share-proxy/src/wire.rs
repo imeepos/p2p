@@ -95,11 +95,19 @@ impl ProxyRequest {
     /// 解析并校验必需字段；任何缺失都以可述原因拒绝（BadRequest）。
     pub fn parse(raw: &[u8]) -> Result<Self, String> {
         let v: Value = serde_json::from_slice(raw).map_err(|e| format!("request not json: {e}"))?;
-        let req_id = v.get("req_id").and_then(Value::as_str).unwrap_or_default();
+        let req_id = v
+            .get("req_id")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
         if req_id.is_empty() {
             return Err("missing req_id".into());
         }
-        let model = v.get("model").and_then(Value::as_str).unwrap_or_default();
+        let model = v
+            .get("model")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
         if model.is_empty() {
             return Err("missing model".into());
         }
@@ -111,11 +119,17 @@ impl ProxyRequest {
         if max_tokens == 0 {
             return Err("missing max_tokens".into());
         }
+        // 双形态兼容：ProxyClient 序列化信封（含 body 字段，内层才是 OpenAI 体），
+        // 测试/手工路径为扁平体（OpenAI 字段 + 顶层 req_id）。真实上游只认后者。
+        let body = match v.get("body") {
+            Some(inner) => inner.clone(),
+            None => v,
+        };
         Ok(Self {
-            req_id: req_id.into(),
-            model: model.into(),
+            req_id,
+            model,
             max_tokens,
-            body: v,
+            body,
             wire_bytes: raw.len(),
         })
     }
@@ -272,5 +286,31 @@ mod tests {
         no_id.as_object_mut().expect("obj").remove("req_id");
         assert!(ProxyRequest::parse(&serde_json::to_vec(&no_id).expect("json")).is_err());
         assert!(ProxyRequest::parse(b"not-json").is_err());
+    }
+
+    /// 信封形态（ProxyClient 序列化全结构）：解析取内层 body，
+    /// upstream_body 得到纯 OpenAI 体且无任何 req_id 残留。
+    #[test]
+    fn parse_envelope_extracts_inner_body() {
+        let envelope = serde_json::json!({
+            "req_id": "r-2",
+            "body": {
+                "req_id": "r-2",
+                "model": "gpt-4o",
+                "max_tokens": 64,
+                "messages": [{ "role": "user", "content": "ping" }],
+                "stream": true
+            },
+            "model": "gpt-4o",
+            "max_tokens": 64,
+            "wire_bytes": 0
+        });
+        let raw = serde_json::to_vec(&envelope).expect("json");
+        let req = ProxyRequest::parse(&raw).expect("valid envelope");
+        assert_eq!(req.req_id, "r-2");
+        assert!(req.body.get("body").is_none(), "内层化后不得再套 body");
+        let upstream = req.upstream_body();
+        assert!(upstream.get("messages").is_some(), "上游体含 OpenAI 字段");
+        assert!(upstream.get("req_id").is_none(), "上游体无 req_id 残留");
     }
 }
