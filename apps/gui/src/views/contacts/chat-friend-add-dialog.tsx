@@ -71,10 +71,11 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
 
   // 对端自报资料预取（契约 §12.1）：peerId 合法即拉取；昵称仅在留空时用
   // 对端名称预填（用户已输入不覆盖），弹窗内卡片实时展示头像/简介。
+  const trimmedPeerId = peerId.trim();
   useEffect(() => {
-    if (!isValidPeerId(peerId)) return;
+    if (!isValidPeerId(trimmedPeerId)) return;
     let cancelled = false;
-    void fetchProfile(peerId).then((profile) => {
+    void fetchProfile(trimmedPeerId).then((profile) => {
       if (cancelled) return;
       if (profile?.name) {
         setNickname((prev) => (prev.trim() ? prev : profile.name));
@@ -83,7 +84,7 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
     return () => {
       cancelled = true;
     };
-  }, [peerId, fetchProfile]);
+  }, [trimmedPeerId, fetchProfile]);
 
   const reset = () => {
     setPeerId("");
