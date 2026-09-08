@@ -39,7 +39,7 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
     try {
       const descriptor = await ipc.acpLocalDescriptor();
       if (!descriptor) {
-        toastError(t("agents.share.noDescriptor"));
+        toastError(t("contacts.agents.share.noDescriptor"));
         return;
       }
       // 生成邀请帧（通过 admin HTTP）
@@ -60,9 +60,9 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
       }
       const data = await response.json();
       setInviteToken(data.inviteToken);
-      toastSuccess(t("agents.share.generated"));
+      toastSuccess(t("contacts.agents.share.generated"));
     } catch (error) {
-      toastError(`${t("agents.share.error")}: ${error}`);
+      toastError(`${t("contacts.agents.share.error")}: ${error}`);
     } finally {
       setLoading(false);
     }
@@ -73,10 +73,10 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
     try {
       await navigator.clipboard.writeText(inviteToken);
       setCopied(true);
-      toastSuccess(t("agents.share.copied"));
+      toastSuccess(t("contacts.agents.share.copied"));
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toastError(t("agents.share.copyError"));
+      toastError(t("contacts.agents.share.copyError"));
     }
   };
 
@@ -91,17 +91,17 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md" data-testid="share-invite-dialog">
         <DialogHeader>
-          <DialogTitle>{t("agents.share.title")}</DialogTitle>
+          <DialogTitle>{t("contacts.agents.share.title")}</DialogTitle>
           <DialogDescription>
-            {t("agents.share.description", { agentName: agent?.name ?? "" })}
+            {t("contacts.agents.share.description", { agentName: agent?.name ?? "" })}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="invitee-peer">{t("agents.share.inviteePeer")}</Label>
+            <Label htmlFor="invitee-peer">{t("contacts.agents.share.inviteePeer")}</Label>
             <Input
               id="invitee-peer"
-              placeholder={t("agents.share.inviteePeerPlaceholder")}
+              placeholder={t("contacts.agents.share.inviteePeerPlaceholder")}
               value={inviteePeer}
               onChange={(e) => setInviteePeer(e.target.value)}
               disabled={!!inviteToken}
@@ -110,7 +110,7 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
           </div>
           {inviteToken && (
             <div className="flex flex-col gap-2">
-              <Label>{t("agents.share.token")}</Label>
+              <Label>{t("contacts.agents.share.token")}</Label>
               <div className="flex items-center gap-2">
                 <Input
                   readOnly
@@ -143,11 +143,11 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
               disabled={!inviteePeer.trim() || loading}
               data-testid="share-generate-btn"
             >
-              {loading ? t("agents.share.generating") : t("agents.share.generate")}
+              {loading ? t("contacts.agents.share.generating") : t("contacts.agents.share.generate")}
             </Button>
           ) : (
             <Button type="button" onClick={handleClose} data-testid="share-done-btn">
-              {t("common.done")}
+              {t("common.actions.close")}
             </Button>
           )}
         </DialogFooter>
