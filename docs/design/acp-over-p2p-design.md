@@ -53,7 +53,7 @@ out-of-process 子代理的同一哲学：隔离即设计。
 │  ├─ handler: /dsh-acp/1                  │        │  ├─ 聊天/工具时间线/权限按钮/选择器   │
 │  │    每条入站流:                         │  QUIC  │  └─ 会话侧栏（连接级隔离）          │
 │  │    ① 传输层已互认 PeerId → 查策略表     │  直连/  │                                  │
-│  │    ② 握手帧（authz+scope+续连票据）     │  打洞/  │  apps/acp-console（Rust 伴生进程） │
+│  │    ② 握手帧（authz+scope+续连票据）     │  打洞/  │  crates/acp-pump（进程内装配/CLI） │
 │  │    ③ spawn 子进程（温池预热）           │ 加密中继│  ├─ 本地 WS（127.0.0.1+token）     │
 │  │    ④ cwd 改写 → 工作区监狱             │◄──────►│  ├─ 纯字节泵 WS ⇄ P2P 流           │
 │  │    ⑤ 剥离/白名单化 mcpServers          │ /dsh-acp│  └─ mDNS+rendezvous 发现          │
@@ -73,7 +73,7 @@ out-of-process 子代理的同一哲学：隔离即设计。
 | 组件 | 形态 | 职责 |
 |---|---|---|
 | `apps/acp-agent` | Rust bin | agent 侧端点：handler、authz、子进程监督、续连缓存、策略引擎 |
-| `apps/acp-console` | Rust bin（可作 Tauri sidecar） | 操作者侧伴生：本地 WS ⇄ P2P 流哑泵 + 节点发现 |
+| `crates/acp-pump` | Rust lib（根 workspace 成员） | 操作者侧泵：本地 WS ⇄ P2P 流哑泵 + 节点发现 + 连接状态机；宿主 = GUI 进程内装配与 p2pctl acp console（INLINE-ACP-PUMP） |
 | `apps/acp-common` | Rust lib | 两端共享：握手帧编解码、ndjson 分块重组、错误码 |
 | `apps/gui` | Web | ACP 客户端 + 可视化控制台（协议智能全在这一层） |
 | `p2p-cli` 扩展 | 子命令 | 节点主人策略管理：`acp allow/deny/list`（headless 管理面） |
@@ -247,10 +247,10 @@ spawn 延迟——池化但不共享状态，隔离不破。
 |---|---|---|---|
 | apps/acp-common | 已落地 | 6039bb9 | 握手帧编解码、ndjson 分块重组、错误码、策略表（§4 帧流动的共享面） |
 | apps/acp-agent | 已落地 | fa71e8d | handler + 策略门禁 + 子进程监督；§5 续连窗口/补放与 §6 两个安全改写点（cwd/mcpServers）+ 权限瀑布全量并入 |
-| apps/acp-console | 已落地 | f56f224 | 本地 WS 哑泵 + 节点发现 + 连接状态机（§6 本地面；§8 渲染面归 GUI 行） |
+| apps/acp-console → crates/acp-pump | 已落地（已迁移） | f56f224 迁 0d050bf | 本地 WS 哑泵 + 节点发现 + 连接状态机（§6 本地面）；原独立 bin 已撤销，宿主 = GUI 进程内装配 + p2pctl acp console（INLINE-ACP-PUMP） |
 | p2p-cli 扩展 | 已落地 | c591063 | p2pctl acp allow/deny/list（§6 授权行管理面，TOFU 指纹显式登记） |
 | apps/gui | 未落地 | - | ACP6a/6b GUI 波在途；§8 全表为 GUI 波契约 |
 
 验收面：apps/acp-agent/tests 回环套件（ACP2/4/7），其中 acp_wave_e2e 把 §7 故障矩阵
-逐行落成断言（stub/真 dsh 双模式）；apps/acp-console/tests 回环传输套件（ACP3）。
+逐行落成断言（stub/真 dsh 双模式）；crates/acp-pump/tests 回环传输套件（ACP3）。
 运维口径见 docs/ops/acp-guide.md。

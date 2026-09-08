@@ -33,7 +33,7 @@ chat_friend_update	mapped	chat friends update
 chat_history	mapped	chat history	
 chat_send	mapped	chat send	
 chat_media_file	mapped	chat media file
-chat_media_export	exempt		桌面壳专属：来源为本端落盘附件、目标路径出自系统保存对话框、进度走 IPC Channel，CLI 无文件对话框与 webview 进度通道，提供对等子命令无意义（同 acp_console_status 豁免先例）
+chat_media_export	exempt		桌面壳专属：来源为本端落盘附件、目标路径出自系统保存对话框、进度走 IPC Channel，CLI 无文件对话框与 webview 进度通道，提供对等子命令无意义（同 frontend_log_append 豁免先例）
 group_create	mapped	group create	
 group_list	mapped	group list	
 group_invite	mapped	group invite	
@@ -48,7 +48,7 @@ chat_group_invite_send	mapped	group invites send
 chat_group_invites_list	mapped	group invites list	
 chat_group_invite_accept	mapped	group invites accept	
 chat_group_invite_reject	mapped	group invites reject	
-acp_console_status	exempt		GUI 壳专属伴生进程托管快照（契约 §15 v10）：acp-console 由 GUI 启动 spawn 的本地子进程，CLI 无常驻进程面可对等，提供对等子命令无意义（同 frontend_log_append 豁免先例）
+acp_console_status	mapped	acp status	in-process 泵状态快照与 CLI 同源（INLINE-ACP-PUMP v15）：p2pctl acp status 经 pump status HTTP /status 同词汇查询；原 v10 豁免理由「CLI 无常驻进程面」随 p2pctl acp console 落地失效
 acp_local_descriptor	exempt		GUI 分享流专属自动化（2026-09-07 用户裁决）：读用户级 ~/.dsh/acp/local-agent.json 自描述免手填 admin token，仅服务 Tauri 壳内分享创建；CLI 场景无此交互，对等子命令待真实需求另行裁决
 llm_share_offer_publish	mapped	llm-share offer publish	
 llm_share_offer_show	mapped	llm-share offer show	
@@ -66,4 +66,4 @@ llm_share_share_create	mapped	llm-share share create
 llm_share_share_list	mapped	llm-share share list	
 llm_share_share_revoke	mapped	llm-share share revoke	
 llm_share_share_redeem	mapped	llm-share share redeem	
-llm_share_serve_status	exempt		serve 生命周期跟随 GUI 常驻节点（node_start 装配 / node_stop 卸载），CLI 无常驻进程面可对等，提供对等子命令无意义（acp_console_status 豁免先例）
+llm_share_serve_status	exempt		serve 生命周期跟随 GUI 常驻节点（node_start 装配 / node_stop 卸载），CLI 无常驻进程面可对等，提供对等子命令无意义（同 frontend_log_append 豁免先例）

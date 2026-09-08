@@ -47,6 +47,7 @@
 | `crates/llm-share-offer` | E10 能力声明：声明模型/签名注册发布/TTL 失效订阅簿/纯函数选路器 |
 | `crates/llm-share-proxy` | E10 代理：/llm-share/proxy/1 三闸准入、SSE 逐帧转发、预授权结算、拨号客户端 |
 | `crates/llm-share-link` | 分享链接纯逻辑：dsh-llm-share:// 链接组装/解析、CSPRNG token（台账只存 sha256）、shares.json 台账（兑换激活防 TOCTOU）、/llm-share/redeem/1 兑换帧 |
+| `crates/acp-pump` | ACP 操作者侧泵：本地 WS(127.0.0.1+token) ⇄ P2P 流哑泵 + 节点发现 + 连接状态机 + share-link；宿主 = GUI 进程内装配与 p2pctl acp console（INLINE-ACP-PUMP） |
 
 依赖方向：facade -> swarm -> relay/discovery/protocol -> transport/security/mux -> identity；
 层间只经 trait 交互，任一层可替换（design §3）。
@@ -71,14 +72,16 @@ cwd 监狱 + 每连接一个 `dsh --profile acp` 子进程监督，断线续连�
 环形缓存补放，mcpServers 剥离/白名单与 request_permission 权限瀑布两个安全改写点。
 入口 `cargo run -p acp-agent`；桥约定见 apps/acp-agent/README.md，运维见 docs/ops/acp-guide.md。
 
-`apps/acp-console`：操作者侧伴生进程（Rust bin，可作 Tauri sidecar）。本地 WS
-（127.0.0.1+token）与 P2P 流纯字节泵 + mDNS/rendezvous 节点发现 + 连接状态机，
-不解析 ACP 语义；GUI 作为标准 WS 客户端接入。入口 `cargo run -p acp-console`，
-就绪端口与 token 经 stdout JSON 行发布。
+`crates/acp-pump`：操作者侧泵领域库（根 workspace 成员）。本地 WS
+（127.0.0.1+token）与 P2P 流纯字节泵 + mDNS/rendezvous 节点发现 + 连接状态机 +
+share-link 直拨，不解析 ACP 语义；GUI 作为标准 WS 客户端接入。宿主两个：
+GUI 进程内装配（Pump::start 句柄面）与 `p2pctl acp console` 前台形态（就绪
+端口与 token 经 stdout JSON 行发布；状态查询 `p2pctl acp status`）。原
+apps/acp-console 独立 bin 已随 INLINE-ACP-PUMP 撤销。
 
 分享链接：owner 经 acp-agent 本地 admin HTTP（或 `p2pctl acp share`）把 agent
-操控权做成临时/一次性 `dsh-acp-share://` 链接，guest `--share-link`（或 console
-POST /connect-share）导入即获得受限 ACP endpoint；全链路 E2E 见
+操控权做成临时/一次性 `dsh-acp-share://` 链接，guest `--share-link`（或 pump
+status HTTP POST /connect-share）导入即获得受限 ACP endpoint；全链路 E2E 见
 crates/p2p-itest/tests/share_link_wave.rs，运维见 docs/ops/acp-guide.md §8。
 
 本地回环（本机 agent 一键跑通）：`scripts/ops/acp-local-setup.sh` 构建部署

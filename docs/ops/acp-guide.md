@@ -10,22 +10,25 @@ mcpServers 处置）见 [apps/acp-agent/README.md](../../apps/acp-agent/README.m
 agent 节点常驻 acp-agent；每条远程连接对应一个专属 "dsh --profile acp" 子进程
 （进程边界 = 连接边界）。子进程命令由 --command 配置，生产默认 pnpm dsh --profile acp。
 
-操作者节点伴生 acp-console：GUI 永远是"某个 peer 的控制台"，本地 WS 绑
-127.0.0.1 + 随机 token（防浏览器 drive-by）；console 对 P2P 网络只做哑泵。
+操作者侧泵 acp-pump：GUI 永远是"某个 peer 的控制台"，本地 WS 绑
+127.0.0.1 + 随机 token（防浏览器 drive-by）；泵对 P2P 网络只做哑泵。
+原独立 acp-console bin 已撤销（INLINE-ACP-PUMP）：实现收口 crates/acp-pump
+（根 workspace 成员），宿主两个——GUI 进程内装配与 p2pctl acp console。
 
     ┌────────────────────────────┐             ┌──────────────────────────────┐
-    │ acp-agent（常驻桥）          │   QUIC/TCP  │ acp-console（伴生进程）        │
-    │  /dsh-acp/1 handler         │ ◄─────────► │  本地 WS 127.0.0.1+token     │
-    │  策略门禁 + cwd 监狱         │  直连/中继   │  纯字节泵 WS ⇄ P2P 流         │
-    │  每连接一个子进程             │             │  mDNS + rendezvous 发现       │
-    │   dsh --profile acp         │             │ GUI（浏览器）→ 本地 WS 接入    │
+    │ acp-agent（常驻桥）          │   QUIC/TCP  │ acp-pump（GUI 进程内装配或     │
+    │  /dsh-acp/1 handler         │ ◄─────────► │  p2pctl acp console 前台）    │
+    │  策略门禁 + cwd 监狱         │  直连/中继   │  本地 WS 127.0.0.1+token     │
+    │  每连接一个子进程             │             │  纯字节泵 WS ⇄ P2P 流         │
+    │   dsh --profile acp         │             │  mDNS + rendezvous 发现       │
     └────────────────────────────┘             └──────────────────────────────┘
 
 构建与启动（两台机器都要做）：
 
-    cargo build --release -p acp-agent -p acp-console -p p2pctl
-    ./target/release/acp-agent --data-dir /var/lib/acp-agent --quic-port 7001
-    ./target/release/acp-console --bootstrap <rendezvous地址> --ws-port 8087 --status-port 8088
+    cargo build --release --manifest-path apps/acp-agent/Cargo.toml
+    cargo build --release --manifest-path apps/cli/Cargo.toml
+    ./apps/acp-agent/target/release/acp-agent --data-dir /var/lib/acp-agent --quic-port 7001
+    ./apps/cli/target/release/p2pctl acp console --bootstrap <rendezvous地址> --ws-port 8087 --status-port 8088
 
 console 启动即向 stdout 打一行 {"kind":"ready","ws":...,"status":...,"token":...,"peer":...}，
 GUI/脚本从这里读端口与 token。
@@ -54,7 +57,7 @@ GUI/脚本从这里读端口与 token。
 | --admin-port | admin_port | 0（随机） | 本地 admin HTTP 端口（只绑 127.0.0.1，§8 分享管理面） |
 | --admin-disabled | admin_disabled | 关 | 关闭本地 admin HTTP |
 
-### acp-console
+### p2pctl acp console（及 acp status）
 
 | CLI | 默认 | 说明 |
 |---|---|---|
@@ -67,6 +70,21 @@ GUI/脚本从这里读端口与 token。
 | --status-port | 0（随机） | status HTTP 端口（只绑 127.0.0.1） |
 | --window-secs | 90 | 断流续连窗口 |
 | --share-link | 无 | 启动即按分享链接直拨（dsh-acp-share://v1?...，§8 guest 导入） |
+
+`p2pctl acp status --status-url <URL> --token <TOKEN> [--json]`：查询运行中泵的
+状态快照（GET <URL>/status，Bearer 鉴权），词汇与 GUI acp_console_status 同源
+（phase=connecting/connected/disconnected + 连接面）；--json 原样透出响应体
+（含 token 原文），人工视图脱敏。外部脚本/巡检以此替代读 acp-console ready 行。
+
+### 迁移说明（原 acp-console bin 消费者，INLINE-ACP-PUMP）
+
+- `~/.dsh/bin/acp-console` 不再安装与发布；请删除旧二进制并改用
+  `p2pctl acp console`（参数面等价：--bootstrap/--data-dir/--ws-port/
+  --status-port/--peer/--no-mdns/--agent-token/--window-secs/--share-link）。
+- stdout 就绪行契约不变：{"kind":"ready","ws":...,"status":...,"token":...,
+  "peer":...}；依赖该行的脚本零改动。
+- acp-local-setup.sh 检测到残留 ~/.dsh/bin/acp-console 时输出 deprecation
+  提示指向 p2pctl acp console。
 
 ### 端口暴露建议
 
@@ -205,7 +223,7 @@ agent；远端 agent 仍在 endpoint「分享管理」手动登记。token 红�
 
 ### 8.2 guest 导入
 
-- CLI：acp-console --share-link "dsh-acp-share://v1?..."（启动即直拨）。
+- CLI：p2pctl acp console --share-link "dsh-acp-share://v1?..."（启动即直拨）。
 - 运行中：console 本地 status HTTP POST /connect-share，体 {"link": "..."}（GUI
   「用链接加入」入口）。
 - 行为：解析链接 → 登记 peer 地址候选 → 拨号 → 握手 token=链接 token → ready 后
@@ -239,7 +257,8 @@ agent；远端 agent 仍在 endpoint「分享管理」手动登记。token 红�
 
     scripts/ops/acp-local-setup.sh
 
-做五件事：① release 构建并安装 acp-agent/acp-console/p2pctl 到 ~/.dsh/bin；
+做五件事：① release 构建并安装 acp-agent/p2pctl 到 ~/.dsh/bin（独立 acp-console
+bin 已撤销，检测到残留时输出 deprecation 提示指向 p2pctl acp console）；
 ② dsh acp profile 装自托管启动 shim（见下）；③ 用 p2pctl identity show 派本机
 console 身份 PeerId，写 scope=owner 授权（owner 全 root，GUI 连本机 agent 即全
 权）；④ kickstart 重启 launchd 服务（无 plist 则 nohup）；⑤ 三探针：admin

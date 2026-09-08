@@ -251,3 +251,9 @@
   p2p-protocol::read_chunked 语义（FRAME_SINGLE 仅在无累积载荷时合法，分片中途
   出现仍显式拒绝），并补分发支路单测四形态（SINGLE/CHUNK+END/裸流协议 ID/
   类型序非法），llm-share-proxy --lib 24 用例全绿。关闭提交 fc83873。
+
+## ACP 收口后续备案：Phase2 acp-agent 收口 p2pctl、Phase3 pump 单节点化（2026-09-08，INLINE-ACP-PUMP 收口时登记）
+
+- **背景**：INLINE-ACP-PUMP 已把操作者侧泵收口（库面 crates/acp-pump、CLI p2pctl acp console、GUI 进程内装配、apps/acp-console 删除）。项目负责人的目标形态「crates 放领域库，GUI 与 p2pctl 是仅有的两个前端」尚余两步，登记在此防遗忘，不代表本轮承诺。
+- **Phase2（acp-agent 收口 p2pctl）**：acp-agent 仍是无 CLI 入口的常驻 bin（launchd/nohup 拉起）。待 a2a-over-p2p 波合并后，把 agent 前台形态收口为 p2pctl 子命令（如 p2pctl acp agent），参数面沿 --data-dir/--quic-port/--admin-port/--command/--descriptor-*。前置：a2a 波合入 main（acp-agent 的 a2a host 面在两个 worktree 并行改动，先合并避免撞车）。
+- **Phase3（pump 单节点化）**：现形态 GUI 进程内装配的 pump 与 GUI 主节点是两个 P2P 身份（app_data_dir/acp-console-data/p2p-identity 独立种子）。终态是 pump 单节点化——复用 GUI 已有节点身份与连接面，本地 WS 仅作进程内通道，省一个节点与一套身份。前置：p2p facade 开流 API（宿主以已有 Node 直接 register handler/拨流，当前 p2p::Node 不暴露按需建流入口）；迁移时保留 app_data_dir/acp-console-data 的 reattach 票据兼容读。

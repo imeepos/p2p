@@ -7,6 +7,7 @@
 pub mod console;
 pub mod render;
 pub mod share;
+pub mod status;
 pub mod store;
 
 #[cfg(test)]
@@ -36,6 +37,8 @@ pub enum AcpCommand {
     Share(share::ShareArgs),
     /// 前台 ACP 泵（原 acp-console 独立 bin 收口，INLINE-ACP-PUMP T2）
     Console(console::ConsoleArgs),
+    /// 查询运行中泵的状态快照（与 GUI acp_console_status 同源，T6）
+    Status(status::StatusArgs),
 }
 
 #[derive(Args)]
@@ -135,6 +138,7 @@ pub async fn run(command: AcpCommand) -> CliResult<()> {
         AcpCommand::List(args) => list_cmd(args),
         AcpCommand::Share(args) => share::run(args.command),
         AcpCommand::Console(args) => console::run(args).await,
+        AcpCommand::Status(args) => status::run(args).await,
     }
 }
 

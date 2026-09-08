@@ -457,46 +457,46 @@ interface GroupSendReport {
   （ipc-types.ts / ipc.ts 九方法）；mock 与真实实现同签名（mock-group-roster）；
   命令层 group_create/group_send 双回环真节点冒烟见 tests/group_command_smoke.rs。
 
-## 15. acp-console 托管（v10 加法，2026-09-06，UX 易用性波）
+## 15. acp 泵进程内装配（v15 重写，2026-09-08，INLINE-ACP-PUMP 波；取代 v10 的 sidecar 托管语义）
 
-GUI 壳托管 acp-console 伴生进程生命周期，用户零手工启动。语义与验收对齐点：
+GUI 壳在进程内装配 acp-pump（crates/acp-pump，根 workspace 成员），无外部进程，
+无定位/监督/重启语义。语义与验收对齐点：
 
-- 进程定位顺序（三步都找不到即进入 unavailable 态并留 lastError，不阻断 GUI
-  主功能，对齐 GC1 控制通道 R3 降级先例）：
-  1. 环境变量 ACP_CONSOLE_BIN（可执行文件绝对路径）；
-  2. 应用可执行文件同目录的 acp-console（打包 sidecar 布局）；
-  3. 开发回退：src-tauri 同级 cargo target 的 debug/release 目录。
-- 监督：异常退出自动重启（指数退避；连续失败 5 次转 failed 停止重试并留
-  lastError）；GUI 退出（RunEvent::Exit）收尾终止子进程。
-- 就绪解析：acp-console stdout 的 JSON ready 行（字段与语义见
-  apps/acp-console/README.md 就绪发布节）；缺省字段容忍，解析失败计 restart
-  观测并显式留痕。
+- 装配：GUI setup 即 `Pump::start`（crates/acp-pump runtime 句柄面），数据目录
+  仍为 app_data_dir/acp-console-data；装配失败转 disconnected 并留 lastError，
+  不阻断 GUI 主功能（R3 降级先例）。
+- 泵任务异常收口：panic/运行期错误由 acp-pump catch_unwind 收口为
+  `PumpExit::failed`，GUI 一律转 disconnected + lastError 显式失败态，禁止静默；
+  GUI 退出（RunEvent::Exit）幂等停泵（handle.stop → node.shutdown）。
+- CLI 对等：`p2pctl acp console` 前台跑同一装配函数（参数面 bootstrap/data-dir/
+  ws-port/status-port/share-link 等，就绪信息经 stdout JSON 行发布）；状态快照
+  查询对等 `p2pctl acp status`（经 pump status HTTP /status 同词汇）。
 
-命令（§1 表加法）：
+命令（§1 表；命令名沿 v10 保留，语义改为 in-process pump 状态）：
 
 | 命令 | 参数 | 返回 | 语义 |
 |---|---|---|---|
-| acp_console_status | - | AcpConsoleStatus | 托管状态快照（含就绪连接面）；v10 加法新增 |
+| acp_console_status | - | AcpConsoleStatus | pump 状态快照（connected 携带连接面） |
 
-事件通道 acp-console（独立于 node-event）：payload 即 AcpConsoleStatus，
-phase 变更即发射，可携带可选 tsMs（§2 同款约定）。
+事件通道 acp-console（独立于 node-event，通道名沿 v10 保留）：payload 即
+AcpConsoleStatus，phase 变更即发射，可携带可选 tsMs（§2 同款约定）。
 
 ```ts
 interface AcpConsoleStatus {
-  phase: "starting" | "ready" | "restarting" | "failed" | "unavailable" | "stopped";
-  wsUrl?: string;      // ready 后：ws://127.0.0.1:<port>
-  token?: string;      // ready 后：console WS 鉴权 token
-  statusUrl?: string;  // ready 后：console status HTTP 地址
-  adminUrl?: string;   // ready 后：agent admin HTTP 地址（ready 行携带才填）
-  restarts: number;    // 已自动重启次数
-  lastError?: string;  // 最近一次失败原因（可读中文）
+  phase: "connecting" | "connected" | "disconnected";
+  wsUrl?: string;      // connected 后：ws://127.0.0.1:<port>
+  token?: string;      // connected 后：console WS 鉴权 token
+  statusUrl?: string;  // connected 后：pump status HTTP 地址
+  lastError?: string;  // 最近一次失败原因（可读）
 }
 ```
 
-- 验收对齐点：A 侧 stub ready 行子进程用例（解析/重启/退避/failed/Exit 收尾）
-  + 命令 serde roundtrip；B 侧 mock 与真实实现同签名（mock-ipc 补
-  acp_console_status 与 acp-console 事件）；generate_handler 注册独立小提交；
-  cli-parity 守卫保持绿（本命令无 CLI 对等映射，按既有登记机制处理）。
+- 验收对齐点：A 侧真实 Pump::start 回环（connected 连接面/数据目录/停机迁移/
+  退出原因映射）+ 命令 serde roundtrip；B 侧 mock 改 pump 内部状态三态，与真实
+  实现同签名；cli-parity 的 acp_console_status 映射 p2pctl acp status（v15）。
+- wire 契约真值源：WS 哑泵帧面/status HTTP 端点/share-link 解析 =
+  crates/acp-pump（src/ws.rs、src/status.rs、src/share/link.rs）；原
+  apps/acp-console 独立子项目已删除（T5），`?proto=a2a` 事件通道语义不变（§17.1）。
 
 
 
@@ -589,8 +589,8 @@ GUI /agents 页（发现/我的双视图）的数据面契约。IPC 命令表零
 
 ### 17.1 卡片/邀请事件通道（acp-console WS 独立事件通道）
 
-- 通道 = `ws://127.0.0.1:<ws_port>/?token=&peer=<宿主PeerId>&proto=a2a`（apps/acp-console
-  README 为 wire 契约权威）。console 按 `proto` 拨 `/a2a/1`（缺省 `acp` 拨 `/dsh-acp/1`，
+- 通道 = `ws://127.0.0.1:<ws_port>/?token=&peer=<宿主PeerId>&proto=a2a`（crates/acp-pump
+  src/ws.rs 为 wire 契约权威）。console 按 `proto` 拨 `/a2a/1`（缺省 `acp` 拨 `/dsh-acp/1`，
   未知值 401 显式拒绝），握手后纯字节泵，帧面真值源 = `crates/a2a` CardFrame（§5.1 表）。
 - GUI 通道纪律：连上先 `list` 拉全量再 `subscribe`；`cards`/`push` 按
   `hostPeer/agentId` 键入簿，同键 version 升序才覆盖；`push.removed` 即除名；
