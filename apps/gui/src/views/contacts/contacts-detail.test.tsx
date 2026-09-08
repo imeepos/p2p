@@ -22,6 +22,7 @@ vi.mock("@/lib/ipc", () => ({
     chatFriendInvite: vi.fn(),
     chatFriendRemove: vi.fn(),
     chatFriendUpdate: vi.fn(),
+    chatPeerProfile: vi.fn(),
     chatInviteAccept: vi.fn(),
     chatInviteReject: vi.fn(),
     chatInviteCancel: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock("@/lib/ipc", () => ({
 import "@/i18n";
 import { ipc } from "@/lib/ipc";
 import { useChatStore } from "@/stores/chat-store";
+import { usePeerProfileStore } from "@/stores/peer-profile-store";
 import { useGroupStore } from "@/stores/group-store";
 import { useAcpStore } from "@/acp/acp-store";
 import { useEndpointMetaStore } from "@/acp/endpoint-meta";
@@ -98,6 +100,8 @@ beforeEach(() => {
     friends: [],
     friendsLoaded: false,
   });
+  vi.mocked(ipc.chatPeerProfile).mockReset().mockResolvedValue(null);
+  usePeerProfileStore.getState().reset();
   useAcpStore.setState({ saved: [], activeEndpointId: null, phase: "idle" });
   Object.defineProperty(window.HTMLElement.prototype, "scrollIntoView", {
     configurable: true,
@@ -211,5 +215,35 @@ describe("好友资料编辑（IM-T43 消费面）", () => {
     );
     // 备注清空后显示「未设置」占位
     expect(detailPane().getByText("未设置")).toBeTruthy();
+  });
+});
+
+describe("资料卡展示对端自报资料（/im/profile/1）", () => {
+  it("有资料：简介行展示对方简介，头像切换为对方头像图", async () => {
+    vi.mocked(ipc.chatPeerProfile).mockResolvedValue({
+      name: "小圆",
+      description: "这个节点爱写诗",
+      avatar: "data:image/png;base64,AAA",
+    });
+    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
+    renderContacts();
+    await waitFor(() =>
+      expect(detailPane().getByTestId("contacts-detail-intro").textContent).toBe(
+        "这个节点爱写诗",
+      ),
+    );
+    const img = document.querySelector('[data-testid="contacts-detail-pane"] img');
+    expect(img?.getAttribute("src")).toBe("data:image/png;base64,AAA");
+  });
+
+  it("无资料：简介行回退「对方未设置」，头像保持首字（无 img）", async () => {
+    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
+    renderContacts();
+    await waitFor(() =>
+      expect(detailPane().getByTestId("contacts-detail-intro").textContent).toBe(
+        "对方未设置",
+      ),
+    );
+    expect(document.querySelector('[data-testid="contacts-detail-pane"] img')).toBeNull();
   });
 });

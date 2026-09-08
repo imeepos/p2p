@@ -2,17 +2,27 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-// 行/资料卡共用的圆角方首字头像（微信式）；icon 覆盖首字（Agent 用）。
-export function ContactAvatar(props: { initial: string; className?: string; icon?: ReactNode }) {
+// 行/资料卡共用的圆角方头像（微信式）：有 src（对端自报头像 data URL）
+// 渲染图片，否则回退首字；icon 覆盖首字（Agent 用）。
+export function ContactAvatar(props: {
+  initial: string;
+  src?: string | null;
+  className?: string;
+  icon?: ReactNode;
+}) {
   return (
     <span
       aria-hidden
       className={cn(
-        "bg-primary/10 text-primary flex shrink-0 items-center justify-center rounded-md font-semibold",
+        "bg-primary/10 text-primary flex shrink-0 items-center justify-center overflow-hidden rounded-md font-semibold",
         props.className ?? "size-9 text-sm",
       )}
     >
-      {props.icon ?? props.initial}
+      {props.src ? (
+        <img src={props.src} alt="" className="size-full object-cover" />
+      ) : (
+        (props.icon ?? props.initial)
+      )}
     </span>
   );
 }

@@ -42,6 +42,7 @@ import type {
   NodeEventHandler,
   NodeProfile,
   NodeStatus,
+  PeerProfileJson,
   PingOutcome,
   UpdateCheckResult,
   UpdateDownloadBackend,
@@ -106,6 +107,8 @@ const tauriBackend: IpcBackend = {
       nickname: patch.nickname ?? null,
       note: patch.note ?? null,
     }),
+  chatPeerProfile: (peerId) =>
+    invoke<PeerProfileJson | null>("chat_peer_profile", { peerId }),
   chatHistory: (peer, beforeId, limit) =>
     invoke<ChatMessageJson[]>("chat_history", {
       peer,

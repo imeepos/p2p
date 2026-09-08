@@ -20,6 +20,7 @@ const { mocks } = vi.hoisted(() => ({
       (peer: string, beforeId?: string | null, limit?: number) => Promise<unknown[]>
     >(),
     send: vi.fn(),
+    peerProfile: vi.fn<(peerId: string) => Promise<unknown>>(),
     eventHandler: { current: null as NodeEventHandler | null },
   },
 }));
@@ -34,6 +35,7 @@ vi.mock("@/lib/ipc", () => ({
     chatInviteCancel: mocks.cancel,
     chatHistory: mocks.history,
     chatSend: mocks.send,
+    chatPeerProfile: mocks.peerProfile,
     onNodeEvent: (handler: NodeEventHandler) => {
       mocks.eventHandler.current = handler;
       return Promise.resolve(() => {});
@@ -43,6 +45,7 @@ vi.mock("@/lib/ipc", () => ({
 
 import "@/i18n";
 import { useChatStore } from "@/stores/chat-store";
+import { usePeerProfileStore } from "@/stores/peer-profile-store";
 import { ChatFriendAddDialog } from "@/views/contacts/chat-friend-add-dialog";
 import { FriendSection } from "@/views/contacts/friend-section";
 
@@ -61,6 +64,8 @@ beforeEach(() => {
   mocks.accept.mockReset();
   mocks.reject.mockReset();
   mocks.cancel.mockReset().mockResolvedValue(true);
+  mocks.peerProfile.mockReset().mockResolvedValue(null);
+  usePeerProfileStore.getState().reset();
   useChatStore.setState({
     invites: [],
     friends: [],
@@ -211,9 +216,11 @@ describe("IPC 调用点静态守卫", () => {
     chatHistory: "历史加载统一由 stores/chat-store（selectPeer/loadOlder/loadFriends）调用",
     chatSend: "消息发送统一由 stores/chat-store.sendText/sendMedia 调用（Composer 经 store）",
     // 2026-09-08 GUI 去分组：通讯录好友平铺，移动分组入口下线；
-    // 契约保留该端点供 CLI friends update --group 使用
-    chatFriendUpdate: "好友分组已从 GUI 下线（契约保留，CLI 同卡），无界面调用点",
+    // 契约保留该端点。2026-09-09 起好友资料编辑经 stores/chat-store.updateFriend 调用
+    chatFriendUpdate: "好友资料编辑统一由 stores/chat-store.updateFriend 调用（数据层）",
     chatMediaFile: "媒体展示当前直接消费消息内 path，无独立入口；接媒体落盘地址时补调用点",
+    // 对端自报资料：统一由 stores/peer-profile-store.fetch 调用（数据层）
+    chatPeerProfile: "对端资料拉取统一由 stores/peer-profile-store.fetch 调用（数据层）",
     // IMC3 入群邀请面：视图经 chat-store 群邀请切片（stores/chat-group-invite-slice）调用
     chatGroupInvitesList: "入群邀请列表刷新统一由 stores/chat-group-invite-slice.loadGroupInvites 调用（数据层）",
     chatGroupInviteSend: "发起入群邀请统一由 stores/chat-group-invite-slice.sendGroupInvite 调用（数据层）",
@@ -265,4 +272,40 @@ describe("IPC 调用点静态守卫", () => {
       ).toBe(true);
     },
   );
+});
+
+describe("添加好友拉取对端自报资料（/im/profile/1）", () => {
+  it("peerId 合法即预取：弹窗内展示资料卡，昵称留空时以对端名称预填", async () => {
+    mocks.peerProfile.mockResolvedValue({
+      name: "小乙",
+      description: "爱写诗的节点",
+      avatar: null,
+    });
+    await openAddDialog();
+    fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: PEER } });
+    await waitFor(() => expect(screen.getByTestId("friend-add-profile-card")).toBeTruthy());
+    expect(screen.getByTestId("friend-add-profile-card").textContent).toContain("爱写诗的节点");
+    await waitFor(() =>
+      expect((screen.getByLabelText("昵称（可选）") as HTMLInputElement).value).toBe("小乙"),
+    );
+  });
+
+  it("用户已填昵称：对端名称不覆盖用户输入", async () => {
+    mocks.peerProfile.mockResolvedValue({ name: "小乙", description: "", avatar: null });
+    await openAddDialog();
+    fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: PEER } });
+    fireEvent.change(screen.getByLabelText("昵称（可选）"), {
+      target: { value: "我起的名" },
+    });
+    await waitFor(() => expect(screen.getByTestId("friend-add-profile-card")).toBeTruthy());
+    expect((screen.getByLabelText("昵称（可选）") as HTMLInputElement).value).toBe("我起的名");
+  });
+
+  it("查询无果（离线/未设置）：降级一行提示，不预填昵称不弹错", async () => {
+    mocks.peerProfile.mockResolvedValue(null);
+    await openAddDialog();
+    fireEvent.change(screen.getByLabelText("PeerId"), { target: { value: PEER } });
+    await waitFor(() => expect(screen.getByTestId("friend-add-profile-empty")).toBeTruthy());
+    expect((screen.getByLabelText("昵称（可选）") as HTMLInputElement).value).toBe("");
+  });
 });

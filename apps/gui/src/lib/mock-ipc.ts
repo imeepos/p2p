@@ -16,7 +16,11 @@ import { randomWalkHistory } from "./metrics-history";
 // dev 展示层与真实 app 同源：mock 默认配置镜像出厂端点（views/shared/factory-defaults）。
 import { FACTORY_LIST_DEFAULTS } from "@/views/shared/factory-defaults";
 import { mockUpdateCheck, mockUpdateOpenReleasePage } from "./mock-update";
-import { createMockChatBackend, isMockFriend } from "./mock-chat";
+import {
+  createMockChatBackend,
+  isMockFriend,
+  seedMockPeerProfile,
+} from "./mock-chat";
 import { forceMockMessageStatus, injectMockIncoming } from "./mock-chat-inject";
 import { createMockGroupChatBackend } from "./mock-group-chat";
 import { injectMockGroupIncoming, seedMockGroup } from "./mock-group-inject";
@@ -241,6 +245,7 @@ const mockLlmShare = createMockLlmShare({ selfPeerId: () => state.peerId });
 (window as unknown as Record<string, unknown>).__MOCK_CHAT__ = {
   inject: injectMockIncoming,
   forceStatus: forceMockMessageStatus,
+  seedProfile: seedMockPeerProfile,
 };
 
 // 群聊 dev 注入入口：入站群消息与外部群播种（演示/测试共用）。

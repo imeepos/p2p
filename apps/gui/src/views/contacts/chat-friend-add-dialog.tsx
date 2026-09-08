@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PlusIcon, Trash2Icon } from "lucide-react";
 
 import { EntityCombobox } from "@/components/picker";
 import { CommandErrorText } from "@/components/feedback/command-error";
@@ -17,33 +16,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toastSuccess } from "@/components/feedback/toast";
 import { markLocalWrite } from "@/lib/data-watch";
+import { isValidPeerId } from "@/lib/chat-limits";
 import { ipc } from "@/lib/ipc";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";
 import { useChatStore } from "@/stores/chat-store";
+import { usePeerProfileStore } from "@/stores/peer-profile-store";
 
 import {
+  fieldErrorAria,
   friendPickOptions,
   hasFriendFormErrors,
   validateFriendForm,
-  type FriendFieldError,
   type FriendFormErrors,
 } from "./chat-friend-rules";
+import { AddrRows, FieldError, NicknameField } from "./chat-friend-add-fields";
+import { PeerProfilePreview } from "./peer-profile-preview";
 
 interface ChatFriendAddDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** 跨卡 URL 契约：#/contacts?add=<peerId> 挂载预填（自由文本兜底仍在） */
   initialPeerId?: string;
-}
-
-function FieldError({ code, errorId }: { code?: FriendFieldError; errorId: string }) {
-  const { t } = useTranslation();
-  if (!code) return null;
-  return (
-    <p className="text-destructive text-xs" role="alert" id={errorId}>
-      {t(`chat.addFriend.${code}`)}
-    </p>
-  );
 }
 
 // 后端拒绝：错误原文（Rust/mock 可读 Err）原样展示在表单内，不翻译不吞。
@@ -56,15 +49,6 @@ function CommandError({ message }: { message: string | null }) {
       testId="friend-add-error"
     />
   );
-}
-
-// 行内校验错误与字段 aria 关联（F24）：invalid + describedby 指向错误节点，
-// 错误节点 role=alert 保证读屏播报。
-function peerAria(errorId: string, code?: FriendFieldError) {
-  return {
-    "aria-invalid": code ? true : undefined,
-    "aria-describedby": code ? errorId : undefined,
-  };
 }
 
 // 添加好友表单：PeerId 必填（选择器辅助填充 + 自由文本兜底），昵称/地址选填；
@@ -83,6 +67,23 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
   const [fieldErrors, setFieldErrors] = useState<FriendFormErrors | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const fetchProfile = usePeerProfileStore((s) => s.fetch);
+
+  // 对端自报资料预取（契约 §12.1）：peerId 合法即拉取；昵称仅在留空时用
+  // 对端名称预填（用户已输入不覆盖），弹窗内卡片实时展示头像/简介。
+  useEffect(() => {
+    if (!isValidPeerId(peerId)) return;
+    let cancelled = false;
+    void fetchProfile(peerId).then((profile) => {
+      if (cancelled) return;
+      if (profile?.name) {
+        setNickname((prev) => (prev.trim() ? prev : profile.name));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [peerId, fetchProfile]);
 
   const reset = () => {
     setPeerId("");
@@ -158,10 +159,11 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
               onChange={(event) => setPeerId(event.target.value)}
               placeholder={t("chat.addFriend.peerIdPlaceholder")}
               autoComplete="off"
-              {...peerAria(peerErrorId, fieldErrors?.peerId)}
+              {...fieldErrorAria(peerErrorId, fieldErrors?.peerId)}
             />
             <FieldError code={fieldErrors?.peerId} errorId={peerErrorId} />
           </div>
+          <PeerProfilePreview peerId={peerId.trim()} />
           <NicknameField
             value={nickname}
             onChange={setNickname}
@@ -189,91 +191,5 @@ export function ChatFriendAddDialog({ open, onOpenChange, initialPeerId }: ChatF
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function NicknameField({
-  value,
-  onChange,
-  error,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  error?: FriendFieldError;
-}) {
-  const { t } = useTranslation();
-  const errorId = "friend-add-nickname-error";
-  return (
-    <div className="flex flex-col gap-1">
-      <Label htmlFor="friend-add-nickname">{t("chat.addFriend.nicknameLabel")}</Label>
-      <Input
-        id="friend-add-nickname"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={t("chat.addFriend.nicknamePlaceholder")}
-        autoComplete="off"
-        {...peerAria(errorId, error)}
-      />
-      <FieldError code={error} errorId={errorId} />
-    </div>
-  );
-}
-
-function AddrRows({
-  addrs,
-  setAddrs,
-  errors,
-}: {
-  addrs: string[];
-  setAddrs: (update: (rows: string[]) => string[]) => void;
-  errors?: Record<number, FriendFieldError>;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col gap-2">
-      <Label>{t("chat.addFriend.addrsLabel")}</Label>
-      {addrs.map((addr, index) => {
-        const errorId = `friend-add-addr-error-${index}`;
-        return (
-          <div key={index} className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Input
-                className="font-mono text-xs"
-                value={addr}
-                onChange={(event) =>
-                  setAddrs((rows) =>
-                    rows.map((row, i) => (i === index ? event.target.value : row)),
-                  )
-                }
-                placeholder={t("chat.addFriend.addrPlaceholder")}
-                aria-label={`${t("chat.addFriend.addrsLabel")} ${index + 1}`}
-                autoComplete="off"
-                {...peerAria(errorId, errors?.[index])}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={t("chat.addFriend.removeAddr")}
-                onClick={() => setAddrs((rows) => rows.filter((_, i) => i !== index))}
-              >
-                <Trash2Icon aria-hidden />
-              </Button>
-            </div>
-            <FieldError code={errors?.[index]} errorId={errorId} />
-          </div>
-        );
-      })}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="w-fit"
-        onClick={() => setAddrs((rows) => [...rows, ""])}
-      >
-        <PlusIcon aria-hidden />
-        {t("chat.addFriend.addAddr")}
-      </Button>
-    </div>
   );
 }

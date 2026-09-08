@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { CommandErrorText } from "@/components/feedback/command-error";
@@ -20,32 +20,22 @@ import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { errorText } from "@/views/shared/form-flow";
 
 interface ChatFriendEditDialogProps {
-  /** null = 关闭；非 null = 正在编辑该好友 */
-  friend: ChatFriendJson | null;
+  friend: ChatFriendJson;
   onOpenChange: (open: boolean) => void;
 }
 
 // 好友资料编辑弹窗（IM-T43 消费面）：显示名 + 备注；空显示名提交 = 回退
 // PeerId 缩略（crate friend_update 语义），空备注 = 清除备注。
+// 挂载期初始化表单值（调用方条件渲染，关闭即卸载），无 effect 播种。
 export function ChatFriendEditDialog({ friend, onOpenChange }: ChatFriendEditDialogProps) {
   const { t } = useTranslation();
   const updateFriend = useChatStore((s) => s.updateFriend);
-  const open = friend !== null;
-  const [nickname, setNickname] = useState("");
-  const [note, setNote] = useState("");
+  const [nickname, setNickname] = useState(friend.nickname);
+  const [note, setNote] = useState(friend.note ?? "");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (friend) {
-      setNickname(friend.nickname);
-      setNote(friend.note ?? "");
-      setError(null);
-    }
-  }, [friend]);
-
   const submit = async () => {
-    if (!friend) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -66,7 +56,7 @@ export function ChatFriendEditDialog({ friend, onOpenChange }: ChatFriendEditDia
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md" data-testid="friend-edit-dialog">
         <DialogHeader>
           <DialogTitle>{t("contacts.friends.editTitle")}</DialogTitle>

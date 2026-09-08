@@ -93,3 +93,12 @@ export function validateFriendForm(
   });
   return errors;
 }
+
+// 行内校验错误与字段 aria 关联（F24）：invalid + describedby 指向错误节点，
+// 错误节点 role=alert 保证读屏播报。
+export function fieldErrorAria(errorId: string, code?: FriendFieldError) {
+  return {
+    "aria-invalid": code ? true : undefined,
+    "aria-describedby": code ? errorId : undefined,
+  };
+}

@@ -5,6 +5,7 @@ import type {
   ChatMessageJson,
   IpcBackend,
   NodeEventJson,
+  PeerProfileJson,
 } from "./ipc-types";
 import {
   MAX_NICKNAME_CHARS,
@@ -47,6 +48,7 @@ export type MockChatBackend = Pick<
   | "chatInviteCancel"
   | "chatFriendRemove"
   | "chatFriendUpdate"
+  | "chatPeerProfile"
   | "chatHistory"
   | "chatSend"
   | "chatMediaFile"
@@ -63,9 +65,24 @@ interface MockChatState {
   friends: Map<string, ChatFriendJson>;
   invites: FriendInviteJson[]; // 邀请簿镜像（out+in）
   history: Map<string, ChatMessageJson[]>; // 每 peer 时间升序追加
+  peerProfiles: Map<string, PeerProfileJson>; // 对端自报资料（chatPeerProfile 数据源）
 }
 
-const state: MockChatState = { friends: new Map(), invites: [], history: new Map() };
+const state: MockChatState = {
+  friends: new Map(),
+  invites: [],
+  history: new Map(),
+  peerProfiles: new Map(),
+};
+
+// 测试/演示播种：登记对端自报资料（profile=null = 清除）；不属契约面。
+export function seedMockPeerProfile(
+  peerId: string,
+  profile: PeerProfileJson | null,
+): void {
+  if (profile) state.peerProfiles.set(peerId, { ...profile });
+  else state.peerProfiles.delete(peerId);
+}
 
 // 群成员资格的数据源：群聊后端经此判定成员是否在好友簿（im-group-design §1）。
 export function isMockFriend(peerId: string): boolean {
@@ -307,6 +324,23 @@ export function createMockChatBackend(deps: MockChatDeps): MockChatBackend {
         friend.note = note.length > 0 ? note : null;
       }
       return { ...friend, addrs: [...friend.addrs] };
+    },
+
+    // 对端自报资料（契约 §12.1）：未播种 / 非已知节点 = null（不可达降级语义，
+    // 与 tauri 侧「离线回 None」同口径）；自身 PeerId 查询拒绝。
+    async chatPeerProfile(peerId) {
+      if (peerId === deps.selfPeerId()) {
+        throw new Error(`不能查询自己：${peerId}`);
+      }
+      if (!isValidPeerId(peerId)) {
+        throw new Error(`peerId 非法（需 base58，43-45 字符）：${peerId}`);
+      }
+      const known =
+        state.friends.has(peerId) ||
+        state.invites.some((i) => i.peerId === peerId) ||
+        state.peerProfiles.has(peerId);
+      const profile = state.peerProfiles.get(peerId);
+      return known && profile ? { ...profile } : null;
     },
 
     // 时间 desc 分页：无 beforeId 取最新一页；beforeId 游标=严格更早（设计 §6.4）。

@@ -191,6 +191,14 @@ export interface NodeProfile {
 // IMC3 加法：groupInvite 为 1:1 入群邀请卡片消息专用 kind（协调会话冻结契约）。
 export type ChatKind = "text" | "image" | "audio" | "video" | "file" | "groupInvite";
 
+// 对端节点资料（契约 §12.1 chat_peer_profile，2026-09-09 加法）：对端经
+// /im/profile/1 自报（wire-protocol.md §8.5），内容不验证真实性，展示层取舍。
+export interface PeerProfileJson {
+  name: string; // ≤64 字符；空串 = 未命名
+  description: string; // ≤280 字符；可空
+  avatar: string | null; // data URL；null = 未设置
+}
+
 export type ChatMessageStatus = "pending" | "sent" | "delivered" | "failed";
 
 export interface ChatFriendJson {
@@ -542,6 +550,9 @@ export interface IpcBackend {
     peerId: string,
     patch: { group?: string | null; nickname?: string | null; note?: string | null },
   ): Promise<ChatFriendJson>;
+  // 契约 §12.1 加法：对端节点资料按需拉取；不可达（离线/超时/对端旧版）返回 null
+  // （展示层降级），参数非法与协议违规 Err。
+  chatPeerProfile(peerId: string): Promise<PeerProfileJson | null>;
   chatHistory(
     peer: string,
     beforeId?: string | null,
