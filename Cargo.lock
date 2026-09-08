@@ -53,6 +53,7 @@ dependencies = [
 name = "acp-console"
 version = "0.1.0"
 dependencies = [
+ "a2a",
  "acp-common",
  "bs58",
  "clap",
