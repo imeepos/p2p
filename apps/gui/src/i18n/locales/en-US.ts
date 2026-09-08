@@ -1300,6 +1300,8 @@ const enUS: typeof zhCN = {
       peerId: "ID",
       remark: "Remark",
       noRemark: "Not set",
+      intro: "Intro",
+      noIntro: "Not set by peer",
       members: "Members",
       role: "Role",
       status: "Status",
@@ -1329,6 +1331,11 @@ const enUS: typeof zhCN = {
       editNotePlaceholder: "Add a remark",
       editSuccess: "Profile saved",
       editFailed: "Failed to save profile",
+    },
+    addFriend: {
+      profileUnavailable: "No profile received (peer may be offline or not set)",
+      profileUnnamed: "Unnamed node",
+      profileSource: "Self-reported · {{peer}}…",
     },
     groups: {
       empty: "No groups yet",

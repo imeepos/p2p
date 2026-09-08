@@ -1275,6 +1275,8 @@ const zhCN = {
       peerId: "ID",
       remark: "备注",
       noRemark: "未设置",
+      intro: "简介",
+      noIntro: "对方未设置",
       members: "成员数",
       role: "角色",
       status: "状态",
@@ -1304,6 +1306,11 @@ const zhCN = {
       editNotePlaceholder: "填写备注",
       editSuccess: "资料已保存",
       editFailed: "资料保存失败",
+    },
+    addFriend: {
+      profileUnavailable: "未能获取对方资料（可能离线或未设置）",
+      profileUnnamed: "未命名节点",
+      profileSource: "对方自报 · {{peer}}…",
     },
     groups: {
       empty: "还没有群聊",
