@@ -66,3 +66,22 @@ export async function removeAgent(
     method: "DELETE",
   });
 }
+
+/** 生成签名邀请帧：POST /a2a/agents/{id}/invite，返回邀请帧 JSON（Signed<InvitePayload>）。 */
+export async function createInvite(
+  adminUrl: string,
+  token: string,
+  agentId: string,
+  inviteePeer: string,
+  expirySecs?: number,
+): Promise<Record<string, unknown>> {
+  const data = await adminJson(
+    agentsUrl(adminUrl) + "/" + encodeURIComponent(agentId) + "/invite",
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ inviteePeer, expirySecs }),
+    },
+  );
+  return data.invite as Record<string, unknown>;
+}

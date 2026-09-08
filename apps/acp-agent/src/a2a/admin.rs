@@ -9,6 +9,9 @@ use serde::Deserialize;
 use serde_json::json;
 use tokio::net::TcpStream;
 
+use a2a::create_invite;
+use uuid::Uuid;
+
 use crate::a2a::handler::Subscribers;
 use crate::a2a::invites::InviteStore;
 
@@ -46,6 +49,12 @@ pub async fn route(
         }
         ("DELETE", path) if path.starts_with(prefix) => {
             remove_agent(tcp, ctx, path.trim_start_matches(prefix), cors).await;
+            true
+        }
+        ("POST", path) if path.starts_with(prefix) && path.ends_with("/invite") => {
+            let mid = path.trim_start_matches(prefix).trim_start_matches('/');
+            let agent_id = mid.trim_end_matches("/invite");
+            invite_agent(tcp, ctx, agent_id, body, cors).await;
             true
         }
         _ => false,
@@ -232,6 +241,81 @@ struct CreateBody {
 struct UpdateBody {
     visibility: Option<Visibility>,
     enabled: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct InviteBody {
+    invitee_peer: String,
+    expiry_secs: Option<u64>,
+}
+
+/// POST /a2a/agents/{id}/invite：生成签名邀请帧，落盘邀请簿，返回帧 JSON。
+/// GUI 用此帧构造分享链接或经 P2P 通道投递给 invitee。
+async fn invite_agent(
+    tcp: &mut TcpStream,
+    ctx: &A2aAdminCtx,
+    agent_id: &str,
+    body: &[u8],
+    cors: Option<&str>,
+) {
+    let agent_id = agent_id.trim_start_matches('/');
+    let Some(def) = ctx.agents.get(agent_id) else {
+        reply(tcp, 404, "Not Found", &serde_json::to_string(&json!({"error":"unknown-agent"})).unwrap(), cors).await;
+        return;
+    };
+    let parsed: InviteBody = match serde_json::from_slice(body) {
+        Ok(p) => p,
+        Err(err) => {
+            tracing::warn!(target: "a2a_audit", error = %err, "a2a admin: invalid invite body");
+            reply(tcp, 400, "Bad Request", &serde_json::to_string(&json!({"error":"invalid-json"})).unwrap(), cors).await;
+            return;
+        }
+    };
+    let now = unix_now();
+    let expiry = parsed.expiry_secs.unwrap_or(a2a::INVITE_EXPIRY_DEFAULT_SECS);
+    let card = match crate::a2a::agents::AgentStore::card_of(&def, &ctx.host_peer) {
+        Some(c) => c,
+        None => {
+            reply(tcp, 422, "Unprocessable", &serde_json::to_string(&json!({"error":"agent-disabled"})).unwrap(), cors).await;
+            return;
+        }
+    };
+    let signed_card = match a2a::card::SignedCard::sign(card, &ctx.keypair, now) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!(target: "a2a_audit", error = %e, "a2a admin: card sign failed");
+            reply(tcp, 500, "Internal Server Error", &serde_json::to_string(&json!({"error":"sign-failed"})).unwrap(), cors).await;
+            return;
+        }
+    };
+    let nonce = Uuid::new_v4().to_string();
+    let frame = match create_invite(signed_card, nonce.clone(), &parsed.invitee_peer, expiry, &ctx.keypair, now) {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::warn!(target: "a2a_audit", error = %e, "a2a admin: invite creation failed");
+            reply(tcp, 422, "Unprocessable", &format!("{{\"error\":\"{e}\"}}"), cors).await;
+            return;
+        }
+    };
+    let entry = crate::a2a::invites::InviteEntry {
+        nonce,
+        agent_id: agent_id.to_owned(),
+        host_peer: ctx.host_peer.clone(),
+        invitee_peer: parsed.invitee_peer,
+        expiry: frame.payload.expiry,
+        issued_at: frame.issued_at,
+        status: crate::a2a::invites::InviteStatus::Pending,
+        receipt_sig: None,
+    };
+    if let Err(e) = ctx.invites.insert(entry) {
+        tracing::warn!(target: "a2a_audit", error = %e, "a2a admin: invite persist failed");
+        reply(tcp, 500, "Internal Server Error", &format!("{{\"error\":\"{e}\"}}"), cors).await;
+        return;
+    }
+    let frame_json = serde_json::to_value(&frame).unwrap_or_default();
+    println!("{{\"kind\":\"a2a-invite-created\",\"agent_id\":\"{}\"}}", agent_id);
+    reply_json(tcp, 200, "OK", &json!({ "invite": frame_json }), cors).await;
 }
 
 fn unix_now() -> u64 {

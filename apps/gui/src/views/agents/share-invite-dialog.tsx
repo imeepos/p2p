@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { ipc } from "@/lib/ipc";
+import { createInvite } from "@/a2a/admin-client";
 
 import type { AgentDefJson } from "@/a2a/types";
 
@@ -42,24 +43,13 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
         toastError(t("contacts.agents.share.noDescriptor"));
         return;
       }
-      // 生成邀请帧（通过 admin HTTP）
-      const response = await fetch(`${descriptor.adminUrl}/a2a/invite`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${descriptor.token}`,
-        },
-        body: JSON.stringify({
-          agentId: agent.agentId,
-          inviteePeer: inviteePeer.trim(),
-        }),
-      });
-      if (!response.ok) {
-        const err = await response.text();
-        throw new Error(err);
-      }
-      const data = await response.json();
-      setInviteToken(data.inviteToken);
+      const invite = await createInvite(
+        descriptor.adminUrl,
+        descriptor.token,
+        agent.agentId,
+        inviteePeer.trim(),
+      );
+      setInviteToken(JSON.stringify(invite));
       toastSuccess(t("contacts.agents.share.generated"));
     } catch (error) {
       toastError(`${t("contacts.agents.share.error")}: ${error}`);
