@@ -580,3 +580,40 @@ GuiConfig 增 lanOnly?: boolean（serde default，缺省 false；PR4 已落 serd
    crates/p2p-cli 共享事实源，apps/cli clap 映射 + ai-guide 条目同卡）；serve_status exempt
    （serve 生命周期跟随 GUI 常驻节点，无 CLI 常驻进程面，登记 cli-parity.tsv 带 reason，
    acp_console_status 先例）。
+
+## 17. A2A 智能体面（v14 加法，2026-09-08，A2A3 波；设计=docs/design/a2a-over-p2p-design.md §5.1/§7.4/§8）
+
+GUI /agents 页（发现/我的双视图）的数据面契约。IPC 命令表零加法：本机 agent 凭
+§15 AcpLocalDescriptor（adminUrl/token/peer），console 连接面凭 §15 AcpConsoleStatus
+（wsUrl/token）；node-event 判别联合（NodeEventJson）不动（拍板 Q6）。
+
+### 17.1 卡片/邀请事件通道（acp-console WS 独立事件通道）
+
+- 通道 = `ws://127.0.0.1:<ws_port>/?token=&peer=<宿主PeerId>&proto=a2a`（apps/acp-console
+  README 为 wire 契约权威）。console 按 `proto` 拨 `/a2a/1`（缺省 `acp` 拨 `/dsh-acp/1`，
+  未知值 401 显式拒绝），握手后纯字节泵，帧面真值源 = `crates/a2a` CardFrame（§5.1 表）。
+- GUI 通道纪律：连上先 `list` 拉全量再 `subscribe`；`cards`/`push` 按
+  `hostPeer/agentId` 键入簿，同键 version 升序才覆盖；`push.removed` 即除名；
+  `error` 帧原样上浮 UI（不静默）。断线按既有 WS 重连节奏重拨并重放 list+subscribe。
+- 邀请事件（A2A5）为同一通道的宿主→GUI 通知帧预留扩展位，不再加新协议 ID。
+
+### 17.2 本机 agent 管理面（「我的」视图，Bearer 鉴权，宿主 share admin 管道）
+
+| 方法/路径 | 请求体 | 应答 | 语义 |
+|---|---|---|---|
+| GET /a2a/agents | - | `{"agents":[AgentDef…]}` | 我发布的定义全集 |
+| POST /a2a/agents | `{agentId?, name, description, skills?, visibility}` | AgentDef | 创建即签名发布并广播 push；skills ≤10 条（id [a-z0-9-]）；name/description 非空 |
+| PUT /a2a/agents/{id} | `{visibility?}` 或 `{enabled?}` | AgentDef | 变更即重签广播；名称/描述/技能 v1 数据面不可改（GUI 编辑态只开放可见性） |
+| DELETE /a2a/agents/{id} | - | `{"removed":agentId}` | 下架即广播 removed（键 hostPeer/agentId） |
+
+- 错误面：400 invalid-json；404 unknown agent；422 校验拒绝（error 原文上浮 UI，禁静默）。
+- AgentDef（camelCase）：agentId/name/description/skills[{id,name,…}]/visibility(public|private|local)。
+
+### 17.3 GUI 语义约束（违约即验收红）
+
+1. 在线点为纯前端启发（卡过期时刻 = issued_at+ttl_secs）：剩余 TTL >50% 绿、≤50% 黄、
+   过期灰；真实心跳面接入前不得展示「在线/离线」文案，仅色点。
+2. 可见性徽章：public=绿、private=灰、local=灰（设计 §8.2）。
+3. 「分享」（生成签名邀请）与「聊天」（?a2a= 会话）为 A2A5/A2A4 交付面：A2A3 内为
+   可点占位，触发 toast 显式说明功能未开通，不导航不静默。
+4. skills 输入 chip ≤10 条、trim+去重（拍板 Q9）；校验失败原位上浮。
