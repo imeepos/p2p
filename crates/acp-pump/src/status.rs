@@ -20,6 +20,8 @@ use crate::ticket::{TicketQuery, TicketStore};
 /// 请求头读取护栏：头多大都不信任。
 const HEAD_CAP: usize = 8 * 1024;
 const HEAD_TIMEOUT: Duration = Duration::from_secs(5);
+/// 收尾排空上限：本地回环毫秒级，5s 是宽松护栏。
+const DRAIN_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone)]
 pub struct StatusDeps {
@@ -74,6 +76,10 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
             return;
         }
     };
+    let want = header_value(&head, "content-length")
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(0);
+    let mut consumed = body_prefix.len().min(want);
     let (method, target, bearer) = parse_head(&head);
     if bearer.as_deref() != Some(token.as_str()) {
         tracing::warn!(%target, "status: unauthorized request");
@@ -84,6 +90,7 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
             "{\"error\":\"unauthorized\"}",
         )
         .await;
+        drain_exact(&mut tcp, want.saturating_sub(consumed)).await;
         return;
     }
     let (path, query) = target.split_once('?').unwrap_or((target.as_str(), ""));
@@ -108,7 +115,10 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
         }
         ("GET", "/reattach") => handle_reattach(&mut tcp, &deps, query).await,
         ("POST", "/connect-share") => match read_body(&mut tcp, &head, body_prefix).await {
-            Ok(body) => share::handle_connect_share(&mut tcp, &deps, &body).await,
+            Ok(body) => {
+                consumed = want;
+                share::handle_connect_share(&mut tcp, &deps, &body).await;
+            }
             Err(err) => {
                 tracing::warn!(error = %err, "connect-share: unreadable body");
                 reply(
@@ -121,6 +131,36 @@ async fn serve_conn(mut tcp: TcpStream, token: String, deps: StatusDeps) {
             }
         },
         _ => reply(&mut tcp, 404, "Not Found", "{\"error\":\"not-found\"}").await,
+    }
+    drain_exact(&mut tcp, want.saturating_sub(consumed)).await;
+}
+
+/// 精确排空剩余请求体后再放连接：带未读数据关 socket 会触发 RST，可能竞掉
+/// 已写出的响应（401 等未读 body 即回的路径，macOS 并行负载实证假红）。
+/// 按 Content-Length 读满即走，不依赖对端关写，杜绝互等；读不全按异常放行并留痕。
+async fn drain_exact(tcp: &mut TcpStream, remaining: usize) {
+    if remaining == 0 {
+        return;
+    }
+    let drain = async {
+        let mut left = remaining;
+        let mut buf = [0u8; 4096];
+        while left > 0 {
+            let n = tcp.read(&mut buf).await?;
+            if n == 0 {
+                break;
+            }
+            left -= n.min(left);
+        }
+        Ok::<(), std::io::Error>(())
+    };
+    match tokio::time::timeout(DRAIN_TIMEOUT, drain).await {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => tracing::debug!(error = %err, "status: drain read failed"),
+        Err(_) => tracing::warn!(
+            remaining,
+            "status: drain timeout, dropping with unread input"
+        ),
     }
 }
 
