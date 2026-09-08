@@ -16,6 +16,7 @@ use crate::config::{
     default_bootstrap, default_observation_addrs, default_relay_addrs, ConfigStore,
 };
 use crate::history::{spawn_metrics_sampler, MetricsHistory, MetricsPoint};
+use crate::llm_share::serve::ServeSlot;
 use crate::profile::{NodeProfile, ProfileStore};
 use crate::proto;
 use crate::types::{GuiConfig, MetricsJson, NodeStatus};
@@ -52,6 +53,8 @@ pub struct AppState {
     config: ConfigStore,
     profile: ProfileStore,
     chat: chat::ChatSlot,
+    /// 出借方常驻 serve 槽位（§16.6 v13：node_start 装配 / node_stop 卸载）。
+    llm_serve: ServeSlot,
 }
 
 impl AppState {
@@ -62,6 +65,7 @@ impl AppState {
             config: ConfigStore::new(app_data_dir.clone()),
             profile: ProfileStore::new(app_data_dir.clone()),
             chat: chat::ChatSlot::new(app_data_dir),
+            llm_serve: ServeSlot::new(),
         }
     }
 
@@ -234,6 +238,11 @@ impl AppState {
     /// 取聊天实例；节点未启动返回可读中文 Err（契约 v7 §12）。
     pub async fn chat(&self) -> Result<Arc<p2p_chat::Chat>, String> {
         self.chat.get().await
+    }
+
+    /// 出借方常驻 serve 装配状态（§16.6 v13 serve_status 命令面）。
+    pub async fn llm_serve_status(&self) -> crate::llm_share::serve::LlmServeStatus {
+        self.llm_serve.status().await
     }
 }
 

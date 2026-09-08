@@ -14,14 +14,17 @@
 
 mod commands;
 mod flows;
+mod flows_share;
 mod inputs;
+pub mod serve;
+mod share_views;
 mod views;
 
 #[cfg(test)]
 mod tests;
 
 // glob re-export：连带 tauri 宏生成的隐藏 __cmd__* 项（generate_handler 按本模块
-// 路径解析，console 先例即命令定义在模块根；commands.rs 仅含九个命令壳）。
+// 路径解析，console 先例即命令定义在模块根；commands.rs 仅含命令壳）。
 pub use commands::*;
 
 use std::path::{Path, PathBuf};

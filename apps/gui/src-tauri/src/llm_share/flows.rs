@@ -59,11 +59,15 @@ pub fn allow_list(store: &LlmShareStore) -> Result<LlmAllowlistView, String> {
 }
 
 /// llm_share_allow：upsert（models 缺省=不限模型），返回变更后视图。
+/// source/expires_at 透传（§16.6 v13 allow 命令适配；缺省 None 语义不变，
+/// source 系分享兑换注入口，手工 allow 恒为 None）。
 pub fn allow(
     store: &LlmShareStore,
     peer_id: &str,
     models: &[String],
     note: Option<&str>,
+    source: Option<&str>,
+    expires_at: Option<u64>,
 ) -> Result<LlmAllowlistView, String> {
     let granted_at = p2p_cli::llm_share::rfc3339_now();
     allowlist::allow(
@@ -71,8 +75,8 @@ pub fn allow(
         peer_id,
         models,
         note,
-        None,
-        None,
+        source,
+        expires_at,
         &granted_at,
     )?;
     allow_list(store)

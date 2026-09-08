@@ -59,3 +59,36 @@ pub struct LlmBorrowRequest {
     #[serde(default)]
     pub req_id: Option<String>,
 }
+
+/// llm_share_provider_save 入参（§16.6）：name/baseUrl/models 必填由 IPC 层
+/// 显性报错；apiKey 明文仅经 IPC 入参落 0600 密钥文件，禁进日志/台账/链接/argv。
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmProviderSaveInput {
+    #[serde(default)]
+    pub id: Option<String>,
+    pub name: String,
+    pub base_url: String,
+    /// openai|claude（未知值显式报错）。
+    pub protocol: String,
+    pub api_key: String,
+    #[serde(default)]
+    pub models: Vec<String>,
+}
+
+/// llm_share_share_create 入参（§16.6）：models 缺省=provider 全模型（须 ⊆
+/// offer.models）；expiresAt 缺省 now+24h（上限 7d）；maxActivations 固定 1，
+/// 传入非 1 显式报错；note 可选。
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LlmShareCreateInput {
+    pub provider_id: String,
+    #[serde(default)]
+    pub models: Option<Vec<String>>,
+    #[serde(default)]
+    pub expires_at: Option<u64>,
+    #[serde(default)]
+    pub max_activations: Option<u32>,
+    #[serde(default)]
+    pub note: Option<String>,
+}

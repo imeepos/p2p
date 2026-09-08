@@ -18,7 +18,15 @@ fn smoke_allow_deny_default_deny_semantics() {
     let (_t, store) = store("allow");
     let empty = flows::allow_list(&store).unwrap();
     assert!(empty.entries.is_empty(), "缺失文件视为空表（默认拒绝）");
-    let view = flows::allow(&store, &peer(2), &["gpt-4o".into()], Some("首批")).unwrap();
+    let view = flows::allow(
+        &store,
+        &peer(2),
+        &["gpt-4o".into()],
+        Some("首批"),
+        None,
+        None,
+    )
+    .unwrap();
     assert_eq!(view.entries.len(), 1);
     assert_eq!(view.entries[0].models, vec!["gpt-4o".to_owned()]);
     assert_eq!(view.entries[0].note, "首批");
