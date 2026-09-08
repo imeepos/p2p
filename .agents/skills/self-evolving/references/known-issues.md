@@ -465,3 +465,11 @@ failed: early eof（客户端侧超时中止）。
 - 症状：share_connect `connect_share_unreachable_peer_reports_failure` 偶发 `Elapsed` panic（suite 耗时恰好 10.0s）。
 - 原因：夹具 STEP=10s 与 lib 拨号护栏 HANDSHAKE_TIMEOUT=10s 零余量，负载下「服务端 10s 超时如实回执」与「客户端 10s 放弃」互踩。
 - 修法：客户端护栏必须 > 服务端最坏路径耗时（STEP 提到 20s）；设计夹具时先列服务端各超时常量再定护栏。
+
+## 2026-09-08 INLINE-ACP-PUMP 波（协调者视角）
+
+- [known-issues] devloop_accept 的 runner 对长命令（冷编译 cargo test 链）会以 exit null 假阴性掐死（观测窗口 17s~11min 不等），连续失败还会熔断降窗。修法：验收命令保持 <30s 可完成；长门禁用 bash 长超时手动执行拿真实退出码，逐字同命令，输出留痕（T1-MANUAL-GREEN 模式）。
+- [techniques] worktree 内 pnpm install 会因 ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY 拒绝清 node_modules：前置 CI=true 即可（make check 的 gui-check 段同理）。
+- [lessons] 多会话并行各跑 make check 时 vitest 会互相制造单点负载偶发红（两次实证：network-tabs / settings-view-nav，隔离复跑均绿）。协调者跑权威门禁前先 pgrep 确认无并发 make/cargo，等安静窗口。
+- [lessons] 被根 workspace exclude 的子项目（独立 bin）完全逃脱 make check 全套门禁（fmt/clippy/panic-hygiene/line-limit 均不覆盖）——"为什么是个独立进程/子项目"应当在立项时回答；答案含糊就是架构债（本次 acp-console 整体废止的根因）。
+
