@@ -12,7 +12,7 @@ fn params(id: Option<&str>, name: &str, models: &[&str]) -> SaveParams {
         name: name.to_owned(),
         base_url: "https://api.example.com/v1".to_owned(),
         protocol: Protocol::OpenAI,
-        api_key: "sk-test-secret-1234567890".to_owned(),
+        api_key: Some("sk-test-secret-1234567890".to_owned()),
         models: models.iter().map(|m| m.to_string()).collect(),
         created_at: 1_000,
     }
@@ -146,7 +146,7 @@ fn required_fields_are_validated() {
     assert!(save(
         dir.to_str().unwrap(),
         SaveParams {
-            api_key: "".into(),
+            api_key: Some(String::new()),
             ..params(Some("a"), "A", &["m"])
         }
     )

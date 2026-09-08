@@ -47,6 +47,29 @@ fn saved_provider_id(store: &crate::llm_share::LlmShareStore) -> String {
 }
 
 #[test]
+fn v13_provider_update_blank_api_key_preserves_stored_key() {
+    let (_t, store) = store("v13-keep-key");
+    let first =
+        flows_share::provider_save(&store, provider_input("主号", &["gpt-4o"])).expect("save");
+    let key_file = p2p_cli::llm_share::provider::key_path(&store.data_dir(), &first.id);
+    let stored_before = std::fs::read_to_string(&key_file).expect("key file");
+    // W4 接缝约定：更新时 apiKey 留空 = 保留原密钥（列表只回掩码无法回传明文）。
+    let mut update = provider_input("主号改名", &["gpt-4o"]);
+    update.id = Some(first.id.clone());
+    update.api_key = String::new();
+    let view = flows_share::provider_save(&store, update).expect("update");
+    assert_eq!(view.name, "主号改名");
+    assert_eq!(view.api_key_masked, "sk-t****7890", "掩码来自保留的原密钥");
+    let stored_after = std::fs::read_to_string(&key_file).expect("key file");
+    assert_eq!(stored_before, stored_after, "密钥文件未被重写");
+    // 换模型避开唯一映射校验，定位到「留空密钥 + 不存在 provider」的显式报错。
+    let mut bad = provider_input("新号", &["m2"]);
+    bad.api_key = String::new();
+    let err = flows_share::provider_save(&store, bad).unwrap_err();
+    assert!(err.contains("仅允许更新既有"), "{err}");
+}
+
+#[test]
 fn v13_provider_save_list_remove_roundtrip() {
     let (_t, store) = store("v13-provider");
     let view =

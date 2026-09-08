@@ -21,19 +21,40 @@ pub fn provider_save(
     store: &LlmShareStore,
     input: LlmProviderSaveInput,
 ) -> Result<ProviderView, String> {
-    let api_key = input.api_key.trim().to_owned();
+    let api_key = input.api_key.trim();
+    // W4 接缝约定：更新既有 provider 时 apiKey 留空 = 保留原密钥（列表只回
+    // 掩码无法回传明文）；非空 = 覆盖写 0600 密钥文件。
+    let api_key_opt = if api_key.is_empty() {
+        None
+    } else {
+        Some(api_key.to_owned())
+    };
     let protocol = parse_protocol(&input.protocol)?;
     let params = SaveParams {
         id: input.id,
         name: input.name,
         base_url: input.base_url,
         protocol,
-        api_key,
+        api_key: api_key_opt.clone(),
         models: input.models,
         created_at: now_secs(),
     };
     let config = provider::save(&store.data_dir(), params)?;
     warn_insecure_base_url(&config.base_url);
+    let api_key_masked = match &api_key_opt {
+        Some(key) => provider::mask_key(key),
+        None => {
+            let key_file = provider::key_path(&store.data_dir(), &config.id);
+            let stored = std::fs::read_to_string(&key_file).map_err(|e| {
+                format!(
+                    "provider {} 密钥读取失败（{}）: {e}",
+                    config.name,
+                    key_file.display()
+                )
+            })?;
+            provider::mask_key(stored.trim())
+        }
+    };
     Ok(ProviderView {
         id: config.id,
         name: config.name,
@@ -41,7 +62,7 @@ pub fn provider_save(
         protocol: config.protocol,
         models: config.models,
         created_at: config.created_at,
-        api_key_masked: provider::mask_key(input.api_key.trim()),
+        api_key_masked,
     })
 }
 
