@@ -163,6 +163,76 @@ pub async fn read_frame_json(stream: &mut p2p::BoxedStream) -> CardFrame {
     serde_json::from_slice(&bytes).expect("frame decode")
 }
 
+/// admin GET 通用（手写 HTTP，Bearer 鉴权，loopback）。
+/// admin GET 通用（手写 HTTP，Bearer 鉴权，loopback）。
+pub async fn admin_get(
+    addr: SocketAddr,
+    token: &str,
+    path: &str,
+) -> (u16, String) {
+    let mut tcp = tokio::net::TcpStream::connect(addr)
+        .await
+        .expect("admin connect");
+    let req = format!(
+        "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {token}\r\nConnection: close\r\n\r\n"
+    );
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    tcp.write_all(req.as_bytes()).await.expect("admin write");
+    let mut raw = Vec::new();
+    tokio::time::timeout(STEP, tcp.read_to_end(&mut raw))
+        .await
+        .expect("admin read timeout")
+        .expect("admin read");
+    let text = String::from_utf8_lossy(&raw).into_owned();
+    let status = text
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(0);
+    let body = text
+        .split_once("\r\n\r\n")
+        .or_else(|| text.split_once("\n\n"))
+        .map(|(_, b)| b.to_owned())
+        .unwrap_or_default();
+    (status, body)
+}
+
+/// admin POST 通用（手写 HTTP，Bearer 鉴权，loopback）。
+pub async fn admin_post(
+    addr: SocketAddr,
+    token: &str,
+    path: &str,
+    body: &str,
+) -> (u16, String) {
+    let mut tcp = tokio::net::TcpStream::connect(addr)
+        .await
+        .expect("admin connect");
+    let req = format!(
+        "POST {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nAuthorization: Bearer {token}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+        body.len(),
+        body
+    );
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    tcp.write_all(req.as_bytes()).await.expect("admin write");
+    let mut raw = Vec::new();
+    tokio::time::timeout(STEP, tcp.read_to_end(&mut raw))
+        .await
+        .expect("admin read timeout")
+        .expect("admin read");
+    let text = String::from_utf8_lossy(&raw).into_owned();
+    let status = text
+        .split_whitespace()
+        .nth(1)
+        .and_then(|s| s.parse::<u16>().ok())
+        .unwrap_or(0);
+    let body = text
+        .split_once("\r\n\r\n")
+        .or_else(|| text.split_once("\n\n"))
+        .map(|(_, b)| b.to_owned())
+        .unwrap_or_default();
+    (status, body)
+}
+
 /// admin DELETE /a2a/agents/{id}（share_link support 的 admin_call 同款手写 HTTP）。
 pub async fn admin_delete(addr: SocketAddr, token: &str, agent_id: &str) -> (u16, String) {
     let mut tcp = tokio::net::TcpStream::connect(addr)
