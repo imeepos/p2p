@@ -434,3 +434,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-08: 并行会话会同窗合并 main——每次 push 前先 fetch + rebase；ff-merge 被拒唯一动作是回 worktree rebase 后重试。
 - 2026-09-08: itest 夹具里 use acp_agent::{a2a, ...} 会影子化外部 crate 名 a2a——用 as host_a2a 别名。
 
+- 2026-09-08（A2A3 波）页测试断言 sonner toast 文本前必须挂 <Toaster />（render 包裹，friend-invite-row.test.tsx 先例）；beforeEach toast.dismiss() 防跨用例残留。
+- 2026-09-08（A2A3 波）对话框「打开瞬间播种」的条件三元要逐分支核对默认值：editing?.visibility === "public" ? "public" : "private" 把编辑 null 分支也落成 private——创建态默认值被编辑态表达式吞掉，测试断言 POST body 才现形。
+- 2026-09-08 W5b：run_code 内多行补丁脚本绝不在 JS 单引号串里嵌 python 多行转义——JS 会把 \n 还原成真实换行打断 python 字面量（SyntaxError EOL），且 stdout 被 tail 截断后静默无感知；唯一可靠姿势 = write 工具落脚本文件（python 内一律 chr(10) 拼接）再 bash 执行，每步 replace 前后 assert count。
+- 2026-09-08 W5b：测试文件逼近 300 行红线后再拆，成本（#[path] 模块编译、crate:: 作用域、E0255 同名冲突、line-limit 实红重跑全量门禁）远超开工前先定文件骨架；多用例任务先按职责分文件再落用例。

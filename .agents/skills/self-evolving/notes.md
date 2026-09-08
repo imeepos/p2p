@@ -218,3 +218,11 @@
 - 重来一次我会怎么做？
   大文件优先用小范围 edit 或经过验证的临时脚本，写入后立即 read 尾部和 wc；每个 bash 命令显式在命令内 cd，并先输出 pwd/branch；merge 前先确认目标 worktree 与分支，冲突只在 feature worktree 消化，再做门禁。
 
+
+## 2026-09-07 Claude 协议翻译评审
+- 哪个坑浪费最多时间？
+- 设计文档只写翻译 SSE，但未显式说明 serve 的 extract_usage 要求同一事件同时含 prompt_tokens/completion_tokens；逐行核对消费方才发现必须合成 usage chunk。
+- skill 有没有提前警告？
+- 有先读源码和失败可观测性的原则，但没有专门提示协议翻译必须先逆向消费方解析器。
+- 重来一次怎么做？
+- 任何协议适配先画输入事件到最终结算字段的消费链，逐字段核对解析假设，再定翻译输出。
