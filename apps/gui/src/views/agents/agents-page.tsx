@@ -15,6 +15,7 @@ import type { AgentCreateInput, AgentDefJson } from "@/a2a/types";
 import { CreateAgentDialog } from "./create-agent-dialog";
 import { DiscoverSection } from "./discover-section";
 import { MineSection } from "./mine-section";
+import { ShareInviteDialog } from "./share-invite-dialog";
 
 type AgentsView = "discover" | "mine";
 
@@ -66,6 +67,8 @@ export function AgentsPage() {
   const [view, setView] = useState<AgentsView>("discover");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<AgentDefJson | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [sharing, setSharing] = useState<AgentDefJson | null>(null);
   const discovered = useAgentsStore((s) => s.discovered);
   const mine = useAgentsStore((s) => s.mine);
   const channelError = useAgentsStore((s) => s.channelError);
@@ -90,6 +93,10 @@ export function AgentsPage() {
   const openEdit = (def: AgentDefJson): void => {
     setEditing(def);
     setDialogOpen(true);
+  };
+  const openShare = (def: AgentDefJson): void => {
+    setSharing(def);
+    setShareDialogOpen(true);
   };
 
   const confirmDialog = async (input: AgentCreateInput): Promise<boolean> => {
@@ -147,6 +154,7 @@ export function AgentsPage() {
             mine={mine}
             onEdit={openEdit}
             onCreate={openCreate}
+            onShare={openShare}
             onUnpublish={handleUnpublish}
           />
         )}
@@ -156,6 +164,11 @@ export function AgentsPage() {
         onOpenChange={setDialogOpen}
         editing={editing}
         onConfirm={confirmDialog}
+      />
+      <ShareInviteDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        agent={sharing}
       />
     </section>
   );

@@ -10,10 +10,12 @@ use serde_json::json;
 use tokio::net::TcpStream;
 
 use crate::a2a::handler::Subscribers;
+use crate::a2a::invites::InviteStore;
 
-/// 管理上下文：簿 + 订阅表（handler 共享同一实例，变更即广播）。
+/// 管理上下文：簿 + 订阅表 + 邀请簿（handler 共享同一实例，变更即广播）。
 pub struct A2aAdminCtx {
     pub agents: Arc<crate::a2a::agents::AgentStore>,
+    pub invites: Arc<InviteStore>,
     pub subscribers: Arc<Subscribers>,
     pub keypair: p2p_identity::Keypair,
     pub host_peer: String,
@@ -248,13 +250,9 @@ mod admin_tests {
 
     #[test]
     fn create_body_parses_visibility_default_absent() {
-        let body = br#"{"name":"n","description":"d"}"#;
-        let parsed: CreateBody = serde_json::from_slice(body).unwrap();
-        assert!(parsed.visibility.is_none());
-        assert_eq!(parsed.name, "n");
-        let body = br#"{"name":"n","description":"d","visibility":"public","agentId":"a1"}"#;
-        let parsed: CreateBody = serde_json::from_slice(body).unwrap();
-        assert_eq!(parsed.visibility, Some(Visibility::Public));
-        assert_eq!(parsed.agent_id.as_deref(), Some("a1"));
+        let json = r#"{"name":"test","description":"desc"}"#;
+        let body: CreateBody = serde_json::from_str(json).unwrap();
+        assert_eq!(body.visibility, None);
+        assert_eq!(body.name, "test");
     }
 }

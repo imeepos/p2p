@@ -1,5 +1,6 @@
 //! p2pctl 入口：解析命令、分发命令域、错误转退出码（0 成功 / 1 运行失败 / 2 用法错误）。
 
+mod a2a;
 mod acp;
 mod chat;
 mod cli;
@@ -61,5 +62,6 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Update { command } => update::run(command).await,
         cli::Command::Acp { command } => acp::run(command).await,
         cli::Command::LlmShare { command } => llm_share::run(command).await,
+        cli::Command::A2a { command } => a2a::run(command).await,
     }
 }
