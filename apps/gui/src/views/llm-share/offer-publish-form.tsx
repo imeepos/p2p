@@ -1,5 +1,5 @@
 import { ChevronDownIcon, Loader2Icon, PlusIcon } from "lucide-react";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { I18nKey } from "@/i18n/types";
@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { errorText } from "@/views/shared/form-flow";
 
-import { loadProviderConfigs } from "./provider-configs";
 import { focusFirstInvalidField } from "./focus-first-error";
 import {
   datePlusDays,
@@ -47,27 +46,24 @@ function fieldErrorOf(errors: OfferErrors): Partial<Record<string, I18nKey>> {
   };
 }
 
-// 「能选择的不手输」：本机上游配置的模型一键带入声明，未收录的仍可手输
-function providerModelCandidates(current: string[]): string[] {
+// 「能选择的不手输」：ProviderStore 的模型一键带入声明（v13 迁移后不再读 localStorage
+// 明文键），未收录的仍可手输；候选源读取失败不阻塞发布（告警信号即可）。
+function providerModelCandidates(current: string[], providerModels: string[]): string[] {
   const included = new Set(current);
-  const candidates: string[] = [];
-  for (const config of loadProviderConfigs()) {
-    for (const model of config.models) {
-      if (!included.has(model) && !candidates.includes(model)) candidates.push(model);
-    }
-  }
-  return candidates;
+  return [...new Set(providerModels)].filter((m) => !included.has(m));
 }
 
 function QuickAddChips({
   modelsText,
+  providerModels,
   onAdd,
 }: {
   modelsText: string;
+  providerModels: string[];
   onAdd: (model: string) => void;
 }) {
   const { t } = useTranslation();
-  const candidates = providerModelCandidates(parseModels(modelsText));
+  const candidates = providerModelCandidates(parseModels(modelsText), providerModels);
   if (candidates.length === 0) return null;
   return (
     <div className="flex flex-wrap items-center gap-1" data-testid="offer-model-quickadd">
@@ -262,6 +258,24 @@ export function OfferPublishForm({ offer, backend, onPublished, onCancel }: Offe
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  // v13：模型快捷候选来自 ProviderStore（迁移后 localStorage 不再持有配置）
+  const [providerModels, setProviderModels] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void backend
+      .providerList()
+      .then(({ providers }) => {
+        if (!cancelled) setProviderModels([...new Set(providers.flatMap((p) => p.models))]);
+      })
+      .catch((error) => {
+        // 候选源读取失败不阻塞发布：留告警信号
+        console.warn("[llm-share] provider 模型候选读取失败", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [backend]);
 
   const set = (field: keyof OfferFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
@@ -325,7 +339,7 @@ export function OfferPublishForm({ offer, backend, onPublished, onCancel }: Offe
           {t("llmShare.offer.formModelsHint")}
         </p>
         <FieldError messageKey={errors.models} htmlId="llm-offer-models-error" />
-        <QuickAddChips modelsText={values.modelsText} onAdd={addModel} />
+        <QuickAddChips modelsText={values.modelsText} providerModels={providerModels} onAdd={addModel} />
       </div>
       <SpareRows
         values={values}

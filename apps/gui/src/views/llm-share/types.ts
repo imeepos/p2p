@@ -1,6 +1,28 @@
 // 契约 gui-contract §16.1（v11 冻结）：llm-share GUI 面 DTO。
 // 字段与 ai-guide --json 输出 camelCase 对齐；语义约束见 §16.2 一至七条。
 // 本文件为视图层数据接缝类型，PR 轨语义方会签时以契约表逐字核对。
+// 契约 §16.6 v13（llm-share-link 波）：双协议 provider + 分享链接 8 命令面 DTO。
+// 与 IPC 接缝共用同一组定义（lib/llm-share-v13-types.ts），此处 re-export 防漂移。
+import type {
+  LlmProviderSaveReq,
+  LlmProviderView,
+  LlmServeStatus,
+  LlmShareCreateReq,
+  LlmShareCreateResult,
+  LlmShareEntry,
+  LlmShareRedeemResult,
+} from "@/lib/llm-share-v13-types";
+export type {
+  LlmProviderProtocol,
+  LlmProviderSaveReq,
+  LlmProviderView,
+  LlmServeStatus,
+  LlmShareCreateReq,
+  LlmShareCreateResult,
+  LlmShareEntry,
+  LlmShareRejectCode,
+  LlmShareRedeemResult,
+} from "@/lib/llm-share-v13-types";
 
 export type LlmOfferStatus =
   | "live"
@@ -150,4 +172,13 @@ export interface LlmShareBackend {
   ledgerList: (filter?: LlmLedgerFilter) => Promise<LlmLedgerEntry[]>;
   ledgerBalance: () => Promise<LlmBalanceGroup[]>;
   receiptVerify: (req: LlmReceiptVerifyReq) => Promise<LlmReceiptVerifyResult>;
+  // 契约 §16.6 v13 加法（8 条）：双协议 provider + 分享链接命令面。
+  providerList: () => Promise<{ providers: LlmProviderView[] }>;
+  providerSave: (config: LlmProviderSaveReq) => Promise<LlmProviderView>;
+  providerRemove: (providerId: string) => Promise<{ removed: true }>;
+  shareCreate: (req: LlmShareCreateReq) => Promise<LlmShareCreateResult>;
+  shareList: () => Promise<{ shares: LlmShareEntry[] }>;
+  shareRevoke: (shareId: string) => Promise<{ revoked: true }>;
+  shareRedeem: (link: string) => Promise<LlmShareRedeemResult>;
+  serveStatus: () => Promise<LlmServeStatus>;
 }

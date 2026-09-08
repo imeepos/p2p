@@ -28,6 +28,11 @@ import type {
   LlmLedgerEntry,
   LlmOfferView,
   LlmReceiptVerifyResult,
+  LlmProviderView,
+  LlmServeStatus,
+  LlmShareCreateResult,
+  LlmShareEntry,
+  LlmShareRedeemResult,
   MediaExportBackend,
   MediaExportProgressPayload,
   MediaExportResult,
@@ -183,6 +188,23 @@ const tauriBackend: IpcBackend = {
       reqId,
       lenderPubkey: lenderPubkey ?? null,
     }),
+  // 契约 §16.6 v13 加法：invoke 名逐字 snake_case，可选参数统一传 null（serde Option）。
+  llmShareProviderList: () =>
+    invoke<{ providers: LlmProviderView[] }>("llm_share_provider_list"),
+  llmShareProviderSave: (config) =>
+    invoke<LlmProviderView>("llm_share_provider_save", { config }),
+  llmShareProviderRemove: (providerId) =>
+    invoke<{ removed: true }>("llm_share_provider_remove", { providerId }),
+  llmShareShareCreate: (req) =>
+    invoke<LlmShareCreateResult>("llm_share_share_create", { req }),
+  llmShareShareList: () =>
+    invoke<{ shares: LlmShareEntry[] }>("llm_share_share_list"),
+  llmShareShareRevoke: (shareId) =>
+    invoke<{ revoked: true }>("llm_share_share_revoke", { shareId }),
+  llmShareShareRedeem: (link) =>
+    invoke<LlmShareRedeemResult>("llm_share_share_redeem", { link }),
+  llmShareServeStatus: () =>
+    invoke<LlmServeStatus>("llm_share_serve_status"),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {

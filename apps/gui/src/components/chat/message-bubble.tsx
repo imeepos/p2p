@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import type { ChatMessageJson } from "@/lib/ipc-types";
 import { cn } from "@/lib/utils";
 
+import { findLlmShareLinkInText } from "@/lib/llm-share-link-model";
+
 import { MediaContent } from "./media-content";
+import { TextWithLlmShareLink } from "./llm-share-message-card";
 import { QuoteBlock } from "./quote-block";
 import { replySummaryOf } from "./reply-summary";
 import { TextWithShareLink } from "./share-message-card";
@@ -74,6 +77,13 @@ function ReplyButton({
       <Reply aria-hidden className="size-3.5" />
     </Button>
   );
+}
+
+// 正文双 scheme 分发（W4）：llm-share 链接独立 finder 优先（dsh-llm-share://），
+// ACP 固定前缀其次；无链接走纯文本。两域渲染互不干扰。
+function BubbleText({ text }: { text: string }) {
+  if (findLlmShareLinkInText(text)) return <TextWithLlmShareLink text={text} />;
+  return <TextWithShareLink text={text} />;
 }
 
 // WX1 微信风格气泡：me 靠右绿泡 / them 靠左白泡，各带指向头像的小尾巴；
@@ -150,7 +160,7 @@ export function MessageBubble({
             />
           ) : null}
           {message.kind === "text" && message.text ? (
-            <TextWithShareLink text={message.text} />
+            <BubbleText text={message.text} />
           ) : null}
           {message.media ? <MediaContent media={message.media} /> : null}
           {isMe ? (

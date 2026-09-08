@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { focusFirstInvalidField } from "./focus-first-error";
 import {
+  baseUrlHttpWarningKey,
   EMPTY_PROVIDER_FORM,
   newProviderId,
   parseProviderForm,
@@ -53,19 +54,22 @@ export function ProviderEditForm({ editing, onSave, onCancel }: ProviderEditForm
       ? {
           name: editing.name,
           baseUrl: editing.baseUrl,
+          protocol: editing.protocol,
           apiKey: editing.apiKey,
           modelsText: editing.models.join(", "),
         }
       : EMPTY_PROVIDER_FORM,
   );
   const [errors, setErrors] = useState<ProviderErrors>({});
+  const httpWarning = baseUrlHttpWarningKey(values.baseUrl);
 
   const set = (field: keyof ProviderFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    const parsed = parseProviderForm(values);
+    // 编辑已有配置时 apiKey 留空 = 保留原密钥（后端更新语义）
+    const parsed = parseProviderForm(values, { apiKeyOptional: editing !== null });
     setErrors(parsed.errors);
     const fieldErrors = providerFieldErrorOf(parsed.errors);
     focusFirstInvalidField(Object.keys(fieldErrors), (id) => fieldErrors[id] != null);
@@ -110,6 +114,11 @@ export function ProviderEditForm({ editing, onSave, onCancel }: ProviderEditForm
           <ProviderFieldError messageKey={errors.baseUrl} htmlId="llm-provider-base-url-error" />
         </div>
       </div>
+      {httpWarning ? (
+        <p role="note" className="text-amber-600 text-xs dark:text-amber-400" data-testid="provider-http-warning">
+          {t(httpWarning)}
+        </p>
+      ) : null}
       <div className="flex flex-col gap-1">
         <Label htmlFor="llm-provider-api-key">{t("llmShare.providers.formApiKey")}</Label>
         <Input
@@ -117,11 +126,45 @@ export function ProviderEditForm({ editing, onSave, onCancel }: ProviderEditForm
           type="password"
           value={values.apiKey}
           onChange={(e) => set("apiKey")(e.target.value)}
-          placeholder={t("llmShare.providers.formApiKeyPlaceholder")}
+          placeholder={
+            editing
+              ? t("llmShare.providers.formApiKeyKeepPlaceholder")
+              : t("llmShare.providers.formApiKeyPlaceholder")
+          }
           aria-invalid={errors.apiKey ? true : undefined}
           aria-describedby={errors.apiKey ? "llm-provider-api-key-error" : undefined}
         />
         <ProviderFieldError messageKey={errors.apiKey} htmlId="llm-provider-api-key-error" />
+      </div>
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium">{t("llmShare.providers.formProtocol")}</span>
+        <div
+          role="radiogroup"
+          aria-label={t("llmShare.providers.formProtocol")}
+          className="flex gap-3"
+          data-testid="provider-protocol-radio"
+        >
+          {(["openai", "claude"] as const).map((protocol) => (
+            <label
+              key={protocol}
+              className="flex cursor-pointer items-center gap-1.5 text-sm"
+              data-testid={"provider-protocol-" + protocol}
+            >
+              <input
+                type="radio"
+                name="llm-provider-protocol"
+                value={protocol}
+                checked={values.protocol === protocol}
+                onChange={() => set("protocol")(protocol)}
+              />
+              {t(
+                protocol === "openai"
+                  ? "llmShare.providers.protocolOpenai"
+                  : "llmShare.providers.protocolClaude",
+              )}
+            </label>
+          ))}
+        </div>
       </div>
       <div className="flex flex-col gap-1">
         <Label htmlFor="llm-provider-models">{t("llmShare.providers.formModels")}</Label>

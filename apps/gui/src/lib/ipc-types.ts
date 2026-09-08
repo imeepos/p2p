@@ -1,5 +1,28 @@
 // 与 docs/design/gui-contract.md v1 逐字对齐，禁止私自改名；缺口走协调会话加法修订。
 
+// 契约 §16.6 v13（llm-share-link 波）：双协议 provider + 分享链接 8 命令面 DTO 共用同一
+// 定义（lib/llm-share-v13-types.ts），ipc 与视图接缝同时 re-export 防漂移。
+import type {
+  LlmProviderSaveReq,
+  LlmProviderView,
+  LlmServeStatus,
+  LlmShareCreateReq,
+  LlmShareCreateResult,
+  LlmShareEntry,
+  LlmShareRedeemResult,
+} from "./llm-share-v13-types";
+export type {
+  LlmProviderProtocol,
+  LlmProviderSaveReq,
+  LlmProviderView,
+  LlmServeStatus,
+  LlmShareCreateReq,
+  LlmShareCreateResult,
+  LlmShareEntry,
+  LlmShareRejectCode,
+  LlmShareRedeemResult,
+} from "./llm-share-v13-types";
+
 export interface GuiConfig {
   quicPort: number; // 0 = 随机
   tcpPort: number; // 0 = 随机
@@ -587,6 +610,16 @@ export interface IpcBackend {
     reqId: string,
     lenderPubkey?: string,
   ): Promise<LlmReceiptVerifyResult>;
+  // 契约 §16.6 v13 加法：双协议 provider + 分享链接 8 命令面（invoke 名逐字
+  // snake_case；apiKey 明文仅入参，providerList 只回掩码；token 只在创建响应出现一次）。
+  llmShareProviderList(): Promise<{ providers: LlmProviderView[] }>;
+  llmShareProviderSave(config: LlmProviderSaveReq): Promise<LlmProviderView>;
+  llmShareProviderRemove(providerId: string): Promise<{ removed: true }>;
+  llmShareShareCreate(req: LlmShareCreateReq): Promise<LlmShareCreateResult>;
+  llmShareShareList(): Promise<{ shares: LlmShareEntry[] }>;
+  llmShareShareRevoke(shareId: string): Promise<{ revoked: true }>;
+  llmShareShareRedeem(link: string): Promise<LlmShareRedeemResult>;
+  llmShareServeStatus(): Promise<LlmServeStatus>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
 }
 

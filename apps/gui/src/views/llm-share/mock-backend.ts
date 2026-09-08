@@ -9,11 +9,19 @@ import type {
   LlmOfferPublishReq,
   LlmOfferStatus,
   LlmOfferView,
+  LlmProviderSaveReq,
+  LlmProviderView,
   LlmReceiptVerifyReq,
   LlmReceiptVerifyResult,
   LlmRejectCode,
+  LlmServeStatus,
   LlmShareBackend,
+  LlmShareCreateReq,
+  LlmShareCreateResult,
+  LlmShareEntry,
+  LlmShareRedeemResult,
 } from "./types";
+import { MockShareStore } from "./mock-share";
 
 import {
   LlmShareMockError,
@@ -36,7 +44,12 @@ export interface LlmShareMockOptions {
   rejectCode?: LlmRejectCode | null;
   failVerifyReqIds?: string[];
   previewChars?: number;
+  /** 兑换者 PeerId（真实语义=握手认证入站 peer；缺省固定 mock 借方） */
+  redeemerPeerId?: string;
 }
+
+// 固定 mock 借方：redeem 场景下作为兑换者写入 allowlist 的 PeerId
+const MOCK_REDEEMER_PEER = "3wqibX4fA7GvGC1gpGZnEfBEYZPcx4DFnGEBi3yYb2Jv";
 
 export { LlmShareMockError, MOCK_LENDER_PUBKEY };
 export const MOCK_LOCAL_PEER = "7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk";
@@ -54,9 +67,25 @@ export class LlmShareMock {
   private readonly receipts = new Map<string, ReceiptRecord>();
   private readonly callLog: string[] = [];
   private offer: LlmOfferView | null = null;
+  // v13 扩展（provider/share/serve）：状态独立存储，allowlist 经注入回调联动
+  private readonly shareStore: MockShareStore;
 
   constructor(opts: LlmShareMockOptions = {}) {
     this.opts = opts;
+    this.shareStore = new MockShareStore({
+      now: () => this.now(),
+      selfPeerId: () => this.localPeerId,
+      offerSnapshot: () => this.offer,
+      redeemerPeerId: () => this.opts.redeemerPeerId ?? MOCK_REDEEMER_PEER,
+      allowlistSet: (entry) => {
+        this.allowEntries.set(entry.peerId, entry);
+      },
+      allowlistRemoveBySource: (source) => {
+        for (const [peerId, entry] of this.allowEntries) {
+          if (entry.note === source) this.allowEntries.delete(peerId);
+        }
+      },
+    });
   }
 
   private now(): number {
@@ -215,6 +244,49 @@ export class LlmShareMock {
     return verifyReceiptCall(this.borrowState, this.borrowConfig, req);
   }
 
+  // ---- 契约 §16.6 v13：provider/share/serve（状态与语义见 mock-share.ts）----
+
+  providerList(): { providers: LlmProviderView[] } {
+    return this.shareStore.providerList();
+  }
+
+  providerSave(config: LlmProviderSaveReq): LlmProviderView {
+    return this.shareStore.providerSave(config);
+  }
+
+  providerRemove(providerId: string): { removed: true } {
+    return this.shareStore.providerRemove(providerId);
+  }
+
+  shareCreate(req: LlmShareCreateReq): LlmShareCreateResult {
+    return this.shareStore.shareCreate(req);
+  }
+
+  shareList(): { shares: LlmShareEntry[] } {
+    return this.shareStore.shareList();
+  }
+
+  shareRevoke(shareId: string): { revoked: true } {
+    return this.shareStore.shareRevoke(shareId);
+  }
+
+  shareRedeem(link: string): LlmShareRedeemResult {
+    return this.shareStore.shareRedeem(link);
+  }
+
+  serveStatus(): LlmServeStatus {
+    return this.shareStore.serveStatus();
+  }
+
+  /** 测试种子：直接登记一条分享（绑定固定 token，redeem 可测） */
+  seedShare(share: Partial<LlmShareEntry> & { token: string }): LlmShareEntry {
+    return this.shareStore.seedShare(share);
+  }
+
+  setServeStatus(status: LlmServeStatus): void {
+    this.shareStore.setServeStatus(status);
+  }
+
   private listEntries(): LlmAllowEntry[] {
     return [...this.allowEntries.values()].sort((a, b) => a.peerId.localeCompare(b.peerId));
   }
@@ -231,6 +303,14 @@ function wireBackend(mock: LlmShareMock): LlmShareBackend {
     ledgerList: (filter) => Promise.resolve(mock.ledgerList(filter)),
     ledgerBalance: () => Promise.resolve(mock.ledgerBalance()),
     receiptVerify: (req) => Promise.resolve(mock.receiptVerify(req)),
+    providerList: () => Promise.resolve(mock.providerList()),
+    providerSave: (config) => Promise.resolve(mock.providerSave(config)),
+    providerRemove: (providerId) => Promise.resolve(mock.providerRemove(providerId)),
+    shareCreate: (req) => Promise.resolve(mock.shareCreate(req)),
+    shareList: () => Promise.resolve(mock.shareList()),
+    shareRevoke: (shareId) => Promise.resolve(mock.shareRevoke(shareId)),
+    shareRedeem: (link) => Promise.resolve(mock.shareRedeem(link)),
+    serveStatus: () => Promise.resolve(mock.serveStatus()),
   };
 }
 

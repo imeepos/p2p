@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { ConversationList } from "@/components/chat/conversation-list";
 import { useAcpStore } from "@/acp/acp-store";
 import { Button } from "@/components/ui/button";
+import { useComposePrefillStore } from "@/stores/compose-prefill-store";
 import { useConversationEntries } from "@/views/chat/use-conversation-entries";
 import { usePendingInviteItems } from "@/views/chat/use-pending-invites";
 import { ChatEmptyState } from "@/views/chat/chat-empty-state";
@@ -52,6 +53,21 @@ export function ChatPage() {
   const subscribeGroupEvents = useGroupStore((s) => s.subscribeEvents);
   const [manageOpen, setManageOpen] = useState(false);
   const setManualUnread = useConversationPrefsStore((s) => s.setManualUnread);
+  // W4：?compose= 深链预填（分享链接「发送到聊天」落点），消费即清防重放
+  const composeParam = searchParams.get("compose");
+
+  useEffect(() => {
+    if (!composeParam) return;
+    useComposePrefillStore.getState().setText(composeParam);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("compose");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [composeParam, setSearchParams]);
 
   useEffect(() => {
     void loadFriends();

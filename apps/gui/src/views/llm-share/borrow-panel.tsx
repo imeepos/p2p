@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 
 import type { I18nKey } from "@/i18n/types";
 
@@ -26,6 +27,7 @@ import { notifyLedgerMutated } from "./ledger-sync";
 import { focusFirstInvalidField } from "./focus-first-error";
 import { PeerIdField } from "./peer-id-field";
 import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
+import { consumeBorrowPrefill } from "./borrow-prefill";
 import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";
 
 // borrow 快捷面板：提交前二次确认对话框明示真实成本（§16.2-6）；
@@ -42,26 +44,31 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
   const [reqId, setReqId] = useState<string | null>(null);
   const [lastReq, setLastReq] = useState<LlmBorrowReq | null>(null);
   const [targetTouched, setTargetTouched] = useState(false);
-  // R2-06：model 实为可枚举输入——本机白名单已放行的模型集即现成选项源
+  // W4：预填源 = 出借方 offer 快照（shareRedeem 应答内嵌，借方本地 allowlist 为空）
+  // + query peer/model（防刷新重放：消费即清）。无快照时降级自由输入不阻塞。
   const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const view = await backend.allowList();
-        if (cancelled) return;
-        const models = [...new Set(view.entries.flatMap((e) => e.models))];
-        setModelOptions(models.map((model) => ({ value: model, label: model })));
-      } catch (error) {
-        // 选项源读取失败不阻塞自由输入：留告警信号即可
-        console.warn("[llm-share] 借用模型候选读取失败", error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [backend]);
+    const stored = consumeBorrowPrefill();
+    const peerParam = searchParams.get("peer");
+    const modelParam = searchParams.get("model");
+    if (!peerParam && !modelParam && !stored) return;
+    if (peerParam || modelParam) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("peer");
+      next.delete("model");
+      setSearchParams(next, { replace: true });
+    }
+    setValues((v) => ({
+      ...v,
+      targetPeer: peerParam ?? stored?.peer ?? v.targetPeer,
+      model: modelParam ?? stored?.model ?? v.model,
+    }));
+    setModelOptions(
+      (stored?.models ?? []).map((model) => ({ value: model, label: model })),
+    );
+  }, [searchParams, setSearchParams]);
 
   const set = (field: keyof BorrowFormValues) => (value: string) =>
     setValues((v) => ({ ...v, [field]: value }));
