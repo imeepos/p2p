@@ -12,13 +12,17 @@ import {
   type ConversationEntry,
   type PreviewLabels,
 } from "@/lib/conversation-entry";
+import { a2aEntries } from "@/lib/conversation-entry-a2a";
+import type { A2aTaskState } from "@/a2a/task-types";
 import { applyConversationPrefs } from "@/lib/conversation-overlay";
 import { useChatStore } from "@/stores/chat-store";
 import { useConversationPrefsStore } from "@/stores/conversation-prefs-store";
 import { useGroupStore } from "@/stores/group-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
+import { useA2aStore } from "@/a2a/a2a-store";
+import { useAgentsStore } from "@/a2a/agents-store";
 
-// §2.2 store 层聚合：三来源构建统一条目并混排排序，渲染层无来源分支。
+// §2.2 store 层聚合：四来源构建统一条目并混排排序，渲染层无来源分支。
 // agent 为单连接语义：仅 activeEndpointId 继承全局连接态，其余端点显未连接。
 
 const GROUP_STATE_KEYS = {
@@ -56,6 +60,9 @@ export function useConversationEntries(): ConversationEntry[] {
   const showInactiveGroups = useUiPrefsStore((s) => s.showInactiveGroups);
   const convFlags = useConversationPrefsStore((s) => s.flags);
   const dismissedAt = useConversationPrefsStore((s) => s.dismissedAt);
+  const discoveredAgents = useAgentsStore((s) => s.discovered);
+  const a2aTasks = useA2aStore((s) => s.tasks);
+  const unreadByAgent = useA2aStore((s) => s.unreadByAgent);
 
   return useMemo(() => {
     const labels: PreviewLabels = {
@@ -113,9 +120,33 @@ export function useConversationEntries(): ConversationEntry[] {
         labels,
       });
     });
+
+    // A2A 条目：从 discovered agents 和 tasks 构建
+    const lastMessages = new Map<string, { text: string; tsMs: number }>();
+    const taskStates = new Map<string, A2aTaskState>();
+    for (const [, task] of a2aTasks) {
+      const agentKey = task.agentId;
+      const lastMsg = task.messages[task.messages.length - 1];
+      if (lastMsg) {
+        const textPart = lastMsg.parts.find((p) => p.type === "text");
+        if (textPart && textPart.type === "text") {
+          lastMessages.set(agentKey, { text: textPart.text, tsMs: Date.now() });
+        }
+      }
+      taskStates.set(agentKey, task.state);
+    }
+
+    const a2aEntriesList = a2aEntries(
+      discoveredAgents,
+      lastMessages,
+      taskStates,
+      unreadByAgent,
+      labels,
+    );
+
     // 右键菜单偏好在列表层统一覆盖：删除/不显示过滤、标为未读抬底、置顶分区
     return applyConversationPrefs(
-      [...friendEntries, ...groupEntries, ...agentEntries],
+      [...friendEntries, ...groupEntries, ...agentEntries, ...a2aEntriesList],
       { flags: convFlags, dismissedAt },
     );
   }, [
@@ -123,6 +154,6 @@ export function useConversationEntries(): ConversationEntry[] {
     lastMessageByGroup, unreadByGroup, selfPeerId, saved, phase,
     activeEndpointId, activeSessionId, transcripts, lastInteractionByEndpoint,
     unreadByEndpoint, promptPendingBySession, showInactiveGroups,
-    convFlags, dismissedAt,
+    convFlags, dismissedAt, discoveredAgents, a2aTasks, unreadByAgent,
   ]);
 }

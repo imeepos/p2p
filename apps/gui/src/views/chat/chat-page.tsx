@@ -22,6 +22,7 @@ import { FriendConversation } from "./friend-conversation";
 import { GroupPendingPanel } from "./group-pending-panel";
 import { GroupMemberPanel } from "@/views/group/group-member-panel";
 import { GroupConversation } from "@/views/group/group-conversation";
+import { A2aConversation } from "./a2a-conversation";
 
 // /chat 双栏统一会话页（docs/design/app-shell-redesign.md §2）：
 // - 左侧通栏会话列表（顶部搜索框）+ 右侧会话记录；宽度 xl:320px / 其余 264px。
@@ -29,7 +30,7 @@ import { GroupConversation } from "@/views/group/group-conversation";
 // - <768 单栏互斥（防御性规则）：默认显列表，选中切入记录，记录左上返回。
 // - ?kind=group|agent（旧 /group /acp 重定向落点，拍板项 1）：聚焦排序最前
 //   的对应条目，无对应条目保持空态。
-const SELECTION_KEYS = ["kind", "peer", "group", "agent"] as const;
+const SELECTION_KEYS = ["kind", "peer", "group", "agent", "a2a"] as const;
 
 export function ChatPage() {
   const { t } = useTranslation();
@@ -83,8 +84,9 @@ export function ChatPage() {
   const peerParam = searchParams.get("peer");
   const groupParam = searchParams.get("group");
   const agentParam = searchParams.get("agent");
+  const a2aParam = searchParams.get("a2a");
   const kindParam = searchParams.get("kind");
-  const selectedId = peerParam ?? groupParam ?? agentParam;
+  const selectedId = peerParam ?? groupParam ?? agentParam ?? a2aParam;
 
   // 深链落定：选中即清零（1:1/群在 select* 内清；agent 经聚焦入口清，§2.3）。
   // 离开 agent 会话（切走/卸载）即取消聚焦，agent 回复恢复计未读。
@@ -109,11 +111,12 @@ export function ChatPage() {
 
   // ?kind=* 聚焦（拍板项 1）：无显式选中时落排序最前的对应条目
   useEffect(() => {
-    if (peerParam || groupParam || agentParam) return;
-    if (kindParam !== "group" && kindParam !== "agent") return;
+    if (peerParam || groupParam || agentParam || a2aParam) return;
+    if (kindParam !== "group" && kindParam !== "agent" && kindParam !== "a2a") return;
     const first = entries.find((e) => e.kind === kindParam);
     if (!first) return;
-    const key = first.kind === "group" ? "group" : "agent";
+    const key = first.kind === "group" ? "group" : 
+                first.kind === "a2a" ? "a2a" : "agent";
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -123,12 +126,14 @@ export function ChatPage() {
       },
       { replace: true },
     );
-  }, [kindParam, peerParam, groupParam, agentParam, entries, setSearchParams]);
+  }, [kindParam, peerParam, groupParam, agentParam, a2aParam, entries, setSearchParams]);
 
   const selectEntry = (entry: ConversationEntry) => {
     // 打开即已读：清「标为未读」旗标（store 未读由 selectPeer/selectGroup 清零）
     setManualUnread(conversationKey(entry.kind, entry.id), false);
-    const key = entry.kind === "friend" ? "peer" : entry.kind === "group" ? "group" : "agent";
+    const key = entry.kind === "friend" ? "peer" : 
+                entry.kind === "group" ? "group" : 
+                entry.kind === "a2a" ? "a2a" : "agent";
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -206,11 +211,20 @@ export function ChatPage() {
             <GroupPendingPanel key={groupParam} groupId={groupParam} />
           ) : agentParam ? (
             <AgentConversation endpointId={agentParam} />
+          ) : a2aParam ? (
+            <A2aConversation
+              key={a2aParam}
+              agentKey={a2aParam}
+              hostPeer={a2aParam.split("/")[0] || ""}
+              agentId={a2aParam.split("/")[1] || ""}
+              agentName={entries.find((e) => e.id === a2aParam)?.title || a2aParam}
+            />
           ) : (
             <ChatEmptyState
               friendCount={entries.filter((e) => e.kind === "friend").length}
               groupCount={entries.filter((e) => e.kind === "group").length}
               agentCount={entries.filter((e) => e.kind === "agent").length}
+              a2aCount={entries.filter((e) => e.kind === "a2a").length}
               pendingInviteCount={pendingInvites.length}
             />
           )}

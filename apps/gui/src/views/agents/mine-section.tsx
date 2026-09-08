@@ -2,6 +2,7 @@
 // [聊天(自测)][编辑][分享(生成邀请)][下架]；下架走 AsyncButton（失败原文上浮），
 // 聊天（A2A4）与分享（A2A5）为占位 toast 显式说明。
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { Bot, MessageCircle, Pencil, Share2, Plus, CloudOff } from "lucide-react";
 
 import { AsyncButton } from "@/components/feedback/async-button";
@@ -22,6 +23,7 @@ interface MineSectionProps {
 
 export function MineSection({ mine, onEdit, onCreate, onUnpublish }: MineSectionProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   return (
     <section data-testid="agents-mine-section" className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
@@ -59,7 +61,7 @@ export function MineSection({ mine, onEdit, onCreate, onUnpublish }: MineSection
                     size="sm"
                     className="gap-1 px-2"
                     data-testid="agents-selfchat-btn"
-                    onClick={() => toastInfo(t("agents.toast.chatNotReady"))}
+                    onClick={() => navigate(`/chat?a2a=${def.agentId}`)}
                   >
                     <MessageCircle aria-hidden className="size-4" />
                     {t("agents.action.chat")}

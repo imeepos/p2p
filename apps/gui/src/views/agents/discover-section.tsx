@@ -3,6 +3,7 @@
 // 空态 EmptyState 引导到「我的」创建。聊天为 A2A4 交付面（占位 toast 显式说明）。
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { Bot, MessageCircle, Info } from "lucide-react";
 
 import { onlineLevel } from "@/a2a/online";
@@ -15,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { toastInfo } from "@/components/feedback/toast";
+// toastInfo 已移除，聊天按钮现在导航到 A2A 会话
 import { SectionHeader } from "@/views/shared/section-header";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ function SkillsBadges({ card }: { card: AgentCardJson }) {
 
 export function DiscoverSection({ rows }: { rows: DiscoveredAgent[] }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<AgentCardJson | null>(null);
   // 渲染期时钟取样一次（惰性初始化是 purity 合规位；整页共用同一 now
   // 保证同行色点稳定，重挂载才刷新）
@@ -74,7 +76,7 @@ export function DiscoverSection({ rows }: { rows: DiscoveredAgent[] }) {
                       size="sm"
                       className="gap-1 px-2"
                       data-testid="agents-chat-btn"
-                      onClick={() => toastInfo(t("agents.toast.chatNotReady"))}
+                      onClick={() => navigate(`/chat?a2a=${card.hostPeer}/${card.agentId}`)}
                     >
                       <MessageCircle aria-hidden className="size-4" />
                       {t("agents.action.chat")}

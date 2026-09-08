@@ -4,7 +4,7 @@ import { create } from "zustand";
 // 与 ui-prefs-store 同型：localStorage 存档，损坏显式告警回默认，不静默。
 const STORAGE_KEY = "p2p-gui.conversation-prefs";
 
-/** 会话键：三来源（friend/group/agent）id 空间独立，拼 kind 防跨类碰撞 */
+/** 会话键：四来源（friend/group/agent/a2a）id 空间独立，拼 kind 防跨类碰撞 */
 export type ConversationKey = string;
 
 export function conversationKey(kind: string, id: string): ConversationKey {

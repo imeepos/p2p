@@ -10,7 +10,7 @@ import type {
 // 三来源字段级对齐成一种条目形状，混排排序与搜索过滤也是本文件纯函数。
 // 构建器不做 i18n——展示文案经参数传入，保持可独立单测。
 
-export type ConversationKind = "friend" | "group" | "agent";
+export type ConversationKind = "friend" | "group" | "agent" | "a2a";
 
 /** 条目发送状态（§2.2 sendState 行）：friend/group 取本端消息状态机，
  *  agent 仅 pending（等 agent 响应）与 error（连接失败）两态。 */
