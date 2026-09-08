@@ -1,5 +1,5 @@
 #!/bin/bash
-# 本地 ACP 全链冒烟（机械验收）：真 acp-agent + 真 acp-console + node WS 客户端
+# 本地 ACP 全链冒烟（机械验收）：真 acp-agent + p2pctl acp console（in-process 泵）+ node WS 客户端
 # 走完 握手→initialize→session/new→prompt 往返；admin 工作区 CRUD 往返。
 # 验收口径：输出 ACP-LOCAL-SMOKE-OK 且退出码 0。
 # 真 dsh 探针在 scripts/ops/acp-local-setup.sh 尾部单独做（不可用即 SKIP 不假绿）。
@@ -8,7 +8,6 @@ REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 WORK="$(mktemp -d /tmp/acp-local-smoke.XXXXXX)"
 AGENT_BIN="$REPO/apps/acp-agent/target/release/acp-agent"
 STUB_BIN="$REPO/apps/acp-agent/target/release/acp-echo-stub"
-CONSOLE_BIN="$REPO/apps/acp-console/target/release/acp-console"
 AGENT_PORT=17811
 ADMIN_PORT=17812
 WS_PORT=17813
@@ -22,7 +21,7 @@ cleanup() {
 }
 trap cleanup EXIT
 fail() { echo "ACP-LOCAL-SMOKE-FAIL: $*" >&2; exit 1; }
-for bin in "$AGENT_BIN" "$STUB_BIN" "$CONSOLE_BIN"; do
+for bin in "$AGENT_BIN" "$STUB_BIN"; do
   [ -x "$bin" ] || fail "缺少 $bin（先跑 scripts/ops/acp-local-setup.sh 构建）"
 done
 command -v node >/dev/null || fail "node 不可用"
@@ -31,7 +30,7 @@ PCTL="$REPO/apps/cli/target/release/p2pctl"
 
 # 1) 先起操作者侧 console：拿到 console PeerId 写授权，再起 agent
 mkdir -p "$WORK/console"
-"$CONSOLE_BIN" --data-dir "$WORK/console" --no-mdns --ws-port "$WS_PORT" --status-port 0 \
+"$PCTL" acp console --data-dir "$WORK/console" --no-mdns --ws-port "$WS_PORT" --status-port 0 \
   >"$WORK/console.out" 2>"$WORK/console.err" &
 CONSOLE_PID=$!
 ready_field() {
@@ -69,7 +68,7 @@ echo "[2] agent ready peer=$AGENT_PEER quic=$AGENT_PORT"
 # console 无发现面，不登记候选 dial 直接失败（close 4500）。
 kill "$CONSOLE_PID" 2>/dev/null
 wait "$CONSOLE_PID" 2>/dev/null
-"$CONSOLE_BIN" --data-dir "$WORK/console" --no-mdns --ws-port "$WS_PORT" --status-port 0 \
+"$PCTL" acp console --data-dir "$WORK/console" --no-mdns --ws-port "$WS_PORT" --status-port 0 \
   --peer "$AGENT_PEER@127.0.0.1/u$AGENT_PORT" >"$WORK/console2.out" 2>"$WORK/console2.err" &
 CONSOLE_PID=$!
 for _ in $(seq 1 50); do

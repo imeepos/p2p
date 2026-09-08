@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "crates/llm-share-link"]
 
 # GUI 壳（Tauri 应用）是独立 cargo 项目，不参与底座 workspace（docs/design/gui-plan.md §7）
-exclude = ["apps/gui/src-tauri", "apps/acp-common", "apps/acp-agent", "apps/acp-console"]
+exclude = ["apps/gui/src-tauri", "apps/acp-common", "apps/acp-agent"]
 
 [workspace.package]
 version = "0.1.0"

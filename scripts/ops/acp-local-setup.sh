@@ -12,15 +12,17 @@ LAUNCH_SRC="$REPO/scripts/ops/dsh-acp-launch"
 echo "[0] repo=$REPO"
 
 # 1) 构建（release；增量）
-echo "[1] cargo build --release (acp-agent/acp-echo-stub, acp-console, p2pctl)"
+echo "[1] cargo build --release (acp-agent/acp-echo-stub, p2pctl)"
 cargo build --release --manifest-path "$REPO/apps/acp-agent/Cargo.toml" >/dev/null
-cargo build --release --manifest-path "$REPO/apps/acp-console/Cargo.toml" >/dev/null
 cargo build --release --manifest-path "$REPO/apps/cli/Cargo.toml" >/dev/null
 mkdir -p "$DSH_BIN"
 cp "$REPO/apps/acp-agent/target/release/acp-agent" "$DSH_BIN/"
-cp "$REPO/apps/acp-console/target/release/acp-console" "$DSH_BIN/"
 cp "$REPO/apps/cli/target/release/p2pctl" "$DSH_BIN/"
 echo "[1] installed: $DSH_BIN"
+# 独立 acp-console bin 已随 INLINE-ACP-PUMP 撤销（T5）：CLI 能力收口 p2pctl acp console
+if [ -e "$DSH_BIN/acp-console" ]; then
+  echo "deprecation: ~/.dsh/bin/acp-console 已废弃，请改用 p2pctl acp console（建议手动删除旧二进制）" >&2
+fi
 
 # 2) dsh acp profile shim 装进所有相关 home（launchd 用的 ~/.dsh + shell 的 DSH_HOME）
 install_shim() {
