@@ -87,3 +87,9 @@
 ## 2026-09-08 密钥掩码正则必须适配真实键格式，掩码后必须自证
 - 事故：掩码 sed 按 sk- 前缀写（`s/sk-xxx.../`），实际键是无前缀 64 位 hex，替换未命中，完整密钥整行打进会话日志（ext512/p2p .env 轮实录）。
 - 红线：对含密钥的行做掩码输出后，必须 grep -c 自证「已无完整键残留」（或 diff 前后行数）才允许继续；键格式未知时先用指纹（len+tail）确认格式再写掩码，掩码失效的输出立即作废重做。
+## 2026-09-08 tools.write 全量替换禁止基于带 offset 的局部 read
+- 事故：gui-contract.md 582 行，用 read(offset:560) 的 22 行尾段拼新内容后 tools.write 全量写回，559 行正文被静默截断（git diff 559 deletions 实录）；靠 git show HEAD:file 恢复原文重新追加才挽回。
+- 红线：tools.write 是全文替换——写回前必须持有全文（read 不带 offset，或 node fs.readFileSync），凡「读尾部+拼新增」场景一律用 bash cat >> heredoc 追加或 node 脚本读全文改全量，写完必须 git diff --stat 核对增删行数符合预期。
+
+- 禁止「长命令 | tail」看输出而不设 pipefail：tail 的 exit 0 会掩盖命令真实退出码，假绿裁决（2026-09-08 T7 make check 首跑 line-limit 红，后台 job 却报 exit 0；唯一裁决必须 `cmd > log; echo $?` 或 set -o pipefail）。
+- 禁止对多任务账本（loop-state 等）做整表状态刷写而不按 id 过滤：主树与 worktree 各有一份 .devloop/loop-state.json，cd 错目录 + 全表覆盖会把 65 条历史任务状态刷平（2026-09-08 实例，git checkout -- 恢复；改状态前先打印 id 列表确认是哪份、只动自己的 id）。

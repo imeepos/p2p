@@ -2,6 +2,7 @@
 
 use clap::Parser;
 
+use crate::a2a;
 use crate::acp;
 use crate::chat;
 use crate::config;
@@ -106,5 +107,10 @@ pub enum Command {
     LlmShare {
         #[command(subcommand)]
         command: llm_share::LlmShareCommand,
+    },
+    /// A2A 域：agent 管理 + 授权管理（A2A5，headless 管理面）
+    A2a {
+        #[command(subcommand)]
+        command: a2a::A2aCommand,
     },
 }

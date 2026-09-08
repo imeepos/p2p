@@ -47,7 +47,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 |---|---|---|
 | cargo 在 PATH（`$HOME/.cargo/bin`） | 二进制构建（cargo build/clippy/test） | `cargo: command not found`（退出 127）；先 `export PATH=$HOME/.cargo/bin:$PATH` |
 | macOS 屏幕录制授权 | gui screenshot/record、scripts/ops/ui-regression.sh | 退出 1：CAPTURE_PERMISSION_DENIED（HTTP 403），PNG/GIF 不产出；GUI 重编译后 TCC 授权记录可能失效需重新授权（系统设置 > 隐私与安全性 > 屏幕录制），OS 级授权须人完成 |
-| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、acp share list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show、llm-share provider list/save/remove、llm-share share create/list/revoke | —— |
+| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、acp share list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show、llm-share provider list/save/remove、a2a list、llm-share share create/list/revoke | —— |
 | 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance、llm-share borrow | 退出 1：节点身份加载失败；offer publish 不代生成身份；正向门面是 p2pctl identity init（幂等，显式创建后即可重试） |
 | agent 节点身份已存在（<acp-data-dir>/identity/key.seed，由 acp-agent 首启生成） | acp share create | 退出 1：分享链接需要 agent 身份；CLI 不代生成，先启动一次 acp-agent |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1：超时未送达 status=Pending / 对端身份不符快速失败 status=Failed（均保留本机记录，见 chat send 条目与附录A）；peer 域退出 1 |
@@ -95,6 +95,8 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 查本机流水 / 净差视图 | `llm-share ledger list --json` / `llm-share ledger balance --json`（按 lender+period 切分） |
 | 离线验签收据 | `llm-share receipt verify <PATH> --pubkey <BASE58>`（FAIL 退出 1，stdout 有 verdict 与原因） |
 | 重置身份（红线） | `identity reset`——不可逆，见 §3 |
+| 发布 / 下架 agent / 查全部 agent | `a2a publish --agent-id <ID> --name <N> --description <D> --json`（写，须人确认）/ `a2a unpublish <ID>`（写）/ `a2a list --json` |
+| 授权 / 撤销 peer 访问 private agent | `a2a allow --agent-id <ID> --peer-id <PEER> --json`（写，须人确认）/ `a2a disallow --agent-id <ID> --peer-id <PEER>`（写，须人确认） |
 
 ## 3. 开场提示词模板（整段贴给 LLM 即可）
 
@@ -103,7 +105,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 
 【工具认知】
 - 可执行文件：apps/cli/target/debug/p2pctl（先 export PATH=$HOME/.cargo/bin:$PATH 再 cargo build --manifest-path apps/cli/Cargo.toml 构建若不存在；cargo 不在 PATH 会报 command not found）。
-- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share 十二域，共 82 个叶子命令（以 ai-docs-sync 每次实测汇总行为准）。
+- 命令面：node|chat|config|profile|peer|gui|identity|log|metrics|update|acp|llm-share|a2a 十三域，共 87 个叶子命令（以 ai-docs-sync 每次实测汇总行为准）。
 - 每个命令先跑 --help 确认参数，再执行；官方命令参考见 docs/ops/p2pctl-ai-guide.md。
 - 输出：默认人读文本（key=value 行），加 --json 得结构化 JSON（camelCase）。
 - 退出码：0 成功；1 运行失败（stderr 前缀 "p2pctl: 运行失败: "）；2 用法错误。失败时先读 stderr 再决定下一步，不要盲目重试。
@@ -114,7 +116,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 2. 写操作必须先征得人确认再执行：chat send / chat friends add|remove / config save /
    profile save / node start|stop / peer dial|connect|disconnect / log clear / acp allow|deny /
    acp share create|revoke / gui navigate /
-   llm-share allow|deny|offer publish。
+   llm-share allow|deny|offer publish / a2a publish|unpublish|allow|disallow。
 3. 不可逆红线：identity reset 会删除节点身份（key.seed），除非人明确说"重置身份"，
    永远不得执行；执行时必须带 --confirm 且仅限人指定的数据目录。
 4. 不得绕过安全机制：gui navigate/gui invoke 仅接受服务端白名单（8 个路由、5 个只读命令），
@@ -1592,71 +1594,94 @@ period_ends=2026-09-30
 --json：单行更新后邀请条目（字段同 send 条目）。
 退出码：无待处理邀请（不存在/非 in 向）或已同意 → 1。
 
-<!-- AI-DOCS-SYNC:END -->
 
-## 附录A. 两节点聊天 E2E 最小拓扑（chat serve 双身份模型）
+## A2A 域（agent 管理 + 授权管理）
 
-来源：2026-09-04 AI 操作者试运行（docs/notes/ai-pilot-findings.md，摩擦 F2/F3/F4）。
-本节是可照抄的配方，消除「靠报错猜拓扑」的摩擦。
-
-### A.1 双身份模型（先读再动手）
-
-- 每个数据目录有两套身份：**守护身份**（`node start` 输出的 peerId，根在
-  `<data-dir>/p2p-data`）与 **chat 身份**（`chat serve` 输出的 peerId，根在
-  `<data-dir>/chat`）。两者不同根不同值，属正常现象。
-- 聊天收发（friends add / send、history --peer）全程使用 **chat 身份** peerId 与
-  **chat serve 的监听地址**；把守护 peerId / 守护地址当聊天对端，`chat send` 会
-  立即 status=Failed 快速失败。
-- `chat send` 是一次性命令，不需要本机守护进程，但要求同数据目录没有其他 chat
-  进程持 `identity.lock`（chat serve 与 chat send 互斥，见 §1.3）。
-
-### A.2 配方（A 发给 B，命令与输出形态均为 2026-09-04 实测）
-
-```bash
-# 0. 两端各用独立数据目录（示例 /tmp/ai-pilot-a、/tmp/ai-pilot-b）
-export PATH=$HOME/.cargo/bin:$PATH && cargo build --manifest-path apps/cli/Cargo.toml
-
-# 1. B 端起常驻 chat 节点，记录首行 peer=<B 的 chat peerId> 与 listen=<两条监听地址>
-p2pctl chat serve --data-dir /tmp/ai-pilot-b
-#   chat 节点就绪 peer=<B-CHAT-PEER-ID> listen=127.0.0.1/u57844 127.0.0.1/t59850
-
-# 2.（A 要收回信才需要）A 端临时起 serve 读本机 chat 身份，读完 Ctrl-C 停掉
-#   （identity.lock 与后续 send 互斥，必须先停，见 A.3）
-p2pctl chat serve --data-dir /tmp/ai-pilot-a   # 记下 peer=<A-CHAT-PEER-ID> 后 SIGINT
-
-# 3. A 端加好友：peerId 用 B 的 chat 身份；addr 原样填第 1 步 listen 的两条地址
-p2pctl chat friends add <B-CHAT-PEER-ID> \
-  --addr 127.0.0.1/u57844 --addr 127.0.0.1/t59850 --data-dir /tmp/ai-pilot-a
-
-# 4. A 端发送并断言送达：--json 输出 "delivered":true 即成功，记下返回的消息 id
-p2pctl chat send --peer <B-CHAT-PEER-ID> --text "hello-from-A" --json \
-  --data-dir /tmp/ai-pilot-a
-
-# 5. B 端读回断言：同一消息 id、sender=them、文本与发送一致
-p2pctl chat history --peer <A-CHAT-PEER-ID> --json --data-dir /tmp/ai-pilot-b
-
-# 6. 收尾：serve 以 SIGINT/SIGTERM 停止（identity.lock 随进程退出释放）
+### p2pctl a2a list
+用途：列出全部 agent（本机发布的 + 远程发现的）。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+agents=1
+agentId=code-review name=代码评审员 visibility=public enabled=true
+```
+--json：
+```
+{"agents":[{"agentId":"code-review","name":"代码评审员","visibility":"public","enabled":true}]}
 ```
 
-### A.3 失败形态速查
+### p2pctl a2a publish
+用途：发布 agent（创建或更新可见性；agentId 缺省随机生成）。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --agent-id | string | 否 | 随机 16 hex |
+| --name | string | 是 | —— |
+| --description | string | 是 | —— |
+| --visibility | 枚举 public\|private | 否 | private |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+agent 已发布 agentId=code-review visibility=public
+```
+--json：
+```
+{"agentId":"code-review","name":"代码评审员","description":"对 PR 做代码评审","visibility":"public","enabled":true,"createdAt":1725868800}
+```
+退出码：agent_id 已存在且内容相同 → 0（幂等更新）；簿满（32 上限）→ 1。
 
-| 现象 | 原因 | 处置 |
-|---|---|---|
-| `chat send` 报「身份被占用…锁=<data-dir>/identity.lock」退出 1 | 同数据目录已有 chat serve（或另一 chat 进程）持锁 | 停掉同数据目录另一 chat 进程再 send |
-| `chat send` 秒级失败 status=Failed（delivered=false） | 对端 peerId 填了守护身份、对端未起 chat serve、addr 失效 | 按 A.1/A.2：peerId 取 chat serve 输出，addr 取 listen 行 |
-| `chat send` 等满超时后 status=Pending | 对端进程不在/网络不可达 | 确认对端 serve 存活与地址后重发 |
+### p2pctl a2a unpublish
+用途：下架 agent（删除定义与授权，撤传播）。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --agent-id | string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+agent 已下架 agentId=code-review
+```
+--json：
+```
+{"removed":"code-review"}
+```
+退出码：不存在 → 1。
 
-## 附录B. 产品缺口建议（仅登记，不实现）
+### p2pctl a2a allow
+用途：授权 peer 访问 private agent（upsert：已存在则刷新 granted_at）。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --agent-id | string | 是 | —— |
+| --peer-id | string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已授权 agentId=code-review peer=<PEER_ID>
+```
+--json：
+```
+{"agentId":"code-review","peer":"<PEER_ID>","grantedAt":1725868800}
+```
+退出码：agent 不存在 → 1。
 
-来自同次试运行（F5/F6）。本文档只登记建议，实现落地前不得写进 §6 命令目录，
-命令名与行为以实现为准：
-
-1. **chat 身份只读查询命令**：建议新增 `chat identity show`（或让 node status 等
-   现有读命令顺带暴露本机 chat peerId）。动机：当前查本机 chat 身份只能临时起
-   `chat serve` 读首行，而它持 identity.lock 与 chat send 互斥——「学身份必须先起
-   占锁进程、学完还得停」自相矛盾；期望离线可读、不占锁。
-2. **权限自检指引**：gui screenshot/record 与 scripts/ops/ui-regression.sh 挂在
-   macOS 屏幕录制授权上，OS 级授权 AI 无法自助完成，且 GUI 重编译后 TCC 授权记录
-   可能失效需重新授权。建议提供授权状态预检手段（自检命令或文档化探针步骤：先跑
-   轻量 capture 探针再进截图/回归主流程），并把授权路径（系统设置 > 隐私与安全性
-   > 屏幕录制）作为 CAPTURE_PERMISSION_DENIED 的标准前置指引。
+### p2pctl a2a disallow
+用途：撤销授权（删除条目；不存在明确报错不静默）。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --agent-id | string | 是 | —— |
+| --peer-id | string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已撤销 agentId=code-review peer=<PEER_ID>
+```
+--json：
+```
+{"revoked":{"agentId":"code-review","peer":"<PEER_ID>"}}
+```
+退出码：条目不存在 → 1。

@@ -5,6 +5,7 @@ edition.workspace = true
 publish = false
 
 [dependencies]
+tempfile = "3"
 async-trait.workspace = true
 bytes.workspace = true
 futures.workspace = true

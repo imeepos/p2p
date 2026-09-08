@@ -7,6 +7,7 @@
 //! console（契约 §15：acp 泵进程内装配，INLINE-ACP-PUMP T3）/
 //! llm_share（契约 v11 §16 加法：llm-share 命令面，LSG1）。
 
+pub mod a2a;
 pub mod acp_descriptor;
 pub mod chat;
 pub mod commands;
@@ -101,6 +102,11 @@ pub fn run() {
             llm_share::llm_share_share_revoke,
             llm_share::llm_share_share_redeem,
             llm_share::llm_share_serve_status,
+            a2a::a2a_list,
+            a2a::a2a_publish,
+            a2a::a2a_unpublish,
+            a2a::a2a_allow,
+            a2a::a2a_disallow,
         ])
         .plugin(tauri_plugin_opener::init())
         // 媒体附件导出（契约 §12 加法）：系统保存对话框选目标路径

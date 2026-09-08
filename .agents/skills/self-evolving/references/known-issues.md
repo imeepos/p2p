@@ -451,3 +451,17 @@ failed: early eof（客户端侧超时中止）。
 
 - 2026-09-08（W3 波）cargo fmt 会在 check 之后改动文件：fmt 后 edit 必报 file changed since read，先重新 read 再 edit；且 edit 的 old_string 要按 fmt 后的现场文本取。
 - 2026-09-08（W3 波）clippy err_expect：测试里点 err 后 expect 一律写 expect_err；fmt 多行折叠会让单行 grep 漏检，用带空白容忍的正则替换。
+- 症状：execSync 跑 pnpm 报 env: node: No such file or directory。原因：run_code worker 的 PATH 无 node，node/pnpm 实际在 /Users/imeepos/.vite-plus/bin（非 homebrew），cargo 在 ~/.cargo/bin。修法：命令里显式 export PATH=/Users/imeepos/.vite-plus/bin:/opt/homebrew/bin:/Users/imeepos/.cargo/bin:/usr/bin:/bin，且同时传 env 覆盖 HOME=/Users/imeepos（worker 的 HOME 也可能缺失）。
+- 2026-09-08 W5b：DSH job_list 零参调用报 binding arguments must be lossless JSON（同 session_link_list/get_goal 族）；绕行：显式传 {}。job_output 的 wait 长超时受 wall-clock 1000s 上限截断，长门禁用轮询 job_list+读日志文件。
+
+## 2026-09-08 HTTP 服务带未读请求体关连接：RST 竞掉已写出的响应（401 路径并行假红）
+
+- 症状：macOS 并行测试下，HTTP 401/404 等「未读 body 即回」的路径偶发客户端 `ConnectionReset`，断言响应内容的测试假红（12 轮 1 次），单跑恒绿。
+- 原因：服务端 reply+shutdown 后直接 drop socket，请求体未读 → 内核发 RST 而非 FIN，RST 可清掉客户端 recv 缓冲里已写出的响应。
+- 修法：按 Content-Length 精确排空剩余请求体再放连接（读满即走，不依赖对端关写杜绝互等；EOF/超时放行并留痕）。见 crates/acp-pump/src/status_wire.rs drain_exact 与 tests/status_close.rs 回归。
+
+## 2026-09-08 测试客户端护栏 == 服务端拨号超时（10s vs 10s）：并行负载必竞态假红
+
+- 症状：share_connect `connect_share_unreachable_peer_reports_failure` 偶发 `Elapsed` panic（suite 耗时恰好 10.0s）。
+- 原因：夹具 STEP=10s 与 lib 拨号护栏 HANDSHAKE_TIMEOUT=10s 零余量，负载下「服务端 10s 超时如实回执」与「客户端 10s 放弃」互踩。
+- 修法：客户端护栏必须 > 服务端最坏路径耗时（STEP 提到 20s）；设计夹具时先列服务端各超时常量再定护栏。

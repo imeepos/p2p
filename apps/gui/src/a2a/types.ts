@@ -56,3 +56,14 @@ export interface AgentCreateInput {
   skills: string[];
   visibility: Exclude<AgentVisibility, "local">;
 }
+/** 邀请条目（invites.json 的 GUI 侧形状）。 */
+export interface InviteEntryJson {
+  nonce: string;
+  agentId: string;
+  hostPeer: string;
+  inviteePeer: string;
+  expiry: number;
+  issuedAt: number;
+  status: "pending" | "accepted" | "rejected" | "expired";
+  receiptSig?: string;
+}

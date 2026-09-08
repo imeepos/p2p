@@ -456,3 +456,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-08（W3 波）多行 Rust 代码经 run_code 写入：用「单引号 JS 字符串逐行 push + join」最稳；双引号数组内反斜杠转义与模板串屡触发解析错。单引号方案里 Rust 生命周期撇号先用类型别名规避。
 - 2026-09-08（W3 波）bash 工具不传 workdir 时落在会话工作目录（主树），与上一次调用的 cd 无关——曾把主树的 cargo check 误当 worktree 检查得到假绿。工作区命令必须显式传 workdir。
 - 2026-09-08（W3 波）read 工具有单次返回行数上限（totalLines 可能大于实际返回行数）：「读全文再写回」的追加方式会静默截断长文件（本次砍掉 techniques 172 行/known-issues 117 行，靠 git checkout HEAD~1 -- 恢复）。长文件追加一律用 bash cat >> heredoc。
+- 2026-09-08（A2A3 波）run_code 有 60s 计算预算：cargo test/build、pnpm build、make check 等长命令用 node child_process exec(...).unref() 后台跑 + 重定向日志文件，隔 30-45s 轮询 grep 结果摘要；前台 execSync 必超时。
+- 2026-09-08（A2A3 波）tools.bash binding 坏掉（报 missing required property "description"，与参数内容无关且最小调用也失败，疑 glob 30s 超时后 worker 通道损坏）：run_code 内改用 node:child_process 的 execSync/exec 全程替代，读写文件照走 tools.read/write 不受影响，任务不必中断。
+
+- 2026-09-08 新 worktree 跑全量测试前的一次性环境预置：apps/gui `pnpm install`；apps/acp-agent `cargo build`（debug）——p2p-itest 的 a2a/task/card wave 夹具按 CARGO_TARGET_DIR→apps/acp-agent/target 找 acp-echo-stub，缺失时 0.00s 秒 panic「stub 未构建」（workspace test 全量必踩）。
+- 2026-09-08 把「响应竞态假红」变确定性复现：放大请求体（如 2MB）强制「关闭时必有未读数据」，修复前 RST 高概率复现、修复后恒绿——比靠并行负载碰运气的回归测试强一个量级（见 tests/status_close.rs）。
