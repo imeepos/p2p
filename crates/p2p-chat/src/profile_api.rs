@@ -59,7 +59,7 @@ pub(crate) async fn peer_profile(core: &ChatCore, peer: &str) -> Result<PeerProf
             }
             res
         }
-        Err(_) => Err(ChatError::Protocol(format!(
+        Err(_) => Err(ChatError::ProfileUnavailable(format!(
             "等待对端资料回应超时（{PROFILE_TIMEOUT:?}）"
         ))),
     }

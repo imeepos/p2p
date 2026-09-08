@@ -115,6 +115,29 @@ pub async fn chat_friend_update(
         .map_err(|e| e.to_string())
 }
 
+/// chat_peer_profile（契约 §12.1 加法）：按需拉取对端节点资料（/im/profile/1）。
+/// 不可达类失败（离线/开流失败/应答超时）返回 Ok(None)——展示层降级为
+/// 「对方未设置或不可达」，不弹错误；参数非法与协议违规 Err 可读中文。
+#[tauri::command]
+pub async fn chat_peer_profile(
+    state: State<'_, AppState>,
+    peer_id: String,
+) -> Result<Option<p2p_chat::PeerProfile>, String> {
+    let chat = state.chat().await?;
+    match chat.peer_profile(&peer_id).await {
+        Ok(profile) => Ok(Some(profile)),
+        Err(
+            e @ (p2p_chat::ChatError::ConnectFailed(_)
+            | p2p_chat::ChatError::StreamFailed(_)
+            | p2p_chat::ChatError::ProfileUnavailable(_)),
+        ) => {
+            tracing::info!(peer_id = %peer_id, error = %e, "对端资料不可得，按未设置处理");
+            Ok(None)
+        }
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// chat_friend_remove：幂等；never 在簿返回 false，不删消息历史。
 #[tauri::command]
 pub async fn chat_friend_remove(

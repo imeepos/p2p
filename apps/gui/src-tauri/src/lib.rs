@@ -64,6 +64,7 @@ pub fn run() {
             chat::chat_invite_reject,
             chat::chat_invite_cancel,
             chat::chat_friend_update,
+            chat::chat_peer_profile,
             chat::chat_friend_remove,
             chat::chat_history,
             chat::chat_send,

@@ -178,8 +178,9 @@ interface UpdateCheckResult {
 
 本机节点的展示层资料（name/description/avatar）。定位：纯 GUI 展示属性，仅存本机
 （app 数据目录 node-profile.json，原子写），不进底座、不随发现协议广播；对端资料
-互通属后续协议扩展，不在本契约范围内。与 GuiConfig 完全独立：不进 node_start，
-保存后无需重启节点即生效。
+互通已于 2026-09-09 落地为按需拉取协议 /im/profile/1（wire-protocol.md §8.5），
+GUI 经 §12.1 chat_peer_profile 查询，对端自报内容不做真实性验证。与 GuiConfig
+完全独立：不进 node_start，保存后无需重启节点即生效。
 
 ```ts
 interface NodeProfile {
@@ -214,6 +215,7 @@ group 字段仅存不显，移动分组入口下线）。
 | chat_friend_add | peerId: string, nickname: string, addrs: string[] | ChatFriendJson | 校验（peerId base58 且 ≠ 本机、nickname trim ≤64、addr 语法逐条校验）后原子写好友簿；addr 同时登记地址簿可拨 |
 | chat_friend_remove | peerId: string | boolean | 从好友簿移除；never 在簿 → false（幂等），不删消息历史 |
 | chat_friend_update | peerId: string, patch: { group?: string \| null; nickname?: string \| null; note?: string \| null } | ChatFriendJson | 资料补丁（IM-T43 加法）：group/nickname/note 至少一项，addrs 不可经此修改；group 空串 = 移出分组（归一化 null，不落盘空串）；组名 trim 后 ≤32 字符；空补丁或 peer 不在簿 → Err |
+| chat_peer_profile | peerId: string | PeerProfileJson \| null | 对端节点资料按需拉取（2026-09-09 加法）：经 /im/profile/1（wire-protocol.md §8.5）查询对端自报资料 {name, description, avatar}；不可达类失败（离线/开流失败/应答超时）返回 null（展示层降级），参数非法与协议违规 → Err。内容为对端自报，展示层自行取舍 |
 | chat_history | peer: string, beforeId?: string | null, limit?: number | ChatMessageJson[] | 按 time desc 分页，limit 默认 50 上限 100；beforeId 游标=严格更早 |
 | chat_send | peer: string, kind: ChatKind, text?: string, media?: ChatMediaInput, replyTo?: string \| null | ChatSendReport | 校验→生成信封→落 outbox→尝试发送；文本 trim 后 1..=2000 字符；媒体原始字节 ≤64MiB；replyTo 提供时须非空字符串（不校验被引用消息存在性，离线引用允许） |
 | chat_media_file | peer: string, messageId: string | { path: string; mime: string; name: string } | 返回附件落盘绝对路径（仅本端展示用）；消息非 media 或不存在 → Err |

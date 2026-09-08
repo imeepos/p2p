@@ -116,6 +116,8 @@ pub enum ChatError {
     InvalidUpdate(String),
     #[error("已是好友：{0}")]
     AlreadyFriends(String),
+    #[error("对端资料不可用：{0}")]
+    ProfileUnavailable(String),
 }
 
 /// base58 → 32 字节 PeerId；编码或长度非法即 Err（可读中文）。

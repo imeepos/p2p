@@ -51,6 +51,15 @@ impl NodeProfile {
         }
         Ok(())
     }
+
+    /// → /im/profile/1 响应载荷（字段同名直传；越界由 chat 层长度防线降级）。
+    pub fn into_peer_profile(self) -> p2p_chat::PeerProfile {
+        p2p_chat::PeerProfile {
+            name: self.name,
+            description: self.description,
+            avatar: self.avatar,
+        }
+    }
 }
 
 /// avatar 校验：长度上限、MIME 白名单、base64 载荷字符集。

@@ -51,7 +51,8 @@ pub struct AppState {
     app_data_dir: PathBuf,
     running: Mutex<Option<RunningNode>>,
     config: ConfigStore,
-    profile: ProfileStore,
+    /// Arc 供 /im/profile/1 应答闭包捕获（'static）。
+    profile: Arc<ProfileStore>,
     chat: chat::ChatSlot,
     /// 出借方常驻 serve 槽位（§16.6 v13：node_start 装配 / node_stop 卸载）。
     llm_serve: ServeSlot,
@@ -63,7 +64,7 @@ impl AppState {
             app_data_dir: app_data_dir.clone(),
             running: Mutex::new(None),
             config: ConfigStore::new(app_data_dir.clone()),
-            profile: ProfileStore::new(app_data_dir.clone()),
+            profile: Arc::new(ProfileStore::new(app_data_dir.clone())),
             chat: chat::ChatSlot::new(app_data_dir),
             llm_serve: ServeSlot::new(),
         }
@@ -93,9 +94,16 @@ impl AppState {
         let node = Arc::new(node);
         let history = Arc::new(MetricsHistory::new());
         spawn_metrics_sampler(node.clone(), history.clone());
-        // chat 装配依赖运行中的 node；失败回滚（停 node、不占槽），不留半启动状态
-        let (chat_events, group_events) =
-            self.chat.install(node.clone()).await.inspect_err(|_| {
+        // chat 装配依赖运行中的 node；失败回滚（停 node、不占槽），不留半启动状态。
+        // /im/profile/1 应答闭包捕获 ProfileStore：读本机资料文件供对端查询。
+        let profile_store = self.profile.clone();
+        let local_profile: p2p_chat::LocalProfileFn =
+            Arc::new(move || profile_store.load().into_peer_profile());
+        let (chat_events, group_events) = self
+            .chat
+            .install(node.clone(), local_profile)
+            .await
+            .inspect_err(|_| {
                 node.shutdown();
                 history.stop_and_clear();
             })?;

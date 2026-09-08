@@ -26,10 +26,12 @@ impl ChatSlot {
     }
 
     /// 节点启动后装配（data_dir = app_data_dir，crate 内部 join "chat"）；
+    /// local_profile 为 /im/profile/1 应答内容源（本机节点资料读取器）；
     /// 返回（1:1 事件, 群事件）接收端（命令层转发）。失败留告警并回抛中文 Err。
     pub async fn install(
         &self,
         node: Arc<Node>,
+        local_profile: p2p_chat::LocalProfileFn,
     ) -> Result<
         (
             broadcast::Receiver<ChatEvent>,
@@ -37,10 +39,11 @@ impl ChatSlot {
         ),
         String,
     > {
-        let chat = Chat::new(node, self.app_data_dir.clone()).map_err(|e| {
-            warn!(error = %e, "聊天模块装配失败");
-            format!("聊天模块装配失败: {e}")
-        })?;
+        let chat = Chat::with_local_profile(node, self.app_data_dir.clone(), local_profile)
+            .map_err(|e| {
+                warn!(error = %e, "聊天模块装配失败");
+                format!("聊天模块装配失败: {e}")
+            })?;
         let rx = chat.events();
         let group_rx = chat.group.events();
         *self.slot.lock().await = Some(Arc::new(chat));
