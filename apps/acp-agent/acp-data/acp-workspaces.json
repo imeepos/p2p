@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "workspaces": [
+    {
+      "id": "ws1",
+      "name": "named",
+      "dir": "/var/folders/wx/ryg976bs4fb2jvb6clbm3nv80000gn/T/jail-test-ws-named"
+    }
+  ]
+}

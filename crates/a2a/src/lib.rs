@@ -33,5 +33,5 @@ pub use frame::{
 };
 pub use task::{
     allowed_transition, DataPart, FilePart, Message, Part, Role, Task, TaskError, TaskState,
-    TextPart, FILE_PART_CAP_BYTES, TASK_INPUT_CAP_BYTES,
+    TextPart, FILE_PART_CAP_BYTES, TASKS_PER_PEER_MAX, TASK_INPUT_CAP_BYTES,
 };

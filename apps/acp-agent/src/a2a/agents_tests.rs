@@ -96,11 +96,14 @@ fn signed_cards_visibility_filter() {
     let host = kp.peer_id().to_string();
     let now = 10_000;
     // owner 全见
-    assert_eq!(store.signed_cards_for(&kp, &host, true, now).len(), 2);
-    // 远程仅 public（A2A2a fail-closed；授权清单 A2A5 接入）
-    let cards = store.signed_cards_for(&kp, &host, false, now);
+    assert_eq!(store.signed_cards_for(&kp, &host, true, &[], now).len(), 2);
+    // 远程仅 public（fail-closed：无授权清单时）
+    let cards = store.signed_cards_for(&kp, &host, false, &[], now);
     assert_eq!(cards.len(), 1);
     assert_eq!(cards[0].0.payload.agent_id, "pub-a");
+    // 授权清单内 private 对该 peer 可见
+    let cards = store.signed_cards_for(&kp, &host, false, &["priv-b".to_owned()], now);
+    assert_eq!(cards.len(), 2);
     for card in &cards {
         card.verify(now).unwrap();
     }
