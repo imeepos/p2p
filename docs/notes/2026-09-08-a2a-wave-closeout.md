@@ -16,7 +16,7 @@
 ## 显式降级登记（后续波次清单）
 1. A2A3: 「编辑」仅 visibility/enabled 可改（宿主 admin PUT v1 数据面）
 2. A2A4: A2aMessage.receivedAtMs 由 store effect 填充（渲染期禁 Date.now，a2a/online.ts 注释）；use-conversation-entries 的 tsMs 取 receivedAtMs ?? 0
-3. A2A5: GUI「分享」动作的 admin HTTP 邀请生成端点未接（对话框结构已备）；部分 i18n 键路径待调
+3. A2A5: GUI「分享」动作的 admin HTTP 邀请生成端点已补齐（收口波 POST /a2a/agents/{id}/invite）；i18n 键路径已确认完整（contacts.agents.share.* + agents.* 双命名空间）
 4. 全域: 真 dsh #[ignore] itest 与 SKIP 信号 = A2A6 范围，未做
 
 ## A2A6 派发前置条件（重要）

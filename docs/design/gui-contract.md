@@ -587,10 +587,11 @@ GUI /agents 页（发现/我的双视图）的数据面契约。IPC 命令表零
 §15 AcpLocalDescriptor（adminUrl/token/peer），console 连接面凭 §15 AcpConsoleStatus
 （wsUrl/token）；node-event 判别联合（NodeEventJson）不动（拍板 Q6）。
 
-### 17.1 卡片/邀请事件通道（acp-console WS 独立事件通道）
+### 17.1 卡片/邀请事件通道（acp-pump WS 事件通道，proto=a2a）
 
 - 通道 = `ws://127.0.0.1:<ws_port>/?token=&peer=<宿主PeerId>&proto=a2a`（crates/acp-pump
-  src/ws.rs 为 wire 契约权威）。console 按 `proto` 拨 `/a2a/1`（缺省 `acp` 拨 `/dsh-acp/1`，
+  src/ws.rs 为 wire 契约权威，原 apps/acp-console 独立子项目已随 INLINE-ACP-PUMP 撤销，
+  泵面内联入 crates/acp-pump）。Pump 按 `proto` 拨 `/a2a/1`（缺省 `acp` 拨 `/dsh-acp/1`，
   未知值 401 显式拒绝），握手后纯字节泵，帧面真值源 = `crates/a2a` CardFrame（§5.1 表）。
 - GUI 通道纪律：连上先 `list` 拉全量再 `subscribe`；`cards`/`push` 按
   `hostPeer/agentId` 键入簿，同键 version 升序才覆盖；`push.removed` 即除名；
@@ -605,6 +606,7 @@ GUI /agents 页（发现/我的双视图）的数据面契约。IPC 命令表零
 | POST /a2a/agents | `{agentId?, name, description, skills?, visibility}` | AgentDef | 创建即签名发布并广播 push；skills ≤10 条（id [a-z0-9-]）；name/description 非空 |
 | PUT /a2a/agents/{id} | `{visibility?}` 或 `{enabled?}` | AgentDef | 变更即重签广播；名称/描述/技能 v1 数据面不可改（GUI 编辑态只开放可见性） |
 | DELETE /a2a/agents/{id} | - | `{"removed":agentId}` | 下架即广播 removed（键 hostPeer/agentId） |
+| POST /a2a/agents/{id}/invite | `{inviteePeer, expirySecs?}` | `{"invite":Signed<InvitePayload>}` | 生成签名邀请帧（A2A5），落盘邀请簿；expirySecs 默认 24h，上限 24h；inviteePeer 必须为合法 base58 PeerId |
 
 - 错误面：400 invalid-json；404 unknown agent；422 校验拒绝（error 原文上浮 UI，禁静默）。
 - AgentDef（camelCase）：agentId/name/description/skills[{id,name,…}]/visibility(public|private|local)。
@@ -616,6 +618,6 @@ GUI /agents 页（发现/我的双视图）的数据面契约。IPC 命令表零
 2. 可见性徽章：public=绿、private=灰、local=灰（设计 §8.2）。
 3. 「聊天」（?a2a= 会话）已交付（A2A4）：点击导航到 /chat?a2a=<agentKey>，
    右侧渲染 A2aConversation 组件（task 语义，与 ACP transcript 栈分家）。
-   「分享」（生成签名邀请）为 A2A5 交付面：A2A4 内为可点占位，触发 toast
-   显式说明功能未开通，不导航不静默。
+   「分享」（生成签名邀请）已交付（A2A5 + 收口波）：POST /a2a/agents/{id}/invite
+   生成签名邀请帧，ShareInviteDialog 展示帧 JSON 供复制。
 4. skills 输入 chip ≤10 条、trim+去重（拍板 Q9）；校验失败原位上浮。
