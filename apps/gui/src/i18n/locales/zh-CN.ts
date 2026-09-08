@@ -1176,19 +1176,13 @@ const zhCN = {
     console: {
       localAgentName: "本机 agent",
       phase: {
-        starting: "正在启动本机 agent 控制台",
-        ready: "本机 agent 已就绪",
-        restarting: "控制台异常退出，自动重启中（已重启 {{restarts}} 次）",
-        failed: "本机 agent 控制台启动失败",
-        unavailable: "未找到 acp-console 伴生进程",
-        stopped: "本机 agent 控制台已停止",
+        connecting: "正在启动本机 agent 泵",
+        connected: "本机 agent 泵已就绪",
+        disconnected: "本机 agent 泵已断开",
       },
       guide: {
-        unavailableHint:
-          "请安装 acp-console 伴生进程，或用环境变量 ACP_CONSOLE_BIN 指定可执行文件路径后重启应用",
-        failedHint: "acp-console 连续自动重启失败：请查看日志排查",
-        startingHint: "正在启动 acp-console 伴生进程，就绪后自动进入本机 agent 会话",
-        restartingHint: "acp-console 异常退出后自动重启中，就绪后自动恢复会话",
+        connectingHint: "正在进程内装配本机 agent 泵，就绪后自动进入本机 agent 会话",
+        disconnectedHint: "本机 agent 泵已断开：请查看日志排查",
         logsAction: "查看日志",
         lastError: "最近错误：{{error}}",
       },

@@ -1201,19 +1201,13 @@ const enUS: typeof zhCN = {
     console: {
       localAgentName: "Local agent",
       phase: {
-        starting: "Starting the local agent console",
-        ready: "Local agent is ready",
-        restarting: "Console exited unexpectedly; auto-restarting ({{restarts}} restarts so far)",
-        failed: "Local agent console failed to start",
-        unavailable: "acp-console sidecar not found",
-        stopped: "Local agent console stopped",
+        connecting: "Starting the in-process local agent pump",
+        connected: "Local agent pump is ready",
+        disconnected: "Local agent pump disconnected",
       },
       guide: {
-        unavailableHint:
-          "Install the acp-console sidecar, or set the ACP_CONSOLE_BIN environment variable to the executable path and restart the app",
-        failedHint: "acp-console keeps failing to restart: check the logs to investigate",
-        startingHint: "Starting the acp-console sidecar; the local agent session opens automatically once ready",
-        restartingHint: "acp-console exited unexpectedly and is auto-restarting; the session resumes automatically",
+        connectingHint: "Assembling the local agent pump in-process; the local agent session opens automatically once ready",
+        disconnectedHint: "The local agent pump disconnected: check the logs to investigate",
         logsAction: "View logs",
         lastError: "Last error: {{error}}",
       },
