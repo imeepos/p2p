@@ -38,16 +38,17 @@ pub async fn read_request_frame(stream: &mut BoxedStream) -> std::io::Result<Vec
     }
 }
 
-/// 以已读首帧为起点的 chunked 重组（语义对齐 p2p-protocol::read_chunked）。
+/// 以已读首帧为起点的 chunked 重组（语义对齐 p2p-protocol::read_chunked）：
+/// FRAME_SINGLE 仅在无累积载荷时合法（整条消息一帧装下即到消息末尾）。
 async fn finish_chunked(stream: &mut BoxedStream, first: Vec<u8>) -> std::io::Result<Vec<u8>> {
-    let mut msg = Vec::new();
+    let mut msg: Vec<u8> = Vec::new();
     let mut frame = first;
     loop {
         let Some(head) = frame.first().copied() else {
             return Err(wire_err("chunked frame missing type byte"));
         };
-        msg.extend_from_slice(&frame[1..]);
-        let total = msg.len() as u64;
+        let data = &frame[1..];
+        let total = msg.len() as u64 + data.len() as u64;
         if total > MAX_MESSAGE_SIZE {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -55,11 +56,19 @@ async fn finish_chunked(stream: &mut BoxedStream, first: Vec<u8>) -> std::io::Re
             ));
         }
         match head {
-            FRAME_END => return Ok(msg),
-            FRAME_CHUNK => frame = read_frame(stream).await?,
+            FRAME_SINGLE if msg.is_empty() => return Ok(data.to_vec()),
+            FRAME_END => {
+                msg.extend_from_slice(data);
+                return Ok(msg);
+            }
+            FRAME_CHUNK => {
+                msg.extend_from_slice(data);
+                frame = read_frame(stream).await?;
+            }
             _ => {
                 return Err(wire_err(format!(
-                    "unexpected chunked frame type {head:#04x}"
+                    "unexpected chunked frame type {head:#04x} after {} bytes",
+                    msg.len()
                 )))
             }
         }
@@ -144,6 +153,89 @@ pub enum ProxyFrame {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use p2p_protocol::{write_chunked, write_frame, write_protocol_id, ProtocolId};
+    use tokio::io::AsyncWriteExt;
+
+    /// 分发支路（dispatch 已消费协议 ID）+ 小载荷：write_chunked 产出
+    /// FRAME_SINGLE 首帧，必须按整条消息接受（B1/B4 借方实际线形态）。
+    #[tokio::test]
+    async fn dispatch_accepts_single_frame_request() {
+        let payload = serde_json::to_vec(&sample()).expect("json");
+        let expect = payload.clone();
+        let (tx, rx) = tokio::io::duplex(64 * 1024);
+        let mut rx: BoxedStream = Box::new(rx);
+        let dial = tokio::spawn(async move {
+            let mut w: BoxedStream = Box::new(tx);
+            write_chunked(&mut w, &payload).await?;
+            w.shutdown().await
+        });
+        let raw = read_request_frame(&mut rx).await.expect("request frame");
+        dial.await.expect("writer task").expect("dial writes");
+        assert_eq!(raw, expect, "FRAME_SINGLE 首帧须整条返回");
+    }
+
+    /// 分发支路 + 分片载荷：CHUNK + 带载荷 END 收束，逐段拼接。
+    #[tokio::test]
+    async fn dispatch_accepts_chunked_request() {
+        let payload = serde_json::to_vec(&sample()).expect("json");
+        let (head, tail) = payload.split_at(payload.len() / 2);
+        let (head, tail) = (head.to_vec(), tail.to_vec());
+        let (tx, rx) = tokio::io::duplex(64 * 1024);
+        let mut rx: BoxedStream = Box::new(rx);
+        let dial = tokio::spawn(async move {
+            let mut w: BoxedStream = Box::new(tx);
+            let mut chunk = vec![FRAME_CHUNK];
+            chunk.extend_from_slice(&head);
+            let mut end = vec![FRAME_END];
+            end.extend_from_slice(&tail);
+            write_frame(&mut w, &chunk).await?;
+            write_frame(&mut w, &end).await?;
+            w.shutdown().await
+        });
+        let raw = read_request_frame(&mut rx).await.expect("request frame");
+        dial.await.expect("writer task").expect("dial writes");
+        assert_eq!(raw, payload, "CHUNK+END 须拼接还原");
+    }
+
+    /// 裸流支路：首帧协议 ID 匹配后接 chunked 请求帧。
+    #[tokio::test]
+    async fn bare_stream_accepts_protocol_id_then_request() {
+        let payload = serde_json::to_vec(&sample()).expect("json");
+        let expect = payload.clone();
+        let id = ProtocolId::new(PROTOCOL_ID).expect("protocol id");
+        let (tx, rx) = tokio::io::duplex(64 * 1024);
+        let mut rx: BoxedStream = Box::new(rx);
+        let dial = tokio::spawn(async move {
+            let mut w: BoxedStream = Box::new(tx);
+            write_protocol_id(&mut w, &id).await?;
+            write_chunked(&mut w, &payload).await?;
+            w.shutdown().await
+        });
+        let raw = read_request_frame(&mut rx).await.expect("request frame");
+        dial.await.expect("writer task").expect("dial writes");
+        assert_eq!(raw, expect);
+    }
+
+    /// 类型序非法：SINGLE 出现在分片中途必须显式拒绝（对齐 read_chunked）。
+    #[tokio::test]
+    async fn dispatch_rejects_single_after_chunk() {
+        let (tx, rx) = tokio::io::duplex(64 * 1024);
+        let mut rx: BoxedStream = Box::new(rx);
+        let dial = tokio::spawn(async move {
+            let mut w: BoxedStream = Box::new(tx);
+            write_frame(&mut w, &[FRAME_CHUNK, b'a']).await?;
+            write_frame(&mut w, &[FRAME_SINGLE, b'b']).await?;
+            w.shutdown().await
+        });
+        let err = read_request_frame(&mut rx)
+            .await
+            .expect_err("mid-chunk SINGLE must be rejected");
+        dial.await.expect("writer task").expect("dial writes");
+        assert!(
+            err.to_string().contains("unexpected chunked frame type"),
+            "err: {err}"
+        );
+    }
 
     fn sample() -> Value {
         serde_json::json!({
