@@ -14,6 +14,7 @@ pub mod offer;
 pub mod provider;
 pub mod receipt;
 pub mod share;
+pub mod share_redeem;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

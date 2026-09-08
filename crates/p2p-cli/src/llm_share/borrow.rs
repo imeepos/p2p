@@ -5,16 +5,15 @@
 //! 验签（client 强制 + 落盘前复验）→ 借方账本入账（§5.1 wire 形态）。
 //! 拨号装配进程内自建（facade Node，见 borrow_dial），不改 daemon/serve 常驻行为。
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use llm_share_ledger::{Receipt, WINDOW_ESTIMATED_SECS, WINDOW_SECS};
 use llm_share_offer::{select_offers, OfferBook, SignedOffer};
 use llm_share_proxy::{ProxyClient, ProxyEvent, ProxyRequest};
-use p2p::Node;
 use p2p_identity::PeerId;
 use serde_json::Value;
 
+use super::borrow_dial::NodeShutdown;
 use super::borrow_report::{self, BorrowReport};
 use super::ledger;
 use super::{borrow_dial, file_path, now_secs, validate_peer_id, write_json_atomic};
@@ -47,35 +46,14 @@ pub struct BorrowParams {
     pub req_id: Option<String>,
 }
 
-/// 进程退出前确保节点关停（错误路径同样断连，不残留监听）。
-struct NodeShutdown(Arc<Node>);
-impl Drop for NodeShutdown {
-    fn drop(&mut self) {
-        self.0.shutdown();
-    }
-}
-
-impl NodeShutdown {
-    fn new(node: Arc<Node>) -> Self {
-        Self(node)
-    }
-
-    fn node(&self) -> &Node {
-        &self.0
-    }
-
-    fn raw(&self) -> Arc<Node> {
-        self.0.clone()
-    }
-}
-
 /// borrow 主流程。结构化拒绝（rejected）不视为运行错误：报告照常返回，
 /// 由命令面决定退出码（对齐 receipt verify 的「报告照常输出 + 显式失败」）。
 pub async fn run(params: &BorrowParams) -> Result<BorrowReport, String> {
     validate_peer_id(&params.lender)?;
     let messages = build_messages(params)?;
     let lender = parse_lender(&params.lender)?;
-    let guard = NodeShutdown::new(borrow_dial::build_node(params).await?);
+    let guard =
+        NodeShutdown::new(borrow_dial::build_node(&params.node_dir, &params.bootstrap).await?);
     borrow_dial::connect_lender(guard.node(), lender, params).await?;
     let signed = borrow_dial::fetch_offer(guard.node(), lender).await?;
     let model = resolve_model(params.model.as_deref(), &signed)?;
