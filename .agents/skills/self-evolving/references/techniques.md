@@ -461,3 +461,12 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 
 - 2026-09-08 新 worktree 跑全量测试前的一次性环境预置：apps/gui `pnpm install`；apps/acp-agent `cargo build`（debug）——p2p-itest 的 a2a/task/card wave 夹具按 CARGO_TARGET_DIR→apps/acp-agent/target 找 acp-echo-stub，缺失时 0.00s 秒 panic「stub 未构建」（workspace test 全量必踩）。
 - 2026-09-08 把「响应竞态假红」变确定性复现：放大请求体（如 2MB）强制「关闭时必有未读数据」，修复前 RST 高概率复现、修复后恒绿——比靠并行负载碰运气的回归测试强一个量级（见 tests/status_close.rs）。
+
+## 2026-09-08 免装密钥工具生成支付宝 RSA2 密钥（openssl 直出）
+- macOS 自带 LibreSSL 三条命令等价替代支付宝开放平台密钥工具的「生成密钥+格式转换+密钥匹配」：
+  `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048`（PKCS8，Java 用）→
+  `openssl rsa -in pkcs8.pem -out pkcs1.pem`（LibreSSL 的 rsa 命令默认输出 PKCS1「BEGIN RSA PRIVATE KEY」）→
+  `openssl pkey -pubout`；匹配校验用「从 PKCS1 私钥再导公钥 diff 公钥文件」。
+- 控制台/配置要的是去头尾换行的单行 base64：`grep -v '^-' xxx.pem | tr -d '\n'`。
+- 密钥落盘前先查 .gitignore：.env 已忽略不等于 keys/ 目录被忽略，生成前一条
+  `git check-ignore` 判定并补 `keys/`，防密钥材料进 git（本日实录：.gitignore 只有 .env）。

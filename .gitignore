@@ -9,3 +9,6 @@ dist/
 apps/gui/src-tauri/gen/
 apps/cli/target/
 p2p-data/
+
+# 支付宝密钥文件，禁止入库
+keys/
