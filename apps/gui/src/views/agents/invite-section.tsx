@@ -25,13 +25,13 @@ export function InviteSection({ received, sent, onAccept, onReject }: InviteSect
       <div className="flex flex-col gap-2">
         <SectionHeader
           icon={Mail}
-          title={t("agents.section.invitesReceived")}
+          title={t("contacts.agents.section.invitesReceived")}
           tone="info"
           count={pendingReceived.length}
         />
         {pendingReceived.length === 0 ? (
           <p className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm" data-testid="agents-invites-received-empty">
-            {t("agents.empty.invitesReceived")}
+            {t("contacts.agents.section.invitesReceived")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -44,7 +44,7 @@ export function InviteSection({ received, sent, onAccept, onReject }: InviteSect
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{invite.agentId}</span>
                   <span className="text-muted-foreground text-xs">
-                    {t("agents.invite.from")}: {invite.hostPeer.slice(0, 12)}...
+                    {t("contacts.agents.invite.from")}: {invite.hostPeer.slice(0, 12)}...
                   </span>
                   <span className="ml-auto flex items-center gap-1">
                     <Button
@@ -56,7 +56,7 @@ export function InviteSection({ received, sent, onAccept, onReject }: InviteSect
                       data-testid="agents-invite-accept-btn"
                     >
                       <Check aria-hidden className="size-4" />
-                      {t("agents.action.accept")}
+                      {t("contacts.agents.invite.accepted")}
                     </Button>
                     <Button
                       type="button"
@@ -67,7 +67,7 @@ export function InviteSection({ received, sent, onAccept, onReject }: InviteSect
                       data-testid="agents-invite-reject-btn"
                     >
                       <X aria-hidden className="size-4" />
-                      {t("agents.action.reject")}
+                      {t("contacts.agents.invite.rejected")}
                     </Button>
                   </span>
                 </div>
@@ -81,13 +81,13 @@ export function InviteSection({ received, sent, onAccept, onReject }: InviteSect
       <div className="flex flex-col gap-2">
         <SectionHeader
           icon={Send}
-          title={t("agents.section.invitesSent")}
+          title={t("contacts.agents.section.invitesSent")}
           tone="primary"
           count={pendingSent.length}
         />
         {pendingSent.length === 0 ? (
           <p className="text-muted-foreground rounded-md border border-dashed p-4 text-center text-sm" data-testid="agents-invites-sent-empty">
-            {t("agents.empty.invitesSent")}
+            {t("contacts.agents.section.invitesSent")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -100,16 +100,16 @@ export function InviteSection({ received, sent, onAccept, onReject }: InviteSect
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{invite.agentId}</span>
                   <span className="text-muted-foreground text-xs">
-                    {t("agents.invite.to")}: {invite.inviteePeer.slice(0, 12)}...
+                    {t("contacts.agents.invite.to")}: {invite.inviteePeer.slice(0, 12)}...
                   </span>
                   <span className="ml-auto flex items-center gap-1 text-muted-foreground">
                     <Clock aria-hidden className="size-4" />
                     <span className="text-xs">
                       {invite.status === "pending"
-                        ? t("agents.invite.pending")
+                        ? t("contacts.agents.invite.pending")
                         : invite.status === "accepted"
-                          ? t("agents.invite.accepted")
-                          : t("agents.invite.rejected")}
+                          ? t("contacts.agents.invite.accepted")
+                          : t("contacts.agents.invite.rejected")}
                     </span>
                   </span>
                 </div>
