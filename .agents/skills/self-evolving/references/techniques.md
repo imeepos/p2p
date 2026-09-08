@@ -474,3 +474,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 ## 2026-09-09 rail 移除协议文档入口轮
 - 本仓 DSH glob/grep 工具与 grep -rn 全树搜索均 30s 超时；bash PATH 无 rg（之前 `rg ... 2>/dev/null` 静默无输出实为 command not found 被吞）——检索用 /opt/homebrew/bin/rg 绝对路径 + 明确子目录（apps/gui/src），秒回；命令「零输出」先排除 not found 再下「无匹配」结论。
 - git worktree add 在本仓（1602 文件、外置卷）前台 120s 也会被杀留半成品（文件已部分落盘、worktree 未注册、分支已建）——重申 ACP3 结论：一律 run_in_background；中断清理三连：`git worktree prune` + `rm -rf <dir>` + `git branch -D <分支>`，再后台重建。
+
+## 2026-09-09 生图设计轮（负责人协调手法）
+- 重大纠偏（目标作废/换目标）禁止只发 session_link_send 排队：长轮次执行者不读新消息，会把接管误判为双写攻击并按 AGENTS.md 撤退协议开新 worktree 继续错误目标（本次实测，靠 interrupt_agent 止损）。正解：interrupt_agent 打断当前轮次 → 派发新任务书 → 磁盘核验旧产物已清理。
+- 监督长任务用「产物落盘节奏」而非消息回报：要求执行方每次尝试即写 results/log json，协调者 5 分钟轮询磁盘；文字回报在长轮次里既慢又可能为空。
+- 生图参数策略定式：先 low 探针定尺寸白名单（本次 1024x1024 / 1024x1536 / 1536x960 过、2560x1440 必挂、1536x1024 抖）→ 目标尺寸 high 串行 + 15s 退避重试（最终成功率 100%，单张最多 4 试）→ 失败张留到网关空闲窗口补跑，524 高发期等 5~10 分钟即恢复。
