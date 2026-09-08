@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronDownIcon, ChevronRightIcon, UserPlusIcon, UserRoundPlusIcon } from "lucide-react";
+import { UserPlusIcon, UserRoundPlusIcon } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import { AsyncButton } from "@/components/feedback/async-button";
@@ -11,18 +11,15 @@ import { errorText } from "@/views/shared/form-flow";
 import type { ChatFriendJson, FriendInviteJson } from "@/lib/ipc-types";
 import { useChatStore } from "@/stores/chat-store";
 
-import { collapseKeyOf, groupSections, loadCollapsedGroups, saveCollapsedGroups } from "./chat-friend-group";
-import { ChatFriendMoveDialog } from "./chat-friend-move-dialog";
 import { ChatFriendRemoveDialog } from "./chat-friend-remove-dialog";
 import { ChatFriendAddDialog } from "./chat-friend-add-dialog";
 import { CONTACT_ROW_CLS, ContactAvatar } from "./contact-avatar";
-import { useContactsPane } from "./contacts-sections";
-import { matchesQuery } from "./contacts-sections";
+import { matchesQuery, useContactsPane } from "./contacts-sections";
 import { TreeSection } from "./contacts-tree";
 import { FriendRow } from "./friend-row";
 
 // 好友节（§3.1，双栏改版）：树分节锚点 + 计数；检索走全局 Context 词；
-// out 邀请「待对方同意」条目可撤回；分组折叠交互保留；行内动作悬停显隐。
+// out 邀请「待对方同意」条目可撤回；行内动作悬停显隐。好友平铺不分组。
 export function FriendSection() {
   const { t } = useTranslation();
   const pane = useContactsPane();
@@ -50,20 +47,7 @@ export function FriendSection() {
     setAddOpen(open);
     if (!open && searchParams.get("add") !== null) setSearchParams({});
   };
-  const [moveTarget, setMoveTarget] = useState<ChatFriendJson | null>(null);
   const [removeTarget, setRemoveTarget] = useState<ChatFriendJson | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsedGroups());
-
-  const toggleGroup = (name: string | null) => {
-    setCollapsed((prev) => {
-      const key = collapseKeyOf(name);
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      saveCollapsedGroups(next);
-      return next;
-    });
-  };
 
   const outgoing = invites.filter(
     (i: FriendInviteJson) => i.direction === "out" && matchesQuery([i.nickname, i.peerId], pane.query),
@@ -154,39 +138,9 @@ export function FriendSection() {
           {t("contacts.noMatch")}
         </p>
       ) : (
-        groupSections(filtered).map((section) => {
-          const key = collapseKeyOf(section.name);
-          const isCollapsed = collapsed.has(key);
-          return (
-            <div key={key ?? "__ungrouped__"} className="flex flex-col gap-0.5">
-              <button
-                type="button"
-                className="text-muted-foreground hover:text-foreground flex w-full items-center gap-1 rounded px-1 py-1 text-xs font-medium"
-                aria-expanded={!isCollapsed}
-                onClick={() => toggleGroup(section.name)}
-                data-testid={"contacts-friend-group-" + key}
-              >
-                {isCollapsed ? (
-                  <ChevronRightIcon aria-hidden className="size-3.5" />
-                ) : (
-                  <ChevronDownIcon aria-hidden className="size-3.5" />
-                )}
-                {section.name ?? t("chat.group.ungrouped")}
-                <span className="ml-auto">{section.friends.length}</span>
-              </button>
-              {!isCollapsed
-                ? section.friends.map((friend) => (
-                    <FriendRow
-                      key={friend.peerId}
-                      friend={friend}
-                      onMove={setMoveTarget}
-                      onRemove={setRemoveTarget}
-                    />
-                  ))
-                : null}
-            </div>
-          );
-        })
+        filtered.map((friend) => (
+          <FriendRow key={friend.peerId} friend={friend} onRemove={setRemoveTarget} />
+        ))
       )}
 
       <ChatFriendAddDialog
@@ -194,7 +148,6 @@ export function FriendSection() {
         onOpenChange={handleAddOpenChange}
         initialPeerId={addSeed}
       />
-      <ChatFriendMoveDialog friend={moveTarget} onOpenChange={(open) => !open && setMoveTarget(null)} />
       <ChatFriendRemoveDialog friend={removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)} />
     </TreeSection>
   );

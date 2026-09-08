@@ -152,12 +152,4 @@ describe("通讯录双栏资料卡", () => {
     expect(screen.getByTestId("contact-friend-" + PEER_B)).toBeTruthy();
     expect(screen.getByTestId("contacts-count-friends").textContent).toBe("1/2");
   });
-
-  it("资料卡内移动分组：打开与行内入口同款移动分组对话框", async () => {
-    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
-    renderContacts();
-    await waitFor(() => expect(detailPane().getByTestId("contacts-detail-move")).toBeTruthy());
-    fireEvent.click(detailPane().getByTestId("contacts-detail-move"));
-    expect(screen.getByTestId("friend-move-dialog")).toBeTruthy();
-  });
 });

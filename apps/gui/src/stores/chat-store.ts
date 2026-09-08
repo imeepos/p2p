@@ -64,8 +64,6 @@ export interface ChatStoreState extends GroupInviteSlice {
   ) => Promise<ChatSendReport>;
   cancelPending: (peer: string, localMessageId: string) => void;
   forgetFriend: (peer: string) => void;
-  /** chatFriendUpdate 成功后的本地收尾（IM-T43）；IPC 调用在 ChatFriendMoveDialog（调用点守卫要求） */
-  updateFriendGroup: (peer: string, group: string | null) => void;
   subscribeEvents: () => Promise<void>;
 }
 
@@ -269,13 +267,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     set((s) => ({
       friends: s.friends.filter((f) => f.peerId !== peer),
       selectedPeer: s.selectedPeer === peer ? null : s.selectedPeer,
-    }));
-  },
-
-  // 移动/移出分组成功后的本地收尾：列表按新分组即时渲染（未分组存 null 不落空串）。
-  updateFriendGroup: (peer, group) => {
-    set((s) => ({
-      friends: s.friends.map((f) => (f.peerId === peer ? { ...f, group } : f)),
     }));
   },
 

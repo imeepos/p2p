@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
-import { MessageSquareIcon, MoveIcon, Trash2Icon } from "lucide-react";
+import { MessageSquareIcon, Trash2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/feedback/copy-button";
@@ -16,14 +16,13 @@ import { useContactsPane } from "./contacts-sections";
 
 interface FriendRowProps {
   friend: ChatFriendJson;
-  onMove: (friend: ChatFriendJson) => void;
   onRemove: (friend: ChatFriendJson) => void;
 }
 
-// 好友行（§3.1，双栏改版）：圆角方首字头像 + 昵称 + 备注/分组 + 在线点；
-// 点选行切换右栏资料卡；行内动作（发消息/移动分组/删除）悬停显隐，
-// 移动/删除仍由分区自持对话框承接（与资料卡入口同组件）。
-export function FriendRow({ friend, onMove, onRemove }: FriendRowProps) {
+// 好友行（§3.1，双栏改版）：圆角方首字头像 + 昵称 + 备注 + 在线点；
+// 点选行切换右栏资料卡；行内动作（发消息/删除）悬停显隐，
+// 删除仍由分区自持对话框承接（与资料卡入口同组件）。
+export function FriendRow({ friend, onRemove }: FriendRowProps) {
   const { t } = useTranslation();
   const pane = useContactsPane();
   const online = usePeerOnline(friend.peerId);
@@ -47,8 +46,7 @@ export function FriendRow({ friend, onMove, onRemove }: FriendRowProps) {
             <PeerStatusDot online={online} testId={"contact-friend-online-" + friend.peerId} />
           </span>
           <span className="text-muted-foreground block truncate text-xs">
-            {friend.note ? friend.note + " · " : ""}
-            {friend.group ? friend.group : t("chat.group.ungrouped")}
+            {friend.note ? friend.note : ""}
           </span>
         </span>
       </button>
@@ -63,18 +61,6 @@ export function FriendRow({ friend, onMove, onRemove }: FriendRowProps) {
           >
             <MessageSquareIcon aria-hidden className="size-4" />
           </Link>
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="size-7"
-          onClick={() => onMove(friend)}
-          data-testid={"contact-friend-move-" + friend.peerId}
-          title={t("contacts.friends.move")}
-          aria-label={t("contacts.friends.move")}
-        >
-          <MoveIcon aria-hidden className="size-4" />
         </Button>
         <Button
           type="button"

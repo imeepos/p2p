@@ -202,7 +202,8 @@ interface NodeProfile {
 旧端忽略未知字段照常收信，不校验被引用消息存在性——离线引用允许）、好友分组
 （group 可选字段，IM-T43 契约加法：单分组语义，None/空串 = 未分组，组名 trim 后
 1..=32 字符；好友簿仅本地 friends.json，分组不进 ChatEnvelope，wire 协议不变；
-GUI 列表按组分节展示、未分组虚拟组置底，CLI friends --group 同卡对齐）。
+CLI friends --group 同卡对齐。2026-09-08 GUI 去分组：通讯录好友平铺展示，
+group 字段仅存不显，移动分组入口下线）。
 实时通话/群聊/已读回执不在本轮。底座只读，全部落 crates/p2p-chat + src-tauri 消费面。
 
 ### 12.1 命令表（追加，全部 camelCase；参数无效一律 Err 可读中文）

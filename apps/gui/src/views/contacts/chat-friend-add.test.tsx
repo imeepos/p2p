@@ -210,6 +210,9 @@ describe("IPC 调用点静态守卫", () => {
     chatInviteCancel: "撤回邀请统一由 stores/chat-store.cancelInvite 调用（数据层）",
     chatHistory: "历史加载统一由 stores/chat-store（selectPeer/loadOlder/loadFriends）调用",
     chatSend: "消息发送统一由 stores/chat-store.sendText/sendMedia 调用（Composer 经 store）",
+    // 2026-09-08 GUI 去分组：通讯录好友平铺，移动分组入口下线；
+    // 契约保留该端点供 CLI friends update --group 使用
+    chatFriendUpdate: "好友分组已从 GUI 下线（契约保留，CLI 同卡），无界面调用点",
     chatMediaFile: "媒体展示当前直接消费消息内 path，无独立入口；接媒体落盘地址时补调用点",
     // IMC3 入群邀请面：视图经 chat-store 群邀请切片（stores/chat-group-invite-slice）调用
     chatGroupInvitesList: "入群邀请列表刷新统一由 stores/chat-group-invite-slice.loadGroupInvites 调用（数据层）",

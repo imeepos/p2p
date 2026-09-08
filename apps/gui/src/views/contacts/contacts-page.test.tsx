@@ -54,8 +54,8 @@ import { ContactsPage } from "@/routes/contacts-page";
 export const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
 const PEER_B = "2jSUsWcEf7z68xBscf2YmVYzQ4uPZfpMz8XRW3vruJU4";
 
-export function friendOf(peerId: string, nickname: string, group?: string): ChatFriendJson {
-  return { peerId, nickname, addrs: [], note: null, group: group ?? null };
+export function friendOf(peerId: string, nickname: string): ChatFriendJson {
+  return { peerId, nickname, addrs: [], note: null, group: null };
 }
 
 export function groupOf(groupId: string, name: string, owner: string): GroupJson {
@@ -138,16 +138,15 @@ describe("通讯录三区渲染（§3.1）", () => {
     expect(screen.getByTestId("contacts-agent-add")).toBeTruthy();
   });
 
-  it("好友区行内操作：发消息（/chat?peer=）、移动分组、删除均可达", async () => {
-    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆", "家人")]);
+  it("好友区行内操作：发消息（/chat?peer=）与删除可达，好友平铺不分组", async () => {
+    mocks.friends.mockResolvedValue([friendOf(PEER, "小圆")]);
     renderContacts();
     await waitFor(() => expect(screen.getByTestId("contact-friend-" + PEER)).toBeTruthy());
     const message = screen.getByTestId("contact-friend-message-" + PEER);
     expect(message.getAttribute("href")).toBe("/chat?peer=" + PEER);
-    expect(screen.getByTestId("contact-friend-move-" + PEER)).toBeTruthy();
     expect(screen.getByTestId("contact-friend-remove-" + PEER)).toBeTruthy();
-    // 分组名随行展示
-    expect(screen.getByTestId("contact-friend-" + PEER).textContent).toContain("家人");
+    // 去分组：无移动分组入口，行内不再展示分组名
+    expect(screen.queryByTestId("contact-friend-move-" + PEER)).toBeNull();
   });
 
   it("群区行模型：群名 + 成员数 + 我的角色；非 owner 邀请禁用；被踢群不进通讯录", async () => {
