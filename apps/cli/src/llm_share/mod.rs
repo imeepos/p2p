@@ -7,7 +7,9 @@ mod allow;
 mod borrow;
 mod ledger;
 mod offer;
+mod provider;
 mod receipt;
+mod share;
 
 use std::path::PathBuf;
 
@@ -42,6 +44,16 @@ pub enum LlmShareCommand {
         #[command(subcommand)]
         command: receipt::ReceiptCommand,
     },
+    /// provider 配置：list/save/remove（契约 §16.6 v13）
+    Provider {
+        #[command(subcommand)]
+        command: provider::ProviderCommand,
+    },
+    /// 分享链接：create/list/revoke（契约 §16.6 v13）
+    Share {
+        #[command(subcommand)]
+        command: share::ShareCommand,
+    },
 }
 
 pub async fn run(command: LlmShareCommand) -> CliResult<()> {
@@ -53,6 +65,8 @@ pub async fn run(command: LlmShareCommand) -> CliResult<()> {
         LlmShareCommand::Borrow(args) => borrow::borrow_cmd(args).await,
         LlmShareCommand::Ledger { command } => ledger::run(command),
         LlmShareCommand::Receipt { command } => receipt::run(command),
+        LlmShareCommand::Provider { command } => provider::run(command),
+        LlmShareCommand::Share { command } => share::run(command),
     }
 }
 

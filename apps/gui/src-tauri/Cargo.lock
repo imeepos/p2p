@@ -2704,6 +2704,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "llm-share-link"
+version = "0.1.0"
+dependencies = [
+ "rand 0.8.8",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 1.0.69",
+ "uuid",
+]
+
+[[package]]
 name = "llm-share-offer"
 version = "0.1.0"
 dependencies = [
@@ -3363,6 +3375,7 @@ dependencies = [
  "bytes",
  "clap",
  "llm-share-ledger",
+ "llm-share-link",
  "llm-share-offer",
  "llm-share-proxy",
  "p2p",

@@ -28,4 +28,9 @@ pub enum UpstreamFailure {
 pub trait Upstream: Send + Sync {
     /// 连接/HTTP 层失败以返回值呈现；流中途失败以流内错误元素呈现。
     async fn chat(&self, call: UpstreamCall) -> Result<SseByteStream, UpstreamFailure>;
+
+    /// 上游协议标识：serve 用它填收据 upstream_hint（§4 决策 1，行为与实现同源）。
+    fn protocol_hint(&self) -> &'static str {
+        "openai"
+    }
 }
