@@ -25,12 +25,10 @@ function seedConnected(): string {
       },
     ],
     console: {
-      phase: "ready",
+      phase: "connected",
       wsUrl: "ws://127.0.0.1:8787",
       token: "mock-token",
       statusUrl: "http://127.0.0.1:8788",
-      adminUrl: "http://127.0.0.1:8790",
-      restarts: 0,
     },
     phase: "online",
     activeEndpointId: "ep-1",

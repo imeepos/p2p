@@ -178,15 +178,14 @@ function savedId(): string {
     await waitFor(() => expect(screen.getByTestId("contact-agent-" + savedId())).toBeTruthy());
   });
 
-  it("console ready 时弹窗顶部显本机自动接入提示（引导远端场景，无需手填本机）", async () => {
+  it("console connected 时弹窗顶部显本机自动接入提示（引导远端场景，无需手填本机）", async () => {
     setWsFactory(createMockWsFactory());
     useAcpStore.setState({
       console: {
-        phase: "ready",
+        phase: "connected",
         wsUrl: "ws://127.0.0.1:9987",
         token: "local-token",
         statusUrl: "http://127.0.0.1:9987",
-        restarts: 0,
       },
     });
     renderSection();

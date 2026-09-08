@@ -54,11 +54,10 @@ describe("弹窗分享链接导入（§8 guest）", () => {
   it("粘贴链接导入成功：落 acp-share-<peer> saved endpoint，行内出现该 agent", async () => {
     useAcpStore.setState({
       console: {
-        phase: "ready",
+        phase: "connected",
         wsUrl: "ws://127.0.0.1:9987",
         token: "local-token",
         statusUrl: "http://127.0.0.1:9987",
-        restarts: 0,
       },
     });
     vi.stubGlobal(

@@ -38,10 +38,10 @@ function useAgentsWiring(): { localReady: boolean } {
         }
         setLocalReady(true);
         void loadMine(descriptor.adminUrl, descriptor.token);
-        if (status.phase === "ready" && status.wsUrl && status.token) {
+        if (status.phase === "connected" && status.wsUrl && status.token) {
           connectCards(status.wsUrl, status.token, descriptor.peer);
         } else {
-          console.warn("[a2a] console 未 ready：卡片通道挂起（状态到达后重进页面）");
+          console.warn("[a2a] console 未 connected：卡片通道挂起（状态到达后重进页面）");
         }
       })
       .catch((error) => console.warn("[a2a] 数据面接入失败", error));

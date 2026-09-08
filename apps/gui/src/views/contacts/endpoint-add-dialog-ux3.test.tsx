@@ -17,12 +17,10 @@ import { EndpointAddDialog } from "./endpoint-add-dialog";
 
 const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
 const CONSOLE_STATUS = {
-  phase: "ready" as const,
+  phase: "connected" as const,
   wsUrl: "ws://127.0.0.1:8787",
   token: "mock-console-token",
   statusUrl: "http://127.0.0.1:8788",
-  adminUrl: "http://127.0.0.1:8790",
-  restarts: 0,
 };
 
 function radixStubs(): void {

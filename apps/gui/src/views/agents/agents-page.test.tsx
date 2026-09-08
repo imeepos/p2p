@@ -67,7 +67,7 @@ function descriptor() {
 }
 
 function statusReady() {
-  return { phase: "ready", wsUrl: "ws://127.0.0.1:9100", token: "wstoken", restarts: 0 };
+  return { phase: "connected", wsUrl: "ws://127.0.0.1:9100", token: "wstoken" };
 }
 
 let fetchCalls: Array<{ url: string; init?: RequestInit }>;

@@ -1,7 +1,8 @@
-// acp-console 托管 mock（契约 v10 §15）：与真实实现同签名（acp_console_status +
-// acp-console 事件）。相位可测可控——默认相位经 VITE_MOCK_CONSOLE_PHASE 钉死
-//（缺省 ready 演示自动直达）；测试经 window.__MOCK_ACP_CONSOLE__ 控制器驱动，
-// 非法/未知相位显式告警并回退 unavailable，不静默。
+// acp 泵 in-process 状态 mock（契约 §15）：与真实实现同签名（acp_console_status +
+// acp-console 事件）。mock 的是 pump 内部状态机（connecting/connected/disconnected
+// 三态），而非旧 sidecar 的外部进程生命周期。默认相位经 VITE_MOCK_CONSOLE_PHASE
+// 钉死（缺省 connected 演示自动直达）；测试经 window.__MOCK_ACP_CONSOLE__ 控制器
+// 驱动，非法/未知相位显式告警并回退 disconnected，不静默。
 import type {
   AcpConsoleEventHandler,
   AcpConsolePhase,
@@ -9,39 +10,30 @@ import type {
   UnlistenFn,
 } from "./ipc-types";
 
-const PHASES: AcpConsolePhase[] = [
-  "starting",
-  "ready",
-  "restarting",
-  "failed",
-  "unavailable",
-  "stopped",
-];
+const PHASES: AcpConsolePhase[] = ["connecting", "connected", "disconnected"];
 
 function phaseFromEnv(): AcpConsolePhase {
   const raw = import.meta.env.VITE_MOCK_CONSOLE_PHASE as string | undefined;
-  if (!raw) return "ready";
+  if (!raw) return "connected";
   if (!PHASES.includes(raw as AcpConsolePhase)) {
     console.warn("[mock-acp-console] 未知 VITE_MOCK_CONSOLE_PHASE:", raw);
-    return "unavailable";
+    return "disconnected";
   }
   return raw as AcpConsolePhase;
 }
 
-// ready 相位给全会话连接面：wsUrl/token 与 mock WS（ws-factory）默认端点对齐，
+// connected 相位给全会话连接面：wsUrl/token 与 mock WS（ws-factory）默认端点对齐，
 // statusUrl 供发现面轮询（fetch 由测试/dev 注入桩）。
 function initialStatus(): AcpConsoleStatus {
   const phase = phaseFromEnv();
-  if (phase !== "ready") {
-    return { phase, restarts: phase === "failed" ? 5 : 0 };
+  if (phase !== "connected") {
+    return { phase };
   }
   return {
-    phase: "ready",
+    phase: "connected",
     wsUrl: "ws://127.0.0.1:8787",
     token: "mock-console-token",
     statusUrl: "http://127.0.0.1:8788",
-    adminUrl: "http://127.0.0.1:8790",
-    restarts: 0,
   };
 }
 

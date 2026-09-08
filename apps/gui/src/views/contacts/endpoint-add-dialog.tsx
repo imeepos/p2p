@@ -68,7 +68,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
       setShareLink(null);
     }
   }
-  const ready = consoleStatus?.phase === "ready" ? consoleStatus : null;
+  const ready = consoleStatus?.phase === "connected" ? consoleStatus : null;
   useDiscoveryPoll({
     statusUrl: open && ready ? (ready.statusUrl ?? null) : null,
     token: ready?.token ?? "",
