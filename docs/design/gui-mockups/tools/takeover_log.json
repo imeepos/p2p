@@ -1,0 +1,169 @@
+{
+ "records": [
+  {
+   "id": "01-design-system",
+   "attempt": 1,
+   "status": "500",
+   "ok": false,
+   "secs": 103,
+   "mode": "generations",
+   "err": "{\"error\":{\"message\":\"Upstream gateway error\",\"type\":\"upstream_error\"}}"
+  },
+  {
+   "id": "01-design-system",
+   "attempt": 2,
+   "status": "000",
+   "ok": false,
+   "secs": 1,
+   "mode": "generations",
+   "err": ""
+  },
+  {
+   "id": "01-design-system",
+   "attempt": 3,
+   "status": "200",
+   "ok": true,
+   "secs": 57,
+   "mode": "generations",
+   "err": null
+  },
+  {
+   "id": "02-chat",
+   "attempt": 1,
+   "status": "524",
+   "ok": false,
+   "secs": 130,
+   "mode": "edits",
+   "err": "error code: 524\n"
+  },
+  {
+   "id": "02-chat",
+   "attempt": 2,
+   "status": "524",
+   "ok": false,
+   "secs": 128,
+   "mode": "edits",
+   "err": "error code: 524\n"
+  },
+  {
+   "id": "02-chat",
+   "attempt": 3,
+   "status": "200",
+   "ok": true,
+   "secs": 75,
+   "mode": "edits",
+   "err": null
+  },
+  {
+   "id": "03-network",
+   "attempt": 1,
+   "status": "524",
+   "ok": false,
+   "secs": 129,
+   "mode": "edits",
+   "err": "error code: 524\n"
+  },
+  {
+   "id": "03-network",
+   "attempt": 2,
+   "status": "500",
+   "ok": false,
+   "secs": 128,
+   "mode": "edits",
+   "err": "{\"error\":{\"message\":\"Upstream gateway error\",\"type\":\"upstream_error\"}}"
+  },
+  {
+   "id": "03-network",
+   "attempt": 3,
+   "status": "524",
+   "ok": false,
+   "secs": 128,
+   "mode": "edits",
+   "err": "error code: 524\n"
+  },
+  {
+   "id": "03-network",
+   "attempt": "low-fallback",
+   "status": "500",
+   "ok": false
+  },
+  {
+   "id": "04-contacts",
+   "attempt": 1,
+   "status": "200",
+   "ok": true,
+   "secs": 121,
+   "mode": "edits",
+   "err": null
+  },
+  {
+   "id": "05-messages",
+   "attempt": 1,
+   "status": "500",
+   "ok": false,
+   "secs": 89,
+   "mode": "edits",
+   "err": "{\"error\":{\"message\":\"Upstream gateway error\",\"type\":\"upstream_error\"}}"
+  },
+  {
+   "id": "05-messages",
+   "attempt": 2,
+   "status": "524",
+   "ok": false,
+   "secs": 128,
+   "mode": "edits",
+   "err": "error code: 524\n"
+  },
+  {
+   "id": "05-messages",
+   "attempt": 3,
+   "status": "500",
+   "ok": false,
+   "secs": 61,
+   "mode": "edits",
+   "err": "{\"error\":{\"message\":\"Upstream gateway error\",\"type\":\"upstream_error\"}}"
+  },
+  {
+   "id": "05-messages",
+   "attempt": "low-fallback",
+   "status": "524",
+   "ok": false
+  },
+  {
+   "id": "06-agents",
+   "attempt": 1,
+   "status": "524",
+   "ok": false,
+   "secs": 127,
+   "mode": "edits",
+   "err": "error code: 524\n"
+  },
+  {
+   "id": "06-agents",
+   "attempt": 2,
+   "status": "200",
+   "ok": true,
+   "secs": 53,
+   "mode": "edits",
+   "err": null
+  },
+  {
+   "id": "07-settings",
+   "attempt": 1,
+   "status": "524",
+   "ok": false,
+   "secs": 128,
+   "mode": "edits",
+   "err": "error code: 524\n"
+  },
+  {
+   "id": "07-settings",
+   "attempt": 2,
+   "status": "200",
+   "ok": true,
+   "secs": 51,
+   "mode": "edits",
+   "err": null
+  }
+ ]
+}

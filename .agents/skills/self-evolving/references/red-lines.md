@@ -93,3 +93,4 @@
 
 - 禁止「长命令 | tail」看输出而不设 pipefail：tail 的 exit 0 会掩盖命令真实退出码，假绿裁决（2026-09-08 T7 make check 首跑 line-limit 红，后台 job 却报 exit 0；唯一裁决必须 `cmd > log; echo $?` 或 set -o pipefail）。
 - 禁止对多任务账本（loop-state 等）做整表状态刷写而不按 id 过滤：主树与 worktree 各有一份 .devloop/loop-state.json，cd 错目录 + 全表覆盖会把 65 条历史任务状态刷平（2026-09-08 实例，git checkout -- 恢复；改状态前先打印 id 列表确认是哪份、只动自己的 id）。
+- 2026-09-09 生图轮（负责人）：设计类任务的目标产品画像禁止凭会话自身运行环境脑补——「当前GUI」被误读为 DSH 控制台而实指本仓 apps/gui 的 p2p 桌面应用，5 张废图 + 80 分钟返工后才由用户纠偏；画像必须从仓库源码提取（menu.def.ts / views/ / 外壳设计文档），指代含糊（当前/这个/该页面）先向用户确认再动手。

@@ -22,6 +22,11 @@ export function consumeBorrowPrefill(): BorrowPrefill | null {
   return prefill;
 }
 
+/** 探测是否有待消费的预填（不消费）：视图用它决定初始落点 tab */
+export function hasBorrowPrefill(): boolean {
+  return current !== null;
+}
+
 /** 测试/演示复位 */
 export function resetBorrowPrefill(): void {
   current = null;
