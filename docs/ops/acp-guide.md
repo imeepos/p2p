@@ -298,3 +298,46 @@ legacy --workspace-dir 仅作默认行兜底展示，不入文件、不可经 ad
 GUI 管理面：/acp-manage（命令面板或消息中心 agent 视图入口）——服务状态、
 工作区增删、会话清单三卡。
 
+
+## 10. A2A 智能体管理
+
+acp-agent 同时承载 A2A 智能体能力（design docs/design/a2a-over-p2p-design.md）：
+节点创建公开/私有 agent，经 P2P 通知其他节点，其他节点发现 agent 能力后直接与之聊天。
+
+### 10.1 启动与配置
+
+A2A 能力默认启用，无需额外配置。禁用时传 --a2a-disabled：
+
+    ./apps/acp-agent/target/release/acp-agent --data-dir /var/lib/acp-agent --a2a-disabled
+
+### 10.2 管理端点（admin HTTP，Bearer 鉴权）
+
+| 方法/路径 | 语义 |
+|---|---|
+| GET /a2a/agents | 我发布的定义全集 |
+| POST /a2a/agents | 创建 agent（name, description, skills?, visibility） |
+| PUT /a2a/agents/{id} | 更新可见性或启用状态 |
+| DELETE /a2a/agents/{id} | 下架 agent |
+| POST /a2a/agents/{id}/invite | 生成签名邀请帧（inviteePeer, expirySecs?） |
+
+### 10.3 p2pctl 命令面
+
+    p2pctl a2a list --json                    # 列出全部 agent
+    p2pctl a2a publish --agent-id <ID> --name <N> --description <D> --json
+    p2pctl a2a unpublish <ID>                 # 下架
+    p2pctl a2a allow --agent-id <ID> --peer-id <PEER> --json
+    p2pctl a2a disallow --agent-id <ID> --peer-id <PEER>
+
+### 10.4 端到端测试
+
+    cargo test -p p2p-itest --test a2a_card_wave     # 卡片链 E2E
+    cargo test -p p2p-itest --test a2a_task_wave     # 任务链 E2E
+    cargo test -p p2p-itest --test a2a_invite_wave   # 邀请链 E2E
+    A2A_REAL_CHAIN=1 cargo test -p p2p-itest --test a2a_invite_wave -- --ignored  # 真实链路
+
+### 10.5 已知限制
+
+- v1 仅支持 TextPart 上行；FilePart/DataPart 仅接收渲染
+- 每 peer 并发 task 流 <=4
+- 名称/描述/技能 v1 数据面不可改（GUI 编辑态只开放可见性）
+- 真实心跳面未接入前，GUI 仅展示色点（绿/黄/灰），不展示「在线/离线」文案

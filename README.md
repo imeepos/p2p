@@ -92,6 +92,27 @@ session/new→prompt + admin 工作区 CRUD，口径 ACP-LOCAL-SMOKE-OK）。具
 工作区为运行期动态表（admin POST/DELETE /workspaces 实时生效），GUI 管理
 页 /acp-manage；详见 docs/ops/acp-guide.md §9。
 
+
+## A2A 智能体（Agent-to-Agent）
+
+Google A2A 协议的能力声明与任务语义嫁接到 p2p-base 底座：节点创建**公开/私有**
+agent 智能体，经 P2P 通知其他节点，其他节点**发现 agent 能力**后**直接与之聊天**。
+聊天走 A2A 任务语义（JSON-RPC 2.0 task + message/part），宿主复用 acp-agent 的
+dsh 子进程托管资产。
+
+| 组件 | 位置 | 职责 |
+|---|---|---|
+| crates/a2a | Rust lib（纯，零网络零进程） | AgentCard/SignedCard、AgentBook、/a2a/1 帧编解码、task 状态机 |
+| apps/acp-agent | Rust bin（扩展） | /a2a/1 handler（card 相 + task 相）、admin HTTP 管理、发布/邀请/心跳 |
+| apps/gui | Web（扩展） | /agents 页（发现/我的双视图）、A2A 会话、邀请对话框 |
+| apps/cli | p2pctl 子命令 | a2a list/publish/unpublish/allow/disallow（headless 管理面） |
+
+- 设计真值源：docs/design/a2a-over-p2p-design.md（v1 定稿）
+- 契约文档：docs/design/gui-contract.md §17
+- 运维指南：docs/ops/p2pctl-ai-guide.md A2A 域
+- 端到端测试：crates/p2p-itest/tests/a2a_*_wave.rs（card/task/invite 三链）
+- 真实链路用例：#[ignore] + A2A_REAL_CHAIN=1 环境变量触发
+
 ## 快速上手
 
 ```bash
