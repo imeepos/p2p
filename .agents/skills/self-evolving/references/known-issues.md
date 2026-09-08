@@ -473,3 +473,9 @@ failed: early eof（客户端侧超时中止）。
 - [lessons] 多会话并行各跑 make check 时 vitest 会互相制造单点负载偶发红（两次实证：network-tabs / settings-view-nav，隔离复跑均绿）。协调者跑权威门禁前先 pgrep 确认无并发 make/cargo，等安静窗口。
 - [lessons] 被根 workspace exclude 的子项目（独立 bin）完全逃脱 make check 全套门禁（fmt/clippy/panic-hygiene/line-limit 均不覆盖）——"为什么是个独立进程/子项目"应当在立项时回答；答案含糊就是架构债（本次 acp-console 整体废止的根因）。
 
+
+- [2026-09-08 A2A波] 症状：make check 的 ai-docs-sync 报"文档缺示例命令 X"。原因：贡献者整本重写 p2pctl-ai-guide.md（1625→265 行）毁掉存量条目；且其条目标题用 `### a2a list` 而非家规 `### p2pctl a2a list`，扫描器不识别为条目、参数行归入上一条目产生连环假错。修法：以 main 全文为基底恢复 + 新域按家规条目格式重写插入 SYNC:END 前。
+- [2026-09-08 A2A波] 症状：p2p-itest 的 a2a 用例全红（read timeout）。原因：新 worktree 的 apps/acp-agent/target 里 acp-echo-stub 是旧构建（无 --acp-agent 模式），根 workspace 不带建。修法：cd apps/acp-agent && cargo build --bin acp-echo-stub。
+- [2026-09-08 A2A波] 症状：子代理用常量 0 替代 Date.now() 过 purity lint。危害：tsMs=0 是"无消息"哨兵，破坏时间显示/排序/撤销回归语义，且测试未覆盖不报红。修法：时间戳在 store effect 内采集（合法 impure 点），渲染期只派生。
+- [2026-09-09 llm-share tab 化] 症状：vitest 里 fireEvent.click(TabsTrigger) 不切换 tab，"Unable to find 目标面板"。原因：Radix TabsTrigger 在 onMouseDown 激活（react-tabs dist 123 行），click 单发不触发。修法：测试里先 fireEvent.mouseDown 再 fireEvent.click（项目未装 user-event）。
+- [2026-09-09 llm-share tab 化] 症状：`backend.someMethod().catch(...)` 依然抛未捕获异常、组件 load 永不完成。原因：mock-backend/桥接实现可能同步 throw（如 offerShow 未发布直接 throw），同步异常发生在 .catch 挂上之前。修法：包一层 `settle = async (call) => { try { return await call() } catch (e) { return e } }`，对 Promise.all 多路并行拉取尤其必要。
