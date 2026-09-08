@@ -82,14 +82,12 @@ fn render_allow(report: &AllowReport) -> String {
     } else {
         "条目已存在，本次为更新"
     };
-    let mut lines = vec![
-        format!(
-            "已加入 allowlist peer={}（{state}）\nmodels={}\nnote={}",
-            report.peer_id,
-            join_models(&report.models),
-            report.note
-        ),
-    ];
+    let mut lines = vec![format!(
+        "已加入 allowlist peer={}（{state}）\nmodels={}\nnote={}",
+        report.peer_id,
+        join_models(&report.models),
+        report.note
+    )];
     if let Some(source) = &report.source {
         lines.push(format!("source={source}"));
     }
