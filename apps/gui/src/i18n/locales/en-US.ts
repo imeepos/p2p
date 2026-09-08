@@ -1911,6 +1911,20 @@ const enUS: typeof zhCN = {
     onlineDot: "Online status",
     countAria: "{{count}} agents",
   },
+  a2a: {
+    task: {
+      submitted: "Submitted",
+      working: "Working",
+      completed: "Completed",
+      failed: "Failed",
+      cancelled: "Cancelled",
+      rejected: "Rejected",
+    },
+    empty: {
+      title: "Start a conversation",
+      description: "Send a message to start an A2A task",
+    },
+  },
 };
 
 export default enUS;

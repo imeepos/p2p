@@ -1884,6 +1884,20 @@ const zhCN = {
     onlineDot: "在线状态",
     countAria: "{{count}} 个智能体",
   },
+  a2a: {
+    task: {
+      submitted: "已提交",
+      working: "执行中",
+      completed: "已完成",
+      failed: "失败",
+      cancelled: "已取消",
+      rejected: "已拒绝",
+    },
+    empty: {
+      title: "开始与智能体对话",
+      description: "发送一条消息开始 A2A 任务",
+    },
+  },
 };
 
 export default zhCN;

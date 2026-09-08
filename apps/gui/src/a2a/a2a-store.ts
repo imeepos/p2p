@@ -35,7 +35,7 @@ interface A2aState {
 }
 
 let nextRequestId = 1;
-const pendingRequests = new Map<number, { resolve: (value: any) => void; reject: (reason: any) => void }>();
+const pendingRequests = new Map<number, { resolve: (value: unknown) => void; reject: (reason: unknown) => void }>();
 
 export const useA2aStore = create<A2aState>((set, get) => ({
   tasks: new Map(),
@@ -96,7 +96,7 @@ export const useA2aStore = create<A2aState>((set, get) => ({
     };
 
     return new Promise<string>((resolve, reject) => {
-      pendingRequests.set(requestId, { resolve, reject });
+      pendingRequests.set(requestId, { resolve: (v) => resolve(v as string), reject });
       ws.send(JSON.stringify(frame));
 
       setTimeout(() => {
