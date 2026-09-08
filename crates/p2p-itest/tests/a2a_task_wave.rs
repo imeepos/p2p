@@ -9,8 +9,8 @@ use a2a::{FilePart, Message, Part, Role, TaskRequest};
 use p2p::Node;
 use serde_json::{json, Value};
 use task_wave_common::{
-    as_response, create_request, drive_to_terminal, guest_stream, host_rig, is_notice,
-    read_json, send_request,
+    as_response, create_request, drive_to_terminal, guest_stream, host_rig, is_notice, read_json,
+    send_request,
 };
 
 async fn guest_with_public_agent(
@@ -55,13 +55,20 @@ async fn t1_public_task_roundtrip_and_snapshot() {
     let snap = read_json(&mut stream).await;
     let (result, _) = as_response(&snap);
     let result = result.expect("snapshot result");
-    assert_eq!(result.get("state").and_then(Value::as_str), Some("completed"));
     assert_eq!(
-        result.pointer("/messages/0/parts/0/text").and_then(Value::as_str),
+        result.get("state").and_then(Value::as_str),
+        Some("completed")
+    );
+    assert_eq!(
+        result
+            .pointer("/messages/0/parts/0/text")
+            .and_then(Value::as_str),
         Some("你好")
     );
     assert_eq!(
-        result.pointer("/messages/1/parts/0/text").and_then(Value::as_str),
+        result
+            .pointer("/messages/1/parts/0/text")
+            .and_then(Value::as_str),
         Some("echo:chunk-1")
     );
     guest.shutdown();
@@ -87,7 +94,10 @@ async fn t2_send_while_working_appends_and_completes() {
     )
     .await;
     let send_reply = read_json(&mut stream).await;
-    assert!(send_reply.get("result").is_some(), "send 失败: {send_reply:?}");
+    assert!(
+        send_reply.get("result").is_some(),
+        "send 失败: {send_reply:?}"
+    );
     let (statuses, texts) = drive_to_terminal(&mut stream).await;
     assert_eq!(statuses.last().map(String::as_str), Some("completed"));
     assert_eq!(texts, vec!["echo:chunk-1", "echo:chunk-1"]);

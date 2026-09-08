@@ -12,7 +12,9 @@ pub mod handler;
 pub mod limits;
 pub mod publish;
 pub mod stream;
+pub mod stream_dispatch;
 pub mod task;
+pub mod task_handle;
 
 #[cfg(test)]
 mod agents_tests;

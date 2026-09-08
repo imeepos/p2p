@@ -33,7 +33,9 @@ pub fn stub_path() -> PathBuf {
             return candidate;
         }
     }
-    panic!("acp-echo-stub 未构建：先跑 cd apps/acp-agent && cargo test --no-run，或设 A2A_TASK_STUB");
+    panic!(
+        "acp-echo-stub 未构建：先跑 cd apps/acp-agent && cargo test --no-run，或设 A2A_TASK_STUB"
+    );
 }
 
 pub struct HostRig {
@@ -120,7 +122,11 @@ pub fn parse_peer(s: &str) -> p2p::PeerId {
     p2p::PeerId::from_bytes(raw)
 }
 
-pub async fn guest_stream(guest: &Node, host_peer: &str, host_addrs: &[String]) -> p2p::BoxedStream {
+pub async fn guest_stream(
+    guest: &Node,
+    host_peer: &str,
+    host_addrs: &[String],
+) -> p2p::BoxedStream {
     let peer = parse_peer(host_peer);
     for addr in host_addrs {
         guest.add_peer_address(peer, addr).expect("add addr");
@@ -153,9 +159,7 @@ pub fn is_notice(frame: &Value, method: &str) -> bool {
 }
 
 /// 消费至 task 终态，途中收集 status 序与 message 文本。
-pub async fn drive_to_terminal(
-    stream: &mut p2p::BoxedStream,
-) -> (Vec<String>, Vec<String>) {
+pub async fn drive_to_terminal(stream: &mut p2p::BoxedStream) -> (Vec<String>, Vec<String>) {
     let mut statuses = Vec::new();
     let mut texts = Vec::new();
     loop {

@@ -7,19 +7,19 @@ use std::io;
 use std::sync::Arc;
 
 use a2a::{
-    Message, MessageNoticeParams, Part, Role, StatusParams, TaskCreateParams, TaskErrorBody,
-    TaskNotice, TaskRequest, TaskResponse, TaskSnapshot, TaskState,
+    Message, MessageNoticeParams, Part, Role, StatusParams, TaskErrorBody, TaskNotice,
+    TaskRequest, TaskResponse, TaskSnapshot, TaskState,
 };
 use p2p::{BoxedStream, PeerId};
 use p2p_protocol::{read_frame, write_frame};
-use serde_json::json;
 use tokio::sync::mpsc;
 
 use super::bridge::BridgeEvent;
+use super::stream_dispatch::{create_and_attach, dispatch};
 use super::task::{TaskHandle, TaskService};
 
 /// 业务错误统一 JSON-RPC -32000，机器码进 message 前缀（gate-denied 等）。
-const ERR_SERVER: i64 = -32000;
+pub(super) const ERR_SERVER: i64 = -32000;
 
 type Attached = Option<(Arc<TaskHandle>, mpsc::Receiver<BridgeEvent>)>;
 
@@ -107,98 +107,6 @@ async fn handle_frame(
     write_json(stream, &reply).await.map(|_| false)
 }
 
-async fn dispatch(
-    service: &Arc<TaskService>,
-    current: Option<&Arc<TaskHandle>>,
-    peer: &str,
-    request: &TaskRequest,
-) -> TaskResponse {
-    let fail = |message: String| TaskResponse {
-        jsonrpc: "2.0".into(),
-        id: request.id,
-        result: None,
-        error: Some(TaskErrorBody { code: ERR_SERVER, message }),
-    };
-    let ok = |result: serde_json::Value| TaskResponse {
-        jsonrpc: "2.0".into(),
-        id: request.id,
-        result: Some(result),
-        error: None,
-    };
-    match request.method.as_str() {
-        "tasks/get" => {
-            let Some(task_id) = params_task_id(&request.params) else {
-                return fail("invalid-params: taskId required".into());
-            };
-            match service.snapshot_for(peer, &task_id) {
-                Ok(task) => ok(serde_json::to_value(snapshot_of(&task)).unwrap_or_default()),
-                Err(e) => fail(e.to_string()),
-            }
-        }
-        "tasks/send" => {
-            let Some(handle) = current else {
-                return fail("no-task-on-stream: tasks/create first".into());
-            };
-            let task_id = handle.task_id();
-            if params_task_id(&request.params).is_some_and(|t| t != task_id) {
-                return fail("task-mismatch: stream carries another task".into());
-            }
-            let Some(message) = params_message(&request.params) else {
-                return fail("invalid-params: message required".into());
-            };
-            match service.send(peer, &task_id, message).await {
-                Ok(()) => ok(json!({ "taskId": task_id })),
-                Err(e) => fail(e.to_string()),
-            }
-        }
-        "tasks/cancel" => {
-            let Some(handle) = current else {
-                return fail("no-task-on-stream: tasks/create first".into());
-            };
-            let task_id = handle.task_id();
-            match service.cancel(peer, &task_id).await {
-                Ok(()) => ok(json!({ "taskId": task_id })),
-                Err(e) => fail(e.to_string()),
-            }
-        }
-        _ => fail(format!("unknown method {}", request.method)),
-    }
-}
-
-async fn create_and_attach(
-    service: &Arc<TaskService>,
-    peer: &str,
-    is_owner: bool,
-    request: &TaskRequest,
-    stream: &mut BoxedStream,
-) -> Result<(Arc<TaskHandle>, mpsc::Receiver<BridgeEvent>), String> {
-    let params: TaskCreateParams = serde_json::from_value(request.params.clone())
-        .map_err(|_| "invalid-params: agentId/message".to_owned())?;
-    let handle = service
-        .create(peer, is_owner, &params.agent_id, params.message)
-        .await
-        .map_err(|e| e.to_string())?;
-    // spawn 成功即转 working（握手失败随后以 failed 状态回流，不静默）。
-    let state = {
-        let mut task = handle.task.lock().unwrap_or_else(|p| p.into_inner());
-        task.transition(TaskState::Working)
-            .map_err(|e| e.to_string())?;
-        task.state
-    };
-    let reply = TaskResponse {
-        jsonrpc: "2.0".into(),
-        id: request.id,
-        result: Some(json!({ "taskId": handle.task_id() })),
-        error: None,
-    };
-    write_json(stream, &reply).await.map_err(|e| e.to_string())?;
-    write_json(stream, &status_notice(&handle.task_id(), state))
-        .await
-        .map_err(|e| e.to_string())?;
-    let rx = handle.take_events().ok_or_else(|| "task events already attached".to_owned())?;
-    Ok((handle, rx))
-}
-
 /// agent chunk -> 簿记 + tasks/message 通知帧。
 fn on_agent_message(handle: &Arc<TaskHandle>, message_id: String, part: Part) -> TaskNotice {
     let message = Message {
@@ -250,7 +158,7 @@ async fn finish_detached(service: &Arc<TaskService>, handle: Arc<TaskHandle>) {
     service.remove(&handle.task_id());
 }
 
-fn status_notice(task_id: &str, state: TaskState) -> TaskNotice {
+pub(super) fn status_notice(task_id: &str, state: TaskState) -> TaskNotice {
     TaskNotice::Status {
         jsonrpc: "2.0".into(),
         params: StatusParams {
@@ -260,7 +168,7 @@ fn status_notice(task_id: &str, state: TaskState) -> TaskNotice {
     }
 }
 
-fn snapshot_of(task: &a2a::Task) -> TaskSnapshot {
+pub(super) fn snapshot_of(task: &a2a::Task) -> TaskSnapshot {
     TaskSnapshot {
         task_id: task.task_id.clone(),
         agent_id: task.agent_id.clone(),
@@ -269,11 +177,11 @@ fn snapshot_of(task: &a2a::Task) -> TaskSnapshot {
     }
 }
 
-fn params_task_id(params: &serde_json::Value) -> Option<String> {
+pub(super) fn params_task_id(params: &serde_json::Value) -> Option<String> {
     params.get("taskId").and_then(|v| v.as_str()).map(str::to_owned)
 }
 
-fn params_message(params: &serde_json::Value) -> Option<Message> {
+pub(super) fn params_message(params: &serde_json::Value) -> Option<Message> {
     serde_json::from_value(params.get("message").cloned()?).ok()
 }
 
@@ -288,12 +196,12 @@ fn to_bytes(inbound: io::Result<Vec<u8>>) -> Option<Vec<u8>> {
     }
 }
 
-async fn write_json(stream: &mut BoxedStream, value: &impl serde::Serialize) -> io::Result<()> {
+pub(super) async fn write_json(stream: &mut BoxedStream, value: &impl serde::Serialize) -> io::Result<()> {
     let bytes = serde_json::to_vec(value).map_err(io::Error::other)?;
     write_frame(stream, &bytes).await
 }
 
-async fn reply_err(
+pub(super) async fn reply_err(
     stream: &mut BoxedStream,
     id: Option<u64>,
     code: i64,
