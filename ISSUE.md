@@ -247,3 +247,7 @@
 - 现象：该支路只接受 FRAME_CHUNK/FRAME_END 首帧；客户端 write_chunked 对小载荷（实际全部请求）产出 FRAME_SINGLE 首帧，直接报「unexpected chunked frame type 0x00」。
 - 影响：任何经 swarm handle_inbound 分发 + LenderProxy::serve 直读的组合（W5b 计划中的 ServeHandler 升 handle_inbound、B1/B4 用例）首帧即解析失败。W3 的门禁 handler 以自读 read_chunked + CHUNK/END 回放绕开，未改 W1 crate。
 - 建议：W1 侧把 finish_chunked 对齐 chunked.rs read_chunked 语义（FRAME_SINGLE if msg.is_empty() => return），并补分发支路单测。
+- 2026-09-08 解决后记（W5b 前置修复，已关闭）：finish_chunked 已对齐
+  p2p-protocol::read_chunked 语义（FRAME_SINGLE 仅在无累积载荷时合法，分片中途
+  出现仍显式拒绝），并补分发支路单测四形态（SINGLE/CHUNK+END/裸流协议 ID/
+  类型序非法），llm-share-proxy --lib 24 用例全绿。关闭提交 fc83873。
