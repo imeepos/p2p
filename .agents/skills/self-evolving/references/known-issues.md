@@ -449,3 +449,5 @@ failed: early eof（客户端侧超时中止）。
 - 行数红线：crates/*.rs 由 line-limit 机械管；apps/** 靠自觉但同样适用——测试拆 *_tests.rs 兄弟文件（lib.rs 声明 #[cfg(test)] mod，测试内 use crate::xxx::*）。
 - panic-hygiene 门禁扫 crates 非测试路径 unwrap/expect/panic：serde_json 参数用 json! 宏直接建，别 to_value().expect()。
 
+- 2026-09-08（W3 波）cargo fmt 会在 check 之后改动文件：fmt 后 edit 必报 file changed since read，先重新 read 再 edit；且 edit 的 old_string 要按 fmt 后的现场文本取。
+- 2026-09-08（W3 波）clippy err_expect：测试里点 err 后 expect 一律写 expect_err；fmt 多行折叠会让单行 grep 漏检，用带空白容忍的正则替换。

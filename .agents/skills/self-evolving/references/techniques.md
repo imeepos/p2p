@@ -453,3 +453,6 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-08 设计稿轮：.env 同名键重复时 source 取最后一个——排障先 `grep -n "^KEY=" .env` 看重复，逐对配 base_url 测试（本仓第一对 openai.bowong.cc 可用、第二对 api.790053500.com 欠费）；图像 API 先发低成本探测（GET /models 或 low quality 小图）验证凭证再烧高质量大图。
 - dsh --profile acp 裸跑启动被拒（launcher 缺 ctx.appExit/appReady）：不动 harness 仓库，在 ~/.dsh/profiles/acp/cordis.patch.yml 用「disabled 原条目 + insert 自托管启动器」顶替 acp-app-startup（实现见 scripts/ops/dsh-acp-launch/index.mjs，自备 appExit/appReady 缺省 + 复刻原语义），acp 行靠 inject 反应式等待服务；入口名换模块（patch 改 name）可行，但 patch 不能改已存在条目的位置，insert 永远追加在尾部、靠 inject 反应式语义兜住顺序问题。注意 profile 目录按 DSH_HOME 解析（本机 ~/.dsh 与 ~/.dsh/dsh012-clean 双 home 并存，shim 两个都要装）。
 - 诊断常驻服务老化：对比「运行中二进制的端点面」与「仓库 HEAD 的端点面」（如 admin GET /workspaces 新端点 404 = 旧二进制），部署刷新用 scripts/ops/acp-local-setup.sh（构建+安装+shim+授权+kickstart+探针一条龙）。
+- 2026-09-08（W3 波）多行 Rust 代码经 run_code 写入：用「单引号 JS 字符串逐行 push + join」最稳；双引号数组内反斜杠转义与模板串屡触发解析错。单引号方案里 Rust 生命周期撇号先用类型别名规避。
+- 2026-09-08（W3 波）bash 工具不传 workdir 时落在会话工作目录（主树），与上一次调用的 cd 无关——曾把主树的 cargo check 误当 worktree 检查得到假绿。工作区命令必须显式传 workdir。
+- 2026-09-08（W3 波）read 工具有单次返回行数上限（totalLines 可能大于实际返回行数）：「读全文再写回」的追加方式会静默截断长文件（本次砍掉 techniques 172 行/known-issues 117 行，靠 git checkout HEAD~1 -- 恢复）。长文件追加一律用 bash cat >> heredoc。
