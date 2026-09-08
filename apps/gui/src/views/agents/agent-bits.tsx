@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { copyText } from "@/views/shared/clipboard";
 import { PeerIdShort } from "@/views/shared/peer-id-short";
+import type { I18nKey } from "@/i18n/types";
 import { cn } from "@/lib/utils";
 
 import type { AgentCardJson, AgentVisibility, DiscoveredAgent } from "@/a2a/types";
@@ -27,9 +28,16 @@ const DOT_CLASS: Record<OnlineLevel, string> = {
   gray: "bg-muted-foreground/40",
 };
 
+// 动态键显式标注 I18nKey（icon-rail titleKey 同款）：字符串拼接键 TS 落 unknown
+const VISIBILITY_KEY: Record<AgentVisibility, I18nKey> = {
+  public: "agents.badge.public",
+  private: "agents.badge.private",
+  local: "agents.badge.local",
+};
+
 export function VisibilityBadge({ visibility }: { visibility: AgentVisibility }) {
   const { t } = useTranslation();
-  const label = t("agents.badge." + visibility);
+  const label = t(VISIBILITY_KEY[visibility]);
   return (
     <span
       data-testid={"agents-visibility-" + visibility}
