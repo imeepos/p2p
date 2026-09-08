@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import "@/i18n";
@@ -48,9 +49,11 @@ describe("R2-12 校验错误 aria 关联与聚焦第一个错误字段", () => {
   it("borrow 空提交：聚焦出借方 PeerId，必填字段均带 aria 关联（maxTokens 有厂值缺省）", async () => {
     const { backend } = makeLlmShareMockPair();
     render(
-      <ConfirmProvider>
-        <BorrowPanel backend={backend} />
-      </ConfirmProvider>,
+      <MemoryRouter>
+        <ConfirmProvider>
+          <BorrowPanel backend={backend} />
+        </ConfirmProvider>
+      </MemoryRouter>,
     );
     fireEvent.submit(submitOf(t("llmShare.borrow.submit")));
     expect(document.activeElement?.id).toBe("llm-borrow-peer");
@@ -94,9 +97,11 @@ describe("R2-14 借用处理中状态反馈", () => {
     });
     const slowBackend = { ...backend, borrow: () => deferred };
     render(
-      <ConfirmProvider>
-        <BorrowPanel backend={slowBackend} />
-      </ConfirmProvider>,
+      <MemoryRouter>
+        <ConfirmProvider>
+          <BorrowPanel backend={slowBackend} />
+        </ConfirmProvider>
+      </MemoryRouter>,
     );
     fireEvent.change(screen.getByLabelText(t("llmShare.borrow.formTargetPeer")), {
       target: { value: PEER },
