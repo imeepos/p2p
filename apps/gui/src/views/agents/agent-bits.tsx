@@ -9,18 +9,8 @@ import { PeerIdShort } from "@/views/shared/peer-id-short";
 import type { I18nKey } from "@/i18n/types";
 import { cn } from "@/lib/utils";
 
-import type { AgentCardJson, AgentVisibility, DiscoveredAgent } from "@/a2a/types";
-
-export type OnlineLevel = "green" | "yellow" | "gray";
-
-/** 在线启发（契约 §17.3-1）：真实心跳面接入前只渲染色点，无在线/离线文案。 */
-export function onlineLevel(nowSecs: number, row: DiscoveredAgent): OnlineLevel {
-  const { card, issuedAtSecs } = row;
-  if (issuedAtSecs <= 0 || card.ttlSecs <= 0) return "gray";
-  const remaining = issuedAtSecs + card.ttlSecs - nowSecs;
-  if (remaining <= 0) return "gray";
-  return remaining > card.ttlSecs / 2 ? "green" : "yellow";
-}
+import type { OnlineLevel } from "@/a2a/online";
+import type { AgentCardJson, AgentVisibility } from "@/a2a/types";
 
 const DOT_CLASS: Record<OnlineLevel, string> = {
   green: "bg-success",

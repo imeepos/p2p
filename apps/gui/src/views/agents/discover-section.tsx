@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bot, MessageCircle, Info } from "lucide-react";
 
+import { onlineLevel } from "@/a2a/online";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,7 +21,7 @@ import { cn } from "@/lib/utils";
 
 import type { AgentCardJson, DiscoveredAgent } from "@/a2a/types";
 
-import { HostPeerCell, onlineLevel } from "./agent-bits";
+import { HostPeerCell } from "./agent-bits";
 
 function SkillsBadges({ card }: { card: AgentCardJson }) {
   if (!card.skills || card.skills.length === 0) return null;
@@ -40,6 +42,9 @@ function SkillsBadges({ card }: { card: AgentCardJson }) {
 export function DiscoverSection({ rows }: { rows: DiscoveredAgent[] }) {
   const { t } = useTranslation();
   const [detail, setDetail] = useState<AgentCardJson | null>(null);
+  // 渲染期时钟取样一次（惰性初始化是 purity 合规位；整页共用同一 now
+  // 保证同行色点稳定，重挂载才刷新）
+  const [nowSecs] = useState(() => Math.floor(Date.now() / 1000));
   return (
     <section data-testid="agents-discover-section" className="flex flex-col gap-2">
       <SectionHeader icon={Bot} title={t("agents.section.public")} tone="agents" count={rows.length} />
@@ -89,7 +94,7 @@ export function DiscoverSection({ rows }: { rows: DiscoveredAgent[] }) {
                 </div>
                 <p className="text-muted-foreground truncate text-sm">{card.description}</p>
                 <SkillsBadges card={card} />
-                <HostPeerCell card={card} level={onlineLevel(Date.now() / 1000, row)} />
+                <HostPeerCell card={card} level={onlineLevel(nowSecs, row)} />
               </li>
             );
           })}
