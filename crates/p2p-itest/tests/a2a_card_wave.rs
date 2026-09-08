@@ -50,28 +50,38 @@ async fn host_rig(tag: &str) -> HostRig {
     let keypair = p2p_identity::load_seed(&root.join("identity/key.seed")).expect("host keypair");
     let agents = host_a2a::AgentStore::open(root.join("data").join(host_a2a::AGENTS_FILE))
         .expect("agent store");
+    let grants = host_a2a::GrantStore::open(root.join("data").join(host_a2a::GRANTS_FILE))
+        .expect("grant store");
     let subscribers = Arc::new(host_a2a::Subscribers::new());
     let audit = Arc::new(CaptureAudit::new());
+    let ws_store = Arc::new(
+        acp_agent::workspaces::WorkspaceStore::open(&[], None, cfg.paths().workspaces())
+            .expect("ws store"),
+    );
+    let tasks = Arc::new(host_a2a::TaskService::new(
+        cfg.clone(),
+        agents.clone(),
+        Arc::new(grants),
+        ws_store.clone(),
+        audit.clone(),
+    ));
     let deps = Arc::new(host_a2a::A2aDeps {
         config: cfg.clone(),
         agents: agents.clone(),
         keypair: keypair.clone(),
         host_peer: keypair.peer_id().to_string(),
         subscribers: subscribers.clone(),
-        audit,
+        tasks,
+        audit: audit.clone(),
     });
     node.handle_protocol(Arc::new(
-        host_a2a::A2aCardHandler::new(deps.clone()).expect("a2a handler"),
+        host_a2a::A2aHandler::new(deps.clone()).expect("a2a handler"),
     ));
     // 真 admin HTTP（Bearer + loopback），a2a 管理上下文挂入
     let token = AdminToken::issue(cfg.paths().admin_token()).expect("admin token");
     let policy_path = cfg.policy_path();
     std::fs::create_dir_all(policy_path.parent().expect("policy parent")).expect("mkdir policy");
     let policy = Arc::new(std::sync::RwLock::new(acp_common::PolicyTable::new()));
-    let ws_store = Arc::new(
-        acp_agent::workspaces::WorkspaceStore::open(&[], None, cfg.paths().workspaces())
-            .expect("ws store"),
-    );
     let service = acp_agent::ShareService::open(
         &cfg,
         ws_store.clone(),

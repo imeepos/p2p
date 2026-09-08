@@ -1,6 +1,6 @@
-//! /a2a/1 card 相 handler（a2a-over-p2p-design §5.1）：list/get/subscribe +
-//! 变更/心跳 push。可见性 fail-closed：A2A2a 阶段远程 peer 仅见 public 卡，
-//! owner（loopback/本机密钥）全见；私有授权清单 A2A5 接入。
+//! /a2a/1 handler（a2a-over-p2p-design §5）：首帧嗅探分流——card 相
+//! （请求-响应+订阅推送）与 task 相（JSON-RPC 2.0，1 task=1 流，§5.2）。
+//! 可见性 fail-closed：远程仅 public + 授权清单内 private（§6）。
 
 use std::collections::HashMap;
 use std::io;
@@ -14,6 +14,7 @@ use p2p_protocol::{read_frame, write_frame};
 use tokio::sync::mpsc;
 
 use crate::a2a::agents::AgentStore;
+use crate::a2a::task::TaskService;
 use crate::audit::AuditSink;
 use crate::config::AgentConfig;
 
@@ -73,22 +74,23 @@ impl Subscribers {
     }
 }
 
-/// A2A 依赖面：簿 + 签名密钥 + 宿主 PeerId + 订阅表 + 审计。
+/// A2A 依赖面：簿 + 签名密钥 + 宿主 PeerId + 订阅表 + task 服务 + 审计。
 pub struct A2aDeps {
     pub config: AgentConfig,
     pub agents: Arc<AgentStore>,
     pub keypair: p2p_identity::Keypair,
     pub host_peer: String,
     pub subscribers: Arc<Subscribers>,
+    pub tasks: Arc<TaskService>,
     pub audit: Arc<dyn AuditSink>,
 }
 
-pub struct A2aCardHandler {
+pub struct A2aHandler {
     deps: Arc<A2aDeps>,
     protocol_id: ProtocolId,
 }
 
-impl A2aCardHandler {
+impl A2aHandler {
     pub fn new(deps: Arc<A2aDeps>) -> Result<Self, p2p_protocol::ProtocolError> {
         Ok(Self {
             deps,
@@ -96,27 +98,73 @@ impl A2aCardHandler {
         })
     }
 
-    fn visible_cards(&self, _peer: &PeerId, requester_is_owner: bool) -> Vec<SignedCard> {
+    /// 对请求方可见的卡（§5.1 F4/F6）：owner 全见；远程 = public + 授权清单内。
+    fn visible_cards(&self, peer: &PeerId, requester_is_owner: bool) -> Vec<SignedCard> {
         let now = unix_now();
-        // A2A2a fail-closed：private/local 仅 owner 可见（授权清单 A2A5 接入）
-        self.deps.agents.signed_cards_for(
-            &self.deps.keypair,
-            &self.deps.host_peer,
-            requester_is_owner,
-            now,
-        )
+        let granted: Vec<String> = if requester_is_owner {
+            Vec::new()
+        } else {
+            self.deps.tasks.grants.agents_for_peer(&peer.to_string())
+        };
+        self.deps
+            .agents
+            .signed_cards_for(&self.deps.keypair, &self.deps.host_peer, requester_is_owner, &granted, now)
     }
 }
 
 #[async_trait]
-impl ProtocolHandler for A2aCardHandler {
+impl ProtocolHandler for A2aHandler {
     fn protocol(&self) -> ProtocolId {
         self.protocol_id.clone()
     }
 
     async fn handle_inbound(&self, peer: PeerId, mut stream: BoxedStream) -> io::Result<()> {
         let requester_is_owner = peer == self.deps.keypair.peer_id();
+        let first = read_frame(&mut stream).await?;
+        if first.is_empty() {
+            return Ok(()); // 对端关流
+        }
+        // 首帧嗅探（§5：card 相与 task 相各自独立开流）：card 帧带 op，
+        // task 帧是 JSON-RPC（jsonrpc 字段）。
+        let is_task = serde_json::from_slice::<serde_json::Value>(&first)
+            .ok()
+            .is_some_and(|v| v.get("op").is_none());
+        if is_task {
+            return super::stream::serve_task_stream(
+                self.deps.tasks.clone(),
+                stream,
+                peer,
+                requester_is_owner,
+            )
+            .await;
+        }
+        let Ok(frame) = serde_json::from_slice::<CardFrame>(&first) else {
+            self.deps.audit.record(crate::audit::AuditEvent::A2aDenied {
+                peer: peer.to_string(),
+                detail: "first card frame unparsable".into(),
+            });
+            return Ok(());
+        };
+        self.card_loop(peer, requester_is_owner, frame, stream).await
+    }
+
+    async fn handle(&self, _stream: BoxedStream) -> io::Result<()> {
+        // 裸流无身份上下文（acp-over-p2p §4.1 身份补记同款 fail-closed）
+        Err(io::Error::other("a2a stream requires peer identity"))
+    }
+}
+
+impl A2aHandler {
+    /// card 相循环：请求-响应 + 订阅态推送双向合流。
+    async fn card_loop(
+        &self,
+        peer: PeerId,
+        requester_is_owner: bool,
+        first: CardFrame,
+        mut stream: BoxedStream,
+    ) -> io::Result<()> {
         let mut rx: Option<mpsc::Receiver<CardFrame>> = None;
+        let mut pending = Some(first);
         loop {
             // 订阅态下同时消费推送通道；未订阅只读请求
             let push = async {
@@ -133,13 +181,19 @@ impl ProtocolHandler for A2aCardHandler {
                         write_frame(&mut stream, &bytes).await?;
                     }
                 }
-                req = read_frame(&mut stream) => {
-                    let bytes = req?;
-                    if bytes.is_empty() {
-                        return Ok(()); // 对端关流
+                req = async {
+                    match pending.take() {
+                        Some(frame) => Ok(Some(frame)),
+                        None => read_frame(&mut stream).await.map(|bytes| {
+                            if bytes.is_empty() {
+                                None
+                            } else {
+                                serde_json::from_slice::<CardFrame>(&bytes).ok()
+                            }
+                        }),
                     }
-                    let frame: CardFrame = serde_json::from_slice(&bytes)
-                        .map_err(|e| io::Error::other(format!("bad card frame: {e}")))?;
+                } => {
+                    let Some(frame) = req? else { return Ok(()) };
                     for reply in self.dispatch(peer, requester_is_owner, frame, &mut rx) {
                         let bytes = serde_json::to_vec(&reply).map_err(io::Error::other)?;
                         write_frame(&mut stream, &bytes).await?;
@@ -149,13 +203,6 @@ impl ProtocolHandler for A2aCardHandler {
         }
     }
 
-    async fn handle(&self, _stream: BoxedStream) -> io::Result<()> {
-        // 裸流无身份上下文（acp-over-p2p §4.1 身份补记同款 fail-closed）
-        Err(io::Error::other("a2a card stream requires peer identity"))
-    }
-}
-
-impl A2aCardHandler {
     fn dispatch(
         &self,
         peer: PeerId,

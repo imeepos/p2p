@@ -95,14 +95,15 @@ pub fn spawn_publisher(
     }))
 }
 
-/// 当前应发布卡全集（enabled + 非 local；A2A2a 全部按 public 可见面重签）。
+/// 当前应发布卡全集：公开池只收 public（§6——私有卡仅经签名邀请投递，
+/// 授权清单传空即天然过滤）。
 fn current_cards(deps: &A2aDeps) -> Vec<SignedCard> {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
     deps.agents
-        .signed_cards_for(&deps.keypair, &deps.host_peer, false, now)
+        .signed_cards_for(&deps.keypair, &deps.host_peer, false, &[], now)
 }
 
 #[cfg(test)]

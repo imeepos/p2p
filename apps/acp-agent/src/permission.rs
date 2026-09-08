@@ -66,9 +66,20 @@ pub enum Decision {
 }
 
 pub fn decide(req: &PermissionRequest, route: AskRoute) -> Decision {
+    decide_scoped(req, route, true)
+}
+
+/// 可见性维度（a2a-over-p2p-design §9 矩阵）：local agent（owner 全权）
+/// read/fetch/think 静态放行；public/private agent（远程驱动）仅 think 桥代答，
+/// read/fetch/execute/edit/delete 一律走 ask 路由——绝不静态放行。
+pub fn decide_scoped(req: &PermissionRequest, route: AskRoute, visibility_local: bool) -> Decision {
     if let (Some(kind), Some(option)) = (&req.tool_kind, &req.allow_option) {
-        if matches!(kind.as_str(), "read" | "think" | "fetch") {
-            return Decision::AutoAllow(selected_response(&req.id, option));
+        match kind.as_str() {
+            "think" => return Decision::AutoAllow(selected_response(&req.id, option)),
+            "read" | "fetch" if visibility_local => {
+                return Decision::AutoAllow(selected_response(&req.id, option));
+            }
+            _ => {}
         }
     }
     match route {
@@ -175,6 +186,58 @@ mod tests {
             json!({"jsonrpc": "2.0", "method": "session/request_permission", "params": {}}),
         ] {
             assert!(classify(&line).is_none());
+        }
+    }
+
+    /// §9 矩阵回归：public/private 远程驱动仅 think 桥代答；read/fetch 不静态放行。
+    #[test]
+    fn remote_visibility_rejects_read_and_execute_via_owner_local() {
+        for kind in ["read", "fetch", "execute", "edit", "delete", "other"] {
+            let req = classify(&request(kind, options())).expect("permission request");
+            let decision = decide_scoped(&req, AskRoute::OwnerLocal, false);
+            assert!(
+                matches!(decision, Decision::OwnerLocal(_)),
+                "{kind} must route to owner-local reject for remote agents"
+            );
+        }
+    }
+
+    #[test]
+    fn remote_visibility_still_bridge_answers_think() {
+        let req = classify(&request("think", options())).expect("permission request");
+        assert!(matches!(
+            decide_scoped(&req, AskRoute::OwnerLocal, false),
+            Decision::AutoAllow(_)
+        ));
+    }
+
+    /// §9 local 行：owner 全权（loopback），read/fetch 静态放行、execute 走 ask。
+    #[test]
+    fn local_visibility_static_allows_read_rejects_execute_by_route() {
+        let read = classify(&request("read", options())).expect("permission request");
+        assert!(matches!(
+            decide_scoped(&read, AskRoute::RemoteGui, true),
+            Decision::AutoAllow(_)
+        ));
+        let execute = classify(&request("execute", options())).expect("permission request");
+        assert!(matches!(
+            decide_scoped(&execute, AskRoute::RemoteGui, true),
+            Decision::Forward
+        ));
+    }
+
+    /// 既有 ACP 流路径零回归：decide = decide_scoped(local)。
+    #[test]
+    fn decide_matches_scoped_local_for_acp_flow() {
+        for kind in ["read", "think", "fetch", "execute"] {
+            let req = classify(&request(kind, options())).expect("permission request");
+            let a = decide(&req, AskRoute::RemoteGui);
+            let b = decide_scoped(&req, AskRoute::RemoteGui, true);
+            assert_eq!(
+                std::mem::discriminant(&a),
+                std::mem::discriminant(&b),
+                "{kind}"
+            );
         }
     }
 }

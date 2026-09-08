@@ -174,19 +174,24 @@ impl AgentStore {
             .collect()
     }
 
-    /// 按请求方可见性签发卡片（design §5.1 F4/F6）：A2A2a 阶段远程 peer 仅见
-    /// public；私有授权清单在 A2A5 邀请全链落地后接入 is_granted。
+    /// 按请求方可见性签发卡片（design §5.1 F4/F6）：owner 全见；远程 = public
+    /// 全集 + 授权清单（granted agent ids）内 private；local 不出网络面。
     pub fn signed_cards_for(
         &self,
         kp: &Keypair,
         host_peer: &str,
         requester_is_owner: bool,
+        granted: &[String],
         now: u64,
     ) -> Vec<SignedCard> {
         self.lock()
             .iter()
             .filter(|d| d.enabled)
-            .filter(|d| requester_is_owner || d.visibility == Visibility::Public)
+            .filter(|d| {
+                requester_is_owner
+                    || d.visibility == Visibility::Public
+                    || granted.iter().any(|id| id == &d.agent_id)
+            })
             .filter_map(|d| {
                 let card = Self::card_of(d, host_peer)?;
                 SignedCard::sign(card, kp, now).ok()

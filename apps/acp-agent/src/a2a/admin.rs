@@ -203,7 +203,7 @@ fn broadcast_change(ctx: &A2aAdminCtx, agent_id: &str, created: bool) {
     let now = unix_now();
     let cards = ctx
         .agents
-        .signed_cards_for(&ctx.keypair, &ctx.host_peer, true, now)
+        .signed_cards_for(&ctx.keypair, &ctx.host_peer, true, &[], now)
         .into_iter()
         .filter(|c| created || c.0.payload.agent_id != agent_id)
         .collect::<Vec<_>>();

@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 /// 每 task 累计上行输入上限（字节）：防经济 DoS（design §9 F7）。
 pub const TASK_INPUT_CAP_BYTES: usize = 256 * 1024;
+/// 每 peer 并发 task 流上限（design §5.2 资源门禁；宿主 TaskGate 消费）。
+pub const TASKS_PER_PEER_MAX: usize = 4;
 /// FilePart 单文件上限（字节）：防 16 MiB ACP 单行护栏溢出（design §9 F7）。
 pub const FILE_PART_CAP_BYTES: usize = 4 * 1024 * 1024;
 

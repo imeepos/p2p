@@ -33,8 +33,8 @@ async fn run(cli: Cli) -> Result<(), String> {
         .map_err(|err| format!("policy load: {err}"))?;
     let handler = AcpHandler::new(deps.clone()).map_err(|err| format!("protocol id: {err}"))?;
     node.handle_protocol(Arc::new(handler));
-    // A2A 宿主（a2a-over-p2p-design §3）：/a2a/1 card 相 + admin 管理面 + 在场发布
-    let a2a_ctx = start_a2a(&config, &paths, &node).await?;
+    // A2A 宿主（a2a-over-p2p-design §3）：/a2a/1 card 相 + task 相 + admin 管理面 + 在场发布
+    let a2a_ctx = start_a2a(&config, &paths, &node, deps.workspaces.clone()).await?;
     start_admin(&config, &paths, &node, deps.clone(), a2a_ctx).await?;
     eprintln!(
         "acp-agent: running peer={} data-dir={}",
@@ -55,12 +55,13 @@ fn ensure_dir(dir: &std::path::Path) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|err| format!("create {}: {err}", dir.display()))
 }
 
-/// A2A 装配（a2a-over-p2p-design §3/§7）：簿打开失败拒启（对齐 policy 纪律）；
-/// handler 注册 + rendezvous 在场发布（bootstrap 空则发布停用）。
+/// A2A 装配（a2a-over-p2p-design §3/§7）：簿/授权清单打开失败拒启（对齐 policy
+/// 纪律）；handler 注册（card+task 双相）+ rendezvous 在场发布（bootstrap 空则停用）。
 async fn start_a2a(
     config: &acp_agent::AgentConfig,
     paths: &acp_common::AcpPaths,
     node: &p2p::Node,
+    workspaces: std::sync::Arc<acp_agent::WorkspaceStore>,
 ) -> Result<Option<std::sync::Arc<acp_agent::a2a::A2aAdminCtx>>, String> {
     if config.a2a_disabled {
         eprintln!("acp-agent: a2a disabled (--a2a-disabled)");
@@ -70,16 +71,27 @@ async fn start_a2a(
         .map_err(|err| format!("a2a identity: {err}"))?;
     let agents = acp_agent::a2a::AgentStore::open(paths.root.join(acp_agent::a2a::AGENTS_FILE))
         .map_err(|err| format!("a2a agents load: {err}"))?;
+    let grants = acp_agent::a2a::GrantStore::open(paths.root.join(acp_agent::a2a::GRANTS_FILE))
+        .map_err(|err| format!("a2a grants load: {err}"))?;
     let subscribers = std::sync::Arc::new(acp_agent::a2a::Subscribers::new());
+    let audit: std::sync::Arc<dyn acp_agent::AuditSink> = std::sync::Arc::new(TracingAudit);
+    let tasks = std::sync::Arc::new(acp_agent::a2a::TaskService::new(
+        config.clone(),
+        agents.clone(),
+        std::sync::Arc::new(grants),
+        workspaces,
+        audit.clone(),
+    ));
     let deps = std::sync::Arc::new(acp_agent::a2a::A2aDeps {
         config: config.clone(),
         agents: agents.clone(),
         keypair: keypair.clone(),
         host_peer: keypair.peer_id().to_string(),
         subscribers: subscribers.clone(),
-        audit: std::sync::Arc::new(TracingAudit),
+        tasks,
+        audit,
     });
-    let handler = acp_agent::a2a::A2aCardHandler::new(deps.clone())
+    let handler = acp_agent::a2a::A2aHandler::new(deps.clone())
         .map_err(|err| format!("a2a protocol id: {err}"))?;
     node.handle_protocol(std::sync::Arc::new(handler));
     acp_agent::a2a::spawn_publisher(
