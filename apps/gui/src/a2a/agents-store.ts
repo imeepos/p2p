@@ -6,7 +6,7 @@ import { create } from "zustand";
 import { createAgent, listAgents, removeAgent, updateAgent } from "./admin-client";
 import { CardChannel, cardKey, shouldReplace, type CardChannelStatus } from "./card-channel";
 import { toSkillJson } from "./skills";
-import type { AgentCardJson, AgentCreateInput, AgentDefJson, DiscoveredAgent } from "./types";
+import type { AgentCreateInput, AgentDefJson, DiscoveredAgent } from "./types";
 
 interface AgentsState {
   /** 发现面卡片簿（含本机公开卡；宿主 list 已按可见性过滤）。 */

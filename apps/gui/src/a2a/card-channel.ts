@@ -47,7 +47,7 @@ export function handleFrame(
   const op = typeof frame.op === "string" ? frame.op : "";
   if (op === "cards" || op === "push") {
     const raw = Array.isArray(frame.cards) ? frame.cards : [];
-    const cards = raw.map(payloadOf).filter((c): c is AgentCardJson => c !== null);
+    const cards = raw.map(payloadOf).filter((row): row is DiscoveredAgent => row !== null);
     if (cards.length > 0) cb.onCards(cards);
     if (op === "push" && Array.isArray(frame.removed)) {
       cb.onRemoved(frame.removed.filter((k): k is string => typeof k === "string"));
@@ -63,7 +63,6 @@ export function handleFrame(
 
 export class CardChannel {
   private ws: WsLike | null = null;
-  private assembler: NdjsonAssembler | null = null;
 
   constructor(private readonly cb: CardChannelCallbacks) {}
 
@@ -85,8 +84,8 @@ export class CardChannel {
       return;
     }
     this.ws = ws;
+    // 行重组器闭包持有（连接生命周期 = 对象生命周期，无需落字段）
     const assembler = new NdjsonAssembler();
-    this.assembler = assembler;
     ws.onopen = () => {
       this.cb.onStatus("online");
       // list 拉全量快照，subscribe 幂等登记变更推送（契约 §17.1 纪律）
@@ -123,6 +122,5 @@ export class CardChannel {
   close(): void {
     this.ws?.close(1000, "channel closed");
     this.ws = null;
-    this.assembler = null;
   }
 }
