@@ -11,6 +11,7 @@ pub mod dial;
 pub mod discovery;
 pub mod out;
 pub mod pump;
+pub mod runtime;
 pub mod share;
 pub mod state;
 pub mod status;
@@ -19,4 +20,5 @@ pub mod token;
 pub mod ws;
 
 pub use config::ConsoleConfig;
+pub use runtime::{Pump, PumpExit, PumpHandle};
 pub use state::{ConnPhase, StateSnapshot, StatusHub};
