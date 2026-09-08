@@ -5,7 +5,8 @@ import type { PageDescriptor, PageEntry } from "../page-registry";
 
 const descriptor: PageDescriptor = {
   name: "llm-share",
-  description: "闲置 LLM 额度共享页：offer/账本/借入/收据概览（只读观测）",
+  description:
+    "闲置 LLM 额度共享页：概览统计/借用/账本/能力发布/白名单/上游配置六 tab（只读观测）",
   actions: [],
 };
 
