@@ -1,8 +1,9 @@
 # p2p GUI（Tauri Messenger）成套 UI 设计稿
 
 gpt-image-2 生成的整套设计稿，覆盖 p2p 桌面 App 的 7 个核心界面。
-生成方法：**锚点-延展法**——先出设计系统总板（01），其余页面全部以总板为
-Image 1 参考图走 edits 端点延展，保证跨页风格一致。
+生成方法：**锚点-延展法**——先出设计系统总板（01），其余页面两条通道延展：
+edits 端点以总板为 Image 1 参考图；或 generations 端点在 prompt 内联总板
+token 锚定（网关抖动期与 edits 内容塌缩时的更稳替代，见下文）。
 
 - 生成日期：2026-09-08 深夜 ~ 2026-09-09 凌晨
 - 模型：`gpt-image-2`（中转端点，密钥走 `.env` 的 `OPENAI_API_KEY` / `OPENAI_BASE_URL`）
@@ -17,9 +18,9 @@ Image 1 参考图走 edits 端点延展，保证跨页风格一致。
 | 01-design-system.png | 设计系统总板（8 分区） | 1536x960 | OK |
 | 02-chat.png | 聊天页（会话列表+对话） | 1536x960 | OK |
 | 03-network.png | 网络页（Peers/Relay/图表/状态栏） | 1536x960 | OK |
-| 04-contacts.png | 联系人页（列表+资料+动态三栏） | 1586x992 | OK |
-| 05-messages.png | 消息中心 | 1586x992 | 重出后 OK（首版内容漂移） |
-| 06-agents.png | Agents 页（卡片+分类+用量） | 1586x992 | 重出后 OK（首版误出总板） |
+| 04-contacts.png | 联系人页（三区树+详情：身份 chip/Capabilities/Danger Zone） | 1586x992 | 重出后 OK（首版漂移为通用资料页） |
+| 05-messages.png | 消息中心（好友/群邀请，Accept/Decline/Expired） | 1586x992 | 补跑后 OK（批次 4 败于网关） |
+| 06-agents.png | Agents 页（Mine/Discover/Invites 三节） | 1586x992 | 重出后 OK（首版塌缩为总板复制品） |
 | 07-settings.png | 设置页（通用/主题/安全） | 1586x992 | OK |
 
 ## 设计 Token（总板定稿）
@@ -46,9 +47,13 @@ Image 1 参考图走 edits 端点延展，保证跨页风格一致。
 
 ## 生成方式与参数
 
-- 01：`POST /images/generations`，payload 仅 `{model, prompt, size, quality, n}`
-- 02–07：`POST /images/edits`，multipart 以 `01-design-system.png` 为 `image` 参考，
+- 01 总板：`POST /images/generations`，payload 仅 `{model, prompt, size, quality, n}`
+- 02/07：`POST /images/edits`，multipart 以 `01-design-system.png` 为 `image` 参考，
   prompt 按索引引用并携带不变量约束（沿用总板配色/字体/圆角，不得引入新色）
+- 03/05 补跑与 04/06 重出：`POST /images/generations` + prompt 内联 token 锚定，
+  并加反设计板负约束（"this is a real application screen, NOT a design-system
+  board"）。04/06 经 edits 首版分别漂移为通用资料页/塌缩为总板复制品，改道后
+  一次命中；03 在 edits 下三连 524，改道后一次成功——**页面类优先 generations+内联锚定**
 - 公共参数：`quality=high`、`n=1`；尺寸 `1536x960` 为主（中转对部分请求返回 1586x992）
 - prompt 全文见 `tools/specs.py`（RAIL/TOPBAR/STATUSBAR/COMMON 组合式拼装）
 
@@ -67,10 +72,10 @@ Image 1 参考图走 edits 端点延展，保证跨页风格一致。
 |---|---|---|
 | 01 | 3（500/超时/200） | high |
 | 02 | 3（524x2/200） | high |
-| 03 | 3 全败 → 后由接管方补跑 | high |
-| 04 | 1 | high |
-| 05 | 原会话 4 败；接管方再 4 试（524/524/500/200） | high |
-| 06 | 原会话 2 试成功但内容错（总板复制品）；接管方重出 1 次成功 | high |
+| 03 | 批次 edits 3 全败；补跑 generations 1 试成功 | high |
+| 04 | 批次 edits 成功但内容漂移；重出 generations 2 试（524/200） | high |
+| 05 | 批次 edits 3 败+low 1 败；补跑 4 败；末轮 2 试（500/200） | high |
+| 06 | 批次 edits 成功但内容塌缩；重出 generations 1 试成功 | high |
 | 07 | 2（524/200） | high |
 
 ## 每屏 QA 记录（视觉验收）
@@ -78,11 +83,12 @@ Image 1 参考图走 edits 端点延展，保证跨页风格一致。
 - 01：8 分区齐全，色值/按钮四态/pill/图标/圆角间距全部正确，文字清晰无乱码
 - 02：会话列表 + 对话 + 输入栏完整，绿白气泡与总板一致
 - 03：统计卡 + 连接数曲线 + Peer 表（RTT/State pill）+ 状态栏，最贴合 spec
-- 04：三栏联系人资料页，标签/动态/共享文件齐备
-- 05：**内容漂移**：spec 要求「好友邀请 + 群邀请卡（Accept/Decline/Expired）」，
-  实际渲染为消息列表 + 会话 + 机器人资料面板；风格一致，保留并记录
-- 06：**首版误出总板复制品**；重出后为 Agents 市场（卡片栅格 + 分类 + 用量统计），
-  布局与 spec（Mine/Discover/Invites）有出入，验收合格
+- 04：三区树（FRIENDS(12)/GROUPS(4)/AGENTS(3)）+ 详情（`p2p://alice@key8f2k`
+  身份 chip、Capabilities 绿 chip、Danger Zone 红 Remove、Send Message），命中 spec
+- 05：Messages badge 3；Friend Invites（Dave/Erin）与 Group Invites
+  （p2p-dev by Alice、group 'lab' Expired pill）+ Accept/Decline 按钮，命中 spec
+- 06：Mine(2)/Discover/Invites 三节 + skills chips（deploy/monitor、i18n/review、
+  pytest）+ Create Agent 按钮，rail Agents 高亮，命中 spec
 - 07：通用/主题/安全三区完整，Light 选中态正确
 
 ## 复现方式
