@@ -21,7 +21,8 @@ use tokio_tungstenite::tungstenite::protocol::Message;
 use crate::discovery::{self, DiscoveryHub};
 use crate::out;
 use crate::state::{now_unix_ms, ConnPhase, StatusHub};
-use crate::status::{reply, StatusDeps};
+use crate::status::StatusDeps;
+use crate::status_wire::reply;
 
 /// 拨号→握手结果等待上限：握手护栏 10s（dial::HANDSHAKE_TIMEOUT）+ 余量。
 const CONNECT_WAIT: Duration = Duration::from_secs(15);

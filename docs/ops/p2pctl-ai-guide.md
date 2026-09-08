@@ -1060,6 +1060,43 @@ HCjw5d6mzG5Z9iGTebhRSHBZKjA1WuunTXkZN9gzmfWj  sandbox  fs,web     remote_gui  20
 语义：重复撤销幂等成功（already_revoked=true）；策略条目非 share 来源（如手工 acp allow）不级联。
 退出码：无此 share_id → 1（明确报错不静默）；分享台账/策略表损坏 → 1。
 
+### p2pctl acp console
+用途：前台跑 ACP 泵（本地 WS(127.0.0.1+token) ⇄ P2P 流哑泵 + 节点发现 + 连接状态机），阻塞到 ctrl_c；原独立 acp-console bin 已撤销，本命令是唯一 CLI 前台入口（INLINE-ACP-PUMP）。就绪信息经 stdout 打一行 {"kind":"ready","ws":...,"status":...,"token":...,"peer":...}；运行期 state/discovery/share-connect 事件行同通道发布。前置：无；数据目录不可建/端口绑定失败 → 退出 1。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --data-dir | path | 否 | ./acp-console-data |
+| --bootstrap | string（可重复） | 否 | 无 |
+| --no-mdns | flag | 否 | off |
+| --peer | string PEER@ADDR（可重复） | 否 | 无 |
+| --agent-token | string | 否 | 无 |
+| --ws-port | u16 | 否 | 0（随机） |
+| --status-port | u16 | 否 | 0（随机） |
+| --window-secs | u64 | 否 | 90 |
+| --share-link | string（dsh-acp-share://v1?...） | 否 | 无 |
+文本（stdout ready 行）：
+```
+{"kind":"ready","ws":"127.0.0.1:8087","status":"127.0.0.1:8088","token":"…","peer":"…"}
+```
+语义：坏 --peer / 坏 --share-link 启动即结构化报错（fail-fast 不静默）；泵异常退出转退出码 1 并留原因。状态查询配对命令：p2pctl acp status。
+退出码：0 = ctrl_c 正常收尾；1 = 装配失败或泵异常退出。
+
+### p2pctl acp status
+用途：查询运行中泵的状态快照（GET <status-url>/status，Bearer 鉴权），词汇与 GUI acp_console_status 同源（phase=connecting/connected/disconnected + 连接面）。前置：泵已在跑（p2pctl acp console 或 GUI 进程内装配）；写操作：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --status-url | string（http://127.0.0.1:<port>） | 是 | —— |
+| --token | string | 是 | —— |
+| --json | flag | 否 | off |
+文本：
+```
+phase: connected
+ws: ws://127.0.0.1:8087
+status: http://127.0.0.1:8088
+token: 已配置
+```
+--json：原样透出 /status 响应体（含 token 原文，机器消费用）。
+语义：人工视图 token 脱敏只透出已配置/缺失；端点不可达、非 2XX、响应非 JSON 均退出 1 显式报错。
+
 ### p2pctl llm-share allow
 用途：把借方加入出借方 allowlist（upsert：条目已存在则为更新并刷新 grantedAt）。前置：无（离线可跑，纯本地 allowlist）；写操作须人确认。
 | 参数 | 类型 | 必填 | 默认 |

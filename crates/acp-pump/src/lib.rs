@@ -15,6 +15,7 @@ pub mod runtime;
 pub mod share;
 pub mod state;
 pub mod status;
+pub mod status_wire;
 pub mod ticket;
 pub mod token;
 pub mod ws;
