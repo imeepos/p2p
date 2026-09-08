@@ -1,14 +1,14 @@
 //! task 相流循环（a2a-over-p2p-design §5.2 JSON-RPC 2.0）：一条流承载一个任务
-//! （Q10）。首帧 tasks/create（或只读 tasks/get 断线恢复）；桥事件转
-//! tasks/message 与 tasks/status 通知；EOF = 客户端断流，活跃任务 cancel 后
-//! 兜底收尾（孤儿进程不过夜）。单循环单写者，应答/通知无并发写竞争。
+//! （Q10）。首帧 tasks/create（或只读 tasks/get 断线恢复；首帧由 handler 嗅探后
+//! 传入）；桥事件转 tasks/message 与 tasks/status 通知；EOF = 客户端断流，活跃
+//! 任务 cancel 后兜底收尾（孤儿进程不过夜）。单循环单写者，无并发写竞争。
 
 use std::io;
 use std::sync::Arc;
 
 use a2a::{
-    Message, MessageNoticeParams, Part, Role, StatusParams, TaskErrorBody, TaskNotice,
-    TaskRequest, TaskResponse, TaskSnapshot, TaskState,
+    Message, MessageNoticeParams, Part, Role, StatusParams, TaskCreateParams, TaskErrorBody,
+    TaskNotice, TaskRequest, TaskResponse, TaskSnapshot, TaskState,
 };
 use p2p::{BoxedStream, PeerId};
 use p2p_protocol::{read_frame, write_frame};
@@ -21,14 +21,20 @@ use super::task::{TaskHandle, TaskService};
 /// 业务错误统一 JSON-RPC -32000，机器码进 message 前缀（gate-denied 等）。
 const ERR_SERVER: i64 = -32000;
 
+type Attached = Option<(Arc<TaskHandle>, mpsc::Receiver<BridgeEvent>)>;
+
 pub(super) async fn serve_task_stream(
     service: Arc<TaskService>,
     mut stream: BoxedStream,
     peer: PeerId,
     is_owner: bool,
+    first: Vec<u8>,
 ) -> io::Result<()> {
     let peer_str = peer.to_string();
-    let mut current: Option<(Arc<TaskHandle>, mpsc::Receiver<BridgeEvent>)> = None;
+    let mut current: Attached = None;
+    if handle_frame(&service, &mut stream, &peer_str, is_owner, &mut current, &first).await? {
+        return Ok(()); // 对端在首帧后即关流
+    }
     loop {
         tokio::select! {
             biased;
@@ -56,23 +62,11 @@ pub(super) async fn serve_task_stream(
                     Some(bytes) => bytes,
                     None => break, // EOF：收尾在循环外
                 };
-                let Ok(request) = serde_json::from_slice::<TaskRequest>(&bytes) else {
-                    reply_err(&mut stream, None, -32700, "parse-error").await?;
-                    continue;
-                };
-                if request.method == "tasks/create" {
-                    if current.is_some() {
-                        reply_err(&mut stream, request.id, ERR_SERVER, "one-task-per-stream").await?;
-                        continue;
-                    }
-                    match create_and_attach(&service, &peer_str, is_owner, &request, &mut stream).await {
-                        Ok(pair) => current = Some(pair),
-                        Err(message) => reply_err(&mut stream, request.id, ERR_SERVER, &message).await?,
-                    }
-                    continue;
+                if handle_frame(&service, &mut stream, &peer_str, is_owner, &mut current, &bytes)
+                    .await?
+                {
+                    break;
                 }
-                let reply = dispatch(&service, current.as_ref().map(|(h, _)| h), &peer_str, &request).await;
-                write_json(&mut stream, &reply).await?;
             }
         }
     }
@@ -80,6 +74,37 @@ pub(super) async fn serve_task_stream(
         finish_detached(&service, handle).await;
     }
     Ok(())
+}
+
+/// 处理一条入站请求；返回 true 表示对端关流（EOF 帧形态）。
+async fn handle_frame(
+    service: &Arc<TaskService>,
+    stream: &mut BoxedStream,
+    peer: &str,
+    is_owner: bool,
+    current: &mut Attached,
+    bytes: &[u8],
+) -> io::Result<bool> {
+    if bytes.is_empty() {
+        return Ok(true);
+    }
+    let Ok(request) = serde_json::from_slice::<TaskRequest>(bytes) else {
+        reply_err(stream, None, -32700, "parse-error").await?;
+        return Ok(false);
+    };
+    if request.method == "tasks/create" {
+        if current.is_some() {
+            reply_err(stream, request.id, ERR_SERVER, "one-task-per-stream").await?;
+            return Ok(false);
+        }
+        match create_and_attach(service, peer, is_owner, &request, stream).await {
+            Ok(pair) => *current = Some(pair),
+            Err(message) => reply_err(stream, request.id, ERR_SERVER, &message).await?,
+        }
+        return Ok(false);
+    }
+    let reply = dispatch(service, current.as_ref().map(|(h, _)| h), peer, &request).await;
+    write_json(stream, &reply).await.map(|_| false)
 }
 
 async fn dispatch(
@@ -114,10 +139,8 @@ async fn dispatch(
             let Some(handle) = current else {
                 return fail("no-task-on-stream: tasks/create first".into());
             };
-            let Some(task_id) = params_task_id(&request.params) else {
-                return fail("invalid-params: taskId required".into());
-            };
-            if task_id != handle.task_id() {
+            let task_id = handle.task_id();
+            if params_task_id(&request.params).is_some_and(|t| t != task_id) {
                 return fail("task-mismatch: stream carries another task".into());
             }
             let Some(message) = params_message(&request.params) else {
@@ -132,8 +155,9 @@ async fn dispatch(
             let Some(handle) = current else {
                 return fail("no-task-on-stream: tasks/create first".into());
             };
-            match service.cancel(peer, &handle.task_id()).await {
-                Ok(()) => ok(json!({ "taskId": handle.task_id() })),
+            let task_id = handle.task_id();
+            match service.cancel(peer, &task_id).await {
+                Ok(()) => ok(json!({ "taskId": task_id })),
                 Err(e) => fail(e.to_string()),
             }
         }
@@ -148,10 +172,11 @@ async fn create_and_attach(
     request: &TaskRequest,
     stream: &mut BoxedStream,
 ) -> Result<(Arc<TaskHandle>, mpsc::Receiver<BridgeEvent>), String> {
-    let params: a2a::TaskCreateParams = serde_json::from_value(request.params.clone())
+    let params: TaskCreateParams = serde_json::from_value(request.params.clone())
         .map_err(|_| "invalid-params: agentId/message".to_owned())?;
     let handle = service
         .create(peer, is_owner, &params.agent_id, params.message)
+        .await
         .map_err(|e| e.to_string())?;
     // spawn 成功即转 working（握手失败随后以 failed 状态回流，不静默）。
     let state = {
@@ -166,16 +191,13 @@ async fn create_and_attach(
         result: Some(json!({ "taskId": handle.task_id() })),
         error: None,
     };
-    write_json(stream, &reply)
-        .await
-        .map_err(|e| e.to_string())?;
+    write_json(stream, &reply).await.map_err(|e| e.to_string())?;
     write_json(stream, &status_notice(&handle.task_id(), state))
         .await
         .map_err(|e| e.to_string())?;
-    let rx = handle.take_events().ok_or("task events already attached")?;
+    let rx = handle.take_events().ok_or_else(|| "task events already attached".to_owned())?;
     Ok((handle, rx))
 }
-
 
 /// agent chunk -> 簿记 + tasks/message 通知帧。
 fn on_agent_message(handle: &Arc<TaskHandle>, message_id: String, part: Part) -> TaskNotice {
@@ -208,7 +230,7 @@ async fn finalize(
         let _ = task.transition(state);
     }
     write_json(stream, &status_notice(&task_id, state)).await?;
-    service.remove(&task_id);
+    service.finalize_task(handle);
     Ok(())
 }
 

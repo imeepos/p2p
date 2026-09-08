@@ -135,6 +135,7 @@ impl ProtocolHandler for A2aHandler {
                 stream,
                 peer,
                 requester_is_owner,
+                first,
             )
             .await;
         }

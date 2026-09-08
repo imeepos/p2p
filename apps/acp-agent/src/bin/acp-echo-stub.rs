@@ -12,7 +12,7 @@
 //!                     （应答 outcome=cancelled 时回 chunk "perm:cancelled"）
 //! 行内含 acp-stub-exit 哨兵即静默退出（子进程退出断流用例）。
 
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -114,10 +114,12 @@ fn parse_args() -> Args {
 
 /// 最小 ACP agent：按行处理请求；prompt 回合 = 延迟 +（可选权限交互）+ N 条
 /// chunk + stopReason=end_turn。EOF 即退出（cancel/quiesce 经 stdin 关闭触发）。
+/// 单一 BufReader 贯穿主循环与权限等待（双 reader 会在缓冲层丢行/死等）。
 fn acp_agent_loop(out: &Arc<Mutex<std::io::Stdout>>, args: &Args) {
     let stdin = std::io::stdin();
-    for line in BufReader::new(stdin.lock()).lines() {
-        let Ok(line) = line else { break };
+    let mut reader = BufReader::new(stdin.lock());
+    // while-let 逐次取行（不持有迭代器借用），prompt 回合内可再借同一 reader。
+    while let Some(Ok(line)) = reader.by_ref().lines().next() {
         if line.contains("acp-stub-exit") {
             break;
         }
@@ -133,13 +135,18 @@ fn acp_agent_loop(out: &Arc<Mutex<std::io::Stdout>>, args: &Args) {
                 "protocolVersion": 1, "agentCapabilities": {}
             })),
             "session/new" => reply(out, id, serde_json::json!({ "sessionId": "s-a2a" })),
-            "session/prompt" => run_prompt_turn(out, args, id),
+            "session/prompt" => run_prompt_turn(out, args, id, &mut reader),
             _ => reply(out, id, serde_json::json!({ "ignored": method })),
         }
     }
 }
 
-fn run_prompt_turn(out: &Arc<Mutex<std::io::Stdout>>, args: &Args, id: serde_json::Value) {
+fn run_prompt_turn(
+    out: &Arc<Mutex<std::io::Stdout>>,
+    args: &Args,
+    id: serde_json::Value,
+    reader: &mut BufReader<std::io::StdinLock<'_>>,
+) {
     if args.prompt_hold_ms > 0 {
         thread::sleep(Duration::from_millis(args.prompt_hold_ms));
     }
@@ -160,8 +167,8 @@ fn run_prompt_turn(out: &Arc<Mutex<std::io::Stdout>>, args: &Args, id: serde_jso
             })
             .to_string(),
         );
-        // 阻塞等权限应答；outcome=cancelled 时向 chunk 侧留可观测痕迹
-        if wait_perm_denied(out) {
+        // 同一 reader 等权限应答；outcome=cancelled 时向 chunk 侧留可观测痕迹
+        if wait_perm_denied(out, reader) {
             emit_chunk(out, &args.acp_text, "perm:cancelled");
         }
     }
@@ -172,9 +179,11 @@ fn run_prompt_turn(out: &Arc<Mutex<std::io::Stdout>>, args: &Args, id: serde_jso
 }
 
 /// 等权限应答行；返回是否被拒（cancelled）。EOF 视为退出（返回 true 终止回合）。
-fn wait_perm_denied(out: &Arc<Mutex<std::io::Stdout>>) -> bool {
-    let stdin = std::io::stdin();
-    for line in BufReader::new(stdin.lock()).lines() {
+fn wait_perm_denied(
+    out: &Arc<Mutex<std::io::Stdout>>,
+    reader: &mut BufReader<std::io::StdinLock<'_>>,
+) -> bool {
+    for line in reader.by_ref().lines() {
         let Ok(line) = line else { return true };
         let Ok(root) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
         if root.get("id") == Some(&serde_json::json!(424_242)) {

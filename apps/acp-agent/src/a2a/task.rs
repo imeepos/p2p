@@ -41,13 +41,14 @@ pub enum TaskOpError {
 }
 
 /// 单个在册任务：a2a::Task 状态机 + 桥控制面 + 事件面 + 并发额度守卫。
+/// 终态后额度释放（release_quota）而快照留簿（tasks/get 断线恢复，§5.2）。
 pub struct TaskHandle {
     pub peer: String,
     pub task: Mutex<Task>,
     pub cmd_tx: mpsc::Sender<BridgeCmd>,
     /// 事件面单流消费：attach 即 take；无流时由 finish_detached 兜底。
     pub event_rx: Mutex<Option<mpsc::Receiver<BridgeEvent>>>,
-    _guard: TaskGuard,
+    guard: Mutex<Option<TaskGuard>>,
 }
 
 impl TaskHandle {
@@ -57,6 +58,14 @@ impl TaskHandle {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .task_id
             .clone()
+    }
+
+    /// 终态收尾：释放并发额度（守卫落体），快照仍留簿供 tasks/get。
+    pub fn release_quota(&self) {
+        self.guard
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .take();
     }
 
     /// 取走事件面（每 task 仅一次，创建流独占）。
@@ -120,8 +129,9 @@ impl TaskService {
         Ok(())
     }
 
-    /// 建 task：校验 -> 门禁 -> 限流 -> spawn 桥 -> 入簿。返回句柄供流 attach。
-    pub fn create(
+    /// 建 task：校验 -> 门禁 -> 限流 -> spawn 桥 -> 入簿 -> 首条 prompt。
+    /// 返回句柄供流 attach。
+    pub async fn create(
         &self,
         peer: &str,
         is_owner: bool,
@@ -134,8 +144,13 @@ impl TaskService {
             .clone()
             .validate_upload(TASK_INPUT_CAP_BYTES)
             .map_err(TaskOpError::State)?;
-        let guard = TaskGuard::acquire(self.gate.clone(), peer)
-            .map_err(|kind| TaskOpError::Cap(if kind == super::limits::TaskCapKind::PerPeer { "per-peer" } else { "total" }))?;
+        let guard = TaskGuard::acquire(self.gate.clone(), peer).map_err(|kind| {
+            TaskOpError::Cap(if kind == super::limits::TaskCapKind::PerPeer {
+                "per-peer"
+            } else {
+                "total"
+            })
+        })?;
         let task_id = uuid::Uuid::new_v4().simple().to_string();
         let def = self.agents.get(agent_id).ok_or(TaskOpError::AgentUnknown)?;
         let visibility_local = def.visibility == a2a::Visibility::Local;
@@ -152,18 +167,26 @@ impl TaskService {
             audit: self.audit.clone(),
         })
         .map_err(|e| TaskOpError::Spawn(e.to_string()))?;
+        let first_text = match &message.parts[0] {
+            a2a::Part::Text(text) => text.text.clone(),
+            _ => return Err(TaskOpError::State(a2a::TaskError::PartNotUploadable)),
+        };
         let task = Task::new(task_id.clone(), agent_id.to_owned(), message);
         let handle = Arc::new(TaskHandle {
             peer: peer.to_owned(),
             task: Mutex::new(task),
-            cmd_tx,
+            cmd_tx: cmd_tx.clone(),
             event_rx: Mutex::new(Some(event_rx)),
-            _guard: guard,
+            guard: Mutex::new(Some(guard)),
         });
         self.insert(handle.clone());
+        // 首条消息即刻入桥队列：桥握手完成后即开始 prompt（§5.2 create=发首条）。
+        cmd_tx
+            .send(super::bridge::BridgeCmd::Prompt(first_text))
+            .await
+            .map_err(|_| TaskOpError::Spawn("bridge gone".into()))?;
         Ok(handle)
     }
-
     /// tasks/get：同 peer 只读快照（可跨流，断线恢复语义）。
     pub fn snapshot_for(&self, peer: &str, task_id: &str) -> Result<Task, TaskOpError> {
         let handle = self.lookup(peer, task_id)?;
@@ -215,6 +238,11 @@ impl TaskService {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .remove(task_id);
+    }
+
+    /// 终态收尾：额度释放 + 句柄转纯快照（留簿服务 tasks/get，至逐旧出簿）。
+    pub fn finalize_task(&self, handle: &Arc<TaskHandle>) {
+        handle.release_quota();
     }
 
     fn lookup(&self, peer: &str, task_id: &str) -> Result<Arc<TaskHandle>, TaskOpError> {
