@@ -16,45 +16,20 @@ mod tap;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use fx::{expect_finished, ShareFx, KEY, MODEL};
+use fx::{expect_finished, http_route, mock_routes, openai_models, ShareFx, KEY, MODEL};
 use http_mock::MockHttpUpstream;
 use llm_share_common::{
-    call, proxy_request, rig_custom, route, sse_data, usage_chunk, MockUpstream, Script,
+    call, proxy_request, rig_custom, sse_data, usage_chunk, MockUpstream, Script,
 };
 use llm_share_link::link::build_link;
 use llm_share_link::redeem::RedeemCode;
 use llm_share_link::redeem::RedeemResponse;
 use llm_share_link::token::generate_token;
-use llm_share_proxy::upstream::Upstream;
 use llm_share_proxy::upstream_http::HttpUpstream;
-use llm_share_proxy::{ClaudeUpstream, ErrorCode, ModelRoute, ProxyEvent};
+use llm_share_proxy::{ClaudeUpstream, ErrorCode, ProxyEvent};
 use p2p_cli::llm_share::allowlist;
 use p2p_cli::llm_share::share::{share_list, share_revoke};
 use tap::WireLog;
-
-type RouteFactory = Arc<dyn Fn() -> HashMap<String, ModelRoute> + Send + Sync>;
-
-fn http_route(base: String, upstream: Arc<dyn Upstream>) -> ModelRoute {
-    ModelRoute {
-        base_url: base,
-        api_key: KEY.to_owned(),
-        upstream,
-    }
-}
-
-fn mock_routes(mock: Arc<MockUpstream>) -> RouteFactory {
-    Arc::new(move || HashMap::from([(MODEL.to_owned(), route(mock.clone()))]))
-}
-
-fn openai_models(mock: &MockHttpUpstream) -> HashMap<String, ModelRoute> {
-    HashMap::from([(
-        MODEL.to_owned(),
-        http_route(
-            mock.base(),
-            Arc::new(HttpUpstream::new().expect("http client")),
-        ),
-    )])
-}
 
 /// B1：openai 直发与 claude 翻译双链路 SSE 语义一致；claude 侧 usage 必须经
 /// message_start input_tokens + message_delta output_tokens 合成命中。

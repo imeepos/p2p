@@ -2,17 +2,22 @@
 //! 产品侧 provider/offer/share_create 造数（W2/W3 共享事实源，不走造数捷径）。
 #![allow(dead_code)]
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::llm_share_common::{client_for, link, proxy_request, spawn_node, NodeFactory};
+use crate::llm_share_common::{
+    client_for, link, proxy_request, route, spawn_node, MockUpstream, NodeFactory,
+};
 use crate::serve::{shares_file, RedeemFixture, ShareProxyHandler};
 use llm_share_ledger::Receipt;
 use llm_share_link::ledger::ShareLedger;
 use llm_share_link::link::{build_link, parse_link};
 use llm_share_link::redeem::PROTOCOL_ID as REDEEM_PROTOCOL;
 use llm_share_link::redeem::{RedeemRequest, RedeemResponse};
-use llm_share_proxy::{ProxyClient, ProxyEvent};
+use llm_share_proxy::upstream::Upstream;
+use llm_share_proxy::upstream_http::HttpUpstream;
+use llm_share_proxy::{ModelRoute, ProxyClient, ProxyEvent};
 use p2p::{Node, PeerId, ProtocolId};
 use p2p_cli::llm_share::now_secs;
 use p2p_cli::llm_share::offer::{self, OfferParams};
@@ -27,6 +32,32 @@ pub const KEY: &str = "sk-b1b5-mock-key-0123456789abcdef";
 const PERIOD: &str = "2026-09";
 const STEP: Duration = Duration::from_secs(15);
 
+type RouteFactory = Arc<dyn Fn() -> HashMap<String, ModelRoute> + Send + Sync>;
+
+/// 真实 HttpUpstream 指向进程内 mock 的单模型路由（apiKey 用夹具 KEY）。
+pub fn http_route(base: String, upstream: Arc<dyn Upstream>) -> ModelRoute {
+    ModelRoute {
+        base_url: base,
+        api_key: KEY.to_owned(),
+        upstream,
+    }
+}
+
+/// 每次调用产出独立实例（ModelRoute 非 Clone，工厂化规避整表克隆）。
+pub fn openai_models(mock: &crate::http_mock::MockHttpUpstream) -> HashMap<String, ModelRoute> {
+    HashMap::from([(
+        MODEL.to_owned(),
+        http_route(
+            mock.base(),
+            Arc::new(HttpUpstream::new().expect("http client")),
+        ),
+    )])
+}
+
+/// B4 借用链路路由工厂（进程内 mock 上游）。
+pub fn mock_routes(mock: Arc<MockUpstream>) -> RouteFactory {
+    Arc::new(move || HashMap::from([(MODEL.to_owned(), route(mock.clone()))]))
+}
 /// 断言事件流以 Done 终结并取回收据。
 pub fn expect_finished(events: &[ProxyEvent], tag: &str) -> Receipt {
     let Some(ProxyEvent::Finished { receipt, .. }) = events.last() else {
