@@ -345,6 +345,26 @@ im-group-design.md §3），与冻结的 /im/chat/1 并存路由。一流一事�
 - 纵深防御：GINVITE 帧 owner ≠ 发端 peer 拒收；GACCEPT 要求本机为该群 owner 且
   存在匹配 out 条目（缺失仅告警回 ACK）；群非 active 时同意帧告警忽略。
 
+### 8.5 业务协议登记：/im/profile/1（对端节点资料查询）
+
+出处 crates/p2p-chat/src/profile_wire.rs（实现与登记同提交）。节点展示层资料
+（gui-contract.md §11 NodeProfile 同构：name/description/avatar）的按需互通：
+不随发现协议广播，仅在需要展示时一问一答拉取。帧纪律同 §8.3/§8.4：帧封装复用
+§2，payload 首字节为类型头，其余为 JSON；一条流 = 一次问答（GET → RESP 后关流）：
+
+| 类型头 | 值 | 载荷 |
+|---|---|---|
+| GET | 0x01 | 请求帧 JSON：{id}（UUID，发端生成） |
+| RESP | 0x02 | 应答帧 JSON：{id, ok, profile?, reason?}；profile = {name, description, avatar?}（avatar 为 data URL，缺 null = 未设置） |
+
+- 纯读语义：不落盘、不产生事件、不进 outbox；对端未设置资料时 ok=true 回全空
+  profile（非错误）；本机供给资料越界（长度防线同契约 §11）降级回空资料并留告警。
+- 客户端校验：RESP id 必须匹配请求 id；ok=false 视为对端拒绝（reason 透出）；
+  profile 长度越界（name ≤64 / description ≤280 / avatar ≤200_000 字符）按协议
+  违规拒绝。单次问答全程 10s 超时；与聊天投递共用每 peer 串行锁。
+- 资料自报性质：内容为对端自行声明，收端仅做长度防线不做真实性验证；展示层
+  （GUI）自行取舍是否采信与缓存。
+
 ## 9. 常量速查表
 
 | 常量 | 值 | 出处 |

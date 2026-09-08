@@ -31,6 +31,8 @@ pub(crate) struct ChatCore {
     pub(crate) send_locks: Mutex<HashMap<String, Arc<AsyncMutex<()>>>>,
     /// 已给过重投机会的 failed 条目（peer,id）：每进程一次机会，二次即死信（outbox.rs）。
     pub(crate) flush_tried: Mutex<HashMap<(String, String), ()>>,
+    /// 本机节点资料供给（/im/profile/1 serve 应答源，lib.rs LocalProfileFn）。
+    pub(crate) local_profile: crate::LocalProfileFn,
 }
 
 impl ChatCore {

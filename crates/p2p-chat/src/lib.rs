@@ -26,6 +26,9 @@ mod kind;
 mod model;
 mod outbox;
 mod outbox_api;
+mod profile;
+mod profile_api;
+mod profile_wire;
 mod serve_cfg;
 mod store;
 mod store_friends;
@@ -67,6 +70,7 @@ pub use model::{
 pub use outbox_api::{
     OutboxEntryReport, OutboxFlushPeerReport, OutboxFlushReport, OutboxPeerReport,
 };
+pub use profile::PeerProfile;
 pub use serve_cfg::{load_serve_port, save_serve_port};
 
 use core::ChatCore;
@@ -75,6 +79,12 @@ use core::ChatCore;
 pub const CHAT_PROTOCOL: &str = "/im/chat/1";
 /// 邀请线协议 ID（wire-protocol.md §8.3 登记）。
 pub const INVITE_PROTOCOL: &str = "/im/invite/1";
+/// 对端节点资料查询线协议 ID（wire-protocol.md §8.5 登记）。
+pub const PROFILE_PROTOCOL: &str = "/im/profile/1";
+
+/// 本机资料供给回调（serve 侧应答内容源）：GUI 传 NodeProfile 读取器，
+/// CLI 缺省回空资料（未设置）。
+pub type LocalProfileFn = Arc<dyn Fn() -> PeerProfile + Send + Sync>;
 
 const EVENT_CAPACITY: usize = 128; // 1:1 与群各自独立事件通道
 
@@ -85,6 +95,16 @@ pub struct Chat {
 
 impl Chat {
     pub fn new(node: Arc<Node>, data_dir: PathBuf) -> Result<Self, ChatError> {
+        Self::with_local_profile(node, data_dir, Arc::new(PeerProfile::default))
+    }
+
+    /// 带本机资料供给的装配：GUI 接 NodeProfile 持久层，/im/profile/1
+    /// 应答据此返回；其余装配路径与 Chat::new 完全一致。
+    pub fn with_local_profile(
+        node: Arc<Node>,
+        data_dir: PathBuf,
+        local_profile: LocalProfileFn,
+    ) -> Result<Self, ChatError> {
         let store = store::Store::new(data_dir.join("chat"))?;
         let (tx, _) = broadcast::channel(EVENT_CAPACITY);
         let core = Arc::new(ChatCore {
@@ -93,6 +113,7 @@ impl Chat {
             events: tx.clone(),
             send_locks: std::sync::Mutex::new(std::collections::HashMap::new()),
             flush_tried: std::sync::Mutex::new(std::collections::HashMap::new()),
+            local_profile,
         });
         core.rearm_friend_addrs()?;
         invite_api::rearm_invite_addrs(&core)?;
@@ -107,11 +128,23 @@ impl Chat {
                 core.clone(),
                 invite_proto,
             )));
+        let profile_proto = p2p::ProtocolId::new(PROFILE_PROTOCOL)
+            .map_err(|e| ChatError::Protocol(e.to_string()))?;
+        core.node
+            .handle_protocol(Arc::new(profile_wire::ProfileHandler::new(
+                core.clone(),
+                profile_proto,
+            )));
         let group = group::Group::mount(core.clone(), &data_dir)?;
         outbox::spawn_outbox_task(core.clone(), group.core.clone());
         outbox::spawn_outbox_sweeper(core.clone());
         invite_api::spawn_invite_heal(core.clone());
         Ok(Self { core, group })
+    }
+
+    /// 查询对端节点资料（/im/profile/1）：对端未设置返回全空资料（非错误）。
+    pub async fn peer_profile(&self, peer: &str) -> Result<PeerProfile, ChatError> {
+        profile_api::peer_profile(&self.core, peer).await
     }
 
     /// chat_message / chat_status / chat_invite 事件订阅。
