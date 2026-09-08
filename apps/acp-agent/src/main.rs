@@ -82,9 +82,13 @@ async fn start_a2a(
         workspaces,
         audit.clone(),
     ));
+    let invites = std::sync::Arc::new(acp_agent::a2a::InviteStore::open(
+        paths.root.join("a2a-invites.json"),
+    ).map_err(|e| format!("a2a invites load: {e}"))?);
     let deps = std::sync::Arc::new(acp_agent::a2a::A2aDeps {
         config: config.clone(),
         agents: agents.clone(),
+        invites: invites.clone(),
         keypair: keypair.clone(),
         host_peer: keypair.peer_id().to_string(),
         subscribers: subscribers.clone(),
@@ -102,6 +106,7 @@ async fn start_a2a(
     eprintln!("acp-agent: a2a ready agents={}", agents.list().len());
     Ok(Some(std::sync::Arc::new(acp_agent::a2a::A2aAdminCtx {
         agents,
+        invites,
         subscribers,
         keypair,
         host_peer: deps.host_peer.clone(),

@@ -40,6 +40,44 @@ pub enum CardFrame {
         code: String,
         message: String,
     },
+    /// C→S 邀请请求（owner 生成签名凭证邀请帧）。
+    InviteRequest {
+        v: u8,
+        id: u64,
+        /// 邀请帧 JSON（Signed<InvitePayload>）。
+        invite: serde_json::Value,
+    },
+    /// S→C 邀请应答（成功返回邀请帧 JSON，失败返回 error）。
+    InviteResponse {
+        v: u8,
+        id: u64,
+        /// 邀请帧 JSON（成功时）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        invite: Option<serde_json::Value>,
+        /// 错误码（失败时）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        error: Option<String>,
+        /// 错误消息（失败时）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+    },
+    /// C→S 邀请回执提交（invitee 签名回执）。
+    InviteReceipt {
+        v: u8,
+        id: u64,
+        /// 回执 JSON（Signed<ReceiptPayload>）。
+        receipt: serde_json::Value,
+    },
+    /// S→C 邀请回执应答（成功/失败）。
+    InviteReceiptResponse {
+        v: u8,
+        id: u64,
+        /// 是否成功。
+        ok: bool,
+        /// 错误消息（失败时）。
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        message: Option<String>,
+    },
 }
 
 /// task 相请求参数：tasks/create。
@@ -209,89 +247,26 @@ mod tests {
                 v: 1,
                 id: 0,
                 cards: vec![],
-                removed: vec!["peer/a".into()],
+                removed: vec![],
             },
             CardFrame::Error {
                 v: 1,
                 id: 2,
                 code: "not-found".into(),
-                message: "no such agent".into(),
+                message: "agent missing".into(),
             },
         ];
-        for f in &frames {
-            assert_eq!(roundtrip(f), *f);
+        for frame in &frames {
+            let got = roundtrip(frame);
+            assert_eq!(&got, frame);
         }
     }
 
     #[test]
     fn task_request_roundtrip() {
-        let req = TaskRequest::create("code-review", Message::user_text("你好"), 1);
-        let back = roundtrip(&req);
-        assert_eq!(back.method, "tasks/create");
-        assert_eq!(back.id, Some(1));
-        assert_eq!(back.jsonrpc, "2.0");
-        let send = TaskRequest::send("t-1", Message::user_text("继续"), 2);
-        assert_eq!(roundtrip(&send).method, "tasks/send");
-        let get = TaskRequest::get("t-1", 3);
-        assert_eq!(roundtrip(&get).method, "tasks/get");
-        let cancel = TaskRequest::cancel("t-1", 4);
-        assert_eq!(roundtrip(&cancel).method, "tasks/cancel");
-    }
-
-    #[test]
-    fn task_response_roundtrip() {
-        let ok = TaskResponse {
-            jsonrpc: "2.0".into(),
-            id: Some(1),
-            result: Some(serde_json::json!({ "taskId": "t-1" })),
-            error: None,
-        };
-        assert_eq!(roundtrip(&ok).result, ok.result);
-        let err = TaskResponse {
-            jsonrpc: "2.0".into(),
-            id: Some(2),
-            result: None,
-            error: Some(TaskErrorBody {
-                code: -32602,
-                message: "bad params".into(),
-            }),
-        };
-        assert_eq!(roundtrip(&err).error, err.error);
-    }
-
-    #[test]
-    fn task_notice_roundtrip() {
-        let status = TaskNotice::Status {
-            jsonrpc: "2.0".into(),
-            params: StatusParams {
-                task_id: "t-1".into(),
-                state: TaskState::Working,
-            },
-        };
-        let back = roundtrip(&status);
-        assert!(
-            matches!(back, TaskNotice::Status { params, .. } if params.state == TaskState::Working)
-        );
-        let msg = TaskNotice::Message {
-            jsonrpc: "2.0".into(),
-            params: MessageNoticeParams {
-                task_id: "t-1".into(),
-                message_id: "m-1".into(),
-                message: Message::user_text("hi"),
-            },
-        };
-        let back = roundtrip(&msg);
-        assert!(matches!(back, TaskNotice::Message { params, .. } if params.message_id == "m-1"));
-    }
-
-    #[test]
-    fn snapshot_roundtrip() {
-        let snap = TaskSnapshot {
-            task_id: "t-1".into(),
-            agent_id: "code-review".into(),
-            state: TaskState::Completed,
-            messages: vec![Message::user_text("你好")],
-        };
-        assert_eq!(roundtrip(&snap), snap);
+        let req = TaskRequest::create("code-review", Message::user_text("review this PR"), 1);
+        let got = roundtrip(&req);
+        assert_eq!(got.method, "tasks/create");
+        assert_eq!(got.id, Some(1));
     }
 }

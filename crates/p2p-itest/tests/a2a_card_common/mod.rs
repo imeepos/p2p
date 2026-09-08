@@ -66,9 +66,14 @@ pub async fn host_rig(tag: &str) -> HostRig {
         ws_store.clone(),
         audit.clone(),
     ));
+    let invites = Arc::new(
+        host_a2a::InviteStore::open(cfg.paths().root.join("a2a-invites.json"))
+            .expect("open invites"),
+    );
     let deps = Arc::new(host_a2a::A2aDeps {
         config: cfg.clone(),
         agents: agents.clone(),
+        invites: invites.clone(),
         keypair: keypair.clone(),
         host_peer: keypair.peer_id().to_string(),
         subscribers: subscribers.clone(),
@@ -102,6 +107,7 @@ pub async fn host_rig(tag: &str) -> HostRig {
             workspaces: ws_store,
             a2a_admin: Some(Arc::new(host_a2a::A2aAdminCtx {
                 agents: agents.clone(),
+                invites: invites.clone(),
                 subscribers: subscribers.clone(),
                 keypair: keypair.clone(),
                 host_peer: keypair.peer_id().to_string(),

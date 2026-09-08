@@ -5,6 +5,7 @@
 pub mod book;
 pub mod card;
 pub mod frame;
+pub mod invite;
 pub mod task;
 
 #[cfg(test)]
@@ -30,6 +31,10 @@ pub use card::{
 pub use frame::{
     CardFrame, MessageNoticeParams, StatusParams, TaskCreateParams, TaskErrorBody, TaskIdParams,
     TaskNotice, TaskRequest, TaskResponse, TaskSendParams, TaskSnapshot,
+};
+pub use invite::{
+    create_invite, create_receipt, verify_invite, verify_receipt, InviteError, InviteFrame,
+    InvitePayload, ReceiptPayload, INVITE_EXPIRY_DEFAULT_SECS, INVITE_EXPIRY_MAX_SECS,
 };
 pub use task::{
     allowed_transition, DataPart, FilePart, Message, Part, Role, Task, TaskError, TaskState,

@@ -67,3 +67,8 @@ llm_share_share_list	mapped	llm-share share list
 llm_share_share_revoke	mapped	llm-share share revoke	
 llm_share_share_redeem	mapped	llm-share share redeem	
 llm_share_serve_status	exempt		serve 生命周期跟随 GUI 常驻节点（node_start 装配 / node_stop 卸载），CLI 无常驻进程面可对等，提供对等子命令无意义（acp_console_status 豁免先例）
+a2a_list	mapped	a2a list	
+a2a_publish	mapped	a2a publish	
+a2a_unpublish	mapped	a2a unpublish	
+a2a_allow	mapped	a2a allow	
+a2a_disallow	mapped	a2a disallow	

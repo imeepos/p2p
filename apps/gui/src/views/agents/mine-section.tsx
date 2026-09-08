@@ -7,7 +7,7 @@ import { Bot, MessageCircle, Pencil, Share2, Plus, CloudOff } from "lucide-react
 
 import { AsyncButton } from "@/components/feedback/async-button";
 import { Button } from "@/components/ui/button";
-import { toastInfo } from "@/components/feedback/toast";
+
 import { SectionHeader } from "@/views/shared/section-header";
 
 import type { AgentDefJson } from "@/a2a/types";
@@ -18,10 +18,11 @@ interface MineSectionProps {
   mine: AgentDefJson[];
   onEdit: (def: AgentDefJson) => void;
   onCreate: () => void;
+  onShare: (def: AgentDefJson) => void;
   onUnpublish: (def: AgentDefJson) => Promise<unknown>;
 }
 
-export function MineSection({ mine, onEdit, onCreate, onUnpublish }: MineSectionProps) {
+export function MineSection({ mine, onEdit, onCreate, onShare, onUnpublish }: MineSectionProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   return (
@@ -83,7 +84,7 @@ export function MineSection({ mine, onEdit, onCreate, onUnpublish }: MineSection
                     size="sm"
                     className="gap-1 px-2"
                     data-testid="agents-share-btn"
-                    onClick={() => toastInfo(t("agents.toast.shareNotReady"))}
+                    onClick={() => onShare(def)}
                   >
                     <Share2 aria-hidden className="size-4" />
                     {t("agents.action.share")}

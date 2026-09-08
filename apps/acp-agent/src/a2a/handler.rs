@@ -14,6 +14,7 @@ use p2p_protocol::{read_frame, write_frame};
 use tokio::sync::mpsc;
 
 use crate::a2a::agents::AgentStore;
+use crate::a2a::invites::InviteStore;
 use crate::a2a::task::TaskService;
 use crate::audit::AuditSink;
 use crate::config::AgentConfig;
@@ -78,6 +79,7 @@ impl Subscribers {
 pub struct A2aDeps {
     pub config: AgentConfig,
     pub agents: Arc<AgentStore>,
+    pub invites: Arc<InviteStore>,
     pub keypair: p2p_identity::Keypair,
     pub host_peer: String,
     pub subscribers: Arc<Subscribers>,
@@ -259,8 +261,16 @@ impl A2aHandler {
                     },
                 ]
             }
+            // 邀请帧处理（design §7.3）
+            CardFrame::InviteRequest { v, id, invite } => {
+                self.handle_invite_request(peer, requester_is_owner, v, id, invite)
+            }
+            CardFrame::InviteReceipt { v, id, receipt } => {
+                self.handle_invite_receipt(peer, requester_is_owner, v, id, receipt)
+            }
             // 客户端不应发送服务端帧；收到即协议违规（不回应，读端随后 EOF 断流）
-            CardFrame::Cards { .. } | CardFrame::Ok { .. } | CardFrame::Push { .. } => {
+            CardFrame::Cards { .. } | CardFrame::Ok { .. } | CardFrame::Push { .. }
+            | CardFrame::InviteResponse { .. } | CardFrame::InviteReceiptResponse { .. } => {
                 self.deps.audit.record(crate::audit::AuditEvent::A2aDenied {
                     peer: peer.to_string(),
                     detail: "client sent server-only card frame".into(),
@@ -269,6 +279,180 @@ impl A2aHandler {
             }
             CardFrame::Error { .. } => vec![],
         }
+    }
+
+    /// 处理邀请请求：owner 生成签名凭证邀请帧。
+    fn handle_invite_request(
+        &self,
+        peer: PeerId,
+        requester_is_owner: bool,
+        v: u8,
+        id: u64,
+        invite: serde_json::Value,
+    ) -> Vec<CardFrame> {
+        // 只有 owner 可以发起邀请
+        if !requester_is_owner {
+            self.deps.audit.record(crate::audit::AuditEvent::A2aDenied {
+                peer: peer.to_string(),
+                detail: "non-owner invite request rejected".into(),
+            });
+            return vec![CardFrame::InviteResponse {
+                v,
+                id,
+                invite: None,
+                error: Some("denied".into()),
+                message: Some("only owner can create invites".into()),
+            }];
+        }
+        // 解析邀请帧
+        let invite_frame: a2a::InviteFrame = match serde_json::from_value(invite) {
+            Ok(f) => f,
+            Err(e) => {
+                return vec![CardFrame::InviteResponse {
+                    v,
+                    id,
+                    invite: None,
+                    error: Some("bad-invite".into()),
+                    message: Some(format!("invite parse error: {e}")),
+                }];
+            }
+        };
+        // 校验邀请帧签名和时间窗
+        let now = unix_now();
+        if let Err(e) = a2a::verify_invite(&invite_frame, &invite_frame.payload.invitee_peer, now) {
+            return vec![CardFrame::InviteResponse {
+                v,
+                id,
+                invite: None,
+                error: Some("bad-invite".into()),
+                message: Some(format!("invite verify error: {e}")),
+            }];
+        }
+        // 检查 nonce 一次性
+        if self.deps.invites.is_nonce_used(&invite_frame.payload.nonce) {
+            return vec![CardFrame::InviteResponse {
+                v,
+                id,
+                invite: None,
+                error: Some("nonce-used".into()),
+                message: Some("nonce already used".into()),
+            }];
+        }
+        // 持久化邀请
+        let entry = crate::a2a::invites::InviteEntry {
+            nonce: invite_frame.payload.nonce.clone(),
+            agent_id: invite_frame.payload.card.0.payload.agent_id.clone(),
+            host_peer: self.deps.host_peer.clone(),
+            invitee_peer: invite_frame.payload.invitee_peer.clone(),
+            expiry: invite_frame.payload.expiry,
+            issued_at: invite_frame.issued_at,
+            status: crate::a2a::invites::InviteStatus::Pending,
+            receipt_sig: None,
+        };
+        if let Err(e) = self.deps.invites.insert(entry) {
+            return vec![CardFrame::InviteResponse {
+                v,
+                id,
+                invite: None,
+                error: Some("store-error".into()),
+                message: Some(format!("invite store error: {e}")),
+            }];
+        }
+        // 返回邀请帧
+        let invite_json = serde_json::to_value(&invite_frame).unwrap_or_default();
+        vec![CardFrame::InviteResponse {
+            v,
+            id,
+            invite: Some(invite_json),
+            error: None,
+            message: None,
+        }]
+    }
+
+    /// 处理邀请回执：invitee 提交签名回执。
+    fn handle_invite_receipt(
+        &self,
+        peer: PeerId,
+        _requester_is_owner: bool,
+        v: u8,
+        id: u64,
+        receipt: serde_json::Value,
+    ) -> Vec<CardFrame> {
+        // 解析回执
+        let receipt_signed: p2p_identity::signed::Signed<a2a::ReceiptPayload> =
+            match serde_json::from_value(receipt) {
+                Ok(r) => r,
+                Err(e) => {
+                    return vec![CardFrame::InviteReceiptResponse {
+                        v,
+                        id,
+                        ok: false,
+                        message: Some(format!("receipt parse error: {e}")),
+                    }];
+                }
+            };
+        // 查找对应邀请
+        let invites = self.deps.invites.list();
+        let invite = invites.iter().find(|i| i.nonce == receipt_signed.payload.nonce);
+        let Some(invite) = invite else {
+            return vec![CardFrame::InviteReceiptResponse {
+                v,
+                id,
+                ok: false,
+                message: Some("nonce not found".into()),
+            }];
+        };
+        // 验证回执签名
+        let now = unix_now();
+        if let Err(e) = a2a::verify_receipt(
+            &receipt_signed,
+            &invite.nonce,
+            &invite.agent_id,
+            &invite.host_peer,
+            now,
+        ) {
+            return vec![CardFrame::InviteReceiptResponse {
+                v,
+                id,
+                ok: false,
+                message: Some(format!("receipt verify error: {e}")),
+            }];
+        }
+        // 验证 invitee 绑定（回执签名者必须是 invitee）
+        let receipt_peer = PeerId::from_public_key(&receipt_signed.pubkey);
+        if receipt_peer.to_string() != invite.invitee_peer {
+            return vec![CardFrame::InviteReceiptResponse {
+                v,
+                id,
+                ok: false,
+                message: Some("receipt signer mismatch invitee".into()),
+            }];
+        }
+        // 标记接受
+        let receipt_sig = format!("{:?}", receipt_signed.sig);
+        if let Err(e) = self.deps.invites.accept(&invite.nonce, &receipt_sig) {
+            return vec![CardFrame::InviteReceiptResponse {
+                v,
+                id,
+                ok: false,
+                message: Some(format!("accept error: {e}")),
+            }];
+        }
+        // 写入授权清单
+        if let Err(e) = self.deps.tasks.grants.grant(&invite.agent_id, &invite.invitee_peer, now) {
+            return vec![CardFrame::InviteReceiptResponse {
+                v,
+                id,
+                ok: false,
+                message: Some(format!("grant error: {e}")),
+            }];
+        }
+        vec![CardFrame::InviteReceiptResponse {
+            v,
+            id,
+            ok: true,
+            message: None,
+        }]
     }
 }
 
