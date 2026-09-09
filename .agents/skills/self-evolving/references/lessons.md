@@ -472,3 +472,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 authz A2-A2A 轮：bash 工具默认 workdir 是会话主树，不是 feature worktree——不带显式 workdir 的 `cd apps/x && cargo test` 跑的是主树代码，测试结果与本分支无关还看似全绿；worktree 会话所有命令一律显式 workdir，跑前先 `grep 一个本分支新符号` 自证树没错。
 - 2026-09-09 authz A2-A2A 轮：`cargo test` 不会刷新 `target/debug/<bin>` 产物（只构建 tests/ 下的测试二进制），跑完测试直接手执行旧 bin 会拿到 rebase/改码前的旧行为假象；CLI 冒烟前必须显式 `cargo build`，判产物新旧看 mtime 对源码最后改动时间。
 - 2026-09-09 authz A2-A2A 轮：禁改装配点（TaskService::new 的调用方在禁改的 main.rs）时，把新依赖的构造收进所属模块内部——TaskService::new 从 `config.paths().root` 自建 Authz 门，签名零变化，测试夹具走临时数据根即天然获得隔离的 authz 表；「不能动调用方」先想「被调方能不能自己造」，而不是报阻塞。
+- 2026-09-09 authz 多会话并行负责人轮：任务书禁令要写死「main 上任何写入（含 docs/skill 提交）一律报负责人」——只写「不许自行合并 main」时，开发会话会把在册的 docs(skill) 直提先例当成许可（两个会话接连把 skill 笔记直推 main）；规则表述含糊时先例即许可。
+- 2026-09-09 authz 多会话并行负责人轮：系统休眠会把子会话回合整体冻结（status 仍「运行中」但数小时零产物），对卡死会话发一条 status ping 即可有效唤醒、从中断处继续——处置顺序：查产物（无）→ ping 等回执 → 仍无响应才建替补+停工令，替补任务书必须带「开工自检发现分支/worktree 已存在即停」防双写。
+- 2026-09-09 authz 多会话并行负责人轮：验收「cargo test ... | tail; echo $?」拿到的是 tail 的退出码不是 cargo 的——管道后判退出码必须 `set -o pipefail` 或输出重定向后单测 `$?`；另「passed 数变少」未必丢测试，先算「分支基线差」（并行 rebase 后各自基线不同，134=129 基线+5 前面已合并面的用例这类算术要先做）。
