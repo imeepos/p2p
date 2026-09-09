@@ -14,6 +14,7 @@ const CFG: GuiConfig = {
   observationPort: null,
   observationAddrs: [],
   lanOnly: false,
+  authzDefaultRole: "friend",
 };
 
 const TICK_MS = 2500;
@@ -172,6 +173,19 @@ describe("mock-ipc", () => {
     await vi.advanceTimersByTimeAsync(300);
     await save;
     expect((await mockBackend.configGet()).lanOnly).toBe(true);
+  });
+
+  it("authzDefaultRole 读改存往返（契约 §18.3，serde 缺省 friend）", async () => {
+    expect((await mockBackend.configGet()).authzDefaultRole).toBe("friend");
+    const save = mockBackend.configSave({ ...CFG, authzDefaultRole: "operator" });
+    await vi.advanceTimersByTimeAsync(300);
+    await save;
+    expect((await mockBackend.configGet()).authzDefaultRole).toBe("operator");
+    // 空串 = 显式禁用自动绑（§18.1），mock 同语义可往返
+    const disable = mockBackend.configSave({ ...CFG, authzDefaultRole: "" });
+    await vi.advanceTimersByTimeAsync(300);
+    await disable;
+    expect((await mockBackend.configGet()).authzDefaultRole).toBe("");
   });
 
   it("llm-share mock 已挂接 mockBackend（同签名透传）", async () => {

@@ -53,6 +53,9 @@ export interface SettingsFormValues {
   observationPort: number | null;
   observationAddrs: AddressRow[];
   lanOnly: boolean;
+  // 契约 §18.3 加法：设置页暂无 UI，仅随表单往返保真（防 config_save 整包
+  // 覆写丢字段）；编辑入口在通讯录好友角色对话框（authz_default_role_save）。
+  authzDefaultRole: string;
 }
 
 export const settingsSchema = z.object({
@@ -66,6 +69,7 @@ export const settingsSchema = z.object({
   observationPort: observationPortField,
   observationAddrs: observationRowsField(),
   lanOnly: z.boolean(),
+  authzDefaultRole: z.string(),
 });
 
 // z.preprocess 的输入类型与表单值不同，此处收口为 Resolver。
@@ -82,6 +86,7 @@ export const EMPTY_SETTINGS: SettingsFormValues = {
   observationPort: null,
   observationAddrs: [],
   lanOnly: false,
+  authzDefaultRole: "friend",
 };
 
 export function toFormValues(config: GuiConfig): SettingsFormValues {
@@ -96,6 +101,7 @@ export function toFormValues(config: GuiConfig): SettingsFormValues {
     observationPort: config.observationPort,
     observationAddrs: toRows(config.observationAddrs),
     lanOnly: config.lanOnly ?? false, // serde default: false when absent (v11 16.5)
+    authzDefaultRole: config.authzDefaultRole ?? "friend", // serde default (§18.3)
   };
 }
 
@@ -111,5 +117,6 @@ export function toGuiConfig(values: SettingsFormValues): GuiConfig {
     observationPort: values.observationPort,
     observationAddrs: fromRows(values.observationAddrs),
     lanOnly: values.lanOnly,
+    authzDefaultRole: values.authzDefaultRole,
   };
 }

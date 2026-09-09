@@ -35,6 +35,9 @@ export interface GuiConfig {
   observationAddrs: string[];
   // 契约 v11 §16.5 加法：仅监听局域网发现；serde default，缺省 false（双向兼容）。
   lanOnly?: boolean;
+  // 契约 §18.3 加法（authz S3）：加好友自动绑角色；serde default "friend"，
+  // 空串 = 禁用自动绑。CLI 同名同文件消费，保存时必须原样携带防丢。
+  authzDefaultRole?: string;
 }
 
 export interface NodeStatus {
@@ -510,6 +513,52 @@ export interface LlmReceiptVerifyResult {
   ts: number;
 }
 
+// ── 契约 §18 加法（authz S3）：好友角色管理，与 docs/design/gui-contract.md §18 逐字对齐，禁止改名 ──
+
+// 角色视图：permissions 为 §4 闭集 key 字符串；builtin=true 为内建四（不可改不可删）。
+export interface AuthzRoleView {
+  roleId: string;
+  name: string;
+  permissions: string[];
+  builtin: boolean;
+  note: string;
+}
+
+export interface AuthzBindingJson {
+  peerId: string;
+  roleId: string;
+  grantedAt: number; // Unix 秒
+  note: string;
+  expiresAt?: number; // Unix 秒；无过期时字段不出现（§18.2 skip-none）
+}
+
+export interface AuthzBindReport {
+  peerId: string;
+  roleId: string;
+  created: boolean; // false = 已有绑定，本次为 upsert 更新
+  grantedAt: number;
+  expiresAt?: number;
+  note: string;
+}
+
+export interface AuthzUnbindReport {
+  peerId: string;
+  roleId: string;
+}
+
+// dry-run 判定：无绑定 = deny(NotBound)（默认拒绝可观测，§18.1）。
+export interface AuthzCheckReport {
+  peerId: string;
+  permission: string;
+  decision: "allow" | "deny";
+  reason: "NotBound" | "Expired" | "BrokenRole" | "MissingPerm" | null;
+}
+
+// default_role get/save 返回：roleId 空串 = 已禁用自动绑。
+export interface AuthzDefaultRoleReport {
+  roleId: string;
+}
+
 export interface IpcBackend {
   acpConsoleStatus(): Promise<AcpConsoleStatus>;
   acpLocalDescriptor(): Promise<AcpLocalDescriptor | null>;
@@ -624,6 +673,20 @@ export interface IpcBackend {
   llmShareShareRevoke(shareId: string): Promise<{ revoked: true }>;
   llmShareShareRedeem(link: string): Promise<LlmShareRedeemResult>;
   llmShareServeStatus(): Promise<LlmServeStatus>;
+  // 契约 §18 加法（authz S3）：好友角色管理命令面（invoke 名逐字 snake_case，
+  // 可选参数统一传 null；审计由后端逻辑层落盘，不经此面展示）。
+  authzRoleList(): Promise<{ roles: AuthzRoleView[] }>;
+  authzBindingsList(): Promise<{ bindings: AuthzBindingJson[] }>;
+  authzBind(
+    peerId: string,
+    roleId: string,
+    expiresAt?: number | null,
+    note?: string | null,
+  ): Promise<AuthzBindReport>;
+  authzUnbind(peerId: string): Promise<AuthzUnbindReport>;
+  authzCheck(peerId: string, permission: string): Promise<AuthzCheckReport>;
+  authzDefaultRoleGet(): Promise<AuthzDefaultRoleReport>;
+  authzDefaultRoleSave(roleId: string): Promise<AuthzDefaultRoleReport>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
 }
 

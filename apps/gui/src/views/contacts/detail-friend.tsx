@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageSquareIcon, PencilLineIcon, Trash2Icon } from "lucide-react";
+import { MessageSquareIcon, PencilLineIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
 
 import { PeerStatusDot } from "@/components/chat/peer-status";
 import { CopyButton } from "@/components/feedback/copy-button";
@@ -20,10 +20,12 @@ import {
   DetailRows,
   DetailShell,
 } from "./detail-bits";
+import { FriendRoleBadge, RoleUnboundHint } from "./friend-role-badge";
+import { FriendRoleDialog } from "./friend-role-dialog";
 
 // 好友资料卡（双栏改版）：头像 + 昵称 + 在线态；ID/备注字段（备注可编辑）；
 // 有对端自报资料时头像用对方头像、简介行展示对方简介（/im/profile/1）；
-// 底部 发消息 / 编辑资料 / 删除。编辑与删除对话框在卡内自持。
+// 底部 发消息 / 编辑资料 / 角色 / 删除。编辑与删除对话框在卡内自持。
 export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
   const { t } = useTranslation();
   const online = usePeerOnline(friend.peerId);
@@ -32,6 +34,7 @@ export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
   const name = friend.nickname || friend.peerId.slice(0, 8);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
 
   useEffect(() => {
     void fetchProfile(friend.peerId);
@@ -72,6 +75,18 @@ export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
             </span>
           )}
         </DetailRow>
+        <DetailRow label={t("contacts.detail.role")}>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center text-left hover:underline"
+            onClick={() => setRoleOpen(true)}
+            data-testid="contacts-detail-role-edit"
+            title={t("contacts.authz.dialogTitle")}
+          >
+            <FriendRoleBadge peerId={friend.peerId} />
+            <RoleUnboundHint peerId={friend.peerId} />
+          </button>
+        </DetailRow>
         <DetailRow label={t("contacts.detail.remark")}>
           <button
             type="button"
@@ -98,6 +113,12 @@ export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
           onClick={() => setEditOpen(true)}
         />
         <DetailAction
+          icon={ShieldCheckIcon}
+          label={t("contacts.authz.action")}
+          testId="contacts-detail-role"
+          onClick={() => setRoleOpen(true)}
+        />
+        <DetailAction
           icon={Trash2Icon}
           label={t("contacts.friends.remove")}
           testId="contacts-detail-remove"
@@ -107,6 +128,9 @@ export function DetailFriend({ friend }: { friend: ChatFriendJson }) {
       </DetailActions>
       {editOpen ? (
         <ChatFriendEditDialog friend={friend} onOpenChange={(open) => !open && setEditOpen(false)} />
+      ) : null}
+      {roleOpen ? (
+        <FriendRoleDialog friend={friend} onOpenChange={(open) => !open && setRoleOpen(false)} />
       ) : null}
       <ChatFriendRemoveDialog
         friend={removeOpen ? friend : null}

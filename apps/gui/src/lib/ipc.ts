@@ -7,6 +7,12 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import type {
   AcpConsoleStatus,
   AcpLocalDescriptor,
+  AuthzBindReport,
+  AuthzBindingJson,
+  AuthzCheckReport,
+  AuthzDefaultRoleReport,
+  AuthzRoleView,
+  AuthzUnbindReport,
   ChatFriendJson,
   ChatMediaFile,
   FriendInviteJson,
@@ -208,6 +214,24 @@ const tauriBackend: IpcBackend = {
     invoke<LlmShareRedeemResult>("llm_share_share_redeem", { link }),
   llmShareServeStatus: () =>
     invoke<LlmServeStatus>("llm_share_serve_status"),
+  // 契约 §18 加法（authz S3）：invoke 名逐字 snake_case，可选参数统一传 null。
+  authzRoleList: () => invoke<{ roles: AuthzRoleView[] }>("authz_role_list"),
+  authzBindingsList: () =>
+    invoke<{ bindings: AuthzBindingJson[] }>("authz_bindings_list"),
+  authzBind: (peerId, roleId, expiresAt, note) =>
+    invoke<AuthzBindReport>("authz_bind", {
+      peerId,
+      roleId,
+      expiresAt: expiresAt ?? null,
+      note: note ?? null,
+    }),
+  authzUnbind: (peerId) => invoke<AuthzUnbindReport>("authz_unbind", { peerId }),
+  authzCheck: (peerId, permission) =>
+    invoke<AuthzCheckReport>("authz_check", { peerId, permission }),
+  authzDefaultRoleGet: () =>
+    invoke<AuthzDefaultRoleReport>("authz_default_role_get"),
+  authzDefaultRoleSave: (roleId) =>
+    invoke<AuthzDefaultRoleReport>("authz_default_role_save", { roleId }),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {

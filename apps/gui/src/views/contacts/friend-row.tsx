@@ -13,6 +13,7 @@ import { PeerStatusDot } from "@/components/chat/peer-status";
 import { CONTACT_ROW_CLS, ContactAvatar, ROW_ACTIONS_CLS } from "./contact-avatar";
 import { selectionKey } from "./contacts-detail-model";
 import { useContactsPane } from "./contacts-sections";
+import { FriendRoleBadge } from "./friend-role-badge";
 
 interface FriendRowProps {
   friend: ChatFriendJson;
@@ -43,6 +44,7 @@ export function FriendRow({ friend, onRemove }: FriendRowProps) {
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5 text-sm font-medium">
             <span className="truncate">{name}</span>
+            <FriendRoleBadge peerId={friend.peerId} />
             <PeerStatusDot online={online} testId={"contact-friend-online-" + friend.peerId} />
           </span>
           <span className="text-muted-foreground block truncate text-xs">

@@ -7,6 +7,7 @@ import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAcpStore } from "@/acp/acp-store";
+import { useAuthzStore } from "@/stores/authz-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useGroupStore } from "@/stores/group-store";
 
@@ -49,6 +50,7 @@ export function ContactsView() {
   const subscribeGroupEvents = useGroupStore((s) => s.subscribeEvents);
   const groups = useGroupStore((s) => s.groups);
   const agents = useAcpStore((s) => s.saved);
+  const loadAuthz = useAuthzStore((s) => s.loadAll);
 
   useEffect(() => {
     void loadFriends();
@@ -58,7 +60,8 @@ export function ContactsView() {
     void refreshSelf();
     void ensureFriends();
     void subscribeGroupEvents();
-  }, [loadFriends, loadInvites, subscribeChatEvents, loadGroups, refreshSelf, ensureFriends, subscribeGroupEvents]);
+    void loadAuthz();
+  }, [loadFriends, loadInvites, subscribeChatEvents, loadGroups, refreshSelf, ensureFriends, subscribeGroupEvents, loadAuthz]);
 
   // /contacts#friends 等 hash 深链（5.2 命令面板通讯录锚点）：hash 变化
   // 即定位。hash → 高亮为渲染期状态调整（勿放 effect，react-hooks 纪律）；
