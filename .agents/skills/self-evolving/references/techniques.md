@@ -499,3 +499,5 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 位置包名必须写在 `-e` 之前：`-e normal,dev,build X` 直接报 unexpected argument；写成 `cargo tree -i X -e normal,dev,build` 才对。
 - 倒排输出带 └── 树形前缀，BSD sed 的 `^[[:space:]]*` 吃不掉它们；名字提取用 `grep -oE '[A-Za-z0-9_-]+ v[0-9]' | sed 's/ v[0-9]$//'`。
 - 受影响闭包要跟 `cargo tree --workspace --depth 0` 的成员全集求交，否则被 exclude 的 path 依赖者（apps/acp-agent 之类）混进来，与全量门禁口径分裂。
+- Rust 测试模块位置取舍（2026-09-09 authz A1 轮）：同文件 #[cfg(test)] mod tests 可直访私有字段，适合构造悬空态；文件超 300 行要把测试外移时，先给类型补一个 from_parts 式工厂（用公开 API 表达测试场景），再移 tests 到独立文件挂 #[cfg(test)] mod，免留 test-only 后门。
+- 集合断言写法（2026-09-09 authz A1 轮）：assert_eq!(actual_set, expected) 的期望侧先构造 Vec 再统一 sorted()，别在 assert 里内联 iterator 链；&[&str] → Vec<&str> 助手函数必须标显式生命周期 fn sorted<'a>(keys: &[&'a str]) -> Vec<&'a str>，否则 E0106。

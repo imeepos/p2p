@@ -502,3 +502,8 @@ failed: early eof（客户端侧超时中止）。
 - 原因：VSCode server 对仓库反复全量枚举，`target/`、`node_modules` 几十万小文件是重灾区；gitignore 挡不住编辑器枚举。
 - 修法：项目根 `.vscode/settings.json` 配 `files.watcherExclude`/`search.exclude` 排除 target/node_modules/dist（本仓库 .gitignore 有意忽略 .vscode，该文件只落本地不入库）；止血 `pkill -f 'rg --files'`。
 - 排查口诀：测试进程 0 CPU 且卡 `_dyld_start` = 动态加载被 I/O 饿死，先看 load 和 rg 进程群，别往测试逻辑上猜。
+
+## p2p-itest a2a_task_wave 全组秒败（2026-09-09 authz A1 轮实锤）
+- 症状：cargo test --workspace 时 crates/p2p-itest/tests/a2a_task_wave.rs 的 t1-t6 六例 0.00s 内全 FAILED，cargo test -p a2a 却全绿（易误判为 a2a 回归）。
+- 原因：tests/task_wave_common/mod.rs:36 前置断言——依赖 acp-echo-stub 二进制，未构建即 panic，报错原文已给修法。
+- 修法：cd apps/acp-agent && cargo test --no-run 预构建 stub 后复跑即 6/6 绿；workspace 全量验收前先构建该前置件，或设 A2A_TASK_STUB。

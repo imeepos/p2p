@@ -458,3 +458,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 A2A聊天修复轮：报错文案会撒谎——用户看到的「发送失败 undefined...」其实是三层叠加（通道没接线→真实错误被 catch 吞掉→composer 崩溃产生误导性 toast）；修 UI 报错先还原「错误传播链上每一层各自吞了什么」，最外层文案只是冰山尖。
 - 2026-09-09 A2A聊天修复轮：给 fake transport 写回归测试时，测试替身的时序要贴真传输（异步 decodeFrame、microtask 分帧）——同步读 store 断言会踩竞态假红；统一 flush（setTimeout 0）再断言。测试先行还顺手揪出三个 store 真 bug（create 应答与入簿窗口丢通知、agent 消息缺 messageId 戳破坏去重、createTask 漏 lastError 留痕）。
 - 2026-09-09 A2A聊天修复轮：并行会话对 main 的高速追加下，ff-merge 是重试循环：worktree 内 rebase main → force-with-lease 推分支 → 主树再 ff-only；ff-only 失败零损失（ref 没动），merge commit 才会让历史分叉难看。
+- 2026-09-09 authz A1 轮：写 Deny 路径断言前先核对角色权限并集——本仓内建阶梯 friend⊂guest⊂operator⊂ally 的并集恰为 §4 全部九 key，绑 ally 后查任何已登记权限都是 Allow；MissingPerm 断言要选所绑角色真不含的权限（如重绑 friend 后查 llm.borrow）。
+- 2026-09-09 authz A1 轮：测试里 --expires 别用小 unix 秒（123=1970 年，瞬时 Expired），要过期用过去时刻并明示，要有效用 9_999_999_999 或 None；判定层按 now>=expires 含边界即拒是对的，别把测试预期写反。
+- 2026-09-09 authz A1 轮：p2pctl 的 --data-dir 是每个叶子子命令的参数（clap Args 内联），不是全局参数——`p2pctl --data-dir X authz ...` 报 unexpected argument，必须 `p2pctl authz ... --data-dir X`。
