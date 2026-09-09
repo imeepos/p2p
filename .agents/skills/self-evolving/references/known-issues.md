@@ -528,3 +528,9 @@ failed: early eof（客户端侧超时中止）。
 - 根因：10 核机器 load 43-90（4-9 倍过载，外部来源=其他会话 vscode-server 全盘 rg 索引/VM/常驻进程），vitest forks 池 worker 启动与 5s 单测预算在节流下全面超时；首测/复测窗口负载不同 → 结论互斥。
 - 判别法（三步定案，勿先改代码）：①`git diff main --stat -- <被红测试目录>` 证零触碰 + 测试文件 import 链核对是否真经过自己改的共享文件；②主树同命令同文件复跑——同红即非本分支引入；③受控 A/B：同一棵树仅交换嫌疑共享文件的 main/分支版本背靠背跑——两轮结果随负载漂移而非随代码版本漂移即定案。
 - 修法（交付面）：错峰在 load<30 窗口用 `--no-file-parallelism`（单 worker 免疫 forks 池启动风暴）跑验收矩阵；本轮最终分支/主树对称 12/12 绿 + 分支全量 225 文件 1367 用例全绿。教训：验收红先问「机器现在多忙」（uptime），再问「我改了什么」。
+
+## 2026-09-09 S4 轮 负载敏感假红按"等待对象有无"分两型机械修法；文件级 worker 错测试内不可治
+- 背景：S4 分诊 main 上即红的 5 处 + 串行验收新暴露 1 处，全部为负载敏感、零产品缺陷。判别证据：同代码双跑一红一绿；红轮用例耗时 1069ms/5215ms 恰好压在 waitFor 默认 1s / vitest 默认 testTimeout 5s 悬崖上。
+- 两型修法（断言语义零改动）：(a) 异步链路有等待对象 → 给 waitFor/findBy/vi.waitFor 加显式 `{ timeout: 10_000 }` 预算（含共享夹具 renderConnected/newSession 等必经路径）；(b) 纯同步用例无可等待对象 → `vi.setConfig({ testTimeout: 20_000 })` 文件级放宽（it 第三参逐用例写太碎）。
+- 文件级错（"Failed to start forks worker"、transform/setup/tests 全 0ms）= worker 没起来测试体根本没执行，测试内等待无法治——只能串行口径（`pnpm test:serial`）+ 测试文件头标注，勿浪费时间去"修"测试。
+- 对照统计陷阱：vitest 报告里 Errors（worker 未启动）不进 Test Files failed 计数；「默认并行不劣于基线」的对照必须把 failed 与 Errors 分开列，否则两边数字口径不同没法比（本轮分支 0 failed + 8 Errors vs main 同窗口 6 failed 文件 10 用例红）。
