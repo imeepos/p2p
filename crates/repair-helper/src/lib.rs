@@ -1,8 +1,10 @@
 pub mod audit;
+pub mod authz_gate;
 pub mod cap;
 pub mod enforce;
 pub mod jail;
 pub mod p2p;
+pub mod pubkey;
 pub mod session_report;
 pub mod ticket;
 pub mod ticket_ledger;

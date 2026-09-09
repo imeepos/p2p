@@ -2050,6 +2050,7 @@ dependencies = [
  "bs58",
  "clap",
  "p2p",
+ "p2p-authz",
  "p2p-identity",
  "p2p-log",
  "p2p-protocol",

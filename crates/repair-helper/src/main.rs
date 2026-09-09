@@ -6,14 +6,17 @@
 
 use clap::{Parser, Subcommand};
 use p2p::Node;
+use p2p_authz::SystemClock;
 use p2p_identity::Keypair;
 use repair_enforce::approval::Approver;
 use repair_enforce::whitelist::ShellWhitelist;
 use repair_helper::{
     audit::{self, AuditSink},
+    authz_gate::{self, GateOutcome},
     enforce::Enforcement,
     jail::{split_roots, PathJail},
     p2p::{Endpoint, InboundPeers},
+    pubkey::parse_pubkey_hex,
     ticket::{mint, parse_peer_id, TicketLedger, TicketVerifier},
     tools, Host,
 };
@@ -61,6 +64,9 @@ struct MintArgs {
     /// 平台签发密钥种子文件（32 字节）。
     #[arg(long)]
     key: PathBuf,
+    /// authz 数据根（与 CLI 共用 <data-dir>/authz/ 绑定表，mint 前置判定读同一份）。
+    #[arg(long, default_value = "./p2p-data")]
+    data_dir: PathBuf,
     /// helper 对端 PeerId（base58）。
     #[arg(long)]
     helper_peer: String,
@@ -131,8 +137,17 @@ async fn p2p_serve(args: ServeArgs) -> std::io::Result<()> {
     Ok(())
 }
 
-/// mint-ticket：读平台种子 -> 铸造 -> 立即自检 verify 通过才输出。
+/// mint-ticket：authz 前置判定 -> 读平台种子 -> 铸造 -> 自检 verify 通过才输出。
+/// 前置拒绝（无绑定/过期/权限不含/读失败）不产出票据且已落 authz.denied 审计。
 fn mint_ticket(args: MintArgs) -> std::io::Result<()> {
+    if let GateOutcome::Denied { reason } =
+        authz_gate::check_bridge(&args.data_dir, &args.bridge_peer, &args.scope, SystemClock)
+    {
+        return Err(std::io::Error::other(format!(
+            "mint-ticket denied: bridge peer {} lacks {} authorization ({reason})",
+            args.bridge_peer, args.scope
+        )));
+    }
     let seed_bytes = std::fs::read(&args.key)?;
     let seed: [u8; 32] = seed_bytes.try_into().map_err(|_| {
         std::io::Error::new(
@@ -218,42 +233,6 @@ fn build_jail() -> std::io::Result<PathJail> {
         tracing::error!(%e, "repair-helper jail init failed");
         std::io::Error::other(e)
     })
-}
-
-/// hex 64 字符 -> ed25519 公钥 32 字节；非法输入显式报错。
-fn parse_pubkey_hex(s: &str) -> std::io::Result<[u8; 32]> {
-    let compact: Vec<u8> = s
-        .strip_prefix("0x")
-        .unwrap_or(s)
-        .bytes()
-        .filter(|b| !b.is_ascii_whitespace())
-        .collect();
-    if compact.len() != 64 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            "platform public key must be 64 hex chars",
-        ));
-    }
-    let mut out = [0u8; 32];
-    for (i, pair) in compact.chunks(2).enumerate() {
-        let hi = hex_val(pair[0]).ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidInput, "public key not hex")
-        })?;
-        let lo = hex_val(pair[1]).ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidInput, "public key not hex")
-        })?;
-        out[i] = (hi << 4) | lo;
-    }
-    Ok(out)
-}
-
-fn hex_val(b: u8) -> Option<u8> {
-    match b {
-        b'0'..=b'9' => Some(b - b'0'),
-        b'a'..=b'f' => Some(b - b'a' + 10),
-        b'A'..=b'F' => Some(b - b'A' + 10),
-        _ => None,
-    }
 }
 
 #[cfg(test)]
