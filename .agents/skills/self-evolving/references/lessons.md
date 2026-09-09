@@ -469,3 +469,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 给共享枚举加变体 = 破坏同 crate 一切非穷尽 match；当 match 所在文件属于禁改面（如 a2a/**）时，正解是新增外层包装枚举（如 GatedDecision 内含 Decision）或纯新增函数，让旧类型形状冻结——「不改别人的文件」要从类型形状层面兑现，不只是不碰路径。
 - 2026-09-09 `cargo clippy --workspace` 只对成员做 lint，path 依赖只编译不 lint：成员面板的 `-D warnings` 不会因依赖 crate 的存量 warning 而红。判「零增量」别看单次 exit，要与基线树同命令跑一遍再双向 diff error 集合。
 - 2026-09-09 准入/判定加闸后既有集成测试大面积红的正确姿势：测试夹具按迁移映射（§9）写授权态模拟「import 后稳态」，需要走被闸路径的用例显式声明更高角色——比给产线加「测试旁路开关」忠实于设计，也把新语义写进了测试名里。
+- 2026-09-09 authz A2-A2A 轮：bash 工具默认 workdir 是会话主树，不是 feature worktree——不带显式 workdir 的 `cd apps/x && cargo test` 跑的是主树代码，测试结果与本分支无关还看似全绿；worktree 会话所有命令一律显式 workdir，跑前先 `grep 一个本分支新符号` 自证树没错。
+- 2026-09-09 authz A2-A2A 轮：`cargo test` 不会刷新 `target/debug/<bin>` 产物（只构建 tests/ 下的测试二进制），跑完测试直接手执行旧 bin 会拿到 rebase/改码前的旧行为假象；CLI 冒烟前必须显式 `cargo build`，判产物新旧看 mtime 对源码最后改动时间。
+- 2026-09-09 authz A2-A2A 轮：禁改装配点（TaskService::new 的调用方在禁改的 main.rs）时，把新依赖的构造收进所属模块内部——TaskService::new 从 `config.paths().root` 自建 Authz 门，签名零变化，测试夹具走临时数据根即天然获得隔离的 authz 表；「不能动调用方」先想「被调方能不能自己造」，而不是报阻塞。
