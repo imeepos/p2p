@@ -12,7 +12,7 @@ use acp_agent::{reattach, AuditEvent};
 
 use crate::common::{
     handshake_client, handshake_client_reattach, open_stream, permission_request, read_line, rig,
-    send_line, shutdown, test_grant_full,
+    rig_bound, send_line, shutdown, test_grant_full,
 };
 use crate::wait_audit;
 
@@ -42,11 +42,17 @@ fn seq_of(line: &str) -> u64 {
 /// 无人值守挂起的 ask 在断流瞬间 reject-once（设计 §5 安全侧）。
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn s5_reattach_replays_cached_updates_with_order_and_count() {
-    let r = rig("wave-s5", grant(), |cfg| {
-        // 生产默认 90s（设计 §12-Q1）；用例缩短窗口只为时长，语义同设计 §5
-        cfg.reattach_window_secs = 6;
-        cfg.command = emitting_command();
-    })
+    // 挂起 execute ask 须经 acp.execute 闸（A2）：绑 operator 才会 Forward。
+    let r = rig_bound(
+        "wave-s5",
+        grant(),
+        |cfg| {
+            // 生产默认 90s（设计 §12-Q1）；用例缩短窗口只为时长，语义同设计 §5
+            cfg.reattach_window_secs = 6;
+            cfg.command = emitting_command();
+        },
+        Some("operator"),
+    )
     .await;
     let mut first = open_stream(&r).await;
     let ServerHello::Ready { ready } = handshake_client(&mut first).await else {

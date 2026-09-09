@@ -47,11 +47,18 @@ pub enum AuditEvent {
         detail: String,
     },
     /// 权限动作：action = forwarded / auto-allowed / owner-local /
-    /// timeout-rejected / unanswered-rejected（设计 §6 工具行）。
+    /// authz-denied / timeout-rejected / unanswered-rejected（设计 §6 工具行）。
     PermissionActed {
         peer: String,
         conn: String,
         action: String,
+        detail: String,
+    },
+    /// authz 闸拒绝（authz-role-design §8 ACP 行）：perm = acp.session /
+    /// acp.execute；detail = Deny reason 码或 storage-error，只入审计不回 wire。
+    AuthzDenied {
+        peer: String,
+        perm: &'static str,
         detail: String,
     },
     /// 续连受理：detail = replayed=<补放条数>。
@@ -94,6 +101,7 @@ impl AuditEvent {
             Self::CwdDenied { .. } => "cwd-denied",
             Self::McpRewritten { .. } => "mcp-rewritten",
             Self::PermissionActed { .. } => "permission-acted",
+            Self::AuthzDenied { .. } => "authz-denied",
             Self::ReattachAccepted { .. } => "reattach-accepted",
             Self::ReattachDenied { .. } => "reattach-denied",
             Self::WindowExpired { .. } => "window-expired",
@@ -117,6 +125,7 @@ impl AuditEvent {
             | Self::CwdDenied { peer, .. }
             | Self::McpRewritten { peer, .. }
             | Self::PermissionActed { peer, .. }
+            | Self::AuthzDenied { peer, .. }
             | Self::ReattachAccepted { peer, .. }
             | Self::ReattachDenied { peer, .. }
             | Self::WindowExpired { peer, .. }
@@ -197,6 +206,9 @@ impl AuditSink for TracingAudit {
                 detail,
             } => {
                 tracing::info!(target: "acp_audit", ts, event = event.kind(), peer, conn, action, detail, "permission acted");
+            }
+            AuditEvent::AuthzDenied { peer, perm, detail } => {
+                tracing::warn!(target: "acp_audit", ts, event = event.kind(), peer, perm, detail, "authz gate denied");
             }
             AuditEvent::ReattachAccepted { peer, conn, detail } => {
                 tracing::info!(target: "acp_audit", ts, event = event.kind(), peer, conn, detail, "reattach accepted");

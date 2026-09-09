@@ -68,6 +68,7 @@ pub(crate) async fn fresh(
             peer_id: peer_id.clone(),
             conn: hello.conn.to_string(),
             grant: grant.clone(),
+            authz: deps.authz.clone(),
         },
         cwd,
         stderr_log,

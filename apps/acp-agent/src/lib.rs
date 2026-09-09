@@ -3,6 +3,7 @@
 
 pub mod a2a;
 pub mod audit;
+pub mod authz;
 pub(crate) mod child;
 pub mod cli;
 pub mod config;
@@ -14,6 +15,8 @@ pub mod handler;
 pub mod jail;
 pub mod mcp;
 pub mod permission;
+#[cfg(test)]
+mod permission_gate_tests;
 pub mod policy;
 pub mod pump;
 pub mod reattach;

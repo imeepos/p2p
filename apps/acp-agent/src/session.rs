@@ -5,14 +5,17 @@
 //! reattach（缓存）。桥自身只做编排，不解析 ACP 语义（两个安全改写点除外）。
 
 use std::io;
+use std::path::Path;
 use std::sync::{Arc, RwLock as StdRwLock};
 use std::time::Duration;
 
 use acp_common::error::ErrorCode;
 use acp_common::{parse_client_hello, ClientHello, PeerPolicy, PolicyTable, Scope, ServerHello};
 use p2p::{BoxedStream, PeerId};
+use p2p_authz::Permission;
 
 use crate::audit::{AuditEvent, AuditSink};
+use crate::authz::{allows_decision, deny_detail, AuthzGate, DiskAuthz};
 use crate::child::SlotBook;
 use crate::config::AgentConfig;
 use crate::conn;
@@ -33,6 +36,8 @@ pub struct SessionDeps {
     pub audit: Arc<dyn AuditSink>,
     /// 工作区动态表（admin 增删实时生效；jail 与分享校验同源）。
     pub workspaces: Arc<WorkspaceStore>,
+    /// authz 闸（authz-role-design §8 ACP 桥行）：准入双查的 authz 侧。
+    pub authz: Arc<dyn AuthzGate>,
 }
 
 /// 装配期存储错误：策略表与分享台账任一损坏都拒启（禁止静默回退）。
@@ -53,6 +58,7 @@ impl SessionDeps {
         config: AgentConfig,
         audit: Arc<dyn AuditSink>,
     ) -> Result<Arc<Self>, AssembleError> {
+        let data_dir = config.data_dir.clone();
         let table = crate::policy::load(&config.policy_path())?;
         let policy = Arc::new(StdRwLock::new(table));
         let workspaces = Arc::new(WorkspaceStore::open_for_config(&config)?);
@@ -66,6 +72,7 @@ impl SessionDeps {
             config,
             audit,
             workspaces,
+            authz: Arc::new(DiskAuthz::new(Path::new(&data_dir))),
         }))
     }
 }
@@ -141,10 +148,25 @@ async fn handshake(stream: &mut BoxedStream) -> Result<ClientHello, ErrorCode> {
     parse_client_hello(text).map_err(|_| ErrorCode::HandshakeMalformed)
 }
 
-/// 授权两级瀑布（设计 §4，零协议变更）：① 策略表命中走既有路径（token 忽略，
-/// 行为与今天完全一致）；② 未命中且带 token → 分享台账兑换（激活写策略表或按
-/// 状态拒绝，码进 denied 帧、五条事件进审计）；③ 其余 fail-closed 不回退。
+/// 授权瀑布（设计 §4 + authz-role-design §8 ACP 桥行，零协议变更）：
+/// ① 策略表命中走既有路径（token 忽略）；② 未命中且带 token → 分享台账兑换
+/// （激活写策略表或按状态拒绝）；③ authz 双闸：非 owner 授权还须
+/// check(peer, acp.session)（owner 不进 authz，红线 1；绑定缺失即拒，§9）；
+/// ④ 其余 fail-closed 不回退。
 fn authorize(deps: &SessionDeps, peer: &str, token: Option<&str>) -> Result<PeerPolicy, ErrorCode> {
+    let grant = policy_grant_or_redeem(deps, peer, token)?;
+    if grant.scope != Scope::Owner && !session_permitted(deps, peer) {
+        return Err(ErrorCode::PeerNotAllowed);
+    }
+    Ok(grant)
+}
+
+/// 既有策略面（设计 §4 ①②）：表命中或 token 兑换，行为与切换前完全一致。
+fn policy_grant_or_redeem(
+    deps: &SessionDeps,
+    peer: &str,
+    token: Option<&str>,
+) -> Result<PeerPolicy, ErrorCode> {
     let table = deps
         .policy
         .read()
@@ -168,6 +190,21 @@ fn authorize(deps: &SessionDeps, peer: &str, token: Option<&str>) -> Result<Peer
             Err(ErrorCode::PeerNotAllowed)
         }
     }
+}
+
+/// authz 准入闸：check(peer, acp.session)，Allow 才放行；拒绝留审计
+/// （reason 码只入审计不回 wire，§12-Q5；存储故障按拒，红线 2）。
+fn session_permitted(deps: &SessionDeps, peer: &str) -> bool {
+    let decision = deps.authz.check(peer, Permission::ACP_SESSION);
+    let permitted = allows_decision(decision);
+    if !permitted {
+        deps.audit.record(AuditEvent::AuthzDenied {
+            peer: peer.to_owned(),
+            perm: Permission::ACP_SESSION.as_str(),
+            detail: deny_detail(decision),
+        });
+    }
+    permitted
 }
 
 fn admit(deps: &SessionDeps, peer: &str) -> Result<ConnGuard, (ErrorCode, &'static str)> {

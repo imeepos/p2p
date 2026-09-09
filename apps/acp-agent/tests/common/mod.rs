@@ -18,6 +18,8 @@ use uuid::Uuid;
 pub const STUB: &str = env!("CARGO_BIN_EXE_acp-echo-stub");
 pub const PROTO: &str = "/dsh-acp/1";
 
+pub mod authz_fixture;
+
 pub fn tmp_dir(tag: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("acp-agent-it-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -50,12 +52,27 @@ fn test_grant(scope: Scope) -> PeerPolicy {
 }
 
 /// 先建空表或授予单 peer，再 build_server（策略表只在装配期加载一次）。
+/// 授予时按 §9 映射同步写 authz 绑定（模拟 import 后稳态，准入双查齐闸）。
 pub fn write_policy(cfg: &AgentConfig, grant: Option<(&PeerId, Scope)>) {
-    let path = cfg.policy_path();
     let mut table = PolicyTable::new();
     if let Some((peer, scope)) = grant {
         table.grant(peer.to_string(), test_grant(scope));
+        authz_fixture::bind_scope(cfg, peer, scope);
     }
+    save_policy(cfg, table);
+}
+
+/// 只写策略表不写绑定（准入双查负例：绑定缺失即拒）。
+pub fn write_policy_unbound(cfg: &AgentConfig, grant: Option<(&PeerId, PeerPolicy)>) {
+    let mut table = PolicyTable::new();
+    if let Some((peer, policy)) = grant {
+        table.grant(peer.to_string(), policy);
+    }
+    save_policy(cfg, table);
+}
+
+fn save_policy(cfg: &AgentConfig, table: PolicyTable) {
+    let path = cfg.policy_path();
     std::fs::create_dir_all(path.parent().expect("policy parent")).expect("mkdir");
     table.save(&path).expect("save policy");
 }
@@ -152,15 +169,14 @@ pub fn test_grant_full(scope: Scope, allow_mcp: Vec<String>, ask_route: AskRoute
     }
 }
 
-/// 策略表写入（扩展形态）：条目自带 allow_mcp / ask_route。
+/// 策略表写入（扩展形态）：条目自带 allow_mcp / ask_route；绑定按 §9 同步。
 pub fn write_policy_full(cfg: &AgentConfig, grant: Option<(&PeerId, PeerPolicy)>) {
-    let path = cfg.policy_path();
     let mut table = PolicyTable::new();
     if let Some((peer, policy)) = grant {
-        table.grant(peer.to_string(), policy);
+        table.grant(peer.to_string(), policy.clone());
+        authz_fixture::bind_scope(cfg, peer, policy.scope);
     }
-    std::fs::create_dir_all(path.parent().expect("policy parent")).expect("mkdir");
-    table.save(&path).expect("save policy");
+    save_policy(cfg, table);
 }
 
 /// 续连握手：携票据回连。
@@ -224,11 +240,28 @@ pub struct Rig {
     pub client: Node,
 }
 
+/// 标准台架：绑定按 §9 映射自动写入（sandbox→guest / workspace→operator）。
 pub async fn rig(tag: &str, grant: PeerPolicy, tweak: impl FnOnce(&mut AgentConfig)) -> Rig {
+    let role = authz_fixture::scope_binding_role(grant.scope);
+    rig_bound(tag, grant, tweak, role).await
+}
+
+/// rig 变体：显式指定绑定角色（Some(role) = 覆盖 §9 映射；None = 不写绑定，
+/// 构造「策略表有、authz 无绑定」的默认拒绝负例）。
+pub async fn rig_bound(
+    tag: &str,
+    grant: PeerPolicy,
+    tweak: impl FnOnce(&mut AgentConfig),
+    role: Option<&str>,
+) -> Rig {
     let client = build_client(tag).await;
     let mut cfg = test_config(tag);
     tweak(&mut cfg);
-    write_policy_full(&cfg, Some((&client.local_peer_id(), grant)));
+    let peer = client.local_peer_id();
+    write_policy_unbound(&cfg, Some((&peer, grant)));
+    if let Some(role) = role {
+        authz_fixture::write_binding(&cfg, &peer, role);
+    }
     let (server, audit) = build_server(&cfg).await;
     let server_peer = server.local_peer_id();
     seed_quic(&server, server_peer, &client);

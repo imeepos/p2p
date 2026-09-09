@@ -26,6 +26,8 @@ async fn rig_full(tag: &str, tweak: impl FnOnce(&mut acp_agent::AgentConfig)) ->
             test_grant_full(Scope::Sandbox, Vec::new(), AskRoute::RemoteGui),
         )),
     );
+    // 本文件挂起 execute ask 需走 Forward：绑定升到 operator（含 acp.execute）。
+    common::authz_fixture::write_binding(&cfg, &client.local_peer_id(), "operator");
     let (server, audit) = common::build_server(&cfg).await;
     let server_peer = server.local_peer_id();
     common::seed_quic(&server, server_peer, &client);

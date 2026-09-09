@@ -9,8 +9,8 @@ use acp_agent::AuditEvent;
 
 use crate::common::{
     build_client, build_server, connect_and_stream, handshake_client, open_stream,
-    permission_approve, permission_request, read_line, rig, seed_quic, send_line, shutdown,
-    test_config, test_grant_full, write_policy,
+    permission_approve, permission_request, read_line, rig, rig_bound, seed_quic, send_line,
+    shutdown, test_config, test_grant_full, write_policy,
 };
 use crate::line_within;
 
@@ -128,9 +128,10 @@ async fn s3_prompt_streamed_through_stub_with_update_flow() {
 
 /// ④ 工具权限 ask→客户端批准放行→一次性 grant：execute ask 透传客户端，
 /// 批准经桥写入子进程结算；同 ask 再次到达必须再次透传（桥不持久化许可）。
+/// execute ask 须经 acp.execute 闸（A2）：绑 operator 才走 Forward 路径。
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn s4_ask_approved_by_client_and_grant_is_one_shot() {
-    let r = rig("wave-s4", grant(), |_| {}).await;
+    let r = rig_bound("wave-s4", grant(), |_| {}, Some("operator")).await;
     let mut stream = open_stream(&r).await;
     handshake_client(&mut stream).await;
 

@@ -162,6 +162,8 @@ pub(crate) struct SpawnCtx {
     pub peer_id: String,
     pub conn: String,
     pub grant: PeerPolicy,
+    /// authz 闸（§8 权限瀑布行）：router Forward 前置 acp.execute 判定。
+    pub authz: Arc<dyn crate::authz::AuthzGate>,
 }
 
 /// spawn 子进程并组装 router + reader；票据在此签发。
@@ -177,6 +179,7 @@ pub(crate) fn spawn_slot(
         peer_id,
         conn,
         grant,
+        authz,
     } = ctx;
     let sub = subprocess::spawn(&config.command, stderr_log, cwd)?;
     let (ctl_tx, ctl_rx) = mpsc::channel(CTL_CAP);
@@ -197,6 +200,7 @@ pub(crate) fn spawn_slot(
         config: config.clone(),
         book: book.clone(),
         ticket,
+        authz,
     };
     let task = tokio::spawn(router::run(params, sub.child, sub.stdin, lines_rx, ctl_rx));
     book.track(task);

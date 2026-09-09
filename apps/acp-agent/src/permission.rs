@@ -65,8 +65,33 @@ pub enum Decision {
     Forward,
 }
 
+/// decide_gated 的结果：静态瀑布出内层 Decision；ask 路径被 authz 闸拦下时
+/// 为 AuthzDenied（本地直拒不弹窗）。独立外层枚举保持 Decision 形状不变
+/// （a2a 桥面与既有 match 零改动，authz-role-design §8 权限瀑布行）。
+pub enum GatedDecision {
+    /// 静态瀑布结论（AutoAllow / OwnerLocal / Forward）。
+    Inner(Decision),
+    /// authz 闸拒绝：本地 reject-once 直拒，绝不透传客户端。
+    AuthzDenied(String),
+}
+
 pub fn decide(req: &PermissionRequest, route: AskRoute) -> Decision {
     decide_scoped(req, route, true)
+}
+
+/// ACP 流瀑布入口（authz-role-design §8 权限瀑布行）：静态判定先行；落
+/// Forward（ask）时前置 authz 闸 check(peer, acp.execute)——gate 闭包只在
+/// ask 路径被调用（read/think 放行与 owner-local 拒绝零判定 IO），Deny 即
+/// AuthzDenied 本地直拒不弹窗。owner 不进 authz（红线 1），由路由侧 scope 分流。
+pub fn decide_gated(
+    req: &PermissionRequest,
+    route: AskRoute,
+    gate: impl FnOnce() -> bool,
+) -> GatedDecision {
+    match decide(req, route) {
+        Decision::Forward if !gate() => GatedDecision::AuthzDenied(rejected_response(&req.id)),
+        other => GatedDecision::Inner(other),
+    }
 }
 
 /// 可见性维度（a2a-over-p2p-design §9 矩阵）：local agent（owner 全权）

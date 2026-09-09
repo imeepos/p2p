@@ -3,6 +3,7 @@
 use std::io;
 use std::time::Instant;
 
+use acp_common::Scope;
 use serde_json::Value;
 use tokio::io::AsyncWriteExt;
 use tokio::process::Child;
@@ -81,16 +82,47 @@ impl super::Router {
     }
 
     pub(super) async fn on_permission(&mut self, req: PermissionRequest, bytes: &[u8]) -> Flow {
-        match permission::decide(&req, self.params.grant.ask_route) {
-            Decision::AutoAllow(response) => {
+        // 静态判定先行；落 ask（Forward）时前置 authz acp.execute 闸（§8 权限
+        // 瀑布行）：gate 闭包只在 ask 路径触发判定 IO，Deny 即本地直拒不弹窗。
+        match permission::decide_gated(&req, self.params.grant.ask_route, || {
+            self.execute_gate_allows()
+        }) {
+            permission::GatedDecision::Inner(Decision::AutoAllow(response)) => {
                 self.answer_locally(&response, "auto-allowed", &req.id)
                     .await
             }
-            Decision::OwnerLocal(response) => {
+            permission::GatedDecision::Inner(Decision::OwnerLocal(response)) => {
                 self.answer_locally(&response, "owner-local", &req.id).await
             }
-            Decision::Forward => self.forward_permission(req, bytes).await,
+            permission::GatedDecision::Inner(Decision::Forward) => {
+                self.forward_permission(req, bytes).await
+            }
+            permission::GatedDecision::AuthzDenied(response) => {
+                self.answer_locally(&response, "authz-denied", &req.id)
+                    .await
+            }
         }
+    }
+
+    /// acp.execute 闸：owner scope 零改动直通（红线 1，owner 不进 authz）；
+    /// 其余 scope 查 authz，Deny（含存储故障）不放行 ask。
+    fn execute_gate_allows(&self) -> bool {
+        if self.params.grant.scope == Scope::Owner {
+            return true;
+        }
+        let decision = self
+            .params
+            .authz
+            .check(&self.params.peer_id, p2p_authz::Permission::ACP_EXECUTE);
+        let allowed = crate::authz::allows_decision(decision);
+        if !allowed {
+            tracing::info!(
+                peer = %self.params.peer_id,
+                detail = crate::authz::deny_detail(decision),
+                "execute ask blocked by authz gate"
+            );
+        }
+        allowed
     }
 
     pub(super) async fn answer_locally(

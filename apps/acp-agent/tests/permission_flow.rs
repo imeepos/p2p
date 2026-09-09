@@ -10,7 +10,7 @@ use acp_agent::AuditEvent;
 use acp_common::{AskRoute, Scope};
 use common::{
     connect_and_stream, handshake_client, permission_approve, permission_request, read_line, rig,
-    send_line, shutdown, test_grant_full,
+    rig_bound, send_line, shutdown, test_grant_full,
 };
 use serde_json::Value;
 
@@ -42,7 +42,8 @@ async fn static_policy_auto_allows_read_kind() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn ask_routes_to_remote_gui_and_settles_on_approval() {
     let grant = test_grant_full(Scope::Sandbox, Vec::new(), AskRoute::RemoteGui);
-    let rig = rig("perm-ask", grant, |_| {}).await;
+    // execute ask 须经 acp.execute 闸（§8）：guest 无此权限，绑 operator 才走 Forward。
+    let rig = rig_bound("perm-ask", grant, |_| {}, Some("operator")).await;
     let mut stream = connect_and_stream(&rig.client, rig.server_peer).await;
     handshake_client(&mut stream).await;
     send_line(&mut stream, &permission_request(8, "execute")).await;
@@ -67,7 +68,8 @@ async fn ask_routes_to_remote_gui_and_settles_on_approval() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn ask_times_out_into_reject_once() {
     let grant = test_grant_full(Scope::Sandbox, Vec::new(), AskRoute::RemoteGui);
-    let rig = rig("perm-timeout", grant, |_| {}).await;
+    // delete 属 execute 类 ask：须 acp.execute（operator）才进入透传超时路径。
+    let rig = rig_bound("perm-timeout", grant, |_| {}, Some("operator")).await;
     let mut stream = connect_and_stream(&rig.client, rig.server_peer).await;
     handshake_client(&mut stream).await;
     send_line(&mut stream, &permission_request(9, "delete")).await;

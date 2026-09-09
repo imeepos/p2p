@@ -15,6 +15,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use uuid::Uuid;
 
 use crate::audit::{AuditEvent, AuditSink};
+use crate::authz::AuthzGate;
 use crate::child::{Ctl, SlotBook};
 use crate::config::AgentConfig;
 use crate::permission;
@@ -30,6 +31,8 @@ pub(crate) struct RouterParams {
     pub config: AgentConfig,
     pub book: Arc<SlotBook>,
     pub ticket: Uuid,
+    /// authz 闸（authz-role-design §8 权限瀑布行）：Forward 前置 acp.execute。
+    pub authz: Arc<dyn AuthzGate>,
 }
 
 /// 窗口期挂起的权限请求：超时即代答 reject-once（设计 §6 工具行 60s 上限）。
