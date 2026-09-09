@@ -24,6 +24,11 @@ pub fn default_observation_addrs() -> Vec<String> {
     vec!["121.196.193.177:3402".into()]
 }
 
+/// 出厂默认自动绑角色（authz-a3-plan §1 S2 P1d）。
+pub fn default_authz_default_role() -> String {
+    "friend".to_owned()
+}
+
 /// 节点启停配置（契约 §3 GuiConfig）。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -49,6 +54,10 @@ pub struct GuiConfig {
     /// 仅局域网模式（F8）：true 时启动不连任何公共设施，仅局域网发现与直连。
     #[serde(default)]
     pub lan_only: bool,
+    /// 加好友自动绑定角色（P1d）：内建或自定义角色 id；空串 = 禁用自动绑。
+    /// GUI 侧类型尚未含此字段（S3 接入），serde default 保证旧配置文件可读。
+    #[serde(default = "default_authz_default_role")]
+    pub authz_default_role: String,
 }
 
 fn default_true() -> bool {
@@ -68,6 +77,7 @@ impl Default for GuiConfig {
             observation_port: None,
             observation_addrs: default_observation_addrs(),
             lan_only: false,
+            authz_default_role: default_authz_default_role(),
         }
     }
 }
@@ -218,5 +228,18 @@ mod tests {
         )
         .unwrap();
         assert!(!back.lan_only, "旧配置文件（无 lanOnly 字段）读取不受影响");
+    }
+
+    /// P1d：缺省 friend；旧配置无此字段读出缺省；空串显式禁用可往返。
+    #[test]
+    fn config_authz_default_role_defaults_and_roundtrips() {
+        let cfg: GuiConfig = serde_json::from_str("{}").unwrap();
+        assert_eq!(cfg.authz_default_role, "friend", "缺省 friend");
+        let cfg: GuiConfig = serde_json::from_str(r#"{"authzDefaultRole":""}"#).unwrap();
+        assert_eq!(cfg.authz_default_role, "", "空串 = 显式禁用自动绑");
+        let cfg: GuiConfig = serde_json::from_str(r#"{"authzDefaultRole":"operator"}"#).unwrap();
+        assert_eq!(cfg.authz_default_role, "operator", "可设任意角色 id");
+        let json = serde_json::to_value(GuiConfig::default()).unwrap();
+        assert_eq!(json["authzDefaultRole"], serde_json::json!("friend"));
     }
 }

@@ -161,15 +161,21 @@ async fn add(args: AddArgs) -> CliResult<()> {
         )
         .await
         .map_err(runtime_err)?;
+    // P1d：邀请发出后按 authz.default_role 自动绑（缺省 friend；已有绑定跳过、
+    // 角色不存在/读失败降级警告，均不阻塞加好友主流程）。
+    let auto = crate::authz::default_role::auto_bind_default_role(&args.data_dir, &args.peer_id);
     let state = if report.delivered {
         "已送达，等待对方同意"
     } else {
         "对端离线，邀请挂起（重连后自动重投）"
     };
-    let text = format!(
+    let mut text = format!(
         "已发送好友邀请 {}（{}）：{}",
         report.invite.nickname, report.invite.peer_id, state
     );
+    if let Some(note) = auto.note() {
+        text.push_str(&format!("\n{note}"));
+    }
     emit(args.json, &report, &text)
 }
 

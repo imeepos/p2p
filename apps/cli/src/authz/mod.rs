@@ -6,6 +6,7 @@
 
 mod bind;
 mod check;
+pub mod default_role;
 mod import_a2a;
 mod import_acp;
 mod import_llm_share;
