@@ -2,6 +2,11 @@
 
 <!-- 格式：症状 → 原因 → 修法。排查超过 5 分钟的 bug 才值得记。 -->
 
+## 2026-09-09 GUI 创建智能体报 404：代码对、服务旧，探针用旧端点验证新能力导致安装假绿
+- 症状：/agents 页创建智能体弹窗点确认必报「HTTP 404: not-found」；repo 代码、GUI 测试、契约文档全部正确；GET/POST /a2a/agents 用 curl 直打运行中的 agent 也是 404，而 /shares 200 正常。
+- 原因：launchd 常驻的 ~/.dsh/bin/acp-agent 是 Sep 7 的旧二进制（strings 里 grep 不到 "a2a/agents"），a2a 管理面是 Sep 8 才合并的；旧 admin 服务对未知路径落 catch-all 404。而 scripts/ops/acp-local-setup.sh 的安装探针用 GET /workspaces 当「新二进制标志」——旧二进制同样有 /workspaces，所以每次重装脚本即使没装上新二进制也报 ACP-LOCAL-SETUP-OK，假绿掩盖了部署滞后。GUI 的「我的」列表 404 被设计成静默降级（旧 agent 常态），只有创建动作把 404 原文上浮，于是用户只在创建时看到报错。
+- 修法：跑 scripts/ops/acp-local-setup.sh 重装重启（构建→安装→launchd kickstart），GUI 每次确认时重读 descriptor（adminUrl/token 随新进程刷新）无需重启 GUI；探针改为双端点校验（/workspaces + /a2a/agents 各 200，后者缺失报独立文案退出）。排查口诀：「repo 代码正确 + 线上端点 404」先查常驻进程二进制的新旧（ls -la 二进制 mtime、strings grep 新路由字面量），再查安装脚本探针是否用了新旧二进制共有的端点当新鲜度标志——验证标志本身必须是被测能力独有的端点。
+
 ## 2026-09-07 聊天消息多才冒横向滚动条：罪魁是 opacity-0 的 hover 按钮越出滚动域
 - 症状：聊天消息流「消息多的时候」出横向滚动条；连续两条消息视觉上贴叠成一泡。横向 scrollbar 与消息数量的相关性把排查引向内容宽度（图片/长文本），全都不是。
 - 原因：两件事叠加。① CSS 规定 overflow-y 非 visible 时 overflow-x 的 visible 隐式算作 auto——只写 overflow-y-auto 的滚动域其实横竖都可滚；② 悬停回复按钮 absolute left-full 锚定整行，me 侧越出滚动域右缘 12px（padding 只有 16px），而 opacity-0 不影响 scrollable overflow——看不见的元素照样撑出滚动条；竖向滚动条出现（消息变多）收窄 8px 内容宽只是让存量溢出显形。纵向贴叠则是消息列 flex-col 没写 gap。
