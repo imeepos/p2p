@@ -2,7 +2,7 @@
 //! p2p-cli 报告类型的 camelCase 逐字断言（expiresAt skip-none 先例）。
 
 use p2p_cli::authz::{BindReport, RoleListReport, RoleView, UnbindReport};
-use p2p_console::authz::{AuthzBindingJson, AuthzDefaultRoleReport, AuthzBindingsReport};
+use p2p_console::authz::{AuthzBindingJson, AuthzBindingsReport, AuthzDefaultRoleReport};
 use serde_json::json;
 
 #[test]
@@ -62,7 +62,11 @@ fn authz_default_role_report_shape() {
         role_id: "guest".into(),
     })
     .expect("序列化");
-    assert_eq!(encoded, json!({ "roleId": "guest" }), "§18.1 default_role 返回形状");
+    assert_eq!(
+        encoded,
+        json!({ "roleId": "guest" }),
+        "§18.1 default_role 返回形状"
+    );
 }
 
 #[test]
@@ -99,9 +103,7 @@ fn p2p_cli_role_and_unbind_report_shapes() {
         builtin: true,
         note: String::new(),
     };
-    let list = RoleListReport {
-        roles: vec![role],
-    };
+    let list = RoleListReport { roles: vec![role] };
     let encoded = serde_json::to_value(&list).expect("序列化");
     assert_eq!(encoded["roles"][0]["roleId"], json!("ally"));
     assert_eq!(encoded["roles"][0]["builtin"], json!(true));

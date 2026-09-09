@@ -14,7 +14,9 @@
 use std::path::Path;
 
 use p2p_authz::SystemClock;
-use p2p_cli::authz::{bind, check, role_list, unbind, BindReport, CheckReport, RoleListReport, UnbindReport};
+use p2p_cli::authz::{
+    bind, check, role_list, unbind, BindReport, CheckReport, RoleListReport, UnbindReport,
+};
 use serde::Serialize;
 use tauri::State;
 
@@ -72,7 +74,9 @@ pub async fn authz_role_list(state: State<'_, AppState>) -> Result<RoleListRepor
 
 /// authz_bindings_list：当前绑定全集；读失败（损坏/版本不符）显式 Err 不静默。
 #[tauri::command]
-pub async fn authz_bindings_list(state: State<'_, AppState>) -> Result<AuthzBindingsReport, String> {
+pub async fn authz_bindings_list(
+    state: State<'_, AppState>,
+) -> Result<AuthzBindingsReport, String> {
     let bindings = p2p_authz::store::load_bindings(Path::new(&data_dir(&state)))
         .map_err(|e| format!("authz 绑定表读失败: {e}"))?;
     Ok(AuthzBindingsReport {
@@ -121,7 +125,9 @@ pub async fn authz_check(
 
 /// authz_default_role_get：读持久化配置 authzDefaultRole（缺省 friend；空串 = 禁用）。
 #[tauri::command]
-pub async fn authz_default_role_get(state: State<'_, AppState>) -> Result<AuthzDefaultRoleReport, String> {
+pub async fn authz_default_role_get(
+    state: State<'_, AppState>,
+) -> Result<AuthzDefaultRoleReport, String> {
     Ok(AuthzDefaultRoleReport {
         role_id: state.config_get().authz_default_role,
     })
@@ -137,8 +143,7 @@ pub async fn authz_default_role_save(
 ) -> Result<AuthzDefaultRoleReport, String> {
     if !role_id.is_empty() {
         let dir = data_dir(&state);
-        let exists = p2p_authz::Authz::new(Path::new(&dir), SystemClock)
-            .show_role(&role_id);
+        let exists = p2p_authz::Authz::new(Path::new(&dir), SystemClock).show_role(&role_id);
         match exists {
             Ok(_) => {}
             Err(p2p_authz::AuthzError::RoleNotFound(_)) => {

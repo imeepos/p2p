@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 
 use p2p_authz::audit::audit_path;
 use p2p_console::authz::{
-    authz_bind, authz_bindings_list, authz_check, authz_default_role_get,
-    authz_default_role_save, authz_role_list, authz_unbind,
+    authz_bind, authz_bindings_list, authz_check, authz_default_role_get, authz_default_role_save,
+    authz_role_list, authz_unbind,
 };
 use p2p_console::state::AppState;
 use tauri::Manager;
@@ -56,7 +56,11 @@ async fn role_list_returns_builtin_four() {
     let state = app.handle().state::<AppState>();
     let report = authz_role_list(state).await.expect("读取角色列表");
     let ids: Vec<&str> = report.roles.iter().map(|r| r.role_id.as_str()).collect();
-    assert_eq!(ids, vec!["friend", "guest", "operator", "ally"], "内建四呈阶梯");
+    assert_eq!(
+        ids,
+        vec!["friend", "guest", "operator", "ally"],
+        "内建四呈阶梯"
+    );
     assert!(report.roles.iter().all(|r| r.builtin), "初次全为内建角色");
 }
 
@@ -93,7 +97,9 @@ async fn bind_upsert_unbind_roundtrip_with_single_audit_writes() {
         "绑定恰落两条 bound 事件: {audit:?}"
     );
 
-    let unbound = authz_unbind(state.clone(), p.clone()).await.expect("解绑成功");
+    let unbound = authz_unbind(state.clone(), p.clone())
+        .await
+        .expect("解绑成功");
     assert_eq!(unbound.role_id, "ally");
     assert!(
         authz_unbind(state.clone(), p.clone()).await.is_err(),
@@ -106,7 +112,11 @@ async fn bind_upsert_unbind_roundtrip_with_single_audit_writes() {
         "解绑恰落一条 unbound 事件: {audit:?}"
     );
     assert!(
-        authz_bindings_list(state).await.expect("列表").bindings.is_empty(),
+        authz_bindings_list(state)
+            .await
+            .expect("列表")
+            .bindings
+            .is_empty(),
         "解绑后绑定表为空"
     );
 }
@@ -119,9 +129,15 @@ async fn bind_unknown_role_and_invalid_peer_error_out() {
         .await
         .expect_err("未登记角色必须拒");
     assert!(err.contains("ghost"), "错误携带角色 id: {err}");
-    let err = authz_bind(state.clone(), "not-base58".into(), "friend".into(), None, None)
-        .await
-        .expect_err("非法 peer 必须拒");
+    let err = authz_bind(
+        state.clone(),
+        "not-base58".into(),
+        "friend".into(),
+        None,
+        None,
+    )
+    .await
+    .expect_err("非法 peer 必须拒");
     assert!(!err.is_empty(), "可读中文错误串");
 }
 
@@ -179,13 +195,17 @@ async fn default_role_get_save_roundtrip_and_validation() {
         .expect("设为 guest");
     assert_eq!(report.role_id, "guest");
     assert_eq!(
-        authz_default_role_get(state.clone()).await.expect("读取").role_id,
+        authz_default_role_get(state.clone())
+            .await
+            .expect("读取")
+            .role_id,
         "guest",
         "save 后 get 读到新值（持久化生效）"
     );
     let persisted = std::fs::read_to_string(dir.join("gui-config.json")).expect("配置文件");
     assert!(
-        persisted.contains(r#""authzDefaultRole":"guest""#) || persisted.contains("\"authzDefaultRole\": \"guest\""),
+        persisted.contains(r#""authzDefaultRole":"guest""#)
+            || persisted.contains("\"authzDefaultRole\": \"guest\""),
         "落盘字段 camelCase: {persisted}"
     );
 
