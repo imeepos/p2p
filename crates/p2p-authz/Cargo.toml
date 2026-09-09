@@ -1,0 +1,11 @@
+[package]
+name = "p2p-authz"
+version.workspace = true
+edition.workspace = true
+description = "统一授权层（authz-role-design §3-§7）：权限闭集登记、角色、绑定、四步判定瀑布与原子存储"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
