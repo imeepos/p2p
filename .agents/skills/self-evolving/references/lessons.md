@@ -454,3 +454,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 通讯录资料互通轮：全量 vitest 与 cargo 大编译并发会把 runner 打出 worker timeout 假红（同树 6 failed 全超时，静机重跑 1334 全绿）——跑门禁前让机器静下来，假红先静跑复现再排查。
 - 2026-09-09 通讯录资料互通轮：往接近红线的文件加功能，先想好拆分位再动手——lib.rs 装配块整体迁 boot.rs 比逐行抠注释体面（同 crate 允许 impl 分文件），register 助手顺带消掉三段重复注册。
 - 2026-09-09 通讯录资料互通轮：后台 job 会被会话续接清掉（job_list 里 unknown），重启的编译因缓存秒级完成——续接后先 job_list 再决定重跑，别假设长编译要重头来。
+- 2026-09-09 A2A聊天修复轮：TS 契约写 Promise<unknown> 而消费端用 `as` 强转成具体类型再取字段，是定时炸弹——A2A transport resolve undefined 时 composer 取 report.delivered 直接 TypeError，且发送成功也误报「发送失败」。「unknown 进出 + as 强转取字段」的代码，修法是把 unknown 顶到判定函数做结构化守卫，强转只会把崩溃点藏到别处。
+- 2026-09-09 A2A聊天修复轮：报错文案会撒谎——用户看到的「发送失败 undefined...」其实是三层叠加（通道没接线→真实错误被 catch 吞掉→composer 崩溃产生误导性 toast）；修 UI 报错先还原「错误传播链上每一层各自吞了什么」，最外层文案只是冰山尖。
+- 2026-09-09 A2A聊天修复轮：给 fake transport 写回归测试时，测试替身的时序要贴真传输（异步 decodeFrame、microtask 分帧）——同步读 store 断言会踩竞态假红；统一 flush（setTimeout 0）再断言。测试先行还顺手揪出三个 store 真 bug（create 应答与入簿窗口丢通知、agent 消息缺 messageId 戳破坏去重、createTask 漏 lastError 留痕）。
+- 2026-09-09 A2A聊天修复轮：并行会话对 main 的高速追加下，ff-merge 是重试循环：worktree 内 rebase main → force-with-lease 推分支 → 主树再 ff-only；ff-only 失败零损失（ref 没动），merge commit 才会让历史分叉难看。
