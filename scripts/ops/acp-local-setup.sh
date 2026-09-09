@@ -79,8 +79,10 @@ else
   echo "[4] service started (no plist; nohup)"
 fi
 
-# 5) 探针：admin /workspaces 可达（新二进制标志）+ descriptor 新鲜 + dsh initialize 应答
+# 5) 探针：admin /workspaces 可达 + /a2a/agents 200（旧二进制无 a2a 管理面会 404，
+#    必须在此拦截——GUI 创建智能体依赖该端点）+ descriptor 新鲜 + dsh initialize 应答
 ok=0
+a2a_missing=0
 for _ in $(seq 1 50); do
   DESC="$HOME/.dsh/acp/local-agent.json"
   if [ -f "$DESC" ]; then
@@ -89,14 +91,23 @@ for _ in $(seq 1 50); do
     if [ -n "$admin_url" ] && curl -sf "$admin_url/workspaces" -H "Authorization: Bearer $token" |
       grep -q '"workspaces"'; then
       echo "[5] admin OK: $admin_url/workspaces"
-      ok=1
+      if curl -sf "$admin_url/a2a/agents" -H "Authorization: Bearer $token" | grep -q '"agents"'; then
+        echo "[5] a2a OK: $admin_url/a2a/agents"
+        ok=1
+      else
+        a2a_missing=1
+      fi
       break
     fi
   fi
   sleep 0.2
 done
 if [ "$ok" != "1" ]; then
-  echo "ACP-LOCAL-SETUP-FAIL: admin /workspaces 不可达（二进制未刷新或服务未起）" >&2
+  if [ "$a2a_missing" = "1" ]; then
+    echo "ACP-LOCAL-SETUP-FAIL: /a2a/agents 404（安装的二进制未含 a2a 管理面：构建产物过旧或安装未覆盖）" >&2
+  else
+    echo "ACP-LOCAL-SETUP-FAIL: admin /workspaces 不可达（二进制未刷新或服务未起）" >&2
+  fi
   exit 1
 fi
 
