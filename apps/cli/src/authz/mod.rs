@@ -1,10 +1,12 @@
-//! authz 命令域（authz-role-design §10，§12 A1）：role list/show/create/delete、
-//! bind/unbind（--expires Unix 秒）、check（dry-run 判定输出 reason）。
+//! authz 命令域（authz-role-design §10，§12 A1/A2）：role list/show/create/delete、
+//! bind/unbind（--expires Unix 秒）、check（dry-run 判定输出 reason）、
+//! import（§9 每面独立迁移子命令：llm-share / a2a）。
 //! 逻辑面在 p2p-cli::authz，本层只做 clap 参数映射与双形态输出
 //! （默认 key=value 文本，--json 结构化）。数据在 <data-dir>/authz/。
 
 mod bind;
 mod check;
+mod import_a2a;
 mod import_llm_share;
 mod role;
 
@@ -25,11 +27,20 @@ pub enum AuthzCommand {
     Unbind(bind::UnbindArgs),
     /// dry-run 判定：输出 Allow / Deny(reason)，不做任何写
     Check(check::CheckArgs),
-    /// 旧表迁移导入：allowlist/peers/grants → authz 绑定（§9，幂等可重跑）
+    /// 迁移导入（§9 每面独立子命令）：import llm-share / import a2a
     Import {
         #[command(subcommand)]
-        command: import_llm_share::ImportCommand,
+        command: ImportCommand,
     },
+}
+
+/// §9 每面独立迁移子命令的统一入口，各面实现收敛在本模块对应文件。
+#[derive(Subcommand)]
+pub enum ImportCommand {
+    /// llm-share/allowlist.json 借方条目 → 绑定内建角色 ally（幂等可重跑）
+    LlmShare(import_llm_share::LlmShareArgs),
+    /// a2a-grants.json → 有 grant 的 peer 绑 operator（幂等可重跑）
+    A2a(import_a2a::ImportA2aArgs),
 }
 
 pub async fn run(command: AuthzCommand) -> CliResult<()> {
@@ -38,7 +49,12 @@ pub async fn run(command: AuthzCommand) -> CliResult<()> {
         AuthzCommand::Bind(args) => bind::bind_cmd(args),
         AuthzCommand::Unbind(args) => bind::unbind_cmd(args),
         AuthzCommand::Check(args) => check::check_cmd(args),
-        AuthzCommand::Import { command } => import_llm_share::run(command),
+        AuthzCommand::Import { command } => match command {
+            ImportCommand::LlmShare(args) => {
+                import_llm_share::run(import_llm_share::ImportCommand::LlmShare(args))
+            }
+            ImportCommand::A2a(args) => import_a2a::run(args),
+        },
     }
 }
 
