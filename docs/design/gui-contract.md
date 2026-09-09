@@ -631,3 +631,88 @@ GUI /agents 页（发现/我的双视图）的数据面契约。IPC 命令表零
    「分享」（生成签名邀请）已交付（A2A5 + 收口波）：POST /a2a/agents/{id}/invite
    生成签名邀请帧，ShareInviteDialog 展示帧 JSON 供复制。
 4. skills 输入 chip ≤10 条、trim+去重（拍板 Q9）；校验失败原位上浮。
+
+## 18. 好友角色管理（v16 加法，2026-09-09，authz S3；设计=docs/design/authz-role-design.md §5/§7/§10 + authz-a3-plan §1 S3）
+
+通讯录好友页的角色管理面：为好友绑定/解绑角色（内建四 + 自定义，含过期时间）、
+查看当前绑定与判定语义、配置加好友默认角色（default_role）。逻辑层复用
+`p2p-cli` authz 管理面（role_list/bind/unbind/check 及报告形状，与 p2pctl authz
+同词汇同事实源）；判定与存储委托 crates/p2p-authz（四步瀑布/原子写/损坏显式
+报错）。数据根 = GUI app 数据目录下 `authz/`（CLI `--data-dir/authz/` 等价物，
+同 §16 llm-share 口径；非 GuiConfig.dataDir 节点数据目录），与 CLI 共用
+roles.json/bindings.json/audit.jsonl。命令参数无效一律 Err 可读中文。
+
+### 18.1 命令表（追加，全部 camelCase；可选参数统一传 null）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| authz_role_list | - | { roles: AuthzRoleView[] } | 内建四角色 + 自定义角色全量（builtin 字段区分）；自定义角色经 CLI `authz role create` 创建（GUI 本轮不做创建入口） |
+| authz_bindings_list | - | { bindings: AuthzBindingJson[] } | 当前绑定全集（peer 级单值）；好友页按 peerId join 渲染角色徽章 |
+| authz_bind | peerId: string, roleId: string, expiresAt?: number \| null, note?: string \| null | AuthzBindReport | upsert 绑定（单值语义，改绑即覆盖）；expiresAt 为 Unix 秒（缺省 = 不过期，到期后判定 Deny(Expired)）；roleId 必须已登记；成功落 authz.bound 审计事件 |
+| authz_unbind | peerId: string | AuthzUnbindReport | 解绑（移除条目）；无绑定 → Err；成功落 authz.unbound 审计事件 |
+| authz_check | peerId: string, permission: string | AuthzCheckReport | dry-run 判定，不写任何状态；无角色绑定 = deny(NotBound)（默认拒绝可观测）；读失败 = Err 显式报错不静默放行（设计 §11 红线 2） |
+| authz_default_role_get | - | { roleId: string } | 读加好友自动绑角色（配置字段 authzDefaultRole）；空串 = 已禁用自动绑 |
+| authz_default_role_save | roleId: string | { roleId: string } | 写 authzDefaultRole：空串 = 禁用；非空必须为已登记角色 id（内建或自定义）；原子女写持久化配置，不改运行中节点 |
+
+### 18.2 数据类型
+
+```ts
+interface AuthzRoleView {
+  roleId: string;        // 内建: friend/guest/operator/ally；自定义: [a-z0-9-]{1,32}
+  name: string;          // 展示名
+  permissions: string[]; // §4 闭集 key（chat.send/a2a.invoke/llm.borrow 等）
+  builtin: boolean;      // 内建四 = true（不可改不可删）
+  note: string;
+}
+
+interface AuthzBindingJson {
+  peerId: string;
+  roleId: string;
+  grantedAt: number;  // Unix 秒
+  note: string;
+  expiresAt?: number; // Unix 秒；无过期时字段不出现（对齐 p2p-cli 报告 skip-none 先例）
+}
+
+interface AuthzBindReport {
+  peerId: string;
+  roleId: string;
+  created: boolean;   // false = 已有绑定，本次为 upsert 更新
+  grantedAt: number;  // Unix 秒
+  expiresAt?: number; // 同上，无过期不出现
+  note: string;
+}
+
+interface AuthzUnbindReport { peerId: string; roleId: string }
+
+interface AuthzCheckReport {
+  peerId: string;
+  permission: string;
+  decision: "allow" | "deny";
+  reason: "NotBound" | "Expired" | "BrokenRole" | "MissingPerm" | null; // deny 时非 null
+}
+```
+
+### 18.3 §3 加法
+
+GuiConfig 增 `authzDefaultRole?: string`（serde default 缺省 "friend"，可设其余
+内建或自定义角色 id；空串 = 不自动绑）。CLI 侧镜像（apps/cli types.rs）已先行
+落地同名字段；GUI 配置读写（§1 config_get/config_save）与本节 default_role
+get/save 消费同一持久化文件，双向兼容旧配置（缺字段补默认，不覆盖用户已设值）。
+
+### 18.4 语义约束（违约即验收红）
+
+1. 审计事件（authz.bound/authz.unbound）由 p2p-cli 逻辑层经 p2p-authz audit
+   sink 落 `<app 数据目录>/authz/audit.jsonl`（A3 P1b 同一份，禁双写）；审计
+   不进 GUI 展示面（无事件通道、无 UI 呈现）。
+2. 默认拒绝心智进 UI：无绑定好友在角色编辑对话框呈现「未绑定 = 全域拒绝」
+   中性态；徽章仅展示角色名，不渲染权限矩阵判定结果。
+3. 角色下拉数据源 = authz_role_list（内建四 + 自定义，builtin 置灰不可删改
+   提示）；过期时间输入为可选 Unix 秒（GUI 提供常用时长快捷换算，允许直填）。
+4. 错误语义：peerId 非法（base58 解码非 32 字节）/ roleId 未登记 / permission
+   不在闭集（错误信息附可用 key 清单）/ 解绑无绑定 peer / default_role_save
+   未登记角色 / 存储损坏或读失败 → 一律 Err 可读中文；无静默回退。
+5. 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase，BindReport/
+   CheckReport 复用 p2p-cli 报告类型）；B 侧 TS 类型与上表逐字一致；mock 与
+   真实实现同签名；CLI 对等面（p2pctl authz role list/bind/unbind/check）
+   登记 cli-parity.tsv mapped，default_role 两条为 exempt（配置字段读写，
+   CLI 直编辑 gui-config.json 无独立子命令，理由随表登记）。
