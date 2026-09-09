@@ -6,6 +6,7 @@
 //! lastError 落槽 + 告警日志：可查询、不阻断节点启动（契约 §16.6：
 //! assembled:false 是常态非故障）。
 
+pub mod authz;
 pub mod gate;
 pub mod proxy;
 pub mod redeem;

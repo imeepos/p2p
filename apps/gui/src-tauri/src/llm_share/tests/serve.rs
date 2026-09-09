@@ -201,6 +201,13 @@ async fn serve_proxy_full_path_gates_admits_and_persists_receipt() {
         "t",
     )
     .expect("allow borrower");
+    // 闸 1 判定源切 authz（A3 S1）：全链放行需外层 allow + 绑定 ally 双满足。
+    p2p_authz::Authz::new(
+        std::path::Path::new(store.data_dir().as_str()),
+        p2p_authz::SystemClock,
+    )
+    .bind(&borrower.peer_id().to_string(), "ally", None, "serve-test")
+    .expect("bind ally");
     let request = serde_json::json!({
         "req_id": "r-full-1", "model": "gpt-4o", "max_tokens": 64,
         "messages": [{ "role": "user", "content": "ping" }], "stream": true

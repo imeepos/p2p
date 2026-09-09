@@ -1,10 +1,11 @@
 //! /llm-share/proxy/1 出借方门禁 handler（契约 §16.6 #4，W3）：
 //!【外层动态闸】共享 AllowlistGate admit 判定（含到期）→ 读请求帧 →
 //! 重启幂等（ledger.json 重建 settled 索引 + 在途 pending）→ 全局并发闸；
-//!【内层记账】按认证 PeerId 取专属 LenderProxy（allowlist={peer}，冻结/
-//! 净差/收据索引按 peer 隔离，账期与净差上限同主配置），三闸与记账复用
-//! W1 交付。入站身份一律取握手认证 PeerId（handle_inbound），帧内自报不信。
-//! 每次结算后 drain 收据幂等 append 到 llm-share/ledger.json（防双记账）。
+//!【内层记账】按认证 PeerId 取专属 LenderProxy（闸 1 判定源已切 authz，见
+//! super::authz；冻结/净差/收据索引按 peer 隔离，账期与净差上限同主配置），
+//! 三闸与记账复用 W1 交付。入站身份一律取握手认证 PeerId（handle_inbound），
+//! 帧内自报不信。每次结算后 drain 收据幂等 append 到 llm-share/ledger.json
+//!（防双记账）。
 
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -13,14 +14,17 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use llm_share_ledger::Receipt;
 use llm_share_proxy::server::ModelRoute;
-use llm_share_proxy::{ErrorCode, LenderProxy, ProxyConfig, ProxyFrame, ProxyRequest, PROTOCOL_ID};
+use llm_share_proxy::{
+    ErrorCode, Gate1Fn, LenderProxy, ProxyConfig, ProxyFrame, ProxyRequest, PROTOCOL_ID,
+};
 use p2p::{BoxedStream, PeerId, ProtocolHandler, ProtocolId};
 use p2p_identity::Keypair;
 use p2p_protocol::{read_chunked, write_chunked};
 use tokio::sync::{Mutex as AsyncMutex, Semaphore};
 
+use super::authz;
 use super::gate::AllowlistGate;
-use super::replay::{encode_replay_frames, PrefixStream};
+use super::replay::{encode_replay_frames, rebuild_settled, PrefixStream};
 
 pub struct ServeCore {
     pub(crate) data_dir: String,
@@ -31,6 +35,8 @@ pub struct ServeCore {
     pub(crate) keypair: Keypair,
     pub(crate) routes: HashMap<String, ModelRoute>,
     pub(crate) gate: Arc<AllowlistGate>,
+    /// 闸 1 判定源（authz.check(llm.borrow)，装配见 super::authz）。
+    pub(crate) gate1: Gate1Fn,
     /// 重启幂等索引：ledger.json 出借侧收据重建 + 结算后即时登记。
     pub(crate) settled: AsyncMutex<HashMap<String, Receipt>>,
     pub(crate) pending: AsyncMutex<HashSet<String>>,
@@ -62,7 +68,8 @@ impl ServeCore {
             routes,
             gate,
         } = config;
-        let settled = Self::rebuild_settled(&data_dir, &lender_id, &keypair);
+        let settled = rebuild_settled(&data_dir, &lender_id, &keypair);
+        let gate1 = authz::gate1(&data_dir);
         let max_concurrent = max_concurrent.max(1);
         Self {
             data_dir,
@@ -73,6 +80,7 @@ impl ServeCore {
             keypair,
             routes,
             gate,
+            gate1,
             settled: AsyncMutex::new(settled),
             pending: AsyncMutex::new(HashSet::new()),
             in_flight: Arc::new(Semaphore::new(max_concurrent as usize)),
@@ -80,43 +88,8 @@ impl ServeCore {
         }
     }
 
-    /// 启动重建 settled 索引（契约 §16.6 #4 防双记账）：只收本机出借侧收据
-    ///（借方侧收据签名非本机，验签必败且与本机出借净差无关），逐条验签。
-    fn rebuild_settled(
-        data_dir: &str,
-        lender_id: &str,
-        keypair: &Keypair,
-    ) -> HashMap<String, Receipt> {
-        let file = p2p_cli::llm_share::ledger::path(data_dir);
-        let persisted = match p2p_cli::llm_share::ledger::load_or_empty(&file) {
-            Ok(file) => file,
-            Err(e) => {
-                tracing::error!("llm-share ledger.json 读取失败，settled 索引按空重建: {e}");
-                return HashMap::new();
-            }
-        };
-        let mut settled = HashMap::new();
-        for receipt in &persisted.receipts {
-            if receipt.lender != lender_id {
-                continue;
-            }
-            match receipt.verify(&keypair.public()) {
-                Ok(()) => {
-                    settled.insert(receipt.req_id.clone(), receipt.clone());
-                }
-                Err(e) => {
-                    tracing::warn!(
-                        req_id = %receipt.req_id,
-                        "llm-share ledger.json 出借侧收据验签失败，跳过重建: {e}"
-                    );
-                }
-            }
-        }
-        tracing::info!(count = settled.len(), "llm-share serve settled 索引已重建");
-        settled
-    }
-
-    /// 认证 peer 的专属记账实例（见模块注释：动态 allowlist 的落点）。
+    /// 认证 peer 的专属记账实例：闸 1 以 authz 绑定表裁决（cfg.allowlist 转
+    /// 只读归档不再消费，回滚 = revert 装配提交恢复旧判定）。
     pub(crate) async fn proxy_for(self: &Arc<Self>, peer: &str) -> Arc<LenderProxy> {
         let mut proxies = self.proxies.lock().await;
         proxies
@@ -130,7 +103,10 @@ impl ServeCore {
                     allowlist: HashSet::from([peer.to_owned()]),
                     models: clone_routes(&self.routes),
                 };
-                Arc::new(LenderProxy::new(cfg, self.keypair.clone()))
+                Arc::new(
+                    LenderProxy::new(cfg, self.keypair.clone())
+                        .with_gate1_authz(self.gate1.clone()),
+                )
             })
             .clone()
     }

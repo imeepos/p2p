@@ -2821,6 +2821,7 @@ dependencies = [
  "bs58",
  "futures",
  "llm-share-ledger",
+ "p2p-authz",
  "p2p-identity",
  "p2p-mux",
  "p2p-protocol",
@@ -3430,6 +3431,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "p2p-authz"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "p2p-chat"
 version = "0.1.0"
 dependencies = [
@@ -3463,6 +3474,7 @@ dependencies = [
  "llm-share-offer",
  "llm-share-proxy",
  "p2p",
+ "p2p-authz",
  "p2p-identity",
  "p2p-log",
  "p2p-mux",
@@ -3501,6 +3513,7 @@ dependencies = [
  "objc2-foundation",
  "objc2-web-kit",
  "p2p",
+ "p2p-authz",
  "p2p-chat",
  "p2p-cli",
  "p2p-identity",

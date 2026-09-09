@@ -4,16 +4,56 @@
 //! 不用 write_chunked 的 SINGLE 编码：wire.rs 分发支路的 finish_chunked 只认
 //! CHUNK/END（FRAME_SINGLE 缺位为 W1 侧已知缝隙，见交付报告）。
 
+use std::collections::HashMap;
 use std::io::{self, Cursor};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use llm_share_ledger::Receipt;
 use p2p::BoxedStream;
+use p2p_identity::Keypair;
 use p2p_protocol::{write_frame, FRAME_CHUNK, FRAME_END};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 /// 每帧载荷上限（远小于 1MiB 帧上限，请求帧量级为 KB）。
 const FRAME_DATA_CAP: usize = 64 * 1024;
+
+/// 启动重建 settled 索引（契约 §16.6 #4 防双记账，重启幂等归属本模块）：
+/// 只收本机出借侧收据（借方侧收据签名非本机，验签必败且与本机出借净差
+/// 无关），逐条验签。
+pub(crate) fn rebuild_settled(
+    data_dir: &str,
+    lender_id: &str,
+    keypair: &Keypair,
+) -> HashMap<String, Receipt> {
+    let file = p2p_cli::llm_share::ledger::path(data_dir);
+    let persisted = match p2p_cli::llm_share::ledger::load_or_empty(&file) {
+        Ok(file) => file,
+        Err(e) => {
+            tracing::error!("llm-share ledger.json 读取失败，settled 索引按空重建: {e}");
+            return HashMap::new();
+        }
+    };
+    let mut settled = HashMap::new();
+    for receipt in &persisted.receipts {
+        if receipt.lender != lender_id {
+            continue;
+        }
+        match receipt.verify(&keypair.public()) {
+            Ok(()) => {
+                settled.insert(receipt.req_id.clone(), receipt.clone());
+            }
+            Err(e) => {
+                tracing::warn!(
+                    req_id = %receipt.req_id,
+                    "llm-share ledger.json 出借侧收据验签失败，跳过重建: {e}"
+                );
+            }
+        }
+    }
+    tracing::info!(count = settled.len(), "llm-share serve settled 索引已重建");
+    settled
+}
 
 /// 把载荷编码为 CHUNK(+END) 帧序列（write_frame = 变长帧头 + 类型化载荷）。
 pub async fn encode_replay_frames(payload: &[u8]) -> io::Result<Vec<u8>> {

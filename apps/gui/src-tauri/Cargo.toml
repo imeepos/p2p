@@ -81,6 +81,8 @@ llm-share-proxy = { path = "../../../crates/llm-share-proxy" }
 llm-share-link = { path = "../../../crates/llm-share-link" }
 llm-share-ledger = { path = "../../../crates/llm-share-ledger" }
 p2p-protocol = { path = "../../../crates/p2p-protocol" }
+# serve 闸 1 判定源（authz-role-design §8，A3 S1）：AuthzChecker/SystemClock/Authz
+p2p-authz = { path = "../../../crates/p2p-authz" }
 futures = "0.3"
 async-trait = "0.1"
 
