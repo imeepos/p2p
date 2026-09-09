@@ -488,3 +488,7 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 「该合未合」机械判据：`git rev-list --count main..<分支>`（>0 才需要合并）+ `git rev-parse <分支> origin/<分支>` 确认本地=远端；两者都干净时分支只剩收尾四步的 ③④。
 - worktree 残骸有三种形态，巡检要交叉验证不能只看 `git worktree list`：注册中的工作树（`status --porcelain` 判断脏）、已注销但目录残留（直接 rm -rf）、分支已删只剩空目录骨架（find 确认零文件后删）。
 - 脏 worktree 判定「无未提交价值内容」：`status --porcelain | grep -v '^ D'` 为空 = 只有纯工作区删除、无修改无未跟踪，且删除未进 index，HEAD 里内容全在 → `git worktree remove --force` 零损失。
+
+## 2026-09-09 聊天条目一键复制轮
+- 剪贴板复用锚点先查再写：`components/feedback/copy-button.tsx`（CopyButton，toast+i18n 齐全）与 `views/shared/clipboard.ts`（copyText 纯函数）是全仓唯二复制设施；本次零新增 i18n 键（common.actions.copy / common.copied / common.copyFailed 均现成），全程未动 locales。
+- 气泡外侧悬停动作钮布局定式（MessageBubble）：锚 `absolute top-1/2 -translate-y-1/2` + 空白侧 `right-full/left-full`，尺寸 size-6；第二个钮偏移 +28px（首个 mr-1/ml-1，次个 mr-9/ml-9 = 24px 钮宽+4px 间距），仍落空白侧不越行；opacity-0 + group-hover/focus-visible 显隐，气泡本体 DOM 不变，渲染矩阵类测试零波及。
