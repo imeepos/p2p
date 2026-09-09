@@ -38,4 +38,20 @@ describe("send-notify mark_failed 判定", () => {
     notifyFailedSendReport(failedReport({ delivered: true }));
     expect(toastError).not.toHaveBeenCalled();
   });
+
+  // 2026-09-09 回归：A2A transport 无 report（resolve undefined）曾在此炸
+  // TypeError（report.delivered），composer 误报「发送失败」——非报告形状必须放行。
+  it("isFailedSendReport：非报告形状（undefined/null/标量）一律不算失败", () => {
+    expect(isFailedSendReport(undefined)).toBe(false);
+    expect(isFailedSendReport(null)).toBe(false);
+    expect(isFailedSendReport("failed")).toBe(false);
+    expect(isFailedSendReport({})).toBe(false);
+    expect(isFailedSendReport({ delivered: "no" , message: { status: "failed" } })).toBe(false);
+  });
+
+  it("notifyFailedSendReport：非报告形状不抛错不上浮", () => {
+    expect(() => notifyFailedSendReport(undefined)).not.toThrow();
+    expect(() => notifyFailedSendReport({ message: null, delivered: false })).not.toThrow();
+    expect(toastError).not.toHaveBeenCalled();
+  });
 });

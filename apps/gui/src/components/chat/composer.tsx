@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useImeCompositionGuard } from "@/hooks/use-ime-composition";
 import { fileToChatMedia, inferKind, resolveMime } from "@/lib/chat-media";
 import { guardMediaFile, MEDIA_GUARD_I18N_KEY } from "@/lib/chat-limits";
-import type { ChatKind, ChatMediaInput, ChatMessageJson, ChatSendReport } from "@/lib/ipc-types";
+import type { ChatKind, ChatMediaInput, ChatMessageJson } from "@/lib/ipc-types";
 import { useChatStore } from "@/stores/chat-store";
 import { useComposePrefillStore } from "@/stores/compose-prefill-store";
 import { cn } from "@/lib/utils";
@@ -139,8 +139,9 @@ export function Composer({
       const report = await tx.sendText(peer, trimmed, replyTarget?.id);
       setText("");
       onReplyCancel();
-      // 报告级失败统一上浮（1:1 与群同链路）：mark_failed 不抛错，失败禁止零解释
-      notifyFailedSendReport(report as ChatSendReport);
+      // 报告级失败统一上浮（1:1 与群同链路）：mark_failed 不抛错，失败禁止零解释；
+      // transport 可能返回非报告值（A2A 注入面无 report），判定内部形状容错。
+      notifyFailedSendReport(report);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       toastError(t("chat.sendFailed"), { description: reason });
@@ -178,7 +179,7 @@ export function Composer({
         const media = await fileToChatMedia(file);
         const report = await tx.sendMedia(peer, kind, media, replyTarget?.id);
         onReplyCancel();
-        notifyFailedSendReport(report as ChatSendReport);
+        notifyFailedSendReport(report);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         console.error("[chat] 附件发送失败", error);

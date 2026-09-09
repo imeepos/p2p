@@ -44,6 +44,7 @@ vi.mock("@/lib/ipc", () => ({
 
 import "@/i18n";
 import { useChatStore } from "@/stores/chat-store";
+import { Composer } from "@/components/chat/composer";
 import { FriendConversation } from "./friend-conversation";
 
 const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -265,5 +266,55 @@ describe("composer 前置校验（§2.5）", () => {
     );
     expect(mocks.send).not.toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+describe("composer 注入 transport（A2A 会话复用）", () => {
+  beforeEach(() => {
+    toastSpies.error.mockClear();
+  });
+
+  // 2026-09-09 回归：A2A transport resolve undefined（无 ChatSendReport），
+  // composer 曾把 undefined 当报告判 delivered 炸 TypeError，误报「发送失败」。
+  it("transport 返回非报告值：不误报失败，输入照常清空", async () => {
+    const sendText = vi.fn<(peer: string, text: string) => Promise<unknown>>();
+    sendText.mockResolvedValue(undefined);
+    render(
+      <Composer
+        peer="agent-key"
+        replyTarget={null}
+        onReplyCancel={() => {}}
+        transport={{ sendText, sendMedia: vi.fn() }}
+      />,
+    );
+    const input = screen.getByTestId("chat-input") as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "你好 agent" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() => expect(sendText).toHaveBeenCalled());
+    await waitFor(() => expect(input.value).toBe(""));
+    expect(toastSpies.error).not.toHaveBeenCalled();
+  });
+
+  it("transport 拒绝：失败原文 toast（禁静默）", async () => {
+    const sendText = vi.fn<(peer: string, text: string) => Promise<unknown>>();
+    sendText.mockRejectedValue(new Error("任务通道未配置（console 未连接）"));
+    render(
+      <Composer
+        peer="agent-key"
+        replyTarget={null}
+        onReplyCancel={() => {}}
+        transport={{ sendText, sendMedia: vi.fn() }}
+      />,
+    );
+    const input = screen.getByTestId("chat-input") as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: "你好 agent" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() =>
+      expect(toastSpies.error).toHaveBeenCalledWith(
+        "发送失败",
+        expect.objectContaining({ description: expect.stringContaining("任务通道未配置") }),
+      ),
+    );
+    expect(input.value).toBe("你好 agent");
   });
 });
