@@ -2,6 +2,7 @@ import { Reply } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AvatarBox } from "@/components/chat/avatar-box";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { Button } from "@/components/ui/button";
 import type { ChatMessageJson } from "@/lib/ipc-types";
 import { cn } from "@/lib/utils";
@@ -86,6 +87,14 @@ function BubbleText({ text }: { text: string }) {
   return <TextWithShareLink text={text} />;
 }
 
+// 条目复制值：仅文本消息可复制；trim 首尾空白（空格/回车/换行/制表符等），
+// 全空白视为无可复制内容。气泡显示文本不受影响。
+function copyableTextOf(message: ChatMessageJson): string | null {
+  if (message.kind !== "text" || !message.text) return null;
+  const trimmed = message.text.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 // WX1 微信风格气泡：me 靠右绿泡 / them 靠左白泡，各带指向头像的小尾巴；
 // 头像在气泡外侧（可选，兼容不传场景）。发送状态仅 me 消息展示（泡内小字）。
 // 引用块（IM-T46B）：replyTo 指向本地可解析消息时渲染摘要，缺失时占位文案。
@@ -107,6 +116,7 @@ export function MessageBubble({
   const pendingPlaceholder =
     isMe && message.status === "pending" && message.kind !== "text";
   const tone = isMe ? "me" : "them";
+  const copyValue = copyableTextOf(message);
 
   return (
     <div
@@ -202,6 +212,17 @@ export function MessageBubble({
           ) : null}
         </div>
         {onReply ? <ReplyButton message={message} isMe={isMe} onReply={onReply} /> : null}
+        {copyValue ? (
+          <CopyButton
+            value={copyValue}
+            className={cn(
+              "absolute top-1/2 size-6 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100",
+              // 与回复钮同侧错位（回复钮 mr-1/ml-1 占 28px），落气泡空白侧不越行。
+              isMe ? "right-full mr-9" : "left-full ml-9",
+            )}
+            data-testid={`message-copy-${message.id}`}
+          />
+        ) : null}
       </div>
     </div>
   );
