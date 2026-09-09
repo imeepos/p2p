@@ -501,3 +501,7 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 受影响闭包要跟 `cargo tree --workspace --depth 0` 的成员全集求交，否则被 exclude 的 path 依赖者（apps/acp-agent 之类）混进来，与全量门禁口径分裂。
 - Rust 测试模块位置取舍（2026-09-09 authz A1 轮）：同文件 #[cfg(test)] mod tests 可直访私有字段，适合构造悬空态；文件超 300 行要把测试外移时，先给类型补一个 from_parts 式工厂（用公开 API 表达测试场景），再移 tests 到独立文件挂 #[cfg(test)] mod，免留 test-only 后门。
 - 集合断言写法（2026-09-09 authz A1 轮）：assert_eq!(actual_set, expected) 的期望侧先构造 Vec 再统一 sorted()，别在 assert 里内联 iterator 链；&[&str] → Vec<&str> 助手函数必须标显式生命周期 fn sorted<'a>(keys: &[&'a str]) -> Vec<&'a str>，否则 E0106。
+
+- 2026-09-09 本仓多 workspace 结构的验收矩阵：根 workspace（crates/*，clippy -D warnings 全绿可作硬门禁）+ 独立 app workspace（apps/acp-agent、apps/cli 各自 [workspace]）。改独立 crate 的依赖（如 acp-agent 增 p2p-authz）会连带根 Cargo.lock（经 p2p-itest 的 path 依赖链），必须随提交入库；门禁逐 workspace 跑 `cargo test` + `cargo clippy --all-targets -- -D warnings > log 2>&1; echo EXIT=$?`，基线对照用主树同命令。
+- 2026-09-09 `rustfmt --check lib.rs 或 mod.rs` 会级联格式化整个子模块树（lib.rs 带出 a2a/** 全部漂移）。判断「我的文件 fmt 是否干净」要逐文件 `rustfmt --edition 2021 --check <file>` 看 diff 落点是否在自己改的行，存量漂移不越界代修。
+- 2026-09-09 契约判断三板斧快速路：`grep -rn "调用点" apps/*/src` 找全部调用方 → `git show <同类先例提交> --stat` 抄验收范围 → 查 scripts/check/*.sh 是否有会踩到的机械门禁（cli-parity 是 GUI→CLI 单向守卫，CLI-only 命令不受管）。

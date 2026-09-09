@@ -465,3 +465,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 authz A2-LLM 轮：clap derive 的元组变体 `Variant(SubcommandEnum)` 要求内层实现 Args 而非 Subcommand，E0277 报错点却在 mod.rs 注册行——subcommand 枚举必须用具名字段形式 `Import { #[command(subcommand)] command: ... }`（与 A1 记的 --data-dir 叶子参数规律互补：注册形状由 clap 侧决定，不由直觉）。
 - 2026-09-09 authz A2-LLM 轮：泛型参数擦成 Arc<dyn Fn> 闭包字段时，impl 块要一次补齐 C: Send + Sync + 'static 三界（Clock 本体两界都不带），少一个都是 E0310/E0277 连环；先算清擦除目标的 auto trait 要求再写 impl 头，省两轮编译。
 - 2026-09-09 authz A2-LLM 轮：「上游 API 不够用」先翻它的 storage/底层次模块再报缺——p2p-authz ops 层没暴露绑定读，但 store::load_bindings 是 pub，import 幂等（跳过已绑定）全靠它表达，零接口新增；报缺接口前先证明公开面真表达不了。
+
+- 2026-09-09 给共享枚举加变体 = 破坏同 crate 一切非穷尽 match；当 match 所在文件属于禁改面（如 a2a/**）时，正解是新增外层包装枚举（如 GatedDecision 内含 Decision）或纯新增函数，让旧类型形状冻结——「不改别人的文件」要从类型形状层面兑现，不只是不碰路径。
+- 2026-09-09 `cargo clippy --workspace` 只对成员做 lint，path 依赖只编译不 lint：成员面板的 `-D warnings` 不会因依赖 crate 的存量 warning 而红。判「零增量」别看单次 exit，要与基线树同命令跑一遍再双向 diff error 集合。
+- 2026-09-09 准入/判定加闸后既有集成测试大面积红的正确姿势：测试夹具按迁移映射（§9）写授权态模拟「import 后稳态」，需要走被闸路径的用例显式声明更高角色——比给产线加「测试旁路开关」忠实于设计，也把新语义写进了测试名里。

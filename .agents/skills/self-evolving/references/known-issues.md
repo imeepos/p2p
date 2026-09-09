@@ -507,3 +507,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：cargo test --workspace 时 crates/p2p-itest/tests/a2a_task_wave.rs 的 t1-t6 六例 0.00s 内全 FAILED，cargo test -p a2a 却全绿（易误判为 a2a 回归）。
 - 原因：tests/task_wave_common/mod.rs:36 前置断言——依赖 acp-echo-stub 二进制，未构建即 panic，报错原文已给修法。
 - 修法：cd apps/acp-agent && cargo test --no-run 预构建 stub 后复跑即 6/6 绿；workspace 全量验收前先构建该前置件，或设 A2A_TASK_STUB。
+
+## 2026-09-09 bash 工具跑 cargo 门禁接 `| tail` 管道：尾命令退出码 0 假绿（重蹈 coordination 轮 55 覆辙）
+- 症状：`cargo clippy ... -- -D warnings | tail -5` 返回 exit 0 且末行 "Finished"，据此判定门禁过；实际 clippy 在另一 workspace 退出 101。
+- 原因：管道取最后一个命令（tail）的退出码；cargo 的真实失败被吞。coordination 检查轮 55 早有「验收 ACCEPTANCE_EXIT 捕获管道尾命令退出码会假绿」在册，本轮再次踩中——教训没有进机械习惯。
+- 修法：门禁命令一律 `cmd > /tmp/xx.log 2>&1; echo "EXIT=$?"`（无管道、退出码直取），判据读 EXIT 行 + 日志终态行。凡写「验收/门禁」四个字的 bash 命令，看到管道就停下来改写。
