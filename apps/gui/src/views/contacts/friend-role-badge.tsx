@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { useAuthzStore } from "@/stores/authz-store";
@@ -8,13 +9,16 @@ import { useAuthzStore } from "@/stores/authz-store";
 // 未绑定好友不渲染徽章——「未绑定 = 全域拒绝」心智放角色对话框原话呈现。
 export function FriendRoleBadge({ peerId }: { peerId: string }) {
   const { t } = useTranslation();
+  // 过期判定取挂载时刻快照（react-hooks/purity：渲染期不调 Date.now，
+  // discover-section nowSecs 同款）；列表重挂载即刷新。
+  const [nowMs] = useState(() => Date.now());
   const binding = useAuthzStore((s) => s.bindings[peerId]);
   const role = useAuthzStore((s) =>
     s.roles.find((r) => r.roleId === binding?.roleId),
   );
   if (!binding) return null;
   const expired =
-    binding.expiresAt !== undefined && binding.expiresAt * 1000 <= Date.now();
+    binding.expiresAt !== undefined && binding.expiresAt * 1000 <= nowMs;
   return (
     <Badge
       variant={expired ? "outline" : "secondary"}
