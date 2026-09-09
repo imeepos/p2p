@@ -3,10 +3,16 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := check
 
-.PHONY: check fmt fmt-check line-limit clippy test gui-check gui-tauri-check version-check gate-tests panic-hygiene cli-parity ai-docs-sync release-check
+.PHONY: check check-fast fmt fmt-check line-limit clippy test gui-check gui-tauri-check version-check gate-tests panic-hygiene cli-parity ai-docs-sync release-check
 
 # 聚合门禁：先验证门禁脚本，再跑版本/格式/行数/clippy/测试/GUI/panic 卫生
 check: gate-tests version-check fmt-check line-limit clippy test gui-check gui-tauri-check panic-hygiene cli-parity ai-docs-sync
+
+# 分层快门禁（日常迭代）：便宜门禁恒跑，clippy/test/gui/tauri 按受影响域裁剪
+# （scripts/check/affected.sh 判定：git 变更集 → crate 反向依赖闭包）。
+# 只裁剪"该跑什么"，不伪造绿；合并进 main 前 / release-check / CI 仍用全量 check
+check-fast:
+	bash scripts/check/fast.sh
 
 # 自动修复格式
 fmt:
@@ -55,6 +61,7 @@ gate-tests:
 	bash scripts/check/tests/mock-ipc-guards.sh
 	bash scripts/check/tests/src-tauri-gate.sh
 	bash scripts/check/tests/make-latest-json.sh
+	bash scripts/check/tests/affected-fast.sh
 
 # CLI 对等守卫：GUI generate_handler 全集 ↔ p2pctl 实测命令面（映射表 cli-parity.tsv）
 cli-parity:

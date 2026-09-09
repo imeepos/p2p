@@ -20,5 +20,8 @@ if [ "$(uname -s)" != "Darwin" ] && ! pkg-config --exists webkit2gtk-4.1 2>/dev/
 fi
 
 export PATH="$HOME/.cargo/bin:$PATH"
+
+# sccache 编译缓存（存在才启用；跨分支/冷启动重编提速，CI 无 sccache 零影响）
+if command -v sccache >/dev/null 2>&1; then export RUSTC_WRAPPER=sccache; fi
 cargo test
 echo "gui-tauri-check: PASS"
