@@ -475,3 +475,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 authz 多会话并行负责人轮：任务书禁令要写死「main 上任何写入（含 docs/skill 提交）一律报负责人」——只写「不许自行合并 main」时，开发会话会把在册的 docs(skill) 直提先例当成许可（两个会话接连把 skill 笔记直推 main）；规则表述含糊时先例即许可。
 - 2026-09-09 authz 多会话并行负责人轮：系统休眠会把子会话回合整体冻结（status 仍「运行中」但数小时零产物），对卡死会话发一条 status ping 即可有效唤醒、从中断处继续——处置顺序：查产物（无）→ ping 等回执 → 仍无响应才建替补+停工令，替补任务书必须带「开工自检发现分支/worktree 已存在即停」防双写。
 - 2026-09-09 authz 多会话并行负责人轮：验收「cargo test ... | tail; echo $?」拿到的是 tail 的退出码不是 cargo 的——管道后判退出码必须 `set -o pipefail` 或输出重定向后单测 `$?`；另「passed 数变少」未必丢测试，先算「分支基线差」（并行 rebase 后各自基线不同，134=129 基线+5 前面已合并面的用例这类算术要先做）。
+- 2026-09-09 authz S1 GUI 装配轮：跨 crate 类型归属别猜包名——`AuthzChecker`/`Gate1Fn` 是 llm-share-proxy 根导出（判定源适配层），不是 p2p-authz（底层权限引擎只出 Authz/Clock/Decision）；E0432 的第一反应应是 grep 库的 lib.rs re-export 面再改 import。
+- 2026-09-09 authz S1 GUI 装配轮：GUI 有两个「数据目录」——GuiConfig.data_dir 是节点身份目录（key.seed 所在 p2p-data），LlmShareStore.root 才是 CLI --data-dir 等价物（offer/allowlist/ledger/authz 同根）；接共享数据根（authz/allowlist）前先 grep 两字段的实际消费者，挂错根 = 与 CLI 各写各的静默分裂。
+- 2026-09-09 authz S1 GUI 装配轮：edit 工具用「带尾随换行的 old_string」在锚点前插块会吃掉下一行行首换行（编译错误才现形）——锚点式插入把锚点函数签名后第一行也包进 old/new_string，或插完立即 read 回验相邻行。
