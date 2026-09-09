@@ -11,6 +11,7 @@ pub mod grants;
 pub mod invites;
 pub mod handler;
 pub mod limits;
+pub mod peer_authz;
 pub mod publish;
 pub mod stream;
 pub mod stream_dispatch;

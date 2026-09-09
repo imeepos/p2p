@@ -16,9 +16,10 @@ use crate::workspaces::WorkspaceStore;
 
 use super::agents::AgentStore;
 use super::bridge::{BridgeCmd, BridgeParams};
-pub use super::task_handle::{TaskHandle, TaskOpError};
 use super::grants::GrantStore;
 use super::limits::{TaskGate, TaskGuard};
+use super::peer_authz::{invoke_gate, peer_invoke_check, PeerInvokeGate};
+pub use super::task_handle::{TaskHandle, TaskOpError};
 
 /// 终态 task 留簿上限（tasks/get 快照可查；超出逐最旧终态）。
 pub const REGISTRY_MAX: usize = 256;
@@ -27,6 +28,7 @@ pub struct TaskService {
     pub(crate) config: AgentConfig,
     pub(crate) agents: Arc<AgentStore>,
     pub(crate) grants: Arc<GrantStore>,
+    pub(crate) authz: PeerInvokeGate,
     pub(crate) workspaces: Arc<WorkspaceStore>,
     pub(crate) audit: Arc<dyn AuditSink>,
     gate: Arc<TaskGate>,
@@ -41,10 +43,12 @@ impl TaskService {
         workspaces: Arc<WorkspaceStore>,
         audit: Arc<dyn AuditSink>,
     ) -> Self {
+        let authz = invoke_gate(&config.paths().root);
         Self {
             config,
             agents,
             grants,
+            authz,
             workspaces,
             audit,
             gate: Arc::new(TaskGate::new()),
@@ -52,7 +56,10 @@ impl TaskService {
         }
     }
 
-    /// 可见性门禁（§6/§9）：local 仅 owner；public 全放行；private 授权清单内。
+    /// 可见性门禁（§6/§9 + authz-role-design §8 双查分层）：local 仅 owner；
+    /// public 全放行；private 双查——先 `authz.check(peer, a2a.invoke)`（peer 级
+    /// 先拒，读失败也拒，红线 2），再 agent 级 grants 表兜对象粒度；owner 两查
+    /// 皆免（authz 不涉足 owner，红线 1）。
     pub fn authorize(&self, agent_id: &str, peer: &str, is_owner: bool) -> Result<(), TaskOpError> {
         let Some(def) = self.agents.get(agent_id) else {
             return Err(TaskOpError::AgentUnknown);
@@ -60,19 +67,30 @@ impl TaskService {
         if !def.enabled {
             return Err(TaskOpError::AgentUnknown);
         }
-        let allowed = match def.visibility {
-            a2a::Visibility::Local => is_owner,
-            a2a::Visibility::Public => true,
-            a2a::Visibility::Private => is_owner || self.grants.is_granted(agent_id, peer),
+        let verdict = match def.visibility {
+            a2a::Visibility::Local => Ok(is_owner),
+            a2a::Visibility::Public => Ok(true),
+            a2a::Visibility::Private if is_owner => Ok(true),
+            a2a::Visibility::Private => peer_invoke_check(&self.authz, peer)
+                .map(|()| self.grants.is_granted(agent_id, peer)),
         };
-        if !allowed {
-            self.audit.record(AuditEvent::A2aTaskDenied {
-                peer: peer.to_owned(),
-                detail: format!("agent {agent_id} visibility={:?}", def.visibility),
-            });
-            return Err(TaskOpError::GateDenied);
+        match verdict {
+            Ok(true) => Ok(()),
+            Ok(false) => self.deny(
+                peer,
+                format!("agent {agent_id} visibility={:?}", def.visibility),
+            ),
+            Err(detail) => self.deny(peer, format!("agent {agent_id} {detail}")),
         }
-        Ok(())
+    }
+
+    /// 拒绝统一出口：审计带 reason 码后返回 GateDenied（线上不泄细节，§7）。
+    fn deny(&self, peer: &str, detail: String) -> Result<(), TaskOpError> {
+        self.audit.record(AuditEvent::A2aTaskDenied {
+            peer: peer.to_owned(),
+            detail,
+        });
+        Err(TaskOpError::GateDenied)
     }
 
     /// 建 task：校验 -> 门禁 -> 限流 -> spawn 桥 -> 入簿 -> 首条 prompt。
@@ -153,7 +171,10 @@ impl TaskService {
     ) -> Result<(), TaskOpError> {
         let handle = self.lookup(peer, task_id)?;
         let text = {
-            let mut task = handle.task.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let mut task = handle
+                .task
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             task.append_user(message).map_err(TaskOpError::State)?;
             match &task.messages.last().expect("just pushed").parts[0] {
                 a2a::Part::Text(t) => t.text.clone(),

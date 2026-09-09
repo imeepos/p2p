@@ -20,6 +20,7 @@ path = "src/bin/acp-echo-stub.rs"
 acp-common = { path = "../acp-common" }
 a2a = { path = "../../crates/a2a" }
 p2p = { path = "../../crates/p2p" }
+p2p-authz = { path = "../../crates/p2p-authz" }
 p2p-discovery = { path = "../../crates/p2p-discovery" }
 p2p-identity = { path = "../../crates/p2p-identity" }
 p2p-log = { path = "../../crates/p2p-log" }
