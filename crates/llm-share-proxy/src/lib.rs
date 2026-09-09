@@ -8,6 +8,7 @@
 pub mod claude_upstream;
 pub mod client;
 pub mod error;
+pub mod gate1;
 pub mod keystore;
 pub mod serve;
 pub mod server;
@@ -19,6 +20,7 @@ pub mod wire;
 pub use claude_upstream::ClaudeUpstream;
 pub use client::{ProxyClient, ProxyEvent};
 pub use error::{ErrorCode, ProxyClientError};
+pub use gate1::{AuthzChecker, Gate1Fn};
 pub use server::{LenderProxy, ModelRoute, ProxyConfig};
 pub use sse::estimate_tokens;
 pub use upstream_http::HttpUpstream;

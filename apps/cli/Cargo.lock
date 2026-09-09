@@ -1293,6 +1293,7 @@ dependencies = [
  "bs58",
  "futures",
  "llm-share-ledger",
+ "p2p-authz",
  "p2p-identity",
  "p2p-mux",
  "p2p-protocol",

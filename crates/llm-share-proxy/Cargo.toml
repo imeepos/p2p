@@ -12,6 +12,8 @@ llm-share-ledger = { path = "../llm-share-ledger" }
 p2p-identity = { path = "../p2p-identity" }
 p2p-mux = { path = "../p2p-mux" }
 p2p-protocol = { path = "../p2p-protocol" }
+# authz 闸 1 判定源（A2）：authz.check(peer, llm.borrow) 四步瀑布判定。
+p2p-authz = { path = "../p2p-authz" }
 # TLS 仅 rustls 系（红线）：禁 native-tls/openssl，测试走进程内 mock 不出网
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 serde = { version = "1", features = ["derive"] }

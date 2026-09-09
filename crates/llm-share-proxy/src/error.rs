@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ErrorCode {
-    /// 借方 PeerId 不在出借方 allowlist（闸 1，MVP A5）。
+    /// 借方未获 llm.borrow 准入（闸 1）。A2 判定源切换后覆盖 authz 全部 Deny
+    /// reason（无绑定/过期/角色缺失/权限缺失/存储读失败），码值不变（协议不 bump），
+    /// message 携带判定来源与 reason 明细。
     NotAllowlisted,
     /// 请求模型不在出借方白名单（闸 2）。
     ModelNotServed,
