@@ -5,6 +5,7 @@
 
 mod bind;
 mod check;
+mod import_llm_share;
 mod role;
 
 use clap::Subcommand;
@@ -24,6 +25,11 @@ pub enum AuthzCommand {
     Unbind(bind::UnbindArgs),
     /// dry-run 判定：输出 Allow / Deny(reason)，不做任何写
     Check(check::CheckArgs),
+    /// 旧表迁移导入：allowlist/peers/grants → authz 绑定（§9，幂等可重跑）
+    Import {
+        #[command(subcommand)]
+        command: import_llm_share::ImportCommand,
+    },
 }
 
 pub async fn run(command: AuthzCommand) -> CliResult<()> {
@@ -32,6 +38,7 @@ pub async fn run(command: AuthzCommand) -> CliResult<()> {
         AuthzCommand::Bind(args) => bind::bind_cmd(args),
         AuthzCommand::Unbind(args) => bind::unbind_cmd(args),
         AuthzCommand::Check(args) => check::check_cmd(args),
+        AuthzCommand::Import { command } => import_llm_share::run(command),
     }
 }
 
