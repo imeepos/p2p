@@ -1,7 +1,9 @@
 //! 角色管理逻辑（§10 role list/show/create/delete）：委托 p2p-authz，
 //! 本层只做默认值填充（name 缺省 = role_id，note 缺省 = 空）与报告映射。
 
-use super::reports::{RoleCreateReport, RoleDeleteReport, RoleListReport, RoleShowReport, RoleView};
+use super::reports::{
+    RoleCreateReport, RoleDeleteReport, RoleListReport, RoleShowReport, RoleView,
+};
 use super::{domain_err, facade};
 
 pub fn role_list(data_dir: &str) -> Result<RoleListReport, String> {
@@ -12,9 +14,7 @@ pub fn role_list(data_dir: &str) -> Result<RoleListReport, String> {
 }
 
 pub fn role_show(data_dir: &str, role_id: &str) -> Result<RoleShowReport, String> {
-    let role = facade(data_dir)
-        .show_role(role_id)
-        .map_err(domain_err)?;
+    let role = facade(data_dir).show_role(role_id).map_err(domain_err)?;
     Ok(RoleShowReport {
         role: RoleView::from(&role),
     })

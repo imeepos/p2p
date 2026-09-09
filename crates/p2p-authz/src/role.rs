@@ -39,9 +39,7 @@ pub fn validate_role_id(role_id: &str) -> Result<(), String> {
     if valid {
         Ok(())
     } else {
-        Err(format!(
-            "角色 id 非法（应为 [a-z0-9-]{{1,32}}）：{role_id}"
-        ))
+        Err(format!("角色 id 非法（应为 [a-z0-9-]{{1,32}}）：{role_id}"))
     }
 }
 

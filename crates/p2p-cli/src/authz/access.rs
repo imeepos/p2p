@@ -41,8 +41,6 @@ pub fn check(data_dir: &str, peer_id: &str, perm_key: &str) -> Result<CheckRepor
                 .join(", ")
         )
     })?;
-    let decision = facade(data_dir)
-        .check(peer_id, perm)
-        .map_err(domain_err)?;
+    let decision = facade(data_dir).check(peer_id, perm).map_err(domain_err)?;
     Ok(CheckReport::of(peer_id, perm, decision))
 }

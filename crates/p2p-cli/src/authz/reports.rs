@@ -21,7 +21,11 @@ impl From<&Role> for RoleView {
         Self {
             role_id: role.role_id.clone(),
             name: role.name.clone(),
-            permissions: role.permissions.iter().map(|p| p.as_str().to_owned()).collect(),
+            permissions: role
+                .permissions
+                .iter()
+                .map(|p| p.as_str().to_owned())
+                .collect(),
             builtin: role.builtin,
             note: role.note.clone(),
         }

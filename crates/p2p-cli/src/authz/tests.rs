@@ -29,9 +29,19 @@ fn role_lifecycle_and_builtin_listing() {
     assert_eq!(listed.roles.len(), 4);
     assert!(listed.roles.iter().all(|r| r.builtin));
     let friend = listed.roles.iter().find(|r| r.role_id == "friend").unwrap();
-    assert_eq!(friend.permissions, vec!["chat.send", "chat.attachment", "a2a.discover"]);
+    assert_eq!(
+        friend.permissions,
+        vec!["chat.send", "chat.attachment", "a2a.discover"]
+    );
 
-    let created = role_create(data, "tester", Some("测试员"), &perms(&["acp.session", "chat.send"]), None).unwrap();
+    let created = role_create(
+        data,
+        "tester",
+        Some("测试员"),
+        &perms(&["acp.session", "chat.send"]),
+        None,
+    )
+    .unwrap();
     assert_eq!(created.role.name, "测试员");
     assert_eq!(created.role.permissions.len(), 2, "重复 key 应去重");
 
@@ -66,14 +76,20 @@ fn bind_check_unbind_chain_reports_reasons() {
     assert!(!rebound.created, "重绑 = upsert");
     assert_eq!(check(data, &alice, "chat.send").unwrap().decision, "allow");
     let missing = check(data, &alice, "llm.borrow").unwrap();
-    assert_eq!((missing.decision, missing.reason), ("deny", Some("MissingPerm")));
+    assert_eq!(
+        (missing.decision, missing.reason),
+        ("deny", Some("MissingPerm"))
+    );
 
     let not_bound = check(data, &peer(2), "chat.send").unwrap();
     assert_eq!(not_bound.reason, Some("NotBound"));
 
     let unbound = unbind(data, &alice).unwrap();
     assert_eq!(unbound.role_id, "friend");
-    assert_eq!(check(data, &alice, "chat.send").unwrap().reason, Some("NotBound"));
+    assert_eq!(
+        check(data, &alice, "chat.send").unwrap().reason,
+        Some("NotBound")
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 

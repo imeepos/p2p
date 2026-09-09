@@ -39,7 +39,9 @@ fn perms(keys: &[&str]) -> Vec<String> {
 }
 
 fn expect_err<T>(result: Result<T, AuthzError>, what: &str) -> AuthzError {
-    result.err().unwrap_or_else(|| panic!("{what}: 应失败却成功"))
+    result
+        .err()
+        .unwrap_or_else(|| panic!("{what}: 应失败却成功"))
 }
 
 #[test]
@@ -49,10 +51,18 @@ fn create_list_show_delete_custom_role_lifecycle() {
     assert_eq!(authz.list_roles().unwrap(), builtin_roles());
 
     let created = authz
-        .create_role("tester", "测试员", &perms(&["acp.session", "chat.send", "acp.session"]), "备注")
+        .create_role(
+            "tester",
+            "测试员",
+            &perms(&["acp.session", "chat.send", "acp.session"]),
+            "备注",
+        )
         .unwrap();
     assert_eq!(created.role_id, "tester");
-    assert_eq!(created.permissions, vec![Permission::ACP_SESSION, Permission::CHAT_SEND]);
+    assert_eq!(
+        created.permissions,
+        vec![Permission::ACP_SESSION, Permission::CHAT_SEND]
+    );
     assert!(!created.builtin);
 
     let listed = authz.list_roles().unwrap();
@@ -91,7 +101,9 @@ fn create_role_rejections_are_explicit() {
         ),
         AuthzError::UnknownPermission(_)
     ));
-    authz.create_role("tester", "x", &perms(&["chat.send"]), "").unwrap();
+    authz
+        .create_role("tester", "x", &perms(&["chat.send"]), "")
+        .unwrap();
     assert!(matches!(
         expect_err(
             authz.create_role("tester", "y", &perms(&["chat.send"]), ""),
@@ -107,7 +119,9 @@ fn delete_role_rejects_builtin_missing_and_referenced() {
     let dir = temp_dir("delete");
     let clock = FakeClock::at(1_000);
     let authz = Authz::new(&dir, clock);
-    authz.create_role("tester", "x", &perms(&["chat.send"]), "").unwrap();
+    authz
+        .create_role("tester", "x", &perms(&["chat.send"]), "")
+        .unwrap();
 
     assert!(matches!(
         expect_err(authz.delete_role("friend"), "删内建"),
@@ -137,7 +151,9 @@ fn bind_unbind_check_full_chain_with_injected_clock() {
     let clock = FakeClock::at(1_000);
     let authz = Authz::new(&dir, &clock);
 
-    let bound = authz.bind("peer-a", "friend", Some(2_000), "临时访客").unwrap();
+    let bound = authz
+        .bind("peer-a", "friend", Some(2_000), "临时访客")
+        .unwrap();
     assert!(matches!(bound, BoundBinding { created: true, .. }));
     assert_eq!(bound.binding.granted_at, 1_000, "granted_at 由 Clock 注入");
 
@@ -153,7 +169,10 @@ fn bind_unbind_check_full_chain_with_injected_clock() {
 
     let rebound = authz.bind("peer-a", "ally", None, "").unwrap();
     assert!(!rebound.created, "重绑 = upsert");
-    assert_eq!(authz.check("peer-a", Permission::REPAIR_FIX).unwrap(), Decision::Allow);
+    assert_eq!(
+        authz.check("peer-a", Permission::REPAIR_FIX).unwrap(),
+        Decision::Allow
+    );
 
     assert!(matches!(
         expect_err(authz.bind("peer-b", "ghost", None, ""), "绑不存在角色"),
@@ -177,7 +196,9 @@ fn bind_unbind_check_full_chain_with_injected_clock() {
 fn persisted_state_survives_facade_rebuild() {
     let dir = temp_dir("persist");
     let authz = Authz::new(&dir, FakeClock::at(1_000));
-    authz.create_role("tester", "x", &perms(&["acp.execute"]), "").unwrap();
+    authz
+        .create_role("tester", "x", &perms(&["acp.execute"]), "")
+        .unwrap();
     authz.bind("peer-a", "tester", None, "").unwrap();
 
     let reopened = Authz::new(&dir, SystemClock);

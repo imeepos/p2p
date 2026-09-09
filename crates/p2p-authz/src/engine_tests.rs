@@ -180,5 +180,8 @@ fn remove_custom_role_rejects_builtin_and_missing() {
     engine
         .insert_custom_role(custom_role("tester", false, Permission::CHAT_SEND))
         .unwrap();
-    assert_eq!(engine.remove_custom_role("tester").unwrap().role_id, "tester");
+    assert_eq!(
+        engine.remove_custom_role("tester").unwrap().role_id,
+        "tester"
+    );
 }
