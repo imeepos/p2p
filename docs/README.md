@@ -28,6 +28,7 @@
 | [design/gui-plan.md](design/gui-plan.md) | p2p GUI 总体规划 v1：定位范围、视图与路由、里程碑波次（契约细节见 gui-contract） |
 | [design/mux-transport-lifecycle.md](design/mux-transport-lifecycle.md) | Mux 与传输层连接生命周期语义定稿：YamuxMux/QuicMux 对照、TCP 会话自毁复盘与统一定义 |
 | [design/authz-role-design.md](design/authz-role-design.md) | 统一权限系统（authz）方案 v1：角色=权限闭集、按好友单角色绑定、五张散表（ACP 策略/A2A grants/llm allowlist/repair ticket/好友簿）收敛路径、PDP/PEP 双查分层与 owner 红线 |
+| [design/authz-a3-plan.md](design/authz-a3-plan.md) | authz A3 执行计划 v1：GUI ServeCore 装配通电、repair mint 前置、审计 JSONL 五类事件、default_role、好友页角色管理+契约§18、clippy 清扫；串行 S1-S4 与任务书模板六条修正 |
 | [release-gates.md](release-gates.md) | 发布门禁：发布路径机械门禁清单与 client-v0.1.1 事故复盘（2026-09-03 起生效） |
 | [ops/im-chat-drill.md](ops/im-chat-drill.md) | IM 聊天真机演练清单：双 GUI 实例加好友、五类消息、离线 flush、历史分页、回复引用（含校准项与验收记录模板） |
 | [ops/repair-runner-integration.md](ops/repair-runner-integration.md) | 远程支持单 runner 接入说明：repair-bridge ⇄ repair-helper stdio 桥，DSH 为接入首例 |
