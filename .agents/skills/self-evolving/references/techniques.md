@@ -483,3 +483,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 ## 2026-09-09 通讯录资料互通轮
 - src-tauri 独立 workspace 的 cargo check 冷跑 10 分钟起步且前台会超时：一律 run_in_background；被杀后重启通常已预热，9 秒完成。不要用主树 target 环境变量强行共享（env-hook 已设全局 CARGO_TARGET_DIR=~/.cargo-target，进程内改写反而分裂缓存）。
 - 反向同步撞上并行合入（ff-only 失败）时：worktree 内 `git merge main`（本次零冲突）→ 全量 make check → 推分支 → 主树 ff-only 重试，全程无人工决策点。
+
+## 2026-09-09 worktree 收尾巡检轮
+- 「该合未合」机械判据：`git rev-list --count main..<分支>`（>0 才需要合并）+ `git rev-parse <分支> origin/<分支>` 确认本地=远端；两者都干净时分支只剩收尾四步的 ③④。
+- worktree 残骸有三种形态，巡检要交叉验证不能只看 `git worktree list`：注册中的工作树（`status --porcelain` 判断脏）、已注销但目录残留（直接 rm -rf）、分支已删只剩空目录骨架（find 确认零文件后删）。
+- 脏 worktree 判定「无未提交价值内容」：`status --porcelain | grep -v '^ D'` 为空 = 只有纯工作区删除、无修改无未跟踪，且删除未进 index，HEAD 里内容全在 → `git worktree remove --force` 零损失。
