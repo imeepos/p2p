@@ -73,3 +73,10 @@ a2a_publish	mapped	a2a publish
 a2a_unpublish	mapped	a2a unpublish	
 a2a_allow	mapped	a2a allow	
 a2a_disallow	mapped	a2a disallow	
+authz_role_list	mapped	authz role list	
+authz_bindings_list	exempt		绑定清单为好友页 join 渲染面（徽章按 peerId 取当前角色）；CLI 管理流经 authz role show/bind 已覆盖同数据，独立 bindings 子命令属展示层拆分，无 CLI 交互场景
+authz_bind	mapped	authz bind	
+authz_unbind	mapped	authz unbind	
+authz_check	mapped	authz check	
+authz_default_role_get	exempt		default_role 为配置字段（P1d authzDefaultRole，缺省 friend）：CLI 直编辑 gui-config.json（config 同文件），无独立读写子命令可映射
+authz_default_role_save	exempt		同 authz_default_role_get：配置字段写，GUI 侧附加「角色须已登记或空串禁用」校验；CLI 场景手编辑配置文件即等价
