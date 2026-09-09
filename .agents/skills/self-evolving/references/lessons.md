@@ -461,3 +461,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 authz A1 轮：写 Deny 路径断言前先核对角色权限并集——本仓内建阶梯 friend⊂guest⊂operator⊂ally 的并集恰为 §4 全部九 key，绑 ally 后查任何已登记权限都是 Allow；MissingPerm 断言要选所绑角色真不含的权限（如重绑 friend 后查 llm.borrow）。
 - 2026-09-09 authz A1 轮：测试里 --expires 别用小 unix 秒（123=1970 年，瞬时 Expired），要过期用过去时刻并明示，要有效用 9_999_999_999 或 None；判定层按 now>=expires 含边界即拒是对的，别把测试预期写反。
 - 2026-09-09 authz A1 轮：p2pctl 的 --data-dir 是每个叶子子命令的参数（clap Args 内联），不是全局参数——`p2pctl --data-dir X authz ...` 报 unexpected argument，必须 `p2pctl authz ... --data-dir X`。
+- 2026-09-09 authz A2-LLM 轮：workspace exclude 的装配面（apps/gui/src-tauri）字面构造 workspace crate 的公共结构体，却不被 cargo clippy --workspace 覆盖——给这类结构体加字段/改类型必炸 workspace 外消费者且门禁全绿看不见；跨 exclude 边界发新能力优先 builder/setter 注入（with_gate1_authz 先例），构造签名与字段形状保持冻结。
+- 2026-09-09 authz A2-LLM 轮：clap derive 的元组变体 `Variant(SubcommandEnum)` 要求内层实现 Args 而非 Subcommand，E0277 报错点却在 mod.rs 注册行——subcommand 枚举必须用具名字段形式 `Import { #[command(subcommand)] command: ... }`（与 A1 记的 --data-dir 叶子参数规律互补：注册形状由 clap 侧决定，不由直觉）。
+- 2026-09-09 authz A2-LLM 轮：泛型参数擦成 Arc<dyn Fn> 闭包字段时，impl 块要一次补齐 C: Send + Sync + 'static 三界（Clock 本体两界都不带），少一个都是 E0310/E0277 连环；先算清擦除目标的 auto trait 要求再写 impl 头，省两轮编译。
+- 2026-09-09 authz A2-LLM 轮：「上游 API 不够用」先翻它的 storage/底层次模块再报缺——p2p-authz ops 层没暴露绑定读，但 store::load_bindings 是 pub，import 幂等（跳过已绑定）全靠它表达，零接口新增；报缺接口前先证明公开面真表达不了。
