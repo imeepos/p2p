@@ -4,6 +4,7 @@ use clap::Parser;
 
 use crate::a2a;
 use crate::acp;
+use crate::authz;
 use crate::chat;
 use crate::config;
 use crate::discovery;
@@ -112,5 +113,10 @@ pub enum Command {
     A2a {
         #[command(subcommand)]
         command: a2a::A2aCommand,
+    },
+    /// 授权域：角色管理/绑定/dry-run 判定（authz A1，设计 §10）
+    Authz {
+        #[command(subcommand)]
+        command: authz::AuthzCommand,
     },
 }

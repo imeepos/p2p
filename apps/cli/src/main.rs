@@ -2,6 +2,7 @@
 
 mod a2a;
 mod acp;
+mod authz;
 mod chat;
 mod cli;
 mod config;
@@ -63,5 +64,6 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Acp { command } => acp::run(command).await,
         cli::Command::LlmShare { command } => llm_share::run(command).await,
         cli::Command::A2a { command } => a2a::run(command).await,
+        cli::Command::Authz { command } => authz::run(command).await,
     }
 }
