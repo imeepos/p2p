@@ -482,3 +482,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 authz S2 轮：接命令层钩子（friend add 自动绑）前先 grep p2p-itest 判定触面——chat_e2e 走 p2p-chat 库 API（friend_add）不经 apps/cli 命令层，则 CLI 侧行为变化零 itest 联动；反之则要把对应 *_wave 列进自证。
 - 2026-09-09 authz S2 轮：bin 装配文件（main.rs 297 行）逼近 300 行红线时，把可测化纯函数（hex 解析）抽成小模块比压注释干净——抽离物带独立测试模块，红线与可测性一并解决；抽离必须换调用点而非留委托 wrapper（wrapper 也占行数且是死间接层）。
 - 2026-09-09 authz S2 轮：audit 记录的 before 快照受制于既有 API 返回面（bind 不回吐旧绑定），克制条款下不为审计扩 API——以 note 区分 created/upsert 并在模块 doc 声明局限，比给 p2p-authz 加 previous_role_id 字段更符合「仅加 audit 模块」的边界约束。
+- 2026-09-09 authz S3 GUI 角色管理轮：给 GuiConfig（跨进程共享配置文件）加字段的隐性联动面 = Rust types.rs + config.rs Default + TS ipc-types（optional）+ settings config-schema 的 toFormValues/toGuiConfig（漏掉则设置页保存整包覆写把 CLI 侧已设值冲回缺省）+ 5 个测试字面量夹具 + types/tests.rs JSON 逐字断言；字段级 serde default 保旧文件可读，但「写回」保真靠每一层都带上该字段。
+- 2026-09-09 authz S3 轮：报告形状跨语言错位——p2p-authz 存储类型（Binding/Role）是 snake_case，p2p-cli 逻辑层报告（BindReport/RoleView 等）才是 camelCase；GUI 契约面复用「p2p-cli 报告 + 本地 camelCase 视图映射存储类型」双层结构，判据 = grep 各层 serde rename_all，别按「库类型直接透出」想当然。

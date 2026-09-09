@@ -512,3 +512,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：`cargo clippy ... -- -D warnings | tail -5` 返回 exit 0 且末行 "Finished"，据此判定门禁过；实际 clippy 在另一 workspace 退出 101。
 - 原因：管道取最后一个命令（tail）的退出码；cargo 的真实失败被吞。coordination 检查轮 55 早有「验收 ACCEPTANCE_EXIT 捕获管道尾命令退出码会假绿」在册，本轮再次踩中——教训没有进机械习惯。
 - 修法：门禁命令一律 `cmd > /tmp/xx.log 2>&1; echo "EXIT=$?"`（无管道、退出码直取），判据读 EXIT 行 + 日志终态行。凡写「验收/门禁」四个字的 bash 命令，看到管道就停下来改写。
+
+## 2026-09-09 S3 轮 vitest 全量套件与 cargo 冷编译并发跑：worker 集体超时假红
+- 症状：vitest 全量 84 文件 2 failed + 149 个 "Timeout waiting for worker to respond"（forks pool）；单独复跑被红文件全绿。
+- 原因：cargo clippy 全 workspace 冷编译（~20 分钟满核）与 vitest forks 池并发抢核，worker 启动超 60s 预算即被判死。
+- 修法：门禁严格串行（vitest 完 → cli-parity → clippy）；工作树无共享 target 时冷编译极贵，规划进交付节拍而非并行塞缝。
