@@ -2,6 +2,7 @@
 
 <!-- 排查技巧、工具命令、调试手法。格式：什么场景 → 怎么用。 -->
 
+- 2026-09-09 本仓全文搜索必须避开构建产物：`apps/acp-agent/target` 等 target 树混在 crates/apps 源码树里，整仓 rg/grep 会扫到超时（60s 被杀实测）；把搜索 path 收窄到 `crates/x/src`、`apps/x/src`，或加 `--glob '!**/target/**'`。
 - 2026-09-07 UX-I SPA 多步走查的 gui-agent flow 姿势：副本加 `flow` 命令吃 JSON 步单（eval/shot/clickPrev 三种步型），eval 返回 {x,y} 时记录、clickPrev 用 CDP Input.dispatchMouseEvent 原生点击上一坐标——多步状态一次 Chrome 会话闭环，天然满足「mock 状态不跨 CLI 调用」约束；截图步随状态走，证据落 /tmp。
 - 2026-09-07 UX-I mock dev「空缓冲」造法：gui auto-start 会自动起节点且手动 stop 在 auto-start 落定前点无效；先等「停止节点」按钮可用（= 已启动）再 stop（此后 manualStopRequested 守卫防重启），再走 事件页→清空→确认 全 UI 路径，才能稳定拿到全 0 计数+「暂无事件」空态。
 
