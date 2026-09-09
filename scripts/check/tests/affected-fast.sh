@@ -44,15 +44,28 @@ assert_crate_in() { # assert_crate_in <说明> <输出> <crate 名>
   fi
 }
 
+assert_crate_not_in() { # assert_crate_not_in <说明> <输出> <crate 名>
+  local name="$1" out="$2" crate="$3"
+  local line
+  line="$(printf '%s\n' "$out" | grep '^AFFECTED_CRATES=' || true)"
+  if printf '%s' "$line" | grep -qE "[\" ]${crate}[ \"]"; then
+    ng "$name（$crate 不应出现在 $line）"
+  else
+    ok "$name"
+  fi
+}
+
 # --- 夹具构造 ---
 mk_fixture() { # 输出夹具根；桩门禁默认全 PASS
   # 注意：crate 目录名必须与包名一致（affected.sh 约定，与真实仓库一致）
+  # fx-c 为 exclude 形态回归夹具：workspace 之外的 path 依赖者（对齐 apps/acp-agent）
   local fx="$1"
-  mkdir -p "$fx/crates/fx-a/src" "$fx/crates/fx-b/src" "$fx/scripts/check/tests" "$fx/apps/gui/src-tauri/src"
+  mkdir -p "$fx/crates/fx-a/src" "$fx/crates/fx-b/src" "$fx/crates/fx-c/src" "$fx/scripts/check/tests" "$fx/apps/gui/src-tauri/src"
   cat >"$fx/Cargo.toml" <<'TOML'
 [workspace]
 resolver = "2"
 members = ["crates/fx-a", "crates/fx-b"]
+exclude = ["crates/fx-c"]
 TOML
   cat >"$fx/crates/fx-a/Cargo.toml" <<'TOML'
 [package]
@@ -71,6 +84,16 @@ edition = "2021"
 fx-a = { path = "../fx-a" }
 TOML
   echo 'pub fn b() { fx_a::a(); }' >"$fx/crates/fx-b/src/lib.rs"
+  cat >"$fx/crates/fx-c/Cargo.toml" <<'TOML'
+[package]
+name = "fx-c"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fx-a = { path = "../fx-a" }
+TOML
+  echo 'pub fn c() { fx_a::a(); }' >"$fx/crates/fx-c/src/lib.rs"
   cp "$REAL_CHECK/affected.sh" "$REAL_CHECK/fast.sh" "$fx/scripts/check/"
   local g
   for g in tests/release-gates.sh tests/panic-hygiene.sh tests/cli-parity.sh \
@@ -108,6 +131,7 @@ change "$F" crates/fx-a/src/lib.rs 'pub fn a() { println!("x"); }'
 out="$(aff "$F")"
 assert_crate_in "leaf 改动闭包含自身 fx-a" "$out" fx-a
 assert_crate_in "leaf 改动闭包含依赖者 fx-b" "$out" fx-b
+assert_crate_not_in "exclude 的 fx-c 不进闭包（全量 check 也不覆盖它）" "$out" fx-c
 assert_field "leaf 改动 GUI=0" "$out" "DOMAIN_GUI=0"
 assert_field "leaf 改动 TAURI=0" "$out" "DOMAIN_TAURI=0"
 

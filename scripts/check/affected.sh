@@ -107,8 +107,18 @@ AFFECTED_CRATES=""
 if [ "$FULL_RUST" = 1 ]; then
   AFFECTED_CRATES="" # fast.sh 按 --workspace 全量处理
 else
+  # workspace 成员全集：倒排闭包会混入 workspace 之外的 path 依赖者
+  # （如被 exclude 的 apps/acp-agent 依赖 crates 内库），全量 check 不覆盖它们，
+  # 闭包也必须排除——否则 check-fast 与全量口径分裂（2026-09-09 p2p-log 实测）
+  MEMBERS="$(cargo tree --workspace --depth 0 -e normal 2>/dev/null |
+    grep -oE '[A-Za-z0-9_-]+ v[0-9]' | sed -E 's/ v[0-9]$//' | sort -u)"
+  if [ -z "$MEMBERS" ]; then
+    err "workspace 成员枚举失败 → 回退 FULL_RUST"
+    FULL_RUST=1
+    AFFECTED_CRATES=""
+  fi
   for c in $CRATES_RAW; do
-    sub="$(closure_of "$c")"
+    sub="$(closure_of "$c" | grep -Fx -f <(printf '%s\n' "$MEMBERS") 2>/dev/null)"
     if [ -z "$sub" ]; then
       err "闭包计算失败（$c）→ 回退 FULL_RUST"
       FULL_RUST=1
