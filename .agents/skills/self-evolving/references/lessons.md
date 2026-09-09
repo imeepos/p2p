@@ -478,3 +478,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 authz S1 GUI 装配轮：跨 crate 类型归属别猜包名——`AuthzChecker`/`Gate1Fn` 是 llm-share-proxy 根导出（判定源适配层），不是 p2p-authz（底层权限引擎只出 Authz/Clock/Decision）；E0432 的第一反应应是 grep 库的 lib.rs re-export 面再改 import。
 - 2026-09-09 authz S1 GUI 装配轮：GUI 有两个「数据目录」——GuiConfig.data_dir 是节点身份目录（key.seed 所在 p2p-data），LlmShareStore.root 才是 CLI --data-dir 等价物（offer/allowlist/ledger/authz 同根）；接共享数据根（authz/allowlist）前先 grep 两字段的实际消费者，挂错根 = 与 CLI 各写各的静默分裂。
 - 2026-09-09 authz S1 GUI 装配轮：edit 工具用「带尾随换行的 old_string」在锚点前插块会吃掉下一行行首换行（编译错误才现形）——锚点式插入把锚点函数签名后第一行也包进 old/new_string，或插完立即 read 回验相邻行。
+- 2026-09-09 authz S2 轮：edit 同文件连续插块时，若插入内容含与锚点同形的文本（如 `#[cfg(test)]\nmod tests {`），旧锚点仍在文中就会连环命中、函数被复制六份——插入型 edit 必须先 read 确认锚点唯一，三连 edit 后必须 read 回验；一旦重复污染立即 write 全量重写止损，继续叠 edit 补丁只会越描越黑（本会话实证：一个 5 行 wrapper 叠成 6 份）。
+- 2026-09-09 authz S2 轮：接命令层钩子（friend add 自动绑）前先 grep p2p-itest 判定触面——chat_e2e 走 p2p-chat 库 API（friend_add）不经 apps/cli 命令层，则 CLI 侧行为变化零 itest 联动；反之则要把对应 *_wave 列进自证。
+- 2026-09-09 authz S2 轮：bin 装配文件（main.rs 297 行）逼近 300 行红线时，把可测化纯函数（hex 解析）抽成小模块比压注释干净——抽离物带独立测试模块，红线与可测性一并解决；抽离必须换调用点而非留委托 wrapper（wrapper 也占行数且是死间接层）。
+- 2026-09-09 authz S2 轮：audit 记录的 before 快照受制于既有 API 返回面（bind 不回吐旧绑定），克制条款下不为审计扩 API——以 note 区分 created/upsert 并在模块 doc 声明局限，比给 p2p-authz 加 previous_role_id 字段更符合「仅加 audit 模块」的边界约束。
