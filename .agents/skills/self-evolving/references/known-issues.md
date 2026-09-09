@@ -517,3 +517,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：vitest 全量 84 文件 2 failed + 149 个 "Timeout waiting for worker to respond"（forks pool）；单独复跑被红文件全绿。
 - 原因：cargo clippy 全 workspace 冷编译（~20 分钟满核）与 vitest forks 池并发抢核，worker 启动超 60s 预算即被判死。
 - 修法：门禁严格串行（vitest 完 → cli-parity → clippy）；工作树无共享 target 时冷编译极贵，规划进交付节拍而非并行塞缝。
+
+## 2026-09-09 S3 轮 worktree add 被工具超时击杀后重建：detached HEAD 静默吞提交
+- 症状：worktree 内连续 8 个 commit 正常落盘，push 报 "Everything up-to-date"，`git branch --show-current` 为空（detached），分支 ref 停在倒数第二次提交。
+- 原因：首次 `git worktree add` 被 60s 工具超时 SIGTERM 半途击杀，残留半成品目录；rm 后 `git worktree prune` + 重建时分支已被（prune 前的）注册残留视作占用，git 回退为 detached checkout——之后所有 commit 都不进分支 ref。
+- 修法：`git checkout -B <branch>` 把 ref 快进到 HEAD 再 push。预防：worktree 重建后与每次 push 前都 `git branch --show-current` 校验非空；超时击杀的 git 操作先 `git worktree list` + `git log <branch>` 对照产物再动手。
