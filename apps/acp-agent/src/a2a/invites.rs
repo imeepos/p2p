@@ -2,7 +2,6 @@
 //! 落盘 <data-dir>/a2a-invites.json（0600，tmp+rename 原子写，与 grants 同款手法）。
 //! 邀请生命周期：pending → accepted/rejected/expired。回执登记后写入 grants.json。
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 

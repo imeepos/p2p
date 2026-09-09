@@ -372,7 +372,7 @@ impl A2aHandler {
     /// 处理邀请回执：invitee 提交签名回执。
     fn handle_invite_receipt(
         &self,
-        peer: PeerId,
+        _peer: PeerId,
         _requester_is_owner: bool,
         v: u8,
         id: u64,

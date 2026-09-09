@@ -129,8 +129,10 @@ mod tests {
 
     #[test]
     fn text_render_echoes_lan_only_switch() {
-        let mut cfg = GuiConfig::default();
-        cfg.lan_only = true;
+        let cfg = GuiConfig {
+            lan_only: true,
+            ..Default::default()
+        };
         assert!(
             render(&cfg).contains("lanOnly=true"),
             "config get 必须回显 lan-only 开关"

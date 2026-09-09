@@ -11,9 +11,7 @@ mod unpublish;
 
 use clap::Subcommand;
 
-use crate::error::{CliError, CliResult};
-use crate::paths::Paths;
-use crate::store;
+use crate::error::CliResult;
 
 /// a2a 域命令面：agent 管理 + 授权管理（headless 管理面）。
 #[derive(Subcommand)]

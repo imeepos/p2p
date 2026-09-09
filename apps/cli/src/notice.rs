@@ -53,13 +53,15 @@ mod tests {
 
     #[test]
     fn lan_only_config_yields_empty_endpoints() {
-        let mut cfg = GuiConfig::default();
-        cfg.lan_only = true;
+        let cfg = GuiConfig {
+            lan_only: true,
+            ..Default::default()
+        };
         let notice = notice_for_config(&cfg);
         assert!(notice.lan_only);
         assert!(notice.endpoints.is_empty(), "lan-only 不得列公网端点");
         assert!(notice.text().contains("仅局域网"));
-        assert!(notice.text().contains("43.240.223.138") == false);
+        assert!(!notice.text().contains("43.240.223.138"));
     }
 
     #[test]
@@ -75,8 +77,10 @@ mod tests {
 
     #[test]
     fn explicit_empty_list_falls_back_to_factory_endpoints() {
-        let mut cfg = GuiConfig::default();
-        cfg.bootstrap = Vec::new();
+        let cfg = GuiConfig {
+            bootstrap: Vec::new(),
+            ..Default::default()
+        };
         let endpoints = effective_public_endpoints(&cfg);
         let bootstrap = endpoints
             .iter()
