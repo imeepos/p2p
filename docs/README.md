@@ -27,6 +27,7 @@
 | [design/gui-contract.md](design/gui-contract.md) | GUI 前后端契约（冻结 + 加法演进）：Tauri 命令/事件/数据形状全表；v4 更新检查、v5 邻居来源、v6 节点资料、v7 IM 聊天（含 replyTo 引用加法） |
 | [design/gui-plan.md](design/gui-plan.md) | p2p GUI 总体规划 v1：定位范围、视图与路由、里程碑波次（契约细节见 gui-contract） |
 | [design/mux-transport-lifecycle.md](design/mux-transport-lifecycle.md) | Mux 与传输层连接生命周期语义定稿：YamuxMux/QuicMux 对照、TCP 会话自毁复盘与统一定义 |
+| [design/authz-role-design.md](design/authz-role-design.md) | 统一权限系统（authz）方案 v1：角色=权限闭集、按好友单角色绑定、五张散表（ACP 策略/A2A grants/llm allowlist/repair ticket/好友簿）收敛路径、PDP/PEP 双查分层与 owner 红线 |
 | [release-gates.md](release-gates.md) | 发布门禁：发布路径机械门禁清单与 client-v0.1.1 事故复盘（2026-09-03 起生效） |
 | [ops/im-chat-drill.md](ops/im-chat-drill.md) | IM 聊天真机演练清单：双 GUI 实例加好友、五类消息、离线 flush、历史分页、回复引用（含校准项与验收记录模板） |
 | [ops/repair-runner-integration.md](ops/repair-runner-integration.md) | 远程支持单 runner 接入说明：repair-bridge ⇄ repair-helper stdio 桥，DSH 为接入首例 |
