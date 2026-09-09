@@ -77,6 +77,7 @@ fn node_config(dir: &Path, quic: u16, tcp: u16) -> GuiConfig {
         advertised_addrs: Vec::new(),
         observation_port: None,
         observation_addrs: Vec::new(),
+        authz_default_role: "friend".into(),
     }
 }
 

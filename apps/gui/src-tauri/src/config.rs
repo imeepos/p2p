@@ -42,6 +42,11 @@ pub(crate) fn default_data_dir() -> String {
     "./p2p-data".into()
 }
 
+/// authzDefaultRole 的字段级默认（契约 §18.3：缺省 friend；空串 = 禁用自动绑）。
+pub(crate) fn default_authz_default_role() -> String {
+    "friend".into()
+}
+
 impl Default for GuiConfig {
     fn default() -> Self {
         Self {
@@ -54,6 +59,7 @@ impl Default for GuiConfig {
             advertised_addrs: Vec::new(),
             observation_port: None,
             observation_addrs: default_observation_addrs(),
+            authz_default_role: default_authz_default_role(),
         }
     }
 }

@@ -30,6 +30,7 @@ fn loopback_config(dir: &Path) -> GuiConfig {
         advertised_addrs: Vec::new(),
         observation_port: None,
         observation_addrs: vec!["127.0.0.1:3402".into()],
+        authz_default_role: "friend".into(),
     }
 }
 

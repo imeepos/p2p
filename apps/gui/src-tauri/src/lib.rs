@@ -9,6 +9,7 @@
 
 pub mod a2a;
 pub mod acp_descriptor;
+pub mod authz;
 pub mod chat;
 pub mod commands;
 pub mod config;
@@ -108,6 +109,13 @@ pub fn run() {
             a2a::a2a_unpublish,
             a2a::a2a_allow,
             a2a::a2a_disallow,
+            authz::authz_role_list,
+            authz::authz_bindings_list,
+            authz::authz_bind,
+            authz::authz_unbind,
+            authz::authz_check,
+            authz::authz_default_role_get,
+            authz::authz_default_role_save,
         ])
         .plugin(tauri_plugin_opener::init())
         // 媒体附件导出（契约 §12 加法）：系统保存对话框选目标路径

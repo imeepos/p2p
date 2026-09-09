@@ -18,6 +18,7 @@ fn gui_config_camel_case_roundtrip() {
             "advertisedAddrs": ["9.9.9.9/u4000"],
             "observationPort": 3402,
             "observationAddrs": ["1.2.3.4:3402"],
+            "authzDefaultRole": "operator",
         }),
     );
 }
@@ -39,8 +40,27 @@ fn gui_config_optional_port_null_roundtrip() {
             "advertisedAddrs": ["9.9.9.9/u4000"],
             "observationPort": null,
             "observationAddrs": ["1.2.3.4:3402"],
+            "authzDefaultRole": "operator",
         }),
     );
+}
+
+/// §18.3：旧配置缺 authzDefaultRole 字段补缺省 friend（P1d 语义，不覆盖用户已设值）。
+#[test]
+fn gui_config_missing_authz_default_role_fills_friend_default() {
+    let cfg: GuiConfig = serde_json::from_value(json!({
+        "quicPort": 3400,
+        "tcpPort": 3401,
+        "enableMdns": true,
+        "dataDir": "/data/p2p-data",
+        "bootstrap": ["1.2.3.4/u3400", "1.2.3.4/t3401"],
+        "relayAddrs": ["5.6.7.8/u3400"],
+        "advertisedAddrs": ["9.9.9.9/u4000"],
+        "observationPort": 3402,
+        "observationAddrs": ["1.2.3.4:3402"],
+    }))
+    .expect("旧版配置可读");
+    assert_eq!(cfg.authz_default_role, "friend", "缺字段补缺省 friend");
 }
 
 #[test]

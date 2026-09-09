@@ -41,6 +41,10 @@ pub struct GuiConfig {
     pub observation_port: Option<u16>,
     #[serde(default = "crate::config::default_observation_addrs")]
     pub observation_addrs: Vec<String>,
+    /// 加好友自动绑角色（契约 §18.3 加法，P1d）：内建或自定义角色 id；
+    /// 缺省 "friend"，空串 = 禁用自动绑。CLI 同名同文件消费（§18.3）。
+    #[serde(default = "crate::config::default_authz_default_role")]
+    pub authz_default_role: String,
 }
 
 /// 节点状态快照（契约 §3 NodeStatus）。

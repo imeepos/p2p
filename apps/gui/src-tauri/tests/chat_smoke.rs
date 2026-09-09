@@ -44,6 +44,7 @@ fn offline_config(dir: &std::path::Path) -> GuiConfig {
         advertised_addrs: Vec::new(),
         observation_port: None,
         observation_addrs: Vec::new(),
+        authz_default_role: "friend".into(),
     }
 }
 

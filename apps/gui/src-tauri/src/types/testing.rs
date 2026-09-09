@@ -28,5 +28,6 @@ pub(crate) fn sample_config() -> GuiConfig {
         advertised_addrs: vec!["9.9.9.9/u4000".into()],
         observation_port: Some(3402),
         observation_addrs: vec!["1.2.3.4:3402".into()],
+        authz_default_role: "operator".into(),
     }
 }
