@@ -9,7 +9,7 @@ pub mod roles;
 
 use std::path::Path;
 
-use p2p_authz::{Authz, AuthzError, SystemClock};
+use p2p_authz::{AuditEvent, Authz, AuthzError, SystemClock};
 
 pub use access::{bind, check, unbind};
 pub use reports::{
@@ -21,6 +21,12 @@ pub use roles::{role_create, role_delete, role_list, role_show};
 /// 管理面入口：数据根 + 系统时钟（判定时刻由 p2p-authz 内部注入）。
 pub(crate) fn facade(data_dir: &str) -> Authz<SystemClock> {
     Authz::new(Path::new(data_dir), SystemClock)
+}
+
+/// 管理面落账口（A3 S2 P1b）：授权变更五类事件落 audit.jsonl。
+/// 写失败在 p2p-authz::audit::record 内留 error 日志，不阻塞主操作。
+pub(crate) fn audit(data_dir: &str, event: &AuditEvent) {
+    p2p_authz::audit::record(Path::new(data_dir), event);
 }
 
 /// peer 校验复用 llm_share 同一语义（base58 解码恰 32 字节），不另造轮子。

@@ -1,10 +1,10 @@
 //! 绑定与判定逻辑（§10 bind/unbind/check）：peer 校验复用 llm_share 语义；
 //! check 的权限 key 解析失败给出闭集清单提示（dry-run 不做任何写）。
 
-use p2p_authz::Permission;
+use p2p_authz::{AuditEvent, Permission};
 
 use super::reports::{BindReport, CheckReport, UnbindReport};
-use super::{domain_err, facade, validate_peer};
+use super::{audit, domain_err, facade, validate_peer};
 
 pub fn bind(
     data_dir: &str,
@@ -17,12 +17,14 @@ pub fn bind(
     let bound = facade(data_dir)
         .bind(peer_id, role_id, expires_at, note.unwrap_or_default())
         .map_err(domain_err)?;
+    audit(data_dir, &AuditEvent::bound(&bound));
     Ok(BindReport::from(bound))
 }
 
 pub fn unbind(data_dir: &str, peer_id: &str) -> Result<UnbindReport, String> {
     validate_peer(peer_id)?;
     let removed = facade(data_dir).unbind(peer_id).map_err(domain_err)?;
+    audit(data_dir, &AuditEvent::unbound(&removed));
     Ok(UnbindReport {
         peer_id: peer_id.to_owned(),
         role_id: removed.role_id,

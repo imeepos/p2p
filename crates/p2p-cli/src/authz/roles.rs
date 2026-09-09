@@ -4,7 +4,8 @@
 use super::reports::{
     RoleCreateReport, RoleDeleteReport, RoleListReport, RoleShowReport, RoleView,
 };
-use super::{domain_err, facade};
+use super::{audit, domain_err, facade};
+use p2p_authz::AuditEvent;
 
 pub fn role_list(data_dir: &str) -> Result<RoleListReport, String> {
     let roles = facade(data_dir).list_roles().map_err(domain_err)?;
@@ -35,13 +36,15 @@ pub fn role_create(
             note.unwrap_or_default(),
         )
         .map_err(domain_err)?;
+    audit(data_dir, &AuditEvent::role_created(&role));
     Ok(RoleCreateReport {
         role: RoleView::from(&role),
     })
 }
 
 pub fn role_delete(data_dir: &str, role_id: &str) -> Result<RoleDeleteReport, String> {
-    facade(data_dir).delete_role(role_id).map_err(domain_err)?;
+    let deleted = facade(data_dir).delete_role(role_id).map_err(domain_err)?;
+    audit(data_dir, &AuditEvent::role_deleted(&deleted));
     Ok(RoleDeleteReport {
         role_id: role_id.to_owned(),
     })

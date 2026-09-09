@@ -10,8 +10,10 @@
 //! （§5，不可改不可删），roles.json 只落自定义角色，引擎合并两源。
 //! 时钟经 [clock::Clock] trait 注入（沿 repair-enforce 先例），判定可机械测试。
 //!
-//! 范围外（A2/A3）：import 迁移、各面 PEP 接入、GUI/审计均不在本 crate。
+//! 范围外（A2/A3）：import 迁移、各面 PEP 接入、GUI 不在本 crate；
+//! 审计 sink（A3 S2 P1b）在本 crate 的 [audit] 模块（管理面与各 PEP 共用落账口）。
 
+pub mod audit;
 pub mod binding;
 pub mod clock;
 pub mod decision;
@@ -24,6 +26,9 @@ pub mod role;
 pub mod store;
 
 #[cfg(test)]
+mod audit_tests;
+
+#[cfg(test)]
 mod engine_tests;
 
 #[cfg(test)]
@@ -32,6 +37,7 @@ mod ops_tests;
 #[cfg(test)]
 mod store_tests;
 
+pub use audit::{AuditEvent, AuditKind};
 pub use binding::Binding;
 pub use clock::{Clock, SystemClock};
 pub use decision::{Decision, DenyReason};

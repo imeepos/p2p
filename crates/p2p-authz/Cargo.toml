@@ -9,3 +9,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+# audit 写失败可观测测试：tracing 事件捕获（registry+Layer）。
+tracing-subscriber = { workspace = true }
