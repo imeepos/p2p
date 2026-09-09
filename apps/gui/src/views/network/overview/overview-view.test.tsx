@@ -1,11 +1,16 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import "@/i18n";
 import type { MetricsJson, NodeEventJson, NodeStatus } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
 import { OverviewView } from "./overview-view";
+
+// S4 负载加固：默认 5s testTimeout 在满载串行下撞悬崖（实测 5215ms 超时假红，
+// 同代码单跑绿）。本文件为纯同步断言、无可等待对象，放宽文件级超时预算，
+// 断言语义零改动。串行验收口径见 docs/design/authz-a3-plan.md §4。
+vi.setConfig({ testTimeout: 20_000 });
 
 // 4.2 概览页机械验收：四组信息卡 + 最近事件 5 条 + 查看全部 + 排障入口行。
 // 复用原 dashboard 测试的 fixture 形状（node store 直设状态，不 mock IPC）。
