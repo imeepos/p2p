@@ -1,6 +1,7 @@
 //! 分享台账服务（设计 §3/§4/§5/§10）：创建/兑换/撤销/列表。
 //! 兑换是握手授权瀑布第二级：激活绑定 PeerId、写 share 前缀指纹的策略条目、
-//! 审计 share-redeemed；状态拒绝走 ShareDenyKind（码 + 四条审计键）。
+//! 自动绑定 authz 内建角色 guest（authz-role-design §8 准入双查的绑定侧，
+//! A2 回归修复）、审计 share-redeemed；状态拒绝走 ShareDenyKind（码 + 四条审计键）。
 //! 持久化顺序：台账先落盘，策略表写失败即回滚台账（两阶段间隙收敛到最小）。
 
 pub mod admin;
@@ -17,6 +18,8 @@ mod admin_tests;
 mod admin_ws_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_authz_bind;
 #[cfg(test)]
 mod tests_redeem;
 #[cfg(test)]
@@ -49,7 +52,13 @@ pub struct ShareService {
     audit: Arc<dyn AuditSink>,
     /// 工作区动态表（与 SessionDeps 同源；admin 增删后分享校验即时生效）。
     workspaces: Arc<WorkspaceStore>,
+    /// 桥数据根（authz 自动绑定落 <data-dir>/authz/，与 DiskAuthz 同源）。
+    data_dir: PathBuf,
 }
+
+/// share 兑换自动创建绑定的 note 标记：revoke 级联只回收带此标记的绑定，
+/// 人工绑定（更严者为准）不动。
+pub(crate) const SHARE_AUTO_BIND_NOTE: &str = "share auto-bind guest";
 
 /// 创建结果：token 原文只在返回值出现一次（进创建响应与链接，禁止落盘）。
 #[derive(Debug, Clone)]
@@ -94,6 +103,7 @@ impl ShareService {
             policy,
             audit,
             workspaces,
+            data_dir: PathBuf::from(&config.data_dir),
         })
     }
 
@@ -152,6 +162,13 @@ impl ShareService {
             Some(peer) => self.remove_share_policy(peer, share_id)?,
             None => None,
         };
+        // 级联回收兑换时自动创建的 authz 绑定（防其他域残留授权面）；
+        // 失败不阻塞 revoke：无策略条目准入第一闸已拒，绑定残留无害，留错误信号。
+        if let Some(peer) = &bound_peer {
+            if removed.is_some() {
+                self.remove_auto_binding(peer);
+            }
+        }
         if let Err(err) = candidate.save(&self.ledger_path) {
             if let (Some(peer), Some(policy)) = (&bound_peer, &removed) {
                 self.restore_share_policy(peer, policy.clone());

@@ -1,13 +1,19 @@
 //! 兑换与撤销级联（设计 §4/§3）：哈希匹配 + 状态判定 + 激活绑定，
 //! 台账先落盘、策略表写失败回滚的两阶段序。
+//! A2 回归修复：激活第三阶段自动绑定 authz 内建角色 guest（准入双查的
+//! 绑定侧，authz-role-design §8）——已有绑定跳过（更严者为准，不覆盖
+//! 人工改绑）；绑定失败整体回滚（台账+策略表），fail-closed 不留半激活态。
+
+use std::path::Path;
 
 use acp_common::policy::PeerPolicy;
 use acp_common::{
     rfc3339_from_unix, token_sha256, ShareDenyKind, ShareLedger, ShareStoreError,
     SHARE_FINGERPRINT_PREFIX,
 };
+use p2p_authz::{store as authz_store, Authz as AuthzStore, SystemClock};
 
-use super::ShareService;
+use super::{ShareService, SHARE_AUTO_BIND_NOTE};
 use crate::audit::AuditEvent;
 
 /// 兑换结果（设计 §4）：NotMatched 沿用既有拒绝路径（peer-not-allowed），
@@ -103,6 +109,18 @@ impl ShareService {
             }
             return RedeemOutcome::Storage(err.to_string());
         }
+        if let Err(err) = self.ensure_guest_binding(peer) {
+            tracing::error!(peer, share_id, error = %err, "authz guest binding failed on redeem; rolling back");
+            let mut table = self.policy.write().unwrap_or_else(|p| p.into_inner());
+            table.revoke(peer);
+            if let Err(save_err) = table.save(&self.policy_path) {
+                tracing::error!(peer, share_id, error = %save_err, "policy rollback after binding failure failed");
+            }
+            if let Err(rollback) = state.save(&self.ledger_path) {
+                tracing::error!(peer, share_id, error = %rollback, "share ledger rollback failed");
+            }
+            return RedeemOutcome::Storage(err);
+        }
         *state = candidate;
         self.audit.record(AuditEvent::ShareRedeemed {
             peer: peer.to_owned(),
@@ -144,6 +162,48 @@ impl ShareService {
         table.grant(peer.to_owned(), policy);
         if let Err(err) = table.save(&self.policy_path) {
             tracing::error!(peer, error = %err, "policy restore after failed revoke failed");
+        }
+    }
+
+    /// 兑换激活的 authz 绑定侧：peer 无任何绑定时自动绑内建角色 guest
+    /// （§9 sandbox→guest 同源映射）；已有绑定跳过——更严者为准，不覆盖
+    /// 人工改绑。note 带 SHARE_AUTO_BIND_NOTE 标记供 revoke 级联识别回收。
+    fn ensure_guest_binding(&self, peer: &str) -> Result<(), String> {
+        let data_dir = Path::new(&self.data_dir);
+        let bound = authz_store::load_bindings(data_dir)
+            .map_err(|e| format!("authz bindings read failed: {e}"))?
+            .iter()
+            .any(|binding| binding.peer_id == peer);
+        if bound {
+            return Ok(());
+        }
+        AuthzStore::new(data_dir, SystemClock)
+            .bind(peer, "guest", None, SHARE_AUTO_BIND_NOTE)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+
+    /// revoke 级联：仅回收 note 带自动绑定标记的绑定（人工绑定不动）。
+    /// 失败留 error 日志（无策略条目时准入第一闸已拒，残留绑定不构成放行）。
+    pub(super) fn remove_auto_binding(&self, peer: &str) {
+        let data_dir = Path::new(&self.data_dir);
+        let bindings = match authz_store::load_bindings(data_dir) {
+            Ok(bindings) => bindings,
+            Err(err) => {
+                tracing::error!(peer, error = %err, "authz bindings read failed on revoke cascade");
+                return;
+            }
+        };
+        let kept: Vec<p2p_authz::Binding> = bindings
+            .iter()
+            .filter(|binding| !(binding.peer_id == peer && binding.note == SHARE_AUTO_BIND_NOTE))
+            .cloned()
+            .collect();
+        if kept.len() == bindings.len() {
+            return;
+        }
+        if let Err(err) = authz_store::save_bindings(data_dir, &kept) {
+            tracing::error!(peer, error = %err, "authz auto-binding cascade save failed");
         }
     }
 }
