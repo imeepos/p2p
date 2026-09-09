@@ -25,8 +25,8 @@ pub struct CheckArgs {
 }
 
 pub fn check_cmd(args: CheckArgs) -> CliResult<()> {
-    let report: CheckReport = check(&args.data_dir, &args.peer_id, &args.permission)
-        .map_err(runtime_err)?;
+    let report: CheckReport =
+        check(&args.data_dir, &args.peer_id, &args.permission).map_err(runtime_err)?;
     output::emit(args.json, &report, &render_check(&report))
 }
 

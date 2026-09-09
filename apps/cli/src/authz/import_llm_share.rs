@@ -92,7 +92,13 @@ pub fn import(data_dir: &str) -> Result<ImportReport, String> {
             report.skipped += 1;
             continue;
         }
-        authz.bind(peer_id, TARGET_ROLE, entry.expires_at, "import llm-share allowlist")
+        authz
+            .bind(
+                peer_id,
+                TARGET_ROLE,
+                entry.expires_at,
+                "import llm-share allowlist",
+            )
             .map_err(|e| format!("绑定 {peer_id} 失败: {e}"))?;
         report.imported += 1;
     }
@@ -107,7 +113,8 @@ mod tests {
     use std::path::PathBuf;
 
     fn temp_dir(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("p2pctl-import-ls-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("p2pctl-import-ls-{tag}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).expect("temp dir");
         dir
@@ -116,7 +123,14 @@ mod tests {
     fn write_allowlist(dir: &Path, grants: &[(&str, Option<u64>, &[&str])]) {
         let mut list = allowlist::AllowlistFile::new();
         for (peer, expires_at, models) in grants {
-            list.upsert(peer, models.to_vec().iter().map(|s| s.to_string()).collect(), "", None, *expires_at, "2026-09-09T00:00:00Z");
+            list.upsert(
+                peer,
+                models.to_vec().iter().map(|s| s.to_string()).collect(),
+                "",
+                None,
+                *expires_at,
+                "2026-09-09T00:00:00Z",
+            );
         }
         allowlist::save(&allowlist::path(dir.to_str().expect("utf8")), &list).expect("save");
     }
@@ -142,7 +156,11 @@ mod tests {
         let future = 4_102_444_800;
         write_allowlist(
             &dir,
-            &[("peer-a", None, &["gpt-4o"]), ("peer-b", Some(future), &[]), ("peer-c", Some(1_000), &[])],
+            &[
+                ("peer-a", None, &["gpt-4o"]),
+                ("peer-b", Some(future), &[]),
+                ("peer-c", Some(1_000), &[]),
+            ],
         );
         let report = import(dir.to_str().expect("utf8")).expect("import");
         assert_eq!(report.entries, 3);
@@ -175,7 +193,11 @@ mod tests {
         let second = import(dir.to_str().expect("utf8")).expect("second");
         assert_eq!(second.imported, 0, "重跑不得新增绑定");
         assert_eq!(second.skipped, 1);
-        assert_eq!(fs::read(&path).expect("read bindings"), before, "重跑零增量：落盘态逐字节不变");
+        assert_eq!(
+            fs::read(&path).expect("read bindings"),
+            before,
+            "重跑零增量：落盘态逐字节不变"
+        );
     }
 
     #[test]
@@ -188,7 +210,11 @@ mod tests {
         let report = import(dir.to_str().expect("utf8")).expect("import");
         assert_eq!(report.skipped, 1);
         assert_eq!(report.imported, 0);
-        assert_eq!(binding_role(&dir, "peer-a").as_deref(), Some("operator"), "既有绑定不被覆盖");
+        assert_eq!(
+            binding_role(&dir, "peer-a").as_deref(),
+            Some("operator"),
+            "既有绑定不被覆盖"
+        );
         assert_eq!(
             check_borrow(&dir, "peer-a"),
             Decision::Deny(DenyReason::MissingPerm),
@@ -200,13 +226,16 @@ mod tests {
     fn missing_allowlist_is_zero_entry_success() {
         let dir = temp_dir("empty");
         let report = import(dir.to_str().expect("utf8")).expect("import");
-        assert_eq!(report, ImportReport {
-            source: "llm-share/allowlist.json".into(),
-            role: "ally".into(),
-            entries: 0,
-            imported: 0,
-            skipped: 0,
-        });
+        assert_eq!(
+            report,
+            ImportReport {
+                source: "llm-share/allowlist.json".into(),
+                role: "ally".into(),
+                entries: 0,
+                imported: 0,
+                skipped: 0,
+            }
+        );
     }
 
     #[test]
@@ -216,7 +245,11 @@ mod tests {
         let path = allowlist::path(dir.to_str().expect("utf8"));
         let before = fs::read(&path).expect("read allowlist");
         import(dir.to_str().expect("utf8")).expect("import");
-        assert_eq!(fs::read(&path).expect("read allowlist"), before, "原表只读归档：内容不得变动");
+        assert_eq!(
+            fs::read(&path).expect("read allowlist"),
+            before,
+            "原表只读归档：内容不得变动"
+        );
         let list = allowlist::load_or_empty(&path).expect("reload");
         assert_eq!(
             list.entries["peer-a"].models,

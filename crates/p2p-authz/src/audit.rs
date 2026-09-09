@@ -97,7 +97,12 @@ impl AuditEvent {
 
     /// 解绑：before=绑定快照，after=null。
     pub fn unbound(binding: &Binding) -> Self {
-        Self::new(AuditKind::Unbound, binding_snapshot(binding), Value::Null, "")
+        Self::new(
+            AuditKind::Unbound,
+            binding_snapshot(binding),
+            Value::Null,
+            "",
+        )
     }
 
     /// 判定拒绝：无状态变更，note 携带面/对象/reason 码（不泄细节，§7）。

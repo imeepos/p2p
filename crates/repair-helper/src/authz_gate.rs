@@ -58,12 +58,11 @@ fn record_denial(data_dir: &Path, bridge_peer: &str, scope: &str, reason: &str) 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use p2p_authz::SystemClock;
     use p2p_authz::audit::audit_path;
+    use p2p_authz::SystemClock;
 
     fn temp_dir(tag: &str) -> std::path::PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("rh-authz-gate-{tag}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("rh-authz-gate-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir
     }
@@ -144,19 +143,13 @@ mod tests {
             reason.contains("authz read failed"),
             "reason 留读失败信号: {reason}"
         );
-        assert!(
-            denied_line(&dir).is_some(),
-            "读失败拒绝同样落审计事件"
-        );
+        assert!(denied_line(&dir).is_some(), "读失败拒绝同样落审计事件");
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn scope_permission_maps_closed_set() {
-        assert_eq!(
-            scope_permission("diag"),
-            Permission::parse("repair.diag")
-        );
+        assert_eq!(scope_permission("diag"), Permission::parse("repair.diag"));
         assert_eq!(scope_permission("fix"), Permission::parse("repair.fix"));
         assert_eq!(scope_permission("root"), None, "表外 scope 无权限映射");
     }

@@ -63,7 +63,13 @@ pub fn auto_bind_default_role(data_dir: &str, peer_id: &str) -> AutoBind {
         };
     }
     // bind 内部：角色不存在显式报错 → 降级警告；成功 → 落 authz.bound 审计。
-    match authz::bind(data_dir, peer_id, &role_id, None, Some("auto: default_role")) {
+    match authz::bind(
+        data_dir,
+        peer_id,
+        &role_id,
+        None,
+        Some("auto: default_role"),
+    ) {
         Ok(_) => AutoBind::Bound { role_id },
         Err(e) => AutoBind::Warned {
             reason: format!("绑定角色 {role_id} 失败: {e}"),
@@ -78,7 +84,8 @@ mod tests {
     use p2p_cli::authz::bind;
 
     fn temp_dir(tag: &str) -> String {
-        let dir = std::env::temp_dir().join(format!("p2pctl-autobind-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("p2pctl-autobind-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         dir.to_str().unwrap().to_owned()
     }
@@ -120,7 +127,10 @@ mod tests {
         assert_eq!(bindings[0].note, "auto: default_role");
         // 审计事件已落（P1b 接线复用）。
         let audit_text = std::fs::read_to_string(audit_path(Path::new(&dir))).unwrap();
-        assert!(audit_text.contains("authz.bound"), "绑定须落审计: {audit_text}");
+        assert!(
+            audit_text.contains("authz.bound"),
+            "绑定须落审计: {audit_text}"
+        );
         assert!(out.note().unwrap().contains("friend"));
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -166,7 +176,10 @@ mod tests {
         assert!(reason.contains("ghost"), "警告携带角色 id: {reason}");
         let bindings = store::load_bindings(Path::new(&dir)).unwrap();
         assert!(bindings.is_empty(), "降级不产生绑定");
-        assert!(!audit_path(Path::new(&dir)).exists(), "降级路径不落 bound 事件");
+        assert!(
+            !audit_path(Path::new(&dir)).exists(),
+            "降级路径不落 bound 事件"
+        );
         assert!(out.note().unwrap().starts_with("警告"));
         let _ = std::fs::remove_dir_all(&dir);
     }

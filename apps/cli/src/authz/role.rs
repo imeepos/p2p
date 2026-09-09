@@ -117,7 +117,8 @@ pub fn create_cmd(args: RoleCreateArgs) -> CliResult<()> {
 }
 
 pub fn delete_cmd(args: RoleDeleteArgs) -> CliResult<()> {
-    let report: RoleDeleteReport = role_delete(&args.data_dir, &args.role_id).map_err(runtime_err)?;
+    let report: RoleDeleteReport =
+        role_delete(&args.data_dir, &args.role_id).map_err(runtime_err)?;
     output::emit(
         args.json,
         &report,

@@ -8,9 +8,7 @@ use tracing_subscriber::layer::Context;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use tracing_subscriber::Layer;
 
-use crate::audit::{
-    append_jsonl, audit_path, record, AuditEvent, AuditKind,
-};
+use crate::audit::{append_jsonl, audit_path, record, AuditEvent, AuditKind};
 use crate::binding::Binding;
 use crate::ops_binding::BoundBinding;
 use crate::permissions::Permission;
@@ -124,10 +122,7 @@ fn denied_event_shape() {
     );
     let v = last_line(&dir);
     assert_eq!(v["kind"], "authz.denied");
-    assert_eq!(
-        v["note"],
-        "mint-ticket scope=diag peer=p denied: NotBound"
-    );
+    assert_eq!(v["note"], "mint-ticket scope=diag peer=p denied: NotBound");
     assert_eq!(v["before"], serde_json::Value::Null);
     assert_eq!(v["after"], serde_json::Value::Null);
     let _ = std::fs::remove_dir_all(&dir);
@@ -153,15 +148,21 @@ fn append_only_preserves_previous_lines() {
     let dir = temp_dir("append");
     record(&dir, &AuditEvent::role_created(&role("tester")));
     let text_v1 = std::fs::read_to_string(audit_path(&dir)).unwrap();
-    record(&dir, &AuditEvent::bound(&BoundBinding {
-        binding: binding("peer-a", "tester"),
-        created: true,
-    }));
+    record(
+        &dir,
+        &AuditEvent::bound(&BoundBinding {
+            binding: binding("peer-a", "tester"),
+            created: true,
+        }),
+    );
     // 重跑同一事件（幂等重放场景）也只追加。
-    record(&dir, &AuditEvent::bound(&BoundBinding {
-        binding: binding("peer-a", "tester"),
-        created: true,
-    }));
+    record(
+        &dir,
+        &AuditEvent::bound(&BoundBinding {
+            binding: binding("peer-a", "tester"),
+            created: true,
+        }),
+    );
     let text_v3 = std::fs::read_to_string(audit_path(&dir)).unwrap();
     assert_eq!(text_v3.lines().count(), 3, "每次落账恰增一行: {text_v3}");
     assert!(

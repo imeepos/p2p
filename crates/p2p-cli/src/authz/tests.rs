@@ -169,7 +169,10 @@ fn management_ops_write_audit_events_in_order() {
         "管理面事件按操作序落账: {text}"
     );
     let bound_line = text.lines().nth(1).unwrap();
-    assert!(bound_line.contains("\"peerId\""), "绑定快照 camelCase: {bound_line}");
+    assert!(
+        bound_line.contains("\"peerId\""),
+        "绑定快照 camelCase: {bound_line}"
+    );
     let rebound = serde_json::from_str::<serde_json::Value>(text.lines().nth(2).unwrap()).unwrap();
     assert_eq!(rebound["note"], "upsert", "重绑以 note 区分");
     assert!(bound_line.contains("\"roleId\":\"tester\""));
@@ -194,9 +197,6 @@ fn failed_ops_write_no_audit_events() {
     assert!(role_delete(data, "friend").is_err());
 
     let path = p2p_authz::audit::audit_path(Path::new(data));
-    assert!(
-        !path.exists(),
-        "失败操作不得产生审计文件或事件"
-    );
+    assert!(!path.exists(), "失败操作不得产生审计文件或事件");
     let _ = std::fs::remove_dir_all(&dir);
 }
