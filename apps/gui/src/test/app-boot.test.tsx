@@ -11,6 +11,8 @@ vi.stubEnv("VITE_MOCK_IPC", "1");
 // IM-T53 负载加固：原单用例承载启动+7 路由遍历，负载下撞 30s 级超时雪崩。
 // main.tsx 模块只求值一次（双 boot 无效），故 boot 收进 beforeAll 做一次，
 // 逐路由拆成独立用例只做 hash 导航，单路由慢/红不再拖垮整链。
+// S4 追记：高负载下默认并行仍可能出现文件级错（forks worker 未起，测试体 0ms），
+// 测试内等待无法治；验收口径串行 `pnpm test:serial`（docs/design/authz-a3-plan.md §4）。
 const BOOT_TIMEOUT = 30_000;
 const ROUTE_TEST_TIMEOUT = 20_000;
 const ROUTE_WAIT_TIMEOUT = 10_000;

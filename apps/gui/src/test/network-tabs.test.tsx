@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // 4.1 tab 机械验收：六 tab 渲染、子路由直达、点击切换、会话级记忆与
 // 全新会话落 overview。整应用真实挂载（与 app-redirects 同机制：先 stub
 // 再动态 import，vitest 按文件隔离模块注册表）。
+// S4 追记：高负载下默认并行可能出现文件级错（forks worker 未起，测试体 0ms），
+// 测试内等待无法治；验收口径串行 `pnpm test:serial`（docs/design/authz-a3-plan.md §4）。
 vi.stubEnv("VITE_MOCK_IPC", "1");
 
 import { resetNetworkTabMemory } from "@/views/network/network-tab-memory";

@@ -9,6 +9,9 @@ const { useAcpStore } = await import("./acp-store");
 
 export const DRAFT = { wsUrl: "ws://127.0.0.1:8787", token: "mock-token", peer: "mock-peer" };
 
+// S4 负载加固：夹具等待显式 10s 预算（默认 1s 在高负载下撞悬崖假红）。
+const FIXTURE_WAIT_TIMEOUT = 10_000;
+
 export function resetFixtures() {
   localStorage.clear();
   mockAcpConsole.reset();
@@ -39,14 +42,14 @@ export async function renderConnected() {
   fireEvent.click(screen.getByTestId("acp-connect"));
   await waitFor(() => {
     expect(screen.getByTestId("acp-capabilities-card")).toBeTruthy();
-  });
+  }, { timeout: FIXTURE_WAIT_TIMEOUT });
 }
 
 export async function newSession() {
   fireEvent.click(screen.getByTestId("acp-session-new"));
   await waitFor(() => {
     expect(screen.getByTestId("acp-session-row-s-001")).toBeTruthy();
-  });
+  }, { timeout: FIXTURE_WAIT_TIMEOUT });
 }
 
 export async function sendPrompt(text = "hi") {
@@ -70,6 +73,6 @@ export async function pickOption(triggerTestId: string, name: string) {
 export async function permissionId(): Promise<number> {
   await vi.waitFor(() => {
     expect(mockAcpConsole.permissionRequests.length).toBeGreaterThan(0);
-  });
+  }, { timeout: FIXTURE_WAIT_TIMEOUT });
   return mockAcpConsole.permissionRequests[0].id;
 }

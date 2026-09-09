@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.stubEnv("VITE_MOCK_IPC", "1");
 
+// S4 负载加固：默认 waitFor 预算 1s，高负载下 send→mock 回声链路实测 ~1.07s 撞悬崖
+// 假红（同代码双跑一红一绿）。显式 10s 预算只放宽等待窗口，断言语义零改动。
+const WAIT_TIMEOUT = 10_000;
+
 const { useAcpStore } = await import("./acp-store");
 const { renderConnected, newSession, resetFixtures } = await import("./acp-view-test-utils");
 await import("@/i18n");
@@ -34,11 +38,11 @@ describe("AcpView composer IME guard", () => {
     fireEvent.keyDown(composer(), { key: "Enter" });
     await waitFor(() => {
       expect(pendingOf("s-001")).toBe(true);
-    });
-    await screen.findByText("Hello from the mock agent.");
+    }, { timeout: WAIT_TIMEOUT });
+    await screen.findByText("Hello from the mock agent.", {}, { timeout: WAIT_TIMEOUT });
     await waitFor(() => {
       expect(composer().value).toBe("");
-    });
+    }, { timeout: WAIT_TIMEOUT });
   });
 
   it("keyCode 229 兜底：未置 isComposing 的组合态回车同样不发送", async () => {

@@ -4,6 +4,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // hash 导航，断言常驻重定向层落点与 query 透传。
 // 与 app-boot.test.tsx 同一机制：先 stub 再动态 import（ipc.ts 求值期读值），
 // vitest 按文件隔离模块注册表，双 boot 互不干扰。
+// S4 追记：高负载下默认并行可能出现文件级错（forks worker 未起，测试体 0ms），
+// 测试内等待无法治；验收口径串行 `pnpm test:serial`（docs/design/authz-a3-plan.md §4）。
 vi.stubEnv("VITE_MOCK_IPC", "1");
 
 const BOOT_TIMEOUT = 30_000;

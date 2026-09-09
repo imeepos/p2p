@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.stubEnv("VITE_MOCK_IPC", "1");
 
+// S4 负载加固：默认等待预算 1s 在高负载下撞悬崖假红；显式放宽等待窗口，
+// 断言语义零改动。串行验收口径见 docs/design/authz-a3-plan.md §4。
+const WAIT_TIMEOUT = 10_000;
+
 const { toastMock } = vi.hoisted(() => ({ toastMock: vi.fn() }));
 vi.mock("sonner", () => ({
   toast: Object.assign(toastMock, { success: vi.fn(), error: vi.fn(), dismiss: vi.fn() }),
@@ -41,10 +45,10 @@ describe("AcpView permission arrival notice", () => {
     await renderConnected();
     await sendPrompt();
     const id = await permissionId();
-    await screen.findByTestId("acp-permission-row-" + id);
+    await screen.findByTestId("acp-permission-row-" + id, {}, { timeout: WAIT_TIMEOUT });
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledTimes(1);
-    });
+    }, { timeout: WAIT_TIMEOUT });
     const [message, options] = toastMock.mock.calls[0] as [string, { description?: string }];
     expect(message).toContain("s-001");
     expect(options.description).toContain("Run tests");
@@ -64,7 +68,7 @@ describe("AcpView permission arrival notice", () => {
     await sendPrompt();
     await vi.waitFor(() => {
       expect(toastMock).toHaveBeenCalledTimes(2);
-    });
+    }, { timeout: WAIT_TIMEOUT });
     expect((toastMock.mock.calls[0] as unknown[])[0]).toContain("s-001");
     expect((toastMock.mock.calls[1] as unknown[])[0]).toContain("s-001");
     expect((toastMock.mock.calls[1] as [string, { description?: string }])[1].description).toBe(
