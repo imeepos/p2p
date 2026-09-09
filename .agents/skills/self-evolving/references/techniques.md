@@ -493,3 +493,9 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 ## 2026-09-09 聊天条目一键复制轮
 - 剪贴板复用锚点先查再写：`components/feedback/copy-button.tsx`（CopyButton，toast+i18n 齐全）与 `views/shared/clipboard.ts`（copyText 纯函数）是全仓唯二复制设施；本次零新增 i18n 键（common.actions.copy / common.copied / common.copyFailed 均现成），全程未动 locales。
 - 气泡外侧悬停动作钮布局定式（MessageBubble）：锚 `absolute top-1/2 -translate-y-1/2` + 空白侧 `right-full/left-full`，尺寸 size-6；第二个钮偏移 +28px（首个 mr-1/ml-1，次个 mr-9/ml-9 = 24px 钮宽+4px 间距），仍落空白侧不越行；opacity-0 + group-hover/focus-visible 显隐，气泡本体 DOM 不变，渲染矩阵类测试零波及。
+
+## cargo tree 倒排闭包三陷阱（2026-09-09 check-fast 实锤）
+- `cargo tree -i -p X` 的 -p 会把解析图限定到 X 自身子树，倒排树查不到任何依赖者；必须用位置参数包名 `cargo tree -i X`。
+- 位置包名必须写在 `-e` 之前：`-e normal,dev,build X` 直接报 unexpected argument；写成 `cargo tree -i X -e normal,dev,build` 才对。
+- 倒排输出带 └── 树形前缀，BSD sed 的 `^[[:space:]]*` 吃不掉它们；名字提取用 `grep -oE '[A-Za-z0-9_-]+ v[0-9]' | sed 's/ v[0-9]$//'`。
+- 受影响闭包要跟 `cargo tree --workspace --depth 0` 的成员全集求交，否则被 exclude 的 path 依赖者（apps/acp-agent 之类）混进来，与全量门禁口径分裂。

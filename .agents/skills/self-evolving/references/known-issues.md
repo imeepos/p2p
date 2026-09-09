@@ -496,3 +496,9 @@ failed: early eof（客户端侧超时中止）。
 - [known-issues] 症状：testing-library 测试里 `within(pane).getByTestId("pane自身")` 报 not found（错误里却打印着该元素）。原因：within() 绑定的是子树作用域，查锚点自身必须出界；`container` 属性在 render() 返回值上，查询到的元素没有。修法：查锚点内元素用 within 绑定，查锚点自身/img 等直接 document.querySelector。
 - [known-issues] 症状：新增 IpcBackend 方法后 vitest「IPC 调用点静态守卫」红。原因：守卫机械扫描 views/components 的方法名字面量，store 层调用不算；豁免清单在同测试文件 EXEMPT 表，另有 scripts/check/cli-parity.tsv 要登记（mapped 或带理由 exempt），两处缺一即红。修法：数据层调用一律登记豁免并写明所属 store。
 - [known-issues] 症状：ESLint react-hooks/set-state-in-effect 报错（含 Warning 静默路径）。原因：新规则禁 effect 体内同步 setState（级联渲染）。修法：弹窗表单「随目标重置」改为调用方条件渲染 + useState(props 初值)（挂载即终态，关闭即卸载），彻底去 effect 播种。
+
+## VSCode rg --files 扫描风暴拖垮整机（2026-09-09 实锤）
+- 症状：load 飙到 150+（10 核），cargo 测试二进制卡死在 `_dyld_start` 0% CPU，连 ls 都超时；ps 见 60+ 个 `rg --files` 并发。
+- 原因：VSCode server 对仓库反复全量枚举，`target/`、`node_modules` 几十万小文件是重灾区；gitignore 挡不住编辑器枚举。
+- 修法：项目根 `.vscode/settings.json` 配 `files.watcherExclude`/`search.exclude` 排除 target/node_modules/dist（本仓库 .gitignore 有意忽略 .vscode，该文件只落本地不入库）；止血 `pkill -f 'rg --files'`。
+- 排查口诀：测试进程 0 CPU 且卡 `_dyld_start` = 动态加载被 I/O 饿死，先看 load 和 rg 进程群，别往测试逻辑上猜。
