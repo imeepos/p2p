@@ -1409,6 +1409,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "p2p-authz"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
+]
+
+[[package]]
 name = "p2p-chat"
 version = "0.1.0"
 dependencies = [
@@ -1443,6 +1453,7 @@ dependencies = [
  "llm-share-offer",
  "llm-share-proxy",
  "p2p",
+ "p2p-authz",
  "p2p-identity",
  "p2p-log",
  "p2p-mux",

@@ -3,6 +3,7 @@
 //! 子命令：bootstrap / node / ping / discover。所有失败路径返回错误，
 //! 由 main 统一打印到 stderr 并按类别转退出码（见 [RunError]），禁止 panic。
 
+pub mod authz;
 pub mod bootstrap;
 pub mod cli;
 pub mod discover;

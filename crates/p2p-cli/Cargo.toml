@@ -32,6 +32,9 @@ llm-share-ledger = { path = "../llm-share-ledger" }
 llm-share-link = { path = "../llm-share-link" }
 llm-share-offer = { path = "../llm-share-offer" }
 
+# authz 管理面（A1）：权限闭集/角色/绑定/判定纯逻辑层，clap 面在 apps/cli。
+p2p-authz = { path = "../p2p-authz" }
+
 # borrow 借方入口（F11/PR6）：三闸代理客户端 + req_id 幂等键生成。
 llm-share-proxy = { path = "../llm-share-proxy" }
 uuid = { workspace = true }
