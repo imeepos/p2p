@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Bot, Loader2 } from "lucide-react";
 
@@ -6,6 +6,7 @@ import { MessageList } from "@/components/chat/message-list";
 import { Composer } from "@/components/chat/composer";
 import { EmptyState } from "@/views/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { ipc } from "@/lib/ipc";
 import { useA2aStore } from "@/a2a/a2a-store";
 import type { A2aTaskState, A2aMessage, A2aPart } from "@/a2a/task-types";
 import type { ChatMessageJson } from "@/lib/ipc-types";
@@ -43,6 +44,25 @@ export function A2aConversation({ agentKey, hostPeer, agentId, agentName }: A2aC
   const messages = task?.messages ?? [];
   const taskState = task?.state ?? null;
 
+  // 任务通道凭据注入（gui-contract §17.1 同源 console WS）：未 connected 显式
+  // 留痕（warn），首次发送以「任务通道未配置」原文上浮，禁静默。
+  useEffect(() => {
+    let dead = false;
+    void ipc.acpConsoleStatus()
+      .then((status) => {
+        if (dead) return;
+        if (status.phase === "connected" && status.wsUrl && status.token) {
+          useA2aStore.getState().configureChannel(status.wsUrl, status.token);
+        } else {
+          console.warn("[a2a] console 未 connected：任务通道未配置（发送将失败）", status);
+        }
+      })
+      .catch((error) => console.warn("[a2a] 任务通道凭据获取失败", error));
+    return () => {
+      dead = true;
+    };
+  }, []);
+
   const convertA2aMessageToChat = useCallback((msg: A2aMessage): ChatMessageJson => {
     const textPart = msg.parts.find((p): p is A2aPart & { type: "text" } => p.type === "text");
     return {
@@ -61,13 +81,11 @@ export function A2aConversation({ agentKey, hostPeer, agentId, agentName }: A2aC
   const handleSend = useCallback(async (text: string) => {
     if (!text.trim() || isSending) return;
     setIsSending(true);
-
     try {
       const userMessage: A2aMessage = {
         role: "user",
         parts: [{ type: "text", text: text.trim() }],
       };
-
       if (!taskId) {
         const newTaskId = await a2aStore.createTask(hostPeer, agentId, userMessage);
         setTaskId(newTaskId);
@@ -75,7 +93,9 @@ export function A2aConversation({ agentKey, hostPeer, agentId, agentName }: A2aC
         await a2aStore.sendTaskMessage(taskId, userMessage);
       }
     } catch (error) {
+      // 原文上抛：composer catch 统一 toast（chat.sendFailed + reason），禁静默
       console.error("[a2a] 发送失败:", error);
+      throw error;
     } finally {
       setIsSending(false);
     }

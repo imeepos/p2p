@@ -1,32 +1,35 @@
 // A2A 任务管理 store（docs/design/a2a-over-p2p-design.md §5.2/§8.3）。
-// task 相 JSON-RPC 2.0 语义：tasks/create|send|get|cancel；通知 tasks/status + tasks/message。
-// 1 task = 1 流；GUI 经 acp-console 的 WS 透传通道发帧。
+// task 相 JSON-RPC 2.0 语义：tasks/create|send|cancel；通知 tasks/status + tasks/message。
+// 1 task = 1 流（Q10）：每个任务独占一条 proto=a2a 泵连接（task-socket），
+// 通知按 taskId 路由入簿；连接面凭据由会话挂载时 configureChannel 注入。
 
 import { create } from "zustand";
 
-import type { 
-  A2aTask, 
-  A2aMessage, 
-  A2aTaskStatusNotice, 
-  A2aTaskMessageNotice, 
-  A2aTaskSnapshot,
+import type {
+  A2aTask,
+  A2aMessage,
+  A2aTaskStatusNotice,
+  A2aTaskMessageNotice,
   A2aPart
 } from "./task-types";
+import { TaskSocket, taskChannelUrl, type TaskNotice } from "./task-socket";
+
+interface ChannelConfig {
+  wsUrl: string;
+  token: string;
+}
 
 interface A2aState {
   /** taskId → task 快照。 */
   tasks: Map<string, A2aTask>;
   /** agentKey → 未读计数。 */
   unreadByAgent: Record<string, number>;
-  /** 连接的 WS 通道（proto=a2a）。 */
-  ws: WebSocket | null;
-  /** 连接状态。 */
-  status: "connecting" | "online" | "offline";
-  /** 最近错误。 */
+  /** 连接面凭据就绪（console WS connected 后由会话注入）。 */
+  channelReady: boolean;
+  /** 最近错误（可读，UI 上浮，禁静默）。 */
   lastError: string | null;
-  
-  connect: (wsUrl: string, token: string) => void;
-  disconnect: () => void;
+
+  configureChannel: (wsUrl: string, token: string) => void;
   createTask: (hostPeer: string, agentId: string, message: A2aMessage) => Promise<string>;
   sendTaskMessage: (taskId: string, message: A2aMessage) => Promise<void>;
   cancelTask: (taskId: string) => Promise<void>;
@@ -34,234 +37,165 @@ interface A2aState {
   markRead: (agentKey: string) => void;
 }
 
-let nextRequestId = 1;
-const pendingRequests = new Map<number, { resolve: (value: unknown) => void; reject: (reason: unknown) => void }>();
+/** 每任务连接（非渲染状态，不进 store，同 agents-store 卡片通道先例）。 */
+const sockets = new Map<string, TaskSocket>();
+let channel: ChannelConfig | null = null;
+/** 任务入簿前到达的通知（create 应答与 upsert 之间的时序窗口），入簿后重放。 */
+const pendingNotices = new Map<string, TaskNotice[]>();
+const PENDING_NOTICE_CAP = 64;
 
-export const useA2aStore = create<A2aState>((set, get) => ({
-  tasks: new Map(),
-  unreadByAgent: {},
-  ws: null,
-  status: "offline",
-  lastError: null,
+function requireChannel(): ChannelConfig {
+  if (!channel) throw new Error("任务通道未配置（console 未连接）");
+  return channel;
+}
 
-  connect: (wsUrl: string, _token: string) => {
-    const ws = new WebSocket(wsUrl);
-    set({ ws, status: "connecting" });
-
-    ws.onopen = () => {
-      set({ status: "online", lastError: null });
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const frame = JSON.parse(event.data);
-        handleFrame(frame, get, set);
-      } catch (error) {
-        console.error("[a2a] 帧解析失败:", error);
-      }
-    };
-
-    ws.onclose = () => {
-      set({ status: "offline", ws: null });
-    };
-
-    ws.onerror = () => {
-      set({ status: "offline", lastError: "连接失败" });
-    };
-  },
-
-  disconnect: () => {
-    const { ws } = get();
-    if (ws) {
-      ws.close();
-      set({ ws: null, status: "offline" });
-    }
-  },
-
-  createTask: async (_hostPeer: string, agentId: string, message: A2aMessage) => {
-    const { ws } = get();
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      throw new Error("未连接");
-    }
-
-    const requestId = nextRequestId++;
-    const frame = {
-      jsonrpc: "2.0",
-      id: requestId,
-      method: "tasks/create",
-      params: {
-        agentId,
-        message,
-      },
-    };
-
-    return new Promise<string>((resolve, reject) => {
-      pendingRequests.set(requestId, { resolve: (v) => resolve(v as string), reject });
-      ws.send(JSON.stringify(frame));
-
-      setTimeout(() => {
-        if (pendingRequests.has(requestId)) {
-          pendingRequests.delete(requestId);
-          reject(new Error("请求超时"));
-        }
-      }, 30000);
-    });
-  },
-
-  sendTaskMessage: async (taskId: string, message: A2aMessage) => {
-    const { ws } = get();
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      throw new Error("未连接");
-    }
-
-    const requestId = nextRequestId++;
-    const frame = {
-      jsonrpc: "2.0",
-      id: requestId,
-      method: "tasks/send",
-      params: {
-        taskId,
-        message,
-      },
-    };
-
-    return new Promise<void>((resolve, reject) => {
-      pendingRequests.set(requestId, { resolve: () => resolve(), reject });
-      ws.send(JSON.stringify(frame));
-
-      setTimeout(() => {
-        if (pendingRequests.has(requestId)) {
-          pendingRequests.delete(requestId);
-          reject(new Error("请求超时"));
-        }
-      }, 30000);
-    });
-  },
-
-  cancelTask: async (taskId: string) => {
-    const { ws } = get();
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      throw new Error("未连接");
-    }
-
-    const requestId = nextRequestId++;
-    const frame = {
-      jsonrpc: "2.0",
-      id: requestId,
-      method: "tasks/cancel",
-      params: {
-        taskId,
-      },
-    };
-
-    return new Promise<void>((resolve, reject) => {
-      pendingRequests.set(requestId, { resolve: () => resolve(), reject });
-      ws.send(JSON.stringify(frame));
-
-      setTimeout(() => {
-        if (pendingRequests.has(requestId)) {
-          pendingRequests.delete(requestId);
-          reject(new Error("请求超时"));
-        }
-      }, 30000);
-    });
-  },
-
-  getTask: (taskId: string) => {
-    return get().tasks.get(taskId);
-  },
-
-  markRead: (agentKey: string) => {
-    const { unreadByAgent } = get();
-    if (unreadByAgent[agentKey]) {
-      set({ unreadByAgent: { ...unreadByAgent, [agentKey]: 0 } });
-    }
-  },
-}));
-
-function handleFrame(
-  frame: Record<string, unknown>,
+function upsertTask(
   get: () => A2aState,
   set: (partial: Partial<A2aState>) => void,
-) {
-  // JSON-RPC 2.0 应答
-  if (frame.id && typeof frame.id === "number") {
-    const pending = pendingRequests.get(frame.id);
-    if (pending) {
-      pendingRequests.delete(frame.id);
-      if (frame.error) {
-        const errorObj = frame.error as { message?: string };
-        pending.reject(new Error(errorObj.message || "请求失败"));
-      } else {
-        pending.resolve(frame.result);
-      }
-    }
-    return;
-  }
-
-  // task 通知
-  if (frame.method === "tasks/status") {
-    const notice = frame.params as A2aTaskStatusNotice;
-    const { tasks } = get();
-    const task = tasks.get(notice.taskId);
-    if (task) {
-      const updated = { ...task, state: notice.state };
-      const newTasks = new Map(tasks);
-      newTasks.set(notice.taskId, updated);
-      set({ tasks: newTasks });
-    }
-    return;
-  }
-
-  if (frame.method === "tasks/message") {
-    const notice = frame.params as A2aTaskMessageNotice;
-    const { tasks } = get();
-    const task = tasks.get(notice.taskId);
-    if (task) {
-      // messageId 去重（流式多帧同 taskId）
-      const existingIndex = task.messages.findIndex(
-        (m) => m.messageId === notice.messageId
-      );
-      
-      let newMessages: A2aMessage[];
-      if (existingIndex >= 0) {
-        // 同 messageId 的 text parts 按到达序拼接（增量语义）
-        const existing = task.messages[existingIndex];
-        const mergedParts = mergeParts(existing.parts, notice.message.parts);
-        newMessages = [...task.messages];
-        newMessages[existingIndex] = { ...existing, parts: mergedParts };
-      } else {
-        newMessages = [...task.messages, { ...notice.message, receivedAtMs: Date.now() }];
-      }
-
-      const updated = { ...task, messages: newMessages };
-      const newTasks = new Map(tasks);
-      newTasks.set(notice.taskId, updated);
-      set({ tasks: newTasks });
-    }
-    return;
-  }
-
-  // tasks/get 快照（断线恢复权威终态）
-  if (frame.method === "tasks/get" && frame.result) {
-    const snapshot = frame.result as A2aTaskSnapshot;
-    const { tasks } = get();
-    const newTasks = new Map(tasks);
-    newTasks.set(snapshot.taskId, {
-      taskId: snapshot.taskId,
-      agentId: snapshot.agentId,
-      state: snapshot.state,
-      messages: snapshot.messages,
-    });
-    set({ tasks: newTasks });
-    return;
-  }
+  task: A2aTask,
+): void {
+  const tasks = new Map(get().tasks);
+  tasks.set(task.taskId, task);
+  set({ tasks });
 }
+
+function applyNotice(notice: TaskNotice, task: A2aTask): A2aTask {
+  if ("state" in notice) {
+    return { ...task, state: (notice as A2aTaskStatusNotice).state };
+  }
+  const message = notice as A2aTaskMessageNotice;
+  const existingIndex = task.messages.findIndex((m) => m.messageId === message.messageId);
+  if (existingIndex >= 0) {
+    // 同 messageId 的 text parts 按到达序拼接（增量语义）
+    const existing = task.messages[existingIndex];
+    const mergedParts = mergeParts(existing.parts, message.message.parts);
+    const nextMessages = [...task.messages];
+    nextMessages[existingIndex] = { ...existing, parts: mergedParts };
+    return { ...task, messages: nextMessages };
+  }
+  const stamped: A2aMessage = {
+    ...message.message,
+    messageId: message.message.messageId ?? message.messageId,
+    receivedAtMs: Date.now(),
+  };
+  return { ...task, messages: [...task.messages, stamped] };
+}
+
+function routeNotice(
+  get: () => A2aState,
+  set: (partial: Partial<A2aState>) => void,
+  notice: TaskNotice,
+): void {
+  const task = get().tasks.get(notice.taskId);
+  if (!task) {
+    // 任务尚未入簿（create 应答先于 upsert）：缓冲限容，入簿后重放，不静默丢弃
+    const list = pendingNotices.get(notice.taskId) ?? [];
+    if (list.length < PENDING_NOTICE_CAP) list.push(notice);
+    pendingNotices.set(notice.taskId, list);
+    return;
+  }
+  upsertTask(get, set, applyNotice(notice, task));
+}
+
+function drainNotices(
+  get: () => A2aState,
+  set: (partial: Partial<A2aState>) => void,
+  taskId: string,
+): void {
+  const list = pendingNotices.get(taskId);
+  if (!list?.length) return;
+  pendingNotices.delete(taskId);
+  let task = get().tasks.get(taskId);
+  for (const notice of list) {
+    if (!task) return;
+    task = applyNotice(notice, task);
+  }
+  if (task) upsertTask(get, set, task);
+}
+
+export const useA2aStore = create<A2aState>((set, get) => {
+  const openTaskSocket = (hostPeer: string): TaskSocket => {
+    const config = requireChannel();
+    return TaskSocket.open(taskChannelUrl(config.wsUrl, config.token, hostPeer), {
+      onNotice: (notice) => routeNotice(get, set, notice),
+      onClosed: (reason) => {
+        if (reason === "closed by client") return;
+        set({ lastError: reason });
+        console.warn("[a2a] 任务流断开", reason);
+      },
+    });
+  };
+
+  return {
+    tasks: new Map(),
+    unreadByAgent: {},
+    channelReady: false,
+    lastError: null,
+
+    configureChannel: (wsUrl, token) => {
+      channel = { wsUrl, token };
+      set({ channelReady: true, lastError: null });
+    },
+
+    createTask: async (hostPeer, agentId, message) => {
+      const socket = openTaskSocket(hostPeer);
+      try {
+        await socket.awaitOpen();
+        const result = (await socket.request("tasks/create", { agentId, message })) as
+          | { taskId?: unknown }
+          | null;
+        const taskId = typeof result?.taskId === "string" ? result.taskId : "";
+        if (!taskId) throw new Error("tasks/create 应答缺少 taskId");
+        sockets.set(taskId, socket);
+        upsertTask(get, set, { taskId, agentId, state: "submitted", messages: [message] });
+        drainNotices(get, set, taskId);
+        return taskId;
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        set({ lastError: reason });
+        socket.close();
+        throw error;
+      }
+    },
+
+    sendTaskMessage: async (taskId, message) => {
+      const socket = sockets.get(taskId);
+      if (!socket) throw new Error("任务连接不存在（会话已重开）");
+      try {
+        await socket.request("tasks/send", { taskId, message });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        set({ lastError: reason });
+        throw error;
+      }
+    },
+
+    cancelTask: async (taskId) => {
+      const socket = sockets.get(taskId);
+      if (!socket) throw new Error("任务连接不存在（会话已重开）");
+      try {
+        await socket.request("tasks/cancel", { taskId });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        set({ lastError: reason });
+        throw error;
+      }
+    },
+
+    getTask: (taskId) => get().tasks.get(taskId),
+
+    markRead: (agentKey) => {
+      const { unreadByAgent } = get();
+      if (unreadByAgent[agentKey]) {
+        set({ unreadByAgent: { ...unreadByAgent, [agentKey]: 0 } });
+      }
+    },
+  };
+});
 
 function mergeParts(existing: A2aPart[], incoming: A2aPart[]): A2aPart[] {
   // 简单合并：将 incoming 的 text parts 拼接到 existing 的最后一个 text part
   const result = [...existing];
-  // findLastIndex 兼容实现（TypeScript 目标可能不支持 ES2023）
   let lastTextIndex = -1;
   for (let i = result.length - 1; i >= 0; i--) {
     if (result[i].type === "text") {
@@ -269,7 +203,7 @@ function mergeParts(existing: A2aPart[], incoming: A2aPart[]): A2aPart[] {
       break;
     }
   }
-  
+
   for (const part of incoming) {
     if (part.type === "text" && lastTextIndex >= 0) {
       const lastText = result[lastTextIndex] as A2aPart & { type: "text" };
@@ -281,6 +215,6 @@ function mergeParts(existing: A2aPart[], incoming: A2aPart[]): A2aPart[] {
       result.push(part);
     }
   }
-  
+
   return result;
 }

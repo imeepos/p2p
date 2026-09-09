@@ -600,6 +600,13 @@ GUI /agents 页（发现/我的双视图）的数据面契约。IPC 命令表零
   `hostPeer/agentId` 键入簿，同键 version 升序才覆盖；`push.removed` 即除名；
   `error` 帧原样上浮 UI（不静默）。断线按既有 WS 重连节奏重拨并重放 list+subscribe。
 - 邀请事件（A2A5）为同一通道的宿主→GUI 通知帧预留扩展位，不再加新协议 ID。
+- 任务相（design §5.2，Q10「1 task = 1 流」）：泵连接字节透传即流本体，故 GUI
+  每个任务独开一条本通道连接（`peer=<目标宿主>`），首帧 `tasks/create` 建附，
+  同连接续发 `tasks/send|cancel`；`tasks/status|message` 通知按 taskId 入簿，
+  create 应答与入簿窗口内的通知缓冲重放（禁止静默丢弃）。GUI 侧实现 =
+  `apps/gui/src/a2a/task-socket.ts` + `a2a-store.ts`（2026-09-09 修复接线缺失：
+  a2a 会话发送此前未连任务通道，且 composer 把非报告返回值当 ChatSendReport 判
+  delivered 炸 TypeError 误报「发送失败」）。
 
 ### 17.2 本机 agent 管理面（「我的」视图，Bearer 鉴权，宿主 share admin 管道）
 
