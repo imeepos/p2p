@@ -522,3 +522,9 @@ failed: early eof（客户端侧超时中止）。
 - 症状：worktree 内连续 8 个 commit 正常落盘，push 报 "Everything up-to-date"，`git branch --show-current` 为空（detached），分支 ref 停在倒数第二次提交。
 - 原因：首次 `git worktree add` 被 60s 工具超时 SIGTERM 半途击杀，残留半成品目录；rm 后 `git worktree prune` + 重建时分支已被（prune 前的）注册残留视作占用，git 回退为 detached checkout——之后所有 commit 都不进分支 ref。
 - 修法：`git checkout -B <branch>` 把 ref 快进到 HEAD 再 push。预防：worktree 重建后与每次 push 前都 `git branch --show-current` 校验非空；超时击杀的 git 操作先 `git worktree list` + `git log <branch>` 对照产物再动手。
+
+## 2026-09-09 S3 验收轮 负载敏感假红被判真回归：双树对照+受控 A/B 才能定案
+- 症状：验收方在自己窗口测得分支 5 红（src/acp 4 文件），本会话复测同 4 文件 10 红；但红名集合随时间漂移（同代码 10:24 全量仅 2 红），且单文件独立跑出现「Failed to start forks worker（transform 0ms，测试根本没执行）」。
+- 根因：10 核机器 load 43-90（4-9 倍过载，外部来源=其他会话 vscode-server 全盘 rg 索引/VM/常驻进程），vitest forks 池 worker 启动与 5s 单测预算在节流下全面超时；首测/复测窗口负载不同 → 结论互斥。
+- 判别法（三步定案，勿先改代码）：①`git diff main --stat -- <被红测试目录>` 证零触碰 + 测试文件 import 链核对是否真经过自己改的共享文件；②主树同命令同文件复跑——同红即非本分支引入；③受控 A/B：同一棵树仅交换嫌疑共享文件的 main/分支版本背靠背跑——两轮结果随负载漂移而非随代码版本漂移即定案。
+- 修法（交付面）：错峰在 load<30 窗口用 `--no-file-parallelism`（单 worker 免疫 forks 池启动风暴）跑验收矩阵；本轮最终分支/主树对称 12/12 绿 + 分支全量 225 文件 1367 用例全绿。教训：验收红先问「机器现在多忙」（uptime），再问「我改了什么」。
