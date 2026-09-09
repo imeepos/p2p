@@ -180,3 +180,54 @@ describe("ipc llm-share 命令映射（契约 v11 §16，真实桥接）", () =>
   });
 });
 
+describe("ipc authz 命令映射（契约 §18，真实桥接）", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    invokeMock.mockClear();
+  });
+
+  it("authz_* 封装逐字映射命令名与 camelCase 参数，可选参缺省传 null", async () => {
+    vi.resetModules();
+    vi.stubEnv("VITE_MOCK_IPC", "0");
+    const { ipc } = await import("./ipc");
+
+    await ipc.authzRoleList();
+    expect(invokeMock).toHaveBeenCalledWith("authz_role_list");
+
+    await ipc.authzBindingsList();
+    expect(invokeMock).toHaveBeenCalledWith("authz_bindings_list");
+
+    await ipc.authzBind("p1", "ally", 1700000000, "note");
+    expect(invokeMock).toHaveBeenCalledWith("authz_bind", {
+      peerId: "p1",
+      roleId: "ally",
+      expiresAt: 1700000000,
+      note: "note",
+    });
+    await ipc.authzBind("p1", "ally");
+    expect(invokeMock).toHaveBeenCalledWith("authz_bind", {
+      peerId: "p1",
+      roleId: "ally",
+      expiresAt: null,
+      note: null,
+    });
+
+    await ipc.authzUnbind("p1");
+    expect(invokeMock).toHaveBeenCalledWith("authz_unbind", { peerId: "p1" });
+
+    await ipc.authzCheck("p1", "llm.borrow");
+    expect(invokeMock).toHaveBeenCalledWith("authz_check", {
+      peerId: "p1",
+      permission: "llm.borrow",
+    });
+
+    await ipc.authzDefaultRoleGet();
+    expect(invokeMock).toHaveBeenCalledWith("authz_default_role_get");
+
+    await ipc.authzDefaultRoleSave("guest");
+    expect(invokeMock).toHaveBeenCalledWith("authz_default_role_save", {
+      roleId: "guest",
+    });
+  });
+});
+
