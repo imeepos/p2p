@@ -76,6 +76,11 @@ repair-helper mint-ticket \
 | --bridge-peer | 桥 PeerId，必须等于实际接入桥节点的身份 |
 | --scope | diag（只读）或 fix（可写需审批） |
 | --ttl | 有效期秒数 |
+| --data-dir | authz 数据根（与 serve 及 CLI 共用 `<data-dir>/authz/` 绑定表），默认 ./p2p-data |
+
+mint 前置校验（A3 S2）：签发前经 p2p-authz 判定 bridge_peer 持有 `repair.diag`
+（scope=diag）/`repair.fix`（scope=fix）权限，未绑定/过期/读失败一律拒绝并落
+`authz.denied` 审计事件（`<data-dir>/authz/audit.jsonl`）；票据本体语义零改动。
 
 票据串 = base64url(canonical JSON payload) + "." + base64url(ed25519 签名)，
 payload 字段 {ticket_id, helper_peer, bridge_peer, scope, iat, exp}（ticket.rs mint）。
