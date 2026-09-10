@@ -1,7 +1,8 @@
 //! im-chat-envelope.json 消费：ENVELOPE/ACK 帧字节、信封 JSON 与 MIME 白名单。
 
+mod common;
+use common::{case_name, cases, load, ref_frame, unhex};
 use p2p_chat::{validate_media, ChatKind};
-use p2p_conformance::{case_name, cases, load, ref_frame, unhex};
 use p2p_protocol::read_frame;
 use serde_json::Value;
 use std::io::Cursor;
@@ -29,7 +30,11 @@ async fn envelope_and_ack_frames_match_vectors() {
             serde_json::from_str(case["payload_json"].as_str().unwrap()).unwrap();
 
         // 编码方向：类型头 + payload 规范封装 == 向量整帧字节
-        assert_eq!(ref_frame(&payload), unhex(frame_hex), "case {name}: 整帧字节不符");
+        assert_eq!(
+            ref_frame(&payload),
+            unhex(frame_hex),
+            "case {name}: 整帧字节不符"
+        );
 
         // 解码方向：向量帧读回的类型头与 JSON 载荷语义一致
         let (got_head, got_payload) = read_typed(unhex(frame_hex)).await;
@@ -58,7 +63,10 @@ async fn envelope_semantics_and_impostor_condition() {
             continue;
         }
         if case["frame_type"].as_str() == Some("ENVELOPE") {
-            assert_eq!(json["sender"], "me", "case {name}: 合法信封 sender 必须为 me");
+            assert_eq!(
+                json["sender"], "me",
+                "case {name}: 合法信封 sender 必须为 me"
+            );
             assert!(json["id"].as_str().is_some(), "case {name}: 缺 id");
             assert!(json["peer"].as_str().is_some(), "case {name}: 缺 peer");
             assert!(json["tsMs"].is_i64(), "case {name}: tsMs 须为 i64");

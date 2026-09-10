@@ -1,6 +1,7 @@
 //! chunked.json 消费：类型序、重组与上限语义（小规模等价用例）。
 
-use p2p_conformance::{case_name, cases, load, ref_frame, unhex};
+mod common;
+use common::{case_name, cases, load, ref_frame, unhex};
 use p2p_protocol::{flatten_io, read_chunked, ProtocolError};
 use std::io::Cursor;
 
@@ -29,7 +30,9 @@ async fn golden_sequences_reassemble() {
             .map(|f| unhex(f.as_str().unwrap()))
             .collect();
         let refs: Vec<&[u8]> = frames.iter().map(|v| v.as_slice()).collect();
-        let msg = read_chunked(&mut Cursor::new(stream_of(&refs))).await.unwrap();
+        let msg = read_chunked(&mut Cursor::new(stream_of(&refs)))
+            .await
+            .unwrap();
         assert_eq!(hex_of(&msg), message_hex, "case {name}: 重组结果不符");
     }
 }
@@ -49,7 +52,9 @@ async fn illegal_sequences_rejected() {
             .map(|f| unhex(f.as_str().unwrap()))
             .collect();
         let refs: Vec<&[u8]> = frames.iter().map(|v| v.as_slice()).collect();
-        let err = read_chunked(&mut Cursor::new(stream_of(&refs))).await.unwrap_err();
+        let err = read_chunked(&mut Cursor::new(stream_of(&refs)))
+            .await
+            .unwrap_err();
         expect_rejected(name, &err);
     }
 }
@@ -97,5 +102,5 @@ async fn reassembly_over_limit_rejected() {
 }
 
 fn hex_of(bytes: &[u8]) -> String {
-    p2p_conformance::hex(bytes)
+    common::hex(bytes)
 }

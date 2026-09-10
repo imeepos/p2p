@@ -1,6 +1,7 @@
 //! frame.json 消费：帧封装、1 MiB 上限与长度不符断流语义。
 
-use p2p_conformance::{case_name, cases, load, ref_frame, ref_varint, unhex};
+mod common;
+use common::{case_name, cases, load, ref_frame, ref_varint, unhex};
 use p2p_protocol::read_frame;
 use std::io::Cursor;
 
@@ -10,18 +11,23 @@ const FILE: &str = "frame.json";
 async fn golden_frames_roundtrip_via_read_frame() {
     let doc = load(FILE);
     for case in cases(&doc) {
-        let (Some(payload_hex), Some(frame_hex)) = (
-            case["payload_hex"].as_str(),
-            case["frame_hex"].as_str(),
-        ) else {
+        let (Some(payload_hex), Some(frame_hex)) =
+            (case["payload_hex"].as_str(), case["frame_hex"].as_str())
+        else {
             continue;
         };
         let name = case_name(case);
         let payload = unhex(payload_hex);
-        let got = read_frame(&mut Cursor::new(unhex(frame_hex))).await.unwrap();
+        let got = read_frame(&mut Cursor::new(unhex(frame_hex)))
+            .await
+            .unwrap();
         assert_eq!(got, payload, "case {name}: 帧解码不符");
         // 参考封装与向量 frame_hex 一致（编码语义双向锁定）
-        assert_eq!(ref_frame(&payload), unhex(frame_hex), "case {name}: 编码不符");
+        assert_eq!(
+            ref_frame(&payload),
+            unhex(frame_hex),
+            "case {name}: 编码不符"
+        );
     }
 }
 
@@ -54,7 +60,10 @@ async fn over_limit_length_rejected_before_payload_read() {
     stream.extend_from_slice(b"junk");
     let err = read_frame(&mut Cursor::new(stream)).await.unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
-    assert!(err.to_string().contains("too large"), "错误缺可读信号: {err}");
+    assert!(
+        err.to_string().contains("too large"),
+        "错误缺可读信号: {err}"
+    );
 }
 
 #[tokio::test]

@@ -1,6 +1,7 @@
 //! peer-id.json 消费：固定种子到 PeerId 全链推导。
 
-use p2p_conformance::{case_name, cases, load, unhex};
+mod common;
+use common::{case_name, cases, load, unhex};
 use p2p_identity::Keypair;
 use sha2::{Digest, Sha256};
 
@@ -36,5 +37,5 @@ fn seed_to_peer_id_chain_matches_vectors() {
 }
 
 fn hex_of(bytes: &[u8]) -> String {
-    p2p_conformance::hex(bytes)
+    common::hex(bytes)
 }

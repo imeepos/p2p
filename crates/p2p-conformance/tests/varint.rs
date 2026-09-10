@@ -1,6 +1,7 @@
 //! varint.json 消费：经 p2p-protocol 帧真实 API 交叉验证 LEB128 语义。
 
-use p2p_conformance::{case_name, cases, load, ref_varint, unhex};
+mod common;
+use common::{case_name, cases, load, ref_varint, unhex};
 use p2p_protocol::{flatten_io, read_frame, write_frame, ProtocolError, MAX_FRAME_SIZE};
 use std::io::Cursor;
 use tokio::io::AsyncReadExt;
@@ -39,7 +40,11 @@ async fn golden_values_decode_via_read_frame() {
             let got = read_frame(&mut Cursor::new(stream)).await.unwrap();
             assert_eq!(got.len() as u64, value, "case {name}: 读回长度不符");
             let frame = frame_bytes(value).await;
-            assert_eq!(&frame[..bytes.len()], &bytes[..], "case {name}: 编码字节不符");
+            assert_eq!(
+                &frame[..bytes.len()],
+                &bytes[..],
+                "case {name}: 编码字节不符"
+            );
         } else {
             // 大值无法落地 payload：read_frame 应解码出正确长度后再因超帧上限拒绝，
             // FrameTooLarge 携带的值即 varint 解码结果，可精确核对
@@ -69,6 +74,9 @@ async fn overflow_inputs_rejected_without_wraparound() {
             std::io::ErrorKind::InvalidData,
             "case {name}: 溢出输入必须 InvalidData"
         );
-        assert!(err.to_string().contains("varint"), "case {name}: 错误缺可读信号");
+        assert!(
+            err.to_string().contains("varint"),
+            "case {name}: 错误缺可读信号"
+        );
     }
 }
