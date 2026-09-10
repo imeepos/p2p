@@ -1,0 +1,46 @@
+{
+  "cases": [
+    {
+      "addrs": [
+        {
+          "ip": "203.0.113.7",
+          "port": 4001,
+          "quic": true
+        }
+      ],
+      "issued_at": "1780000000",
+      "name": "register_golden",
+      "namespace": "p2p-base-vectors",
+      "note": "固定种子注册全材料：signed_fields_hex 为被签字节，signature_hex 覆盖之，register_protobuf_hex 为线上 Register 消息完整编码；校验方须先核对 peer_id=base58(sha256(pubkey)) 再验签",
+      "peer_id_base58": "DAbtsB5DfbWTQv9W1WKUwQGDwRNzrpLnkGToBgVTc1vp",
+      "public_key_hex": "c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f73242",
+      "register_protobuf_hex": "0a107032702d626173652d766563746f72731220b4c1ece898ece24e24e601232f95c6a18971689a0dd669e6d78218537c21c3891a20c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f7324222120801120b3230332e302e3131332e3718a11f28a0383240c298d95faa78d3de94c1ce256b29a9d12e3e2cd3b2c2e2c6f2adb8529f813df3d563e96300ab7d7ecc0ee0e672c1b3c0ce8f02efd7e5598ba00327c8c09a0d073880cae2d006",
+      "seed_hex": "5555555555555555555555555555555555555555555555555555555555555555",
+      "signature_hex": "c298d95faa78d3de94c1ce256b29a9d12e3e2cd3b2c2e2c6f2adb8529f813df3d563e96300ab7d7ecc0ee0e672c1b3c0ce8f02efd7e5598ba00327c8c09a0d07",
+      "signed_fields_hex": "0a107032702d626173652d766563746f72731220b4c1ece898ece24e24e601232f95c6a18971689a0dd669e6d78218537c21c3891a120801120b3230332e302e3131332e3718a11f20a0382880cae2d006",
+      "ttl_secs": 7200,
+      "valid": true
+    },
+    {
+      "error": "signature_mismatch",
+      "name": "ttl_tamper_rejected",
+      "note": "把 Register.ttl_secs 改为 7201 后验签必须失败：ttl 入签名，改值即红",
+      "operation": {
+        "set": {
+          "ttl_secs": 7201
+        }
+      },
+      "valid": false
+    },
+    {
+      "error": "stale_registration",
+      "name": "freshness_window_rejected",
+      "note": "服务端时钟与 issued_at 差 301 秒（>300 容差 FRESH_TOLERANCE_SECS）即拒，即使签名有效",
+      "valid": false,
+      "verify_now": "1780000301"
+    }
+  ],
+  "signed_fields_layout": "protobuf: namespace=1(string) peer_id=2(bytes) addrs=3(repeated AddrMsg) ttl_secs=4(uint32) issued_at=5(uint64)；AddrMsg: quic=1(bool) ip=2(string) port=3(uint32)；签名 = ed25519(SignedFields 编码字节)",
+  "spec": "/p2p-base/rendezvous/1（docs/protocol/specs/rendezvous.md）；SignedFields 与签名覆盖域见 crates/p2p-discovery/src/rendezvous/messages.rs",
+  "vector_set": "rendezvous-register"
+}

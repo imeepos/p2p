@@ -1,0 +1,88 @@
+{
+  "cases": [
+    {
+      "frame_hex": "cf01017b226964223a226d73672d676f6c64656e2d30303031222c2270656572223a2232384a504250505653685278413151425535574242524361744364467a557663724d417157734556646d7945222c2273656e646572223a226d65222c226b696e64223a2274657874222c2274734d73223a313738303030303030303030302c2274657874223a22676f6c64656e2068656c6c6f222c226d65646961223a6e756c6c2c227265706c79546f223a6e756c6c2c2263617264223a6e756c6c2c2266726f6d4164647273223a6e756c6c7d",
+      "frame_type": "ENVELOPE",
+      "name": "envelope_text_frame",
+      "note": "文本消息 ENVELOPE 帧：载荷 JSON 字节与整帧字节全部给出；第三方按语义等价 JSON 自行序列化亦可（JSON 键序不影响收端解析）",
+      "payload_hex": "017b226964223a226d73672d676f6c64656e2d30303031222c2270656572223a2232384a504250505653685278413151425535574242524361744364467a557663724d417157734556646d7945222c2273656e646572223a226d65222c226b696e64223a2274657874222c2274734d73223a313738303030303030303030302c2274657874223a22676f6c64656e2068656c6c6f222c226d65646961223a6e756c6c2c227265706c79546f223a6e756c6c2c2263617264223a6e756c6c2c2266726f6d4164647273223a6e756c6c7d",
+      "payload_json": "{\"id\":\"msg-golden-0001\",\"peer\":\"28JPBPPVShRxA1QBU5WBBRCatCdFzUvcrMAqWsEVdmyE\",\"sender\":\"me\",\"kind\":\"text\",\"tsMs\":1780000000000,\"text\":\"golden hello\",\"media\":null,\"replyTo\":null,\"card\":null,\"fromAddrs\":null}",
+      "type_byte": "01",
+      "valid": true
+    },
+    {
+      "frame_hex": "f001017b226964223a226d73672d676f6c64656e2d30303032222c2270656572223a2232384a504250505653685278413151425535574242524361744364467a557663724d417157734556646d7945222c2273656e646572223a226d65222c226b696e64223a22696d616765222c2274734d73223a313738303030303030303030302c2274657874223a6e756c6c2c226d65646961223a7b226e616d65223a226361742e706e67222c226d696d65223a22696d6167652f706e67222c2273697a65223a337d2c227265706c79546f223a6e756c6c2c2263617264223a6e756c6c2c2266726f6d4164647273223a6e756c6c7d",
+      "frame_type": "ENVELOPE",
+      "name": "envelope_image_frame",
+      "note": "图片消息 ENVELOPE 帧：media 元数据随信封传输（附件字节本体走 MEDIA_BEGIN 0x02/MEDIA_CHUNK 0x03 序列，非本向量集）",
+      "payload_hex": "017b226964223a226d73672d676f6c64656e2d30303032222c2270656572223a2232384a504250505653685278413151425535574242524361744364467a557663724d417157734556646d7945222c2273656e646572223a226d65222c226b696e64223a22696d616765222c2274734d73223a313738303030303030303030302c2274657874223a6e756c6c2c226d65646961223a7b226e616d65223a226361742e706e67222c226d696d65223a22696d6167652f706e67222c2273697a65223a337d2c227265706c79546f223a6e756c6c2c2263617264223a6e756c6c2c2266726f6d4164647273223a6e756c6c7d",
+      "payload_json": "{\"id\":\"msg-golden-0002\",\"peer\":\"28JPBPPVShRxA1QBU5WBBRCatCdFzUvcrMAqWsEVdmyE\",\"sender\":\"me\",\"kind\":\"image\",\"tsMs\":1780000000000,\"text\":null,\"media\":{\"name\":\"cat.png\",\"mime\":\"image/png\",\"size\":3},\"replyTo\":null,\"card\":null,\"fromAddrs\":null}",
+      "type_byte": "01",
+      "valid": true
+    },
+    {
+      "frame_hex": "31047b226964223a226d73672d676f6c64656e2d30303031222c226f6b223a747275652c22726561736f6e223a6e756c6c7d",
+      "frame_type": "ACK",
+      "name": "ack_ok_frame",
+      "note": "收端回执帧：id 对应原信封，ok=true 表示已接收",
+      "payload_hex": "047b226964223a226d73672d676f6c64656e2d30303031222c226f6b223a747275652c22726561736f6e223a6e756c6c7d",
+      "payload_json": "{\"id\":\"msg-golden-0001\",\"ok\":true,\"reason\":null}",
+      "type_byte": "04",
+      "valid": true
+    },
+    {
+      "error": "impostor_sender",
+      "name": "sender_impostor_rejected",
+      "note": "入站信封 sender 非 me（对端视角）即疑似伪装，必须断流拒绝；语义向量（该校验在收端 handler 内部执行）",
+      "payload_json": "{\"card\":null,\"fromAddrs\":null,\"id\":\"msg-golden-0003\",\"kind\":\"text\",\"media\":null,\"peer\":\"28JPBPPVShRxA1QBU5WBBRCatCdFzUvcrMAqWsEVdmyE\",\"replyTo\":null,\"sender\":\"them\",\"text\":\"forgery\",\"tsMs\":1780000000000}",
+      "valid": false
+    },
+    {
+      "error": "mime_not_allowed",
+      "kind": "image",
+      "mime": "image/svg+xml",
+      "name": "mime_reject_image_svg",
+      "note": "MIME 白名单：image kind 不接受 image/svg+xml",
+      "size": "1",
+      "valid": false
+    },
+    {
+      "kind": "image",
+      "mime": "IMAGE/PNG",
+      "name": "mime_accept_image_png",
+      "note": "白名单命中：image/png 合法（mime 先小写再精确匹配，大小写不敏感）",
+      "size": "1",
+      "valid": true
+    },
+    {
+      "error": "mime_not_allowed",
+      "kind": "groupinvite",
+      "mime": "image/png",
+      "name": "mime_reject_groupinvite_with_media",
+      "note": "groupinvite 卡片白名单为空集：任何附件一律拒绝",
+      "size": "1",
+      "valid": false
+    },
+    {
+      "error": "empty_media",
+      "kind": "image",
+      "mime": "image/png",
+      "name": "media_size_zero_rejected",
+      "note": "附件字节为空（size=0）拒绝",
+      "size": "0",
+      "valid": false
+    },
+    {
+      "error": "media_too_large",
+      "kind": "image",
+      "mime": "image/png",
+      "name": "media_size_over_limit_rejected",
+      "note": "附件超过 64 MiB（67108865 字节）拒绝",
+      "size": "67108865",
+      "valid": false
+    }
+  ],
+  "frame_note": "帧 = varint(长度) + 类型头 + JSON 载荷；ENVELOPE 类型头 0x01，ACK 类型头 0x04；载荷 JSON 为紧凑序列化，字段按信封声明序（id, peer, sender, kind, tsMs, text, media, replyTo, card, fromAddrs；Option 缺省序列化为 null）",
+  "spec": "/im/chat/1（docs/protocol/specs/im-chat.md）；类型头与信封形状见 crates/p2p-chat/src/wire.rs 与 wire-protocol.md §8",
+  "vector_set": "im-chat-envelope"
+}

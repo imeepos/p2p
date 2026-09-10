@@ -1,0 +1,44 @@
+{
+  "cases": [
+    {
+      "frame_hex": "0568656c6c6f",
+      "name": "frame_hello",
+      "note": "常规小帧：varint 长度前缀 + payload 原样字节",
+      "payload_hex": "68656c6c6f",
+      "valid": true
+    },
+    {
+      "frame_hex": "00",
+      "name": "frame_empty",
+      "note": "空 payload 合法，长度前缀为 0x00",
+      "payload_hex": "",
+      "valid": true
+    },
+    {
+      "declared_len": 1048576,
+      "frame_prefix_hex": "808040",
+      "name": "frame_max_size_boundary",
+      "note": "长度恰为上限 1048576 合法；payload 以重复字节描述，消费方按 pattern 展开后校验：前缀后恰读回 1048576 字节",
+      "payload_repeat_hex": "00",
+      "valid": true
+    },
+    {
+      "error": "frame_too_large",
+      "frame_prefix_hex": "818040",
+      "name": "frame_over_limit_rejected",
+      "note": "长度前缀声明 1048577（上限+1）：读端在读 payload 前即断流报 frame_too_large，线上无需真实出现 1048577 字节",
+      "valid": false
+    },
+    {
+      "available_payload_hex": "68656c",
+      "declared_len": 5,
+      "error": "unexpected_eof",
+      "name": "frame_length_payload_mismatch_truncates",
+      "note": "声明长度 5 但流上仅 3 字节：读端阻塞补读至连接断开（unexpected eof），断流报错而非静默交付短帧",
+      "valid": false
+    }
+  ],
+  "max_frame_size": 1048576,
+  "spec": "docs/protocol/wire-format.md §6 帧格式（varint(len)+payload，单帧上限 1048576 字节）",
+  "vector_set": "frame"
+}
