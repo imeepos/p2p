@@ -137,10 +137,10 @@ helper 节点把流还原为 MCP server 的 stdio 供宿主面消费。泵是哑
 
 ## 7. 测试向量
 
-无。首波向量集清单（spec-charter §8）未含本协议：帧封装字节语义由
-docs/protocol/vectors/frame.json 覆盖（本协议直接复用，不重复登记）；哑泵行为由
-crates/repair-bridge 单元测试（EOF 退出、大载荷分帧保序、原样透传）与
-crates/p2p-itest 回环用例覆盖；票据黄金字节列为后续向量集候选。
+无。首波向量集清单（spec-charter §8）未含本协议：帧封装字节语义由章程 §8 冻结
+清单中的 frame.json 覆盖（向量文件随后续轮落地，本协议直接复用，不重复登记）；
+哑泵行为由 crates/repair-bridge 单元测试（EOF 退出、大载荷分帧保序、原样透传）
+与 crates/p2p-itest 回环用例覆盖；票据黄金字节列为后续向量集候选。
 
 ## 8. 实现状态与出处
 
