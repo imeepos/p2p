@@ -1,0 +1,23 @@
+[package]
+name = "p2p-conformance"
+version.workspace = true
+edition.workspace = true
+description = "符合性向量回归 crate：读 docs/protocol/vectors/ 同一批 JSON 断言本仓实现（单源双用）"
+
+[dependencies]
+p2p-protocol = { path = "../p2p-protocol" }
+p2p-identity = { path = "../p2p-identity" }
+p2p-discovery = { path = "../p2p-discovery" }
+p2p-relay = { path = "../p2p-relay" }
+p2p-chat = { path = "../p2p-chat" }
+p2p-security = { path = "../p2p-security" }
+p2p-transport = { path = "../p2p-transport" }
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+bs58.workspace = true
+ed25519-dalek.workspace = true
+prost.workspace = true
+tokio.workspace = true
+x509-cert.workspace = true
+der.workspace = true

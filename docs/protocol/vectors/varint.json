@@ -1,0 +1,63 @@
+{
+  "cases": [
+    {
+      "bytes_hex": "00",
+      "name": "encode_0",
+      "note": "最小值，单字节 0x00",
+      "valid": true,
+      "value": "0"
+    },
+    {
+      "bytes_hex": "7f",
+      "name": "encode_127",
+      "note": "单字节最大值：第 1 字节数据位满且不带继续位",
+      "valid": true,
+      "value": "127"
+    },
+    {
+      "bytes_hex": "8001",
+      "name": "encode_128",
+      "note": "两字节最小值：进位到第 2 字节",
+      "valid": true,
+      "value": "128"
+    },
+    {
+      "bytes_hex": "ff7f",
+      "name": "encode_16383",
+      "note": "两字节最大值",
+      "valid": true,
+      "value": "16383"
+    },
+    {
+      "bytes_hex": "ffffffff0f",
+      "name": "encode_4294967295",
+      "note": "u32 上限（2^32-1），5 字节",
+      "valid": true,
+      "value": "4294967295"
+    },
+    {
+      "bytes_hex": "ffffffffffffffffff01",
+      "name": "encode_18446744073709551615",
+      "note": "u64 上限（2^64-1），恰 10 字节，末字节数据位 0x01",
+      "valid": true,
+      "value": "18446744073709551615"
+    },
+    {
+      "bytes_hex": "ffffffffffffffffffff",
+      "error": "varint_overflow",
+      "name": "overflow_tenth_byte_continues",
+      "note": "10 字节全带继续位：第 10 字节仍带 0x80，超出 64 位编码域，读端必须拒绝且不得读第 11 字节",
+      "valid": false
+    },
+    {
+      "bytes_hex": "ffffffffffffffffff02",
+      "error": "varint_overflow",
+      "name": "overflow_tenth_byte_data_bit",
+      "note": "第 10 字节不带继续位但数据位为 0x02（>1）：<<63 将丢高位回绕，读端必须拒绝",
+      "valid": false
+    }
+  ],
+  "decode_note": "解码必须拒绝第 10 字节仍带继续位、或第 10 字节数据位 >1 的输入（防 <<63 回绕）；编码必须产出最短形式",
+  "spec": "docs/protocol/wire-format.md §6 帧格式（无符号 LEB128 varint，最多 10 字节）",
+  "vector_set": "varint"
+}

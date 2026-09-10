@@ -1,0 +1,30 @@
+{
+  "cases": [
+    {
+      "name": "peer_id_seed_1",
+      "note": "固定种子经 ed25519 公钥、SHA-256、base58 全链推导，中间值全部给出",
+      "peer_id_base58": "28JPBPPVShRxA1QBU5WBBRCatCdFzUvcrMAqWsEVdmyE",
+      "public_key_hex": "d04ab232742bb4ab3a1368bd4615e4e6d0224ab71a016baf8520a332c9778737",
+      "seed_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+      "sha256_hex": "10ba682c8ad13513971e8b56881aab8bd702bb807796eca81932c735a94d6e6d"
+    },
+    {
+      "name": "peer_id_seed_2",
+      "note": "固定种子经 ed25519 公钥、SHA-256、base58 全链推导，中间值全部给出",
+      "peer_id_base58": "2Hk79b5B6ZtNHtWKHkVzgrByaAebfLP3xRkBcCsvpGH3",
+      "public_key_hex": "a09aa5f47a6759802ff955f8dc2d2a14a5c99d23be97f864127ff9383455a4f0",
+      "seed_hex": "2222222222222222222222222222222222222222222222222222222222222222",
+      "sha256_hex": "1325b850c2871916eae203f0efc3c8987f64e5e3cdb27679e6d1fa97808357e6"
+    },
+    {
+      "name": "peer_id_seed_3",
+      "note": "固定种子经 ed25519 公钥、SHA-256、base58 全链推导，中间值全部给出",
+      "peer_id_base58": "8JmxvyQ6v8sLh8HNwgK4Ndy6Vgvsfm9WgaW8wnFeHW3E",
+      "public_key_hex": "17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce",
+      "seed_hex": "3333333333333333333333333333333333333333333333333333333333333333",
+      "sha256_hex": "6c8f8607dbe87077a62a2990ce07d94aaf749df76f87b98eb786a6d10f030765"
+    }
+  ],
+  "spec": "docs/protocol/wire-format.md §4.1 PeerId 推导（base58(sha256(ed25519 公钥 32 字节))）",
+  "vector_set": "peer-id"
+}

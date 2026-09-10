@@ -1,0 +1,47 @@
+{
+  "cases": [
+    {
+      "identity_payload_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48471dccc3fab80d23675c7c2ce9019c8ee6458f61049d612cf1c83bab68067af3b7cd6aece1200032cf637ba717e5557ef5750bc0ce0015c8774a38819ccb1106",
+      "identity_payload_len": 96,
+      "name": "identity_payload_golden",
+      "note": "固定种子全链：ed25519 公钥、X25519 静态公钥、被签消息、签名与 96 字节负载；验签以 payload[0..32] 为公钥、signed_message_hex 为消息；PeerId=base58(sha256(public_key_hex))",
+      "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48",
+      "seed_hex": "4444444444444444444444444444444444444444444444444444444444444444",
+      "sign_domain_hex": "7032702d6e6f6973652d78782d7631",
+      "signature_hex": "471dccc3fab80d23675c7c2ce9019c8ee6458f61049d612cf1c83bab68067af3b7cd6aece1200032cf637ba717e5557ef5750bc0ce0015c8774a38819ccb1106",
+      "signed_message_hex": "7032702d6e6f6973652d78782d76317ce31baa9a04b5cfb83ab7ccdd7b669b911a082d29883d6aad3256294a0a5e0c",
+      "valid": true,
+      "x25519_static_hex": "7ce31baa9a04b5cfb83ab7ccdd7b669b911a082d29883d6aad3256294a0a5e0c"
+    },
+    {
+      "error": "signature_mismatch",
+      "identity_payload_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48461dccc3fab80d23675c7c2ce9019c8ee6458f61049d612cf1c83bab68067af3b7cd6aece1200032cf637ba717e5557ef5750bc0ce0015c8774a38819ccb1106",
+      "name": "signature_tamper_rejected",
+      "note": "负载首签名字节（offset 32）翻转低位后验签必须失败",
+      "sign_domain_hex": "7032702d6e6f6973652d78782d7631",
+      "valid": false
+    },
+    {
+      "error": "signature_mismatch",
+      "name": "wrong_domain_rejected",
+      "note": "域串换成 p2p-noise-xx-v2（同一签名）验签失败：域分隔防签名挪用",
+      "public_key_hex": "d759793bbc13a2819a827c76adb6fba8a49aee007f49f2d0992d99b825ad2c48",
+      "signature_hex": "471dccc3fab80d23675c7c2ce9019c8ee6458f61049d612cf1c83bab68067af3b7cd6aece1200032cf637ba717e5557ef5750bc0ce0015c8774a38819ccb1106",
+      "signed_message_hex": "7032702d6e6f6973652d78782d76327ce31baa9a04b5cfb83ab7ccdd7b669b911a082d29883d6aad3256294a0a5e0c",
+      "valid": false
+    },
+    {
+      "name": "tls_identity_extension_oid",
+      "note": "QUIC 路径身份扩展 OID（私有企业号空间）；证书须携带该扩展、内容恰为 32 字节 ed25519 公钥且与 SPKI 一致",
+      "oid": "1.3.6.1.4.1.59015.1"
+    },
+    {
+      "alpn": "p2p-base/1",
+      "name": "quic_alpn",
+      "note": "QUIC 握手 ALPN 标识，双方必须一致才可互通"
+    }
+  ],
+  "payload_layout": "identity payload 恒 96 字节：[0..32)=ed25519 公钥，[32..96)=ed25519 签名；被签消息 = b\"p2p-noise-xx-v1\" + 本端 X25519 静态公钥（ed25519 公钥的蒙哥马利映射）；完整握手 transcript 属 Extended 候选，不在本向量集",
+  "spec": "docs/protocol/wire-format.md §4.2/§4.3（QUIC TLS 身份证书与 TCP Noise XX）；负载布局与签名覆盖域见 crates/p2p-security/src/noise.rs、tls_cert.rs",
+  "vector_set": "handshake-identity"
+}

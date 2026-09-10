@@ -1,0 +1,109 @@
+{
+  "cases": [
+    {
+      "frames": [
+        "0001020304"
+      ],
+      "message_hex": "01020304",
+      "name": "single_small",
+      "note": "整条消息一帧装下：类型头 0x00 + 数据，读端即刻重组完成",
+      "valid": true
+    },
+    {
+      "frames": [
+        "00"
+      ],
+      "message_hex": "",
+      "name": "single_empty",
+      "note": "空消息：SINGLE 帧 0 数据，合法（write_chunked(空) 的产物）",
+      "valid": true
+    },
+    {
+      "frames": [
+        "01aa",
+        "02bb"
+      ],
+      "message_hex": "aabb",
+      "name": "chunk_then_end",
+      "note": "最小多帧序列：一个 CHUNK 加一个 END（小规模等价表达大消息分片）",
+      "valid": true
+    },
+    {
+      "frames": [
+        "01aa",
+        "01bb",
+        "02cc"
+      ],
+      "message_hex": "aabbcc",
+      "name": "multiple_chunks_then_end",
+      "note": "多个 CHUNK 依序拼接后以 END 收尾",
+      "valid": true
+    },
+    {
+      "frames": [
+        "01aa",
+        "02"
+      ],
+      "message_hex": "aa",
+      "name": "end_with_empty_tail",
+      "note": "END 帧允许 0 数据（分片边界恰好对齐时 write_chunked 的产物）",
+      "valid": true
+    },
+    {
+      "error": "invalid_type_sequence",
+      "frames": [
+        "01aa",
+        "00bb"
+      ],
+      "name": "single_after_chunk_rejected",
+      "note": "SINGLE 出现在分片中途：类型序非法，读端必须 InvalidData 断流",
+      "valid": false
+    },
+    {
+      "error": "invalid_type_header",
+      "frames": [
+        "7faa"
+      ],
+      "name": "unknown_type_header_rejected",
+      "note": "类型头 0x7f 不在 0x00/0x01/0x02 白名单内，拒绝",
+      "valid": false
+    },
+    {
+      "error": "missing_type_header",
+      "frames": [
+        ""
+      ],
+      "name": "empty_frame_rejected",
+      "note": "帧 payload 为空（缺类型头），拒绝",
+      "valid": false
+    },
+    {
+      "eof_after_frames": true,
+      "error": "truncated",
+      "frames": [
+        "01aa"
+      ],
+      "name": "truncated_before_end",
+      "note": "CHUNK 后流被截断（未收到 SINGLE/END 即 EOF）：重组未完成，断流报错",
+      "valid": false
+    },
+    {
+      "chunk_data_len": 1048575,
+      "chunk_data_repeat_hex": "00",
+      "chunk_frames": 64,
+      "end_data_len": 65,
+      "end_data_repeat_hex": "00",
+      "error": "message_too_large",
+      "name": "reassembly_over_limit_rejected",
+      "note": "重组上限等价表达：64 个满载 CHUNK（各 1048575 字节 0x00）累计 67108800 字节后，END 再带 65 字节即超 67108864 上限，读端读到该帧立刻 MessageTooLarge，不必等消息完结",
+      "valid": false
+    }
+  ],
+  "frame_note": "frames 每项是一个帧的 payload（类型头+数据）；线上每帧外再套 varint 长度前缀（同 frame.json）",
+  "limits": {
+    "chunk_data_size": 1048575,
+    "max_message_size": 67108864
+  },
+  "spec": "docs/protocol/wire-format.md §10 chunked 传输（类型头 0x00 SINGLE/0x01 CHUNK/0x02 END；重组上限 64 MiB）",
+  "vector_set": "chunked"
+}

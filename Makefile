@@ -3,10 +3,10 @@
 SHELL := /bin/bash
 .DEFAULT_GOAL := check
 
-.PHONY: check check-fast fmt fmt-check line-limit clippy test gui-check gui-tauri-check version-check gate-tests panic-hygiene cli-parity ai-docs-sync release-check
+.PHONY: check check-fast fmt fmt-check line-limit clippy test gui-check gui-tauri-check version-check gate-tests panic-hygiene protocol-registry cli-parity ai-docs-sync release-check
 
-# 聚合门禁：先验证门禁脚本，再跑版本/格式/行数/clippy/测试/GUI/panic 卫生
-check: gate-tests version-check fmt-check line-limit clippy test gui-check gui-tauri-check panic-hygiene cli-parity ai-docs-sync
+# 聚合门禁：先验证门禁脚本，再跑版本/格式/行数/clippy/测试/GUI/panic 卫生/协议注册表
+check: gate-tests version-check fmt-check line-limit clippy test gui-check gui-tauri-check panic-hygiene protocol-registry cli-parity ai-docs-sync
 
 # 分层快门禁（日常迭代）：便宜门禁恒跑，clippy/test/gui/tauri 按受影响域裁剪
 # （scripts/check/affected.sh 判定：git 变更集 → crate 反向依赖闭包）。
@@ -57,6 +57,7 @@ version-check:
 gate-tests:
 	bash scripts/check/tests/release-gates.sh
 	bash scripts/check/tests/panic-hygiene.sh
+	bash scripts/check/tests/protocol-registry.sh
 	bash scripts/check/tests/cli-parity.sh
 	bash scripts/check/tests/mock-ipc-guards.sh
 	bash scripts/check/tests/src-tauri-gate.sh
@@ -74,6 +75,10 @@ ai-docs-sync:
 # panic 卫生门禁：范围 crate 非测试路径 unwrap/expect/panic 清零（豁免清单见脚本同目录）
 panic-hygiene:
 	bash scripts/check/panic-hygiene.sh
+
+# 协议注册表门禁：代码字面量 <-> registry.toml <-> wire-protocol.md 四向机械核对
+protocol-registry:
+	bash scripts/check/protocol-registry.sh
 
 # 发布总门禁：main 分支 + 干净工作树 + 版本一致 + make check（打 client-v tag 前在主树跑）
 # 分支项可用 RELEASE_ALLOW_BRANCH=1 绕过（CI/测试环境不在 main 上时）

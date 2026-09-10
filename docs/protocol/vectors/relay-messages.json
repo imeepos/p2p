@@ -1,0 +1,98 @@
+{
+  "cases": [
+    {
+      "frame_hex": "0d0a0b08ac021206706565722d62",
+      "name": "reserve",
+      "note": "tag 1：申请电路；ttl_secs=0 表示用服务端缺省",
+      "protobuf_hex": "0a0b08ac021206706565722d62"
+    },
+    {
+      "frame_hex": "071205080710f403",
+      "name": "reserved",
+      "note": "tag 2：发放 circuit_id 并捎带负载水位 permille",
+      "protobuf_hex": "1205080710f403"
+    },
+    {
+      "frame_hex": "041a020807",
+      "name": "connect",
+      "note": "tag 3：接入电路，同号第二条连接到达即开始桥接",
+      "protobuf_hex": "1a020807"
+    },
+    {
+      "frame_hex": "0422020807",
+      "name": "bound",
+      "note": "tag 4：接入成功，此流后续字节与对端互通",
+      "protobuf_hex": "22020807"
+    },
+    {
+      "frame_hex": "1c2a1a0a06706565722d6212103230332e302e3131332e373a34303031",
+      "name": "punch_req",
+      "note": "tag 5：打洞请求，peer_id 由 relay 改写为请求方",
+      "protobuf_hex": "2a1a0a06706565722d6212103230332e302e3131332e373a34303031"
+    },
+    {
+      "frame_hex": "31322f0a06706565722d6112113139382e35312e3130302e393a3737373712125b323030313a6462383a3a315d3a34343434",
+      "name": "punch_ack",
+      "note": "tag 6：打洞应答，双方收到即同时探测",
+      "protobuf_hex": "322f0a06706565722d6112113139382e35312e3130302e393a3737373712125b323030313a6462383a3a315d3a34343434"
+    },
+    {
+      "frame_hex": "153a130801120f756e6b6e6f776e2063697263756974",
+      "name": "reject_code_1_unknown_circuit",
+      "note": "tag 7 + 错误码 1：connect 引用的电路不存在",
+      "protobuf_hex": "3a130801120f756e6b6e6f776e2063697263756974"
+    },
+    {
+      "frame_hex": "153a130802120f636972637569742065787069726564",
+      "name": "reject_code_2_circuit_expired",
+      "note": "tag 7 + 错误码 2：电路预留已过 TTL",
+      "protobuf_hex": "3a130802120f636972637569742065787069726564"
+    },
+    {
+      "frame_hex": "103a0e0803120a70656572206c696d6974",
+      "name": "reject_code_3_peer_limit",
+      "note": "tag 7 + 错误码 3：每 Peer 配额超限",
+      "protobuf_hex": "3a0e0803120a70656572206c696d6974"
+    },
+    {
+      "frame_hex": "183a160804121270726f746f636f6c2076696f6c6174696f6e",
+      "name": "reject_code_4_protocol",
+      "note": "tag 7 + 错误码 4：协议违规（首帧/状态机不合法）",
+      "protobuf_hex": "3a160804121270726f746f636f6c2076696f6c6174696f6e"
+    },
+    {
+      "frame_hex": "1a3a180805121470756e63682074617267657420756e6b6e6f776e",
+      "name": "reject_code_5_punch_target_unknown",
+      "note": "tag 7 + 错误码 5：打洞目标当前无控制链路可转发",
+      "protobuf_hex": "3a180805121470756e63682074617267657420756e6b6e6f776e"
+    },
+    {
+      "frame_hex": "163a14080612106a6f696e657220666f7262696464656e",
+      "name": "reject_code_6_forbidden_joiner",
+      "note": "tag 7 + 错误码 6：接入方不在电路允许名单",
+      "protobuf_hex": "3a14080612106a6f696e657220666f7262696464656e"
+    },
+    {
+      "frame_hex": "1a3a1808071214676c6f62616c2063617061636974792066756c6c",
+      "name": "reject_code_7_global_capacity",
+      "note": "tag 7 + 错误码 7：全站资源总量已打满",
+      "protobuf_hex": "3a1808071214676c6f62616c2063617061636974792066756c6c"
+    },
+    {
+      "frame_hex": "024200",
+      "name": "keep_alive",
+      "note": "tag 8：保活探测；空消息编码为 tag+len(0)，无字段",
+      "protobuf_hex": "4200"
+    },
+    {
+      "frame_hex": "054a0308f403",
+      "name": "keep_alive_ack",
+      "note": "tag 9：保活应答，捎带负载水位",
+      "protobuf_hex": "4a0308f403"
+    }
+  ],
+  "frame_note": "线上帧 = varint(protobuf 长度) + RelayMsg protobuf 字节；protobuf_hex 为去掉长度前缀的信封编码",
+  "proto3_note": "protobuf 3 语义：零值标量字段（如 ttl_secs=0、code=0、空串）不写入编码；消费方解码缺字段一律按零值处理",
+  "spec": "/p2p-base/relay/1（docs/protocol/specs/relay.md）；oneof tag 1-9 与错误码表见 crates/p2p-relay/src/messages.rs",
+  "vector_set": "relay-messages"
+}
