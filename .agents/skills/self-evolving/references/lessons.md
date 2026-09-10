@@ -488,3 +488,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-10 虚拟化轮：virtuoso itemContent 收到的 index 是「绝对索引 = position + firstItemIndex」，直接拿它索引自有数组在设置了 firstItemIndex 时越界（轻则 item undefined 空渲染、重则 undefined.id 崩溃）——先减回 firstItemIndex 再取数，或改用 data 参数。
 - 2026-09-10 虚拟化轮：followOutput 与前插锚定打架——其对「任意 size 增大且 notAtBottomBecause===SIZE_INCREASED」自动回底，会把用户视口拽到最新消息；聊天流的钉底跟随用应用侧实现（atBottomStateChange + 追加 effect 命令式 scrollToIndex）才两全。
 - 2026-09-10 虚拟化轮：并行会话再次实锤——本会话期间 main 被另一会话推进 3 个提交（63842f0→42fabaa→d8534db），worktree 隔离 + 提交前 `git merge main` 反向同步消化，全程零冲突零互踩。
+- 2026-09-10 PROTO 轮：多会话派单前必须先把 main 推 origin——本会话派单时未推，两个会话从陈旧 origin/main 建 worktree，契约文件（章程/registry）在它们树里不存在，事后补救发基线校正通知。
+- 2026-09-10 PROTO 轮：六卡并发跑全量 make check 会把开发机打满（协调者侧纯文件读都超时），且高负载有在册 gui-check/vitest 假红——多卡轮改「排队制」：各卡只跑轻量自验，全量门禁由协调者收尾串行执行。
+- 2026-09-10 PROTO 轮：协调者收录已完成交付的最省事路径是 `git cherry-pick -x <tip>`——归属会话随后 rebase 到 main 时补丁同源自动去重（PT3 实测逐字节判重跳过），完全避开 ff-only 分叉僵局。
+- 2026-09-10 PROTO 轮：会话完工判定以 git 实况（树净+断言全过）为准，不完全依赖其回话——两 talk 超时的卡按证据先行合入（worktree/分支不动，留增量续作余地），事后回执零冲突。

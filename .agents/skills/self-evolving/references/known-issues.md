@@ -540,3 +540,8 @@ failed: early eof（客户端侧超时中止）。
 - 定因：初始推导在 sizeTree 空时按 initialTopMostItemIndex 直接开窗，不与 totalCount 钳制（dist 内 `qo(Ye(F, b), X, j)` 路径）。
 - 修法：弃用 initialTopMostItemIndex，挂载 effect 里命令式 `scrollToIndex({ index: "LAST", align: "end" })`——与真实滚动同一回路，真实浏览器与 jsdom 行为一致；itemContent 同时对越界 index 防御返回 null。
 - 附：react-window v2 List 的 rowProps 缺省（undefined）会在 useVirtualizer 内 Object.keys(undefined) 崩，空对象也必须传。
+- 2026-09-10 PROTO 轮：bash 脚本里 `trap '… "$var"' EXIT` 引用函数内 `local` 变量——函数返回后变量出队，`set -u` 下脚本退出时报 `var: unbound variable`（主流程 PASS 后噪音，退出码侥幸为 0 易漏检）；修法=去 local 化或 trap 前快照到全局。本次由 CHECK_ROOT 外部运行路径暴露。
+- 2026-09-10 PROTO 轮：macOS 无 GNU `timeout` 命令；长命令防挂要用后台 job + 通知，或用 `perl -e 'alarm …'` 替代。
+- 2026-09-10 PROTO 轮：session_link_collect 的 claimToken 在目标会话「运行中」时可能报"历史暂不可读"——不是凭证失效，等目标 turn 结束后再收，或直接改为单向 send+下轮看文件系统实况。
+- 2026-09-10 PROTO 轮：`git worktree remove` 遇大体积 target/ 目录会拖到前台超时——后台跑 `rm -rf <dir> + git worktree remove --force + prune`，分批推进并逐个 echo remaining 校验。
+- 2026-09-10 PROTO 轮：判会话活性用文件 mtime 而非轮询回复——`ls -lT` 看产物最近修改时间，>30 分钟零活动+催办无响应才升级接管流程（dispatch 超时≠死亡）。

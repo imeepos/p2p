@@ -99,3 +99,5 @@
 - 规则：并行派单会话的 main 写入一律禁止；skill 笔记随自己的 feature 分支携带，由负责人合并时收编。
 - 先例失效：早期 docs(skill) 直推 main（a781f08/e9e06cc）的惯例不构成授权，以各轮负责人最新裁定为准；拿不准"这个提交能不能上 main"时，答案一律是随 feature 分支走。
 - 违规实例：80b7cab（skill 三条经验）直推 main，被记录违规。教训：仓库惯例会演进，「别的会话这么干过」不是授权，收尾前用一句话向负责人确认落点。
+- 2026-09-10 PROTO 轮：禁止在协调者侧对同一 git 写操作盲目重发——一次 cherry-pick 超时后原样重跑，把已收录的提交又 pick 了一遍，卡在空补丁 picking 态（要 --abort 才能解）；重发前必先 `git status` 核对现场。
+- 2026-09-10 PROTO 轮：协调者不得在归属会话仍运行时对其 worktree 做 rebase/add 等写操作——分支 ref 被 worktree 占用时连 `git branch -D` 都会拒绝；代合并走 cherry-pick -x（不动对方分支），分支删除等对方确认冻结后执行。
