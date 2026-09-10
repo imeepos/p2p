@@ -1,6 +1,8 @@
 // 长列表压力测试（react-virtuoso 路径）：5000 条消息下 DOM 节点数有界、
 // 滚动窗口移动、加载更早前插锚定、钉底跟随、引用跳转全部保持语义。
 // jsdom 无布局，经 VirtuosoMockContext + 几何桩驱动（见 test/jsdom-virt.ts）。
+// 并行满载下 virtuoso 前插锚定确定性失效（v0.1.7 CI 实证，Linux 102 复现），
+// 依赖 test 脚本的串行口径（--no-file-parallelism，同 network-tabs S4 口径）。
 import { act, render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "tauri": "tauri",
     "lint": "eslint .",
-    "test": "vitest run",
+    "test": "vitest run --no-file-parallelism",
     "test:serial": "vitest run --no-file-parallelism",
     "typecheck": "tsc -b",
     "check:i18n": "bash scripts/check/i18n-diff.sh"
