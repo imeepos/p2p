@@ -34,6 +34,21 @@ pub trait MuxControl: Send + Sync {
     /// 本端主动关闭整条连接（挂断）；对端 accept_stream 随之返回 None。
     /// 幂等：已关闭的连接上再调用必须无副作用。
     fn close(&self);
+
+    /// 本端观测到的连接远端端点（socket 地址 + 传输类别）；观测不到返回 None
+    /// （中继电路等）。identify 观测地址的数据源（design §7.2 观测顺序第一环）。
+    /// 加法默认 None：既有实现零改动（2026-09-02 检查轮 13 裁决 SecureConn
+    /// 形状不动，观测信息走 mux 接缝）。
+    fn remote_endpoint(&self) -> Option<RemoteEndpoint> {
+        None
+    }
+}
+
+/// 本端观测的连接远端端点：quic 标记 + socket 地址。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RemoteEndpoint {
+    pub quic: bool,
+    pub addr: std::net::SocketAddr,
 }
 
 /// 装箱为对象安全的复用句柄。

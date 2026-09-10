@@ -22,11 +22,23 @@ pub struct YamuxMux {
     open_permits: Arc<Semaphore>,
     /// 显式 close() 经此通道通知驱动任务；全部句柄丢弃同样使其归零收尾。
     close_tx: mpsc::Sender<()>,
+    /// 本端观测的连接远端端点（identify 观测地址数据源）；未捕获为 None。
+    remote: Option<super::RemoteEndpoint>,
 }
 
 impl YamuxMux {
     /// is_initiator：主动拨号侧传 true（决定 yamux stream id 奇偶，两端必须互异）。
     pub fn new(io: BoxedStream, is_initiator: bool, max_open_streams: usize) -> Self {
+        Self::new_with_remote(io, is_initiator, max_open_streams, None)
+    }
+
+    /// 带远端端点观测的构造：TCP accept/dial 传入 socket 层看到的对端地址。
+    pub fn new_with_remote(
+        io: BoxedStream,
+        is_initiator: bool,
+        max_open_streams: usize,
+        remote: Option<super::RemoteEndpoint>,
+    ) -> Self {
         let mode = if is_initiator {
             yamux::Mode::Client
         } else {
@@ -46,6 +58,7 @@ impl YamuxMux {
             inbound_rx: tokio::sync::Mutex::new(in_rx),
             open_permits: Arc::new(Semaphore::new(max_open_streams)),
             close_tx,
+            remote,
         }
     }
 }
@@ -81,6 +94,10 @@ impl MuxControl for YamuxMux {
         // 吞错豁免：Full=关闭已在途（幂等目标已成立）；Closed=驱动任务已退出
         // （连接已死，关闭目标已达成）。两态皆无需额外信号。
         let _ = self.close_tx.try_send(());
+    }
+
+    fn remote_endpoint(&self) -> Option<super::RemoteEndpoint> {
+        self.remote
     }
 }
 

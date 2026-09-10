@@ -59,6 +59,13 @@ impl MuxControl for QuicMux {
         // 0 号应用关闭码：本端主动挂断专用，对端 accept_bi 随之报错收敛
         self.conn.close(quinn::VarInt::from_u32(0), b"hangup");
     }
+
+    fn remote_endpoint(&self) -> Option<super::RemoteEndpoint> {
+        Some(super::RemoteEndpoint {
+            quic: true,
+            addr: self.conn.remote_address(),
+        })
+    }
 }
 
 /// quinn SendStream + RecvStream 的组合对象，适配 tokio AsyncRead/AsyncWrite。

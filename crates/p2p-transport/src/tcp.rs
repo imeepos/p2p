@@ -9,7 +9,7 @@ use socket2::{SockRef, TcpKeepalive};
 use tokio::net::{TcpListener, TcpStream};
 
 use p2p_identity::{Keypair, PeerId};
-use p2p_mux::{BoxedStream, YamuxMux, MAX_STREAMS_PER_CONN};
+use p2p_mux::{BoxedStream, RemoteEndpoint, YamuxMux, MAX_STREAMS_PER_CONN};
 use p2p_security::{NoiseXx, SecurityError, SecurityUpgrade};
 
 use crate::{SecureConn, Transport, TransportAddr, TransportError};
@@ -101,7 +101,15 @@ impl TcpTransport {
                 crate::ChainedPayload { inner: e },
             )
         })?;
-        let mux = Arc::new(YamuxMux::new(upgraded, false, MAX_STREAMS_PER_CONN));
+        let mux = Arc::new(YamuxMux::new_with_remote(
+            upgraded,
+            false,
+            MAX_STREAMS_PER_CONN,
+            Some(RemoteEndpoint {
+                quic: false,
+                addr: peer_addr,
+            }),
+        ));
         Ok(SecureConn { remote, mux })
     }
 }
@@ -141,13 +149,28 @@ impl Transport for TcpTransport {
         };
         stream.set_nodelay(true).map_err(|e| dial_err(addr, e))?;
         enable_keepalive(&stream, peer);
+        let remote_endpoint = match stream.peer_addr() {
+            Ok(source) => Some(RemoteEndpoint {
+                quic: false,
+                addr: source,
+            }),
+            Err(e) => {
+                tracing::debug!(error = %e, "tcp dial peer_addr unavailable");
+                None
+            }
+        };
         let boxed: BoxedStream = Box::new(stream);
         let (remote, upgraded) = self
             .noise
             .outbound(boxed, keypair, expected)
             .await
             .map_err(security_err)?;
-        let mux = Arc::new(YamuxMux::new(upgraded, true, MAX_STREAMS_PER_CONN));
+        let mux = Arc::new(YamuxMux::new_with_remote(
+            upgraded,
+            true,
+            MAX_STREAMS_PER_CONN,
+            remote_endpoint,
+        ));
         Ok(SecureConn { remote, mux })
     }
 }
