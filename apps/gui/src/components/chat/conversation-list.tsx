@@ -5,6 +5,10 @@ import { useTranslation } from "react-i18next";
 import { ConversationContextMenu } from "@/components/chat/conversation-context-menu";
 import { ConversationRow } from "@/components/chat/conversation-row";
 import { InvitePlaceholderRow } from "@/components/chat/invite-placeholder-row";
+import {
+  CONVERSATION_VIRTUAL_THRESHOLD,
+  VirtualConversationList,
+} from "@/components/chat/virtual-conversation-list";
 import { AsyncButton } from "@/components/feedback/async-button";
 import { Input } from "@/components/ui/input";
 import { filterEntries } from "@/lib/conversation-entry";
@@ -111,6 +115,15 @@ export function ConversationList({
           className="min-h-40 flex-1"
           icon={SearchIcon}
           title={t("chat.conversations.noMatch")}
+        />
+      ) : visible.length + visiblePending.length > CONVERSATION_VIRTUAL_THRESHOLD ? (
+        <VirtualConversationList
+          entries={visible}
+          pendingInvites={visiblePending}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          mutedOf={(entry) => convFlags[conversationKey(entry.kind, entry.id)]?.muted === true}
+          onRowContextMenu={(entry, anchor) => setMenu({ entry, anchor })}
         />
       ) : (
         <ul

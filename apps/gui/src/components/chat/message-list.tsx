@@ -1,83 +1,26 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AlertCircle, MessageSquare } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { AsyncButton } from "@/components/feedback/async-button";
-import type { Locale } from "@/i18n";
 import type { ChatMessageJson } from "@/lib/ipc-types";
-import { matchInviteForMessage } from "@/lib/group-invite-match";
 import { useChatStore } from "@/stores/chat-store";
-import { EmptyState } from "@/views/shared/empty-state";
 
 import { GroupInviteDialog, type GroupInviteTarget } from "./group-invite-dialog";
-import { GroupInviteCard } from "./group-invite-card";
-import { MessageBubble, type BubbleAvatar } from "./message-bubble";
-import { TimeDivider } from "./time-divider";
-import { needsTimeDivider } from "./time-divider-rule";
+import { MessageRow, type MessageRowContext } from "./message-row";
+import { PlainMessageColumn } from "./plain-message-column";
+import {
+  usePrependScrollCompensation,
+  useStickToBottom,
+} from "./plain-scroll-hooks";
+import {
+  VirtualMessageFlow,
+  type MessageFlowHandle,
+} from "./virtual-message-flow";
 
-const LOAD_OLDER_THRESHOLD_PX = 48;
+// 虚拟化阈值（长列表优化）：低于该值走普通渲染（全量 DOM、行为与历史实现
+// 完全一致），超过则切 react-virtuoso 虚拟流，DOM 节点数与消息总量解耦。
+export const MESSAGE_VIRTUAL_THRESHOLD = 200;
+
 const HIGHLIGHT_MS = 1600;
-// 历史加载失败错误态（IM-T50）：可读文案 + 原始错误详情 + 重试入口；失败不白屏。
-function HistoryErrorNotice({
-  detail,
-  onRetry,
-}: {
-  detail: string;
-  onRetry: () => Promise<unknown>;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div
-      data-testid="chat-history-error"
-      className="flex flex-col items-center gap-1.5 text-center"
-    >
-      <p className="flex items-center gap-1.5 text-sm font-medium text-destructive">
-        <AlertCircle aria-hidden className="size-4" />
-        {t("chat.historyLoadFailed")}
-      </p>
-      <p className="max-w-80 text-xs break-all text-muted-foreground">{detail}</p>
-      <AsyncButton
-        type="button"
-        size="sm"
-        variant="outline"
-        className="mt-1"
-        action={onRetry}
-        onError={(error) => console.error("[chat] 历史加载重试失败", error)}
-      >
-        {t("chat.retry")}
-      </AsyncButton>
-    </div>
-  );
-}
-
-// 更早分页失败信号（IM-T50）：顶部横幅 + 重试，禁止静默。
-function OlderErrorBanner({
-  detail,
-  onRetry,
-}: {
-  detail: string;
-  onRetry: () => Promise<unknown>;
-}) {
-  const { t } = useTranslation();
-  return (
-    <div
-      data-testid="chat-older-error"
-      className="flex items-center justify-center gap-2 py-2 text-xs"
-    >
-      <span className="text-destructive">{t("chat.loadOlderFailed")}</span>
-      <span className="max-w-64 truncate text-muted-foreground">{detail}</span>
-      <AsyncButton
-        type="button"
-        size="sm"
-        variant="outline"
-        action={onRetry}
-        onError={(error) => console.error("[chat] 更早历史重试失败", error)}
-      >
-        {t("chat.retry")}
-      </AsyncButton>
-    </div>
-  );
-}
 
 interface MessageListProps {
   peer: string;
@@ -90,14 +33,13 @@ interface MessageListProps {
   /** 失败文本重发入口（IM-T51）：透传给 me+failed+text 气泡。 */
   onRetry?: (message: ChatMessageJson) => void;
   /** WX1：气泡外侧头像（可选，缺省保持无头像布局）。 */
-  selfAvatar?: BubbleAvatar;
-  peerAvatar?: BubbleAvatar;
+  selfAvatar?: MessageRowContext["selfAvatar"];
+  peerAvatar?: MessageRowContext["peerAvatar"];
 }
 
-// 消息流容器：向上滚动接近顶部时触发加载更早页（beforeId 游标由 store 管理）；
-// 新消息/切换会话自动滚到底部。
-// 引用跳转（IM-T46B）：本地历史（当前已加载页）有则滚动居中并短暂高亮；
-// 无则由气泡内 QuoteBlock 显示占位文案，不白屏。
+// 消息流容器：普通/虚拟双路径，行为语义一致（钉底跟随、加载更早、引用
+// 跳转高亮）。引用跳转（IM-T46B）：本地历史（当前已加载页）有则滚动定位
+// 并短暂高亮；无则由气泡内 QuoteBlock 显示占位文案，不白屏。
 export function MessageList({
   peer,
   messages,
@@ -110,11 +52,9 @@ export function MessageList({
   selfAvatar,
   peerAvatar,
 }: MessageListProps) {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const stickBottomRef = useRef(true);
-  const lastFirstIdRef = useRef<string | null>(null);
-  const lastScrollHeightRef = useRef(0);
+  const flowRef = useRef<MessageFlowHandle | null>(null);
   const highlightTimerRef = useRef<number | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   // 加载失败信号（IM-T50）：按本组件 peer 从 store 读取；重试直接复用
@@ -124,39 +64,13 @@ export function MessageList({
   const selectPeerAction = useChatStore((s) => s.selectPeer);
   const loadOlderAction = useChatStore((s) => s.loadOlder);
   // IMC3：入群邀请卡片态与确认弹框（1:1 流专属；群流在 GroupMessageList 降级）。
-  // 弹框按需挂载：无 Router 上下文的裸渲染（既有测试）不触发导航钩子。
   const groupInvites = useChatStore((s) => s.groupInvites);
   const [inviteTarget, setInviteTarget] = useState<GroupInviteTarget | null>(null);
 
-  useEffect(() => {
-    // switching peer forces stick-to-bottom
-    stickBottomRef.current = true;
-  }, [peer]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el && stickBottomRef.current) el.scrollTop = el.scrollHeight;
-  }, [messages, peer]);
-
-  // 向上翻页前插补偿（UX5）：WebKit 无滚动锚定，前插更早历史后视口内容
-  // 整体跳位。以「首条消息 id 变化且旧首条仍在列表」识别前插，在布局提交
-  // 阶段把 scrollTop 平移高度增量，视口锚定不跳；与群消息流同款。
-  useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const firstId = messages[0]?.id ?? null;
-    const prevFirstId = lastFirstIdRef.current;
-    const prepended =
-      prevFirstId !== null &&
-      firstId !== prevFirstId &&
-      messages.some((m) => m.id === prevFirstId);
-    if (prepended && !stickBottomRef.current) {
-      const delta = el.scrollHeight - lastScrollHeightRef.current;
-      if (delta > 0) el.scrollTop += delta;
-    }
-    lastFirstIdRef.current = firstId;
-    lastScrollHeightRef.current = el.scrollHeight;
-  }, [messages]);
+  const virtual = messages.length > MESSAGE_VIRTUAL_THRESHOLD;
+  // 虚拟路径下普通路径的滚动钩子保持惰性（空数组不触发任何滚动副作用）
+  const stickBottomRef = useStickToBottom(scrollRef, virtual ? [] : messages, peer);
+  usePrependScrollCompensation(scrollRef, virtual ? [] : messages, stickBottomRef);
 
   useEffect(() => {
     return () => {
@@ -169,100 +83,86 @@ export function MessageList({
   const onScroll = () => {
     const el = scrollRef.current;
     if (!el) return;
-    const nearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 64;
-    stickBottomRef.current = nearBottom;
-    if (el.scrollTop < LOAD_OLDER_THRESHOLD_PX && hasMore && !loadingOlder) {
+    stickBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 64;
+    if (el.scrollTop < 48 && hasMore && !loadingOlder) {
       onLoadOlder();
     }
   };
 
-  // 被引用消息解析：只认当前已加载的本地历史（messagesByPeer 缓存页）。
   const resolveQuoted = (replyTo: string): ChatMessageJson | undefined =>
     messages.find((m) => m.id === replyTo);
 
   const openQuote = (message: ChatMessageJson) => {
     const replyTo = message.replyTo;
     if (!replyTo || !resolveQuoted(replyTo)) return;
-    const el = scrollRef.current?.querySelector(`[data-message-id="${replyTo}"]`);
-    // jsdom 无 scrollIntoView：可选调用，真实浏览器内滚动居中。
-    el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
-    setHighlightId(replyTo);
+    if (virtual) {
+      const index = messages.findIndex((m) => m.id === replyTo);
+      if (index >= 0) flowRef.current?.scrollToIndex(index);
+    } else {
+      const el = scrollRef.current?.querySelector(`[data-message-id="${replyTo}"]`);
+      // jsdom 无 scrollIntoView：可选调用，真实浏览器内滚动居中。
+      el?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    }
     if (highlightTimerRef.current !== null) {
       window.clearTimeout(highlightTimerRef.current);
     }
+    setHighlightId(replyTo);
     highlightTimerRef.current = window.setTimeout(() => {
       setHighlightId(null);
       highlightTimerRef.current = null;
     }, HIGHLIGHT_MS);
   };
 
+  const rowContext: MessageRowContext = {
+    language: i18n.language as MessageRowContext["language"],
+    groupInvites,
+    onCancelPending,
+    onReply,
+    onRetry,
+    resolveQuoted,
+    onQuoteOpen: openQuote,
+    onInviteTarget: setInviteTarget,
+    selfAvatar,
+    peerAvatar,
+  };
+
   return (
-    <div
-      ref={scrollRef}
-      onScroll={onScroll}
-      data-testid="message-scroll"
-      className="scroll-slim min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-3"
-    >
-      {olderError ? (
-        <OlderErrorBanner detail={olderError} onRetry={() => loadOlderAction(peer)} />
-      ) : null}
-      {loadingOlder ? (
-        <p className="py-2 text-center text-xs text-muted-foreground">
-          {t("chat.loadingHistory")}
-        </p>
-      ) : null}
-      {historyError ? (
-        <div
-          className={
-            messages.length === 0 ? "flex h-full items-center justify-center" : undefined
-          }
-        >
-          <HistoryErrorNotice detail={historyError} onRetry={() => selectPeerAction(peer)} />
-        </div>
-      ) : null}
-      {!loadingOlder && !historyError && messages.length === 0 ? (
-        <div className="flex h-full items-center justify-center">
-          <EmptyState icon={MessageSquare} title={t("chat.noMessages")} />
-        </div>
-      ) : null}
-      <div className="flex flex-col gap-y-2.5" data-testid="message-column">
-        {messages.map((message, index) => {
-          const divider = needsTimeDivider(index > 0 ? messages[index - 1] : null, message) ? (
-            <TimeDivider tsMs={message.tsMs} locale={i18n.language as Locale} />
-          ) : null;
-          if (message.kind === "groupInvite") {
-            return (
-              <Fragment key={message.id}>
-                {divider}
-                <GroupInviteCard
-                  message={message}
-                  invite={matchInviteForMessage(message, groupInvites)}
-                  onOpenConfirm={(invite) => setInviteTarget({ message, invite })}
-                />
-              </Fragment>
-            );
-          }
-          const replyTo = message.replyTo ?? null;
-          const quoted = replyTo ? resolveQuoted(replyTo) ?? null : null;
-          return (
-            <Fragment key={message.id}>
-              {divider}
-              <MessageBubble
-                message={message}
-                onCancelPending={onCancelPending}
-                quoted={quoted}
-                quotedMissing={replyTo !== null && !quoted}
-                highlighted={highlightId === message.id}
-                onReply={onReply}
-                onQuoteOpen={openQuote}
-                onRetry={onRetry}
-                avatar={message.sender === "me" ? selfAvatar : peerAvatar}
-              />
-            </Fragment>
-          );
-        })}
-      </div>
+    <div className="min-h-0 flex-1">
+      {virtual ? (
+        <VirtualMessageFlow
+          ref={flowRef}
+          items={messages}
+          itemId={(m) => m.id}
+          scrollerTestId="message-scroll"
+          canLoadOlder={hasMore}
+          loadingOlder={loadingOlder}
+          onTopReached={onLoadOlder}
+          olderError={olderError}
+          onRetryOlder={() => loadOlderAction(peer)}
+          highlightId={highlightId}
+          renderItem={(message, prev, highlighted) => (
+            <MessageRow
+              message={message}
+              prev={prev}
+              ctx={rowContext}
+              highlighted={highlighted}
+            />
+          )}
+        />
+      ) : (
+        <PlainMessageColumn
+          messages={messages}
+          scrollRef={scrollRef}
+          onScroll={onScroll}
+          loadingOlder={loadingOlder}
+          historyError={historyError}
+          olderError={olderError}
+          onRetryHistory={() => selectPeerAction(peer)}
+          onRetryOlder={() => loadOlderAction(peer)}
+          rowContext={rowContext}
+          highlightId={highlightId}
+        />
+      )}
       {inviteTarget ? (
         <GroupInviteDialog
           target={inviteTarget}
