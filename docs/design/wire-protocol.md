@@ -58,7 +58,7 @@
 
 | 协议 ID | 职责 | 当前实现状态 |
 |---|---|---|
-| `/p2p-base/identify/1` | 交换公钥、监听地址、观测地址 | 常量已登记；handler 随 S 装配接线 |
+| `/p2p-base/identify/1` | 交换公钥、监听地址、观测地址 | 已实现（crates/p2p-swarm/src/swarm/identify.rs，swarm 装配注入、用户 handler 优先；消息见 crates/p2p-protocol/src/identify.rs；v1 一问一答，规范页 docs/protocol/specs/identify.md） |
 | `/p2p-base/ping/1` | 往返延迟探测、连通性保活 | 常量已登记；handler 随 S 装配接线 |
 | `/p2p-base/rendezvous/1` | 签名注册/查询节点地址（带 TTL） | 客户端与注册表已实现（crates/p2p-discovery/src/rendezvous/，经 link 接缝对接传输） |
 | `/p2p-base/relay/1` | 中继电路申请、打洞信令 | 已实现（crates/p2p-relay/src/control.rs） |
