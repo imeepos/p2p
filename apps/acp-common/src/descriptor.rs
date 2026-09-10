@@ -67,16 +67,7 @@ pub fn write_descriptor(home: &Path, descriptor: &LocalAgentDescriptor) -> io::R
     fs::create_dir_all(&dir)?;
     let path = descriptor_path(home);
     let tmp = dir.join(format!("{}.tmp", DESCRIPTOR_FILE));
-    {
-        let mut file = fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .mode(0o600)
-            .open(&tmp)?;
-        file.write_all(serde_json::to_vec_pretty(descriptor)?.as_slice())?;
-        file.flush()?;
-    }
+    write_private_file(&tmp, serde_json::to_vec_pretty(descriptor)?.as_slice())?;
     fs::rename(&tmp, &path)?;
     Ok(path)
 }
