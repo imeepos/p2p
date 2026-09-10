@@ -324,3 +324,16 @@ registry/导航类登记改动独立小提交；收尾按 AGENTS.md 四步（reb
 - 2026-09-10 检查轮 P1（项目负责人）：PROTO 轮开工。前置调研完成（内部 16 ID 清单 + libp2p/NIPs/Matrix 外部参照）；章程与 registry 基线由负责人定稿落 main（2f6f180+8654a62）；六卡派专属新会话并行，账本同步登记。合并顺序：PT1/PT2（机械件）优先，PT3-PT6 文档随后逐卡 ff；全部合落后负责人做终验（全量 make check + registry 门禁 + 规范页抽检）并归档会话。
 - 2026-09-10 检查轮 P2（项目负责人）：两处环境与流程事件处置。①派单时 main 未先推远端致 PT2/PT3 worktree 基线落在陈旧 783d971（缺章程），推送 main 后发基线校正通知（教训入册：多会话派单前先 push 基线，使 origin/main 即契约基线）；②六卡并发全量门禁把机器打满（协调者纯文件操作超时），按轮 267 先例改验收排队制：各卡轻量自验+push，全量 make check 由协调者验收串行执行。PT1 门禁实战抓到真漂移（wire-protocol 缺 /llm-share/proxy|offer 两行，PT6 范围消化）+ 自测 10/10；协调者代修其 EXIT trap 引用 local 撞 set -u 缺陷（7fc655f，隔离 worktree 按轮 71 先例，消融=修复前必现）。PT6 深审通过后按轮 19「以 git 实况为准」证据合并（d623223，两次 talk 超时，其 worktree/分支未动留增量余地）；PT1 经 rebase 后 ff 合入（a9edb23+727a25f），主树 protocol-registry 门禁正式转绿（16/16 全核对）。余：PT2/PT5 在途，PT3/PT4 已催在新 main 上 rebase+push。
 - 2026-09-10 检查轮 P3（项目负责人）：**PROTO 轮收官**。六卡全 done 并全部入 main：PT1 门禁（a9edb23+代修 727a25f）/PT3 控制面五页（299a7fb）/PT4 IM 族五页（5d255a5+d8534db 采纳定稿）/PT6 桥族两页+内置表对齐（d623223）/PT5 生态族四页（f50fb17）/PT2 向量库+conformance crate（62c37d4/7787642/4d28dbf）。规格成果：16 协议 ID 规范页全覆盖、registry.toml 16 ID 机械门禁转绿（525 文件扫描双向核对）、8 组黄金向量+第三方消费指引、conformance crate 主树 TEST_EXIT=0+CLIPPY_EXIT=0（含消融×2）。合并方式记录：PT3/PT4/PT5/PT2 按轮 55 先例 cherry-pick -x 收录（各会话 rebase 自动去重，PT3 已实测去重成功），PT6/PT1 按 git 实况证据合并。**用户裁决：终验免跑全局 make check（改动以文档为主）**，全局门禁留待下一波次例行执行；此前已取得的机械证据：registry 门禁 PASS、conformance 测试/clippy 双绿、六卡轻量自验全过、六份完工报告与冻结待命回执齐。现场清理与六会话归档随即执行。
+
+## INTEROP 互操作证明轮（2026-09-10 派单，项目负责人协调）
+
+定位：实证 PROTO 规范体系的可接入性——以独立第三方语言参考节点仅凭 docs/protocol 文档与本仓栈真实互通；同时闭合 Core 面 identify/1 的 planned 空洞。契约出处：docs/protocol/ 全目录 + spec-charter §9。
+
+| 任务单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| IV1 Python 参考节点 mininode | p2p-INTEROP-IV1（专属新会话） | feat/interop-1-mininode | examples/mininode-python/** + scripts/interop/** 全新增 | minnode↔p2pctl 真实双进程互通冒烟脚本 exit 0（身份互认+ping RTT+rendezvous 注册查询）；README 记录所依据文档章节与传输路径决策 |
+| IV2 identify/1 handler 实现 | p2p-INTEROP-IV2（专属新会话） | feat/interop-2-identify | crates/p2p-protocol 或 p2p-swarm（加法）+ crates/p2p-itest 新增 identify 测试 + wire-protocol §3.2 行 + specs/identify.md + registry.toml impl 字段（独立小提交） | 双节点 identify 互通 itest 绿 + registry/specs/wire-protocol 三处同步 + make check 全绿 |
+
+规则：延续排队制教训，两卡范围零交集可并行；make check 由 IV2 收尾单卡串行执行即可（IV1 为新增脚本目录，跑受影响面）；registry/导航登记改动独立小提交；收尾按 AGENTS.md 四步，合并由协调者统一执行。
+
+- 2026-09-10 检查轮 I1（项目负责人）：INTEROP 轮立项。可行性预探：Python 3.9.6 + aioquic 1.2.0 可装（QUIC 路径首选，TCP/Noise 兜底由 IV1 首提交 FEASIBILITY 决策）；p2pctl node 命令面在位作为对端节点。两卡派专属新会话并行。
