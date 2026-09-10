@@ -337,3 +337,4 @@ registry/导航类登记改动独立小提交；收尾按 AGENTS.md 四步（reb
 规则：延续排队制教训，两卡范围零交集可并行；make check 由 IV2 收尾单卡串行执行即可（IV1 为新增脚本目录，跑受影响面）；registry/导航登记改动独立小提交；收尾按 AGENTS.md 四步，合并由协调者统一执行。
 
 - 2026-09-10 检查轮 I1（项目负责人）：INTEROP 轮立项。可行性预探：Python 3.9.6 + aioquic 1.2.0 可装（QUIC 路径首选，TCP/Noise 兜底由 IV1 首提交 FEASIBILITY 决策）；p2pctl node 命令面在位作为对端节点。两卡派专属新会话并行。
+- 2026-09-10 检查轮 I2（项目负责人）：**INTEROP 轮收官**。IV1 Python 参考节点 mininode 交付（FEASIBILITY 定稿 QUIC/aioquic+mTLS 实证探针/身份互认/帧封装/ping/rendezvous 签名注册查询/冒烟脚本/SPEC-GAPS 清单六条），ff 合入 main（f610b72/a727623/28c6d8b）；协调者主树复跑冒烟 **ALL-GREEN exit 0**（REGISTER/QUERY/PING-OK rtt 0.4ms）。IV2 identify/1 v1 六提交 cherry-pick -x 收录 main（6082d91 mux 观测接缝/59f3b87 identify 实现/7c806da+cf17172 文档三处同步/923039c+a3b2898 锁文件）；主树定向验证：protocol+swarm 全量 T1=0、identify_wave 4/4 T2=0、clippy -D warnings T3=0、registry 门禁 PASS T4=0。**SPEC-GAPS 是本轮最高价值产出**：GAP-1 阻断级（rendezvous 链路实为 u32be 前缀，与 wire-format §6 varint 表述不符，按代码为准回写）+GAP-2..6 共六条，留待 GAPS 修订卡回写规范。两会话验收通过，现场清理与会话归档随即执行。
