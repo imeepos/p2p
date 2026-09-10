@@ -303,3 +303,22 @@ E8 候选（E7 收口时登记）：豁免清单收缩（facade/cli/log/K2 范�
 
 - 2026-09-06 IMC 轮收官（项目负责人）：三卡全绿收官并完成三会话归档。IMC1 合入 09bad3d（协调者主树权威验收 IMC1_ACC_EXIT=0：p2p-chat 全量+clippy -D warnings+双节点 group_invite_consent E2E ok+make check 158 组 ok）；IMC2 合入 fe8929d 系（IMC2_ACC_EXIT=0：src-tauri 81 用例含 ginvite_commands+p2p-cli+CLI-PARITY-OK 四映射实测+make check 157 组 ok）；IMC3 前已收官（IMC3_ACC_EXIT=0，825 用例）。IMC2 的 make check 即三卡合落后全链联验。IMC1/IMC3/IMC2 三会话确认无误后依序归档，worktree/分支自清。账本登记 IMC1/IMC2/IMC3 三卡翻 done。事故记录：验收期间磁盘 100% 满（/tmp 残留 12 个历史波次验收 target 共约 66Gi：as1/as2/t19/t20/t21/t49/t43/g4doc/p3e 等），协调者核实无进程引用后清理（DOC2 在途 doc2-mc-target 保留未动）后重跑全绿——多波次并存下「造数不过夜」执行不力为系统性风险，建议后续轮立卡机械清扫守卫。
 DOC 波收官（2026-09-06）：DOC1=032b91d 五文件 806 行、DOC2=3048c05 GUI 文档页 13 文件 381 行，两卡机械验收全绿、会话均已归档；期间磁盘 StorageFull 环境事件处置（/tmp 清 4G+复验绿）与 main 竞速两轮再同步，全程留痕。
+
+## PROTO 协议规范化轮（2026-09-10 派单，项目负责人协调）
+
+定位：形成第三方仅凭文档即可实现兼容节点的完整协议规范体系。契约出处：
+docs/protocol/spec-charter.md（章程 v1，2f6f180）+ docs/protocol/registry.toml（16 ID 基线）
++ docs/research/2026-09-10-protocol-standardization-survey.md（调研）。D1 裁决：不改线协议，
+漂移只登记不改码。六卡并行、文件域零交集；各会话禁改 coordination.md 与账本；
+registry/导航类登记改动独立小提交；收尾按 AGENTS.md 四步（rebase main → ff-only → 清 worktree → 删分支）。
+
+| 任务单 | 负责会话 | 分支 | 范围 | 验收 |
+|---|---|---|---|---|
+| PT1 注册表机械门禁 | p2p-PROTO-PT1（专属新会话） | feat/proto-1-registry-gate | scripts/check/protocol-registry.sh + Makefile + scripts/check/fast.sh + scripts/check/tests/ 自测挂接 | checker 双向核对红绿自测过 + 注入未登记 ID 必红 + make check 全绿 |
+| PT2 符合性向量库 | p2p-PROTO-PT2（专属新会话） | feat/proto-2-conformance-vectors | crates/p2p-conformance/** + docs/protocol/vectors/**（8 组 JSON+README） | cargo test -p p2p-conformance 全绿（含消融）+ clippy -D warnings + ≥8 向量文件 + make check 全绿 |
+| PT3 规范页·底座控制面 | p2p-PROTO-PT3（专属新会话） | docs/proto-3-core-specs | docs/protocol/specs/{identify,ping,rendezvous,relay,circuit}.md 五新文件 | 五页在位且骨架 8 章齐全、≤300 行、MUST 语言在位、常量抽检 8 点命中、make check 全绿 |
+| PT4 规范页·IM 族 | p2p-PROTO-PT4（专属新会话） | docs/proto-4-im-specs | docs/protocol/specs/im-{chat,group,invite,ginvite,profile}.md 五新文件 | 同 PT3 口径（常量抽检含 MIME 白名单/64MiB/roster≤32 等） |
+| PT5 规范页·生态族 | p2p-PROTO-PT5（专属新会话） | docs/proto-5-ecosystem-specs | docs/protocol/specs/{llm-share-proxy,llm-share-redeem,llm-share-offer,a2a}.md 四新文件 | 同 PT3 口径 + 线格式以源码确证（只读），漂移逐条登记 |
+| PT6 内置表对齐+桥族规范页 | p2p-PROTO-PT6（专属新会话） | docs/proto-6-catalog-bridge-specs | docs/protocol/specs/{dsh-acp,repair-mcp}.md + docs/protocol/builtin-and-versioning.md + docs/design/wire-protocol.md | 两页在位同口径 + wire-protocol.md 含全部 16 ID 登记行 + builtin 全表对齐 registry 现状 |
+
+- 2026-09-10 检查轮 P1（项目负责人）：PROTO 轮开工。前置调研完成（内部 16 ID 清单 + libp2p/NIPs/Matrix 外部参照）；章程与 registry 基线由负责人定稿落 main（2f6f180+8654a62）；六卡派专属新会话并行，账本同步登记。合并顺序：PT1/PT2（机械件）优先，PT3-PT6 文档随后逐卡 ff；全部合落后负责人做终验（全量 make check + registry 门禁 + 规范页抽检）并归档会话。
