@@ -484,3 +484,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-09 authz S2 轮：audit 记录的 before 快照受制于既有 API 返回面（bind 不回吐旧绑定），克制条款下不为审计扩 API——以 note 区分 created/upsert 并在模块 doc 声明局限，比给 p2p-authz 加 previous_role_id 字段更符合「仅加 audit 模块」的边界约束。
 - 2026-09-09 authz S3 GUI 角色管理轮：给 GuiConfig（跨进程共享配置文件）加字段的隐性联动面 = Rust types.rs + config.rs Default + TS ipc-types（optional）+ settings config-schema 的 toFormValues/toGuiConfig（漏掉则设置页保存整包覆写把 CLI 侧已设值冲回缺省）+ 5 个测试字面量夹具 + types/tests.rs JSON 逐字断言；字段级 serde default 保旧文件可读，但「写回」保真靠每一层都带上该字段。
 - 2026-09-09 authz S3 轮：报告形状跨语言错位——p2p-authz 存储类型（Binding/Role）是 snake_case，p2p-cli 逻辑层报告（BindReport/RoleView 等）才是 camelCase；GUI 契约面复用「p2p-cli 报告 + 本地 camelCase 视图映射存储类型」双层结构，判据 = grep 各层 serde rename_all，别按「库类型直接透出」想当然。
+- 2026-09-10 虚拟化轮：react-virtuoso firstItemIndex 前插时必须「减小」新增条数（官方语义：prepend = firstItemIndex 递减）；方向搞反（增大）锚定反向补偿，视口跳到顶部且 scrollTop 出现负值（jsdom 不钳制）。
+- 2026-09-10 虚拟化轮：virtuoso itemContent 收到的 index 是「绝对索引 = position + firstItemIndex」，直接拿它索引自有数组在设置了 firstItemIndex 时越界（轻则 item undefined 空渲染、重则 undefined.id 崩溃）——先减回 firstItemIndex 再取数，或改用 data 参数。
+- 2026-09-10 虚拟化轮：followOutput 与前插锚定打架——其对「任意 size 增大且 notAtBottomBecause===SIZE_INCREASED」自动回底，会把用户视口拽到最新消息；聊天流的钉底跟随用应用侧实现（atBottomStateChange + 追加 effect 命令式 scrollToIndex）才两全。
+- 2026-09-10 虚拟化轮：并行会话再次实锤——本会话期间 main 被另一会话推进 3 个提交（63842f0→42fabaa→d8534db），worktree 隔离 + 提交前 `git merge main` 反向同步消化，全程零冲突零互踩。

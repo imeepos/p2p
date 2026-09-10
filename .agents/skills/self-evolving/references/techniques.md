@@ -513,3 +513,13 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-09 S3 轮 radix Select 在 jsdom 的测试交互：本地桩 `if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {}` + `fireEvent.click(trigger)` → `findByRole("option")` → `fireEvent.click(option, { button: 0, pointerType: "mouse" })`（endpoint-add-dialog-ux3 先例）；Select 的受控 value 不可用 `x || undefined` 造「未选态」（uncontrolled→controlled 警告），直接绑 "" 让 SelectValue 走 placeholder。
 - 2026-09-09 `cargo clippy` 没有 `--message-format` flag（clippy-driver 报 Unrecognized option，那是 rustc 的）；要短格式/清单化 lint 输出，用全量落盘 `cargo clippy ... > /tmp/x.log 2>&1` 再 grep "^error"/"-->" 提文件行号清单。
 - 2026-09-09 macOS 自带 grep 无 `-P`（PCRE），unicode 区间扫描（emoji/全角符号巡检 diff）用 perl 直读退出码：`perl -ne 'exit(0) if /[\x{1F300}-\x{1FAFF}]/; exit(1) if eof' /tmp/d.diff`（0=命中 1=干净），别用 `| head` 后猜退出码。
+
+## jsdom 虚拟化测试基座（2026-09-10 聊天长列表虚拟化轮实证，apps/gui/src/test/jsdom-virt.ts 已沉淀）
+- react-virtuoso 4.18 在 jsdom 渲染恒 0 items，三道守卫：RO 回调 `offsetParent !== null` 短路、scrollToCallback `offsetHeight === 0` 静默跳过、尺寸全靠 offsetHeight/scrollHeight（jsdom 全 0）。官方出路 = `VirtuosoMockContext.Provider value={{viewportHeight, itemHeight}}`（内部走 fixedItemHeight，绕过全部 DOM 测量），再补几何桩：offsetHeight→600、getBoundingClientRect→600×400、scrollHeight→data-scroll-height 属性、Element.scrollTo/scrollBy polyfill 成「写 scrollTop + 排队延迟派发 scroll」。
+- scroll 事件必须异步派发（真浏览器语义）：同步 dispatch 会与 virtuoso 多步锚定（前插 scrollBy 补偿）重入竞态。
+- startReached/endReached 走 `zt(200)` 200ms 节流流：固定时长 settle（70ms 级）与它竞态、忽绿忽红；必须条件轮询 settleUntil(cond, budget)（每 50ms 冲刷排队 scroll + 查条件），2000ms 预算内必到。
+- followOutput 在 jsdom 不可依赖（其回底走延迟订阅链）；应用侧钉底（atBottomStateChange 记态 + 尾部追加 effect 里 scrollToIndex({index:"LAST", align:"end"})）命令式路径已实证两环境一致。
+- react-window v2 List 定高行（rowHeight 数值 + style height）纯 props 计算，jsdom 天然可测，但 rowProps 必传（空对象也行），缺了在 useVirtualizer 里 Object.keys(undefined) 崩。
+
+## 虚拟化改造零回归的阈值双路径（2026-09-10 实证）
+- 短列表（≤200 消息 / ≤100 会话）保留原全量渲染路径、长列表才切虚拟：存量行为测试夹具全是小列表，零改动全绿（1367 用例），虚拟路径行为由新增压力测试独立覆盖；行渲染抽成共享组件（MessageRow/GroupMessageRow）保证两条路径 DOM 结构一致。

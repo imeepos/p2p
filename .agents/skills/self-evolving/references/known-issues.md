@@ -534,3 +534,9 @@ failed: early eof（客户端侧超时中止）。
 - 两型修法（断言语义零改动）：(a) 异步链路有等待对象 → 给 waitFor/findBy/vi.waitFor 加显式 `{ timeout: 10_000 }` 预算（含共享夹具 renderConnected/newSession 等必经路径）；(b) 纯同步用例无可等待对象 → `vi.setConfig({ testTimeout: 20_000 })` 文件级放宽（it 第三参逐用例写太碎）。
 - 文件级错（"Failed to start forks worker"、transform/setup/tests 全 0ms）= worker 没起来测试体根本没执行，测试内等待无法治——只能串行口径（`pnpm test:serial`）+ 测试文件头标注，勿浪费时间去"修"测试。
 - 对照统计陷阱：vitest 报告里 Errors（worker 未启动）不进 Test Files failed 计数；「默认并行不劣于基线」的对照必须把 failed 与 Errors 分开列，否则两边数字口径不同没法比（本轮分支 0 failed + 8 Errors vs main 同窗口 6 failed 文件 10 用例红）。
+
+## 2026-09-10 聊天长列表虚拟化轮：initialTopMostItemIndex 在 sizeTree 未就绪时给出越界窗口
+- 症状：Virtuoso 设 initialTopMostItemIndex=N-1 后（jsdom/VirtuosoMockContext 即 sizeTree 空档形态），初始 listState 推导出 [N..N+窗口] 的越界区间，itemContent 收到 ≥totalCount 的索引——轻则整屏空渲染、重则 `undefined.id` TypeError 崩树。
+- 定因：初始推导在 sizeTree 空时按 initialTopMostItemIndex 直接开窗，不与 totalCount 钳制（dist 内 `qo(Ye(F, b), X, j)` 路径）。
+- 修法：弃用 initialTopMostItemIndex，挂载 effect 里命令式 `scrollToIndex({ index: "LAST", align: "end" })`——与真实滚动同一回路，真实浏览器与 jsdom 行为一致；itemContent 同时对越界 index 防御返回 null。
+- 附：react-window v2 List 的 rowProps 缺省（undefined）会在 useVirtualizer 内 Object.keys(undefined) 崩，空对象也必须传。
