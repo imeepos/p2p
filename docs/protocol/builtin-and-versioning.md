@@ -1,7 +1,9 @@
 # 内置协议、登记流程与版本演进（builtin-and-versioning）
 
-状态：v1。实现状态逐条以 crates/ 代码为准（2026-09-06 main）；
-与 docs/design/wire-protocol.md 第 3.2 节逐条核对过的差异见第 1.3 节。
+状态：v2（PROTO 轮全表刷新）。实现状态逐条以 crates/ apps/ 代码为准（2026-09-10）；
+全表与 docs/protocol/registry.toml（schema 1）16 个公开协议 ID 逐条一致，与
+docs/design/wire-protocol.md 第 3.2 节的核对结果见第 1.3 节。机器可读索引以
+registry.toml 为准，本文是人读对齐视图。
 
 ## 1. 内置协议 ID 全表
 
@@ -16,7 +18,7 @@
 | /p2p-base/rendezvous/1 | 签名注册/查询节点地址（带 TTL） | 已实现：客户端 + 服务端注册表（crates/p2p-discovery/src/rendezvous/） |
 | /p2p-base/relay/1 | 中继电路申请、打洞信令控制流 | 已实现（crates/p2p-relay/src/control.rs） |
 | /p2p-base/circuit/1 | 中继电路数据桥接（密文透传） | 已实现（crates/p2p-relay/src/circuit.rs、state.rs） |
-| /dsh-acp/1 | ACP 桥握手 + ndjson 字节透传 | 常量已登记；桥实现未落（规划中，未实现，见 docs/design/acp-over-p2p-design.md） |
+| /dsh-acp/1 | ACP 桥握手 + ndjson 字节透传 | 已实现（apps/acp-common 共享面 + apps/acp-agent agent 侧端点；操作者侧 crates/acp-pump；规范页 specs/dsh-acp.md） |
 
 ### 1.2 已登记的业务协议（同一路由机制，无特权差别）
 
@@ -25,23 +27,30 @@
 | /im/chat/1 | crates/p2p-chat/src/wire.rs | 已实现（好友 1:1 私聊，一流一事务） |
 | /im/group/1 | crates/p2p-chat/src/group_wire.rs | 已实现（群聊：消息/roster/踢出/退出席） |
 | /im/invite/1 | crates/p2p-chat/src/wire_invite.rs | 已实现（邀请制加好友生命周期） |
+| /im/ginvite/1 | crates/p2p-chat/src/ginvite_wire.rs | 已实现（同意制入群邀请，owner-only 发起） |
+| /im/profile/1 | crates/p2p-chat/src/profile_wire.rs | 已实现（对端节点资料按需查询，纯读） |
 | /llm-share/proxy/1 | crates/llm-share-proxy/src/wire.rs | 已实现（E10 额度共享代理） |
 | /llm-share/offer/1 | crates/llm-share-offer | 已实现（能力声明发布） |
-| /llm-share/redeem/1 | crates/llm-share-link | 已登记（llm-share-link-design v2；实现随波落地） |
-| /repair/mcp/1 | crates/repair-bridge/src/lib.rs:6 | 已实现（MCP stdio 字节隧道哑泵） |
+| /llm-share/redeem/1 | crates/llm-share-link | 已实现（分享链接兑换：请求 token，响应 ok/结构化拒绝码） |
+| /a2a/1 | crates/a2a | 已实现（A2A 智能体：card 相发布/发现/订阅 + task 相 JSON-RPC，1 task=1 流） |
+| /repair/mcp/1 | crates/repair-bridge/src/lib.rs:6 | 已实现（MCP stdio 字节隧道哑泵；规范页 specs/repair-mcp.md） |
 
 测试专用 ID（/itest/echo/1、/p2p-lab/echo/1、/test/echo/1 等）仅存在于测试代码，
 不构成公开协议面，第三方无需实现。
 
-### 1.3 与 wire-protocol.md 第 3.2 节的核对结果
+### 1.3 与 wire-protocol.md 第 3.2 节及 registry.toml 的核对结果
 
-- 全表 7 行中 /repair/mcp/1 与 proto_ids 六项全部对上；/dsh-acp/1 的
-  "桥随 ACP 波落地" 状态至今未变，仍是规划中。
+- 全表 16 行（§1.1 六行 + §1.2 十行）与 registry.toml 16 个公开协议 ID 逐条一致；
+  与 wire-protocol.md §3.2 全表亦已对齐（本轮补登 /llm-share/proxy/1、
+  /llm-share/offer/1 两行，并刷新 /dsh-acp/1、/repair/mcp/1、/llm-share/redeem/1
+  状态列为已实现）。
 - 差异 1：wire-protocol.md 第 9 节速查表写"内置协议 ID（5 个）、
   lib.rs:9-13"，现 proto_ids 实为 6 项（9-14 行）——文档滞后于代码，已在本文
   按 6 项登记（漂移登记，不改设计文档）。
 - 差异 2：wire-protocol.md 速查表引 crates/p2p-mux/src/lib.rs:36 的
   MAX_STREAMS_PER_CONN=64，现常量位于 :73（值未变，行号漂移）。
+- /p2p-base/identify/1 为全表唯一 impl=planned 条目（registry 对应 spec_status=draft，
+  无规范页）；其余 15 个 ID 均 implemented 且已建/在建规范页（specs/，PROTO 轮交付）。
 
 ## 2. 业务协议 ID 命名与登记流程
 
@@ -117,7 +126,7 @@
 | 能力 | 状态 |
 |---|---|
 | identify（公钥/地址交换协议） | 规划中，未实现（仅常量登记） |
-| ACP 桥（/dsh-acp/1） | 规划中，未实现（设计见 docs/design/acp-over-p2p-design.md） |
+| ACP 桥（/dsh-acp/1） | 已实现（apps/acp-agent；每连接会话上限 4 与 session-cap-reached 码为已登记未强制预留，见 specs/dsh-acp.md §8） |
 | gossip pubsub（发布订阅） | 规划中，未实现（协调表 E5 候选登记，无任何代码） |
 | metrics 观测 | 中继指标已实现（relay metrics + CLI），全栈 metrics 未实现 |
 | QUIC/TCP 之外的新传输 | 规划外；ALPN/域串版本段为未来演进预留 |

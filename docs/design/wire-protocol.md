@@ -63,9 +63,11 @@
 | `/p2p-base/rendezvous/1` | 签名注册/查询节点地址（带 TTL） | 客户端与注册表已实现（crates/p2p-discovery/src/rendezvous/，经 link 接缝对接传输） |
 | `/p2p-base/relay/1` | 中继电路申请、打洞信令 | 已实现（crates/p2p-relay/src/control.rs） |
 | `/p2p-base/circuit/1` | 中继电路数据桥接（密文透传） | 已实现（crates/p2p-relay/src/circuit.rs、state.rs） |
-| `/repair/mcp/1` | repair-helper 与 repair-bridge 的 MCP stdio 字节隧道 | repair-bridge 哑泵（T20） |
-| `/dsh-acp/1` | ACP 桥握手 + ndjson 字节透传（acp-agent/acp-console） | 常量已登记；桥随 ACP 波落地（acp-over-p2p-design.md） |
-| /llm-share/redeem/1 | 分享链接兑换：请求 {token}，响应 ok/结构化拒绝码（llm-share-link-design v2） | 已登记；实现随 llm-share-link 波落地 |
+| `/repair/mcp/1` | repair-helper 与 repair-bridge 的 MCP stdio 字节隧道 | 已实现（crates/repair-bridge 哑泵 + crates/repair-helper 受理；规范页 docs/protocol/specs/repair-mcp.md） |
+| `/dsh-acp/1` | ACP 桥握手 + ndjson 字节透传（acp-agent/acp-console） | 已实现（apps/acp-common + apps/acp-agent，操作者侧 crates/acp-pump；规范页 docs/protocol/specs/dsh-acp.md） |
+| /llm-share/redeem/1 | 分享链接兑换：请求 {token}，响应 ok/结构化拒绝码（llm-share-link-design v2） | 已实现（crates/llm-share-link） |
+| `/llm-share/offer/1` | 能力声明发布通道：声明模型/签名注册/TTL 失效订阅簿 | 已实现（crates/llm-share-offer） |
+| `/llm-share/proxy/1` | 闲置 LLM 额度共享代理：三闸准入、SSE 逐帧转发、预授权结算 | 已实现（crates/llm-share-proxy/src/wire.rs） |
 | `/a2a/1` | A2A 智能体 card 相（list/get/subscribe/push/remove）+ task 相（JSON-RPC 2.0，1 task=1 流） | 协议 ID 自 crates/a2a 定义（llm-share-offer 先例），随 A2A 波落地（a2a-over-p2p-design.md） |
 
 业务协议 ID（如 `/myapp/chat/1`）与内置 ID 使用完全相同的注册与路由机制，无特权差别。
