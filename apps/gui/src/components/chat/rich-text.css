@@ -1,0 +1,241 @@
+/* 聊天富文本渲染样式：作用域锁定 .chat-rich-text，不外溢影响其他页面。
+   颜色取自 index.css 主题变量；hljs 暗色 token 手工对齐 github-dark 配色。 */
+
+.chat-rich-text {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  overflow-wrap: break-word;
+}
+
+.chat-rich-text > :first-child {
+  margin-top: 0;
+}
+
+.chat-rich-text > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-rich-text p {
+  margin: 0.25rem 0;
+  /* IM 换行语义：markdown 软换行的 \n 文本在段落内视觉换行（与旧纯文本对齐） */
+  white-space: pre-wrap;
+}
+
+.chat-rich-text h1,
+.chat-rich-text h2,
+.chat-rich-text h3,
+.chat-rich-text h4,
+.chat-rich-text h5,
+.chat-rich-text h6 {
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.chat-rich-text h1 {
+  font-size: 1.125rem;
+}
+
+.chat-rich-text h2 {
+  font-size: 1.05rem;
+}
+
+.chat-rich-text h3,
+.chat-rich-text h4 {
+  font-size: 0.95rem;
+}
+
+.chat-rich-text h5,
+.chat-rich-text h6 {
+  font-size: 0.875rem;
+}
+
+.chat-rich-text ul,
+.chat-rich-text ol {
+  margin: 0.25rem 0;
+  padding-left: 1.4rem;
+}
+
+.chat-rich-text ul {
+  list-style: disc;
+}
+
+.chat-rich-text ol {
+  list-style: decimal;
+}
+
+.chat-rich-text li {
+  margin: 0.125rem 0;
+}
+
+.chat-rich-text li.task-list-item,
+.chat-rich-text ul.contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.chat-rich-text li.task-list-item input[type="checkbox"] {
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.chat-rich-text del,
+.chat-rich-text s {
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.chat-rich-text a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.dark .chat-rich-text a {
+  color: #60a5fa;
+}
+
+.chat-rich-text blockquote {
+  margin: 0.35rem 0;
+  border-left: 3px solid var(--border);
+  padding-left: 0.6rem;
+  color: var(--muted-foreground);
+}
+
+.chat-rich-text hr {
+  margin: 0.5rem 0;
+  border-color: var(--border);
+}
+
+.chat-rich-text table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.35rem 0;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.chat-rich-text th,
+.chat-rich-text td {
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.55rem;
+  text-align: left;
+}
+
+.chat-rich-text th {
+  background: var(--secondary);
+  font-weight: 600;
+}
+
+.chat-rich-text code {
+  background: var(--secondary);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  font-size: 0.8125rem;
+}
+
+.chat-rich-text pre {
+  margin: 0.35rem 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  background: #f6f8fa;
+}
+
+.chat-rich-text pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.chat-rich-text .hljs {
+  background: transparent;
+}
+
+/* KaTeX：行内公式与气泡基线对齐，块级公式超宽横向滚动不撑破气泡 */
+.chat-rich-text .katex {
+  font-size: 1.02em;
+}
+
+.chat-rich-text .katex-display {
+  margin: 0.4rem 0;
+  padding: 0.15rem 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 暗色下代码块底色与 token 配色（对齐 github-dark） */
+.dark .chat-rich-text pre {
+  background: #0d1117;
+}
+
+.dark .chat-rich-text .hljs {
+  color: #c9d1d9;
+}
+
+.dark .chat-rich-text .hljs-comment,
+.dark .chat-rich-text .hljs-meta {
+  color: #8b949e;
+}
+
+.dark .chat-rich-text .hljs-keyword,
+.dark .chat-rich-text .hljs-doctag,
+.dark .chat-rich-text .hljs-formula {
+  color: #ff7b72;
+}
+
+.dark .chat-rich-text .hljs-string,
+.dark .chat-rich-text .hljs-regexp,
+.dark .chat-rich-text .hljs-link {
+  color: #a5d6ff;
+}
+
+.dark .chat-rich-text .hljs-number,
+.dark .chat-rich-text .hljs-literal,
+.dark .chat-rich-text .hljs-attr,
+.dark .chat-rich-text .hljs-attribute,
+.dark .chat-rich-text .hljs-selector-tag,
+.dark .chat-rich-text .hljs-selector-id,
+.dark .chat-rich-text .hljs-selector-class {
+  color: #79c0ff;
+}
+
+.dark .chat-rich-text .hljs-title,
+.dark .chat-rich-text .hljs-title.function_ {
+  color: #d2a8ff;
+}
+
+.dark .chat-rich-text .hljs-built_in,
+.dark .chat-rich-text .hljs-type,
+.dark .chat-rich-text .hljs-variable,
+.dark .chat-rich-text .hljs-template-variable,
+.dark .chat-rich-text .hljs-symbol,
+.dark .chat-rich-text .hljs-bullet,
+.dark .chat-rich-text .hljs-name {
+  color: #ffa657;
+}
+
+.dark .chat-rich-text .hljs-section,
+.dark .chat-rich-text .hljs-tag {
+  color: #7ee787;
+}
+
+.dark .chat-rich-text .hljs-addition {
+  color: #aff5b4;
+}
+
+.dark .chat-rich-text .hljs-deletion {
+  color: #ffdcd7;
+}
+
+.dark .chat-rich-text .hljs-emphasis {
+  font-style: italic;
+  color: #c9d1d9;
+}
+
+.dark .chat-rich-text .hljs-strong {
+  font-weight: 600;
+  color: #c9d1d9;
+}
