@@ -40,7 +40,8 @@ payload ≤ 1 048 576 字节（含类型头）。payload 首字节为类型头�
 | media | object? | 条件 | `{name, mime, size}`；MIME 白名单同 /im/chat/1 §2.2 |
 | replyTo | string? | 否 | 被引消息 id，不校验存在性 |
 
-status/path/acks 为本地字段，不得上 wire。单条消息（含附件）≤ 64 MiB。
+status/path/acks 为本地字段，不得上 wire。单条消息（含附件）≤ 67 108 864 字节
+（64 MiB）。
 
 ### 2.2 roster JSON 字段表（G_STATE 载荷，camelCase）
 
