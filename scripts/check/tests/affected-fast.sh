@@ -96,9 +96,10 @@ TOML
   echo 'pub fn c() { fx_a::a(); }' >"$fx/crates/fx-c/src/lib.rs"
   cp "$REAL_CHECK/affected.sh" "$REAL_CHECK/fast.sh" "$fx/scripts/check/"
   local g
-  for g in tests/release-gates.sh tests/panic-hygiene.sh tests/cli-parity.sh \
-    tests/mock-ipc-guards.sh tests/src-tauri-gate.sh tests/make-latest-json.sh \
-    version.sh fmt.sh line-limit.sh panic-hygiene.sh cli-parity.sh ai-docs-sync.sh; do
+  for g in tests/release-gates.sh tests/panic-hygiene.sh tests/protocol-registry.sh \
+    tests/cli-parity.sh tests/mock-ipc-guards.sh tests/src-tauri-gate.sh \
+    tests/make-latest-json.sh version.sh fmt.sh line-limit.sh panic-hygiene.sh \
+    protocol-registry.sh cli-parity.sh ai-docs-sync.sh; do
     printf '#!/usr/bin/env bash\necho stub %s\nexit 0\n' "$g" >"$fx/scripts/check/$g"
   done
   git -C "$fx" init -q

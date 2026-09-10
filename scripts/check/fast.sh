@@ -6,8 +6,8 @@
 #     逐点 clippy/test；rust 零变更 → SKIP（可观测输出，不算失败）
 #   tauri 域 → clippy + gui-tauri.sh（FULL_ALL 时 clippy.sh 已含 tauri 段，不重复）
 #   gui 域 → gui.sh；零变更 SKIP
-# 便宜门禁（gate-tests/version/fmt/line-limit/panic-hygiene/cli-parity/ai-docs-sync）
-#   恒跑：单步 ≤2s，裁剪它们省不了时间，漏跑只会造假绿。
+# 便宜门禁（gate-tests/version/fmt/line-limit/panic-hygiene/protocol-registry/
+#   cli-parity/ai-docs-sync）恒跑：单步 ≤2s，裁剪它们省不了时间，漏跑只会造假绿。
 # 红线：check-fast 只做"裁剪该跑什么"，不伪造任何绿；合并进 main 前、
 #   release-check、CI 一律跑全量 make check。干净树 → 全 SKIP。
 # 测试钩子：CHECK_ROOT 覆盖仓库根（scripts/check/tests/affected-fast.sh 夹具驱动）
@@ -47,6 +47,7 @@ skip() { echo "check-fast: SKIP $1（$2）"; }
 # --- 便宜门禁：恒跑 ---
 step gate-tests-release bash scripts/check/tests/release-gates.sh
 step gate-tests-panic bash scripts/check/tests/panic-hygiene.sh
+step gate-tests-protocol bash scripts/check/tests/protocol-registry.sh
 step gate-tests-parity bash scripts/check/tests/cli-parity.sh
 step gate-tests-mock-ipc bash scripts/check/tests/mock-ipc-guards.sh
 step gate-tests-tauri bash scripts/check/tests/src-tauri-gate.sh
@@ -89,6 +90,7 @@ fi
 
 # --- 便宜门禁（后半）：恒跑 ---
 step panic-hygiene bash scripts/check/panic-hygiene.sh
+step protocol-registry bash scripts/check/protocol-registry.sh
 step cli-parity bash scripts/check/cli-parity.sh
 step ai-docs-sync bash scripts/check/ai-docs-sync.sh
 
