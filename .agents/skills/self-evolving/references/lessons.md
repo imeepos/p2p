@@ -498,3 +498,7 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 
 - 多会话农场里发布是排队操作：并行波活跃时主树是移动靶，release-check 必须排在波次收官之后；收官判据 = 协调文档收官记录 + origin/main 前进越过我的基线 + 门禁进程清零，三者合取（2026-09-10 v0.1.7 三连撞实证）。
 - 全量门禁绿必须落在「最终 tag 指向的那个提交」上：中途任何提交变了（哪怕只是 docs），终轮就要重跑；先 bump 再排队等收官，避免绿了又变。
+
+- 复现 CI-only 失败用 102 同态环境（Debian+node24+pnpm11）：rsync 源码（排除 node_modules/target）+ npmmirror 装依赖，25s 可装完；GitHub HTTPS 从 102 直连被 TLS reset，走 LAN rsync 绕开。
+- 「单文件绿、全量红」≠ 平台差异：是并行 worker 争用下的实时调度敏感（virtuoso 前插锚定实证）；此类测试家族的既定口径是串行（test:serial），gate 升格串行（test 脚本 --no-file-parallelism）才是修，放宽断言/加预算都不是。
+- tag 发布 CI 红后的重打流程：修 main → push main → 删远端 tag（:refs/tags/）+ 删本地 tag → release.sh --create 重打指向新 HEAD → 再推 tag；版本号不变，gate 会重新全量跑。

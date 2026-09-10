@@ -562,3 +562,10 @@ failed: early eof（客户端侧超时中止）。
 - 症状：`issued_at in the future` / 期望 StaleVersion 实得 Verify 错，同一代码前几轮全绿。
 - 原因：信封签名/校验各自取时钟，两个全量门禁并发时调度延迟让两次时钟读跨越判定边界。
 - 修法：隔离复跑 0.01s 全过即定性负载伪红；勿改断言放宽。时间敏感测试加固（注入时钟）是独立任务，别在发布路径上顺手改。
+
+## Windows 编译红：unix-only OpenOptions::mode 绕过现成回落 helper（2026-09-10 v0.1.7 build windows job）
+- 症状：CI Windows `error[E0599]: no method named mode on &mut OpenOptions`，macOS/ubuntu 全绿。
+- 原因：write_descriptor 内联 `.mode(0o600)`，而同文件 94 行早有 cfg(unix) 门的
+  write_private_file（注释明写「Windows 回落普通写」）——新代码没复用现成 helper。
+- 修法：改为复用 helper；`git grep "\.mode(0o" -- "*.rs"` 审计其余调用（keystore/seed 已有门）。
+- 预防：写私密文件先找 write_private_file/keystore 同型 helper，禁止裸调 .mode。
