@@ -1,0 +1,181 @@
+# p2p-base 公开协议注册表（机器可读索引）
+# schema 与字段语义见 docs/protocol/spec-charter.md §6；本文件是机械门禁
+# scripts/check/protocol-registry.sh 的数据源，编辑需与 specs/、wire-protocol.md §3.2 同步。
+schema = 1
+test_namespaces = ["/itest/", "/test/", "/p2p-lab/", "/myapp/", "/doc-example/"]
+
+[[protocols]]
+id = "/p2p-base/identify/1"
+family = "core"
+owner = "crates/p2p-relay"
+impl = "planned"
+spec_status = "draft"
+spec = "specs/identify.md"
+summary = "交换公钥、监听地址、观测地址（常量已登记，handler 未实现，语义预留）"
+vectors = []
+since = "2026-09-01"
+
+[[protocols]]
+id = "/p2p-base/ping/1"
+family = "core"
+owner = "crates/p2p-swarm"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/ping.md"
+summary = "往返延迟探测、连通性保活；读一帧原样回一帧，节点自动注入"
+vectors = []
+since = "2026-09-01"
+
+[[protocols]]
+id = "/p2p-base/rendezvous/1"
+family = "core"
+owner = "crates/p2p-discovery"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/rendezvous.md"
+summary = "签名注册/查询节点地址（带 TTL、防劫持签名、地址卫生策略）"
+vectors = ["rendezvous-register.json"]
+since = "2026-09-01"
+
+[[protocols]]
+id = "/p2p-base/relay/1"
+family = "core"
+owner = "crates/p2p-relay"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/relay.md"
+summary = "中继电路申请、打洞信令控制流（Reserve/Connect/Reject/保活/水位）"
+vectors = ["relay-messages.json"]
+since = "2026-09-01"
+
+[[protocols]]
+id = "/p2p-base/circuit/1"
+family = "core"
+owner = "crates/p2p-relay"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/circuit.md"
+summary = "中继电路数据桥接（密文透传，中继不解不存）"
+vectors = []
+since = "2026-09-01"
+
+[[protocols]]
+id = "/im/chat/1"
+family = "im"
+owner = "crates/p2p-chat"
+impl = "implemented"
+spec_status = "frozen"
+spec = "specs/im-chat.md"
+summary = "好友 1:1 私聊：文本/附件/引用回复，一流一事务，ACK 回执与幂等去重"
+vectors = ["im-chat-envelope.json"]
+since = "2026-09-03"
+
+[[protocols]]
+id = "/im/group/1"
+family = "im"
+owner = "crates/p2p-chat"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/im-group.md"
+summary = "群聊：消息/roster 全量收敛/踢出/退出席，owner 绑定与 rev 单调"
+vectors = []
+since = "2026-09-04"
+
+[[protocols]]
+id = "/im/invite/1"
+family = "im"
+owner = "crates/p2p-chat"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/im-invite.md"
+summary = "邀请制加好友生命周期（INVITE/ACCEPT/REJECT/ACK，outbox 重投自愈）"
+vectors = []
+since = "2026-09-04"
+
+[[protocols]]
+id = "/im/ginvite/1"
+family = "im"
+owner = "crates/p2p-chat"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/im-ginvite.md"
+summary = "同意制入群邀请（GINVITE/GACCEPT/GREJECT/ACK，owner-only 发起）"
+vectors = []
+since = "2026-09-06"
+
+[[protocols]]
+id = "/im/profile/1"
+family = "im"
+owner = "crates/p2p-chat"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/im-profile.md"
+summary = "对端节点资料按需查询（GET/RESP，纯读，自报性质）"
+vectors = []
+since = "2026-09-08"
+
+[[protocols]]
+id = "/llm-share/proxy/1"
+family = "ecosystem"
+owner = "crates/llm-share-proxy"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/llm-share-proxy.md"
+summary = "闲置 LLM 额度共享代理：三闸准入、SSE 逐帧转发、预授权结算"
+vectors = []
+since = "2026-09-04"
+
+[[protocols]]
+id = "/llm-share/redeem/1"
+family = "ecosystem"
+owner = "crates/llm-share-link"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/llm-share-redeem.md"
+summary = "分享链接兑换：请求 token，响应 ok/结构化拒绝码（兑换激活防 TOCTOU）"
+vectors = []
+since = "2026-09-07"
+
+[[protocols]]
+id = "/llm-share/offer/1"
+family = "ecosystem"
+owner = "crates/llm-share-offer"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/llm-share-offer.md"
+summary = "能力声明发布通道：声明模型/签名注册/TTL 失效订阅簿"
+vectors = []
+since = "2026-09-03"
+
+[[protocols]]
+id = "/a2a/1"
+family = "ecosystem"
+owner = "crates/a2a"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/a2a.md"
+summary = "A2A 智能体：card 相（发布/发现/订阅）+ task 相（JSON-RPC 2.0，1 task=1 流）"
+vectors = []
+since = "2026-09-07"
+
+[[protocols]]
+id = "/dsh-acp/1"
+family = "ecosystem"
+owner = "apps/acp-common"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/dsh-acp.md"
+summary = "ACP 桥：握手帧 + ndjson 字节透传（一远程连接一专属 agent 子进程）"
+vectors = []
+since = "2026-09-04"
+
+[[protocols]]
+id = "/repair/mcp/1"
+family = "ecosystem"
+owner = "crates/repair-bridge"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/repair-mcp.md"
+summary = "远程支持 MCP stdio 字节隧道：runner stdio 与 P2P 流双向哑泵对拷"
+vectors = []
+since = "2026-09-03"
