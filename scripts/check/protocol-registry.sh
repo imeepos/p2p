@@ -111,7 +111,6 @@ main() {
     exit 1
   fi
 
-  local work
   work=$(mktemp -d) || exit 1
   trap 'rm -rf "$work"' EXIT
   parse_protocol_ids "$registry" > "$work/ids.tsv"
