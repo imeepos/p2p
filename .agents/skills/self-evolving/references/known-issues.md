@@ -545,3 +545,9 @@ failed: early eof（客户端侧超时中止）。
 - 2026-09-10 PROTO 轮：session_link_collect 的 claimToken 在目标会话「运行中」时可能报"历史暂不可读"——不是凭证失效，等目标 turn 结束后再收，或直接改为单向 send+下轮看文件系统实况。
 - 2026-09-10 PROTO 轮：`git worktree remove` 遇大体积 target/ 目录会拖到前台超时——后台跑 `rm -rf <dir> + git worktree remove --force + prune`，分批推进并逐个 echo remaining 校验。
 - 2026-09-10 PROTO 轮：判会话活性用文件 mtime 而非轮询回复——`ls -lT` 看产物最近修改时间，>30 分钟零活动+催办无响应才升级接管流程（dispatch 超时≠死亡）。
+- aioquic 1.2.0 在本地校验钩子里抛 TLS Alert 会让 wait_connected 永久悬挂(alert 发生在 UDP 回调路径,连接状态机不收口);修法:握手完成后、发数据前做断言并显式关连(IV1)。
+- asyncio 的 connect() 是 @asynccontextmanager 包装,没有 aclose/__anenter__;手工管理生命周期用 contextlib.AsyncExitStack + enter_async_context(IV1)。
+- Rust 侧守卫进程的流 RESET 会让 aioquic 客户端 write/write_eof 抛 AssertionError("cannot call write() after reset()");回声类协议读到应答后不要再写 EOF(IV1)。
+- 2026-09-10 RICHTEXT 轮：react-markdown v8 的 `breaks` prop 在 v9 已移除——传入被静默忽略(不报错)，单换行不渲染 br；v9 起该行为走 remarkRehypeOptions？也不对：remark-rehype v11 根本没有 breaks 选项(它属于 remark-breaks 插件)，连查两级 d.ts 才确认。修法(RICHTEXT 轮取的零依赖路线)=markdown 软换行默认保留 \n 进 DOM + CSS `p { white-space: pre-wrap }` 视觉换行，行为与纯文本期对齐且不引库。
+- 2026-09-10 RICHTEXT 轮：react-markdown v9 的 urlTransform 返回 "" 时仍渲染 `href=""` 的可点锚点(点击导航当前页)——协议拒绝要彻底需 components 覆盖 a：无有效 href 退化为 span；且自定义组件会收到额外 `node` prop，直接展开进 DOM 会触发 React 未知属性告警，需显式解构接住。
+- 2026-09-10 RICHTEXT 轮：vitest 裸跑单文件报 `describe is not defined` 时先查项目是否未开 globals——本项目约定测试文件显式 `import { describe, it, expect } from "vitest"`，直接照抄网上默认 globals 写法会整文件崩。

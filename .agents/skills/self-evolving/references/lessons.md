@@ -492,3 +492,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-10 PROTO 轮：六卡并发跑全量 make check 会把开发机打满（协调者侧纯文件读都超时），且高负载有在册 gui-check/vitest 假红——多卡轮改「排队制」：各卡只跑轻量自验，全量门禁由协调者收尾串行执行。
 - 2026-09-10 PROTO 轮：协调者收录已完成交付的最省事路径是 `git cherry-pick -x <tip>`——归属会话随后 rebase 到 main 时补丁同源自动去重（PT3 实测逐字节判重跳过），完全避开 ff-only 分叉僵局。
 - 2026-09-10 PROTO 轮：会话完工判定以 git 实况（树净+断言全过）为准，不完全依赖其回话——两 talk 超时的卡按证据先行合入（worktree/分支不动，留增量续作余地），事后回执零冲突。
+- 2026-09-10 RICHTEXT 轮：库 API 的 prop「静默失效」(不报错不生效)时，第一反应该去 grep 本机安装包的 lib/*.d.ts / lib/index.js 实证，而不是凭记忆或旧版文档连猜两级——react-markdown breaks 连续踩 v8 记忆+remark-rehype 误认两级坑，一次实证可省 40 分钟。
+- 2026-09-10 RICHTEXT 轮：grep 验证构建产物按文件名过滤时注意大小写(npm 包名小写不等于产物资源名大小写，KaTeX_* 大写 K)，`grep -ci` 或双 pattern 兜底，避免把「pattern 没匹配上」误判成「产物缺失」。
+- 2026-09-10 RICHTEXT 轮：收尾 ff-only 失败在并行会话下是常态不是事故(main 随时可能被推进)——worktree 里 merge main 产生的 merge commit 会让分支与 main 永久分叉，正确路线是 rebase main(短命独占分支)+--force-with-lease 推送再 ff-only；推送后立即合并，不给并行会话再推进的窗口。
