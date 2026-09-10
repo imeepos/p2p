@@ -126,9 +126,8 @@ describe("渲染矩阵·me 发送成功", () => {
     expect(mocks.send).toHaveBeenCalledWith(PEER, "text", text);
     expect(within(bubbleArea()).getByTestId("message-status").textContent).toBe("发送中…");
     await act(async () => gate.resolve(sendReport(textMessage("sx1", PEER, text, { status: "delivered" }))));
-    const p = bubbleArea().querySelector("p.whitespace-pre-wrap");
-    expect(p?.textContent).toBe(text); // textContent 原始换行保留，未截断未重排
-    expect(p?.className).toContain("whitespace-pre-wrap");
+    const rich = bubbleArea().querySelector('[data-testid="chat-rich-text"]');
+    expect(rich?.querySelector("p")?.textContent).toBe(text); // 换行按原文保留，未截断未重排
     expect(within(bubbleArea()).getByTestId("message-status").textContent).toBe("已送达");
   });
 
@@ -206,9 +205,8 @@ describe("渲染矩阵·them 入站渲染", () => {
     mountChat();
     await screen.findByTestId("chat-input");
     emit({ type: "chat_message", peer: PEER, message: textMessage("in-t1", PEER, "您好\n请查收", { sender: "them" }) });
-    const p = bubbleArea().querySelector("p.whitespace-pre-wrap");
-    expect(p?.textContent).toBe("您好\n请查收"); // 换行按原文保留
-    expect(p?.className).toContain("whitespace-pre-wrap");
+    const rich = bubbleArea().querySelector('[data-testid="chat-rich-text"]');
+    expect(rich?.querySelector("p")?.textContent).toBe("您好\n请查收"); // 换行按原文保留
     expect(within(bubbleArea()).queryByTestId("message-status")).toBeNull();
   });
 

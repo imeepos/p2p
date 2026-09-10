@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { useShareJoin } from "@/acp/use-share-join";
 import { findShareLinkInText } from "@/acp/share-model";
 
+import { RichTextMessage } from "./rich-text-message";
+
 // 聊天消息内的分享链接卡片（acp-share §8）：transcript 渲染层识别，
 // 纯展示，不改 ChatEnvelope/线协议；点击与「用链接加入」走同一导入路径。
 export function ShareMessageCard({ link }: { link: string }) {
@@ -63,18 +65,18 @@ export function ShareMessageCard({ link }: { link: string }) {
   );
 }
 
-/** 文本消息渲染入口：无链接原样渲染；含链接时链接被识别为卡片，其余文字保留 */
+/** 文本消息渲染入口：无链接走富文本渲染；含链接时链接被识别为卡片，其余文字富文本保留 */
 export function TextWithShareLink({ text }: { text: string }) {
   const link = findShareLinkInText(text);
-  if (!link) return <p className="whitespace-pre-wrap break-words">{text}</p>;
+  if (!link) return <RichTextMessage text={text} />;
   const index = text.indexOf(link);
   const before = text.slice(0, index).trim();
   const after = text.slice(index + link.length).trim();
   return (
     <div className="flex flex-col gap-1.5">
-      {before ? <p className="whitespace-pre-wrap break-words">{before}</p> : null}
+      {before ? <RichTextMessage text={before} /> : null}
       <ShareMessageCard link={link} />
-      {after ? <p className="whitespace-pre-wrap break-words">{after}</p> : null}
+      {after ? <RichTextMessage text={after} /> : null}
     </div>
   );
 }

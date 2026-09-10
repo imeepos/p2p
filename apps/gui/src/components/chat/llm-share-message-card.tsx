@@ -8,6 +8,8 @@ import type { I18nKey } from "@/i18n/types";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { findLlmShareLinkInText } from "@/lib/llm-share-link-model";
+
+import { RichTextMessage } from "./rich-text-message";
 import { setBorrowPrefill } from "@/views/llm-share/borrow-prefill";
 import type { LlmShareBackend } from "@/views/llm-share/types";
 import { errorText } from "@/views/shared/form-flow";
@@ -118,18 +120,18 @@ export function LlmShareMessageCard({ link, backend }: { link: string; backend?:
   );
 }
 
-/** llm-share 文本渲染入口：识别 dsh-llm-share:// 链接为卡片，其余文字保留 */
+/** llm-share 文本渲染入口：识别 dsh-llm-share:// 链接为卡片，其余文字富文本保留 */
 export function TextWithLlmShareLink({ text, backend }: { text: string; backend?: LlmShareBackend }) {
   const link = findLlmShareLinkInText(text);
-  if (!link) return <p className="whitespace-pre-wrap break-words">{text}</p>;
+  if (!link) return <RichTextMessage text={text} />;
   const index = text.indexOf(link);
   const before = text.slice(0, index).trim();
   const after = text.slice(index + link.length).trim();
   return (
     <div className="flex flex-col gap-1.5">
-      {before ? <p className="whitespace-pre-wrap break-words">{before}</p> : null}
+      {before ? <RichTextMessage text={before} /> : null}
       <LlmShareMessageCard link={link} backend={backend} />
-      {after ? <p className="whitespace-pre-wrap break-words">{after}</p> : null}
+      {after ? <RichTextMessage text={after} /> : null}
     </div>
   );
 }
