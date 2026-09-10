@@ -7,11 +7,11 @@ test_namespaces = ["/itest/", "/test/", "/p2p-lab/", "/myapp/", "/doc-example/"]
 [[protocols]]
 id = "/p2p-base/identify/1"
 family = "core"
-owner = "crates/p2p-relay"
-impl = "planned"
-spec_status = "draft"
+owner = "crates/p2p-swarm"
+impl = "implemented"
+spec_status = "stable"
 spec = "specs/identify.md"
-summary = "交换公钥、监听地址、观测地址（常量已登记，handler 未实现，语义预留）"
+summary = "交换公钥、监听地址、观测地址、软件版本（一问一答，swarm 内置注入，响应 pubkey 与握手身份交叉核对）"
 vectors = []
 since = "2026-09-01"
 
