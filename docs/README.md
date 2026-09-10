@@ -34,6 +34,8 @@
 | [ops/repair-runner-integration.md](ops/repair-runner-integration.md) | 远程支持单 runner 接入说明：repair-bridge ⇄ repair-helper stdio 桥，DSH 为接入首例 |
 | [ops/repair-p0b-drill.md](ops/repair-p0b-drill.md) | P0b 真机演练清单：3 类问题诊断+修复各 1 例（人工里程碑，不入账本） |
 | [protocol/README.md](protocol/README.md) | 对外协议接入文档五件套：定位与术语表、最小接入 quickstart、线格式字节级规范（含已验证字节示例）、节点发现与连接生命周期、内置协议全表与版本演进；面向不读源码的第三方兼容实现者 |
+| [protocol/spec-charter.md](protocol/spec-charter.md) | 协议规范章程 v1：真值源分层、规范性语言、规范页生命周期与变更流程、符合性等级（Core/Extended）、registry schema、规范页模板与测试向量规范 |
+| [protocol/registry.toml](protocol/registry.toml) | 公开协议注册表（机器可读）：全量 16 协议 ID 的家族/归属/实现与规范状态/向量引用；机械门禁 scripts/check/protocol-registry.sh 数据源 |
 
 ## 约定
 

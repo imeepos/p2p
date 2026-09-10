@@ -30,6 +30,9 @@ QUIC 与 TCP 双传输路径均在握手期完成加密与身份互认，其上�
 | [wire-format.md](wire-format.md) | 传输双路、安全握手、流复用、帧格式、协议 ID 语法、开流时序、字节级示例 | 实现编解码与握手时 |
 | [node-lifecycle.md](node-lifecycle.md) | mDNS/rendezvous 发现、地址缓存、直连-打洞-中继降级链、断线重连、常量速查 | 处理发现与连接健壮性时 |
 | [builtin-and-versioning.md](builtin-and-versioning.md) | 内置协议 ID 全表与实现状态、业务协议登记、错误语义排障、版本演进策略 | 选用/登记协议与排错时 |
+| [spec-charter.md](spec-charter.md) | 协议规范章程：真值源分层、规范性语言、生命周期与变更流程、符合性等级、注册表 schema、规范页模板、测试向量规范 | 编写/评审规范页与登记新协议前必读 |
+| [registry.toml](registry.toml) | 公开协议注册表（机器可读索引，机械门禁数据源） | 查全量协议 ID 清单 |
+| [specs/](specs/) | 逐协议规范页（一协议一页，模板见章程 §7） | 实现某个具体协议时 |
 
 建议阅读顺序：quickstart 建立直觉，wire-format 落实字节，其余两篇按需查阅。
 
