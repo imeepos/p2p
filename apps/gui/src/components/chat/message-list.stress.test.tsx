@@ -162,6 +162,10 @@ describe("MessageList 压力测试（5000 条，react-virtuoso 路径）", () =>
       setScrollTop(scroller(), 0);
       // startReached 走 200ms 节流流，条件轮询避免竞态
       await settleUntil(() => onLoadOlder.mock.calls.length > 0);
+      // 前插后 virtuoso 经 firstItemIndex 异步平移视口；CI 慢调度下该步
+      // 曾晚于断言到达（v0.1.7 tag gate 实证：视口仍停在旧顶 m-5000 系）。
+      // 等锚定的可观测结果落地再断言；若真回归则轮询超时后断言照常红。
+      await settleUntil(() => visibleIds(view.container)[0] === "m-0", 4000);
     });
     expect(onLoadOlder).toHaveBeenCalled();
 
