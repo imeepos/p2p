@@ -1685,3 +1685,152 @@ agent 已下架 agentId=code-review
 {"revoked":{"agentId":"code-review","peer":"<PEER_ID>"}}
 ```
 退出码：条目不存在 → 1。
+
+## AUTHZ 域（角色管理 + 绑定 + 判定 + 迁移导入）
+
+角色=权限集合，按 peer 单值绑定（authz-role-design §12）。九权限闭集：a2a.discover / a2a.invoke / acp.session / acp.execute / chat.send / chat.attachment / llm.borrow / repair.diag / repair.fix（owner.superuser 为内建超级位，非普通 key）。数据落 <data-dir>/authz/，全部命令离线可跑，不依赖节点守护。
+
+### p2pctl authz role list
+用途：列出全部角色（内建四角色在前 + 自定义按 id 序）。前置：无（表缺失视为首次使用，输出内建四角色）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+共 4 个角色（内建 4 + 自定义 0）
+friend, 内建 好友, permissions=chat.send,chat.attachment,a2a.discover, note=基础社交；加好友默认绑定（default_role，可配）
+guest, 内建 访客, permissions=chat.send,chat.attachment,a2a.discover,acp.session, note=能看能问 agent（执行细节仍在策略表，sandbox 语义）
+operator, 内建 操作员, permissions=chat.send,chat.attachment,a2a.discover,acp.session,a2a.invoke,acp.execute,repair.diag, note=能操作 agent、跑诊断
+ally, 内建 盟友, permissions=chat.send,chat.attachment,a2a.discover,acp.session,a2a.invoke,acp.execute,repair.diag,llm.borrow,repair.fix, note=全面信任；可借额度、可修机器
+```
+--json：{"roles":[{roleId,name,permissions[],builtin,note}]} 形态。
+退出码：成功 → 0；角色表损坏 → 1（可读报错，不静默回退）。
+
+### p2pctl authz role show
+用途：查看单个角色（含权限清单）。前置：角色已存在。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <ROLE_ID> | 位置参数 string（角色 id，内建：friend/guest/operator/ally） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+--json：
+```
+{"role":{"roleId":"reviewer","name":"评审员","permissions":["acp.session","chat.send"],"builtin":false,"note":"评审用"}}
+```
+退出码：角色不存在 → 1；角色表损坏 → 1。
+
+### p2pctl authz role create
+用途：创建自定义角色（权限取九权限闭集任意子集；与内建四名冲突即拒）。前置：无；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <ROLE_ID> | 位置参数 string（[a-z0-9-]{1,32}，不得与内建四名冲突） | 是 | —— |
+| --name | string | 否 | role_id 同名 |
+| --perm | string（权限 key，可重复，自动去重） | 否 | 空集（闭集外 key 拒绝） |
+| --note | string | 否 | 空 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+--json（回显创建结果）：
+```
+{"role":{"roleId":"reviewer","name":"评审员","permissions":["acp.session","chat.send"],"builtin":false,"note":"评审用"}}
+```
+退出码：id 非法（超长/字符集外）→ 1；与内建四名冲突 → 1；权限 key 不在闭集 → 1；id 已存在 → 1；缺 <ROLE_ID>（clap 用法错）→ 2。
+
+### p2pctl authz role delete
+用途：删除自定义角色（仍有绑定引用即拒，先解绑再删；内建不可删）。前置：角色存在且无绑定；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <ROLE_ID> | 位置参数 string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+--json：
+```
+{"roleId":"reviewer"}
+```
+退出码：内建角色 → 1；角色不存在 → 1；仍有绑定引用 → 1。
+
+### p2pctl authz bind
+用途：绑定 peer → 角色（单值 upsert：已绑定时整体替换并记审计 diff）。前置：角色必须已存在；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（借权方 PeerId，base58） | 是 | —— |
+| <ROLE_ID> | 位置参数 string（内建或自定义，角色必须已存在） | 是 | —— |
+| --expires | int（授权到期 Unix 秒） | 否 | 不过期（到期后判定 Deny(Expired)） |
+| --note | string | 否 | 空 |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+--json：
+```
+{"peerId":"7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk","roleId":"reviewer","created":true,"grantedAt":1789017868,"note":""}
+```
+语义：created=true 首绑；re-bind 同角色 created=false（幂等 kept）；换角色 upsert 单值。审计事件 append-only 落 <data-dir>/authz/audit.jsonl。
+退出码：角色不存在 → 1；PeerId 非法（非 base58/长度错）→ 1；缺位置参数（clap）→ 2。
+
+### p2pctl authz unbind
+用途：解绑 peer（回到默认拒绝；无绑定明确报错不静默）。前置：存在该 peer 的绑定；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（借权方 PeerId，base58） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+--json：
+```
+{"peerId":"7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk","roleId":"reviewer"}
+```
+退出码：无绑定 → 1（显式报错）；PeerId 非法 → 1。
+
+### p2pctl authz check
+用途：dry-run 判定：输出 Allow / Deny(reason)，不做任何写。判定瀑布：内建 ally→owner.superuser；未绑定 → NotBound；角色缺权限 → MissingPerm；绑定过期 → Expired。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER_ID> | 位置参数 string（被判定的 PeerId，base58） | 是 | —— |
+| <PERMISSION> | 位置参数 string（九权限闭集 key，如 acp.session / llm.borrow） | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+peer=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk perm=llm.borrow => Deny（reason=MissingPerm）
+```
+--json：
+```
+{"peerId":"7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk","permission":"acp.session","decision":"allow","reason":null}
+```
+退出码：判定结果不是错误：allow 与 deny 均 → 0（reason 在输出里）；PeerId 非法/权限 key 不在闭集 → 1。
+
+### p2pctl authz import a2a
+用途：迁移导入 a2a-grants.json → 有 grant 的 peer 绑 operator（幂等可重跑；grants 表原处保留，双查不删）。前置：无（文件缺失输出 0 条照常成功）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+import a2a: <data-dir>/a2a-grants.json（grant 0 条 / peer 0 个）
+bound=0 kept=0 invalid=0（grants 表原处保留，双查不删）
+```
+--json：bound/kept/invalid 计数字段 camelCase。
+退出码：文件损坏 → 1（可读报错）；空/缺失 → 0。
+
+### p2pctl authz import acp
+用途：迁移导入 ACP 策略表 acp-policy.json：sandbox→guest、workspace→operator、Owner 跳过（幂等可重跑，已有绑定计 skipped）。前置：无（文件缺失输出 0 条照常成功）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+已扫描 0 条策略条目：sandbox→guest 0 条、workspace→operator 0 条；跳过 Owner 0 条、已有绑定 0 条、非法 peer 0 条
+```
+退出码：文件损坏 → 1；空/缺失 → 0。
+
+### p2pctl authz import llm-share
+用途：迁移导入 llm-share/allowlist.json 借方条目 → 绑定内建角色 ally（幂等可重跑，已绑定跳过零增量）。前置：无（文件缺失输出 0 条照常成功）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data（读 <data-dir>/llm-share/allowlist.json） |
+文本：
+```
+source=llm-share/allowlist.json role=ally entries=0 imported=0 skipped=0（已绑定跳过，重跑零增量）
+```
+退出码：allowlist 损坏 → 1；空/缺失 → 0。
