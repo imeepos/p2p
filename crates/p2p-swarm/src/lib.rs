@@ -28,6 +28,7 @@ pub use swarm::filter_loopback;
 pub use swarm::PingHandler;
 pub use swarm::PING_PROTOCOL;
 pub use swarm::{AddrSource, ReclaimConfig, Swarm, SwarmConfig, SwarmFactory};
+pub use swarm::{IdentifyHandler, IdentifyInfo, IDENTIFY_PROTOCOL};
 
 /// 底座事件：业务只读。所有失败路径必须可见（禁止静默吞错，design §12）。
 #[derive(Clone, Debug)]

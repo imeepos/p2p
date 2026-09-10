@@ -14,8 +14,7 @@ use crate::lifecycle::PeerLifecycleConfig;
 use crate::liveness::{LivenessBook, LivenessSource};
 use crate::pool::ConnectionPool;
 use crate::usage::unix_now;
-use crate::ConnectionGate;
-use crate::NodeEvent;
+use crate::{ConnectionGate, NodeEvent};
 
 mod book;
 mod config;
@@ -23,6 +22,7 @@ mod degrade;
 mod dial;
 mod factory;
 mod hangup;
+mod identify;
 mod lifecycle;
 mod lifecycle_handlers;
 mod lifecycle_task;
@@ -59,8 +59,8 @@ use config::{to_transport, EVENT_CAPACITY};
 use dial::dial_peer;
 use factory::RegistryCell;
 pub use factory::SwarmFactory;
-use lifecycle::LifecycleHandle;
-use lifecycle::LifecycleMsg;
+pub use identify::{IdentifyHandler, IdentifyInfo, IDENTIFY_PROTOCOL};
+use lifecycle::{LifecycleHandle, LifecycleMsg};
 use listen::spawn_accept_loops;
 pub use ping::PING_PROTOCOL;
 pub use reclaim::ReclaimConfig;
@@ -79,6 +79,8 @@ pub struct Swarm {
     listen_addrs: Vec<TransportAddr>,
     advertised_addrs: Vec<TransportAddr>,
     observed_addrs: Mutex<Vec<TransportAddr>>,
+    /// 连接远端观测表（identify.rs）：identify 应答观测地址的数据源。
+    conn_remote: Arc<identify::RemoteAddrs>,
     pool: Arc<ConnectionPool>,
     registry: RegistryCell,
     gate: Mutex<Option<Arc<dyn ConnectionGate>>>,
@@ -147,6 +149,13 @@ impl Swarm {
         let (events, _) = broadcast::channel(EVENT_CAPACITY);
         // 内置 ping 应答注册（E6 探活的应答侧）；用户已注册时不抢占
         let registry = ping::registry_with_ping(config.registry.clone());
+        // 内置 identify 应答注册（v1 一问一答）；用户已注册时不抢占。
+        // 观测表由 accept/直连拨号路径刷新，应答侧按请求端 peer 读取。
+        let conn_remote = Arc::new(identify::RemoteAddrs::new());
+        let registry = identify::registry_with_identify(
+            registry,
+            identify::IdentifyHandler::new(&config.keypair, &listen_addrs, conn_remote.clone()),
+        );
         let (lifecycle_events, _) = broadcast::channel(EVENT_CAPACITY);
         let (lifecycle, lifecycle_rx) =
             LifecycleHandle::new(lifecycle_cfg, lifecycle_events.clone());
@@ -158,6 +167,7 @@ impl Swarm {
             listen_addrs,
             advertised_addrs: config.advertised_addrs,
             observed_addrs: Mutex::new(Vec::new()),
+            conn_remote,
             pool: Arc::new(ConnectionPool::new()),
             registry: Arc::new(Mutex::new(registry)),
             gate: Mutex::new(None),
@@ -281,16 +291,6 @@ impl Swarm {
     /// 注入地址观测学到的外部地址（design §7.2），打洞宣告观测优先。
     pub fn set_observed_addrs(&self, addrs: Vec<TransportAddr>) {
         *self.observed_addrs.lock().expect("observed lock") = addrs;
-    }
-
-    /// 直连跳用地址：按来源/网段优先级排序，hairpin 候选同级殿后（design §7.3 + E3/E4）。
-    /// 返回 (地址, 是否 hairpin 候选)。
-    fn addresses_of(&self, peer: PeerId) -> Vec<(TransportAddr, bool)> {
-        let observed = self.observed_addrs.lock().expect("observed lock").clone();
-        self.address_book
-            .lock()
-            .expect("addr lock")
-            .sorted_addrs(&peer, &observed)
     }
 
     /// 无订阅者时丢弃属正常态，不算失败路径。

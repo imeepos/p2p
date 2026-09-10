@@ -12,6 +12,7 @@ p2p-protocol = { path = "../p2p-protocol" }
 p2p-relay = { path = "../p2p-relay" }
 p2p-security = { path = "../p2p-security" }
 p2p-transport = { path = "../p2p-transport" }
+prost.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 [dev-dependencies]

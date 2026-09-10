@@ -77,6 +77,8 @@ async fn accept_inbound(swarm: &Arc<Swarm>, conn: SecureConn) {
             });
         return;
     }
+    // identify 观测数据源：本连接远端端点（mux 观测不到时自动跳过）
+    swarm.conn_remote.note(peer, conn.mux.remote_endpoint());
     insert_connection(
         swarm,
         peer,

@@ -1553,6 +1553,7 @@ dependencies = [
  "p2p-security",
  "p2p-swarm",
  "p2p-transport",
+ "prost",
  "repair-bridge",
  "repair-enforce",
  "repair-helper",
@@ -1592,6 +1593,7 @@ dependencies = [
  "async-trait",
  "p2p-identity",
  "p2p-mux",
+ "prost",
  "thiserror 1.0.69",
  "tokio",
 ]
@@ -1641,6 +1643,7 @@ dependencies = [
  "p2p-relay",
  "p2p-security",
  "p2p-transport",
+ "prost",
  "tokio",
  "tokio-util",
  "tracing",

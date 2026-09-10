@@ -39,5 +39,6 @@ repair-bridge = { path = "../repair-bridge" }
 repair-helper = { path = "../repair-helper" }
 repair-enforce = { path = "../repair-enforce" }
 bs58.workspace = true
+prost.workspace = true
 serde_json.workspace = true
 uuid.workspace = true

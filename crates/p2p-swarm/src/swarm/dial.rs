@@ -201,6 +201,10 @@ pub(super) async fn dial_one(swarm: &Swarm, peer: PeerId, addr: &TransportAddr) 
             "peer {peer} denied by connection gate"
         )));
     }
+    // identify 观测数据源：直连的远端端点（中继电路不经此处，观测缺省）
+    swarm
+        .conn_remote
+        .note(conn.remote, conn.mux.remote_endpoint());
     Ok(conn.mux)
 }
 

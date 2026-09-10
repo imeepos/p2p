@@ -15,6 +15,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 mod chunked;
 mod handshake;
+pub mod identify;
 mod request_response;
 mod stream_factory;
 
