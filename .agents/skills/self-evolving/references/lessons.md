@@ -495,3 +495,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-10 RICHTEXT 轮：库 API 的 prop「静默失效」(不报错不生效)时，第一反应该去 grep 本机安装包的 lib/*.d.ts / lib/index.js 实证，而不是凭记忆或旧版文档连猜两级——react-markdown breaks 连续踩 v8 记忆+remark-rehype 误认两级坑，一次实证可省 40 分钟。
 - 2026-09-10 RICHTEXT 轮：grep 验证构建产物按文件名过滤时注意大小写(npm 包名小写不等于产物资源名大小写，KaTeX_* 大写 K)，`grep -ci` 或双 pattern 兜底，避免把「pattern 没匹配上」误判成「产物缺失」。
 - 2026-09-10 RICHTEXT 轮：收尾 ff-only 失败在并行会话下是常态不是事故(main 随时可能被推进)——worktree 里 merge main 产生的 merge commit 会让分支与 main 永久分叉，正确路线是 rebase main(短命独占分支)+--force-with-lease 推送再 ff-only；推送后立即合并，不给并行会话再推进的窗口。
+
+- 多会话农场里发布是排队操作：并行波活跃时主树是移动靶，release-check 必须排在波次收官之后；收官判据 = 协调文档收官记录 + origin/main 前进越过我的基线 + 门禁进程清零，三者合取（2026-09-10 v0.1.7 三连撞实证）。
+- 全量门禁绿必须落在「最终 tag 指向的那个提交」上：中途任何提交变了（哪怕只是 docs），终轮就要重跑；先 bump 再排队等收官，避免绿了又变。

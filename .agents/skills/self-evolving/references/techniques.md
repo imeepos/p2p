@@ -527,3 +527,7 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 对端是守护进程时先挖 daemon.log 再猜:结构化 WARN(error=xxx)是黑盒调试的路标,一次日志就能把假设空间砍掉 90%。
 - 黑盒探针要一次变化一个变量并逐次对时间戳关联服务端日志,批量矩阵跑完再对账会把因果搅乱(IV1 教训:矩阵探针的日志归属错位浪费两轮)。
 - jsdom 下调试 markdown/渲染管线输出：写临时 `*.debug.test.tsx` 用 `console.log("INNER_HTML:", container.innerHTML)` 打点跑单测，比猜转换层行为快；用完即删(2026-09-10 RICHTEXT 轮定位软换行为实证)。
+
+- 发布排队三闸（2026-09-10 v0.1.7）：①协调文档 tail 出现本轮「收官/I2/P3」记录；②`git rev-list --count main..origin/main` 归零且本地=远端；③`pgrep -f "cargo test|vitest|make check" | wc -l` = 0。三者同时满足才启动 release-check。
+- vitest 满载红分诊两步法：先 `vitest run --no-file-parallelism <红文件>` 串行复跑（大部分转绿=超时假红）；仍红的再单文件隔离复跑（network-tabs 整应用启动型用例串行仍可能红，隔离跑才见真身）。
+- 观察哨 settle 条件写「目标状态」不写「差距状态」：`behind>0` 做判据会在对方"先拉后推"时永不触发（behind 恒 0）；改判 `origin 包含基线提交 && 门禁进程=0`。

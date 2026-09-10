@@ -551,3 +551,14 @@ failed: early eof（客户端侧超时中止）。
 - 2026-09-10 RICHTEXT 轮：react-markdown v8 的 `breaks` prop 在 v9 已移除——传入被静默忽略(不报错)，单换行不渲染 br；v9 起该行为走 remarkRehypeOptions？也不对：remark-rehype v11 根本没有 breaks 选项(它属于 remark-breaks 插件)，连查两级 d.ts 才确认。修法(RICHTEXT 轮取的零依赖路线)=markdown 软换行默认保留 \n 进 DOM + CSS `p { white-space: pre-wrap }` 视觉换行，行为与纯文本期对齐且不引库。
 - 2026-09-10 RICHTEXT 轮：react-markdown v9 的 urlTransform 返回 "" 时仍渲染 `href=""` 的可点锚点(点击导航当前页)——协议拒绝要彻底需 components 覆盖 a：无有效 href 退化为 span；且自定义组件会收到额外 `node` prop，直接展开进 DOM 会触发 React 未知属性告警，需显式解构接住。
 - 2026-09-10 RICHTEXT 轮：vitest 裸跑单文件报 `describe is not defined` 时先查项目是否未开 globals——本项目约定测试文件显式 `import { describe, it, expect } from "vitest"`，直接照抄网上默认 globals 写法会整文件崩。
+
+## 满载假红第三型：doctest 撞中途落盘的新文件（2026-09-10 v0.1.7 release-check run5）
+- 症状：cargo test 的 lib 单测全绿后，Doc-tests 段编译失败 `cannot find crate prost`，指向一个「本轮早期不存在」的新文件（identify.rs）。
+- 原因：并行会话在门禁运行中途往主树落了半成品提交（源文件先落、依赖锁后补）；lib 测试二进制早期已编译完跑的是旧码，rustdoc doctest 在末尾重读盘撞上新代码。
+- 修法：不修码，先判树是否被移动（git status -sb ahead/behind + reflog）；等对方推完拉齐后整轮重跑。指纹 = 报错文件在门禁启动时不存在。
+- 预防：跑长门禁前 pgrep 确认无并行 cargo/vitest/make；多会话期用协调文档收官记录做放行闸。
+
+## 满载假红第四型：时间敏感用例并发翻转（2026-09-10 run4 a2a book）
+- 症状：`issued_at in the future` / 期望 StaleVersion 实得 Verify 错，同一代码前几轮全绿。
+- 原因：信封签名/校验各自取时钟，两个全量门禁并发时调度延迟让两次时钟读跨越判定边界。
+- 修法：隔离复跑 0.01s 全过即定性负载伪红；勿改断言放宽。时间敏感测试加固（注入时钟）是独立任务，别在发布路径上顺手改。
