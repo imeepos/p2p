@@ -94,6 +94,21 @@ impl Node {
         self.swarm.disconnect(peer)
     }
 
+    /// 开裸流（协议 ID 首帧由调用方写入）：供「调用方自己握一次手」的装配
+    /// 使用（tunnel 访侧先例）。与 new_stream 的差别只在谁写首帧——若工厂侧
+    /// 与调用侧各写一次，流上出现两帧协议 ID，严格 responder 会把第二帧当
+    /// 业务帧解析而翻车（2026-09-11 协调者裁决：禁把 new_stream 包进工厂）。
+    pub async fn open_raw_stream(
+        &self,
+        peer: PeerId,
+        protocol: ProtocolId,
+    ) -> Result<BoxedStream, NodeError> {
+        SwarmFactory(self.swarm.clone())
+            .open_stream(&peer, &protocol)
+            .await
+            .map_err(Into::into)
+    }
+
     /// 主动开流：首帧协议 ID 已写，之后即业务帧（design §5.1）。
     pub async fn new_stream(
         &self,
