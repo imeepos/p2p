@@ -119,6 +119,8 @@ pub fn run() {
             authz::authz_default_role_save,
             tunnel::tunnel_serve_start,
             tunnel::tunnel_serve_stop,
+            tunnel::tunnel_open_dsh,
+            tunnel::tunnel_status,
         ])
         .plugin(tauri_plugin_opener::init())
         // 媒体附件导出（契约 §12 加法）：系统保存对话框选目标路径
@@ -136,6 +138,8 @@ pub fn run() {
                 .app_data_dir()
                 .map_err(|e| format!("定位应用数据目录失败: {e}"))?;
             app.manage(AppState::new(dir.clone()));
+            // W-T3 tunnel 访侧（gui-contract §19）：反代 + 隧道客户端托管。
+            app.manage(tunnel::TunnelState::new());
             // LSG1 llm-share 命令面（契约 §16）：域数据根 = app 数据目录。
             app.manage(llm_share::LlmShareStore::new(dir.clone()));
             let frontend_log = frontend_log::FrontendLog::new(&log_dir)
@@ -179,6 +183,9 @@ pub fn run() {
             }
             if let Some(console) = app.try_state::<console::Manager>() {
                 console.shutdown();
+            }
+            if let Some(tunnel) = app.try_state::<tunnel::TunnelState>() {
+                tunnel.shutdown_sync();
             }
         }
     });
