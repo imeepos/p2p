@@ -531,3 +531,11 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 发布排队三闸（2026-09-10 v0.1.7）：①协调文档 tail 出现本轮「收官/I2/P3」记录；②`git rev-list --count main..origin/main` 归零且本地=远端；③`pgrep -f "cargo test|vitest|make check" | wc -l` = 0。三者同时满足才启动 release-check。
 - vitest 满载红分诊两步法：先 `vitest run --no-file-parallelism <红文件>` 串行复跑（大部分转绿=超时假红）；仍红的再单文件隔离复跑（network-tabs 整应用启动型用例串行仍可能红，隔离跑才见真身）。
 - 观察哨 settle 条件写「目标状态」不写「差距状态」：`behind>0` 做判据会在对方"先拉后推"时永不触发（behind 恒 0）；改判 `origin 包含基线提交 && 门禁进程=0`。
+
+## 派发任务书前先验证路径（2026-09-11 W-T1 实证）
+- 任务书里的文件指针写错会把执行者引向不存在的路径：W-T1 收到 `docs/protocol/wire-protocol.md`（不存在），
+  真值源是 `docs/design/wire-protocol.md`；执行者靠 ls 兜住并主动上报，属对方尽责而非我方免责。
+- 固化做法：**写任务书时每个路径都先 ls/glob 证伪一次**；同名文件存在两份（`docs/protocol/wire-format.md` 与
+  `docs/design/wire-protocol.md` 这类近名/近义路径）时必须逐字抄实际路径，不凭记忆。
+- 同类：慢门禁（`ai-docs-sync.sh` 冷构建 p2pctl 约 5 分钟）在派单说明里预先标注"丢后台、与提交并行"，
+  否则执行者会把它当关键路径空等。
