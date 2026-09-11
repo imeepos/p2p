@@ -1834,3 +1834,26 @@ bound=0 kept=0 invalid=0（grants 表原处保留，双查不删）
 source=llm-share/allowlist.json role=ally entries=0 imported=0 skipped=0（已绑定跳过，重跑零增量）
 ```
 退出码：allowlist 损坏 → 1；空/缺失 → 0。
+
+### p2pctl tunnel serve
+用途：headless 被访侧隧道服务（gui-contract §19.8 预留条款落地）：前台常驻进程，进程活 = 受理开启（规范页 §5.2「按次开启」的进程级形态），复用 GUI 同源 p2p-tunnel responder（票据→准入→拨本地→哑泵→审计八字段）。SIGINT/SIGTERM 优雅收口：先关新建流（shutdown 码）→ 等在途会话逐条落终态审计 → 超时（10s）显式报错非零退出。前置：无；目标非 `127.0.0.1:<port>` 字面量 / --max-concurrent 0 / 端口绑定失败 → 启动即退（退出码 1，不部分生效）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --target | string `127.0.0.1:<port>`（可重复） | 是 | —— |
+| --allow | string `127.0.0.1:<port>`（可重复） | 否 | 无 |
+| --max-concurrent | usize（≥1） | 否 | p2p-tunnel 默认（16，2026-09-12 裁决，与 GUI 同源） |
+| --data-dir | path | 否 | ./p2p-data |
+| --quic-port | u16 | 否 | 0（随机） |
+| --tcp-port | u16 | 否 | 0（随机） |
+| --no-mdns | flag | 否 | off |
+| --bootstrap | string（ip/u端口 或 ip/t端口，可重复） | 否 | 无 |
+文本（stdout JSON 行；日志走 stderr 含审计八字段）：
+```
+{"allow":["127.0.0.1:8014"],"kind":"ready","listenAddrs":["127.0.0.1/u64632","127.0.0.1/t52479"],"maxConcurrent":16,"peerId":"…"}
+{"broken":0,"kind":"stopped","rejected":0,"served":0,"sessions":0}
+```
+示例（前台常驻，ctrl_c 收口；非交互验证用 timeout 发 SIGTERM）：
+```
+timeout 5 p2pctl tunnel serve --target 127.0.0.1:8080 --data-dir ./p2p-data
+```
+语义：白名单先全量校验后开闸（任一非法即拒，不部分生效）；对等面为独立进程，与 GUI `tunnel_serve_start` 的 GUI 内会话态不混同（cli-parity 两条 serve 命令仍 exempt）。退出码：0 = 信号收口完成；1 = 装配失败/收口超时（在途会话未全落终态，留显式报错）。

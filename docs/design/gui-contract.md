@@ -806,4 +806,7 @@ type TunnelErrorCode =
    GUI 进程内（Tauri 事件 emit + 系统浏览器打开），被访侧 enabled 为不持久化的
    会话态，均无 CLI 常驻进程面可对等（llm_share_serve_status 先例）；登记随命令
    落地分卡进行（serve 两条随 W-T2，open_dsh/status 随 W-T3）。headless 隧道场景
-   如出现真实需求，另立卡评估 `p2pctl tunnel` 子命令后再转 mapped。
+   已按预留条款落地（2026-09-12，W-T5）：`p2pctl tunnel serve` 前台常驻独立进程
+   面（进程活 = enabled，SIGINT/SIGTERM 收口，规范页 §5.2 并发默认值同源）；
+   两条 serve 命令仍 exempt——GUI 命令开关的是 GUI 常驻节点进程内的会话态，
+   与 headless 独立进程非同一对象，语义不混同。
