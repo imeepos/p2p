@@ -159,7 +159,9 @@ impl<'de> Deserialize<'de> for TunnelErrorCode {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "k", rename_all = "lowercase")]
 pub enum TunnelReply {
-    Ack { uid: String },
+    Ack {
+        uid: String,
+    },
     Error {
         code: TunnelErrorCode,
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -200,8 +202,7 @@ mod tests {
     #[test]
     fn ticket_json_roundtrip_matches_contract_shape() {
         let ticket = ticket();
-        let json: serde_json::Value =
-            serde_json::from_slice(&ticket.encode().unwrap()).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&ticket.encode().unwrap()).unwrap();
         assert_eq!(json["v"], 1);
         assert_eq!(json["uid"], "0011223344556677");
         assert_eq!(json["target"], "127.0.0.1:8014");
@@ -284,7 +285,9 @@ mod tests {
             br#"{"k":"error","code":"bad_ticket","msg":"wrong v"}"#.to_vec()
         );
         assert_eq!(
-            TunnelReply::error(TunnelErrorCode::Busy, "").encode().unwrap(),
+            TunnelReply::error(TunnelErrorCode::Busy, "")
+                .encode()
+                .unwrap(),
             br#"{"k":"error","code":"busy"}"#.to_vec()
         );
         assert_eq!(TunnelReply::decode(&ack.encode().unwrap()).unwrap(), ack);

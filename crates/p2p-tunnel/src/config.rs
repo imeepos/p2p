@@ -220,10 +220,7 @@ mod tests {
     #[test]
     fn non_loopback_allowlist_entries_are_dropped() {
         let gate = TunnelGate::new(TunnelServeConfig {
-            allowlist: HashSet::from([
-                "localhost:80".to_string(),
-                "127.0.0.1:81".to_string(),
-            ]),
+            allowlist: HashSet::from(["localhost:80".to_string(), "127.0.0.1:81".to_string()]),
             ..Default::default()
         });
         gate.set_enabled(true);

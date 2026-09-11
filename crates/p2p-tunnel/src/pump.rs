@@ -209,7 +209,10 @@ mod tests {
         }
         task.await.unwrap().unwrap();
         assert_eq!(merged, payload, "帧序重组 = 原字节流（合并语义）");
-        assert!(max_payload <= CHUNK, "出站载荷 {max_payload} 必须 ≤ {CHUNK}");
+        assert!(
+            max_payload <= CHUNK,
+            "出站载荷 {max_payload} 必须 ≤ {CHUNK}"
+        );
         assert!(frames >= 3, "1.5 MiB 必然分多帧: {frames}");
     }
 
@@ -237,7 +240,10 @@ mod tests {
         local_test.read_to_end(&mut merged).await.unwrap();
         push.await.unwrap();
         task.await.unwrap().unwrap();
-        assert_eq!(merged, expected, "异形帧界（含 1 MiB 满帧）合并为连续字节流");
+        assert_eq!(
+            merged, expected,
+            "异形帧界（含 1 MiB 满帧）合并为连续字节流"
+        );
     }
 
     #[tokio::test]

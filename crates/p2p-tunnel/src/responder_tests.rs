@@ -41,12 +41,18 @@ async fn serve(responder: Arc<TunnelResponder<EchoDialer>>) -> tokio::io::Duplex
 }
 
 async fn reply(visitor: &mut tokio::io::DuplexStream) -> TunnelReply {
-    write_frame(visitor, &ticket().encode().unwrap()).await.unwrap();
+    write_frame(visitor, &ticket().encode().unwrap())
+        .await
+        .unwrap();
     TunnelReply::decode(&read_frame(visitor).await.unwrap()).unwrap()
 }
 
 fn open_responder(gate: TunnelGate) -> Arc<TunnelResponder<EchoDialer>> {
-    Arc::new(TunnelResponder::new(crate::protocol_id().unwrap(), gate, EchoDialer))
+    Arc::new(TunnelResponder::new(
+        crate::protocol_id().unwrap(),
+        gate,
+        EchoDialer,
+    ))
 }
 
 #[tokio::test]
@@ -57,7 +63,10 @@ async fn ack_then_bidirectional_echo_and_audit() {
         gate
     });
     let mut visitor = serve(responder.clone()).await;
-    assert_eq!(reply(&mut visitor).await, TunnelReply::ack("0011223344556677"));
+    assert_eq!(
+        reply(&mut visitor).await,
+        TunnelReply::ack("0011223344556677")
+    );
     write_frame(&mut visitor, b"ping").await.unwrap();
     assert_eq!(read_frame(&mut visitor).await.unwrap(), b"ping");
     visitor.shutdown().await.unwrap();
@@ -90,11 +99,16 @@ async fn rejection_paths_send_explicit_error_frames() {
     gate.set_enabled(true);
     let mut visitor = serve(open_responder(gate)).await;
     let off = TunnelTicket::new("0011223344556677", "127.0.0.1:9", "ab".repeat(16)).unwrap();
-    write_frame(&mut visitor, &off.encode().unwrap()).await.unwrap();
+    write_frame(&mut visitor, &off.encode().unwrap())
+        .await
+        .unwrap();
     let frame = TunnelReply::decode(&read_frame(&mut visitor).await.unwrap()).unwrap();
     assert!(matches!(
         frame,
-        TunnelReply::Error { code: TunnelErrorCode::TargetNotAllowed, .. }
+        TunnelReply::Error {
+            code: TunnelErrorCode::TargetNotAllowed,
+            ..
+        }
     ));
     // 票据帧超 4 KiB
     let gate = gate_open();
@@ -107,7 +121,10 @@ async fn rejection_paths_send_explicit_error_frames() {
     let frame = TunnelReply::decode(&read_frame(&mut visitor).await.unwrap()).unwrap();
     assert!(matches!(
         frame,
-        TunnelReply::Error { code: TunnelErrorCode::BadTicket, .. }
+        TunnelReply::Error {
+            code: TunnelErrorCode::BadTicket,
+            ..
+        }
     ));
     let rejected = responder.audit().snapshot();
     assert_eq!(rejected.len(), 1, "仅最后一例落此账: {rejected:?}");

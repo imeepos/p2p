@@ -97,7 +97,9 @@ pub(crate) async fn write_request(
 }
 
 /// 读一条 ndjson 行；None = 子进程 EOF（无残留半行）。
-pub(crate) async fn read_line(reader: &mut BufReader<ChildStdout>) -> std::io::Result<Option<Vec<u8>>> {
+pub(crate) async fn read_line(
+    reader: &mut BufReader<ChildStdout>,
+) -> std::io::Result<Option<Vec<u8>>> {
     let mut line = Vec::new();
     let eof = read_bounded_line(reader, &mut line).await?;
     Ok(if eof { None } else { Some(line) })

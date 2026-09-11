@@ -83,10 +83,16 @@ impl PromptCtx {
 pub fn spawn(
     params: BridgeParams,
 ) -> Result<(mpsc::Sender<BridgeCmd>, mpsc::Receiver<BridgeEvent>), std::io::Error> {
-    let sub = subprocess::spawn(&params.command, params.stderr_log.clone(), params.cwd.clone())?;
+    let sub = subprocess::spawn(
+        &params.command,
+        params.stderr_log.clone(),
+        params.cwd.clone(),
+    )?;
     let (cmd_tx, cmd_rx) = mpsc::channel::<BridgeCmd>(16);
     let (event_tx, event_rx) = mpsc::channel::<BridgeEvent>(64);
-    tokio::spawn(run(params, sub.child, sub.stdin, sub.stdout, cmd_rx, event_tx));
+    tokio::spawn(run(
+        params, sub.child, sub.stdin, sub.stdout, cmd_rx, event_tx,
+    ));
     Ok((cmd_tx, event_rx))
 }
 
@@ -173,7 +179,9 @@ fn child_exit(params: &BridgeParams, detail: String) -> Option<TaskState> {
 }
 
 async fn start_prompt(ctx: &mut PromptCtx, params: &BridgeParams) {
-    let Some(text) = ctx.queue.pop_front() else { return };
+    let Some(text) = ctx.queue.pop_front() else {
+        return;
+    };
     let id = ctx.take_id();
     ctx.prompt_id = Some(json!(id));
     if let Err(err) = write_request(

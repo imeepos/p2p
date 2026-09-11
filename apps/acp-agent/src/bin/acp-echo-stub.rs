@@ -123,17 +123,25 @@ fn acp_agent_loop(out: &Arc<Mutex<std::io::Stdout>>, args: &Args) {
         if line.contains("acp-stub-exit") {
             break;
         }
-        let Ok(root) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+        let Ok(root) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
         let (Some(id), Some(method)) = (
             root.get("id").filter(|v| !v.is_null()).cloned(),
-            root.get("method").and_then(|m| m.as_str()).map(str::to_owned),
+            root.get("method")
+                .and_then(|m| m.as_str())
+                .map(str::to_owned),
         ) else {
             continue; // 通知与残行不处理
         };
         match method.as_str() {
-            "initialize" => reply(out, id, serde_json::json!({
-                "protocolVersion": 1, "agentCapabilities": {}
-            })),
+            "initialize" => reply(
+                out,
+                id,
+                serde_json::json!({
+                    "protocolVersion": 1, "agentCapabilities": {}
+                }),
+            ),
             "session/new" => reply(out, id, serde_json::json!({ "sessionId": "s-a2a" })),
             "session/prompt" => run_prompt_turn(out, args, id, &mut reader),
             _ => reply(out, id, serde_json::json!({ "ignored": method })),
@@ -185,7 +193,9 @@ fn wait_perm_denied(
 ) -> bool {
     for line in reader.by_ref().lines() {
         let Ok(line) = line else { return true };
-        let Ok(root) = serde_json::from_str::<serde_json::Value>(&line) else { continue };
+        let Ok(root) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
         if root.get("id") == Some(&serde_json::json!(424_242)) {
             let denied = root
                 .pointer("/result/outcome/outcome")

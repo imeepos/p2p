@@ -7,8 +7,8 @@ use std::io;
 use std::sync::Arc;
 
 use a2a::{
-    Message, MessageNoticeParams, Part, Role, StatusParams, TaskErrorBody, TaskNotice,
-    TaskRequest, TaskResponse, TaskSnapshot, TaskState,
+    Message, MessageNoticeParams, Part, Role, StatusParams, TaskErrorBody, TaskNotice, TaskRequest,
+    TaskResponse, TaskSnapshot, TaskState,
 };
 use p2p::{BoxedStream, PeerId};
 use p2p_protocol::{read_frame, write_frame};
@@ -32,7 +32,16 @@ pub(super) async fn serve_task_stream(
 ) -> io::Result<()> {
     let peer_str = peer.to_string();
     let mut current: Attached = None;
-    if handle_frame(&service, &mut stream, &peer_str, is_owner, &mut current, &first).await? {
+    if handle_frame(
+        &service,
+        &mut stream,
+        &peer_str,
+        is_owner,
+        &mut current,
+        &first,
+    )
+    .await?
+    {
         return Ok(()); // 对端在首帧后即关流
     }
     loop {
@@ -178,7 +187,10 @@ pub(super) fn snapshot_of(task: &a2a::Task) -> TaskSnapshot {
 }
 
 pub(super) fn params_task_id(params: &serde_json::Value) -> Option<String> {
-    params.get("taskId").and_then(|v| v.as_str()).map(str::to_owned)
+    params
+        .get("taskId")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned)
 }
 
 pub(super) fn params_message(params: &serde_json::Value) -> Option<Message> {
@@ -196,7 +208,10 @@ fn to_bytes(inbound: io::Result<Vec<u8>>) -> Option<Vec<u8>> {
     }
 }
 
-pub(super) async fn write_json(stream: &mut BoxedStream, value: &impl serde::Serialize) -> io::Result<()> {
+pub(super) async fn write_json(
+    stream: &mut BoxedStream,
+    value: &impl serde::Serialize,
+) -> io::Result<()> {
     let bytes = serde_json::to_vec(value).map_err(io::Error::other)?;
     write_frame(stream, &bytes).await
 }

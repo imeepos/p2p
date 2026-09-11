@@ -63,7 +63,11 @@ async fn g1_large_bidirectional_roundtrip_and_audit() {
         "双向字节计数: {rec:?}"
     );
     assert_eq!(rec.target, TARGET);
-    assert_eq!(rec.peer_id, rig.b.local_peer_id().to_string(), "身份取握手 PeerId");
+    assert_eq!(
+        rec.peer_id,
+        rig.b.local_peer_id().to_string(),
+        "身份取握手 PeerId"
+    );
 }
 
 /// 绿：HTTP/1.1 形态字节流原样过隧道（固定字节夹具，哑泵不解释 HTTP 语义）。
@@ -76,7 +80,8 @@ async fn g2_http_shape_bytes_pass_through_verbatim() {
         .open(rig.a_peer, &ticket(TARGET))
         .await
         .expect("open tunnel");
-    let request = b"POST /api?v=1 HTTP/1.1\r\nHost: 127.0.0.1:8014\r\nContent-Length: 5\r\n\r\nhello";
+    let request =
+        b"POST /api?v=1 HTTP/1.1\r\nHost: 127.0.0.1:8014\r\nContent-Length: 5\r\n\r\nhello";
     let response = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nhello\r\n0\r\n\r\n";
     io.write_all(request).await.unwrap();
     io.shutdown().await.unwrap();
@@ -144,7 +149,10 @@ async fn r3_bad_ticket_version_and_stale_ts() {
     eprintln!("[evidence r3a] open -> {err}");
     assert_eq!(reject_code(err), TunnelErrorCode::BadTicket);
     let now = p2p_tunnel::now_unix_secs();
-    for stale in [ticket(TARGET).with_ts(now - 301), ticket(TARGET).with_ts(now + 301)] {
+    for stale in [
+        ticket(TARGET).with_ts(now - 301),
+        ticket(TARGET).with_ts(now + 301),
+    ] {
         let err = expect_reject(rig.client.open(rig.a_peer, &stale)).await;
         eprintln!("[evidence r3b] open -> {err}");
         assert_eq!(reject_code(err), TunnelErrorCode::BadTicket);

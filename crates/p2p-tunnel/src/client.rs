@@ -38,11 +38,7 @@ impl<S: StreamFactory> TunnelClient<S> {
     }
 
     /// `open(peer, ticket) -> TunnelIo`（契约 §7）：成功即 ack 已收，进入字节流阶段。
-    pub async fn open(
-        &self,
-        peer: PeerId,
-        ticket: &TunnelTicket,
-    ) -> Result<TunnelIo, TunnelError> {
+    pub async fn open(&self, peer: PeerId, ticket: &TunnelTicket) -> Result<TunnelIo, TunnelError> {
         let id = protocol_id().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         let opened = self.factory.open_stream(&peer, &id).await?;
         let mut stream = open_with_protocol(opened, &id).await?;
@@ -59,8 +55,8 @@ impl<S: StreamFactory> TunnelClient<S> {
                 )))
             }
         };
-        let reply = TunnelReply::decode(&raw)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let reply =
+            TunnelReply::decode(&raw).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         match reply {
             TunnelReply::Ack { uid } if uid == ticket.uid => {
                 // 访侧泵内置（wired tunnel_pump）：返回的 TunnelIo 已是裸字节，

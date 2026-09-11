@@ -11,7 +11,9 @@ use super::bridge::{BridgeEvent, BridgeParams};
 /// session/update 且 update.sessionUpdate = agent_message_chunk。
 pub(crate) fn is_chunk_update(root: &Value) -> bool {
     root.get("method").and_then(Value::as_str) == Some("session/update")
-        && root.pointer("/params/update/sessionUpdate").and_then(Value::as_str)
+        && root
+            .pointer("/params/update/sessionUpdate")
+            .and_then(Value::as_str)
             == Some("agent_message_chunk")
 }
 
@@ -29,7 +31,10 @@ pub(crate) async fn emit_chunk(
     if over_cap {
         params.audit.record(crate::audit::AuditEvent::A2aDenied {
             peer: params.peer.clone(),
-            detail: format!("task {} file part over {} cap", params.task_id, FILE_PART_CAP_BYTES),
+            detail: format!(
+                "task {} file part over {} cap",
+                params.task_id, FILE_PART_CAP_BYTES
+            ),
         });
         return Some(TaskState::Failed);
     }
@@ -55,7 +60,10 @@ fn to_part(content: &Value) -> (Part, bool) {
             false,
         ),
         Some("image") => {
-            let bytes = content.get("data").and_then(Value::as_str).unwrap_or_default();
+            let bytes = content
+                .get("data")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
             let part = Part::File(FilePart {
                 name: "image".into(),
                 mime_type: content
@@ -69,7 +77,12 @@ fn to_part(content: &Value) -> (Part, bool) {
         }
         _ => {
             let encoded = serde_json::to_vec(content).map(|v| v.len()).unwrap_or(0);
-            (Part::Data(DataPart { data: content.clone() }), encoded > FILE_PART_CAP_BYTES)
+            (
+                Part::Data(DataPart {
+                    data: content.clone(),
+                }),
+                encoded > FILE_PART_CAP_BYTES,
+            )
         }
     }
 }
@@ -90,7 +103,12 @@ mod tests {
         assert!(is_chunk_update(&root));
         let (part, over) = to_part(root.pointer("/params/update/content").unwrap());
         assert!(!over);
-        assert_eq!(part, Part::Text(TextPart { text: "你好".into() }));
+        assert_eq!(
+            part,
+            Part::Text(TextPart {
+                text: "你好".into()
+            })
+        );
     }
 
     #[test]
@@ -114,7 +132,9 @@ mod tests {
 
     #[test]
     fn non_update_lines_are_not_chunks() {
-        assert!(!is_chunk_update(&json!({ "method": "session/request_permission" })));
+        assert!(!is_chunk_update(
+            &json!({ "method": "session/request_permission" })
+        ));
         assert!(!is_chunk_update(&json!({
             "method": "session/update",
             "params": { "update": { "sessionUpdate": "tool_call" } }

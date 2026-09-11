@@ -102,7 +102,10 @@ impl InviteStore {
             .find(|i| i.nonce == nonce)
             .ok_or_else(|| format!("nonce not found: {nonce}"))?;
         if entry.status != InviteStatus::Pending {
-            return Err(format!("nonce {} not pending (status={:?})", nonce, entry.status));
+            return Err(format!(
+                "nonce {} not pending (status={:?})",
+                nonce, entry.status
+            ));
         }
         entry.status = InviteStatus::Accepted;
         entry.receipt_sig = Some(receipt_sig.to_owned());
@@ -117,7 +120,10 @@ impl InviteStore {
             .find(|i| i.nonce == nonce)
             .ok_or_else(|| format!("nonce not found: {nonce}"))?;
         if entry.status != InviteStatus::Pending {
-            return Err(format!("nonce {} not pending (status={:?})", nonce, entry.status));
+            return Err(format!(
+                "nonce {} not pending (status={:?})",
+                nonce, entry.status
+            ));
         }
         entry.status = InviteStatus::Rejected;
         self.persist(&invites)
@@ -233,18 +239,18 @@ mod tests {
         let store = InviteStore::open(path.clone()).unwrap();
         store.insert(make_entry("n1", "a1", "p1")).unwrap();
         store.insert(make_entry("n2", "a1", "p2")).unwrap();
-        
+
         store.accept("n1", "receipt-sig-123").unwrap();
         let list = store.list();
         let entry = list.iter().find(|i| i.nonce == "n1").unwrap();
         assert_eq!(entry.status, InviteStatus::Accepted);
         assert_eq!(entry.receipt_sig.as_deref(), Some("receipt-sig-123"));
-        
+
         store.reject("n2").unwrap();
         let list = store.list();
         let entry = list.iter().find(|i| i.nonce == "n2").unwrap();
         assert_eq!(entry.status, InviteStatus::Rejected);
-        
+
         // 重复 accept 拒绝
         assert!(store.accept("n1", "sig").is_err());
         let _ = std::fs::remove_file(path);
@@ -258,7 +264,7 @@ mod tests {
         store.insert(make_entry("n2", "a1", "p2")).unwrap();
         store.insert(make_entry("n3", "a2", "p1")).unwrap();
         store.accept("n1", "sig").unwrap();
-        
+
         let removed = store.revoke_agent("a1").unwrap();
         assert_eq!(removed, 1, "only pending n2 removed, n1 already accepted");
         assert_eq!(store.list().len(), 2);
@@ -272,7 +278,7 @@ mod tests {
         store.insert(make_entry("n1", "a1", "p1")).unwrap();
         store.insert(make_entry("n2", "a1", "p1")).unwrap();
         store.insert(make_entry("n3", "a2", "p2")).unwrap();
-        
+
         let pending = store.pending_for_invitee("p1");
         assert_eq!(pending.len(), 2);
         let _ = std::fs::remove_file(path);

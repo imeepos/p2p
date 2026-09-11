@@ -4,7 +4,9 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 
-use super::{read_descriptor, write_descriptor, LocalAgentDescriptor, DESCRIPTOR_FILE, DESCRIPTOR_SUBDIR};
+use super::{
+    read_descriptor, write_descriptor, LocalAgentDescriptor, DESCRIPTOR_FILE, DESCRIPTOR_SUBDIR,
+};
 
 fn sample() -> LocalAgentDescriptor {
     LocalAgentDescriptor {
@@ -51,7 +53,10 @@ fn rewrite_replaces_atomically_without_tmp_leftover() {
     let mut next = sample();
     next.admin_url = "http://127.0.0.1:9999".into();
     write_descriptor(&home, &next).expect("write 2");
-    assert_eq!(read_descriptor(&super::descriptor_path(&home)).expect("read"), next);
+    assert_eq!(
+        read_descriptor(&super::descriptor_path(&home)).expect("read"),
+        next
+    );
     let entries: Vec<_> = fs::read_dir(home.join(DESCRIPTOR_SUBDIR))
         .expect("dir")
         .filter_map(Result::ok)

@@ -14,7 +14,11 @@ use acp_agent::{AuditEvent, CaptureAudit};
 /// 单步等待上限：桥握手 + 权限超时（1s）+ 宽限，5s 为宽松护栏。
 const STEP: Duration = Duration::from_secs(5);
 
-fn service_with(tag: &str, visibility: a2a::Visibility, stub_args: &[&str]) -> (Arc<TaskService>, Arc<CaptureAudit>, String) {
+fn service_with(
+    tag: &str,
+    visibility: a2a::Visibility,
+    stub_args: &[&str],
+) -> (Arc<TaskService>, Arc<CaptureAudit>, String) {
     let dir = std::env::temp_dir().join(format!("a2a-bridge-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("tmp dir");
@@ -56,10 +60,7 @@ fn service_with(tag: &str, visibility: a2a::Visibility, stub_args: &[&str]) -> (
     (service, audit, dir.to_string_lossy().into_owned())
 }
 
-async fn run_task(
-    service: &Arc<TaskService>,
-    is_owner: bool,
-) -> (Vec<String>, TaskState) {
+async fn run_task(service: &Arc<TaskService>, is_owner: bool) -> (Vec<String>, TaskState) {
     let handle = service
         .create("peer-a", is_owner, "agent-1", Message::user_text("跑一轮"))
         .await
@@ -72,7 +73,10 @@ async fn run_task(
             .expect("event wait timeout")
             .expect("event channel closed")
         {
-            BridgeEvent::Message { part: Part::Text(t), .. } => texts.push(t.text),
+            BridgeEvent::Message {
+                part: Part::Text(t),
+                ..
+            } => texts.push(t.text),
             BridgeEvent::Message { .. } => {}
             BridgeEvent::Done(state) => break state,
         }
@@ -94,7 +98,9 @@ async fn public_agent_execute_is_owner_local_rejected() {
         "execute 必须被 OwnerLocal 拒绝后继续: {texts:?}"
     );
     assert!(
-        audit.contains(|e| matches!(e, AuditEvent::PermissionActed { action, .. } if action == "owner-local")),
+        audit.contains(
+            |e| matches!(e, AuditEvent::PermissionActed { action, .. } if action == "owner-local")
+        ),
         "OwnerLocal 处置必须留审计"
     );
     let _ = std::fs::remove_dir_all(dir);
@@ -142,7 +148,9 @@ async fn local_agent_read_is_static_allowed() {
         "read 必须静态放行不落拒绝: {texts:?}"
     );
     assert!(
-        audit.contains(|e| matches!(e, AuditEvent::PermissionActed { action, .. } if action == "auto-allowed")),
+        audit.contains(
+            |e| matches!(e, AuditEvent::PermissionActed { action, .. } if action == "auto-allowed")
+        ),
         "静态放行必须留审计"
     );
     let _ = std::fs::remove_dir_all(dir);

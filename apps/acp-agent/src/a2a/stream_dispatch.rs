@@ -24,7 +24,10 @@ pub(super) async fn dispatch(
         jsonrpc: "2.0".into(),
         id: request.id,
         result: None,
-        error: Some(a2a::TaskErrorBody { code: ERR_SERVER, message }),
+        error: Some(a2a::TaskErrorBody {
+            code: ERR_SERVER,
+            message,
+        }),
     };
     let ok = |result: serde_json::Value| TaskResponse {
         jsonrpc: "2.0".into(),
@@ -98,11 +101,14 @@ pub(super) async fn create_and_attach(
         result: Some(json!({ "taskId": handle.task_id() })),
         error: None,
     };
-    write_json(stream, &reply).await.map_err(|e| e.to_string())?;
+    write_json(stream, &reply)
+        .await
+        .map_err(|e| e.to_string())?;
     write_json(stream, &status_notice(&handle.task_id(), state))
         .await
         .map_err(|e| e.to_string())?;
-    let rx = handle.take_events().ok_or_else(|| "task events already attached".to_owned())?;
+    let rx = handle
+        .take_events()
+        .ok_or_else(|| "task events already attached".to_owned())?;
     Ok((handle, rx))
 }
-

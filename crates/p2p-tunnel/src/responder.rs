@@ -96,8 +96,13 @@ impl<H: HttpDialer> TunnelResponder<H> {
             Ok(permit) => permit,
             Err(code) => {
                 let message = format!("gate: {code}");
-                self.reject(peer, &mut stream, started_at, Reject::new(code, message).with_ticket(session.clone()))
-                    .await;
+                self.reject(
+                    peer,
+                    &mut stream,
+                    started_at,
+                    Reject::new(code, message).with_ticket(session.clone()),
+                )
+                .await;
                 return;
             }
         };
@@ -105,8 +110,13 @@ impl<H: HttpDialer> TunnelResponder<H> {
             Ok(io) => io,
             Err(e) => {
                 let message = format!("dial {}: {e}", session.target);
-                self.reject(peer, &mut stream, started_at, Reject::new(TunnelErrorCode::DialFailed, message).with_ticket(session.clone()))
-                    .await;
+                self.reject(
+                    peer,
+                    &mut stream,
+                    started_at,
+                    Reject::new(TunnelErrorCode::DialFailed, message).with_ticket(session.clone()),
+                )
+                .await;
                 return;
             }
         };
@@ -184,7 +194,10 @@ impl<H: HttpDialer> TunnelResponder<H> {
         if raw.len() > MAX_TICKET_BYTES {
             return Err(Reject::new(
                 TunnelErrorCode::BadTicket,
-                format!("ticket frame {} bytes exceeds {MAX_TICKET_BYTES}", raw.len()),
+                format!(
+                    "ticket frame {} bytes exceeds {MAX_TICKET_BYTES}",
+                    raw.len()
+                ),
             ));
         }
         let ticket = TunnelTicket::decode(&raw)

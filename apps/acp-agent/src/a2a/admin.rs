@@ -261,23 +261,46 @@ async fn invite_agent(
 ) {
     let agent_id = agent_id.trim_start_matches('/');
     let Some(def) = ctx.agents.get(agent_id) else {
-        reply(tcp, 404, "Not Found", &serde_json::to_string(&json!({"error":"unknown-agent"})).unwrap(), cors).await;
+        reply(
+            tcp,
+            404,
+            "Not Found",
+            &serde_json::to_string(&json!({"error":"unknown-agent"})).unwrap(),
+            cors,
+        )
+        .await;
         return;
     };
     let parsed: InviteBody = match serde_json::from_slice(body) {
         Ok(p) => p,
         Err(err) => {
             tracing::warn!(target: "a2a_audit", error = %err, "a2a admin: invalid invite body");
-            reply(tcp, 400, "Bad Request", &serde_json::to_string(&json!({"error":"invalid-json"})).unwrap(), cors).await;
+            reply(
+                tcp,
+                400,
+                "Bad Request",
+                &serde_json::to_string(&json!({"error":"invalid-json"})).unwrap(),
+                cors,
+            )
+            .await;
             return;
         }
     };
     let now = unix_now();
-    let expiry = parsed.expiry_secs.unwrap_or(a2a::INVITE_EXPIRY_DEFAULT_SECS);
+    let expiry = parsed
+        .expiry_secs
+        .unwrap_or(a2a::INVITE_EXPIRY_DEFAULT_SECS);
     let card = match crate::a2a::agents::AgentStore::card_of(&def, &ctx.host_peer) {
         Some(c) => c,
         None => {
-            reply(tcp, 422, "Unprocessable", &serde_json::to_string(&json!({"error":"agent-disabled"})).unwrap(), cors).await;
+            reply(
+                tcp,
+                422,
+                "Unprocessable",
+                &serde_json::to_string(&json!({"error":"agent-disabled"})).unwrap(),
+                cors,
+            )
+            .await;
             return;
         }
     };
@@ -285,16 +308,37 @@ async fn invite_agent(
         Ok(c) => c,
         Err(e) => {
             tracing::error!(target: "a2a_audit", error = %e, "a2a admin: card sign failed");
-            reply(tcp, 500, "Internal Server Error", &serde_json::to_string(&json!({"error":"sign-failed"})).unwrap(), cors).await;
+            reply(
+                tcp,
+                500,
+                "Internal Server Error",
+                &serde_json::to_string(&json!({"error":"sign-failed"})).unwrap(),
+                cors,
+            )
+            .await;
             return;
         }
     };
     let nonce = Uuid::new_v4().to_string();
-    let frame = match create_invite(signed_card, nonce.clone(), &parsed.invitee_peer, expiry, &ctx.keypair, now) {
+    let frame = match create_invite(
+        signed_card,
+        nonce.clone(),
+        &parsed.invitee_peer,
+        expiry,
+        &ctx.keypair,
+        now,
+    ) {
         Ok(f) => f,
         Err(e) => {
             tracing::warn!(target: "a2a_audit", error = %e, "a2a admin: invite creation failed");
-            reply(tcp, 422, "Unprocessable", &format!("{{\"error\":\"{e}\"}}"), cors).await;
+            reply(
+                tcp,
+                422,
+                "Unprocessable",
+                &format!("{{\"error\":\"{e}\"}}"),
+                cors,
+            )
+            .await;
             return;
         }
     };
@@ -310,11 +354,21 @@ async fn invite_agent(
     };
     if let Err(e) = ctx.invites.insert(entry) {
         tracing::warn!(target: "a2a_audit", error = %e, "a2a admin: invite persist failed");
-        reply(tcp, 500, "Internal Server Error", &format!("{{\"error\":\"{e}\"}}"), cors).await;
+        reply(
+            tcp,
+            500,
+            "Internal Server Error",
+            &format!("{{\"error\":\"{e}\"}}"),
+            cors,
+        )
+        .await;
         return;
     }
     let frame_json = serde_json::to_value(&frame).unwrap_or_default();
-    println!("{{\"kind\":\"a2a-invite-created\",\"agent_id\":\"{}\"}}", agent_id);
+    println!(
+        "{{\"kind\":\"a2a-invite-created\",\"agent_id\":\"{}\"}}",
+        agent_id
+    );
     reply_json(tcp, 200, "OK", &json!({ "invite": frame_json }), cors).await;
 }
 

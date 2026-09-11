@@ -108,9 +108,13 @@ impl A2aHandler {
         } else {
             self.deps.tasks.grants.agents_for_peer(&peer.to_string())
         };
-        self.deps
-            .agents
-            .signed_cards_for(&self.deps.keypair, &self.deps.host_peer, requester_is_owner, &granted, now)
+        self.deps.agents.signed_cards_for(
+            &self.deps.keypair,
+            &self.deps.host_peer,
+            requester_is_owner,
+            &granted,
+            now,
+        )
     }
 }
 
@@ -148,7 +152,8 @@ impl ProtocolHandler for A2aHandler {
             });
             return Ok(());
         };
-        self.card_loop(peer, requester_is_owner, frame, stream).await
+        self.card_loop(peer, requester_is_owner, frame, stream)
+            .await
     }
 
     async fn handle(&self, _stream: BoxedStream) -> io::Result<()> {
@@ -269,8 +274,11 @@ impl A2aHandler {
                 self.handle_invite_receipt(peer, requester_is_owner, v, id, receipt)
             }
             // 客户端不应发送服务端帧；收到即协议违规（不回应，读端随后 EOF 断流）
-            CardFrame::Cards { .. } | CardFrame::Ok { .. } | CardFrame::Push { .. }
-            | CardFrame::InviteResponse { .. } | CardFrame::InviteReceiptResponse { .. } => {
+            CardFrame::Cards { .. }
+            | CardFrame::Ok { .. }
+            | CardFrame::Push { .. }
+            | CardFrame::InviteResponse { .. }
+            | CardFrame::InviteReceiptResponse { .. } => {
                 self.deps.audit.record(crate::audit::AuditEvent::A2aDenied {
                     peer: peer.to_string(),
                     detail: "client sent server-only card frame".into(),
@@ -393,7 +401,9 @@ impl A2aHandler {
             };
         // 查找对应邀请
         let invites = self.deps.invites.list();
-        let invite = invites.iter().find(|i| i.nonce == receipt_signed.payload.nonce);
+        let invite = invites
+            .iter()
+            .find(|i| i.nonce == receipt_signed.payload.nonce);
         let Some(invite) = invite else {
             return vec![CardFrame::InviteReceiptResponse {
                 v,
@@ -439,7 +449,12 @@ impl A2aHandler {
             }];
         }
         // 写入授权清单
-        if let Err(e) = self.deps.tasks.grants.grant(&invite.agent_id, &invite.invitee_peer, now) {
+        if let Err(e) = self
+            .deps
+            .tasks
+            .grants
+            .grant(&invite.agent_id, &invite.invitee_peer, now)
+        {
             return vec![CardFrame::InviteReceiptResponse {
                 v,
                 id,

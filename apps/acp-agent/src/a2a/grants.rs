@@ -58,7 +58,10 @@ impl GrantStore {
     /// 授权（重复授权幂等成功）。满员拒绝，失败留错误不静默。
     pub fn grant(&self, agent_id: &str, peer: &str, now: u64) -> Result<(), String> {
         let mut grants = self.lock();
-        if grants.iter().any(|g| g.agent_id == agent_id && g.peer == peer) {
+        if grants
+            .iter()
+            .any(|g| g.agent_id == agent_id && g.peer == peer)
+        {
             return Ok(());
         }
         if grants.len() >= GRANTS_MAX {
