@@ -716,3 +716,72 @@ get/save 消费同一持久化文件，双向兼容旧配置（缺字段补默�
    真实实现同签名；CLI 对等面（p2pctl authz role list/bind/unbind/check）
    登记 cli-parity.tsv mapped，default_role 两条为 exempt（配置字段读写，
    CLI 直编辑 gui-config.json 无独立子命令，理由随表登记）。
+
+## 19. 隧道本地反代面（v17 加法，2026-09-11，W-T1 契约；线格式真值源=docs/protocol/specs/tunnel.md，协议 `/p2p-base/tunnel/1`）
+
+DSH 启动 URL 驱动的远程 Web 访问：GUI 收到 `http://127.0.0.1:<port>/?token=<tok>`
+形状的启动 URL 后，经隧道协议连到被访节点，把其本机 `127.0.0.1:<port>` 服务映射到
+本机回环随机端口，拼出 `open_url = http://127.0.0.1:<local_port>/?token=<同 token>`
+供系统浏览器打开。协议语义（票据帧/应答帧/错误码闭集/半关闭/审计）以规范页为准，
+本节只冻结 GUI 面。事件采用独立 Tauri 事件名 `tunnel_status`（`emit("tunnel_status",
+TunnelStatusReport)`，前端 `listen<TunnelStatusReport>("tunnel_status", ...)`）：
+不改 NodeEventJson 判别联合（§2），避免在节点通用事件通道里混入隧道高频状态。
+
+### 19.1 命令表（追加；JSON 字段一律 camelCase）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| tunnel_open_dsh | url: string | TunnelOpenReport | 解析 DSH 启动 URL（host 必须为字面量 `127.0.0.1`，token/path 原样保留）→ 以本地生成的 16 hex uid 开 `/p2p-base/tunnel/1` 流（票据 target = URL 的 `127.0.0.1:<port>`）→ `bind(127.0.0.1:0)` 起本地反代 → 回 `{local_addr, open_url, token}`；host 非回环字面量/URL 解析失败/隧道被拒（error 帧）一律 Err 可读中文（含错误码闭集 code） |
+| tunnel_status | - | TunnelStatusReport | 当前隧道会话快照；无活动会话时 `active=false`、`localAddr/target=null`、`sessions=[]` |
+
+### 19.2 事件与数据类型
+
+| 事件 | payload | 语义 |
+|---|---|---|
+| tunnel_status | TunnelStatusReport | 会话建立/关闭/出错时后端主动 emit；终态（outcome ≠ "open"）必发一次，UI 据此提示，错误不静默 |
+
+```ts
+interface TunnelOpenReport {
+  localAddr: string;  // "127.0.0.1:<local_port>"（bind(127.0.0.1:0) 随机端口）
+  openUrl: string;    // http://127.0.0.1:<local_port>/?token=<同 token>
+  token: string;      // 原样透传 DSH 启动 URL 的 token
+}
+
+interface TunnelStatusReport {
+  active: boolean;           // 存在未关闭会话
+  localAddr: string | null;  // 本地反代监听地址；无活动会话 = null
+  target: string | null;     // 被访目标 127.0.0.1:<port>；无活动会话 = null
+  sessions: TunnelSessionAudit[];
+}
+
+interface TunnelSessionAudit {
+  sessionId: string;        // 票据 uid（16 hex，两侧日志同源）
+  peerId: string;           // 被访节点 PeerId（base58）
+  target: string;           // 127.0.0.1:<port>
+  startedAt: number;        // Unix 秒
+  endedAt: number | null;   // Unix 秒；未结束 = null
+  bytesIn: number;          // 记录方视角：自隧道收到
+  bytesOut: number;         // 记录方视角：向隧道发出
+  outcome: "open" | "ok" | TunnelErrorCode;
+}
+
+type TunnelErrorCode =
+  | "bad_ticket" | "target_not_allowed" | "busy"
+  | "dial_failed" | "io" | "shutdown";   // 规范页 §4 六值闭集，禁增删
+```
+
+### 19.3 语义约束（违约即验收红）
+
+1. 准入三重门，缺一即拒：访侧本地监听只绑 `127.0.0.1` 字面量（禁 localhost/
+   0.0.0.0/::1——cookie 只看 host 不看 port）；被访侧目标白名单显式配置且
+   `127.0.0.1:<port>` 精确匹配，默认空 = 全拒；按次开启（会话态，默认关闭，
+   不持久化，重启回落关闭）。
+2. 反代行为：重写 `Host` 头为目标 `127.0.0.1:<port>`，其余 method/path/headers/
+   body 原样过隧道；响应与 body 流式转发，禁止整包缓冲（规范页 §3.3）。
+3. `tunnel_open_dsh` 的 url host 非字面量 `127.0.0.1` / 缺 token / 端口非法 →
+   Err 可读中文，且不得先开监听或开流再失败（先校验后动作）。
+4. `token` 仅作 URL 透传与 open_url 拼装，与隧道票据鉴权无关（票据身份=底座握手
+   PeerId，nonce 才是票据字段）；GUI MUST NOT 把 token 写入任何日志或事件载荷。
+5. 审计字段与规范页 §5 闭集逐字对应（snake_case→camelCase 映射：session_id→
+   sessionId 等八字段全量），outcome 取值 `"open"`/`"ok"`/六值错误码，GUI 不得
+   自造第四类取值。
