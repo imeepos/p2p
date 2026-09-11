@@ -735,6 +735,7 @@ TunnelStatusReport)`，前端 `listen<TunnelStatusReport>("tunnel_status", ...)`
 | tunnel_status | - | TunnelStatusReport | 当前隧道会话快照；无活动会话时 `active=false`、`localAddr/target=null`、`sessions=[]` |
 | tunnel_serve_start | target: string | TunnelServeStatus | 被访侧服务开关：把 `127.0.0.1:<port>` 加入目标白名单（累积，重复调用即多项）并开启受理（enabled=true）；target 非字面量 `127.0.0.1` / 端口非法 → Err 可读中文，先校验后动作，不得部分生效（白名单不变更、enabled 不翻转） |
 | tunnel_serve_stop | - | TunnelServeStatus | 被访侧关闭受理（enabled=false），白名单保留不清空；此后不再接受新建流；既有会话不强制中断，按规范页 §3.2 语义自然收尾，且每条必须落终态（emit tunnel_status，outcome ≠ "open"） |
+| tunnel_open | target: string, peer: string | TunnelOpenReport | 通用开隧道命令（语义约束 §19.3-9）：target 必须为字面量 `127.0.0.1:<port>`（服务端校验，非字面量/端口非法 → Err 可读中文，先校验后动作），peer = 被访节点 PeerId（base58）；以本地生成的 16 hex uid 开 `/p2p-base/tunnel/1` 流（票据 target = 该字面量）→ `bind(127.0.0.1:0)` 起本地反代 → 回 `{local_addr, open_url, token}`；token = 空串承载「无 token」语义，open_url = `http://127.0.0.1:<local_port>`（local_addr 本身，无 token 拼装）；隧道被拒（error 帧）一律 Err 可读中文（含错误码闭集 code） |
 
 ### 19.2 事件与数据类型
 
@@ -809,4 +810,16 @@ type TunnelErrorCode =
    已按预留条款落地（2026-09-12，W-T5）：`p2pctl tunnel serve` 前台常驻独立进程
    面（进程活 = enabled，SIGINT/SIGTERM 收口，规范页 §5.2 并发默认值同源）；
    两条 serve 命令仍 exempt——GUI 命令开关的是 GUI 常驻节点进程内的会话态，
-   与 headless 独立进程非同一对象，语义不混同。
+   与 headless 独立进程非同一对象，语义不混同。`p2pctl tunnel connect`（headless
+   访侧本地反代，TC 落地）对等 exempt 同理：反代生命周期绑定访侧常驻进程
+   （进程活 = 可服务，与 serve 同款进程活语义，无 GUI 事件面可对等），GUI 命令的
+   GUI 内会话态与之非同一对象，语义不混同。
+9. `tunnel_open(target, peer)` 通用命令（§19.1 命令表；「任意 HTTP/WS 服务经 P2P
+   分享」通用形态）：target MUST 为字面量 `127.0.0.1:<port>`（服务端校验，非字面量/
+   端口非法 → Err 可读中文，先校验后动作，不得先开监听或开流再失败——同约束 3）；
+   peer = 被访节点 PeerId。返回复用 TunnelOpenReport 形状：通用形态无 DSH 启动
+   URL，`token = ""`（空串承载「无 token」语义，GUI MUST NOT 为空串拼装
+   `?token=`），`openUrl` = `http://127.0.0.1:<local_port>`（即 local_addr 本身）。
+   事件复用 tunnel_status（不新增事件名，§19.2 单一形状不变）。`tunnel_open_dsh`
+   保留不废弃：DSH 启动 URL 专用形态（token/path 透传），与通用命令并存，
+   语义分层不混同。
