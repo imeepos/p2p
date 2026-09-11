@@ -167,6 +167,44 @@ mod tests {
     }
 
     #[test]
+    fn origin_referer_rewrite_to_target_authority() {
+        let raw = "POST /api/x HTTP/1.1\r\nHost: 127.0.0.1:40001\r\n\
+                   Origin: http://127.0.0.1:52172\r\n\
+                   Referer: http://127.0.0.1:52172/?token=t\r\n\r\n";
+        let mut head = Head::parse(raw.as_bytes()).expect("parse");
+        head.rewrite_host(3080);
+        assert_eq!(head.header("Origin"), Some("http://127.0.0.1:3080"));
+        assert_eq!(
+            head.header("Referer"),
+            Some("http://127.0.0.1:3080/?token=t")
+        );
+    }
+
+    #[test]
+    fn ws_upgrade_origin_rewritten_too() {
+        let raw = "GET /api/remote.mux HTTP/1.1\r\nHost: a\r\nUpgrade: WebSocket\r\n\
+                   Connection: Upgrade\r\nOrigin: http://127.0.0.1:52172\r\n\r\n";
+        let mut head = Head::parse(raw.as_bytes()).expect("parse");
+        assert!(head.is_websocket_upgrade());
+        head.rewrite_host(3080);
+        assert_eq!(head.header("Origin"), Some("http://127.0.0.1:3080"));
+    }
+
+    #[test]
+    fn origin_referer_left_alone_when_absent_or_foreign() {
+        let raw = "GET / HTTP/1.1\r\nHost: h\r\nOrigin: null\r\n\
+                   Referer: http://localhost:9/p\r\n\r\n";
+        let mut head = Head::parse(raw.as_bytes()).expect("parse");
+        head.rewrite_host(3080);
+        assert_eq!(head.header("Origin"), Some("null"));
+        assert_eq!(head.header("Referer"), Some("http://localhost:9/p"));
+        let mut bare = Head::parse(b"GET / HTTP/1.1\r\nHost: h\r\n\r\n").expect("parse");
+        bare.rewrite_host(3080);
+        assert!(bare.header("Origin").is_none());
+        assert!(bare.header("Referer").is_none());
+    }
+
+    #[test]
     fn websocket_detection_and_hop_by_hop() {
         let raw = "GET /api/remote.mux HTTP/1.1\r\nHost: a\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: x\r\n\r\n";
         let mut head = Head::parse(raw.as_bytes()).expect("parse");

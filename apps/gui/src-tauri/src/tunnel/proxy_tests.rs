@@ -184,6 +184,61 @@ async fn host_rewritten_and_response_streams_incrementally() {
     t.await.expect("target task");
 }
 
+/// 目标服务（POST 用例）：断言 Host/Origin/Referer 全部重写为目标 authority。
+async fn target_origin_assert(target: TcpListener, expect_port: u16) {
+    let (mut conn, _) = target.accept().await.expect("accept");
+    tunnel_skin(&mut conn).await;
+    let buf = read_bytes_until(&mut conn, Vec::new(), |b| {
+        is_complete_request(b) && b.ends_with(b"{}")
+    })
+    .await;
+    let head = String::from_utf8_lossy(&buf).into_owned();
+    let authority = format!("http://127.0.0.1:{expect_port}");
+    assert!(
+        head.contains(&format!("Host: 127.0.0.1:{expect_port}")),
+        "Host 未重写: {head}"
+    );
+    assert!(
+        head.contains(&format!("Origin: {authority}")),
+        "Origin 未重写: {head}"
+    );
+    assert!(
+        head.contains(&format!("Referer: {authority}/?token=t")),
+        "Referer 未重写: {head}"
+    );
+    conn.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
+        .await
+        .expect("write");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn post_origin_referer_rewritten_end_to_end() {
+    let target = TcpListener::bind(("127.0.0.1", 0)).await.expect("target");
+    let target_port = target.local_addr().unwrap().port();
+    let proxy_addr = spawn_proxy(
+        Arc::new(ManualOpener {
+            addr: target.local_addr().unwrap(),
+            target: format!("127.0.0.1:{target_port}"),
+        }),
+        target_port,
+    )
+    .await;
+    let t = tokio::spawn(target_origin_assert(target, target_port));
+    let mut conn = TcpStream::connect(proxy_addr).await.expect("connect");
+    let req = format!(
+        "POST /api/session HTTP/1.1\r\nHost: 127.0.0.1:1\r\n\
+         Origin: http://127.0.0.1:{proxy_port}\r\n\
+         Referer: http://127.0.0.1:{proxy_port}/?token=t\r\n\
+         Content-Type: application/json\r\nContent-Length: 2\r\n\r\n{{}}",
+        proxy_port = proxy_addr.port()
+    );
+    conn.write_all(req.as_bytes()).await.expect("req");
+    let mut body = Vec::new();
+    conn.read_to_end(&mut body).await.expect("read");
+    assert!(body.starts_with(b"HTTP/1.1 200"), "非 200: {}", String::from_utf8_lossy(&body));
+    t.await.expect("target task");
+}
+
 /// 目标服务（ws 用例）：断言升级头，回 101（带首包 srv），随后帧面回显。
 async fn target_ws_echo(target: TcpListener) {
     let (mut conn, _) = target.accept().await.expect("accept");
@@ -195,6 +250,10 @@ async fn target_ws_echo(target: TcpListener) {
     assert!(
         head.contains("Connection: Upgrade"),
         "Connection 被改写: {head}"
+    );
+    assert!(
+        head.contains("Origin: http://127.0.0.1:3080"),
+        "升级请求 Origin 未重写: {head}"
     );
     conn.write_all(
         b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nsrv",
@@ -224,7 +283,7 @@ async fn websocket_upgrade_pumps_raw_bytes_both_ways() {
     tokio::spawn(target_ws_echo(target));
 
     let mut conn = TcpStream::connect(proxy_addr).await.expect("connect");
-    conn.write_all(b"GET /api/remote.mux HTTP/1.1\r\nHost: 127.0.0.1:3080\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: aGVsbG8=\r\nSec-WebSocket-Version: 13\r\n\r\n")
+    conn.write_all(b"GET /api/remote.mux HTTP/1.1\r\nHost: 127.0.0.1:3080\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nOrigin: http://127.0.0.1:52172\r\nSec-WebSocket-Key: aGVsbG8=\r\nSec-WebSocket-Version: 13\r\n\r\n")
         .await
         .expect("req");
     let mut head = Vec::new();
