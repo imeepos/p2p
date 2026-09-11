@@ -29,7 +29,12 @@ impl Default for TunnelServeConfig {
     fn default() -> Self {
         Self {
             allowlist: HashSet::new(),
-            max_concurrent: 4,
+            // 2026-09-12 裁决（W-T5）：4 → 16。wt3c 实证浏览器冷加载 burst
+            // 峰值 6-14 并发、超 4 部分必 busy→502（EVIDENCE-wt3c.md「busy
+            // 栅栏缺口复现参数」）；16 = 峰值 + 余量。GUI 经本 default 同源
+            // 受益；headless 面 --max-concurrent 可覆盖。红绿探针 = p2p-itest
+            // tunnel_busy_burst，规范页 §5.2 同步。
+            max_concurrent: 16,
             ticket_timeout: Duration::from_secs(5),
             ts_window_secs: TS_WINDOW_SECS,
             chunk_size: 64 * 1024,
@@ -182,6 +187,18 @@ mod tests {
         assert!(
             TunnelServeConfig::default().allowlist.is_empty(),
             "默认空白名单 = 全拒"
+        );
+    }
+
+    /// 默认并发许可裁决（2026-09-12，W-T5）：须覆盖 wt3c 实测浏览器 burst
+    /// 峰值 14（EVIDENCE-wt3c.md）；红绿探针 = p2p-itest tunnel_busy_burst。
+    /// GUI 侧经 TunnelServeConfig::default() 同源受益，不另设常量。
+    #[test]
+    fn default_max_concurrent_covers_wt3c_burst_peak() {
+        assert_eq!(
+            TunnelServeConfig::default().max_concurrent,
+            16,
+            "裁决值 16 = 峰值 14 + 余量；改裁决须同步规范页 §5.2"
         );
     }
 

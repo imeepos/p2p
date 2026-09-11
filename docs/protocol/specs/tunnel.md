@@ -166,6 +166,13 @@ JSON 对象，UTF-8 编码，字段名逐字如下；整帧字节数 MUST ≤ 40
   - `outcome` = `ok`（两侧 finish 正常关闭）或 §4 错误码闭集之一。
 - 审计落盘格式与保留策略不属线格式（实现职责）；但每次会话 MUST 落一条终态记录，关闭原因
   MUST 体现于 `outcome`。
+- 并发许可默认值裁决（2026-09-12，W-T5）：被访侧默认并发许可 = 16（wt3c 实证浏览器冷加载
+  burst 峰值 6-14 并发，超 4 部分必 `busy`；16 = 峰值 + 余量，红绿探针 p2p-itest
+  `tunnel_busy_burst`）。该默认值为 Rust 内部 API 单点（crates/p2p-tunnel
+  `TunnelServeConfig::default()`），GUI 与 headless 面同源受益；headless 面提供显式覆盖口
+  （`p2pctl tunnel serve --max-concurrent`）。headless 被访侧面：`p2pctl tunnel serve`
+  前台常驻进程，进程活 = 受理开启（「按次开启」的进程级形态，进程退出即回落关闭），仍为
+  独立进程面，GUI `tunnel_serve_start` 的 GUI 内会话态语义不与之混同（gui-contract §19.8）。
 
 ## 6. 兼容与版本
 
@@ -197,5 +204,6 @@ JSON 对象，UTF-8 编码，字段名逐字如下；整帧字节数 MUST ≤ 40
 | `TunnelClient<S: StreamFactory>` | crates/p2p-tunnel | `open(peer, ticket) -> TunnelIo`（访侧） |
 | `LocalProxy<C>` | crates/p2p-tunnel | `bind(127.0.0.1:0)` + 回传 `local_addr` |
 | GUI 命令/事件 | apps/gui/src-tauri | `tunnel_open_dsh` / `tunnel_status` / `tunnel_serve_start` / `tunnel_serve_stop`，事件 `tunnel_status`（含 serve 字段；gui-contract §19） |
+| `p2pctl tunnel serve` | apps/cli | headless 被访侧前台常驻进程面（gui-contract §19.8 预留条款落地，W-T5） |
 
 已知偏差与漂移登记：无（初版）。规范页与实现冲突时以代码为准并登记本节。

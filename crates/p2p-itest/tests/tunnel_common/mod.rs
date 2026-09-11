@@ -56,6 +56,7 @@ impl HttpDialer for MockDialer {
 
 /// 访侧拨号工厂：裸流交调用方握手（open_raw_stream；工厂禁包 new_stream，
 /// 否则流上两帧协议 ID，严格 responder 翻车——2026-09-11 装配 MUST）。
+#[derive(Clone)]
 pub struct NodeFactory {
     pub node: Arc<Node>,
 }
