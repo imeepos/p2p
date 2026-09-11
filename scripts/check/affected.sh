@@ -120,7 +120,7 @@ else
   for c in $CRATES_RAW; do
     sub="$(closure_of "$c" | grep -Fx -f <(printf '%s\n' "$MEMBERS") 2>/dev/null)"
     if [ -z "$sub" ]; then
-      err "闭包计算失败（$c）→ 回退 FULL_RUST"
+      err "闭包计算失败（${c}）→ 回退 FULL_RUST"
       FULL_RUST=1
       AFFECTED_CRATES=""
       break

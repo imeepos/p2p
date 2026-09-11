@@ -55,6 +55,7 @@ version-check:
 
 # 门禁脚本自身的成功/失败路径回归，防止门禁实现退化为假绿
 gate-tests:
+	bash scripts/check/tests/ascii-var-guard.sh
 	bash scripts/check/tests/release-gates.sh
 	bash scripts/check/tests/panic-hygiene.sh
 	bash scripts/check/tests/protocol-registry.sh

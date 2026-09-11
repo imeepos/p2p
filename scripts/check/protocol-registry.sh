@@ -165,7 +165,7 @@ main() {
   done < "$work/ids.tsv"
 
   if [ "$bad_b" -ne 0 ] || [ "$bad_c" -ne 0 ] || [ "$bad_d" -ne 0 ]; then
-    echo "protocol-registry: FAIL 四向核对未过（b 未登记=$bad_b c 缺实现=$bad_c d 缺文档=$bad_d）" >&2
+    echo "protocol-registry: FAIL 四向核对未过（b 未登记=${bad_b} c 缺实现=${bad_c} d 缺文档=${bad_d}）" >&2
     exit 1
   fi
   local found_public=0
@@ -185,7 +185,7 @@ self_test() {
       pass=$((pass + 1)); echo "  ok   $name"
     else
       fail=$((fail + 1))
-      echo "  FAIL $name（rc=$rc 期望 $want_rc，输出应含 '$want_out'）" >&2
+      echo "  FAIL ${name}（rc=$rc 期望 ${want_rc}，输出应含 '$want_out'）" >&2
       printf '%s\n' "$out" | sed 's/^/    | /' >&2
     fi
   }

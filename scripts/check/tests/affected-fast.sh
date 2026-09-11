@@ -29,7 +29,7 @@ assert_field() { # assert_field <说明> <输出> <期望完整行>
   if printf '%s\n' "$out" | grep -qx "$want"; then
     ok "$name"
   else
-    ng "$name（期望行: $want；实际: $(printf '%s\n' "$out" | grep -E '^(FULL|DOMAIN|AFFECTED_CRATES)' | tr '\n' ' ')）"
+    ng "${name}（期望行: ${want}；实际: $(printf '%s\n' "$out" | grep -E '^(FULL|DOMAIN|AFFECTED_CRATES)' | tr '\n' ' ')）"
   fi
 }
 
@@ -40,7 +40,7 @@ assert_crate_in() { # assert_crate_in <说明> <输出> <crate 名>
   if printf '%s' "$line" | grep -qE "[\" ]${crate}[ \"]"; then
     ok "$name"
   else
-    ng "$name（$crate 不在 $line）"
+    ng "${name}（${crate} 不在 ${line}）"
   fi
 }
 
@@ -49,7 +49,7 @@ assert_crate_not_in() { # assert_crate_not_in <说明> <输出> <crate 名>
   local line
   line="$(printf '%s\n' "$out" | grep '^AFFECTED_CRATES=' || true)"
   if printf '%s' "$line" | grep -qE "[\" ]${crate}[ \"]"; then
-    ng "$name（$crate 不应出现在 $line）"
+    ng "${name}（${crate} 不应出现在 ${line}）"
   else
     ok "$name"
   fi
