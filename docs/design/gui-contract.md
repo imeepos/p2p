@@ -800,3 +800,8 @@ type TunnelErrorCode =
 7. 持久化口径：`allow` 累积项持久化（随 GUI 配置存盘，重启保留）；`enabled` 为
    会话态不持久化，重启回落 false——即重启后白名单仍在但全拒，直到显式开启
    （「按次开启」语义，对齐规范页 §5.2）。
+8. CLI 对等：四条命令登记 cli-parity.tsv exempt——访侧会话与本地反代生命周期绑定
+   GUI 进程内（Tauri 事件 emit + 系统浏览器打开），被访侧 enabled 为不持久化的
+   会话态，均无 CLI 常驻进程面可对等（llm_share_serve_status 先例）；登记随命令
+   落地分卡进行（serve 两条随 W-T2，open_dsh/status 随 W-T3）。headless 隧道场景
+   如出现真实需求，另立卡评估 `p2pctl tunnel` 子命令后再转 mapped。

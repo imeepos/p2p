@@ -80,3 +80,5 @@ authz_unbind	mapped	authz unbind
 authz_check	mapped	authz check	
 authz_default_role_get	exempt		default_role 为配置字段（P1d authzDefaultRole，缺省 friend）：CLI 直编辑 gui-config.json（config 同文件），无独立读写子命令可映射
 authz_default_role_save	exempt		同 authz_default_role_get：配置字段写，GUI 侧附加「角色须已登记或空串禁用」校验；CLI 场景手编辑配置文件即等价
+tunnel_serve_start	exempt		被访侧受理开关是 GUI 常驻节点进程内的会话态（enabled 不持久化、重启回落 false），无 CLI 常驻进程面可对等；CLI 场景等价物是直接访问被访端口本身（llm_share_serve_status 豁免先例，gui-contract §19.8）
+tunnel_serve_stop	exempt		同 tunnel_serve_start：serve 生命周期绑定 GUI 常驻节点进程，无 CLI 对等面（gui-contract §19.8）
