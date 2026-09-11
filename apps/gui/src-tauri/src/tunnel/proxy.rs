@@ -103,7 +103,6 @@ impl LocalProxy {
 
 /// 单连接处理：读请求头 → 重写 → 开隧道（带审计）→ 转发。
 async fn serve_conn(mut local: TcpStream, ctx: &ProxyCtx) -> Result<(), String> {
-    eprintln!("[dbg] serve_conn entered");
     let (raw, leftover) = read_head(&mut local)
         .await
         .map_err(|e| format!("读请求头失败: {e}"))?;
