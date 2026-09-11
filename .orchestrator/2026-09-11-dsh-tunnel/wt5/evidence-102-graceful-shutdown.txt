@@ -1,0 +1,10 @@
+bash: line 1: kill: (1664477) - No such process
+== stopped 行:
+{"allow":["127.0.0.1:13080"],"kind":"ready","listenAddrs":["127.0.0.1/u49759","127.0.0.1/t34481"],"maxConcurrent":16,"peerId":"67R7k4Q6DUfA6q65b18iWL5oFHpUqsz2z3xDiVwdQFL5"}
+== 审计总数(收口后):
+391
+== 最后 2 条审计(去 ANSI):
+2026-09-11T20:54:39.498778Z  INFO p2p_tunnel::audit: tunnel session audit session_id=2aaee493474b5133 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789160049 ended_at=1789160079 bytes_in=831 bytes_out=11233 outcome=served
+2026-09-11T20:54:42.502056Z  INFO p2p_tunnel::audit: tunnel session audit session_id=2e8cb6b27458de66 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789160082 ended_at=1789160082 bytes_in=0 bytes_out=0 outcome=rejected:shutdown
+== serve 进程残留:
+1707345

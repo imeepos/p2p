@@ -1,0 +1,20 @@
+=== 102 被访侧审计采样（八字段，去 ANSI，最后 6 条，收口前后）
+2026-09-11T20:53:33.475807Z  INFO p2p_tunnel::audit: tunnel session audit session_id=b4bd31d0b397b371 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789159983 ended_at=1789160013 bytes_in=831 bytes_out=11233 outcome=served
+2026-09-11T20:53:53.277121Z  INFO p2p_tunnel::audit: tunnel session audit session_id=a335e092a37a9a93 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789160003 ended_at=1789160033 bytes_in=831 bytes_out=11233 outcome=served
+2026-09-11T20:54:06.488562Z  INFO p2p_tunnel::audit: tunnel session audit session_id=e07b3dd594793390 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789160016 ended_at=1789160046 bytes_in=831 bytes_out=11233 outcome=served
+2026-09-11T20:54:26.430858Z  INFO p2p_tunnel::audit: tunnel session audit session_id=8999889f24f840ac peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789160036 ended_at=1789160066 bytes_in=831 bytes_out=11233 outcome=served
+2026-09-11T20:54:39.498778Z  INFO p2p_tunnel::audit: tunnel session audit session_id=2aaee493474b5133 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789160049 ended_at=1789160079 bytes_in=831 bytes_out=11233 outcome=served
+2026-09-11T20:54:42.502056Z  INFO p2p_tunnel::audit: tunnel session audit session_id=2e8cb6b27458de66 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789160082 ended_at=1789160082 bytes_in=0 bytes_out=0 outcome=rejected:shutdown
+
+=== 102 审计总数: 391
+
+=== DSH 仅 loopback 监听:
+LISTEN 0      511        127.0.0.1:13080      0.0.0.0:*    users:(("MainThread",pid=1694523,fd=22)) 
+
+=== serve ready 行（peerId B, maxConcurrent 16）:
+{"allow":["127.0.0.1:13080"],"kind":"ready","listenAddrs":["127.0.0.1/u49759","127.0.0.1/t34481"],"maxConcurrent":16,"peerId":"67R7k4Q6DUfA6q65b18iWL5oFHpUqsz2z3xDiVwdQFL5"}
+
+=== 优雅收口序列（SIGTERM→gate 关→shutdown 拒绝落终态→在途长连超时→显式报错退出）:
+2026-09-11T20:54:42.502056Z  INFO p2p_tunnel::audit: tunnel session audit session_id=2e8cb6b27458de66 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:13080 started_at=1789160082 ended_at=1789160082 bytes_in=0 bytes_out=0 outcome=rejected:shutdown
+p2pctl-tunnel-serve: 收口超时（10s）：仍有 5 条在途会话未落终态
+p2pctl: 运行失败: 收口超时（10s）：仍有 5 条在途会话未落终态

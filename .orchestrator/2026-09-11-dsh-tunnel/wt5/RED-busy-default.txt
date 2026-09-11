@@ -1,0 +1,32 @@
+# W-T5 RED 记录（裁决前，2026-09-11）
+命令: cargo test -p p2p-itest --test tunnel_busy_burst && cargo test -p p2p-tunnel --lib config
+
+
+
+failures:
+    config::tests::default_max_concurrent_covers_wt3c_burst_peak
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p p2p-tunnel --lib`
+
+test default_gate_absorbs_wt3c_burst_peak_without_busy ... FAILED
+test over_cap_burst_rejects_busy_with_terminal_audit_each ... ok
+
+failures:
+
+---- default_gate_absorbs_wt3c_burst_peak_without_busy stdout ----
+
+thread 'default_gate_absorbs_wt3c_burst_peak_without_busy' (3350013) panicked at crates/p2p-itest/tests/tunnel_busy_burst.rs:137:5:
+assertion `left == right` failed: 默认配置必须吸收 wt3c 峰值 burst（busy=10 ok=4）
+  left: 10
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+--
+    default_gate_absorbs_wt3c_burst_peak_without_busy
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+error: test failed, to rerun pass `-p p2p-itest --test tunnel_busy_burst`

@@ -1,0 +1,8 @@
+== 负例：穿隧道坏 Origin（浏览器信任栅栏，等价 wt3b 坏 token 负例；DSH rc.6 无 token 改 Origin 栅栏形态）
+$ curl -X POST -H 'Origin: http://evil.example' http://127.0.0.1:60491/api/host.describe
+HTTP 403
+forbidden
+
+$ curl -X POST -H 'Origin: http://127.0.0.1:60491'（隧道本地口，非受信 authority）
+HTTP 403
+forbidden
