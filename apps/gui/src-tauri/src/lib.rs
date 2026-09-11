@@ -26,6 +26,7 @@ pub mod profile;
 pub mod proto;
 pub mod state;
 pub mod types;
+pub mod tunnel;
 pub mod update;
 pub mod util;
 pub mod watcher;
@@ -116,6 +117,8 @@ pub fn run() {
             authz::authz_check,
             authz::authz_default_role_get,
             authz::authz_default_role_save,
+            tunnel::tunnel_serve_start,
+            tunnel::tunnel_serve_stop,
         ])
         .plugin(tauri_plugin_opener::init())
         // 媒体附件导出（契约 §12 加法）：系统保存对话框选目标路径

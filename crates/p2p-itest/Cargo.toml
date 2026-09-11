@@ -35,6 +35,8 @@ p2p-mux = { path = "../p2p-mux" }
 p2p-protocol = { path = "../p2p-protocol" }
 p2p-security = { path = "../p2p-security" }
 p2p-transport = { path = "../p2p-transport" }
+# W-T2 tunnel 被访侧/访侧（/p2p-base/tunnel/1）
+p2p-tunnel = { path = "../p2p-tunnel" }
 repair-bridge = { path = "../repair-bridge" }
 repair-helper = { path = "../repair-helper" }
 repair-enforce = { path = "../repair-enforce" }

@@ -56,6 +56,8 @@ pub struct AppState {
     chat: chat::ChatSlot,
     /// 出借方常驻 serve 槽位（§16.6 v13：node_start 装配 / node_stop 卸载）。
     llm_serve: ServeSlot,
+    /// tunnel 被访侧槽位（W-T2：handler 进表，会话态默认关闭）。
+    tunnel_serve: crate::tunnel::TunnelServeSlot,
 }
 
 impl AppState {
@@ -67,12 +69,18 @@ impl AppState {
             profile: Arc::new(ProfileStore::new(app_data_dir.clone())),
             chat: chat::ChatSlot::new(app_data_dir),
             llm_serve: ServeSlot::new(),
+            tunnel_serve: crate::tunnel::TunnelServeSlot::new(),
         }
     }
 
     /// 应用数据目录（chat 媒体落盘根；媒体导出来源校验用）。
     pub(crate) fn data_dir(&self) -> &Path {
         &self.app_data_dir
+    }
+
+    /// tunnel 被访侧槽位句柄（tunnel_serve_start/stop 命令面）。
+    pub(crate) fn tunnel_serve(&self) -> &crate::tunnel::TunnelServeSlot {
+        &self.tunnel_serve
     }
 
     /// node_start：已运行 Err；成功后占槽并注册 echo handler、订阅事件。
@@ -111,6 +119,8 @@ impl AppState {
         // 节点启动（assembled:false + lastError 落槽可查询，不回滚）。
         let llm_store = crate::llm_share::LlmShareStore::new(self.app_data_dir.clone());
         crate::llm_share::serve::install(&self.llm_serve, &llm_store, &cfg, &node).await;
+        // tunnel 被访侧装配（W-T2）：handler 进表；按次开关默认关，需显式开启。
+        self.tunnel_serve.install(&node).await;
         *slot = Some(RunningNode {
             node,
             config: cfg.clone(),
@@ -143,6 +153,7 @@ impl AppState {
                 running.history.stop_and_clear();
                 self.chat.uninstall().await;
                 self.llm_serve.clear().await;
+                self.tunnel_serve.clear().await;
                 true
             }
             None => false,

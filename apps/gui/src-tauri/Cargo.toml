@@ -83,6 +83,8 @@ llm-share-ledger = { path = "../../../crates/llm-share-ledger" }
 p2p-protocol = { path = "../../../crates/p2p-protocol" }
 # serve 闸 1 判定源（authz-role-design §8，A3 S1）：AuthzChecker/SystemClock/Authz
 p2p-authz = { path = "../../../crates/p2p-authz" }
+# tunnel 被访侧装配（W-T2）：responder 注册 + 会话态开关/白名单内部 API
+p2p-tunnel = { path = "../../../crates/p2p-tunnel" }
 futures = "0.3"
 async-trait = "0.1"
 
