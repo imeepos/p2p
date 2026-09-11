@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 async-trait.workspace = true
+getrandom = "0.2"
 p2p-identity = { path = "../p2p-identity" }
 p2p-mux = { path = "../p2p-mux" }
 p2p-protocol = { path = "../p2p-protocol" }

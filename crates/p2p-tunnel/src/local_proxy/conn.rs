@@ -1,108 +1,19 @@
-//! 本地回环反代（gui-contract §19.3 / 冻结契约 §5-§6）：只绑 `127.0.0.1`
-//! 字面量，端口 0 由 OS 分配；一条浏览器连接 ↔ 一条隧道流（acp-pump
-//! 「一连接一泵」体例）。每请求重写 Host 与同面 Origin/Referer 为目标
-//! `127.0.0.1:<port>`（写请求/WS 的来源 authority 不改写会被目标栅栏拒）；非升级
-//! 请求 Connection: close（hop-by-hop 取舍：响应终点=隧道 EOF，免复用语义）；
-//! WebSocket 升级 101 后与隧道流裸字节双向泵；响应与 body 逐块转发禁整包
-//! 缓冲。每条隧道流一条审计（audit::ConnAudit，uid 同源两侧日志）。
+//! 反代单连接处理路径（迁移自 apps/gui/src-tauri/src/tunnel/proxy.rs:104-268，
+//! 行为零变化）：读请求头 → 校验 → 开隧道（带审计）→ 头重写 → 转发。
 
-use std::net::{Ipv4Addr, SocketAddr};
-use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
-use std::time::Duration;
 
-use p2p_tunnel::{TunnelError, TunnelIo};
 use tokio::io::AsyncWriteExt;
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpStream;
 
-use super::audit::ConnAudit;
 use super::head::{read_head, Head};
 use super::pump::{drain_reply, forward_exact, is_101, read_reply_head};
-
-/// 开隧道缝：产出 ack 后的裸字节流（生产=TunnelClient 包装；单测=自足
-/// 握手的直连裸流）。独立 trait 使反代测试免于耦合 TunnelClient 内部。
-#[async_trait::async_trait]
-pub trait TunnelOpener: Send + Sync {
-    async fn open(&self, uid: &str, target: &str) -> Result<TunnelIo, TunnelError>;
-}
-
-/// 反代共享上下文。
-pub struct ProxyCtx {
-    target_port: u16,
-    peer_id: String,
-    opener: Arc<dyn TunnelOpener>,
-    conns: AtomicU32,
-    audit: super::audit::AuditLog,
-}
-
-impl ProxyCtx {
-    pub fn active_conns(&self) -> u32 {
-        self.conns.load(Ordering::Relaxed)
-    }
-
-    /// 审计快照（tunnel_status 的 sessions 字段）。
-    pub async fn audit_snapshot(&self) -> Vec<super::types::TunnelSessionAudit> {
-        self.audit.snapshot().await
-    }
-}
-
-/// 本地反代监听体。`bind` 只绑 127.0.0.1 字面量；`serve` 由调用方 spawn，
-/// 停止 = abort 该任务（listener 无部分状态；活动连接自然排空）。
-pub struct LocalProxy {
-    listener: TcpListener,
-    pub ctx: Arc<ProxyCtx>,
-}
-
-impl LocalProxy {
-    /// 绑定 127.0.0.1:0（§19.3-1：禁 localhost/0.0.0.0/::1，port 0 OS 分配）。
-    pub async fn bind(
-        target_port: u16,
-        peer_id: String,
-        opener: Arc<dyn TunnelOpener>,
-    ) -> std::io::Result<Self> {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
-        Ok(Self {
-            listener,
-            ctx: Arc::new(ProxyCtx {
-                target_port,
-                peer_id,
-                opener,
-                conns: AtomicU32::new(0),
-                audit: super::audit::AuditLog::default(),
-            }),
-        })
-    }
-
-    pub fn local_addr(&self) -> SocketAddr {
-        self.listener.local_addr().expect("bound listener has addr")
-    }
-
-    /// accept 循环；非回环来源直接拒（防绑定面意外暴露）。
-    pub async fn serve(self) {
-        loop {
-            match self.listener.accept().await {
-                Ok((tcp, peer)) if peer.ip().is_loopback() => {
-                    let ctx = Arc::clone(&self.ctx);
-                    ctx.conns.fetch_add(1, Ordering::Relaxed);
-                    tokio::spawn(async move {
-                        if let Err(reason) = serve_conn(tcp, &ctx).await {
-                            tracing::warn!(%reason, "tunnel proxy 连接处理失败");
-                        }
-                        ctx.conns.fetch_sub(1, Ordering::Relaxed);
-                    });
-                }
-                Ok((_, peer)) => tracing::warn!(%peer, "tunnel proxy 拒绝非回环来源"),
-                Err(err) => {
-                    tracing::warn!(error = %err, "tunnel proxy accept 失败");
-                    tokio::time::sleep(Duration::from_millis(200)).await;
-                }
-            }
-        }
-    }
-}
+use super::session::SessionAudit;
+use super::ProxyCtx;
+use crate::{TunnelError, TunnelIo};
 
 /// 单连接处理：读请求头 → 重写 → 开隧道（带审计）→ 转发。
-async fn serve_conn(mut local: TcpStream, ctx: &ProxyCtx) -> Result<(), String> {
+pub(super) async fn serve_conn(mut local: TcpStream, ctx: &ProxyCtx) -> Result<(), String> {
     let (raw, leftover) = read_head(&mut local)
         .await
         .map_err(|e| format!("读请求头失败: {e}"))?;
@@ -113,7 +24,7 @@ async fn serve_conn(mut local: TcpStream, ctx: &ProxyCtx) -> Result<(), String> 
         return reject(&mut local, 501, "chunked request body not supported").await;
     }
     // 先校验后动作（§19.3-3）：解析/校验全过才建流开数据面。
-    let audit = Arc::new(ConnAudit::new(
+    let audit = Arc::new(SessionAudit::new(
         new_uid()?,
         ctx.peer_id.clone(),
         format!("127.0.0.1:{}", ctx.target_port),
@@ -153,7 +64,7 @@ async fn forward_conn(
     websocket: bool,
     content_len: u64,
     leftover: Vec<u8>,
-    audit: &Arc<ConnAudit>,
+    audit: &Arc<SessionAudit>,
 ) -> Result<(), String> {
     let target = format!("127.0.0.1:{}", ctx.target_port);
     let mut tunnel = match ctx.opener.open(&audit.uid, &target).await {
@@ -198,7 +109,7 @@ async fn upgrade_path(
         .map_err(|e| format!("应答头写回失败: {e}"))?;
     if !is_101(&raw) {
         // 升级被目标拒绝：应答头已透传，剩余 body 排干至 EOF 即终点。
-        drain_reply(&mut tunnel, &mut local, rest, &fallback_audit()).await?;
+        drain_reply(&mut tunnel, &mut local, rest, fallback_audit().as_ref()).await?;
         return Ok(());
     }
     if !rest.is_empty() {
@@ -222,9 +133,16 @@ async fn plain_path(
     mut tunnel: TunnelIo,
     leftover: Vec<u8>,
     content_len: u64,
-    audit: &Arc<ConnAudit>,
+    audit: &Arc<SessionAudit>,
 ) -> Result<(), String> {
-    forward_exact(&mut local, &mut tunnel, leftover, content_len, audit).await?;
+    forward_exact(
+        &mut local,
+        &mut tunnel,
+        leftover,
+        content_len,
+        audit.as_ref(),
+    )
+    .await?;
     // 半关时机：响应收完再 FIN。DSH 按 Content-Length 判定请求完整即响应，
     // 不依赖 FIN；若在响应前 FIN，pump 的 wire 半关与响应回程存在时序冲突
     // （实证：FIN 后 target 写的帧泵侧读不到，见 2026-09-11 调试记录）。
@@ -233,7 +151,7 @@ async fn plain_path(
         .write_all(&raw)
         .await
         .map_err(|e| format!("响应头写回失败: {e}"))?;
-    drain_reply(&mut tunnel, &mut local, rest, audit).await?;
+    drain_reply(&mut tunnel, &mut local, rest, audit.as_ref()).await?;
     if let Err(e) = tunnel.shutdown().await {
         tracing::warn!(error = %e, "tunnel 请求方向收尾关闭失败");
     }
@@ -241,8 +159,8 @@ async fn plain_path(
 }
 
 /// 升级被拒路径的字节计数兜底（真实会话审计在 serve_conn 已入册）。
-fn fallback_audit() -> Arc<ConnAudit> {
-    Arc::new(ConnAudit::new("0".repeat(16), "-".into(), "-".into()))
+fn fallback_audit() -> Arc<SessionAudit> {
+    Arc::new(SessionAudit::new("0".repeat(16), "-".into(), "-".into()))
 }
 
 /// 反代自产错误应答（非隧道透传面）：501/502 + 人话，供浏览器与截图观测。
@@ -266,7 +184,3 @@ async fn reject(local: &mut TcpStream, status: u16, reason: &str) -> Result<(), 
         .await
         .map_err(|e| format!("错误应答收尾失败: {e}"))
 }
-
-#[cfg(test)]
-#[path = "proxy_tests.rs"]
-mod tests;

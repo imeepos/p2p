@@ -5,14 +5,10 @@
 //! `client.rs` 整体切换为其 `TunnelClient` 导出（wire 语义同源冻结契约）。
 
 // 子模块文件与 visit.rs 同级（tunnel/ 目录），#[path] 指向同级。
+// 反代核心（proxy/head/pump）已下沉 p2p-tunnel local_proxy（W-TB），
+// 此处直接消费 crate 导出面。
 #[path = "audit.rs"]
 pub mod audit;
-#[path = "head.rs"]
-pub mod head;
-#[path = "proxy.rs"]
-pub mod proxy;
-#[path = "pump.rs"]
-pub mod pump;
 #[path = "types.rs"]
 pub mod types;
 #[path = "url.rs"]
@@ -21,7 +17,7 @@ pub mod url;
 use std::sync::Arc;
 
 use p2p::PeerId;
-use p2p_tunnel::TunnelClient;
+use p2p_tunnel::{LocalProxy, ProxyCtx, TunnelClient, TunnelOpener};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
@@ -61,7 +57,7 @@ struct NodeTunnelOpener {
 }
 
 #[async_trait::async_trait]
-impl proxy::TunnelOpener for NodeTunnelOpener {
+impl TunnelOpener for NodeTunnelOpener {
     async fn open(
         &self,
         uid: &str,
@@ -83,7 +79,7 @@ pub struct ActiveSession {
     pub local_addr: String,
     pub target: String,
     proxy: tokio::task::JoinHandle<()>,
-    ctx: Arc<proxy::ProxyCtx>,
+    ctx: Arc<ProxyCtx>,
 }
 
 /// 访侧托管状态（Tauri managed）。serve 面实时取自 W-T2 槽位（TunnelServeSlot）。
@@ -105,7 +101,14 @@ impl TunnelState {
                 active: true,
                 local_addr: Some(active.local_addr.clone()),
                 target: Some(active.target.clone()),
-                sessions: active.ctx.audit_snapshot().await,
+                // §19.3-5 八字段全量映射（crate TunnelAuditRecord → camelCase）。
+                sessions: active
+                    .ctx
+                    .audit_snapshot()
+                    .await
+                    .into_iter()
+                    .map(types::TunnelSessionAudit::from)
+                    .collect(),
                 serve,
             },
             None => {
@@ -122,7 +125,7 @@ impl TunnelState {
         app: &AppHandle,
         target: url::DshTarget,
         peer: PeerId,
-        opener: Arc<dyn proxy::TunnelOpener>,
+        opener: Arc<dyn TunnelOpener>,
     ) -> Result<TunnelOpenReport, String> {
         self.stop(app).await;
         let result = self.do_start(&target, peer, opener).await;
@@ -155,9 +158,9 @@ impl TunnelState {
         &self,
         target: &url::DshTarget,
         peer: PeerId,
-        opener: Arc<dyn proxy::TunnelOpener>,
+        opener: Arc<dyn TunnelOpener>,
     ) -> Result<(ActiveSession, String), String> {
-        let bound = proxy::LocalProxy::bind(target.port, peer_id_str(&peer), opener)
+        let bound = LocalProxy::bind(target.port, peer_id_str(&peer), opener)
             .await
             .map_err(|e| format!("本地绑定失败: {e}"))?;
         let local_addr = bound.local_addr();

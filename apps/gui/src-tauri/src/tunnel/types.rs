@@ -58,6 +58,32 @@ pub struct TunnelSessionAudit {
     pub outcome: String,
 }
 
+impl From<p2p_tunnel::TunnelAuditRecord> for TunnelSessionAudit {
+    /// §19.3-5 八字段全量 snake_case→camelCase 映射（TA 移交清单③）。
+    /// `ended_at == 0` = crate 存续期哨兵（§5.2「ended_at 为空」）→
+    /// endedAt null + outcome "open"；Served → "ok"；
+    /// Rejected/Broken(code) → 错误码字面量（§19.2 六值闭集）。
+    fn from(record: p2p_tunnel::TunnelAuditRecord) -> Self {
+        let open = record.ended_at == 0;
+        let outcome = match record.outcome {
+            p2p_tunnel::TunnelAuditOutcome::Served if open => "open".to_string(),
+            p2p_tunnel::TunnelAuditOutcome::Served => "ok".to_string(),
+            p2p_tunnel::TunnelAuditOutcome::Rejected(code)
+            | p2p_tunnel::TunnelAuditOutcome::Broken(code) => code.as_str().to_string(),
+        };
+        Self {
+            session_id: record.session_id,
+            peer_id: record.peer_id,
+            target: record.target,
+            started_at: record.started_at,
+            ended_at: (record.ended_at != 0).then_some(record.ended_at),
+            bytes_in: record.bytes_in,
+            bytes_out: record.bytes_out,
+            outcome,
+        }
+    }
+}
+
 impl TunnelStatusReport {
     /// 无活动会话快照（§19.1：active=false、localAddr/target=null、sessions=[]）。
     pub fn idle() -> Self {
@@ -127,5 +153,47 @@ mod tests {
             assert!(value.get(key).is_some(), "缺字段 {key}");
         }
         assert_eq!(value["endedAt"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn crate_audit_record_maps_to_contract_shapes() {
+        let open = TunnelSessionAudit::from(p2p_tunnel::TunnelAuditRecord {
+            session_id: "0123456789abcdef".into(),
+            peer_id: "peer".into(),
+            target: "127.0.0.1:3080".into(),
+            started_at: 1000,
+            ended_at: 0,
+            bytes_in: 3,
+            bytes_out: 5,
+            outcome: p2p_tunnel::TunnelAuditOutcome::Served,
+        });
+        assert_eq!(open.session_id, "0123456789abcdef");
+        assert_eq!(open.outcome, "open");
+        assert_eq!(open.ended_at, None);
+        assert_eq!(open.bytes_in, 3);
+        assert_eq!(open.bytes_out, 5);
+        let done = TunnelSessionAudit::from(p2p_tunnel::TunnelAuditRecord {
+            session_id: "f".repeat(16),
+            peer_id: "peer".into(),
+            target: "127.0.0.1:3080".into(),
+            started_at: 1000,
+            ended_at: 2000,
+            bytes_in: 0,
+            bytes_out: 0,
+            outcome: p2p_tunnel::TunnelAuditOutcome::Broken(p2p_tunnel::TunnelErrorCode::Io),
+        });
+        assert_eq!(done.outcome, "io");
+        assert_eq!(done.ended_at, Some(2000));
+        let served = TunnelSessionAudit::from(p2p_tunnel::TunnelAuditRecord {
+            session_id: "f".repeat(16),
+            peer_id: "peer".into(),
+            target: "127.0.0.1:3080".into(),
+            started_at: 1000,
+            ended_at: 2000,
+            bytes_in: 0,
+            bytes_out: 0,
+            outcome: p2p_tunnel::TunnelAuditOutcome::Served,
+        });
+        assert_eq!(served.outcome, "ok");
     }
 }

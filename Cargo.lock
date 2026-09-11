@@ -1672,6 +1672,7 @@ name = "p2p-tunnel"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "getrandom 0.2.17",
  "p2p-identity",
  "p2p-mux",
  "p2p-protocol",
