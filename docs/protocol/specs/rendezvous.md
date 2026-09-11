@@ -12,11 +12,27 @@
   （node-lifecycle.md §2）；地址观测（反射口学公网映射地址）产出的地址应并入注册
   地址集。
 - 领域模型：namespace（注册域，字符串）→ 节点条目（PeerId + 地址集 + TTL）。
+- 默认 namespace：`p2p-base`（本仓实现常量，crates/p2p/src/assembly.rs:25
+  DEFAULT_NAMESPACE）；查询"标准节点"必须使用该 namespace，其他 namespace 只承载
+  显式注册到该域的条目。
 
 ## 2. 线格式
 
 帧 payload = protobuf 消息（字段只增不改）；一帧一个消息，会话为多帧请求-应答。
 全部整数 protobuf varint；bytes 为原始字节。
+
+链路帧封装（本协议专用；先封帧再解 protobuf）：
+
+- 首帧 = 协议 ID 帧，走 wire-format.md §6 varint 帧：payload 为
+  `/p2p-base/rendezvous/1` 的 UTF-8 字节（22 字节），完整首帧 23 字节
+  `16 2f70 32 70 2d 62 61 73 65 2f 72 65 6e 64 65 7a 76 6f 75 73 2f 31`。
+- 其后每条消息帧 = **4 字节大端（u32be）无符号长度前缀 + protobuf payload**，
+  一帧恰好一条 Request 或 Response；长度 = 该 protobuf 消息全长，上限
+  1 048 576（1 MiB），超限读端立即链路级错误断开，不预读 payload。
+- 消息帧不得使用 varint 前缀：服务端按 u32be 解读长度，varint 编码的长度字节会
+  命中 frame too big 断开（GAP-1 实测，见 §8）。
+- 逐字节样例：§7 `vectors/rendezvous-link-frame.json`（协议 ID 首帧、u32be 消息帧
+  各一例 + 超限负样例）。
 
 Request（oneof kind，tag 1=Register / tag 2=Query）：
 
@@ -53,6 +69,15 @@ tag 3 `addrs`（repeated AddrMsg）、tag 4 `ttl_secs`（uint32）、tag 5 `issu
 
 会话：客户端在控制链路上发 Request，服务端对每个 Request 回恰好一个 Response
 （一问一答，不交叉流水）。链路断开即会话结束。
+
+半帧悬挂（读端确切语义）：链路读端无帧级计时器。前缀不足 4 字节、或前缀已读但
+payload 未到齐时，读端不产出帧、不回任何字节、不断开，悬挂持续到宿主连接终止。
+链路层仅有两个出口：发送方关流（半帧遇 EOF，链路报错结束）；声明长度 > 1 MiB
+（读端立即报错断开）。回收兜底在连接层：整条连接完全静默达 QUIC 空闲超时 30s
+即回收（crates/p2p-transport/src/quic.rs:23）；发送方在连接的其他流上保持流量则
+连接继续存活，半帧链路不被计时回收（swarm 空闲回收阈值 120s + 30s 扫描，仅面向
+无在途业务流的连接，crates/p2p-swarm/src/swarm/reclaim.rs:38,40）。因此实现必须
+对每条链路请求施加整体超时，不得依赖对端回收半帧（参考节奏见本节客户端值）。
 
 服务端行为：
 
@@ -131,6 +156,9 @@ tag 3 `addrs`（repeated AddrMsg）、tag 4 `ttl_secs`（uint32）、tag 5 `issu
 - `vectors/peer-id.json`：固定种子 → 公钥 → SHA-256 → base58 全链向量
   （pubkey 推导 PeerId 校验用）；
 - `vectors/varint.json`：tag 头与 varint 整数编码边界（ttl_secs/issued_at/端口）。
+- `vectors/rendezvous-link-frame.json`：链路帧封装逐字节样例——协议 ID 首帧
+  （varint 帧）与 u32be 前缀消息帧各一例 + 声明长度超 1 MiB 负样例；消息帧的
+  Register 字节与 `rendezvous-register.json` 黄金内容同源（§2 帧封装规则联用）。
 
 ## 8. 实现状态与出处
 
@@ -144,6 +172,16 @@ tag 3 `addrs`（repeated AddrMsg）、tag 4 `ttl_secs`（uint32）、tag 5 `issu
 - crates/p2p-discovery/src/rendezvous/client.rs：注册 20s、查询 5s x2 → 稳态 30s
   ±20% 抖动、strip_unroutable 信任域开关（默认开启，同机 rendezvous 置 false）。
 - crates/p2p-discovery/src/rendezvous/reconnect.rs：500ms → 30s 退避（抖动 20%）。
-- crates/p2p-discovery/src/rendezvous/link.rs：帧缝（一帧一消息，长度前缀封装）。
-- 漂移登记：无已知语义漂移；docs/design/wire-protocol.md §7.2 与
+- crates/p2p-discovery/src/rendezvous/link.rs：帧缝（一帧一消息，长度前缀封装）；
+  真实帧缝实现在 crates/p2p/src/rendezvous.rs:213-217（LengthDelimitedCodec，
+  4 字节大端长度前缀），帧上限 1 MiB = MAX_RENDEZVOUS_FRAME（:211）。
+- 默认 namespace 常量：crates/p2p/src/assembly.rs:25（DEFAULT_NAMESPACE =
+  "p2p-base"，同文件 :216 用于注册/查询配置）。
+- lan-only 装配：crates/p2p/src/assembly.rs:126-133 清空 bootstrap 清单（不分公网
+  私网回环），:195 输出 "bootstrap empty, rendezvous wiring skipped"——lan-only 下
+  rendezvous 注册/查询接线整体跳过（quickstart.md §3 方式 B 同步登记）。
+- 漂移登记（2026-09-11 W2 更正）：本页 §2 原未写消息帧前缀格式，与
+  wire-format.md §6 一并被读作"消息帧 = varint 帧"；代码实况为 u32be 前缀
+  （黑盒实测 GAP-1：varint 实现被服务端 frame too big 断开）。§2 已按代码写死，
+  wire-format.md §6 已加适用范围声明。docs/design/wire-protocol.md §7.2 与
   docs/protocol/node-lifecycle.md §1.2 均与代码一致。

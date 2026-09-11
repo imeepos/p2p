@@ -80,6 +80,15 @@ IPv4 链路本地 169.254.0.0/16 与 IPv6 链路本地 fe80::/10 因缺接口作
 地址来源（mDNS/rendezvous）可被污染，期望校验是身份锚点。
 传输层错误三分类：Dial（地址/网络原因）、Handshake（握手失败）、PeerMismatch。
 
+校验时机与失败行为（必须）：
+
+- 比对发生在握手完成之后、交换任何应用数据之前；本仓实现在连接装配点断言
+  （QUIC crates/p2p-transport/src/quic.rs:83-90；TCP 由 Noise 身份校验映射为
+  PeerMismatch，tcp.rs:32-36）。
+- 不一致必须立即断连并上抛显式 PeerMismatch；不得把它表达为 TLS alert
+  （bad_certificate 类）——alert 发生在握手回调路径，部分客户端连接状态机不收口
+  （aioquic 实测 wait_connected 卡死）。
+
 ## 5. 流复用
 
 - 单连接双向流上限 64（crates/p2p-mux/src/lib.rs:73，QUIC 传输参数与复用层
@@ -91,6 +100,11 @@ IPv4 链路本地 169.254.0.0/16 与 IPv6 链路本地 fe80::/10 因缺接口作
 ## 6. 帧格式（crates/p2p-protocol/src/lib.rs:142-222）
 
 流语义层的全部字节按帧封装：**无符号 varint 长度前缀 + 定长 payload**。
+
+适用范围（2026-09-11 W2 勘误）：本节 varint 帧适用于流语义层协议（§8 开手顺序与
+各业务协议）。rendezvous 控制链路例外：协议 ID 首帧仍走本节 varint 帧，其后每条
+消息帧 = 4 字节大端（u32be）无符号长度前缀 + protobuf payload，帧上限同为
+1 MiB，以 specs/rendezvous.md §2 为准。
 
     +------------------------------+======================================+
     | len: unsigned varint, 1-10 B | payload: len 字节（len <= 1 MiB）    |
@@ -224,4 +238,4 @@ varint 编码样例（已验证）：
 | UnsupportedProtocol | 收端注册表未命中协议 ID | 关流并上报，不降级 |
 | Timeout | request-response 全程超时 | 可区分的显式错误 |
 | MessageTooLarge | chunked 重组超 64 MiB | 断流 |
-| PeerMismatch | 握手推导 PeerId != 期望值 | 连接终止 |
+| PeerMismatch | 握手完成、任何应用数据交换前：推导 PeerId != 期望值 | 立即断连 + 显式错误；不得走 TLS alert 路径（§4.4） |
