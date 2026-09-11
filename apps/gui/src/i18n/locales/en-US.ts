@@ -1534,6 +1534,44 @@ const enUS: typeof zhCN = {
       autoAnswered: "Answered by policy ({{tier}}), without asking",
     },
   },
+  remoteAccess: {
+    title: "Remote Access",
+    description:
+      "Open the peer machine's DSH console in the system browser via the p2p tunnel (loopback reverse proxy)",
+    form: {
+      url: "DSH boot URL",
+      urlPlaceholder: "http://127.0.0.1:3080/?token=…",
+      urlHint:
+        "Paste the full URL printed by dsh web on the peer machine (127.0.0.1 loopback)",
+      peer: "Visited node PeerId",
+      peerPlaceholder: "PeerId (base58) of the peer machine's p2p node",
+      peerHint:
+        "The tunnel dials the visited node from this machine's p2p node; identity comes from the node handshake",
+      open: "Open remote access",
+      opening: "Opening…",
+      close: "Close remote access",
+    },
+    status: {
+      idle: "Not open",
+      open: "Open",
+      error: "Error",
+      localAddr: "Local address",
+      openUrl: "Browser entry",
+      target: "Tunnel target",
+      peer: "Visited node",
+      activeConns: "Active connections",
+      copyUrl: "Copy link",
+      copied: "Link copied",
+      reopenHint:
+        "If the browser did not open automatically, copy the entry link and open it manually",
+    },
+    error: {
+      lastError: "Last error",
+      nodeOfflineHint:
+        "Start the local p2p node on the network page first, and make sure it is connected to the visited node",
+      dismiss: "Dismiss",
+    },
+  },
   docs: {
     title: "Protocol Docs",
     description: "P2P wire protocol integration docs (body text zh-CN single source)",
