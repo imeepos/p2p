@@ -235,7 +235,11 @@ async fn post_origin_referer_rewritten_end_to_end() {
     conn.write_all(req.as_bytes()).await.expect("req");
     let mut body = Vec::new();
     conn.read_to_end(&mut body).await.expect("read");
-    assert!(body.starts_with(b"HTTP/1.1 200"), "非 200: {}", String::from_utf8_lossy(&body));
+    assert!(
+        body.starts_with(b"HTTP/1.1 200"),
+        "非 200: {}",
+        String::from_utf8_lossy(&body)
+    );
     t.await.expect("target task");
 }
 
