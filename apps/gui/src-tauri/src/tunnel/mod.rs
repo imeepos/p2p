@@ -147,7 +147,6 @@ impl TunnelState {
         status.active_conns = 0;
         emit_status(app, &status);
     }
-}
 
 /// 退出收尾（RunEvent::Exit 同步路径）：try_lock 取会话并 abort 反代任务；
 /// 拿不到锁说明有并发开启/关闭在进行，留告警日志（禁止静默丢收尾）。
@@ -164,6 +163,8 @@ pub fn shutdown_sync(&self) {
         tracing::info!(local_addr = %active.local_addr, "tunnel 会话随应用退出关闭");
     }
 }
+}
+
 
 /// 相位变更即发 tunnel_status 事件（契约 §7）。
 pub fn emit_status(app: &AppHandle, status: &TunnelStatus) {
