@@ -69,7 +69,7 @@
 | `/llm-share/offer/1` | 能力声明发布通道：声明模型/签名注册/TTL 失效订阅簿 | 已实现（crates/llm-share-offer） |
 | `/llm-share/proxy/1` | 闲置 LLM 额度共享代理：三闸准入、SSE 逐帧转发、预授权结算 | 已实现（crates/llm-share-proxy/src/wire.rs） |
 | `/a2a/1` | A2A 智能体 card 相（list/get/subscribe/push/remove）+ task 相（JSON-RPC 2.0，1 task=1 流） | 协议 ID 自 crates/a2a 定义（llm-share-offer 先例），随 A2A 波落地（a2a-over-p2p-design.md） |
-| `/p2p-base/tunnel/1` | 票据准入的本地 HTTP 隧道：JSON 票据帧 + ack/error 应答 + 双向字节流分块（访侧回环反代） | 常量与规范页已登记；实现 planned（crates/p2p-tunnel，规范页 docs/protocol/specs/tunnel.md；被访侧 W-T2 / 访侧 W-T3 落地） |
+| `/p2p-base/tunnel/1` | 票据准入的本地 HTTP 隧道：JSON 票据帧 + ack/error 应答 + 双向字节流分块（访侧回环反代） | 已实现（crates/p2p-tunnel，规范页 docs/protocol/specs/tunnel.md；被访侧已落地，访侧 GUI 面 W-T3 落地中） |
 
 业务协议 ID（如 `/myapp/chat/1`）与内置 ID 使用完全相同的注册与路由机制，无特权差别。
 
