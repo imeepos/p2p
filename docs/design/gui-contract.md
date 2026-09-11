@@ -733,12 +733,14 @@ TunnelStatusReport)`，前端 `listen<TunnelStatusReport>("tunnel_status", ...)`
 |---|---|---|---|
 | tunnel_open_dsh | url: string | TunnelOpenReport | 解析 DSH 启动 URL（host 必须为字面量 `127.0.0.1`，token/path 原样保留）→ 以本地生成的 16 hex uid 开 `/p2p-base/tunnel/1` 流（票据 target = URL 的 `127.0.0.1:<port>`）→ `bind(127.0.0.1:0)` 起本地反代 → 回 `{local_addr, open_url, token}`；host 非回环字面量/URL 解析失败/隧道被拒（error 帧）一律 Err 可读中文（含错误码闭集 code） |
 | tunnel_status | - | TunnelStatusReport | 当前隧道会话快照；无活动会话时 `active=false`、`localAddr/target=null`、`sessions=[]` |
+| tunnel_serve_start | target: string | TunnelServeStatus | 被访侧服务开关：把 `127.0.0.1:<port>` 加入目标白名单（累积，重复调用即多项）并开启受理（enabled=true）；target 非字面量 `127.0.0.1` / 端口非法 → Err 可读中文，先校验后动作，不得部分生效（白名单不变更、enabled 不翻转） |
+| tunnel_serve_stop | - | TunnelServeStatus | 被访侧关闭受理（enabled=false），白名单保留不清空；此后不再接受新建流；既有会话不强制中断，按规范页 §3.2 语义自然收尾，且每条必须落终态（emit tunnel_status，outcome ≠ "open"） |
 
 ### 19.2 事件与数据类型
 
 | 事件 | payload | 语义 |
 |---|---|---|
-| tunnel_status | TunnelStatusReport | 会话建立/关闭/出错时后端主动 emit；终态（outcome ≠ "open"）必发一次，UI 据此提示，错误不静默 |
+| tunnel_status | TunnelStatusReport | 任一侧状态变更时后端主动 emit（访侧会话建立/关闭/出错；被访侧 enabled/allow/activeSessions 变化）；会话终态（outcome ≠ "open"）必发一次，UI 据此提示，错误不静默。复用同一事件名而非新增 `tunnel_serve_status`：一次订阅看全两侧，payload 经 `serve` 字段保持单一形状，判别不靠猜测 |
 
 ```ts
 interface TunnelOpenReport {
@@ -752,6 +754,13 @@ interface TunnelStatusReport {
   localAddr: string | null;  // 本地反代监听地址；无活动会话 = null
   target: string | null;     // 被访目标 127.0.0.1:<port>；无活动会话 = null
   sessions: TunnelSessionAudit[];
+  serve: TunnelServeStatus;  // 被访侧服务面（v17 补件加法字段，emit 恒带）
+}
+
+interface TunnelServeStatus {
+  enabled: boolean;        // 受理开关；默认 false，会话态不持久化，重启回落关闭
+  allow: string[];         // 目标白名单（127.0.0.1:<port>，累积，持久化）
+  activeSessions: number;  // 被访侧视角存续会话数
 }
 
 interface TunnelSessionAudit {
@@ -785,3 +794,9 @@ type TunnelErrorCode =
 5. 审计字段与规范页 §5 闭集逐字对应（snake_case→camelCase 映射：session_id→
    sessionId 等八字段全量），outcome 取值 `"open"`/`"ok"`/六值错误码，GUI 不得
    自造第四类取值。
+6. 被访侧服务面准入语义（规范页 §5.2 冻结）：enabled 默认关闭、白名单默认空 =
+   全拒、目标 `127.0.0.1:<port>` 精确匹配；`tunnel_serve_start`/`tunnel_serve_stop`
+   与每次拒绝都必须可观测（emit tunnel_status 或 Err 可读中文），禁止静默。
+7. 持久化口径：`allow` 累积项持久化（随 GUI 配置存盘，重启保留）；`enabled` 为
+   会话态不持久化，重启回落 false——即重启后白名单仍在但全拒，直到显式开启
+   （「按次开启」语义，对齐规范页 §5.2）。
