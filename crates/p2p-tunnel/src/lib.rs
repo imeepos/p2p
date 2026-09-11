@@ -1,14 +1,17 @@
 //! /p2p-base/tunnel/1 点对点本地端口隧道（W-T2）：
 //! 被访侧 [TunnelResponder]（票据→准入→拨本地→哑泵→审计）+ 访侧 [TunnelClient]。
 //!
-//! 冻结导出面（契约 §7，W-T3 直接消费）：PROTOCOL_ID / TunnelTicket /
-//! TunnelErrorCode / TunnelResponder / HttpDialer / TunnelClient / TunnelIo。
-//! HTTP 语义不进本 crate（访侧本地反代与 Host 重写属 W-T3 域）。
+//! 冻结导出面（契约 §7）：PROTOCOL_ID / TunnelTicket / TunnelErrorCode /
+//! TunnelResponder / HttpDialer / TunnelClient / TunnelIo / local_proxy 族。
+//! 访侧本地反代核心（LocalProxy/头重写/数据泵）落 local_proxy 模块（W-TA
+//! 契约先行签名桩，todo!("W-TB")；实现填埋与 GUI 切换 = W-TB；HTTP 语义
+//! 自本模块起进本 crate，冻结接口表 LocalProxy 行归属此处）。
 
 mod audit;
 mod client;
 mod config;
 mod error;
+mod local_proxy;
 mod pump;
 mod responder;
 mod wire;
@@ -17,6 +20,11 @@ pub use audit::{TunnelAudit, TunnelAuditOutcome, TunnelAuditRecord};
 pub use client::TunnelClient;
 pub use config::{GateStatus, TunnelGate, TunnelPermit, TunnelServeConfig};
 pub use error::TunnelError;
+pub use local_proxy::head::{read_head, Head, HEAD_MAX};
+pub use local_proxy::pump::{
+    drain_reply, forward_exact, is_101, read_reply_head, PumpAudit, TUNNEL_IDLE_GRACE,
+};
+pub use local_proxy::{LocalProxy, ProxyCtx, TunnelOpener};
 pub use pump::{tunnel_pump, PumpResult, PumpTotals};
 pub use responder::{HttpDialer, TcpDialer, TunnelResponder};
 pub use wire::{
