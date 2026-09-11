@@ -28,6 +28,22 @@
 6. **审计行 PASS**：`tunnel_status.sessions` 225 条（ok 156 / io 41 / busy 26 / open 2），
    累计 bytesIn=12,229,741 / bytesOut=41,164，八字段形状同 §19。
 
+## busy 栅栏缺口复现参数（移交协调者裁决，本轮未动手）
+- 缺口：crates/p2p-tunnel/src/config.rs:32 serve gate 默认 `max_concurrent: 4`，
+  每条浏览器连接占 1 个 permit（一连接一泵），超第 4 并发的新开流被拒
+  `busy` → 反代回 502 "tunnel rejected: busy (gate: busy)"（B 侧日志可 grep）。
+- 并发数实测：页面冷加载首拍 11 个并行请求（HTML+2 plugin bundle+index/vendor
+  JS/CSS+manifest+favicon），其中 2 个 502；随后 API burst 一窗 14 个 POST，
+  其中 2 个 502。即 **burst 峰值 6-14 并发，超 4 的部分必 busy**。
+- 触发频率：**每次冷加载（无缓存）确定性复现**，502 资源数 2-6 个；带缓存刷新
+  通常剩 vendor.js（4.3MB，过隧道占 permit 数秒）单个 502，需再刷 1-2 次；
+  4.3MB 长传输占 permit 期间发起的 API burst 加剧 busy。
+- 统计面：本轮全部负载下 225 会话中 busy 26（≈11.6%）、io 41；页面恢复手段
+  =手动刷新（浏览器对 502 资源不自动重试）。
+- 影响评级：不阻断功能（刷新后全 200，对话可用），但开箱体验降级、且 502
+  响应体是反代自产文案（非 DSH 语义）。候选修法（协调者侧）：调默认上限、
+  反代侧对 busy 排队重试（需契约 §4 busy 语义对账 + 红绿）。
+
 ## 过程发现（只记录不改动，供协调者裁决）
 - **busy 栅栏并发上限 4（crates/p2p-tunnel config 默认 max_concurrent:4）**：浏览器并行
   asset/API burst 下 502（"tunnel rejected: busy"），页面需刷新 1-2 次才能拿全资源。
