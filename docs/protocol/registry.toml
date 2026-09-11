@@ -179,3 +179,14 @@ spec = "specs/repair-mcp.md"
 summary = "远程支持 MCP stdio 字节隧道：runner stdio 与 P2P 流双向哑泵对拷"
 vectors = []
 since = "2026-09-03"
+
+[[protocols]]
+id = "/p2p-base/tunnel/1"
+family = "core"
+owner = "crates/p2p-tunnel"
+impl = "planned"
+spec_status = "draft"
+spec = "specs/tunnel.md"
+summary = "票据准入的本地 HTTP 隧道：JSON 票据帧 + ack/error 应答 + 双向字节流分块，访侧回环反代"
+vectors = []
+since = "2026-09-11"
