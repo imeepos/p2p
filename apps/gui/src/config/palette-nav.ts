@@ -44,6 +44,8 @@ export const PALETTE_NAV_ENTRIES: readonly PaletteNavEntry[] = [
   { path: "/network/relay", labelKey: "relay.title", icon: Waypoints },
   { path: "/network/events", labelKey: "events.title", icon: Activity },
   { path: "/network/diagnostics", labelKey: "diagnostics.title", icon: Stethoscope },
+  // W-T3：远程访问页（append-only 登记，与路由同步，rail 不动）
+  { path: "/remote-access", labelKey: "remoteAccess.title", icon: Radar },
   { path: "/contacts#friends", labelKey: "contacts.section.friends", icon: UsersRound },
   { path: "/contacts#groups", labelKey: "contacts.section.groups", icon: UsersRound },
   { path: "/contacts#agents", labelKey: "contacts.section.agents", icon: Bot },

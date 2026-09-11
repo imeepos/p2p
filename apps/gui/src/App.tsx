@@ -22,6 +22,7 @@ import { NetworkOverviewPage } from "@/routes/network-overview-page";
 import { PeersPage } from "@/routes/peers-page";
 import { QueryRedirect } from "@/routes/redirects";
 import { RelayPage } from "@/routes/relay-page";
+import { RemoteAccessPage } from "@/routes/remote-access-page";
 import { SettingsPage } from "@/routes/settings-page";
 import { NetworkPage } from "@/views/network/network-page";
 import { UnsavedRouteGuard } from "@/views/shared/unsaved-guard";
@@ -62,6 +63,8 @@ const routes = createRoutesFromChildren(
     <Route path="agents" element={<AgentsPage />} />
     {/* 本地 ACP 管理页（append-only 登记，rail 不动，命令面板与 ACP 视图入口可达） */}
     <Route path="acp-manage" element={<AcpManagePage />} />
+    {/* W-T3：远程访问页（append-only 登记，rail 不动，命令面板可达） */}
+    <Route path="remote-access" element={<RemoteAccessPage />} />
     <Route path="settings" element={guarded(<SettingsPage />)} />
     {/* 5.3 重定向层：旧路由 → 新位置；/group /acp 落 /chat?kind=*（已拍板项 1） */}
     <Route path="peers" element={<QueryRedirect to="/network/peers" />} />
