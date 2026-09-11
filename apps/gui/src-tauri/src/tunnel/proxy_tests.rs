@@ -48,9 +48,10 @@ impl TunnelOpener for ManualOpener {
         )
         .await
         .map_err(std::io::Error::other)?;
-        let ack = read_frame(&mut stream).await.map_err(std::io::Error::other)?;
-        let ack: serde_json::Value =
-            serde_json::from_slice(&ack).map_err(std::io::Error::other)?;
+        let ack = read_frame(&mut stream)
+            .await
+            .map_err(std::io::Error::other)?;
+        let ack: serde_json::Value = serde_json::from_slice(&ack).map_err(std::io::Error::other)?;
         assert_eq!(ack["uid"], uid, "ack uid 与票据不一致");
         Ok(Box::new(stream))
     }
@@ -129,7 +130,10 @@ async fn target_host_and_stream(target: TcpListener, expect_port: u16) {
         head.contains(&format!("Host: 127.0.0.1:{expect_port}")),
         "Host 未重写: {head}"
     );
-    assert!(head.contains("Connection: close"), "hop-by-hop 未处理: {head}");
+    assert!(
+        head.contains("Connection: close"),
+        "hop-by-hop 未处理: {head}"
+    );
     conn.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\n01234")
         .await
         .expect("write1");
@@ -152,11 +156,9 @@ async fn host_rewritten_and_response_streams_incrementally() {
     let t = tokio::spawn(target_host_and_stream(target, target_port));
 
     let mut conn = TcpStream::connect(proxy_addr).await.expect("connect");
-    conn.write_all(
-        b"POST /x HTTP/1.1\r\nHost: 127.0.0.1:1\r\nContent-Length: 5\r\n\r\nhello",
-    )
-    .await
-    .expect("req");
+    conn.write_all(b"POST /x HTTP/1.1\r\nHost: 127.0.0.1:1\r\nContent-Length: 5\r\n\r\nhello")
+        .await
+        .expect("req");
     let mut first_at = None;
     let mut body = Vec::new();
     let mut chunk = [0u8; 64];
@@ -190,10 +192,15 @@ async fn target_ws_echo(target: TcpListener) {
     let req = read_bytes_until(&mut conn, Vec::new(), is_complete_request).await;
     let head = String::from_utf8_lossy(&req).into_owned();
     assert!(head.contains("Upgrade: websocket"), "升级头丢失: {head}");
-    assert!(head.contains("Connection: Upgrade"), "Connection 被改写: {head}");
-    conn.write_all(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nsrv")
-        .await
-        .expect("101");
+    assert!(
+        head.contains("Connection: Upgrade"),
+        "Connection 被改写: {head}"
+    );
+    conn.write_all(
+        b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nsrv",
+    )
+    .await
+    .expect("101");
     loop {
         let read = conn.read(&mut chunk).await.expect("echo read");
         if read == 0 {

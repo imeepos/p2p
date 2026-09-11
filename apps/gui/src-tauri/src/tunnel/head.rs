@@ -32,7 +32,10 @@ impl Head {
                 .ok_or_else(|| format!("头行缺冒号: {line}"))?;
             headers.push((key.trim().to_string(), value.trim().to_string()));
         }
-        Ok(Self { first_line, headers })
+        Ok(Self {
+            first_line,
+            headers,
+        })
     }
 
     pub fn header(&self, name: &str) -> Option<&str> {
@@ -44,11 +47,13 @@ impl Head {
 
     /// 覆写或追加头（保持其余头原样）。
     pub fn set_header(&mut self, name: &str, value: &str) {
-        match self.headers.iter_mut().find(|(k, _)| k.eq_ignore_ascii_case(name)) {
+        match self
+            .headers
+            .iter_mut()
+            .find(|(k, _)| k.eq_ignore_ascii_case(name))
+        {
             Some(slot) => slot.1 = value.to_string(),
-            None => self
-                .headers
-                .push((name.to_string(), value.to_string())),
+            None => self.headers.push((name.to_string(), value.to_string())),
         }
     }
 
@@ -65,8 +70,9 @@ impl Head {
             return;
         }
         self.set_header("Connection", "close");
-        self.headers
-            .retain(|(k, _)| !k.eq_ignore_ascii_case("Keep-Alive") && !k.eq_ignore_ascii_case("Proxy-Connection"));
+        self.headers.retain(|(k, _)| {
+            !k.eq_ignore_ascii_case("Keep-Alive") && !k.eq_ignore_ascii_case("Proxy-Connection")
+        });
     }
 
     pub fn is_websocket_upgrade(&self) -> bool {
@@ -181,13 +187,16 @@ mod tests {
         assert_eq!(&raw[pos + 4..], b"hello");
         let wire = head.to_wire();
         assert!(wire.ends_with(b"\r\n\r\n"));
-        assert!(std::str::from_utf8(&wire).unwrap().starts_with("POST /p HTTP/1.1\r\nHost: h\r\nContent-Length: 5\r\n\r\n"));
+        assert!(std::str::from_utf8(&wire)
+            .unwrap()
+            .starts_with("POST /p HTTP/1.1\r\nHost: h\r\nContent-Length: 5\r\n\r\n"));
     }
 
     #[test]
     fn chunked_flag_and_bad_length() {
-        let mut head = Head::parse(b"POST / HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\n\r\n")
-            .expect("parse");
+        let mut head =
+            Head::parse(b"POST / HTTP/1.1\r\nHost: h\r\nTransfer-Encoding: chunked\r\n\r\n")
+                .expect("parse");
         assert!(head.has_chunked_body());
         head.set_header("Content-Length", "abc");
         assert!(head.content_length().is_err());

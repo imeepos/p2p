@@ -85,7 +85,7 @@ impl LocalProxy {
                     ctx.conns.fetch_add(1, Ordering::Relaxed);
                     tokio::spawn(async move {
                         if let Err(reason) = serve_conn(tcp, &ctx).await {
-                        tracing::warn!(%reason, "tunnel proxy 连接处理失败");
+                            tracing::warn!(%reason, "tunnel proxy 连接处理失败");
                         }
                         ctx.conns.fetch_sub(1, Ordering::Relaxed);
                     });
@@ -101,10 +101,7 @@ impl LocalProxy {
 }
 
 /// 单连接处理：读请求头 → 重写 → 开隧道（带审计）→ 转发。
-async fn serve_conn(
-    mut local: TcpStream,
-    ctx: &ProxyCtx,
-) -> Result<(), String> {
+async fn serve_conn(mut local: TcpStream, ctx: &ProxyCtx) -> Result<(), String> {
     eprintln!("[dbg] serve_conn entered");
     let (raw, leftover) = read_head(&mut local)
         .await

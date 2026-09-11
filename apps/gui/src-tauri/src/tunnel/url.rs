@@ -91,8 +91,7 @@ mod tests {
 
     #[test]
     fn token_may_appear_after_other_params() {
-        let target =
-            parse_dsh_url("http://127.0.0.1:80/?foo=1&token=a%20b+c").expect("parse");
+        let target = parse_dsh_url("http://127.0.0.1:80/?foo=1&token=a%20b+c").expect("parse");
         assert_eq!(target.token, "a b c");
     }
 
