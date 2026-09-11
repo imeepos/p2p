@@ -191,8 +191,10 @@ JSON 对象，UTF-8 编码，字段名逐字如下；整帧字节数 MUST ≤ 40
 
 ## 8. 实现状态与出处
 
-实现未合并：registry `impl = "planned"`（本页随 W-T1 契约先行冻结；被访侧实现 = W-T2，
-访侧实现 = W-T3）。冻结接口清单（契约 §7）：
+已实现（registry `impl = "implemented"`，口径一致）：线格式与两侧数据面随 W-T2 落地
+被访侧（`TunnelResponder`，crates/p2p-tunnel）、W-T3 落地访侧（`TunnelClient` +
+GUI 本地反代装配）；headless 被访侧面随 W-T5（`p2pctl tunnel serve`）。GUI 命令面
+见 gui-contract §19。冻结接口清单（契约 §7）：
 
 | 项 | 归属 | 形状 |
 |---|---|---|
@@ -206,4 +208,11 @@ JSON 对象，UTF-8 编码，字段名逐字如下；整帧字节数 MUST ≤ 40
 | GUI 命令/事件 | apps/gui/src-tauri | `tunnel_open_dsh` / `tunnel_status` / `tunnel_serve_start` / `tunnel_serve_stop`，事件 `tunnel_status`（含 serve 字段；gui-contract §19） |
 | `p2pctl tunnel serve` | apps/cli | headless 被访侧前台常驻进程面（gui-contract §19.8 预留条款落地，W-T5） |
 
-已知偏差与漂移登记：无（初版）。规范页与实现冲突时以代码为准并登记本节。
+已知偏差与漂移登记（规范页与实现冲突时以代码为准并登记本节）：
+
+- 实现漂移（2026-09-12 登记）：访侧本地反代核心（LocalProxy / Host/Origin/Referer
+  头重写 / 数据泵）现状承载于 apps/gui/src-tauri/src/tunnel/（DSH 专用装配）。
+  去向：下沉 crates/p2p-tunnel `local_proxy` 模块（W-TA 契约先行签名桩已落
+  `crates/p2p-tunnel/src/local_proxy/`，实现填埋与 GUI 切换 = 迁移卡 TB）。
+  冻结接口表 `LocalProxy` 行归属 crates/p2p-tunnel 不变——本条为现状漂移登记，
+  非契约变更；§1-§7 线格式语义未动。
