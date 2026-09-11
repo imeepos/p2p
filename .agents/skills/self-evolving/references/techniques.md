@@ -547,3 +547,12 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 对照实验的落点要选对：**旧代码上跑红 + 新代码上跑绿**才算双向；只在新代码上跑绿无法区分"测住了"与"本来就绿"。
 - 复核他人修复时先 `pwd` 确认自己在哪个树：在 main 树跑 worktree 里才有的脚本会得到"No such file"，
   容易误判成"修复没生效"（2026-09-11 协调者自身实例，一次踩中，幸而立即发现）。
+- 半关语义定案用三腿证据矩阵（2026-09-11 W-T4 pump 半关卡）：①泵级裸 TcpStream 探针（自建 socket 对，
+  先 connect 后 accept）直测 pump；②生产全栈 itest（既有 h1）证 mux 线；③对照组复刻「整流关闭→读端 0 字节」
+  证明疑点系接线 artifact——三条腿一次把「pump 缺陷/线缺陷/测试错」三假设切干净，pump 零修改定案。
+- 任务书里的路径/行号会漂移（W-T4 任务书写 apps/cli/src/llm_share/borrow_dial.rs:134，实为
+  crates/p2p-cli/src/llm_share/borrow_dial.rs:140）：动手前先全仓 grep 兜底再按实况改，别按行号盲改。
+- 跨机 e2e 传分支不污染 origin：`git bundle create /tmp/x.bundle <branch>` + scp + 对端 `git fetch /tmp/x.bundle <branch>:<local>`（2026-09-11 W-T5，过门禁前禁 push 时尤其有用）。
+- 102 免密但 GitHub 无 SSH key：仓库公开则 `git clone https://github.com/imeepos/p2p.git` 可行；私有仓才需要 BLOCKED。
+- Tauri GUI 驱动双通道：控制通道 CLI（p2pctl gui status/screenshot/navigate/action，白名单内）+ webview 注入驱动（fill_open 等白名单外操作）；先查 CLI 侧能不能干，不行再注入。
+- 远端 ssh 命令里嵌 ssh 变量替换（$(cat file)）在本端展开——要在对端执行的 $() 整条放引号内（2026-09-11 W-T5 实证）。

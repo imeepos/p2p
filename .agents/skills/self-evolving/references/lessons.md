@@ -502,3 +502,8 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 复现 CI-only 失败用 102 同态环境（Debian+node24+pnpm11）：rsync 源码（排除 node_modules/target）+ npmmirror 装依赖，25s 可装完；GitHub HTTPS 从 102 直连被 TLS reset，走 LAN rsync 绕开。
 - 「单文件绿、全量红」≠ 平台差异：是并行 worker 争用下的实时调度敏感（virtuoso 前插锚定实证）；此类测试家族的既定口径是串行（test:serial），gate 升格串行（test 脚本 --no-file-parallelism）才是修，放宽断言/加预算都不是。
 - tag 发布 CI 红后的重打流程：修 main → push main → 删远端 tag（:refs/tags/）+ 删本地 tag → release.sh --create 重打指向新 HEAD → 再推 tag；版本号不变，gate 会重新全量跑。
+- 2026-09-11：当长文件操作（git worktree remove 带 target/、rm -rf 大目录）被工具超时 SIGTERM 打断后，修复是把删除挪进后台任务落日志轮询——被打断的 worktree remove 会留下半删树，重跑报 "contains modified or untracked files" 不是并行会话污染，先查自己上一次被杀的链再怀疑外物；分支 ref 本地/远端完好时删树零代码风险，放心 --force。
+- 2026-09-11 W-T5：`cmd1 && cmd2 &` 的 `&` 绑整条链，$! 是 subshell 不是目标进程；多语句用 `;` 分隔让 `&` 只绑最后一个简单命令，或干脆拆两次调用。
+- 2026-09-11 W-T5：DSH 会话内 run_in_background 的长跑 HTTP 服务（vite）会被冻结 CPU（接受连接不响应）；长活服务用 nohup+& 脱管随普通调用拉起，别占 harness 后台任务位。
+- 2026-09-11 W-T5：`pkill -f "模式"` 的模式若出现在自己命令行里会自杀（ssh bash -c 必中）；先 pgrep 拿精确 PID 再 kill。
+- 2026-09-11 W-T5：远端长活进程用 systemd-run --user（Linger=yes 的机器）而不是 ssh nohup——后者会随 sshd 会话清理被杀（KillUserProcesses）。

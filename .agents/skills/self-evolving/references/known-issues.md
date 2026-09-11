@@ -580,3 +580,53 @@ failed: early eof（客户端侧超时中止）。
 - 附带真凶二：门禁自身依赖的夹具二进制（`apps/acp-agent` 被 exclude 在根 workspace 外，`cargo test --workspace` 不构建）
   在 fresh worktree/CI 必红、主树靠历史残留侥幸绿 → 门禁要**自保障夹具**（缺失即建，仿 cli-parity.sh 先例）。
 - 元教训：**门禁的"报红行"本身要单独测健壮性**——报错路径里的地雷会让真红时不可观测。
+
+## tokio 单测：spawn 实参在 spawn 前求值 → 互等死锁（2026-09-11 W-T3）
+症状：`tokio::spawn(mock(rx.recv().await.expect(..), ..))` —— 实参 `rx.recv().await` 在**测试体内先求值**，而发送方（dial）还没跑 → 单线程 runtime 双任务互等，测试永久挂起（0% CPU，无输出）。
+修法：recv 移入 spawn 的 async 块内。定位手段：macOS `sample <pid> 3` 看栈——所有任务 park 即互等死锁，而非锁。
+
+## 测试 shim 传输面必须与真实链路一致：帧面 vs 裸字节（2026-09-11 W-T3）
+症状：TunnelClient::open 内部带 pump（wire=帧面），测试对端用裸 read/read_frame 读——帧头被当 varint 长度（'H'=0x48=72 → "early eof"）或整帧错位（丢首字节）。切换直连（无 pump，wire=裸 HTTP）后对端读法也要跟着换，否则同样翻车。
+教训：凡跨进程/流的字节协议测试，先问「这一段的 wire 是帧面还是裸面」，对端 helper 与被测实现**成对**写。字节级 dump（裸 read 打印）是最终定位手段。
+
+## python 批量补丁的静默 no-op（2026-09-11 W-T3，三次踩坑）
+症状：`s.replace(old,new)` 锚点不匹配时**静默跳过**且脚本仍打印 "ok"——以为改了实际没改，浪费多轮调试（错误态回退 bug、IpcBackend 接口缺方法）。
+规矩：**replace 前后必须 `assert old in s`**；改完 grep 验证。已固定为个人补丁纪律。
+
+## 禁用型对照实验要先验证 patch 语法生效（2026-09-11 W-T3）
+症状：想禁用 `tunnel.shutdown()` 做对照，patch 写成 `if true { if let Err = x {..} } else {..}` —— 内层仍执行，实验无效还误导两轮。
+规矩：对照实验改动后 diff 肉眼确认语义，或用 `#[cfg(any())]`/直接注释。
+
+## tauri generate_handler 命令须与 __cmd__ 宏同模块路径（2026-09-11 W-T3）
+症状：`pub use cmd::{my_cmd};` 后写 `tunnel::my_cmd` → E0433 `__cmd__my_cmd` 找不到。tauri 的命令宏隐藏导出不跟随 fn 的 use re-export。
+规矩：generate_handler 引用命令的**定义模块路径**；或让薄包装 #[tauri::command] 定义在目标路径模块。另：cli-parity 类脚本按 `X::Y` 两段正则提取，三段路径 `a::b::c` 会被拆出伪命令 `b`。
+
+## tokio DuplexStream 的 poll_shutdown 是 no-op（2026-09-11 W-T3）
+现象：duplex 上 shutdown 不产生对端 EOF（真实 TcpStream 才有 FIN）。含半关语义的泵/协议在 duplex 单测里测不出「FIN 后对端写丢失」类问题——需真实 TcpStream wire 的测试补位。
+
+## cargo test 卡死被误判「编译慢」：spawn 参数位 await accept + 后置 connect 自锁，叠加重名变量遮蔽（2026-09-11 W-T4）
+- 症状：新增 tokio 测试让 `cargo test` 超过 4 分钟无输出，看似冷编译慢；连杀两次重跑依旧。
+- 原因：两个自身 bug 叠加。① `tokio::spawn(tunnel_pump(wire.await...), ...)` 的参数表达式在 spawn 前求值，`wire.await`（accept）阻塞测试任务，而 `TcpStream::connect` 排在它后面同一任务里——accept/connect 互等死锁；② 修完①后正文残留第二个 `TcpStream::connect` 重名遮蔽 peer，第二条连接永远无人 accept，读端悬挂。两者在「测试逻辑正确」的错觉下都伪装成环境问题。
+- 修法：真实 TCP 夹具一律「先 connect 后 accept」同任务顺序完成，再 spawn 泵；改动涉及连接建立时 diff 里逐个清点 connect/accept 配对数。判「编译慢还是测试挂」：输出落文件（`> /tmp/x.log 2>&1`）后台跑并轮询——见「Compiling」行结束后仍无 `running N tests` 才是编译侧；`running` 出现后卡住必是测试挂，直接查测试任务内阻塞点。
+
+## 后台 cargo/make 输出接 tail/grep 会全程致盲（2026-09-11 W-T4）
+- 症状：后台跑 `cargo test ... | grep/tail`，轮询多次始终 0 字节输出，无法判断编译还是测试在跑，白白等满超时。
+- 原因：tail/grep 对管道输入缓冲到进程 EOF 才吐——进程不结束就永远没输出；macOS 还没有 GNU `timeout` 命令可兜底。
+- 修法：后台任务一律 `cmd > /tmp/xx.log 2>&1; echo EXIT=$? >> /tmp/xx.log`，用 `sleep N; tail /tmp/xx.log` 轮询文件；cargo 进度行（Compiling/Running/test 行）都在文件里按需 grep。
+## vite dev server 在 DSH 会话环境长跑挂起（2026-09-11 W-T5）
+症状：vite ready 后接受 TCP 但 HTTP 永不应答（第一两个请求偶成功）；前台同命令即恢复。
+原因：harness 后台任务冻结 + vite 6 长跑不稳叠加。
+修法：GUI webview 注入链不必用 vite——Tauri debug 二进制 devUrl 固定 localhost:5173，直接用 node 静态服务器伺服 apps/gui/dist + 往 index.html 注 `<script src>`，同源同协议。注意 dist 必须比目标修复新（看二进制 mtime vs 修复提交时间）。
+
+## Tauri webview JS 定时器全停=App Nap（2026-09-11 W-T5）
+症状：注入脚本加载后轮询循环停摆、无任何 fetch；进程活着、原生控制通道正常。
+修法：`defaults write com.p2p.console NSAppSleepDisabled -bool YES` 后重启 GUI。
+
+## macOS GUI 二进制落后于 main 已合并修复（2026-09-11 W-T5）
+症状：依赖新修行为（如 wt3c Origin 重写）的 e2e 全 403，代码里明明有修。
+排查：`ls -la target/debug/<bin>` mtime 对比 `git log -1 --format=%ci <fix-commit>`；落后就重建。
+
+## DSH rc.6 与旧版差异（2026-09-11 W-T5）
+- 无 /api/remote.mux WS：数据面=POST /api/* RPC（session.prompt 流式 200）+ GET /plugins/events 长连；e2e 别再等 WS 101。
+- 无 boot token：鉴权=Origin/authority 信任栅栏（坏 Origin 403）；GUI 启动 URL 的 token 参数按透传占位即可。
+- ~/.dsh/.credentials.yaml 的 version 字段必须字符串（跨版本拷贝会炸 settings schema）；模型配置在 settings.yaml `llm-pi-ai.providers.<name>`（apiKeyEnv 指环境变量名）+ agent-default-model。
