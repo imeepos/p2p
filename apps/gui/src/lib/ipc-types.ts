@@ -688,6 +688,10 @@ export interface IpcBackend {
   authzDefaultRoleGet(): Promise<AuthzDefaultRoleReport>;
   authzDefaultRoleSave(roleId: string): Promise<AuthzDefaultRoleReport>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
+  // W-T3 tunnel 访侧（gui-contract §19）：peer 可选，缺省由用户在视图必填。
+  tunnelOpenDsh(url: string, peer: string): Promise<TunnelOpenReport>;
+  tunnelStatus(): Promise<TunnelStatusReport>;
+  onTunnelStatus(handler: (status: TunnelStatusReport) => void): Promise<UnlistenFn>;
 }
 
 // 契约 v3 加法（G-H 观测）：诊断命令面，与节点控制面分离；mock/tauri 同签名。
@@ -697,24 +701,36 @@ export interface DiagBackend {
   logClear(): Promise<void>;
 }
 
-// W-T3 tunnel 访侧（冻结契约 §7）：tunnel_open_dsh/tunnel_status 字段镜像。
-export interface TunnelOpenResult {
+// W-T3 tunnel 访侧（gui-contract §19 逐字冻结，camelCase serde 镜像）。
+export interface TunnelOpenReport {
   localAddr: string;
   openUrl: string;
   token: string;
 }
 
-export interface TunnelStatus {
-  open: boolean;
+export interface TunnelStatusReport {
+  active: boolean;
   localAddr: string | null;
-  openUrl: string | null;
   target: string | null;
-  peer: string | null;
-  activeConns: number;
-  lastError: string | null;
-  visitedOpen: boolean | null;
-  visitedAllowlist: string[] | null;
-  visitedActiveSessions: number | null;
+  sessions: TunnelSessionAudit[];
+  serve: TunnelServeStatus;
+}
+
+export interface TunnelServeStatus {
+  enabled: boolean;
+  allow: string[];
+  activeSessions: number;
+}
+
+export interface TunnelSessionAudit {
+  sessionId: string;
+  peerId: string;
+  target: string;
+  startedAt: number;
+  endedAt: number | null;
+  bytesIn: number;
+  bytesOut: number;
+  outcome: string;
 }
 
 export const TUNNEL_STATUS_EVENT = "tunnel_status";

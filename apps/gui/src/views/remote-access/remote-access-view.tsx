@@ -14,22 +14,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ipc } from "@/lib/ipc";
-import type { TunnelStatus } from "@/lib/ipc-types";
+import type { TunnelStatusReport } from "@/lib/ipc-types";
 import { PageHeader } from "@/components/page/page-header";
 
 type Phase = "idle" | "open" | "error";
 
-const IDLE_STATUS: TunnelStatus = {
-  open: false,
+const IDLE_STATUS: TunnelStatusReport = {
+  active: false,
   localAddr: null,
-  openUrl: null,
   target: null,
-  peer: null,
-  activeConns: 0,
-  lastError: null,
-  visitedOpen: null,
-  visitedAllowlist: null,
-  visitedActiveSessions: null,
+  sessions: [],
+  serve: { enabled: false, allow: [], activeSessions: 0 },
 };
 
 // 远程访问页（W-T3）：粘贴 A 机 dsh web 启动 URL + 被访节点 PeerId →
@@ -37,7 +32,8 @@ const IDLE_STATUS: TunnelStatus = {
 // 三态：未开启 / 已开启 / 错误；关闭随应用退出自动收尾（契约 §7 无关闭命令）。
 export function RemoteAccessView() {
   const { t } = useTranslation();
-  const [status, setStatus] = useState<TunnelStatus>(IDLE_STATUS);
+  const [status, setStatus] = useState<TunnelStatusReport>(IDLE_STATUS);
+  const [openUrl, setOpenUrl] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [lastError, setLastError] = useState<string | null>(null);
   const [url, setUrl] = useState("");
@@ -53,13 +49,13 @@ export function RemoteAccessView() {
         setStatus(current);
         // 错误态不回退：快照仅在没有更新的错误展示时生效。
         setPhase((prev) =>
-          prev === "error" ? prev : current.open ? "open" : "idle",
+          prev === "error" ? prev : current.active ? "open" : "idle",
         );
       })
       .catch((error) => console.error("[tunnel] 状态读取失败", error));
     const unlisten = ipc.onTunnelStatus((next) => {
       setStatus(next);
-      setPhase(next.open ? "open" : "idle");
+      setPhase(next.active ? "open" : "idle");
     });
     return () => {
       alive = false;
@@ -73,12 +69,11 @@ export function RemoteAccessView() {
     setLastError(null);
     try {
       const result = await ipc.tunnelOpenDsh(url.trim(), peer.trim());
+      setOpenUrl(result.openUrl);
       setStatus((prev) => ({
         ...prev,
-        open: true,
+        active: true,
         localAddr: result.localAddr,
-        openUrl: result.openUrl,
-        lastError: null,
       }));
       setPhase("open");
     } catch (error) {
@@ -161,21 +156,30 @@ export function RemoteAccessView() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <Row label={t("remoteAccess.status.localAddr")} value={status.localAddr} />
-          <Row label={t("remoteAccess.status.openUrl")} value={status.openUrl} />
+          <Row label={t("remoteAccess.status.openUrl")} value={openUrl} />
           <Row label={t("remoteAccess.status.target")} value={status.target} />
-          <Row label={t("remoteAccess.status.peer")} value={status.peer} />
           <Row
             label={t("remoteAccess.status.activeConns")}
-            value={String(status.activeConns)}
+            value={String(status.sessions.filter((x) => x.outcome === "open").length)}
           />
+          {status.sessions
+            .slice(-3)
+            .reverse()
+            .map((session) => (
+              <Row
+                key={session.sessionId}
+                label={session.sessionId}
+                value={`${session.bytesIn}/${session.bytesOut} ${session.outcome}`}
+              />
+            ))}
           <Button
             type="button"
             variant="secondary"
-            disabled={!status.openUrl}
+            disabled={!openUrl}
             onClick={() => {
-              if (!status.openUrl) return;
+              if (!openUrl) return;
               navigator.clipboard
-                .writeText(status.openUrl)
+                .writeText(openUrl)
                 .then(() => toastSuccess(t("remoteAccess.status.copied")))
                 .catch((error) => {
                   console.error("[tunnel] 复制入口链接失败", error);

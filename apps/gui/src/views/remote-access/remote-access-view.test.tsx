@@ -7,20 +7,35 @@ const openMock = vi.fn(async (_url?: string, _peer?: string) => ({
   openUrl: "http://127.0.0.1:40001/?token=tk",
   token: "tk",
 }));
+
+function statusWithSession() {
+  const status = idleStatus();
+  status.active = true;
+  status.localAddr = "127.0.0.1:40001";
+  status.target = "127.0.0.1:3080";
+  status.sessions = [
+    {
+      sessionId: "0123456789abcdef",
+      peerId: "peer",
+      target: "127.0.0.1:3080",
+      startedAt: 1000,
+      endedAt: null,
+      bytesIn: 128,
+      bytesOut: 64,
+      outcome: "open",
+    },
+  ];
+  return status;
+}
 const onTunnelStatusMock = vi.fn(async (_h?: (s: unknown) => void) => () => {});
 
-function idleStatus() {
+function idleStatus(): TunnelStatusReport {
   return {
-    open: false,
+    active: false,
     localAddr: null,
-    openUrl: null,
     target: null,
-    peer: null,
-    activeConns: 0,
-    lastError: null,
-    visitedOpen: null,
-    visitedAllowlist: null,
-    visitedActiveSessions: null,
+    sessions: [],
+    serve: { enabled: false, allow: [], activeSessions: 0 },
   };
 }
 
@@ -31,6 +46,8 @@ vi.mock("@/lib/ipc", () => ({
     onTunnelStatus: (h?: (s: unknown) => void) => onTunnelStatusMock(h),
   },
 }));
+
+import type { TunnelStatusReport } from "@/lib/ipc-types";
 
 import "@/i18n";
 import { RemoteAccessView } from "./remote-access-view";
@@ -89,5 +106,19 @@ describe("RemoteAccessView", () => {
     await waitFor(() => screen.getByText("错误"));
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("未指定被访节点 peer");
+  });
+
+  it("事件推送 active 会话后展示审计行（sessionId/字节/终态）", async () => {
+    let push: ((s: TunnelStatusReport) => void) | undefined;
+    onTunnelStatusMock.mockImplementation(async (h?: (s: TunnelStatusReport) => void) => {
+      push = h;
+      return () => {};
+    });
+    renderView();
+    await screen.findByText("未开启");
+    await push?.(statusWithSession());
+    await waitFor(() => expect(screen.getAllByText("已开启").length).toBeGreaterThan(0));
+    expect(screen.getByText("0123456789abcdef")).toBeTruthy();
+    expect(screen.getByText("128/64 open")).toBeTruthy();
   });
 });

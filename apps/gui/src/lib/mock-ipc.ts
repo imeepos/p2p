@@ -474,16 +474,11 @@ export const mockBackend: IpcBackend & {
   },
   async tunnelStatus() {
     return {
-      open: false,
+      active: false,
       localAddr: null,
-      openUrl: null,
       target: null,
-      peer: null,
-      activeConns: 0,
-      lastError: null,
-      visitedOpen: null,
-      visitedAllowlist: null,
-      visitedActiveSessions: null,
+      sessions: [],
+      serve: { enabled: false, allow: [], activeSessions: 0 },
     };
   },
   onTunnelStatus(_handler): Promise<UnlistenFn> {

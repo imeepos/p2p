@@ -7,14 +7,17 @@
 use std::time::Duration;
 
 use p2p::{BoxedStream, Node, PeerId};
-use p2p_protocol::{read_frame, write_frame};
+use p2p_protocol::{open_with_protocol, read_frame, write_frame};
 
+use super::audit::ConnAudit;
 use super::ticket::{TunnelErrorCode, TunnelTicket, PROTOCOL_ID};
 
 /// 首帧应答护栏（冻结契约 §1 同源：5s）。
 pub const FIRST_REPLY_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// 拨流器缝：产出已完成协议 ID 握手的流（生产 = Node::new_stream）。
+/// 拨流器缝：产出**未握手**裸流（协议 ID 首帧由 open_tunnel 统一写入，
+/// 唯一写帧点；禁用 Node::new_stream——其内嵌握手会叠加成双帧协议 ID，
+/// 严格 responder 把第二帧当票据解析即 bad_ticket，2026-09-11 裁决）。
 /// 独立成 trait 使反代单测可注入真实 TCP 对端（mock 只用于单测）。
 #[async_trait::async_trait]
 pub trait TunnelDialer: Send + Sync {
@@ -38,7 +41,7 @@ impl TunnelDialer for NodeDialer {
     async fn dial(&self) -> Result<BoxedStream, String> {
         let protocol = p2p::ProtocolId::new(PROTOCOL_ID).map_err(|e| format!("protocol id: {e}"))?;
         self.node
-            .new_stream(self.peer, protocol)
+            .open_raw_stream(self.peer, protocol)
             .await
             .map_err(|e| format!("开流失败: {e}"))
     }
@@ -66,11 +69,21 @@ impl std::fmt::Display for OpenError {
 /// （生产 5s；测试注入短护栏避免慢测）。
 pub async fn open_tunnel(
     dialer: &dyn TunnelDialer,
-    ticket: &TunnelTicket,
+    audit: &ConnAudit,
     timeout: Duration,
 ) -> Result<BoxedStream, OpenError> {
+    let port = audit_target_port(&audit.target).map_err(OpenError::Failed)?;
+    let nonce_target = TunnelTicket::new_for_target(port).map_err(OpenError::Failed)?;
+    let ticket = TunnelTicket {
+        uid: audit.uid.clone(),
+        ..nonce_target
+    };
     let bytes = ticket.encode().map_err(OpenError::Failed)?;
-    let mut stream = dialer.dial().await.map_err(OpenError::Failed)?;
+    let raw = dialer.dial().await.map_err(OpenError::Failed)?;
+    let protocol = p2p::ProtocolId::new(PROTOCOL_ID).map_err(|e| OpenError::Failed(e.to_string()))?;
+    let mut stream = open_with_protocol(raw, &protocol)
+        .await
+        .map_err(|e| OpenError::Failed(format!("协议握手失败: {e}")))?;
     write_frame(&mut stream, &bytes)
         .await
         .map_err(|e| OpenError::Failed(format!("票据帧写入失败: {e}")))?;
@@ -78,7 +91,16 @@ pub async fn open_tunnel(
         .await
         .map_err(|_| OpenError::Failed("应答帧超时".into()))
         .and_then(|r| r.map_err(|e| OpenError::Failed(format!("应答帧读取失败: {e}"))))?;
-    verify_ack(&reply, ticket).map(|()| stream)
+    audit.add_in(reply.len() as u64);
+    verify_ack(&reply, &ticket).map(|()| stream)
+}
+
+/// 从审计 target（127.0.0.1:<port>）取回端口构造同源票据。
+fn audit_target_port(target: &str) -> Result<u16, String> {
+    target
+        .rsplit_once(':')
+        .and_then(|(_, p)| p.parse().ok())
+        .ok_or_else(|| format!("audit target 非法: {target}"))
 }
 
 /// 应答帧校验：ack 须同 uid；error 须属闭集码。
@@ -134,13 +156,27 @@ mod tests {
         }
     }
 
-    /// 最小被访侧替身（mock 只用于单测）：读票据帧，按脚本回 ack/error/静默。
+    /// 最小被访侧替身（mock 只用于单测）：**严格帧序断言**——首帧必须是协议
+    /// ID 字面量（无 skip 容差），第二帧才是票据 JSON；双写装配在此当场翻车。
     async fn mock_responder(
         mut stream: BoxedStream,
+        expect_uid: String,
         reply: serde_json::Value,
         delay: Option<Duration>,
     ) {
-        let _ = read_frame(&mut stream).await;
+        let proto = read_frame(&mut stream).await.expect("protocol frame");
+        assert_eq!(
+            std::str::from_utf8(&proto).expect("utf8"),
+            crate::tunnel::ticket::PROTOCOL_ID,
+            "流上首帧必须是协议 ID（双写装配检测）"
+        );
+        let ticket_frame = read_frame(&mut stream).await.expect("ticket frame");
+        let ticket: serde_json::Value = serde_json::from_slice(&ticket_frame).expect("ticket json");
+        assert_eq!(
+            ticket.get("uid").and_then(|v| v.as_str()),
+            Some(expect_uid.as_str()),
+            "首业务帧必须是票据 JSON 且 uid 同源"
+        );
         if let Some(delay) = delay {
             tokio::time::sleep(delay).await;
         }
@@ -153,26 +189,19 @@ mod tests {
         "0123456789abcdef".into()
     }
 
-    fn ticket() -> TunnelTicket {
-        TunnelTicket {
-            v: 1,
-            uid: uid(),
-            target: "127.0.0.1:3080".into(),
-            nonce: "f".repeat(32),
-            ts: 1_700_000_000,
-        }
+    fn audit() -> ConnAudit {
+        ConnAudit::new(uid(), "peer".to_string(), "127.0.0.1:3080".into())
     }
 
     #[tokio::test]
     async fn open_sends_ticket_and_returns_stream_on_ack() {
         let (tx, mut rx) = tokio::sync::mpsc::channel(1);
         let dialer = LoopbackDialer { tx, buf: 4096 };
-        let t = tokio::spawn(mock_responder(
-            rx.recv().await.expect("stream"),
-            serde_json::json!({"k":"ack","uid": uid()}),
-            None,
-        ));
-        let mut stream = open_tunnel(&dialer, &ticket(), FIRST_REPLY_TIMEOUT)
+        let t = tokio::spawn(async move {
+            let stream = rx.recv().await.expect("stream");
+            mock_responder(stream, uid(), serde_json::json!({"k":"ack","uid": uid()}), None).await;
+        });
+        let mut stream = open_tunnel(&dialer, &audit(), FIRST_REPLY_TIMEOUT)
             .await
             .unwrap_or_else(|e| panic!("open failed: {e}"));
         // ack 之后即裸字节面：对端写什么原样读到什么。
@@ -186,12 +215,17 @@ mod tests {
     async fn open_surveys_error_frame_as_rejected() {
         let (tx, mut rx) = tokio::sync::mpsc::channel(1);
         let dialer = LoopbackDialer { tx, buf: 4096 };
-        tokio::spawn(mock_responder(
-            rx.recv().await.expect("stream"),
-            serde_json::json!({"k":"error","code":"target_not_allowed","msg":"nope"}),
-            None,
-        ));
-        let err = match open_tunnel(&dialer, &ticket(), FIRST_REPLY_TIMEOUT).await {
+        tokio::spawn(async move {
+            let stream = rx.recv().await.expect("stream");
+            mock_responder(
+                stream,
+                uid(),
+                serde_json::json!({"k":"error","code":"target_not_allowed","msg":"nope"}),
+                None,
+            )
+            .await;
+        });
+        let err = match open_tunnel(&dialer, &audit(), FIRST_REPLY_TIMEOUT).await {
             Err(e) => e,
             Ok(_) => panic!("expected rejection"),
         };
@@ -205,12 +239,17 @@ mod tests {
     async fn open_times_out_without_reply() {
         let (tx, mut rx) = tokio::sync::mpsc::channel(1);
         let dialer = LoopbackDialer { tx, buf: 4096 };
-        tokio::spawn(mock_responder(
-            rx.recv().await.expect("stream"),
-            serde_json::json!({"k":"ack","uid": uid()}),
-            Some(Duration::from_secs(10)),
-        ));
-        let err = match open_tunnel(&dialer, &ticket(), Duration::from_millis(50)).await {
+        tokio::spawn(async move {
+            let stream = rx.recv().await.expect("stream");
+            mock_responder(
+                stream,
+                uid(),
+                serde_json::json!({"k":"ack","uid": uid()}),
+                Some(Duration::from_secs(10)),
+            )
+            .await;
+        });
+        let err = match open_tunnel(&dialer, &audit(), Duration::from_millis(50)).await {
             Err(e) => e,
             Ok(_) => panic!("expected timeout"),
         };
@@ -221,12 +260,12 @@ mod tests {
     async fn open_rejects_ack_with_wrong_uid() {
         let (tx, mut rx) = tokio::sync::mpsc::channel(1);
         let dialer = LoopbackDialer { tx, buf: 4096 };
-        tokio::spawn(mock_responder(
-            rx.recv().await.expect("stream"),
-            serde_json::json!({"k":"ack","uid":"ffffffffffffffff"}),
-            None,
-        ));
-        let err = match open_tunnel(&dialer, &ticket(), FIRST_REPLY_TIMEOUT).await {
+        tokio::spawn(async move {
+            let stream = rx.recv().await.expect("stream");
+            mock_responder(stream, uid(), serde_json::json!({"k":"ack","uid":"ffffffffffffffff"}), None)
+                .await;
+        });
+        let err = match open_tunnel(&dialer, &audit(), FIRST_REPLY_TIMEOUT).await {
             Err(e) => e,
             Ok(_) => panic!("expected mismatch"),
         };

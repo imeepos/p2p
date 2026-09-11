@@ -11,7 +11,8 @@ use super::LocalProxy;
 use crate::tunnel::client::TunnelDialer;
 use p2p::BoxedStream;
 
-/// 直连被测目标服务的拨流器（替身=真实 TCP，非内存 mock）。
+/// 直连被测目标服务的拨流器（替身=真实 TCP **裸流**；协议 ID/票据握手由
+/// open_tunnel 唯一写入，对端隧道皮见 tunnel_skin——与生产 NodeDialer 同构）。
 struct TargetDialer {
     addr: std::net::SocketAddr,
 }
@@ -19,7 +20,9 @@ struct TargetDialer {
 #[async_trait::async_trait]
 impl TunnelDialer for TargetDialer {
     async fn dial(&self) -> Result<BoxedStream, String> {
-        Ok(Box::new(TcpStream::connect(self.addr).await.map_err(|e| e.to_string())?))
+        Ok(Box::new(
+            TcpStream::connect(self.addr).await.map_err(|e| e.to_string())?,
+        ) as BoxedStream)
     }
 }
 
@@ -34,15 +37,38 @@ impl TunnelDialer for DeadDialer {
 }
 
 async fn spawn_proxy(dialer: Arc<dyn TunnelDialer>, target_port: u16) -> std::net::SocketAddr {
-    let proxy = LocalProxy::bind(target_port, dialer).await.expect("bind");
+    let proxy = LocalProxy::bind(target_port, "test-peer".into(), dialer)
+        .await
+        .expect("bind");
     let addr = proxy.local_addr();
     tokio::spawn(proxy.serve());
     addr
 }
 
 /// 目标服务：收满请求后断言 Host/Connection 头，再分两拍发响应体。
+/// 隧道皮：accept 后读协议 ID 帧 + 票据帧（严格序），回 ack，再交 HTTP 体。
+async fn tunnel_skin(
+    conn: &mut TcpStream,
+) {
+    let proto = p2p_protocol::read_frame(conn).await.expect("proto frame");
+    assert_eq!(
+        std::str::from_utf8(&proto).expect("utf8"),
+        crate::tunnel::ticket::PROTOCOL_ID,
+        "流上首帧必须是协议 ID（双写装配检测）"
+    );
+    let ticket = p2p_protocol::read_frame(conn).await.expect("ticket frame");
+    let ticket: serde_json::Value =
+        serde_json::from_slice(&ticket).expect("ticket json");
+    // 真实 responder 语义：ack 回显同 uid（§3）。
+    let ack = serde_json::json!({"k":"ack","uid": ticket["uid"]});
+    p2p_protocol::write_frame(conn, &serde_json::to_vec(&ack).expect("ack"))
+        .await
+        .expect("ack write");
+}
+
 async fn target_host_and_stream(target: TcpListener, expect_port: u16) {
     let (mut conn, _) = target.accept().await.expect("accept");
+    tunnel_skin(&mut conn).await;
     let mut buf = Vec::new();
     let mut chunk = [0u8; 1024];
     loop {
@@ -106,6 +132,7 @@ async fn host_rewritten_and_response_streams_incrementally() {
 /// 目标服务：断言升级头，回 101，然后裸字节回显。
 async fn target_ws_echo(target: TcpListener) {
     let (mut conn, _) = target.accept().await.expect("accept");
+    tunnel_skin(&mut conn).await;
     let mut buf = Vec::new();
     let mut chunk = [0u8; 1024];
     while !buf.windows(4).any(|w| w == b"\r\n\r\n") {
@@ -145,7 +172,7 @@ async fn websocket_upgrade_pumps_raw_bytes_both_ways() {
         head.push(one[0]);
     }
     assert!(head.starts_with(b"HTTP/1.1 101"), "非 101: {head:?}");
-    let mut buf = vec![0u8; 16];
+    let mut buf = [0u8; 16];
     conn.read_exact(&mut buf[..3]).await.expect("srv push");
     assert_eq!(&buf[..3], b"srv", "101 后首包字节丢失");
     conn.write_all(b"abc").await.expect("c2s");
@@ -166,3 +193,4 @@ async fn unreachable_target_yields_502_with_reason() {
     assert!(text.starts_with("HTTP/1.1 502"), "非 502: {text}");
     assert!(text.contains("target down"), "失败原因未透出: {text}");
 }
+

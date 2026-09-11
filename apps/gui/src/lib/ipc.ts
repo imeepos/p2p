@@ -45,8 +45,8 @@ import type {
   MediaExportResult,
   MetricsJson,
   MetricsPoint,
-  TunnelOpenResult,
-  TunnelStatus,
+  TunnelOpenReport,
+  TunnelStatusReport,
   NodeEventJson,
   NodeEventHandler,
   NodeProfile,
@@ -242,10 +242,10 @@ const tauriBackend: IpcBackend = {
       },
     ),
   tunnelOpenDsh: (url, peer) =>
-    invoke<TunnelOpenResult>("tunnel_open_dsh", { url, peer }),
-  tunnelStatus: () => invoke<TunnelStatus>("tunnel_status"),
+    invoke<TunnelOpenReport>("tunnel_open_dsh", { url, peer }),
+  tunnelStatus: () => invoke<TunnelStatusReport>("tunnel_status"),
   onTunnelStatus: (handler) =>
-    listen<TunnelStatus>(TUNNEL_STATUS_EVENT, (event) => handler(event.payload)).then(
+    listen<TunnelStatusReport>(TUNNEL_STATUS_EVENT, (event) => handler(event.payload)).then(
       (unlisten) => () => {
         unlisten();
       },
