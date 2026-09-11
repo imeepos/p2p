@@ -14,8 +14,7 @@ use p2p::{BoxedStream, Node};
 use p2p_identity::PeerId;
 use p2p_protocol::{read_frame, write_frame, ProtocolHandler, ProtocolId, StreamFactory};
 use p2p_tunnel::{
-    protocol_id, PROTOCOL_ID, TunnelClient, TunnelError, TunnelErrorCode, TunnelReply,
-    TunnelTicket,
+    protocol_id, TunnelClient, TunnelError, TunnelErrorCode, TunnelReply, TunnelTicket, PROTOCOL_ID,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
@@ -45,8 +44,11 @@ impl ProtocolHandler for StrictProbe {
         let ticket = match TunnelTicket::decode(&first) {
             Ok(t) => t,
             Err(e) => {
-                return reject(&mut stream, format!("first business frame not ticket JSON: {e}"))
-                    .await;
+                return reject(
+                    &mut stream,
+                    format!("first business frame not ticket JSON: {e}"),
+                )
+                .await;
             }
         };
         let ack = TunnelReply::ack(&ticket.uid)
@@ -173,7 +175,9 @@ async fn single_write_assembly_passes_strict_wire() {
     let first = seen.first().expect("恰好一条流被服务");
     assert_not_protocol_frame(first);
     assert_eq!(
-        TunnelTicket::decode(first).expect("首业务帧必须是票据 JSON").uid,
+        TunnelTicket::decode(first)
+            .expect("首业务帧必须是票据 JSON")
+            .uid,
         UID
     );
 }

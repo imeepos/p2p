@@ -16,7 +16,9 @@ const CHUNK: usize = 64 * 1024;
 /// pump 读端必须照收并落向本地目标，随后对端 FIN 自然收口（error=None）。
 #[tokio::test]
 async fn pump_read_survives_peer_frames_after_own_write_half_close_real_tcp() {
-    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind loopback");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind loopback");
     let addr = listener.local_addr().unwrap();
     // 先连接后 accept（同任务内顺序完成，杜绝 accept/connect 互等）。
     let mut peer = TcpStream::connect(addr).await.expect("connect");
@@ -64,7 +66,9 @@ async fn pump_read_survives_peer_frames_after_own_write_half_close_real_tcp() {
 /// 本端读端收尽在途数据后即 0 字节，属 TCP 正确行为而非 pump 缺陷。
 #[tokio::test]
 async fn peer_full_close_ends_wire_read_with_zero_bytes() {
-    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind loopback");
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind loopback");
     let addr = listener.local_addr().unwrap();
     let peer = tokio::spawn(async move {
         let mut socket = TcpStream::connect(addr).await.expect("connect");
