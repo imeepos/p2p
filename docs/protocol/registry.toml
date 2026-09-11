@@ -34,7 +34,7 @@ impl = "implemented"
 spec_status = "stable"
 spec = "specs/rendezvous.md"
 summary = "签名注册/查询节点地址（带 TTL、防劫持签名、地址卫生策略）"
-vectors = ["rendezvous-register.json"]
+vectors = ["rendezvous-register.json", "rendezvous-link-frame.json"]
 since = "2026-09-01"
 
 [[protocols]]

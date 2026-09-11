@@ -1,0 +1,42 @@
+{
+  "vector_set": "rendezvous-link-frame",
+  "spec": "docs/protocol/specs/rendezvous.md §2（链路帧封装）；首帧依据 wire-format.md §6；交叉验证：vectors/rendezvous-register.json 黄金字节 + mininode-python SPEC-GAPS.md GAP-1 黑盒抓包样例",
+  "limits": {
+    "max_frame_length": 1048576,
+    "message_prefix": "u32be(4B big-endian), 上限含 1048576",
+    "first_frame": "varint 帧同 wire-format.md §6"
+  },
+  "cases": [
+    {
+      "name": "protocol_id_first_frame_varint",
+      "note": "链路首帧 = 协议 ID varint 帧（wire-format.md §6/§11 同型）；payload 为协议 ID UTF-8 字节 22B；与 IV1 抓包 16 2f70...2f31 一致",
+      "frame_kind": "protocol_id_varint",
+      "protocol_id": "/p2p-base/rendezvous/1",
+      "payload_hex": "2f7032702d626173652f72656e64657a766f75732f31",
+      "frame_hex": "162f7032702d626173652f72656e64657a766f75732f31",
+      "frame_len": "23",
+      "valid": true
+    },
+    {
+      "name": "register_message_frame_u32be",
+      "note": "协议 ID 帧之后每条消息 = 4 字节大端长度前缀 + protobuf；payload 为 Request 信封（tag 1=Register）203B，Register 内容与 rendezvous-register.json 黄金字节同源；前缀+信封头与 IV1 抓包 00 00 00 cb | 0a c8 01 逐字节一致",
+      "frame_kind": "u32be_message",
+      "prefix_hex": "000000b8",
+      "declared_len": "184",
+      "payload_hex": "0ab5010a107032702d626173652d766563746f72731220b4c1ece898ece24e24e601232f95c6a18971689a0dd669e6d78218537c21c3891a20c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f7324222120801120b3230332e302e3131332e3718a11f28a0383240c298d95faa78d3de94c1ce256b29a9d12e3e2cd3b2c2e2c6f2adb8529f813df3d563e96300ab7d7ecc0ee0e672c1b3c0ce8f02efd7e5598ba00327c8c09a0d073880cae2d006",
+      "register_protobuf_hex": "0a107032702d626173652d766563746f72731220b4c1ece898ece24e24e601232f95c6a18971689a0dd669e6d78218537c21c3891a20c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f7324222120801120b3230332e302e3131332e3718a11f28a0383240c298d95faa78d3de94c1ce256b29a9d12e3e2cd3b2c2e2c6f2adb8529f813df3d563e96300ab7d7ecc0ee0e672c1b3c0ce8f02efd7e5598ba00327c8c09a0d073880cae2d006",
+      "frame_hex": "000000b80ab5010a107032702d626173652d766563746f72731220b4c1ece898ece24e24e601232f95c6a18971689a0dd669e6d78218537c21c3891a20c6822637c7d310ec57627be00ba259d253749f4aaf644470cffbe53a35f7324222120801120b3230332e302e3131332e3718a11f28a0383240c298d95faa78d3de94c1ce256b29a9d12e3e2cd3b2c2e2c6f2adb8529f813df3d563e96300ab7d7ecc0ee0e672c1b3c0ce8f02efd7e5598ba00327c8c09a0d073880cae2d006",
+      "frame_len": "188",
+      "valid": true
+    },
+    {
+      "name": "declared_length_above_limit_rejected",
+      "note": "u32be 前缀声明长度 1048577 > 1048576（1 MiB）：读端必须报链路级错误并断开，不预读 payload（线上无需真实字节，与 frame.json 上限负样例同型）",
+      "frame_kind": "u32be_message",
+      "prefix_hex": "00100001",
+      "declared_len": "1048577",
+      "valid": false,
+      "error": "frame_too_large"
+    }
+  ]
+}

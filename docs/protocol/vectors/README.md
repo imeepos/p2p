@@ -88,6 +88,21 @@
 | `register_protobuf_hex` | 线上 Register 消息完整编码：protobuf `{namespace=1, peer_id=2, pubkey=3, addrs=4(repeated AddrMsg), ttl_secs=5, sig=6, issued_at=7}` |
 | 负样例 | `ttl_tamper_rejected`：改 ttl 重编码后验签必须失败；`freshness_window_rejected`：`verify_now` 距 `issued_at` 超 300 秒必须拒 |
 
+### rendezvous-link-frame.json — /p2p-base/rendezvous/1 控制链路帧封装（W2 互操作轮新增）
+
+| 字段 | 含义 |
+|---|---|
+| `frame_kind` | `protocol_id_varint`（链路首帧，wire-format.md §6 varint 帧）/ `u32be_message`（其后消息帧） |
+| `prefix_hex` / `payload_hex` / `frame_hex` | 长度前缀、payload（完整 protobuf 消息）、完整帧字节 |
+| `declared_len` / `frame_len` | 前缀声明长度 / 完整帧字节数（十进制字符串） |
+| `register_protobuf_hex` | 仅消息帧样例：payload 内 Register 消息字节，与 rendezvous-register.json 黄金内容同源 |
+| `valid` / `error` | `frame_too_large`：u32be 声明长度 > 1048576 必须链路级错误断开，不预读 payload |
+
+语义：rendezvous 控制链路 = varint 协议 ID 首帧 + 每消息 `u32be(全长)+protobuf`；
+消息帧**不是** varint 帧（specs/rendezvous.md §2）。集级 `limits`：
+`max_frame_length=1048576`（u32be 上限含本值）。首波清单之外的补充向量集
+（2026-09-11 W2 互操作轮新增，specs/rendezvous.md §7 已登记引用）。
+
 ### relay-messages.json — /p2p-base/relay/1 RelayMsg oneof tag 1-9
 
 | 字段 | 含义 |
