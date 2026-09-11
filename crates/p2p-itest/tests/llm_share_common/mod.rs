@@ -98,8 +98,8 @@ impl ProtocolHandler for ServeHandler {
     }
 }
 
-/// 借方侧拨号工厂：facade 与 proxy 层协议 ID 帧各写各消费（read_request_frame
-/// 裸流分支承接两层握手，见 wire.rs 接线兼容注释）。
+/// 借方侧拨号工厂：裸流交 proxy 层握手（open_raw_stream；工厂禁包 new_stream，
+/// 否则两层协议 ID 帧叠加，严格对端翻车——2026-09-11 装配 MUST）。
 pub struct NodeFactory {
     node: Arc<Node>,
 }
@@ -108,7 +108,7 @@ pub struct NodeFactory {
 impl StreamFactory for NodeFactory {
     async fn open_stream(&self, peer: &PeerId, protocol: &ProtocolId) -> io::Result<BoxedStream> {
         self.node
-            .new_stream(*peer, protocol.clone())
+            .open_raw_stream(*peer, protocol.clone())
             .await
             .map_err(|e| io::Error::other(e.to_string()))
     }

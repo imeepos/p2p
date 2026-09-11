@@ -1,7 +1,8 @@
 //! borrow 拨号装配（进程内一次性 Node，F11/PR6）：直连地址优先，缺省走
 //! rendezvous 查号（bootstrap 由装配方从节点配置注入）；/llm-share/offer/1 取回
 //! 信封（帧约定：new_stream 已写协议 ID 首帧，随后 "get" 请求帧，应答为
-//! SignedOffer JSON）；proxy 流经 StreamFactory 适配交给 llm-share-proxy::ProxyClient。
+//! SignedOffer JSON）；proxy 流经 StreamFactory 适配交给 llm-share-proxy::ProxyClient
+//! （工厂给裸流 open_raw_stream，协议 ID 帧由 proxy 层 open_with_protocol 写）。
 
 use std::io;
 use std::path::PathBuf;
@@ -130,8 +131,8 @@ async fn exchange_offer(stream: &mut BoxedStream) -> Result<SignedOffer, String>
     serde_json::from_slice(&payload).map_err(|e| format!("OFFER-FAIL: 应答解析失败: {e}"))
 }
 
-/// 借方侧拨号工厂：facade 开流（协议 ID 首帧由 new_stream 写出），
-/// llm-share-proxy 的裸流分支承接两层握手（wire.rs 接线兼容注释同源）。
+/// 借方侧拨号工厂：裸流交 llm-share-proxy 层握手（open_raw_stream；工厂禁包
+/// new_stream，否则两层协议 ID 帧叠加，严格对端翻车——2026-09-11 装配 MUST）。
 pub struct NodeFactory {
     pub node: Arc<Node>,
 }
@@ -140,7 +141,7 @@ pub struct NodeFactory {
 impl StreamFactory for NodeFactory {
     async fn open_stream(&self, peer: &PeerId, protocol: &ProtocolId) -> io::Result<BoxedStream> {
         self.node
-            .new_stream(*peer, protocol.clone())
+            .open_raw_stream(*peer, protocol.clone())
             .await
             .map_err(|e| io::Error::other(e.to_string()))
     }

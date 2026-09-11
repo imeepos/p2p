@@ -54,7 +54,8 @@ impl HttpDialer for MockDialer {
     }
 }
 
-/// 访侧拨号工厂：真 Node 开流（协议 ID 首帧握手由底层完成）。
+/// 访侧拨号工厂：裸流交调用方握手（open_raw_stream；工厂禁包 new_stream，
+/// 否则流上两帧协议 ID，严格 responder 翻车——2026-09-11 装配 MUST）。
 pub struct NodeFactory {
     pub node: Arc<Node>,
 }
@@ -67,7 +68,7 @@ impl StreamFactory for NodeFactory {
         protocol: &ProtocolId,
     ) -> std::io::Result<p2p::BoxedStream> {
         self.node
-            .new_stream(*peer, protocol.clone())
+            .open_raw_stream(*peer, protocol.clone())
             .await
             .map_err(|e| std::io::Error::other(e.to_string()))
     }
