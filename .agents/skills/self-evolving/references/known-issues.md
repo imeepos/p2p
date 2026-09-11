@@ -569,3 +569,14 @@ failed: early eof（客户端侧超时中止）。
   write_private_file（注释明写「Windows 回落普通写」）——新代码没复用现成 helper。
 - 修法：改为复用 helper；`git grep "\.mode(0o" -- "*.rs"` 审计其余调用（keystore/seed 已有门）。
 - 预防：写私密文件先找 write_private_file/keystore 同型 helper，禁止裸调 .mode。
+
+## 2026-09-11 W1：bash 多字节 locale 下 `$var` 后紧跟非 ASCII 字符被并入变量名（门禁"本机绿 CI 红"真凶）
+- 症状：`scripts/check/tests/affected-fast.sh: line 32: name<乱码>: unbound variable`，脚本被 `set -u` 击杀；
+  且**前 14 条断言全 ok、无任何 FAIL 行**（报红行自身被杀，"红因"被吞）。
+- 机理：多字节 locale（`en_US.UTF-8`）下 bash 把 `$name` 后紧跟的全角 `（` 并入变量名 → 未定义变量 → `set -u` 击杀；
+  `LC_ALL=C` 不触发。bash 3.2.57 与 5.3.9 行为一致。
+- 判别：**"本机绿、CI 红"先对齐 locale**（还有 PATH/bash 版本）；只跑 `CI=true` 不设 locale **复现不了**（协调者实测 EXIT=0）。
+- 修法：变量引用后紧跟非 ASCII 必须写 `${var}`；新增 `scripts/check/tests/ascii-var-guard.sh`（`LC_ALL=C` 按字节扫描，与运行 locale 无关）。
+- 附带真凶二：门禁自身依赖的夹具二进制（`apps/acp-agent` 被 exclude 在根 workspace 外，`cargo test --workspace` 不构建）
+  在 fresh worktree/CI 必红、主树靠历史残留侥幸绿 → 门禁要**自保障夹具**（缺失即建，仿 cli-parity.sh 先例）。
+- 元教训：**门禁的"报红行"本身要单独测健壮性**——报错路径里的地雷会让真红时不可观测。
