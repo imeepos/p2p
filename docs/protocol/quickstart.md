@@ -91,6 +91,18 @@ enable_mdns=true 即自动开始通告与浏览，无需任何参数：
     # 注册帧带 Ed25519 签名，覆盖 namespace/peer_id/地址集/TTL/签发时刻，
     # 服务端验签三要点见 node-lifecycle.md 第 1.2 节
 
+控制链路帧封装（第三方直连引导节点必读）：首帧 = 协议 ID varint 帧
+（wire-format.md 第 6 节），其后每条消息 = **4 字节大端（u32be）长度前缀 +
+protobuf**，上限 1 MiB——消息帧不是 varint 帧。逐字节样例见
+specs/rendezvous.md 第 2 节与 vectors/rendezvous-link-frame.json。
+
+默认 namespace 常量：`p2p-base`（crates/p2p/src/assembly.rs:25）。节点注册自身与
+"标准节点"查询都用它；其他 namespace 只能看到显式注册到该域的节点。
+
+lan-only 模式（lan_only=true）下 bootstrap 接线**整体跳过**：装配期直接清空
+bootstrap 清单（crates/p2p/src/assembly.rs:126-133），私网/回环引导地址同样不拨，
+查询报 rendezvous not wired。本机联调 rendezvous 必须保持 lan_only=false。
+
 查指定节点（精确查号）：
 
     addrs = node.query_peer("<对方 base58 PeerId>")   # 返回 ["ip/u端口", ...]
@@ -176,7 +188,7 @@ node-lifecycle.md 第 2 节）。不配置则降级链止于直连。
 | PeerMismatch | 拨号时期望 PeerId 与握手推导不一致；核实地址是否指向了别的节点 |
 | Timeout(request) | 链路不通或对端 handler 卡住；先看事件流有无 PeerDiscovered/连接事件 |
 | no known address | 地址簿无该 PeerId；先完成发现（mDNS/rendezvous/add_peer_address） |
-| rendezvous not wired | 未配置 bootstrap 就调 query_peer；配置引导地址后重试 |
+| rendezvous not wired | 未配置 bootstrap（或 lan_only=true 整体跳过接线）就调 query_peer；关 lan-only 并配置引导地址后重试 |
 | mDNS 发现不到 | 跨子网/虚拟机 NAT 均不通，属 mDNS 边界；改走方式 B |
 | 拒绝自拨 | 拨自己的 PeerId 会被拒绝（refusing to dial self） |
 
