@@ -186,6 +186,6 @@ JSON 对象，UTF-8 编码，字段名逐字如下；整帧字节数 MUST ≤ 40
 | `HttpDialer` | crates/p2p-tunnel | `async fn dial(&self, target: &str) -> Result<TunnelIo, TunnelError>` |
 | `TunnelClient<S: StreamFactory>` | crates/p2p-tunnel | `open(peer, ticket) -> TunnelIo`（访侧） |
 | `LocalProxy<C>` | crates/p2p-tunnel | `bind(127.0.0.1:0)` + 回传 `local_addr` |
-| GUI 命令/事件 | apps/gui/src-tauri | `tunnel_open_dsh` / `tunnel_status` / 事件 `tunnel_status`（gui-contract §19） |
+| GUI 命令/事件 | apps/gui/src-tauri | `tunnel_open_dsh` / `tunnel_status` / `tunnel_serve_start` / `tunnel_serve_stop`，事件 `tunnel_status`（含 serve 字段；gui-contract §19） |
 
 已知偏差与漂移登记：无（初版）。规范页与实现冲突时以代码为准并登记本节。
