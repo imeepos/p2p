@@ -185,7 +185,6 @@ mod tests {
     use p2p_mux::BoxedStream;
     use p2p_protocol::MAX_FRAME_SIZE;
     use tokio::io::duplex;
-
     const CHUNK: usize = 64 * 1024;
 
     #[tokio::test]
@@ -277,3 +276,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "pump_wire_tests.rs"]
+mod wire_tests;
