@@ -5,6 +5,7 @@
 //!   可读中文且不得部分生效（先校验后动作）；合法则累积白名单 + 开启。
 //! - `tunnel_serve_stop()`：关闭服务、保留白名单；已有会话不强杀，收口后
 //!   `outcome` 自然落终态（responder 审计）。
+//!
 //! 前端可见的开 DSH 命令面（tunnel_open_dsh / tunnel_status / 事件）属 W-T3 域。
 
 use std::sync::Arc;
