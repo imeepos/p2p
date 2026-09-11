@@ -785,8 +785,10 @@ type TunnelErrorCode =
    0.0.0.0/::1——cookie 只看 host 不看 port）；被访侧目标白名单显式配置且
    `127.0.0.1:<port>` 精确匹配，默认空 = 全拒；按次开启（会话态，默认关闭，
    不持久化，重启回落关闭）。
-2. 反代行为：重写 `Host` 头为目标 `127.0.0.1:<port>`，其余 method/path/headers/
-   body 原样过隧道；响应与 body 流式转发，禁止整包缓冲（规范页 §3.3）。
+2. 反代行为：重写 `Host` 头为目标 `127.0.0.1:<port>`；`Origin`/`Referer` 存在且 host
+   为回环字面量时重写为同一目标 authority（无头不造头，非回环/`null` 原样保留），
+   其余 method/path/headers/body 原样过隧道；响应与 body 流式转发，禁止整包缓冲
+   （规范页 §3.3）。
 3. `tunnel_open_dsh` 的 url host 非字面量 `127.0.0.1` / 缺 token / 端口非法 →
    Err 可读中文，且不得先开监听或开流再失败（先校验后动作）。
 4. `token` 仅作 URL 透传与 open_url 拼装，与隧道票据鉴权无关（票据身份=底座握手

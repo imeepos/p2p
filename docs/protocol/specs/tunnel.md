@@ -14,7 +14,8 @@ Extended = WebSocket 升级裸字节泵。
 
 适用边界：
 
-- 本协议只承载字节与准入应答，不解析 HTTP 语义；唯一例外是访侧反代重写 `Host` 头（§3.3）。
+- 本协议只承载字节与准入应答，不解析 HTTP 语义；唯一例外是访侧反代重写 `Host` 与
+  同面 `Origin`/`Referer` 头（§3.3）。
 - 底座中继（/p2p-base/relay/1、/p2p-base/circuit/1）解决"怎么连上"；本协议解决"连上后
   如何受限访问一个回环端口"。
 - 与 /repair/mcp/1 同为字节隧道，差异在票据形态与拒绝语义：本协议为结构化 JSON 票据 +
@@ -95,15 +96,18 @@ JSON 对象，UTF-8 编码，字段名逐字如下；整帧字节数 MUST ≤ 40
 - `finish()` = 本方向写半关；两侧均 finish 后整条隧道关闭。
 - 任一侧 IO 错误/超时 → 整隧道关闭；关闭原因 MUST 落审计（§5.2，含 code）。
 - WebSocket 升级：访侧完成与本地客户端的 HTTP 101 升级后，把升级 socket 与该流做裸字节
-  双向泵（升级请求的反代处理同 §3.3，含 Host 重写）。
+  双向泵（升级请求的反代处理同 §3.3，含 Host/Origin/Referer 重写）。
 
 ### 3.3 访侧本地反代行为（LocalProxy）
 
 - 反代监听 MUST 只绑 `127.0.0.1` 字面量（`bind(127.0.0.1:0)` 随机端口并回传 `local_addr`）；
   MUST NOT 绑 `0.0.0.0`/`::1`/`localhost`（cookie 只看 host 不看 port，`localhost` 会与
   本机其他服务共享 cookie 域）。
-- 每条本地连接 MUST 重写 `Host` 头为目标 `127.0.0.1:<port>`；其余 method/path/headers/body
-  MUST 原样过隧道。
+- 每条本地连接 MUST 重写 `Host` 头为目标 `127.0.0.1:<port>`；`Origin`/`Referer` 存在且
+  其 authority host 为回环字面量时 MUST 重写为同一目标 authority（来源否则停在反代
+  端口上，被目标按 authority 校验拒绝写请求与 WS 升级）；无该头 MUST NOT 造头，
+  非回环 host 或 `null` MUST 原样保留。重写目标仅限票据 target 的回环 authority，
+  MUST NOT 扩大信任面。其余 method/path/headers/body MUST 原样过隧道。
 - 响应与 body MUST 流式转发，MUST NOT 整包缓冲。
 
 ### 3.4 非法情形

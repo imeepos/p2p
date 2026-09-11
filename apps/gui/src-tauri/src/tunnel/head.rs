@@ -1,4 +1,4 @@
-//! HTTP 报文头读写（冻结契约 §6：Host 重写 + hop-by-hop 取舍）。
+//! HTTP 报文头读写（冻结契约 §6：Host/Origin/Referer 重写 + hop-by-hop 取舍）。
 //! 只切头不解释体：头后字节必须原样透传（含 leftover，禁缓冲丢失）。
 
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -57,9 +57,20 @@ impl Head {
         }
     }
 
-    /// 冻结契约 §6：重写 Host 为目标 `127.0.0.1:<port>`。
+    /// 冻结契约 §6：重写 Host 为目标 `127.0.0.1:<port>`；同面的 Origin/Referer
+    /// 存在且 host 为回环字面量时改写为同一目标 authority——浏览器来源否则停在
+    /// 反代端口上，被 DSH 按 authority 校验拒绝写请求与 WS（W-T3b 判别实验定案）。
+    /// 无该头不造头。安全边界：重写目标仅限票据 target 的回环 authority，不扩大
+    /// 信任面（非回环来源 authority 原样透传，由目标自行裁决）。
     pub fn rewrite_host(&mut self, target_port: u16) {
         self.set_header("Host", &format!("127.0.0.1:{target_port}"));
+        for name in ["Origin", "Referer"] {
+            if let Some(value) = self.header(name).map(str::to_string) {
+                if let Some(rewritten) = rewrite_loopback_url(&value, target_port) {
+                    self.set_header(name, &rewritten);
+                }
+            }
+        }
     }
 
     /// hop-by-hop 取舍（记录在案）：非升级请求把 Connection 改为 close——
@@ -146,6 +157,23 @@ pub async fn read_head(
 
 fn find_head_end(buf: &[u8]) -> Option<usize> {
     buf.windows(4).position(|w| w == b"\r\n\r\n")
+}
+
+/// `scheme://host:port[/rest]` → `http://127.0.0.1:<port>[/rest]`；仅当 host 为
+/// `127.0.0.1` 回环字面量（与 url.rs parse_dsh_url 同一信任判据）且端口可解析时
+/// 改写。`null`、`localhost`、无端口等其余形态返回 None 原样保留；无头不造头
+/// 的语义在 rewrite_host 侧（仅头已存在时才走到这里）。
+fn rewrite_loopback_url(value: &str, target_port: u16) -> Option<String> {
+    let (_, rest) = value.split_once("://")?;
+    let authority_len = rest.find('/').unwrap_or(rest.len());
+    let (host, port_raw) = rest[..authority_len].rsplit_once(':')?;
+    if host != "127.0.0.1" || port_raw.parse::<u16>().is_err() {
+        return None;
+    }
+    Some(format!(
+        "http://127.0.0.1:{target_port}{}",
+        &rest[authority_len..]
+    ))
 }
 
 #[cfg(test)]
