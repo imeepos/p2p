@@ -4,6 +4,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 
+import { TUNNEL_STATUS_EVENT } from "./ipc-types";
 import type {
   AcpConsoleStatus,
   AcpLocalDescriptor,
@@ -44,6 +45,8 @@ import type {
   MediaExportResult,
   MetricsJson,
   MetricsPoint,
+  TunnelOpenResult,
+  TunnelStatus,
   NodeEventJson,
   NodeEventHandler,
   NodeProfile,
@@ -234,6 +237,15 @@ const tauriBackend: IpcBackend = {
     invoke<AuthzDefaultRoleReport>("authz_default_role_save", { roleId }),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
+      (unlisten) => () => {
+        unlisten();
+      },
+    ),
+  tunnelOpenDsh: (url, peer) =>
+    invoke<TunnelOpenResult>("tunnel_open_dsh", { url, peer }),
+  tunnelStatus: () => invoke<TunnelStatus>("tunnel_status"),
+  onTunnelStatus: (handler) =>
+    listen<TunnelStatus>(TUNNEL_STATUS_EVENT, (event) => handler(event.payload)).then(
       (unlisten) => () => {
         unlisten();
       },

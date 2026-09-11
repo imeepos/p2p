@@ -696,3 +696,25 @@ export interface DiagBackend {
   logTail(maxLines: number): Promise<string[]>;
   logClear(): Promise<void>;
 }
+
+// W-T3 tunnel 访侧（冻结契约 §7）：tunnel_open_dsh/tunnel_status 字段镜像。
+export interface TunnelOpenResult {
+  localAddr: string;
+  openUrl: string;
+  token: string;
+}
+
+export interface TunnelStatus {
+  open: boolean;
+  localAddr: string | null;
+  openUrl: string | null;
+  target: string | null;
+  peer: string | null;
+  activeConns: number;
+  lastError: string | null;
+  visitedOpen: boolean | null;
+  visitedAllowlist: string[] | null;
+  visitedActiveSessions: number | null;
+}
+
+export const TUNNEL_STATUS_EVENT = "tunnel_status";

@@ -467,4 +467,26 @@ export const mockBackend: IpcBackend & {
       handlers.delete(handler);
     });
   },
+
+  // W-T3 tunnel 访侧 mock：浏览器开发环境无 Rust 反代，显式报错不假装可用。
+  async tunnelOpenDsh() {
+    throw new Error("mock 环境不支持远程访问：需在桌面应用内使用");
+  },
+  async tunnelStatus() {
+    return {
+      open: false,
+      localAddr: null,
+      openUrl: null,
+      target: null,
+      peer: null,
+      activeConns: 0,
+      lastError: null,
+      visitedOpen: null,
+      visitedAllowlist: null,
+      visitedActiveSessions: null,
+    };
+  },
+  onTunnelStatus(_handler): Promise<UnlistenFn> {
+    return Promise.resolve(() => {});
+  },
 };
