@@ -17,6 +17,9 @@ impl Swarm {
     /// 开裸流（协议 ID 首帧由调用方写入）：按需取/建连接。
     /// 开流计入在途与最后使用（空闲回收的使用中豁免依据）；
     /// 失败路径守护随作用域析构归还计数，不静默。
+    /// 装配 MUST（tunnel.md §2.1，2026-09-11）：StreamFactory 装配一律包本裸流
+    /// 口径（SwarmFactory/Node::open_raw_stream），禁包 Node::new_stream——其
+    /// 内嵌协议 ID 首帧会与调用方首帧叠加成双帧，严格对端必翻车。
     pub async fn open_stream(
         &self,
         peer: &PeerId,

@@ -3,6 +3,12 @@
 //! 返回的是已开启的裸流，停在协议握手之前：协议 ID 首帧由
 //! [open_with_protocol](crate::open_with_protocol) 或 request-response 写入，
 //! 工厂不重复写（design §5.1：每条流第一帧即协议 ID）。
+//!
+//! 装配 MUST（tunnel.md §2.1，2026-09-11）：工厂实现一律产出裸流（bare
+//! SwarmFactory 等价口径；facade 侧 `Node::open_raw_stream`），MUST NOT 包装修
+//! 握手原语（`Node::new_stream`）——工厂与调用方各写一帧即流上双帧协议 ID，
+//! 严格对端把第二帧当业务帧解析必翻车。no-tolerance 回归见
+//! p2p-itest/tests/tunnel_assembly_wire.rs。
 
 use std::io;
 use std::sync::Arc;

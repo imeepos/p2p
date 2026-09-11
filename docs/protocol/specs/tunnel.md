@@ -36,6 +36,12 @@ Extended = WebSocket 升级裸字节泵。
 
 - 帧序即上表：实现 MUST 以票据帧为首业务帧，被访侧 MUST 以恰一帧应答为首个反向载荷；
   顺序不得交换或省略。
+- 装配口径（协议 ID 恰一帧，2026-09-11）：流上协议 ID 帧 MUST 恰一帧。访侧装配经
+  StreamFactory 拨号时，工厂 MUST 产出裸流（bare `SwarmFactory` 等价物，本仓
+  `Node::open_raw_stream`），由调用方（`TunnelClient` 等）写协议 ID 首帧；
+  工厂 MUST NOT 包装修握手原语（`Node::new_stream`）——其内嵌首帧与调用方首帧
+  叠加成两帧协议 ID，严格被访侧把第二帧当业务帧解析必翻车。直接拨号自握手的
+  场景（不经工厂）方可用 `new_stream`。
 - 首帧超时：建流后 **5 秒**内未收到合法票据帧，被访侧 MUST 以 `bad_ticket` 拒绝并关流。
 - 访侧 MUST 先收到 `ack` 才得发送任何业务字节；收到 `error` 后 MUST NOT 再发任何字节。
 - 访侧等待应答帧必须有界（超时值属实现策略，不冻结）；超时视同本次开流失败并关流。
