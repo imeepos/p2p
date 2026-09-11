@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const statusMock = vi.fn(async () => idleStatus());
@@ -61,11 +60,14 @@ describe("RemoteAccessView", () => {
   });
 
   it("开启成功转入已开启并展示本地地址与入口链接", async () => {
-    const user = userEvent.setup();
     renderView();
-    await user.type(await screen.findByLabelText("DSH 启动 URL"), "http://127.0.0.1:3080/?token=tk");
-    await user.type(screen.getByLabelText("被访节点 PeerId"), "peerid");
-    await user.click(screen.getByRole("button", { name: "开启远程访问" }));
+    fireEvent.change(await screen.findByLabelText("DSH 启动 URL"), {
+      target: { value: "http://127.0.0.1:3080/?token=tk" },
+    });
+    fireEvent.change(screen.getByLabelText("被访节点 PeerId"), {
+      target: { value: "peerid" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "开启远程访问" }));
     await waitFor(() => screen.getByText("已开启"));
     expect(screen.getAllByText("127.0.0.1:40001").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/40001\/\?token=tk/).length).toBeGreaterThan(0);
@@ -79,11 +81,13 @@ describe("RemoteAccessView", () => {
     openMock.mockImplementation(async () => {
       throw new Error("未指定被访节点 peer");
     });
-    const user = userEvent.setup();
     renderView();
-    await user.type(await screen.findByLabelText("DSH 启动 URL"), "http://127.0.0.1:3080/?token=tk");
-    await user.click(screen.getByRole("button", { name: "开启远程访问" }));
+    fireEvent.change(await screen.findByLabelText("DSH 启动 URL"), {
+      target: { value: "http://127.0.0.1:3080/?token=tk" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "开启远程访问" }));
     await waitFor(() => screen.getByText("错误"));
-    expect(await screen.findByText(/未指定被访节点 peer/)).toBeTruthy();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("未指定被访节点 peer");
   });
 });

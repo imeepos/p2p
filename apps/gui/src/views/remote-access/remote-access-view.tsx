@@ -51,18 +51,22 @@ export function RemoteAccessView() {
       .then((current) => {
         if (!alive) return;
         setStatus(current);
-        setPhase(current.open ? "open" : "idle");
+        // 错误态不回退：快照仅在没有更新的错误展示时生效。
+        setPhase((prev) =>
+          prev === "error" ? prev : current.open ? "open" : "idle",
+        );
       })
       .catch((error) => console.error("[tunnel] 状态读取失败", error));
     const unlisten = ipc.onTunnelStatus((next) => {
       setStatus(next);
-      setPhase(next.open ? "open" : lastError ? "error" : "idle");
+      setPhase(next.open ? "open" : "idle");
     });
     return () => {
       alive = false;
       void unlisten.then((off) => off());
     };
-  }, [lastError]);
+    // 挂载时订阅一次；开/关状态由命令返回值与事件驱动。
+  }, []);
 
   const open = useCallback(async () => {
     setBusy(true);
