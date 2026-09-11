@@ -17,6 +17,9 @@ pub struct TunnelOpenReport {
     pub token: String,
 }
 
+/// 被访侧服务面：唯一真值源 = W-T2 装配（crate::tunnel::TunnelServeStatus）。
+pub use crate::tunnel::TunnelServeStatus;
+
 /// tunnel_status 快照 + `tunnel_status` 事件载荷（§19.2 TunnelStatusReport）。
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -29,20 +32,8 @@ pub struct TunnelStatusReport {
     pub target: Option<String>,
     /// 会话审计（§19.2 TunnelSessionAudit 八字段全量）。
     pub sessions: Vec<TunnelSessionAudit>,
-    /// 被访侧服务面（W-T2 接线前 = 默认关闭态）。
+    /// 被访侧服务面（W-T2 槽位实况）。
     pub serve: TunnelServeStatus,
-}
-
-/// 被访侧服务面（§19.2 TunnelServeStatus，W-T2 实现，访侧仅透传展示）。
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TunnelServeStatus {
-    /// 受理开关；默认 false，会话态不持久化。
-    pub enabled: bool,
-    /// 目标白名单（累积，持久化——由被访侧维护）。
-    pub allow: Vec<String>,
-    /// 被访侧视角存续会话数。
-    pub active_sessions: u32,
 }
 
 /// 会话审计记录（§19.2 八字段；outcome ∈ "open" | "ok" | 六值错误码）。

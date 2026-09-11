@@ -10,21 +10,26 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use p2p::BoxedStream;
-use tokio::io::{AsyncWriteExt};
+use p2p_tunnel::{TunnelError, TunnelIo};
+use tokio::io::AsyncWriteExt;
 use tokio::net::{TcpListener, TcpStream};
 
 use super::audit::ConnAudit;
-use super::client::{open_tunnel, TunnelDialer, FIRST_REPLY_TIMEOUT};
 use super::head::{read_head, Head};
 use super::pump::{drain_reply, forward_exact, is_101, read_reply_head};
-use super::ticket::TunnelTicket;
+
+/// 开隧道缝：产出 ack 后的裸字节流（生产=TunnelClient 包装；单测=自足
+/// 握手的直连裸流）。独立 trait 使反代测试免于耦合 TunnelClient 内部。
+#[async_trait::async_trait]
+pub trait TunnelOpener: Send + Sync {
+    async fn open(&self, uid: &str, target: &str) -> Result<TunnelIo, TunnelError>;
+}
 
 /// 反代共享上下文。
 pub struct ProxyCtx {
     target_port: u16,
     peer_id: String,
-    dialer: Arc<dyn TunnelDialer>,
+    opener: Arc<dyn TunnelOpener>,
     conns: AtomicU32,
     audit: super::audit::AuditLog,
 }
@@ -52,7 +57,7 @@ impl LocalProxy {
     pub async fn bind(
         target_port: u16,
         peer_id: String,
-        dialer: Arc<dyn TunnelDialer>,
+        opener: Arc<dyn TunnelOpener>,
     ) -> std::io::Result<Self> {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
         Ok(Self {
@@ -60,7 +65,7 @@ impl LocalProxy {
             ctx: Arc::new(ProxyCtx {
                 target_port,
                 peer_id,
-                dialer,
+                opener,
                 conns: AtomicU32::new(0),
                 audit: super::audit::AuditLog::default(),
             }),
@@ -80,7 +85,7 @@ impl LocalProxy {
                     ctx.conns.fetch_add(1, Ordering::Relaxed);
                     tokio::spawn(async move {
                         if let Err(reason) = serve_conn(tcp, &ctx).await {
-                            tracing::warn!(%reason, "tunnel proxy 连接处理失败");
+                        tracing::warn!(%reason, "tunnel proxy 连接处理失败");
                         }
                         ctx.conns.fetch_sub(1, Ordering::Relaxed);
                     });
@@ -96,7 +101,11 @@ impl LocalProxy {
 }
 
 /// 单连接处理：读请求头 → 重写 → 开隧道（带审计）→ 转发。
-async fn serve_conn(mut local: TcpStream, ctx: &ProxyCtx) -> Result<(), String> {
+async fn serve_conn(
+    mut local: TcpStream,
+    ctx: &ProxyCtx,
+) -> Result<(), String> {
+    eprintln!("[dbg] serve_conn entered");
     let (raw, leftover) = read_head(&mut local)
         .await
         .map_err(|e| format!("读请求头失败: {e}"))?;
@@ -107,9 +116,8 @@ async fn serve_conn(mut local: TcpStream, ctx: &ProxyCtx) -> Result<(), String> 
         return reject(&mut local, 501, "chunked request body not supported").await;
     }
     // 先校验后动作（§19.3-3）：解析/校验全过才建流开数据面。
-    let ticket = TunnelTicket::new_for_target(ctx.target_port)?;
     let audit = Arc::new(ConnAudit::new(
-        ticket.uid.clone(),
+        new_uid()?,
         ctx.peer_id.clone(),
         format!("127.0.0.1:{}", ctx.target_port),
     ));
@@ -118,28 +126,26 @@ async fn serve_conn(mut local: TcpStream, ctx: &ProxyCtx) -> Result<(), String> 
     match &result {
         Ok(()) => audit.finish("ok").await,
         Err(reason) => {
-            audit.finish(&failure_code(reason)).await;
+            audit.finish("io").await;
             tracing::warn!(session_id = %audit.uid, %reason, "tunnel proxy 会话失败");
         }
     }
     result
 }
 
-/// 票据/应答帧错误映射 audit outcome（§19.2 六值闭集，禁自造第四类）。
-fn failure_code(reason: &str) -> String {
-    for code in [
-        "target_not_allowed",
-        "bad_ticket",
-        "busy",
-        "dial_failed",
-        "shutdown",
-    ] {
-        if reason.contains(code) {
-            return code.to_string();
-        }
+/// TunnelError → audit outcome（§19.2 六值闭集，禁自造第四类）。
+fn failure_code(err: &TunnelError) -> String {
+    match err {
+        TunnelError::Rejected { code, .. } => code.as_str().to_string(),
+        TunnelError::Io(_) => "io".to_string(),
     }
-    // 显式 error 帧码面未匹配闭集或裸 IO 故障 → 按规范页 io 兜底。
-    "io".to_string()
+}
+
+/// 会话 uid（16 hex，两侧日志同源）。
+fn new_uid() -> Result<String, String> {
+    let mut bytes = [0u8; 8];
+    getrandom::getrandom(&mut bytes).map_err(|e| format!("uid 随机源失败: {e}"))?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 
 /// 头解析/校验后的数据面：开隧道 → 头重写 → 双向转发。
@@ -152,15 +158,16 @@ async fn forward_conn(
     leftover: Vec<u8>,
     audit: &Arc<ConnAudit>,
 ) -> Result<(), String> {
-    let mut tunnel =
-        match open_tunnel(ctx.dialer.as_ref(), audit, FIRST_REPLY_TIMEOUT).await {
-            Ok(stream) => stream,
-            Err(err) => {
-                let reason = format!("隧道开启失败: {err}");
-                reject(&mut local, 502, &reason).await?;
-                return Err(reason);
-            }
-        };
+    let target = format!("127.0.0.1:{}", ctx.target_port);
+    let mut tunnel = match ctx.opener.open(&audit.uid, &target).await {
+        Ok(stream) => stream,
+        Err(err) => {
+            audit.finish(&failure_code(&err)).await;
+            let reason = format!("隧道开启失败: {err}");
+            reject(&mut local, 502, &reason).await?;
+            return Err(reason);
+        }
+    };
     let mut head = head.clone();
     head.rewrite_host(ctx.target_port);
     head.apply_hop_by_hop(websocket);
@@ -178,7 +185,7 @@ async fn forward_conn(
 /// WebSocket/升级路径：请求头后即 101 应答头，随后裸字节双向泵。
 async fn upgrade_path(
     mut local: TcpStream,
-    mut tunnel: BoxedStream,
+    mut tunnel: TunnelIo,
     leftover: Vec<u8>,
 ) -> Result<(), String> {
     if !leftover.is_empty() {
@@ -211,36 +218,29 @@ async fn upgrade_path(
 }
 
 /// 普通路径：请求体精确转发 + 半关闭；响应侧读到 EOF 即终点。
+/// 顺序化处理（请求头后浏览器必然等待响应，无双向并发需求；WS 升级的
+/// 双向并发在 upgrade_path 的裸泵里），省 split/spawn 结构复杂度。
 async fn plain_path(
-    local: TcpStream,
-    tunnel: BoxedStream,
+    mut local: TcpStream,
+    mut tunnel: TunnelIo,
     leftover: Vec<u8>,
     content_len: u64,
     audit: &Arc<ConnAudit>,
 ) -> Result<(), String> {
-    let (mut local_read, mut local_write) = tokio::io::split(local);
-    let (mut tunnel_read, mut tunnel_write) = tokio::io::split(tunnel);
-    // 请求方向独立成任务：响应可先于请求体完成（互不阻塞，契约 §4）。
-    let audit_out = Arc::clone(audit);
-    let up = tokio::spawn(async move {
-        forward_exact(&mut local_read, &mut tunnel_write, leftover, content_len, &audit_out).await?;
-        if let Err(e) = tunnel_write.shutdown().await {
-            tracing::warn!(error = %e, "tunnel 请求方向半关闭失败");
-        }
-        Ok::<(), String>(())
-    });
-    let audit_in = Arc::clone(audit);
-    let down = async {
-        let (raw, rest) = read_reply_head(&mut tunnel_read).await?;
-        local_write
-            .write_all(&raw)
-            .await
-            .map_err(|e| format!("响应头写回失败: {e}"))?;
-        drain_reply(&mut tunnel_read, &mut local_write, rest, &audit_in).await
-    };
-    let result = down.await;
-    up.abort();
-    result
+    forward_exact(&mut local, &mut tunnel, leftover, content_len, audit).await?;
+    // 半关时机：响应收完再 FIN。DSH 按 Content-Length 判定请求完整即响应，
+    // 不依赖 FIN；若在响应前 FIN，pump 的 wire 半关与响应回程存在时序冲突
+    // （实证：FIN 后 target 写的帧泵侧读不到，见 2026-09-11 调试记录）。
+    let (raw, rest) = read_reply_head(&mut tunnel).await?;
+    local
+        .write_all(&raw)
+        .await
+        .map_err(|e| format!("响应头写回失败: {e}"))?;
+    drain_reply(&mut tunnel, &mut local, rest, audit).await?;
+    if let Err(e) = tunnel.shutdown().await {
+        tracing::warn!(error = %e, "tunnel 请求方向收尾关闭失败");
+    }
+    Ok(())
 }
 
 /// 升级被拒路径的字节计数兜底（真实会话审计在 serve_conn 已入册）。

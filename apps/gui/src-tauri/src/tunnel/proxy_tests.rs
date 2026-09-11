@@ -1,5 +1,6 @@
-//! 反代行为单测：真实回环 TCP 对端（禁 mock 整包缓冲的面）验证 Host 重写、
-//! 流式转发、升级裸泵与拒绝路径。隧道字节面由 client.rs 单测覆盖。
+//! 反代行为单测：真实回环 TCP 对端验证 Host 重写、流式转发、升级裸泵与
+//! 拒绝路径。wire 侧为帧面（pump/ManualOpener 消费帧），对端 helper 统一
+//! 「隧道皮」（读协议 ID/票据、回 ack）后按帧收发 HTTP 字节。
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -8,36 +9,71 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 
 use super::LocalProxy;
-use crate::tunnel::client::TunnelDialer;
-use p2p::BoxedStream;
+use super::TunnelOpener;
 
-/// 直连被测目标服务的拨流器（替身=真实 TCP **裸流**；协议 ID/票据握手由
-/// open_tunnel 唯一写入，对端隧道皮见 tunnel_skin——与生产 NodeDialer 同构）。
-struct TargetDialer {
+/// 自足握手开隧道（单测）：connect → 协议 ID 帧 → 票据帧 → 等 ack → 裸流。
+/// 帧序与生产 TunnelClient 一致（严格无 skip）；因未含其内部泵，open 返回
+/// 后 wire 上即裸 HTTP 字节——对端 helper 相应用裸字节收发。
+struct ManualOpener {
     addr: std::net::SocketAddr,
+    target: String,
 }
 
 #[async_trait::async_trait]
-impl TunnelDialer for TargetDialer {
-    async fn dial(&self) -> Result<BoxedStream, String> {
-        Ok(Box::new(
-            TcpStream::connect(self.addr).await.map_err(|e| e.to_string())?,
-        ) as BoxedStream)
+impl TunnelOpener for ManualOpener {
+    async fn open(
+        &self,
+        uid: &str,
+        _target: &str,
+    ) -> Result<p2p_tunnel::TunnelIo, p2p_tunnel::TunnelError> {
+        use p2p_protocol::{open_with_protocol, read_frame, write_frame};
+        let protocol = p2p::ProtocolId::new(p2p_tunnel::PROTOCOL_ID)
+            .map_err(|e| std::io::Error::other(e.to_string()))?;
+        let raw: p2p::BoxedStream = Box::new(
+            TcpStream::connect(self.addr)
+                .await
+                .map_err(std::io::Error::other)?,
+        );
+        let mut stream = open_with_protocol(raw, &protocol)
+            .await
+            .map_err(std::io::Error::other)?;
+        let mut nonce = [0u8; 16];
+        getrandom::getrandom(&mut nonce).map_err(std::io::Error::other)?;
+        let nonce = nonce.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let ticket = p2p_tunnel::TunnelTicket::new(uid, self.target.clone(), nonce)
+            .map_err(std::io::Error::other)?;
+        write_frame(
+            &mut stream,
+            &ticket.encode().map_err(std::io::Error::other)?,
+        )
+        .await
+        .map_err(std::io::Error::other)?;
+        let ack = read_frame(&mut stream).await.map_err(std::io::Error::other)?;
+        let ack: serde_json::Value =
+            serde_json::from_slice(&ack).map_err(std::io::Error::other)?;
+        assert_eq!(ack["uid"], uid, "ack uid 与票据不一致");
+        Ok(Box::new(stream))
     }
 }
 
-/// 拨流器恒失败（隧道不可达）。
-struct DeadDialer;
+/// 开隧道恒失败（隧道不可达）。
+struct DeadOpener;
 
 #[async_trait::async_trait]
-impl TunnelDialer for DeadDialer {
-    async fn dial(&self) -> Result<BoxedStream, String> {
-        Err("target down".into())
+impl TunnelOpener for DeadOpener {
+    async fn open(
+        &self,
+        _uid: &str,
+        _target: &str,
+    ) -> Result<p2p_tunnel::TunnelIo, p2p_tunnel::TunnelError> {
+        Err(p2p_tunnel::TunnelError::Io(std::io::Error::other(
+            "target down",
+        )))
     }
 }
 
-async fn spawn_proxy(dialer: Arc<dyn TunnelDialer>, target_port: u16) -> std::net::SocketAddr {
-    let proxy = LocalProxy::bind(target_port, "test-peer".into(), dialer)
+async fn spawn_proxy(opener: Arc<dyn TunnelOpener>, target_port: u16) -> std::net::SocketAddr {
+    let proxy = LocalProxy::bind(target_port, "test-peer".to_string(), opener)
         .await
         .expect("bind");
     let addr = proxy.local_addr();
@@ -45,39 +81,49 @@ async fn spawn_proxy(dialer: Arc<dyn TunnelDialer>, target_port: u16) -> std::ne
     addr
 }
 
-/// 目标服务：收满请求后断言 Host/Connection 头，再分两拍发响应体。
-/// 隧道皮：accept 后读协议 ID 帧 + 票据帧（严格序），回 ack，再交 HTTP 体。
-async fn tunnel_skin(
-    conn: &mut TcpStream,
-) {
+/// 隧道皮：读协议 ID 帧（严格断言，双写装配检测）+ 票据帧，回 ack(uid)。
+async fn tunnel_skin(conn: &mut TcpStream) {
     let proto = p2p_protocol::read_frame(conn).await.expect("proto frame");
     assert_eq!(
         std::str::from_utf8(&proto).expect("utf8"),
-        crate::tunnel::ticket::PROTOCOL_ID,
+        p2p_tunnel::PROTOCOL_ID,
         "流上首帧必须是协议 ID（双写装配检测）"
     );
     let ticket = p2p_protocol::read_frame(conn).await.expect("ticket frame");
-    let ticket: serde_json::Value =
-        serde_json::from_slice(&ticket).expect("ticket json");
-    // 真实 responder 语义：ack 回显同 uid（§3）。
-    let ack = serde_json::json!({"k":"ack","uid": ticket["uid"]});
+    let ticket: serde_json::Value = serde_json::from_slice(&ticket).expect("ticket json");
+    let ack = serde_json::json!({ "k": "ack", "uid": ticket["uid"] });
     p2p_protocol::write_frame(conn, &serde_json::to_vec(&ack).expect("ack"))
         .await
         .expect("ack write");
 }
 
+/// 裸字节循环读：拼字节直到谓词满足（ManualOpener 无泵，wire=裸 HTTP）。
+async fn read_bytes_until(
+    conn: &mut TcpStream,
+    mut buf: Vec<u8>,
+    done: impl Fn(&[u8]) -> bool,
+) -> Vec<u8> {
+    let mut chunk = [0u8; 4096];
+    while !done(&buf) {
+        let read = conn.read(&mut chunk).await.expect("read");
+        assert!(read > 0, "EOF before complete");
+        buf.extend_from_slice(&chunk[..read]);
+    }
+    buf
+}
+
+fn is_complete_request(buf: &[u8]) -> bool {
+    buf.windows(4).any(|w| w == b"\r\n\r\n")
+}
+
+/// 目标服务（host 用例）：收完整请求 → 断言 Host/Connection → 分两拍响应。
 async fn target_host_and_stream(target: TcpListener, expect_port: u16) {
     let (mut conn, _) = target.accept().await.expect("accept");
     tunnel_skin(&mut conn).await;
-    let mut buf = Vec::new();
-    let mut chunk = [0u8; 1024];
-    loop {
-        let read = conn.read(&mut chunk).await.expect("read");
-        buf.extend_from_slice(&chunk[..read]);
-        if buf.windows(4).any(|w| w == b"\r\n\r\n") && buf.ends_with(b"hello") {
-            break;
-        }
-    }
+    let buf = read_bytes_until(&mut conn, Vec::new(), |b| {
+        is_complete_request(b) && b.ends_with(b"hello")
+    })
+    .await;
     let head = String::from_utf8_lossy(&buf).into_owned();
     assert!(
         head.contains(&format!("Host: 127.0.0.1:{expect_port}")),
@@ -87,23 +133,30 @@ async fn target_host_and_stream(target: TcpListener, expect_port: u16) {
     conn.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 10\r\nConnection: close\r\n\r\n01234")
         .await
         .expect("write1");
-    conn.flush().await.expect("flush");
     tokio::time::sleep(Duration::from_millis(200)).await;
     conn.write_all(b"56789").await.expect("write2");
-    conn.flush().await.expect("flush");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn host_rewritten_and_response_streams_incrementally() {
     let target = TcpListener::bind(("127.0.0.1", 0)).await.expect("target");
     let target_port = target.local_addr().unwrap().port();
-    let proxy_addr = spawn_proxy(Arc::new(TargetDialer { addr: target.local_addr().unwrap() }), target_port).await;
+    let proxy_addr = spawn_proxy(
+        Arc::new(ManualOpener {
+            addr: target.local_addr().unwrap(),
+            target: format!("127.0.0.1:{target_port}"),
+        }),
+        target_port,
+    )
+    .await;
     let t = tokio::spawn(target_host_and_stream(target, target_port));
 
     let mut conn = TcpStream::connect(proxy_addr).await.expect("connect");
-    conn.write_all(b"POST /x HTTP/1.1\r\nHost: 127.0.0.1:1\r\nContent-Length: 5\r\n\r\nhello")
-        .await
-        .expect("req");
+    conn.write_all(
+        b"POST /x HTTP/1.1\r\nHost: 127.0.0.1:1\r\nContent-Length: 5\r\n\r\nhello",
+    )
+    .await
+    .expect("req");
     let mut first_at = None;
     let mut body = Vec::new();
     let mut chunk = [0u8; 64];
@@ -129,17 +182,13 @@ async fn host_rewritten_and_response_streams_incrementally() {
     t.await.expect("target task");
 }
 
-/// 目标服务：断言升级头，回 101，然后裸字节回显。
+/// 目标服务（ws 用例）：断言升级头，回 101（带首包 srv），随后帧面回显。
 async fn target_ws_echo(target: TcpListener) {
     let (mut conn, _) = target.accept().await.expect("accept");
+    let mut chunk = [0u8; 4096];
     tunnel_skin(&mut conn).await;
-    let mut buf = Vec::new();
-    let mut chunk = [0u8; 1024];
-    while !buf.windows(4).any(|w| w == b"\r\n\r\n") {
-        let read = conn.read(&mut chunk).await.expect("read");
-        buf.extend_from_slice(&chunk[..read]);
-    }
-    let head = String::from_utf8_lossy(&buf).into_owned();
+    let req = read_bytes_until(&mut conn, Vec::new(), is_complete_request).await;
+    let head = String::from_utf8_lossy(&req).into_owned();
     assert!(head.contains("Upgrade: websocket"), "升级头丢失: {head}");
     assert!(head.contains("Connection: Upgrade"), "Connection 被改写: {head}");
     conn.write_all(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nsrv")
@@ -154,10 +203,17 @@ async fn target_ws_echo(target: TcpListener) {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn websocket_upgrade_pumps_raw_bytes_both_ways() {
     let target = TcpListener::bind(("127.0.0.1", 0)).await.expect("target");
-    let proxy_addr = spawn_proxy(Arc::new(TargetDialer { addr: target.local_addr().unwrap() }), 3080).await;
+    let proxy_addr = spawn_proxy(
+        Arc::new(ManualOpener {
+            addr: target.local_addr().unwrap(),
+            target: "127.0.0.1:3080".into(),
+        }),
+        3080,
+    )
+    .await;
     tokio::spawn(target_ws_echo(target));
 
     let mut conn = TcpStream::connect(proxy_addr).await.expect("connect");
@@ -180,9 +236,9 @@ async fn websocket_upgrade_pumps_raw_bytes_both_ways() {
     assert_eq!(&buf[..3], b"abc");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn unreachable_target_yields_502_with_reason() {
-    let proxy_addr = spawn_proxy(Arc::new(DeadDialer), 3080).await;
+    let proxy_addr = spawn_proxy(Arc::new(DeadOpener), 3080).await;
     let mut conn = TcpStream::connect(proxy_addr).await.expect("connect");
     conn.write_all(b"GET / HTTP/1.1\r\nHost: 127.0.0.1:3080\r\n\r\n")
         .await
@@ -193,4 +249,3 @@ async fn unreachable_target_yields_502_with_reason() {
     assert!(text.starts_with("HTTP/1.1 502"), "非 502: {text}");
     assert!(text.contains("target down"), "失败原因未透出: {text}");
 }
-

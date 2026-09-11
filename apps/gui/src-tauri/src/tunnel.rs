@@ -107,3 +107,39 @@ pub async fn tunnel_serve_start(
 pub async fn tunnel_serve_stop(state: State<'_, AppState>) -> Result<TunnelServeStatus, String> {
     state.tunnel_serve().stop().await
 }
+
+// ---- W-T3 访侧（visit 子模块）：反代 + 开 DSH 命令面 ----
+// 命令经此 re-export，保持 §19 命令表 `tunnel::tunnel_open_dsh` 字面。
+pub mod visit;
+pub use visit::TunnelState;
+
+/// §19.1 tunnel_open_dsh 薄包装：实现居 visit 子模块；包装在此使命令表保持
+/// 两段路径（cli-parity 命令提取规则 `X::Y` 对三段路径会拆出伪命令）。
+#[tauri::command]
+pub async fn tunnel_open_dsh(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TunnelState>,
+    url: String,
+    peer: Option<String>,
+) -> Result<visit::TunnelOpenReport, String> {
+    visit::tunnel_open_dsh(app, state, url, peer).await
+}
+
+/// §19.1 tunnel_status 薄包装（同上）。
+#[tauri::command]
+pub async fn tunnel_status(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TunnelState>,
+) -> Result<visit::TunnelStatusReport, String> {
+    visit::tunnel_status(app, state).await
+}
+
+impl TunnelServeSlot {
+    /// tunnel_status 的 serve 字段取数：节点未运行/未装配回落默认关闭态。
+    pub async fn peek(&self) -> TunnelServeStatus {
+        match self.gate().await {
+            Ok(gate) => self.snapshot(&gate),
+            Err(_) => TunnelServeStatus::default(),
+        }
+    }
+}

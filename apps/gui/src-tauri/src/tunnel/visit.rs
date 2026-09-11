@@ -4,28 +4,79 @@
 //! 关闭/出错即发事件，错误不静默。W-T2 的 `p2p-tunnel` crate 落地后：
 //! `client.rs` 整体切换为其 `TunnelClient` 导出（wire 语义同源冻结契约）。
 
+// 子模块文件与 visit.rs 同级（tunnel/ 目录），#[path] 指向同级。
+#[path = "audit.rs"]
 pub mod audit;
-pub mod client;
+#[path = "head.rs"]
 pub mod head;
+#[path = "proxy.rs"]
 pub mod proxy;
-pub mod ticket;
+#[path = "pump.rs"]
 pub mod pump;
+#[path = "types.rs"]
 pub mod types;
+#[path = "url.rs"]
 pub mod url;
 
 use std::sync::Arc;
 
+use p2p::PeerId;
+use p2p_tunnel::TunnelClient;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::state::AppState;
-use crate::tunnel::client::NodeDialer;
 use tokio::sync::Mutex;
 
 pub use types::{TunnelOpenReport, TunnelStatusReport};
 
 /// Tauri 事件名（§19.2 冻结）。
 pub const TUNNEL_EVENT: &str = "tunnel_status";
+
+/// 生产 StreamFactory：开裸流（协议 ID 首帧由 TunnelClient 唯一写入）。
+/// 禁用 Node::new_stream——其内嵌握手会与 TunnelClient 叠加成双帧协议 ID
+/// （facade 双写缺陷，2026-09-11 裁决），open_raw_stream 是唯一正确缝。
+struct NodeStreamFactory {
+    node: Arc<p2p::Node>,
+}
+
+#[async_trait::async_trait]
+impl p2p_protocol::StreamFactory for NodeStreamFactory {
+    async fn open_stream(
+        &self,
+        peer: &PeerId,
+        protocol: &p2p_protocol::ProtocolId,
+    ) -> std::io::Result<p2p::BoxedStream> {
+        self.node
+            .open_raw_stream(*peer, protocol.clone())
+            .await
+            .map_err(|e| std::io::Error::other(e.to_string()))
+    }
+}
+
+/// 生产开隧道实现：TunnelClient（协议 ID/票据/ack/泵全在 p2p-tunnel 内）。
+struct NodeTunnelOpener {
+    client: TunnelClient<NodeStreamFactory>,
+    peer: PeerId,
+}
+
+#[async_trait::async_trait]
+impl proxy::TunnelOpener for NodeTunnelOpener {
+    async fn open(
+        &self,
+        uid: &str,
+        target: &str,
+    ) -> Result<p2p_tunnel::TunnelIo, p2p_tunnel::TunnelError> {
+        let mut nonce = [0u8; 16];
+        getrandom::getrandom(&mut nonce).map_err(|e| {
+            p2p_tunnel::TunnelError::Io(std::io::Error::other(format!("nonce: {e}")))
+        })?;
+        let nonce = nonce.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        let ticket = p2p_tunnel::TunnelTicket::new(uid, target, nonce)
+            .map_err(|e| p2p_tunnel::TunnelError::Io(std::io::Error::other(e)))?;
+        self.client.open(self.peer, &ticket).await
+    }
+}
 
 /// 运行中的访侧会话：反代任务句柄 + 展示面。
 pub struct ActiveSession {
@@ -35,12 +86,10 @@ pub struct ActiveSession {
     ctx: Arc<proxy::ProxyCtx>,
 }
 
-/// 访侧托管状态（Tauri managed）。
+/// 访侧托管状态（Tauri managed）。serve 面实时取自 W-T2 槽位（TunnelServeSlot）。
 #[derive(Default)]
 pub struct TunnelState {
     session: Mutex<Option<ActiveSession>>,
-    /// 被访侧服务面（W-T2 接线前恒为默认关闭态）。
-    serve: Mutex<types::TunnelServeStatus>,
 }
 
 impl TunnelState {
@@ -49,9 +98,8 @@ impl TunnelState {
     }
 
     /// 快照（tunnel_status 命令返回值，§19.2 TunnelStatusReport）。
-    pub async fn status(&self) -> TunnelStatusReport {
+    pub async fn status(&self, serve: types::TunnelServeStatus) -> TunnelStatusReport {
         let session = self.session.lock().await;
-        let serve = self.serve.lock().await.clone();
         match session.as_ref() {
             Some(active) => TunnelStatusReport {
                 active: true,
@@ -73,37 +121,43 @@ impl TunnelState {
         &self,
         app: &AppHandle,
         target: url::DshTarget,
-        peer_id: String,
-        dialer: Arc<dyn client::TunnelDialer>,
+        peer: PeerId,
+        opener: Arc<dyn proxy::TunnelOpener>,
     ) -> Result<TunnelOpenReport, String> {
         self.stop(app).await;
-        let result = self.do_start(&target, peer_id, dialer).await;
+        let result = self.do_start(&target, peer, opener).await;
         match result {
             Ok((session, open_url)) => {
-                let status = self.status().await;
-                *self.session.lock().await = Some(session);
-                emit_status(app, &self.status().await);
-                Ok(TunnelOpenReport {
-                    local_addr: status.local_addr.clone().unwrap_or_default(),
+                let report = TunnelOpenReport {
+                    local_addr: session.local_addr.clone(),
                     open_url,
                     token: target.token,
-                })
+                };
+                *self.session.lock().await = Some(session);
+                self.emit_now(app).await;
+                Ok(report)
             }
             Err(reason) => {
                 tracing::error!(%reason, "tunnel 会话开启失败");
-                emit_status(app, &self.status().await);
+                self.emit_now(app).await;
                 Err(reason)
             }
         }
     }
 
+    /// 以 W-T2 槽位实况组装快照并广播（§19.2 单一形状）。
+    async fn emit_now(&self, app: &AppHandle) {
+        let serve = app.state::<AppState>().tunnel_serve().peek().await;
+        emit_status(app, &self.status(serve).await);
+    }
+
     async fn do_start(
         &self,
         target: &url::DshTarget,
-        peer_id: String,
-        dialer: Arc<dyn client::TunnelDialer>,
+        peer: PeerId,
+        opener: Arc<dyn proxy::TunnelOpener>,
     ) -> Result<(ActiveSession, String), String> {
-        let bound = proxy::LocalProxy::bind(target.port, peer_id.clone(), dialer)
+        let bound = proxy::LocalProxy::bind(target.port, peer_id_str(&peer), opener)
             .await
             .map_err(|e| format!("本地绑定失败: {e}"))?;
         let local_addr = bound.local_addr();
@@ -127,13 +181,7 @@ impl TunnelState {
         };
         active.proxy.abort();
         tracing::info!(local_addr = %active.local_addr, "tunnel 会话关闭");
-        emit_status(app, &self.status().await);
-    }
-
-    /// W-T2 接线位：被访侧服务面更新即发事件（§19.2 单一形状）。
-    pub async fn set_serve(&self, app: &AppHandle, serve: types::TunnelServeStatus) {
-        *self.serve.lock().await = serve;
-        emit_status(app, &self.status().await);
+        self.emit_now(app).await;
     }
 
     /// 退出收尾（RunEvent::Exit 同步路径）：try_lock 取会话并 abort 反代任务；
@@ -163,7 +211,8 @@ pub fn emit_status(app: &AppHandle, status: &TunnelStatusReport) {
 /// 开启 DSH 隧道访侧（§19.1）：解析启动 URL（host 必须字面量 127.0.0.1，
 /// 先校验后动作）→ 绑定 127.0.0.1:0 反代 → 成功即以系统浏览器打开入口链接
 /// （打开失败不否决命令成功——链接仍可用，可复制重开）。
-#[tauri::command]
+/// （由 tunnel.rs 薄包装为 #[tauri::command]：cli-parity 的命令提取只认
+/// 两段路径，三段路径会拆出伪命令 "visit"。）
 pub async fn tunnel_open_dsh(
     app: AppHandle,
     state: tauri::State<'_, TunnelState>,
@@ -175,10 +224,13 @@ pub async fn tunnel_open_dsh(
         .map(|p| p.trim().to_string())
         .filter(|p| !p.is_empty())
         .ok_or("未指定被访节点 peer：请填入 A 机节点 PeerId")?;
-    let peer_id = parse_peer(&peer_raw)?;
+    let peer = parse_peer(&peer_raw)?;
     let node = app.state::<AppState>().running_node().await?;
-    let dialer = Arc::new(NodeDialer::new(node, peer_id));
-    let report = state.start(&app, target, peer_raw, dialer).await?;
+    let opener = Arc::new(NodeTunnelOpener {
+        client: TunnelClient::new(NodeStreamFactory { node }),
+        peer,
+    });
+    let report = state.start(&app, target, peer, opener).await?;
     match app.opener().open_url(&report.open_url, None::<&str>) {
         Ok(()) => {}
         Err(e) => tracing::warn!(error = %e, "系统浏览器打开入口链接失败（链接仍可用）"),
@@ -186,21 +238,26 @@ pub async fn tunnel_open_dsh(
     Ok(report)
 }
 
-/// 访侧状态快照（§19.1 tunnel_status；含被访侧服务面 serve 字段）。
-#[tauri::command]
+/// 访侧状态快照（§19.1 tunnel_status；serve 实时取自 W-T2 槽位）。
 pub async fn tunnel_status(
+    app: AppHandle,
     state: tauri::State<'_, TunnelState>,
 ) -> Result<TunnelStatusReport, String> {
-    Ok(state.status().await)
+    let serve = app.state::<AppState>().tunnel_serve().peek().await;
+    Ok(state.status(serve).await)
+}
+
+fn peer_id_str(peer: &PeerId) -> String {
+    peer.to_string()
 }
 
 /// PeerId 解析（base58，与 CLI/facade 同规则）。
-fn parse_peer(raw: &str) -> Result<p2p::PeerId, String> {
+fn parse_peer(raw: &str) -> Result<PeerId, String> {
     let bytes = bs58::decode(raw)
         .into_vec()
         .map_err(|e| format!("peer 非 base58: {e}"))?;
     let arr: [u8; 32] = bytes
         .try_into()
         .map_err(|_| format!("peer 长度非法: {raw}"))?;
-    Ok(p2p::PeerId::from_bytes(arr))
+    Ok(PeerId::from_bytes(arr))
 }
