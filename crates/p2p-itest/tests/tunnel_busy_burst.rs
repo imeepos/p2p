@@ -188,9 +188,5 @@ async fn over_cap_burst_rejects_busy_with_terminal_audit_each() {
         .iter()
         .filter(|r| r.outcome == TunnelAuditOutcome::Rejected(TunnelErrorCode::Busy))
         .count();
-    assert_eq!(
-        (served, busy_rejected),
-        (2, 2),
-        "逐条落终态: {records:?}"
-    );
+    assert_eq!((served, busy_rejected), (2, 2), "逐条落终态: {records:?}");
 }
