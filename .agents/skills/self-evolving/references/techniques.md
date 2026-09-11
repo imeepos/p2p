@@ -556,3 +556,7 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 102 免密但 GitHub 无 SSH key：仓库公开则 `git clone https://github.com/imeepos/p2p.git` 可行；私有仓才需要 BLOCKED。
 - Tauri GUI 驱动双通道：控制通道 CLI（p2pctl gui status/screenshot/navigate/action，白名单内）+ webview 注入驱动（fill_open 等白名单外操作）；先查 CLI 侧能不能干，不行再注入。
 - 远端 ssh 命令里嵌 ssh 变量替换（$(cat file)）在本端展开——要在对端执行的 $() 整条放引号内（2026-09-11 W-T5 实证）。
+
+## 2026-09-12 TA 契约卡（tunnel 泛化签名桩）
+- worktree 免全量重建跑门禁：`export CARGO_TARGET_DIR=<主树>/target` 直接借主树预热缓存（比 target 软链更省事），本卡单包 check 约 2 分钟、workspace 全量 4m22s；前提=确认无并发会话同用该目录（先 ps 查 cargo）。
+- 手写 `pub use` 组后先 `cargo fmt` 再进 fmt --check 门禁：新版 rustfmt 对 use 组按「小写标识符在前」排序，凭记忆写成大写在前必红一轮（本卡 fmt 首跑 diff 两处，fmt 后复验 0）。
