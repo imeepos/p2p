@@ -101,3 +101,4 @@
 - 违规实例：80b7cab（skill 三条经验）直推 main，被记录违规。教训：仓库惯例会演进，「别的会话这么干过」不是授权，收尾前用一句话向负责人确认落点。
 - 2026-09-10 PROTO 轮：禁止在协调者侧对同一 git 写操作盲目重发——一次 cherry-pick 超时后原样重跑，把已收录的提交又 pick 了一遍，卡在空补丁 picking 态（要 --abort 才能解）；重发前必先 `git status` 核对现场。
 - 2026-09-10 PROTO 轮：协调者不得在归属会话仍运行时对其 worktree 做 rebase/add 等写操作——分支 ref 被 worktree 占用时连 `git branch -D` 都会拒绝；代合并走 cherry-pick -x（不动对方分支），分支删除等对方确认冻结后执行。
+- 禁止把经验喂回/文档类小提交直接打在主树 main 分支上，即使内容只是 skill references 一行——主树 main 只读，任何变更（含 .agents/docs）一律开独立分支走 worktree 流程后 push（2026-09-11 W-T5 协调者裁定：24936a13 直打 main 属协议瑕疵，由协调者 rebase 消化）。
