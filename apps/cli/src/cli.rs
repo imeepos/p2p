@@ -18,6 +18,7 @@ use crate::node;
 use crate::peer;
 use crate::profile;
 use crate::relay;
+use crate::tunnel;
 use crate::update;
 
 #[derive(Parser)]
@@ -118,5 +119,10 @@ pub enum Command {
     Authz {
         #[command(subcommand)]
         command: authz::AuthzCommand,
+    },
+    /// 隧道域：headless 被访侧前台服务（W-T5，gui-contract §19.8 落地）
+    Tunnel {
+        #[command(subcommand)]
+        command: tunnel::TunnelCommand,
     },
 }

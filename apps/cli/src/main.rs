@@ -28,6 +28,7 @@ mod profile;
 mod relay;
 mod report;
 mod store;
+mod tunnel;
 mod types;
 mod update;
 
@@ -65,5 +66,6 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::LlmShare { command } => llm_share::run(command).await,
         cli::Command::A2a { command } => a2a::run(command).await,
         cli::Command::Authz { command } => authz::run(command).await,
+        cli::Command::Tunnel { command } => tunnel::run(command).await,
     }
 }

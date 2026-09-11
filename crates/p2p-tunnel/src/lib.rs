@@ -20,8 +20,8 @@ pub use error::TunnelError;
 pub use pump::{tunnel_pump, PumpResult, PumpTotals};
 pub use responder::{HttpDialer, TcpDialer, TunnelResponder};
 pub use wire::{
-    now_unix_secs, TunnelErrorCode, TunnelReply, TunnelTicket, MAX_TICKET_BYTES, PROTOCOL_ID,
-    TS_WINDOW_SECS,
+    is_loopback_literal_target, now_unix_secs, TunnelErrorCode, TunnelReply, TunnelTicket,
+    MAX_TICKET_BYTES, PROTOCOL_ID, TS_WINDOW_SECS,
 };
 
 use tokio::io::{AsyncRead, AsyncWrite};

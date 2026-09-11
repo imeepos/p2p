@@ -1624,6 +1624,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "p2p-tunnel"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "p2p-identity",
+ "p2p-mux",
+ "p2p-protocol",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "p2pctl"
 version = "0.1.0"
 dependencies = [
@@ -1639,6 +1654,7 @@ dependencies = [
  "p2p-identity",
  "p2p-log",
  "p2p-swarm",
+ "p2p-tunnel",
  "reqwest 0.13.4",
  "serde",
  "serde_json",
