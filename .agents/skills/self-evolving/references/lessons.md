@@ -510,3 +510,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-12：签名提炼类契约卡（TB 前置桩）发现 GUI 类型出现在提炼签名中不是 BLOCKED 信号——先找「等价 crate 内类型或最小 trait 缝」再下结论（本卡 GUI ConnAudit→PumpAudit trait 缝、TunnelSessionAudit→crate 内 TunnelAuditRecord），缝的语义与映射去向写进 doc 注释与 PROGRESS 供 TB 平移；只有缝也无法表达（tauri 依赖本质）才触发停止条件。
 - 2026-09-12：gui-contract 的「§19.8/§19.9」是 §19.3 有序列表项号而非小节号（specs/tunnel.md §5.2 的引用锚就是列表项）——改契约条款前先 grep 引用点确认编号语义，「编号顺延」= 列表项 +1；表格行（§19.1）与约束条款（§19.3）分开写，命令形状才算冻结完整。
 - 2026-09-12：实现状态文档（specs §8）与 registry 登记册冲突时（文档说 planned、registry 说 implemented），先查登记册与代码实证再改文档——文档过期而非登记册错；改口径的提交里写明 registry 核对结果，防下一个会话再被过期文本误导。
+- 2026-09-12：当验收门禁带文件范围清单（git diff 只许落指定路径）且需要测试用第三方算法（如 WS accept 的 SHA-1）时，修复是测试夹具内自足实现 + RFC 标准向量锚定单测，不加 dev-dep——依赖新增必牵动根 Cargo.lock 越出范围清单，35 行向量锚定的算法实现比门禁破约便宜。
+- 2026-09-12：跑 `cargo fmt`（非 --check）前先 `cargo fmt --check` 列出漂移文件——全仓格式化会把 main 存量漂移文件卷进工作树混入本卡 diff；修法是回退非本卡文件，存量漂移压成独立 style 提交（可独立 revert），feature 提交保持纯净。
+- 2026-09-12：WS/升级类反代用例里「close 帧往返完成」不等于「会话收口」——双向对称泵要本地半关（shutdown/FIN）才终结，审计才落终态；断言审计记录前先发 shutdown，纯 HTTP 面（转发完请求即只余 drain 方向）无此坑。

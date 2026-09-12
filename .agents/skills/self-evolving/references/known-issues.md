@@ -630,3 +630,8 @@ failed: early eof（客户端侧超时中止）。
 - 无 /api/remote.mux WS：数据面=POST /api/* RPC（session.prompt 流式 200）+ GET /plugins/events 长连；e2e 别再等 WS 101。
 - 无 boot token：鉴权=Origin/authority 信任栅栏（坏 Origin 403）；GUI 启动 URL 的 token 参数按透传占位即可。
 - ~/.dsh/.credentials.yaml 的 version 字段必须字符串（跨版本拷贝会炸 settings schema）；模型配置在 settings.yaml `llm-pi-ai.providers.<name>`（apiKeyEnv 指环境变量名）+ agent-default-model。
+
+## 2026-09-12 验证命令假绿：cargo 不在 PATH + 管道收尾双重叠加（W-TC）
+- 症状：`cargo check | tail` 报 EXIT=0，实际输出里有 "bash: cargo: command not found"——退出码是 tail 的，cargo 根本没跑；同会话更早还撞过扫全树 grep 超时（60s 两次）。
+- 原因：DSH bash 会话不复用登录 shell 的 PATH（~/.cargo/bin 缺席）；`set -o pipefail` 未开时管道退出码取末命令，"验证命令禁管道收尾"这条已知坑以新形态（命令找不到而非命令失败）复发。
+- 修法：跑 cargo 前 `export PATH="$HOME/.cargo/bin:$PATH"`；验证一律「输出落 /tmp 文件 + `echo EXIT=$?` 单独落同一文件再读」，让退出码与输出绑定同源。全树扫描用 glob/read 工具或 find 限定目录，禁裸 grep 扫根。
