@@ -1,0 +1,7 @@
+listeners=0
+p2pctl_procs=0
+svc_procs=2
+0
+
+== 102 svc_procs=2 甄别 ==
+ps grep http.server|echo.js 复核: 无匹配进程; ss 18081/18082 = 0 (grep -c 无匹配 exit 1 为正常)

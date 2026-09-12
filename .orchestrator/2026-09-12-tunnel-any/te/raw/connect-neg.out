@@ -1,0 +1,9 @@
+2026-09-12T04:36:34.826259Z  INFO p2p_transport::quic: quic dial endpoint dual-stack bind="[::]:0"
+2026-09-12T04:36:34.826296Z  INFO p2p_swarm::swarm::lifecycle_task: peer lifecycle supervisor started probe_interval=10s probe_timeout=3s max_probe_misses=3 reconnect_base=1s reconnect_max=60s jitter=0.2 reset_min_uptime=30s
+2026-09-12T04:36:34.826307Z  INFO p2p_swarm::swarm::reclaim: idle connection reclaimer started idle_threshold=120s scan_interval=30s
+2026-09-12T04:36:34.826328Z  INFO p2p::assembly: mdns discovery enabled quic_port=Some(52516) tcp_port=Some(54834)
+2026-09-12T04:36:34.826332Z  INFO p2p::assembly: bootstrap empty, rendezvous wiring skipped
+{"kind":"ready","localAddr":"127.0.0.1:54835","peerId":"HTrs9PNhvkstv4aP6scfH9r9DQHdfPYjPrpEstFUNrjU","target":"127.0.0.1:9999"}
+2026-09-12T04:36:39.904310Z  WARN p2p_tunnel::local_proxy::conn: tunnel proxy 会话失败 session_id=449a91d2d69b35ad reason=隧道开启失败: tunnel rejected: target_not_allowed (gate: target_not_allowed)
+2026-09-12T04:36:39.904360Z  WARN p2p_tunnel::local_proxy: tunnel proxy 连接处理失败 reason=隧道开启失败: tunnel rejected: target_not_allowed (gate: target_not_allowed)
+{"broken":1,"kind":"stopped","rejected":0,"served":0,"sessions":1}

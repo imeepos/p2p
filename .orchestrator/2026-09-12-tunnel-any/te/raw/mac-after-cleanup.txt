@@ -1,0 +1,11 @@
+== mac after cleanup ==
+p2p-console procs:        0
+p2pctl procs:        0
+5173 listener:        0
+31790 listener:        0
+/tmp/te-* left:        6
+
+== recheck (data dirs removed) ==
+/tmp/te-* left: 2
+102 svc recheck: no http.server/echo.js processes, ports 18081/18082 free (ss count 0)
+/tmp/te-* final: 2

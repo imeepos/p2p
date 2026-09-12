@@ -1,0 +1,1 @@
+p2p tunnel proxy error 502: 隧道开启失败: tunnel rejected: target_not_allowed (gate: target_not_allowed)

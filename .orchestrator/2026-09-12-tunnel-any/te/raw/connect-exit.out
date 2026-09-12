@@ -1,0 +1,16 @@
+2026-09-12T04:38:49.340076Z  INFO p2p_transport::quic: quic dial endpoint dual-stack bind="[::]:0"
+2026-09-12T04:38:49.340114Z  INFO p2p_swarm::swarm::lifecycle_task: peer lifecycle supervisor started probe_interval=10s probe_timeout=3s max_probe_misses=3 reconnect_base=1s reconnect_max=60s jitter=0.2 reset_min_uptime=30s
+2026-09-12T04:38:49.340125Z  INFO p2p_swarm::swarm::reclaim: idle connection reclaimer started idle_threshold=120s scan_interval=30s
+2026-09-12T04:38:49.340145Z  INFO p2p::assembly: mdns discovery enabled quic_port=Some(64950) tcp_port=Some(55945)
+2026-09-12T04:38:49.340150Z  INFO p2p::assembly: bootstrap empty, rendezvous wiring skipped
+{"kind":"ready","localAddr":"127.0.0.1:55946","peerId":"HTrs9PNhvkstv4aP6scfH9r9DQHdfPYjPrpEstFUNrjU","target":"127.0.0.1:18081"}
+{"broken":0,"kind":"stopped","rejected":0,"served":0,"sessions":0}
+2026-09-12T04:39:57.697987Z  INFO p2p_transport::quic: quic dial endpoint dual-stack bind="[::]:0"
+2026-09-12T04:39:57.733344Z  INFO p2p_swarm::swarm::lifecycle_task: peer lifecycle supervisor started probe_interval=10s probe_timeout=3s max_probe_misses=3 reconnect_base=1s reconnect_max=60s jitter=0.2 reset_min_uptime=30s
+2026-09-12T04:39:57.733399Z  INFO p2p_swarm::swarm::reclaim: idle connection reclaimer started idle_threshold=120s scan_interval=30s
+2026-09-12T04:39:57.756723Z  INFO p2p::assembly: mdns discovery enabled quic_port=Some(65268) tcp_port=Some(56073)
+2026-09-12T04:39:57.756744Z  INFO p2p::assembly: bootstrap empty, rendezvous wiring skipped
+{"kind":"ready","localAddr":"127.0.0.1:56074","peerId":"HTrs9PNhvkstv4aP6scfH9r9DQHdfPYjPrpEstFUNrjU","target":"127.0.0.1:18081"}
+{"broken":0,"kind":"stopped","rejected":0,"served":0,"sessions":0}
+---exit code anchor---
+EXIT=0
