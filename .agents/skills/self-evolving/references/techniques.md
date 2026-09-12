@@ -560,3 +560,7 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 ## 2026-09-12 TA 契约卡（tunnel 泛化签名桩）
 - worktree 免全量重建跑门禁：`export CARGO_TARGET_DIR=<主树>/target` 直接借主树预热缓存（比 target 软链更省事），本卡单包 check 约 2 分钟、workspace 全量 4m22s；前提=确认无并发会话同用该目录（先 ps 查 cargo）。
 - 手写 `pub use` 组后先 `cargo fmt` 再进 fmt --check 门禁：新版 rustfmt 对 use 组按「小写标识符在前」排序，凭记忆写成大写在前必红一轮（本卡 fmt 首跑 diff 两处，fmt 后复验 0）。
+
+## 2026-09-12 TE 跨机 e2e（tunnel 泛化）证据链
+- GUI 面证据标准路径：控制通道 ROUTES 白名单没有 remote-access 页（/navigate、/page/action 到不了），GUI 表单驱动走 wt3b 静态注入链——注入器绑双栈（devUrl=localhost 解析 ::1）、driver 按目标页 DOM 适配（W-TE driver.js 的 fill_generic 可复制改）、dist 先 grep 目标标记确认含刚合并的前端再开浏览器；截图前必须把 GUI 窗口置 frontmost（遮挡时 /screenshot 返回陈旧合成帧，两帧字节相同即此故）。
+- 102 类无 git 出网环境传仓：git bundle create（带分支引用）→ scp → 对端 clone，18MB 秒级；对端 apps/cli 独立 workspace `cargo build --release` 2m36s 即得 p2pctl。跨机审计对账锚=session_id（票据 uid 两侧同源），字节数两侧口径天然不同（记录方视角），勿按字节强对账。

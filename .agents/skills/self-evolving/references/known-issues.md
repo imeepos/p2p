@@ -640,3 +640,12 @@ failed: early eof（客户端侧超时中止）。
 - 症状：worktree 里 `pnpm vitest run` 全部报 "Failed to start forks worker / Timeout waiting for worker to respond"，主树同命令同红（误导向「worktree 环境坏」）；加 `--no-file-parallelism` 后部分文件能跑但仍有 worker 超时 error。
 - 原因：两个独立因素都卡 worker fork——①PATH 里 node 解析到 `/Users/imeepos/.vite-plus/bin/node`（→vp 启动器 shim，#372 同源：非 TTY 等待），vitest forks pool 用 process.execPath 派生 worker 时被挂；②node_modules 软链自主树时 pnpm 虚拟 store 的 realpath 解析跨树，worker 引导更脆（真实安装后仍需 ①的修复才全绿）。
 - 修法：跑任何 node 链命令前置 `export PATH="/Users/imeepos/.vite-plus/js_runtime/node/<ver>/bin:$PATH"`（which node 自证）；worktree 依赖必须本树 `pnpm install --prefer-offline`（store 硬链接 16s），禁 symlink 主树 node_modules。判环境问题先在主树跑同命令对照，别急着改自己的代码。
+
+## 2026-09-12 GUI→crate 平移撞 panic-hygiene 扫描面差（W-TB）
+- 症状：代码在 apps/gui/src-tauri 带着同款 expect() 全量门禁长期绿，机械平移进 crates/ 后 make check 的 panic-hygiene 立刻红（非测试路径禁 unwrap/expect/panic）。
+- 原因：门禁扫描面不对称——panic-hygiene/fmt/line-limit 扫 crates/**（根 workspace），src-tauri 是独立 workspace 在扫描面外（同源先例：apps/acp-common 逃脱 fmt 门禁）。平移=把代码从「无门禁面」搬进「有门禁面」，存量违规平移即爆。
+- 修法：平移类任务开工前先对目标 crate 跑一遍 make check 口径的最小集（panic-hygiene + clippy --all-targets + fmt --check），把存量违规在平移前修掉或显式登记；expect 消法=在构造点就地消费 io::Result 存值（本例 addr 存字段），比调用点 unwrap 语义更强。
+
+## 2026-09-12 Rust 时序断言负载型假红（invite_flow is_none，W-TE 期）
+- 症状：make check 在 p2p-chat --test invite_flow 红（reject 后 is_none() 断言失败，10.7s），同代码态此前全量绿。
+- 三角定性法：①diff 该测试路径代码零改动 ②隔离复跑 6/6 绿 ③红时有并行会话 release 构建+GUI 实例重载——三者齐即负载型假红（W-T4 rendezvous flake、W-T2 vitest worker 同族），处置=不动代码、等负载回落后对最终 tip 重跑全量认证。

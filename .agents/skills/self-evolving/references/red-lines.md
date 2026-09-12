@@ -102,3 +102,4 @@
 - 2026-09-10 PROTO 轮：禁止在协调者侧对同一 git 写操作盲目重发——一次 cherry-pick 超时后原样重跑，把已收录的提交又 pick 了一遍，卡在空补丁 picking 态（要 --abort 才能解）；重发前必先 `git status` 核对现场。
 - 2026-09-10 PROTO 轮：协调者不得在归属会话仍运行时对其 worktree 做 rebase/add 等写操作——分支 ref 被 worktree 占用时连 `git branch -D` 都会拒绝；代合并走 cherry-pick -x（不动对方分支），分支删除等对方确认冻结后执行。
 - 禁止把经验喂回/文档类小提交直接打在主树 main 分支上，即使内容只是 skill references 一行——主树 main 只读，任何变更（含 .agents/docs）一律开独立分支走 worktree 流程后 push（2026-09-11 W-T5 协调者裁定：24936a13 直打 main 属协议瑕疵，由协调者 rebase 消化）。
+- 禁止派发任务书的验收清单只写「cargo 面单」而不含全量门禁清单或显式豁免条款：make 级门禁（panic-hygiene/cli-parity/ai-docs-sync/line-limit/fmt）不在 cargo 面里，两次实证（2026-09-11 W-T2 漏 src-tauri clippy+cli-parity、2026-09-12 W-TB 漏 panic-hygiene）都是主干汇总检查才爆、打回一轮。任务书模板固定段：门禁基线=fmt+clippy+聚焦测试+panic-hygiene，按卡面增补 cli-parity/ai-docs-sync/gui-check。
