@@ -646,7 +646,7 @@ roles.json/bindings.json/audit.jsonl。命令参数无效一律 Err 可读中文
 
 | 命令 | 参数 | 返回 | 语义 |
 |---|---|---|---|
-| authz_role_list | - | { roles: AuthzRoleView[] } | 内建四角色 + 自定义角色全量（builtin 字段区分）；自定义角色经 CLI `authz role create` 创建（GUI 本轮不做创建入口） |
+| authz_role_list | - | { roles: AuthzRoleView[] } | 内建四角色 + 自定义角色全量（builtin 字段区分）；自定义角色的创建/编辑/删除见 §18.5 |
 | authz_bindings_list | - | { bindings: AuthzBindingJson[] } | 当前绑定全集（peer 级单值）；好友页按 peerId join 渲染角色徽章 |
 | authz_bind | peerId: string, roleId: string, expiresAt?: number \| null, note?: string \| null | AuthzBindReport | upsert 绑定（单值语义，改绑即覆盖）；expiresAt 为 Unix 秒（缺省 = 不过期，到期后判定 Deny(Expired)）；roleId 必须已登记；成功落 authz.bound 审计事件 |
 | authz_unbind | peerId: string | AuthzUnbindReport | 解绑（移除条目）；无绑定 → Err；成功落 authz.unbound 审计事件 |
@@ -716,6 +716,32 @@ get/save 消费同一持久化文件，双向兼容旧配置（缺字段补默�
    真实实现同签名；CLI 对等面（p2pctl authz role list/bind/unbind/check）
    登记 cli-parity.tsv mapped，default_role 两条为 exempt（配置字段读写，
    CLI 直编辑 gui-config.json 无独立子命令，理由随表登记）。
+
+### 18.5 角色管理命令面（v18 加法，2026-09-12，authz 角色管理波；设计=docs/design/authz-role-design.md §10）
+
+自定义角色（§5：内建四之外，role_id [a-z0-9-]{1,32}）的创建/编辑/删除进 GUI，
+不再仅经 CLI `authz role create/delete`。逻辑层复用既有事实源：create/delete
+走 `p2p-cli` authz 管理面（与 CLI 同函数同审计），update 走 crates/p2p-authz
+新增 `Authz::update_role`；错误一律 Err 可读中文上浮，无静默回退（沿 §18.4.4）。
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| authz_permissions_list | - | { permissions: string[] } | §4 闭集九 key 全集（Permission::registry() 顺序，前端权限复选框数据源）；静态只读不触存储，无 CLI 对等面（cli-parity exempt：表外 key 的闭集报错已由 `authz check` 面承载，附可用 key 清单） |
+| authz_role_create | roleId: string, name: string, permissions: string[], note: string | AuthzRoleMutationReport | 新建自定义角色：roleId 走既有 validate_role_id（[a-z0-9-]{1,32}），与内建四冲突即拒；permissions 取 §4 闭集 key（保序去重，表外 key Err 携 key）；后端不设最小项数（与 CLI 对齐，GUI 前端自校验 ≥1）；成功落 authz.role.created 审计 |
+| authz_role_update | roleId: string, name: string, permissions: string[], note: string | AuthzRoleMutationReport | 整体替换自定义角色的 name/permissions/note；roleId 不可变（改 id = 删+建）；内建角色拒改（BuiltinImmutable）、未登记拒（RoleNotFound）、表外 key 拒；成功落盘 roles.json，绑定不动，新判定即按新权限收敛；本轮无 CLI 对等（cli-parity exempt，`authz role update` 后续轮补齐） |
+| authz_role_delete | roleId: string | { roleId: string } | 删自定义角色：内建拒删；仍有绑定引用拒（RoleReferenced，先解绑再删）；加好友默认角色闸——与配置 authzDefaultRole 相等即 Err「该角色是加好友默认角色，请先更改默认角色再删除」，防悬空默认角色（对齐 default_role_save 的存在性校验语义，闸在命令层）；成功落 authz.role.deleted 审计 |
+
+新增类型（与 §18.2 同词汇；B 侧 ipc-types.ts §18 注释块与之逐字一致）：
+
+```ts
+interface AuthzPermissionsReport { permissions: string[] }
+interface AuthzRoleMutationReport { role: AuthzRoleView }  // role 视图形状 = §18.2 AuthzRoleView
+interface AuthzRoleDeleteReport { roleId: string }
+```
+
+前端 IPC 接口方法（§5 服务层加法）：authzPermissionsList() /
+authzRoleCreate(roleId, name, permissions, note) / authzRoleUpdate(roleId,
+name, permissions, note) / authzRoleDelete(roleId)。
 
 ## 19. 隧道本地反代面（v17 加法，2026-09-11，W-T1 契约；线格式真值源=docs/protocol/specs/tunnel.md，协议 `/p2p-base/tunnel/1`）
 
