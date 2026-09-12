@@ -47,4 +47,4 @@ CI 流水线 / required checks / pre-commit 与 hooks / 防假绿机制 / AI 评
 
 ## 5. 深入阅读
 
-`docs/research/2026-09-10-ai-polish-product-resources.md` §5（质量门禁方向：13 条资料、共识分歧、落地清单）。
+依据：采用方项目的立项调研资料（建议置于 docs/research/；本技能不内置具体资料指针）。
