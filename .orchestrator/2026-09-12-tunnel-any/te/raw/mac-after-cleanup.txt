@@ -9,3 +9,4 @@ p2pctl procs:        0
 /tmp/te-* left: 2
 102 svc recheck: no http.server/echo.js processes, ports 18081/18082 free (ss count 0)
 /tmp/te-* final: 2
+build logs (te-cli-build.log/te-gui-dist-build.log) removed -> /tmp/te-* final: 0
