@@ -1857,3 +1857,25 @@ source=llm-share/allowlist.json role=ally entries=0 imported=0 skipped=0（已�
 timeout 5 p2pctl tunnel serve --target 127.0.0.1:8080 --data-dir ./p2p-data
 ```
 语义：白名单先全量校验后开闸（任一非法即拒，不部分生效）；对等面为独立进程，与 GUI `tunnel_serve_start` 的 GUI 内会话态不混同（cli-parity 两条 serve 命令仍 exempt）。退出码：0 = 信号收口完成；1 = 装配失败/收口超时（在途会话未全落终态，留显式报错）。
+
+### p2pctl tunnel connect
+用途：headless 访侧本地回环反代（gui-contract §19.3 约束 8 对等 exempt）：前台常驻进程，把本机回环入口反代到对端白名单内的 `127.0.0.1:<port>` 服务（HTTP/WS 原样透传，复用 p2p-tunnel LocalProxy + TunnelClient 同源装配）。SIGINT/SIGTERM 优雅收口：先停反代监听 → 等在途连接排空 → 超时（10s）显式报错非零退出。前置：对端已运行 tunnel serve（或 GUI 受理开启）且目标在其白名单内；目标非 `127.0.0.1:<port>` 字面量 / peer 非 base58 / 本地绑定失败 → 启动即退（退出码 1，不部分生效）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --peer | string（被访节点 PeerId，base58） | 是 | —— |
+| --target | string `127.0.0.1:<port>` | 是 | —— |
+| --data-dir | path | 否 | ./p2p-data |
+| --quic-port | u16 | 否 | 0（随机） |
+| --tcp-port | u16 | 否 | 0（随机） |
+| --no-mdns | flag | 否 | off |
+| --bootstrap | string（ip/u端口 或 ip/t端口，可重复） | 否 | 无 |
+文本（stdout JSON 行；日志走 stderr；localAddr 为反代回环端口，peerId 为被访节点）：
+```
+{"kind":"ready","localAddr":"127.0.0.1:53412","target":"127.0.0.1:8080","peerId":"…"}
+{"broken":0,"kind":"stopped","rejected":0,"served":1,"sessions":1}
+```
+示例（前台常驻，ctrl_c 收口；非交互验证用 timeout 发 SIGTERM）：
+```
+timeout 5 p2pctl tunnel connect --peer US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx --target 127.0.0.1:8080 --data-dir ./p2p-data
+```
+语义：先校验后动作（目标字面量与 peer base58 全过才装配节点）；对等面为独立进程，与 GUI `tunnel_open_dsh` 的 GUI 内会话态不混同（cli-parity exempt，TD 卡补登记）。反代地址由 OS 分配（确定性端口属后续契约加法候选）。退出码：0 = 信号收口完成；1 = 装配失败/收口超时（在途连接未全落终态，留显式报错）。
