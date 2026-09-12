@@ -7,8 +7,8 @@
 
 | # | 卡 | 类型 | 分支 | 状态 | 派发时刻 | 备注 |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | TA backend | backend(rust) | feat/wra-backend | dispatched | 2026-09-12 22:54 | core update_role + tauri 四命令 + tsv/契约登记 |
-| 2 | TB frontend | frontend | feat/wra-frontend | dispatched | 2026-09-12 22:54 | RoleManagerDialog 全链路 + i18n + 测试 |
+| 1 | TA backend | backend(rust) | feat/wra-backend | dispatched | 2026-09-12 22:54 | session-b2362705-31ea-41f7-aa98-2a26d6d4c35f |
+| 2 | TB frontend | frontend | feat/wra-frontend | dispatched | 2026-09-12 22:54 | session-086bbd72-104c-4569-a89b-fdcc725659df |
 
 Facts:
 - main == origin/main @ 75e98ebf（开工时已 fetch 核对，树干净）。
