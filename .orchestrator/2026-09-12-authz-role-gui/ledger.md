@@ -55,6 +55,13 @@ Guesses:
   （ipc 契约形状与 TA 逐字对齐；入口 SettingsIcon 按钮 + RoleManagerDialog 条件
   挂载；store 三 action 失败 console.error + 上抛；PERM_LABEL_KEYS 九 key + 裸 key
   兜底；builtin 行无编辑删除钮）。TB 备注①（接口实名 IpcBackend 非 DshIpc）
-  属实，按代码实际落契约，无碍。完成了吗: TB 验收通过。下一步: 等 TA 全量
-  make check（bash-291）→ 合并 TA → TB rebase 后跑全量 make check → 合并 TB
-  → 主树 check-fast 终检（ff-only 树同构，分支尖全量检查即主干检查）。
+  属实，按代码实际落契约，无碍。TB 验收通过。
+- 2026-09-12 23:47 TA 全量 make check exit 0（bash-291）。合并执行: 主干单飞锁
+  → worktree rebase origin/main（ca9529cd 头）→ 主树 ff-only → push main+分支
+  （force-with-lease，重写后同步远端）。TA 收尾: worktree remove 首次因 9.3G
+  target/node_modules 删除超 60s 被 SIGTERM 打断（半删态），--force 后台重删中
+  （bash-292）；分支删除待 worktree 移除后补。教训候选: 大产物 worktree 的
+  remove 要么后台要么放宽超时。
+- 2026-09-12 23:50 TB rebase origin/main 干净（2653d429 头），全量 make check
+  后台在跑（bash-293）。完成了吗: TA 已并主干。下一步: bash-293 绿 → 合并 TB
+  → 补 TA 分支删除 → 汇总检查 → 归档两卡 → 账本闭环 + SESSIONS 释放。
