@@ -1540,6 +1540,17 @@ const zhCN = {
       nodeOfflineHint: "请先在网络页启动本机 p2p 节点，并确认与被访节点已连接",
       dismiss: "知道了",
     },
+    generic: {
+      title: "通用服务",
+      description: "输入被访机本机服务端口，经 p2p 隧道在浏览器打开任意 HTTP/WS 服务",
+      port: "服务端口",
+      portPlaceholder: "3080",
+      portHint: "被访机上 127.0.0.1 监听的服务端口，隧道目标固定为 127.0.0.1:<端口>",
+      peer: "通用被访节点 PeerId",
+      peerPlaceholder: "被访机 p2p 节点的 PeerId（base58）",
+      open: "打开通用服务",
+      opening: "打开中…",
+    },
   },
   docs: {
     title: "协议文档",

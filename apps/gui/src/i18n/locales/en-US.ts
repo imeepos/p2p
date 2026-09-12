@@ -1571,6 +1571,19 @@ const enUS: typeof zhCN = {
         "Start the local p2p node on the network page first, and make sure it is connected to the visited node",
       dismiss: "Dismiss",
     },
+    generic: {
+      title: "Generic Service",
+      description:
+        "Open any HTTP/WS service on the visited machine in the browser via the p2p tunnel",
+      port: "Service port",
+      portPlaceholder: "3080",
+      portHint:
+        "Port of a 127.0.0.1 service on the visited machine; tunnel target is the 127.0.0.1:<port> literal",
+      peer: "Generic visited node PeerId",
+      peerPlaceholder: "PeerId (base58) of the visited machine's p2p node",
+      open: "Open generic service",
+      opening: "Opening…",
+    },
   },
   docs: {
     title: "Protocol Docs",
