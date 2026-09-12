@@ -515,3 +515,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-12：WS/升级类反代用例里「close 帧往返完成」不等于「会话收口」——双向对称泵要本地半关（shutdown/FIN）才终结，审计才落终态；断言审计记录前先发 shutdown，纯 HTTP 面（转发完请求即只余 drain 方向）无此坑。
 - 2026-09-12：已冻结待合并的 feature 分支可由协调者按先例代 rebase 消化合并顺序问题（W-T5 24936a13、W-TD 两次实证）——前提=分支已冻结（终报后禁再推送）、rebase 冲突可预判为零（改动域不含 main 新增量），rebase 后 force-with-lease 推送并在账本记录哈希重写。
 - 2026-09-12：多会话共树发布时，「验过的 HEAD」和「打 tag 的 HEAD」必须是同一个 sha——符号引用（HEAD）在校验与执行之间会漂移，锁 sha 才可审计可 revert；发布这类幂等敏感操作的每一步都该锚定具体 commit。
+- 2026-09-12：断言 `toHaveBeenCalledWith` 失败时先逐项 diff「收到的实参」与业务语义（哪些项本就该保留在数组里），再怀疑框架/jsdom 怪癖——本轮误把「预期数组漏算保留项 acp.session」当成「受控 checkbox 反向 toggle 失效」，连建两个探针测试空耗三分钟；实参 diff 首行（`+ "acp.session"`）当时就写明了答案。
+- 2026-09-12：react-refresh/only-export-components 门禁禁止组件文件混导出常量/函数（`PERM_LABEL_KEYS` + 组件同文件即双 error）——映射表、规则函数按仓库先例拆独立 `*-rules.ts`/`*-labels.ts` 纯 ts 文件，组件文件只出组件；连带收益是常量文件可被多个组件与测试复用。
