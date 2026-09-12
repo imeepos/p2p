@@ -654,3 +654,9 @@ failed: early eof（客户端侧超时中止）。
 - 症状：软件启动后本机 agent 自动连接挂起，提示进「通讯录 → Agent → 本机 agent → 编辑」手补 Peer ID；手动连接报 endpointIncomplete。
 - 原因：console-watch 的 peer 解析只走 console 发现面（mDNS 首条=本机 agent 启发式）——agent 进程未跑/mDNS 不通/10 轮清单为空即 resolveFailed，端点 peer 留空；而 agent 持久 PeerId 早已落盘 ~/.dsh/acp/local-agent.json（GUI 有现成 acp_local_descriptor IPC），自动流程却从不去读。
 - 修法：解析顺序改为描述文件直取（开箱主路径）→ 发现面回落（2f82742d）；共享回填抽 stampLocalPeer 纯函数。教训通式：**零配置功能的数据源优先级里，持久化自描述 > 运行时发现面**——发现面是启发式旁路，任何「靠发现才可用」的开箱路径都是配置负担。
+
+## 2026-09-12 GUI 聊天记录气泡溢出遮挡输入条（flex 高度链断裂回归）
+- 症状：1:1 会话消息多时气泡一路画过输入区、盖住发送按钮；用户截图里整列气泡压在输入条上。
+- 原因：虚拟化重构 0c0b3aaa 把消息滚动域包进 `<div class="min-h-0 flex-1">`——包装层是块级盒子不是 flex 容器，子滚动域的 `flex-1` 静默失效，高度随内容生长（实测滚动域 587px > 包装层 353px），包装层 overflow visible 于是直接画到输入条上。群聊路径无包装层所以没炸——同一次重构可以只坏一半。
+- 修法：包装层改 `flex min-h-0 flex-1 flex-col`（a6276cb8），普通/虚拟两条渲染路径共用；补 DOM 结构契约回归测试（包装层缺 flex-col 即红）。
+- 教训通式：**重构滚动布局时，中间多包一层 div 就要重验整条 flex 高度链**——`flex-1`/`min-h-0` 只在直接 flex 上下文里生效，包一层块级 div 全部静默失效，且 jsdom 结构断言测不出来（无布局引擎），必须真实浏览器量 getBoundingClientRect。
