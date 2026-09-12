@@ -3491,7 +3491,7 @@ dependencies = [
 
 [[package]]
 name = "p2p-console"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "acp-common",
  "acp-pump",
