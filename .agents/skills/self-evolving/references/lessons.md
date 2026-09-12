@@ -514,3 +514,4 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-12：跑 `cargo fmt`（非 --check）前先 `cargo fmt --check` 列出漂移文件——全仓格式化会把 main 存量漂移文件卷进工作树混入本卡 diff；修法是回退非本卡文件，存量漂移压成独立 style 提交（可独立 revert），feature 提交保持纯净。
 - 2026-09-12：WS/升级类反代用例里「close 帧往返完成」不等于「会话收口」——双向对称泵要本地半关（shutdown/FIN）才终结，审计才落终态；断言审计记录前先发 shutdown，纯 HTTP 面（转发完请求即只余 drain 方向）无此坑。
 - 2026-09-12：已冻结待合并的 feature 分支可由协调者按先例代 rebase 消化合并顺序问题（W-T5 24936a13、W-TD 两次实证）——前提=分支已冻结（终报后禁再推送）、rebase 冲突可预判为零（改动域不含 main 新增量），rebase 后 force-with-lease 推送并在账本记录哈希重写。
+- 2026-09-12：多会话共树发布时，「验过的 HEAD」和「打 tag 的 HEAD」必须是同一个 sha——符号引用（HEAD）在校验与执行之间会漂移，锁 sha 才可审计可 revert；发布这类幂等敏感操作的每一步都该锚定具体 commit。

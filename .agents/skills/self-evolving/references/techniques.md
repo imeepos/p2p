@@ -567,3 +567,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 
 ## 2026-09-12 GUI mock WS 的 peer 白名单（console-watch 自动连接测试）
 - apps/gui/src/acp/mock-acp-ws.ts 校验 `?peer=` 必须在 `configure({ peers: [...] })` 白名单内（token 另校验）：测「descriptor peer 自动连接」若 peer 不在白名单，WS 升级被拒→1006→phase=offline，报错面是断言 online 失败而非 mock 报错。写断言前先读 mock 的握手校验语义，别等红了解剖。
+
+## 2026-09-12 client-v0.1.8 发布轮（多会话共享主树）
+- 共享主树上发布，L3 校验与真打 tag 之间 HEAD 会被并行会话推进（本轮 22eaa2b2→2f82742d→94b62151）：`release.sh --create` 打的是符号 HEAD，改用脚本验过的同一 commit 显式锚定 `git tag -a <tag> <sha>`，消除「校验的树 ≠ 打点的树」竞态；版本触点一致性在该 commit 上验过即随 sha 固化。
+- 判断 CI 红是否自己引入：ci.yml 带 concurrency cancel-in-progress，main 连续 push 时相邻 run 多为 cancelled、不可作基线——用 `actions/workflows/ci.yml/runs?status=completed` 找最近一次跑完的绿对照（本轮 #601）；发布门禁按 docs/release-gates.md 分层只认 gui-client.yml（L4/L5），ci.yml 红不在 L0-L5 内但要透明上报。匿名取不到 Actions 日志（网页要求登录、logs API 要 token），只剩 check-run annotations 的 exit code 可看。
+- `make release-check` 本地全量约 1 小时且大头是 `cargo test --workspace`：cargo 主进程 0% CPU 不代表挂死，`pgrep -P <pid>` 看子进程（rustdoc/测试二进制）在不在换新即知在推进；长等待用后台 job + 分段 poll，前台 `sleep 900` 会被执行器 600s cap 截杀。
