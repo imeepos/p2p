@@ -133,6 +133,19 @@ describe("IM-T52 滚动体系结构契约（P1 双栏）", () => {
     expect(screen.getByTestId("message-column").className).toContain("gap-y-2.5");
   });
 
+  it("消息流包装层必须是 flex-col：块级包装会让滚动域高度随内容生长、溢出遮挡输入条", async () => {
+    // jsdom 无布局引擎，高度链做数值断言不可行；这里固化结构契约——
+    // 滚动域的 flex-1 只有在 flex 格式化上下文中才会被压到剩余空间。
+    await renderChat();
+    fireEvent.click(rowButton(a));
+    await waitFor(() => expect(screen.getByTestId("message-scroll")).toBeTruthy());
+    const wrapper = screen.getByTestId("message-scroll").parentElement;
+    expect(wrapper).toBeTruthy();
+    expect(wrapper!.className).toContain("flex");
+    expect(wrapper!.className).toContain("flex-col");
+    expect(wrapper!.className).toContain("min-h-0");
+  });
+
   it("输入条钉在消息滚动域之外：DOM 序上位于消息列表之后", async () => {
     await renderChat();
     fireEvent.click(rowButton(a));

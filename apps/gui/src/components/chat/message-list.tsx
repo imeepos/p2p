@@ -127,7 +127,10 @@ export function MessageList({
   };
 
   return (
-    <div className="min-h-0 flex-1">
+    // flex-col 高度链：滚动域（flex-1 + min-h-0 + overflow-y-auto）只有在
+    // flex 格式化上下文里才会被压缩到剩余空间并内滚；块级包装会让其高度
+    // 随内容生长，溢出压住输入条（2026-09-12 UI 回归实证）。
+    <div className="flex min-h-0 flex-1 flex-col">
       {virtual ? (
         <VirtualMessageFlow
           ref={flowRef}
