@@ -32,7 +32,9 @@
 4. i18n：`remoteAccess.generic.*` 九键 zh-CN/en-US 双登记（types.ts 自 zh-CN 派生，
    无需手改）；独立小提交。
 5. 文档对账：docs/ops/p2pctl-ai-guide.md 补 `### p2pctl tunnel connect` 条目
-   （TC 落地遗留缺口，非本轮命令面；ai-docs-sync 门禁要求，独立提交）。
+   （TC 落地遗留缺口，ai-docs-sync 门禁要求）；反向同步 merge main 时该条目与
+   TC 侧权威条目撞车，按「已合并进 main 者优先」取 TC 版（含实测 stdout 样例），
+   本轮条目弃用；独立 docs 提交。
 
 ## 门禁证据（命令 + 真实退出码）
 
@@ -61,9 +63,14 @@
    浏览器 dev 模式 mock 面显式报错不假装可用（mock-ipc 守卫），故以组件测试
    （jsdom 断言成功/错误两态 DOM）+ 单测替代；如需真机链由 TB/TC 环境补拍。
 2. ai-docs-sync 初跑 FAIL 为 main 存量缺口（TC 的 tunnel connect 无文档条目），
-   本轮补齐（独立 docs 提交），不属于契约文本改动。
+   本轮补齐（独立 docs 提交），不属于契约文本改动；merge main 时与 TC 侧条目
+   冲突，裁决取 TC 权威版，门禁复跑 EXIT=0。
 3. vitest 在 harness shell 需以真实 node runtime 置顶 PATH（vite-plus shim 挂起坑，
-   已录 known-issues #372 同款）；worktree 内 node_modules 为本树真实安装（16s）。
+   known-issues #372 同款，本轮实证：shim 在 PATH 时 forks worker 60s 超时）；
+   worktree 内 node_modules 为本树真实安装（16s，软链主树 node_modules 会卡死
+   vitest forks pool，勿用）。
+4. 反向同步：main 在本轮窗口内合入 TC（apps/cli/crates/itest/doc），merge 后
+   复跑 ai-docs-sync/cli-parity/目标 vitest 均 EXIT=0；全量 cargo test 终验中。
 
 ## 复盘
 
