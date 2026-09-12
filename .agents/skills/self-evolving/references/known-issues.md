@@ -649,3 +649,8 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-12 Rust 时序断言负载型假红（invite_flow is_none，W-TE 期）
 - 症状：make check 在 p2p-chat --test invite_flow 红（reject 后 is_none() 断言失败，10.7s），同代码态此前全量绿。
 - 三角定性法：①diff 该测试路径代码零改动 ②隔离复跑 6/6 绿 ③红时有并行会话 release 构建+GUI 实例重载——三者齐即负载型假红（W-T4 rendezvous flake、W-T2 vitest worker 同族），处置=不动代码、等负载回落后对最终 tip 重跑全量认证。
+
+## 2026-09-12 GUI 开箱报「未能从 console 发现面定位本机 agent 节点 / 缺少 Token 或 Peer ID」
+- 症状：软件启动后本机 agent 自动连接挂起，提示进「通讯录 → Agent → 本机 agent → 编辑」手补 Peer ID；手动连接报 endpointIncomplete。
+- 原因：console-watch 的 peer 解析只走 console 发现面（mDNS 首条=本机 agent 启发式）——agent 进程未跑/mDNS 不通/10 轮清单为空即 resolveFailed，端点 peer 留空；而 agent 持久 PeerId 早已落盘 ~/.dsh/acp/local-agent.json（GUI 有现成 acp_local_descriptor IPC），自动流程却从不去读。
+- 修法：解析顺序改为描述文件直取（开箱主路径）→ 发现面回落（2f82742d）；共享回填抽 stampLocalPeer 纯函数。教训通式：**零配置功能的数据源优先级里，持久化自描述 > 运行时发现面**——发现面是启发式旁路，任何「靠发现才可用」的开箱路径都是配置负担。
