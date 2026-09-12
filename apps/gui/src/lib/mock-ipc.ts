@@ -472,6 +472,9 @@ export const mockBackend: IpcBackend & {
   async tunnelOpenDsh() {
     throw new Error("mock 环境不支持远程访问：需在桌面应用内使用");
   },
+  async tunnelOpen() {
+    throw new Error("mock 环境不支持远程访问：需在桌面应用内使用");
+  },
   async tunnelStatus() {
     return {
       active: false,

@@ -125,6 +125,17 @@ pub async fn tunnel_open_dsh(
     visit::tunnel_open_dsh(app, state, url, peer).await
 }
 
+/// §19.3-9 tunnel_open 薄包装（通用开隧道，实现居 visit 子模块，理由同上）。
+#[tauri::command]
+pub async fn tunnel_open(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, TunnelState>,
+    target: String,
+    peer: String,
+) -> Result<visit::TunnelOpenReport, String> {
+    visit::tunnel_open(app, state, target, peer).await
+}
+
 /// §19.1 tunnel_status 薄包装（同上）。
 #[tauri::command]
 pub async fn tunnel_status(

@@ -83,4 +83,5 @@ authz_default_role_save	exempt		同 authz_default_role_get：配置字段写，G
 tunnel_serve_start	exempt		被访侧受理开关是 GUI 常驻节点进程内的会话态（enabled 不持久化、重启回落 false），无 CLI 常驻进程面可对等；CLI 场景等价物是直接访问被访端口本身（llm_share_serve_status 豁免先例，gui-contract §19.8）；headless 对等面=p2pctl tunnel serve 独立进程（W-T5 落地），仍 exempt：GUI 命令开关的是 GUI 常驻节点内会话态，非同一对象
 tunnel_serve_stop	exempt		同 tunnel_serve_start：serve 生命周期绑定 GUI 常驻节点进程，无 CLI 对等面（gui-contract §19.8）；headless 对等面=p2pctl tunnel serve 独立进程（W-T5 落地，进程退出即收口），仍 exempt：非同一对象
 tunnel_open_dsh	exempt		访侧开 DSH 是 GUI 本地回环反代（bind 127.0.0.1:0 随机端口）+ 系统浏览器开窗的桌面会话能力，token 只活在本次启动 URL；CLI 无浏览器与反代实例可对等，场景等价物是直连被访端口本身（gui-contract §19.8）
+tunnel_open	exempt		通用开隧道是 GUI 进程内反代会话（bind 127.0.0.1:0 + tunnel_status 事件面）；headless 对等面=p2pctl tunnel connect（TC 落地）但反代生命周期绑定访侧常驻进程（§19.3-8 进程活语义），非同一对象；token="" 无浏览器开窗语义（gui-contract §19.3-9），语义不混同
 tunnel_status	exempt		访侧会话快照（active/sessions 审计）服务 GUI 远程访问视图三态渲染，与 GUI 进程内反代同生命周期，CLI 无反代实例可查询（gui-contract §19.8）

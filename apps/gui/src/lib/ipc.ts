@@ -243,6 +243,8 @@ const tauriBackend: IpcBackend = {
     ),
   tunnelOpenDsh: (url, peer) =>
     invoke<TunnelOpenReport>("tunnel_open_dsh", { url, peer }),
+  tunnelOpen: (target, peer) =>
+    invoke<TunnelOpenReport>("tunnel_open", { target, peer }),
   tunnelStatus: () => invoke<TunnelStatusReport>("tunnel_status"),
   onTunnelStatus: (handler) =>
     listen<TunnelStatusReport>(TUNNEL_STATUS_EVENT, (event) => handler(event.payload)).then(

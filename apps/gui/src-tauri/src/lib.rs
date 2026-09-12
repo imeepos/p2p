@@ -120,6 +120,7 @@ pub fn run() {
             tunnel::tunnel_serve_start,
             tunnel::tunnel_serve_stop,
             tunnel::tunnel_open_dsh,
+            tunnel::tunnel_open,
             tunnel::tunnel_status,
         ])
         .plugin(tauri_plugin_opener::init())

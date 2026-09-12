@@ -1,6 +1,7 @@
 //! DSH 启动 URL 解析（冻结契约 §6）：`http://127.0.0.1:<port>/?token=<tok>`。
 //! host 只认 `127.0.0.1` 回环字面量（cookie 只看 host 不看 port，必须与重写后
 //! 的 Host authority 同源）；token 走 query `token=`，容忍 %XX 转义。
+//! 通用形态 target 字面量 `127.0.0.1:<port>`（§19.3-9）同在此解析。
 
 /// 解析产物：DSH 端口与鉴权 token。
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -28,6 +29,25 @@ pub fn parse_dsh_url(raw: &str) -> Result<DshTarget, String> {
         .filter(|t| !t.is_empty())
         .ok_or("缺少 token query 参数")?;
     Ok(DshTarget { port, token })
+}
+
+/// 解析通用隧道 target 字面量（§19.3-9）：必须为 `127.0.0.1:<port>`；
+/// token 恒空串（「无 token」语义）。
+pub fn parse_generic_target(raw: &str) -> Result<DshTarget, String> {
+    let trimmed = raw.trim();
+    let (host, port_raw) = trimmed
+        .rsplit_once(':')
+        .ok_or_else(|| format!("target 需为 127.0.0.1:<端口> 字面量: {trimmed}"))?;
+    if host != "127.0.0.1" {
+        return Err(format!("target 只允许 127.0.0.1 回环字面量: {host}"));
+    }
+    let port: u16 = port_raw
+        .parse()
+        .map_err(|_| format!("端口非法: {port_raw}"))?;
+    Ok(DshTarget {
+        port,
+        token: String::new(),
+    })
 }
 
 /// 取 query 参数并做 %XX/`+` 解码；找不到键返回 None。
@@ -112,5 +132,31 @@ mod tests {
         assert!(parse_dsh_url("http://127.0.0.1:3080/?other=t")
             .unwrap_err()
             .contains("token"));
+    }
+
+    #[test]
+    fn parses_generic_target_literal() {
+        let target = parse_generic_target(" 127.0.0.1:3080 ").expect("parse");
+        assert_eq!(target.port, 3080);
+        assert_eq!(target.token, "");
+    }
+
+    #[test]
+    fn rejects_non_literal_generic_target() {
+        assert!(parse_generic_target("localhost:3080")
+            .unwrap_err()
+            .contains("127.0.0.1"));
+        assert!(parse_generic_target("192.168.1.5:8080")
+            .unwrap_err()
+            .contains("127.0.0.1"));
+        assert!(parse_generic_target("127.0.0.1")
+            .unwrap_err()
+            .contains("127.0.0.1:<端口>"));
+        assert!(parse_generic_target("127.0.0.1:abc")
+            .unwrap_err()
+            .contains("端口非法"));
+        assert!(parse_generic_target("127.0.0.1:70000")
+            .unwrap_err()
+            .contains("端口非法"));
     }
 }

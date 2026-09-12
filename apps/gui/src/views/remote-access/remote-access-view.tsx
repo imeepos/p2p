@@ -14,8 +14,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ipc } from "@/lib/ipc";
-import type { TunnelStatusReport } from "@/lib/ipc-types";
+import type { TunnelOpenReport, TunnelStatusReport } from "@/lib/ipc-types";
 import { PageHeader } from "@/components/page/page-header";
+
+import { GenericTunnelCard } from "./generic-tunnel-card";
 
 type Phase = "idle" | "open" | "error";
 
@@ -29,6 +31,7 @@ const IDLE_STATUS: TunnelStatusReport = {
 
 // 远程访问页（W-T3）：粘贴 A 机 dsh web 启动 URL + 被访节点 PeerId →
 // Rust 侧绑 127.0.0.1 反代并经隧道转发 → 系统浏览器打开入口链接。
+// 通用入口（§19.3-9）：target=127.0.0.1:<port> 字面量 + PeerId → tunnel_open。
 // 三态：未开启 / 已开启 / 错误；关闭随应用退出自动收尾（契约 §7 无关闭命令）。
 export function RemoteAccessView() {
   const { t } = useTranslation();
@@ -86,6 +89,23 @@ export function RemoteAccessView() {
       setBusy(false);
     }
   }, [peer, url]);
+
+  // 通用入口回调：成功/失败都汇入页面共享状态（状态卡与错误展示复用）。
+  const openGeneric = useCallback((report: TunnelOpenReport) => {
+    setOpenUrl(report.openUrl);
+    setStatus((prev) => ({
+      ...prev,
+      active: true,
+      localAddr: report.localAddr,
+    }));
+    setPhase("open");
+  }, []);
+
+  const onGenericError = useCallback((message: string) => {
+    setLastError(message);
+    setPhase("error");
+    toastError(message);
+  }, []);
 
   const phaseBadge =
     phase === "open"
@@ -149,6 +169,7 @@ export function RemoteAccessView() {
           )}
         </CardContent>
       </Card>
+      <GenericTunnelCard onOpened={openGeneric} onError={onGenericError} />
       <Card className="col-span-12 lg:col-span-6">
         <CardHeader>
           <CardTitle>{t("remoteAccess.status.open")}</CardTitle>

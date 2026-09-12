@@ -690,6 +690,8 @@ export interface IpcBackend {
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
   // W-T3 tunnel 访侧（gui-contract §19）：peer 可选，缺省由用户在视图必填。
   tunnelOpenDsh(url: string, peer: string): Promise<TunnelOpenReport>;
+  // 通用开隧道（§19.3-9）：target=127.0.0.1:<port> 字面量（服务端校验）。
+  tunnelOpen(target: string, peer: string): Promise<TunnelOpenReport>;
   tunnelStatus(): Promise<TunnelStatusReport>;
   onTunnelStatus(handler: (status: TunnelStatusReport) => void): Promise<UnlistenFn>;
 }

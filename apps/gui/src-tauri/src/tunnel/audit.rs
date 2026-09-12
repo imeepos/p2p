@@ -6,6 +6,11 @@
 use std::net::SocketAddr;
 
 /// 反代入口链接拼装（§6：open_url = http://<local_addr>/?token=<同 token>）。
+/// token 空串 = 通用形态「无 token」语义（§19.3-9）：不拼装 `?token=`，
+/// open_url 即 local_addr 本身；DSH 形态 token 恒非空（parse_dsh_url 保证）。
 pub fn open_url(local_addr: SocketAddr, token: &str) -> String {
+    if token.is_empty() {
+        return format!("http://{local_addr}");
+    }
     format!("http://{local_addr}/?token={token}")
 }

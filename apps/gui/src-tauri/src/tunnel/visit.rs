@@ -241,6 +241,31 @@ pub async fn tunnel_open_dsh(
     Ok(report)
 }
 
+/// 开启通用隧道访侧（§19.3-9）：target 必须字面量 `127.0.0.1:<port>`（先校验
+/// 后动作，不得先开监听/流再失败——同约束 3），peer 为被访节点 PeerId（base58）；
+/// token = 空串承载「无 token」语义，open_url = local_addr 本身。与 DSH 入口
+/// 共享单会话槽位（stop-旧-start-新）；不自动开浏览器，前端展示可复制链接。
+/// （由 tunnel.rs 薄包装为 #[tauri::command]，理由同上。）
+pub async fn tunnel_open(
+    app: AppHandle,
+    state: tauri::State<'_, TunnelState>,
+    target: String,
+    peer: String,
+) -> Result<TunnelOpenReport, String> {
+    let target = url::parse_generic_target(&target)?;
+    let peer_raw = peer.trim();
+    if peer_raw.is_empty() {
+        return Err("未指定被访节点 peer：请填入被访节点 PeerId".into());
+    }
+    let peer = parse_peer(peer_raw)?;
+    let node = app.state::<AppState>().running_node().await?;
+    let opener = Arc::new(NodeTunnelOpener {
+        client: TunnelClient::new(NodeStreamFactory { node }),
+        peer,
+    });
+    state.start(&app, target, peer, opener).await
+}
+
 /// 访侧状态快照（§19.1 tunnel_status；serve 实时取自 W-T2 槽位）。
 pub async fn tunnel_status(
     app: AppHandle,
