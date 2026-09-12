@@ -50,3 +50,11 @@ Guesses:
   回主仓），已删除。.worktrees 现仅 wra-backend / wra-frontend。
   在飞: TA 全量 make check（bash-291）、TB 前端卡。零迹象判据已具备（两 worktree
   均有提交/门禁活动迹象）。
+- 2026-09-12 23:29 TB 回报 DONE（三分支提交，头 54a03133，已 push origin；vitest
+  1431 passed / build / eslint / gui-dist-scan 全 exit 0）。主控亲核: diff 复核
+  （ipc 契约形状与 TA 逐字对齐；入口 SettingsIcon 按钮 + RoleManagerDialog 条件
+  挂载；store 三 action 失败 console.error + 上抛；PERM_LABEL_KEYS 九 key + 裸 key
+  兜底；builtin 行无编辑删除钮）。TB 备注①（接口实名 IpcBackend 非 DshIpc）
+  属实，按代码实际落契约，无碍。完成了吗: TB 验收通过。下一步: 等 TA 全量
+  make check（bash-291）→ 合并 TA → TB rebase 后跑全量 make check → 合并 TB
+  → 主树 check-fast 终检（ff-only 树同构，分支尖全量检查即主干检查）。
