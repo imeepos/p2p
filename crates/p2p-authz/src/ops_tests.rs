@@ -229,3 +229,72 @@ fn role_model_serialization_roundtrip() {
     let parsed: Role = serde_json::from_str(&serde_json::to_string(&role).unwrap()).unwrap();
     assert_eq!(parsed, role);
 }
+
+#[test]
+fn update_role_rewrites_custom_role_fields() {
+    let dir = temp_dir("update");
+    let authz = Authz::new(&dir, FakeClock::at(1_000));
+    authz
+        .create_role("tester", "a", &perms(&["chat.send"]), "n")
+        .unwrap();
+
+    let perms_new = perms(&["acp.session", "chat.send", "acp.session"]);
+    let updated = authz.update_role("tester", "b", &perms_new, "m").unwrap();
+    assert_eq!(updated.role_id, "tester", "role_id 不可变");
+    assert_eq!((updated.name.as_str(), updated.note.as_str()), ("b", "m"));
+    assert_eq!(
+        updated.permissions,
+        vec![Permission::ACP_SESSION, Permission::CHAT_SEND],
+        "权限闭集解析保序去重"
+    );
+    assert_eq!(authz.show_role("tester").unwrap(), updated);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn update_role_rejections_are_explicit() {
+    let dir = temp_dir("update-reject");
+    let authz = Authz::new(&dir, SystemClock);
+    let p = perms(&["chat.send"]);
+    assert!(matches!(
+        expect_err(authz.update_role("friend", "x", &p, ""), "改内建"),
+        AuthzError::BuiltinImmutable(_)
+    ));
+    assert!(matches!(
+        expect_err(authz.update_role("ghost", "x", &p, ""), "改未登记"),
+        AuthzError::RoleNotFound(_)
+    ));
+    authz.create_role("tester", "x", &p, "").unwrap();
+    let bad = perms(&["owner.superuser"]);
+    assert!(matches!(
+        expect_err(authz.update_role("tester", "x", &bad, ""), "表外权限"),
+        AuthzError::UnknownPermission(_)
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn update_role_persists_and_steers_decisions() {
+    let dir = temp_dir("update-persist");
+    let authz = Authz::new(&dir, FakeClock::at(1_000));
+    authz
+        .create_role("tester", "x", &perms(&["chat.send"]), "")
+        .unwrap();
+    authz.bind("peer-a", "tester", None, "").unwrap();
+
+    authz
+        .update_role("tester", "x", &perms(&["acp.session"]), "")
+        .unwrap();
+    let reopened = Authz::new(&dir, SystemClock);
+    assert_eq!(
+        reopened.show_role("tester").unwrap().permissions,
+        vec![Permission::ACP_SESSION],
+        "落盘重读一致"
+    );
+    assert_eq!(
+        reopened.check("peer-a", Permission::CHAT_SEND).unwrap(),
+        Decision::Deny(DenyReason::MissingPerm),
+        "撤权限立即影响新判定（绑定不动）"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
