@@ -559,6 +559,19 @@ export interface AuthzDefaultRoleReport {
   roleId: string;
 }
 
+// 角色管理面加法（§18 S3 扩展）：permissions 为 §4 闭集 key 全量枚举。
+export interface AuthzPermissionsReport {
+  permissions: string[];
+}
+
+export interface AuthzRoleMutationReport {
+  role: AuthzRoleView;
+}
+
+export interface AuthzRoleDeleteReport {
+  roleId: string;
+}
+
 export interface IpcBackend {
   acpConsoleStatus(): Promise<AcpConsoleStatus>;
   acpLocalDescriptor(): Promise<AcpLocalDescriptor | null>;
@@ -687,6 +700,22 @@ export interface IpcBackend {
   authzCheck(peerId: string, permission: string): Promise<AuthzCheckReport>;
   authzDefaultRoleGet(): Promise<AuthzDefaultRoleReport>;
   authzDefaultRoleSave(roleId: string): Promise<AuthzDefaultRoleReport>;
+  // 角色管理面（§18 S3 扩展）：自定义角色 CRUD；invoke 名逐字 snake_case。
+  // create/update 后端做闭集解析去重；delete 被绑定引用即拒（可读错误上浮）。
+  authzPermissionsList(): Promise<AuthzPermissionsReport>;
+  authzRoleCreate(
+    roleId: string,
+    name: string,
+    permissions: string[],
+    note: string,
+  ): Promise<AuthzRoleMutationReport>;
+  authzRoleUpdate(
+    roleId: string,
+    name: string,
+    permissions: string[],
+    note: string,
+  ): Promise<AuthzRoleMutationReport>;
+  authzRoleDelete(roleId: string): Promise<AuthzRoleDeleteReport>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
   // W-T3 tunnel 访侧（gui-contract §19）：peer 可选，缺省由用户在视图必填。
   tunnelOpenDsh(url: string, peer: string): Promise<TunnelOpenReport>;

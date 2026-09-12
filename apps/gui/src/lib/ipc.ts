@@ -12,6 +12,9 @@ import type {
   AuthzBindingJson,
   AuthzCheckReport,
   AuthzDefaultRoleReport,
+  AuthzPermissionsReport,
+  AuthzRoleDeleteReport,
+  AuthzRoleMutationReport,
   AuthzRoleView,
   AuthzUnbindReport,
   ChatFriendJson,
@@ -235,6 +238,25 @@ const tauriBackend: IpcBackend = {
     invoke<AuthzDefaultRoleReport>("authz_default_role_get"),
   authzDefaultRoleSave: (roleId) =>
     invoke<AuthzDefaultRoleReport>("authz_default_role_save", { roleId }),
+  // 角色管理面（§18 S3 扩展）：invoke 名逐字 snake_case，参数 camelCase。
+  authzPermissionsList: () =>
+    invoke<AuthzPermissionsReport>("authz_permissions_list"),
+  authzRoleCreate: (roleId, name, permissions, note) =>
+    invoke<AuthzRoleMutationReport>("authz_role_create", {
+      roleId,
+      name,
+      permissions,
+      note,
+    }),
+  authzRoleUpdate: (roleId, name, permissions, note) =>
+    invoke<AuthzRoleMutationReport>("authz_role_update", {
+      roleId,
+      name,
+      permissions,
+      note,
+    }),
+  authzRoleDelete: (roleId) =>
+    invoke<AuthzRoleDeleteReport>("authz_role_delete", { roleId }),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {

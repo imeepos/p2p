@@ -12,6 +12,8 @@ import type {
 
 export interface AuthzStoreState {
   roles: AuthzRoleView[];
+  /** §4 权限闭集 key（authz_permissions_list），角色管理复选框数据源 */
+  permissions: string[];
   /** 全量绑定（peer 级单值），按 peerId 索引供好友行 O(1) 徽章取值 */
   bindings: Record<string, AuthzBindingJson>;
   defaultRoleId: string;
@@ -25,6 +27,19 @@ export interface AuthzStoreState {
   ) => Promise<void>;
   unbindRole: (peerId: string) => Promise<void>;
   saveDefaultRole: (roleId: string) => Promise<void>;
+  createRole: (
+    roleId: string,
+    name: string,
+    permissions: string[],
+    note: string,
+  ) => Promise<void>;
+  updateRole: (
+    roleId: string,
+    name: string,
+    permissions: string[],
+    note: string,
+  ) => Promise<void>;
+  deleteRole: (roleId: string) => Promise<void>;
   /** 测试复位 */
   reset: () => void;
 }
@@ -37,18 +52,26 @@ function indexBindings(bindings: AuthzBindingJson[]): Record<string, AuthzBindin
 
 export const useAuthzStore = create<AuthzStoreState>()((set, get) => ({
   roles: [],
+  permissions: [],
   bindings: {},
   defaultRoleId: "friend",
   loadError: null,
 
   loadAll: async () => {
     try {
-      const [{ roles }, { bindings }, { roleId }] = await Promise.all([
+      const [{ roles }, { permissions }, { bindings }, { roleId }] = await Promise.all([
         ipc.authzRoleList(),
+        ipc.authzPermissionsList(),
         ipc.authzBindingsList(),
         ipc.authzDefaultRoleGet(),
       ]);
-      set({ roles, bindings: indexBindings(bindings), defaultRoleId: roleId, loadError: null });
+      set({
+        roles,
+        permissions,
+        bindings: indexBindings(bindings),
+        defaultRoleId: roleId,
+        loadError: null,
+      });
     } catch (error) {
       // 失败留信号（console 可观测），UI 呈现重试入口，不静默吞
       console.error("[authz] 角色数据加载失败", error);
@@ -84,5 +107,46 @@ export const useAuthzStore = create<AuthzStoreState>()((set, get) => ({
     set({ defaultRoleId: roleId });
   },
 
-  reset: () => set({ roles: [], bindings: {}, defaultRoleId: "friend", loadError: null }),
+  createRole: async (roleId, name, permissions, note) => {
+    try {
+      const { role } = await ipc.authzRoleCreate(roleId, name, permissions, note);
+      set((s) => ({ roles: [...s.roles, role] }));
+    } catch (error) {
+      console.error("[authz] 角色创建失败", error);
+      throw error;
+    }
+  },
+
+  updateRole: async (roleId, name, permissions, note) => {
+    try {
+      const { role } = await ipc.authzRoleUpdate(roleId, name, permissions, note);
+      set((s) => ({ roles: s.roles.map((r) => (r.roleId === role.roleId ? role : r)) }));
+    } catch (error) {
+      console.error("[authz] 角色更新失败", error);
+      throw error;
+    }
+  },
+
+  deleteRole: async (roleId) => {
+    try {
+      await ipc.authzRoleDelete(roleId);
+    } catch (error) {
+      console.error("[authz] 角色删除失败", error);
+      throw error;
+    }
+    set((s) => {
+      // defaultRoleId 悬空防御：正常应被后端拒删，本地仍回退 friend 留信号
+      if (s.defaultRoleId === roleId) {
+        console.error("[authz] 默认角色指向被删角色，本地回退 friend", roleId);
+        return {
+          roles: s.roles.filter((r) => r.roleId !== roleId),
+          defaultRoleId: "friend",
+        };
+      }
+      return { roles: s.roles.filter((r) => r.roleId !== roleId) };
+    });
+  },
+
+  reset: () =>
+    set({ roles: [], permissions: [], bindings: {}, defaultRoleId: "friend", loadError: null }),
 }));
