@@ -1,0 +1,2 @@
+2026-09-12T05:15:16.904410Z  INFO p2p_tunnel::audit: tunnel session audit session_id=4f4b4ad5068e82c9 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:19999 started_at=1789190116 ended_at=1789190116 bytes_in=0 bytes_out=0 outcome=rejected:target_not_allowed
+2026-09-12T05:15:17.225241Z  INFO p2p_tunnel::audit: tunnel session audit session_id=9e0fb40d197998a8 peer_id=7DhU9rUD46bELUcF82rpWiTCWwfns1jDxWEtCYBEBGAb target=127.0.0.1:19999 started_at=1789190117 ended_at=1789190117 bytes_in=0 bytes_out=0 outcome=rejected:target_not_allowed

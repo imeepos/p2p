@@ -47,3 +47,12 @@
 - **102 仓分发**：~/src/p2p 为无 .git 旧拷贝（9/2），跨机传仓用 `git bundle create <branch>` + scp + `git clone -b <branch> bundle`（18MB，clone 即含分支）；apps/cli 独立 workspace，`cd apps/cli && cargo build --release` 2m36s（102）。
 - **npm i ws@8** 于 102 可达 registry（5s 装完）；node24 内置 WebSocket 客户端可直接写 echo 客户端，零依赖。
 - **控制通道鉴权**：`Authorization: Bearer $(cat <dataDir>/control/token)`，端点在 `<dataDir>/control/endpoint.json`；P2P_CONTROL_PORT 环境变量指定端口，被占即报错不静默换口。
+
+## 追加采证（2026-09-12，协调者⑦令：GUI 错误态负例 + 截图，闭 TD 截图缺口）
+
+- 分支 feat/wte2-gui-negative（worktree .worktrees/wte2-neg，基线 origin/main @ **36183665** = TE 合并后+喂回提交）；102 侧经 te2.bundle 重建 /tmp/te-p2p（cargo build 1m54s），serve 白名单仅 {127.0.0.1:18081}，新节点身份 peerId=FsBiCMoEYkdfwH8uNUcCmQq3C8RzcQowx6Enr4hsoy8K；GUI debug 二进制 + 注入驱动链同前复跑。
+- **GUI 错误态（open 即拒，坏 peer）PASS**：表单填 43 字符伪 peer → 状态卡徽标翻「错误」+ 共享错误盒「最近错误 / peer 长度非法： 1111…1」+ 通用卡 role=alert；截图 gui-form-error-badpeer.png（1080×800，控制通道 /screenshot，窗口置前防陈旧帧）；DOM 全文存 raw/driver-results-negative.json（c11/c13）。
+- **GUI 面 wire 拒（白名单外 target）PASS**：表单填 19999 → tunnel_open 照常呈「已开启」（LocalProxy 即刻起动语义，与 CLI ready 行同构）→ 系统浏览器直达 GUI 反代口 http://127.0.0.1:64898/probe.txt → **HTTP 502**（截图 openurl-gui-negative-502.png；页面两请求=两会话）。
+- **双侧 rejected 审计逐字对账 PASS**：访侧 tunnel_status.sessions `4f4b4ad5068e82c9`/`9e0fb40d197998a8`（outcome=target_not_allowed、bytesIn/Out=0、endedAt 终态非 0）↔ 102 serve 审计同 id（outcome=rejected:target_not_allowed、peer=7DhU9…=GUI 节点身份）；raw/visit-tunnel-status-negative.json + raw/serve-102-negative.out。终态口径：全部记录 endedAt 非 0，无 ended_at==0 哨兵混入（响应协调者⑤）。
+- **serve 收口（本轮）**：SIGTERM → `{"broken":0,"kind":"stopped","rejected":2,"served":0,"sessions":2}`（与 2 条 rejected 审计一致、served=0 符合白名单零流量）；raw/102-after-cleanup-negative.txt（18081 监听=0）；mac 双清零（raw/mac-after-cleanup-negative.txt）。
+- **语义注记（供协调者/契约对账）**：tunnel_open 与 CLI connect 同构——白名单外 target 的拒绝浮出点在「首连」而非 open（open 仅建反代即回成功态）；open 即拒的只有请求参数校验失败（peer/target 形态）。GUI 错误态 UI 天然呈现后者；前者的用户可见面=浏览器 5xx + 双侧审计（本节双证齐）。

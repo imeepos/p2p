@@ -1,0 +1,10 @@
+{"broken":0,"kind":"stopped","rejected":2,"served":0,"sessions":2}
+tr: extra operand ‘"’
+Only one string may be given when deleting without squeezing repeats.
+Try 'tr --help' for more information.
+p2pctl_left=
+tr: extra operand ‘"’
+Only one string may be given when deleting without squeezing repeats.
+Try 'tr --help' for more information.
+te_left=
+0

@@ -1,0 +1,5 @@
+== mac after cleanup (negative addendum round) ==
+p2p-console: 0
+5173: 0
+31790: 0
+/tmp/te-*: 0
