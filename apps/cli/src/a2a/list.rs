@@ -18,7 +18,7 @@ pub struct ListArgs {
 pub async fn run(args: ListArgs) -> CliResult<()> {
     let paths = Paths::new(args.data_dir.as_deref().unwrap_or("./p2p-data"));
     let agents_file = paths.root.join("a2a-agents.json");
-    
+
     if !agents_file.exists() {
         if args.json {
             println!("{}", json!({ "agents": [] }));
@@ -28,14 +28,17 @@ pub async fn run(args: ListArgs) -> CliResult<()> {
         return Ok(());
     }
 
-    let bytes = std::fs::read(&agents_file)
-        .map_err(|e| CliError::Runtime(format!("read agents: {e}")))?;
+    let bytes =
+        std::fs::read(&agents_file).map_err(|e| CliError::Runtime(format!("read agents: {e}")))?;
     let agents: serde_json::Value = serde_json::from_slice(&bytes)
         .map_err(|e| CliError::Runtime(format!("parse agents: {e}")))?;
-    
+
     if args.json {
-        println!("{}", serde_json::to_string_pretty(&agents)
-            .map_err(|e| CliError::Runtime(format!("encode: {e}")))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&agents)
+                .map_err(|e| CliError::Runtime(format!("encode: {e}")))?
+        );
     } else {
         let agents_arr = agents.get("agents").and_then(|a| a.as_array());
         match agents_arr {
@@ -43,7 +46,10 @@ pub async fn run(args: ListArgs) -> CliResult<()> {
                 for agent in arr {
                     let id = agent.get("agentId").and_then(|v| v.as_str()).unwrap_or("?");
                     let name = agent.get("name").and_then(|v| v.as_str()).unwrap_or("?");
-                    let vis = agent.get("visibility").and_then(|v| v.as_str()).unwrap_or("?");
+                    let vis = agent
+                        .get("visibility")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("?");
                     println!("  {id}  {name}  ({vis})");
                 }
             }

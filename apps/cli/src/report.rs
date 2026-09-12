@@ -207,10 +207,7 @@ mod tests {
         let text = render_text(&report);
         assert!(text.contains("lanOnly=true"));
         assert!(text.contains("仅局域网"));
-        assert!(
-            !text.contains("43.240.223.138"),
-            "lan-only 不列公网端点"
-        );
+        assert!(!text.contains("43.240.223.138"), "lan-only 不列公网端点");
     }
 
     #[test]
