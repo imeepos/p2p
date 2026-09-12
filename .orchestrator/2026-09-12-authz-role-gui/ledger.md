@@ -65,3 +65,16 @@ Guesses:
 - 2026-09-12 23:50 TB rebase origin/main 干净（2653d429 头），全量 make check
   后台在跑（bash-293）。完成了吗: TA 已并主干。下一步: bash-293 绿 → 合并 TB
   → 补 TA 分支删除 → 汇总检查 → 归档两卡 → 账本闭环 + SESSIONS 释放。
+- 2026-09-13 00:28 波次收官。TB 全量 make check exit 0（bash-293）；合并 TB 时
+  首次 ff-only 被拒（账本提交晚于 rebase 基点），回 worktree 再 rebase 后
+  ff-only 成功——插曲: `git merge | head` 管道吞退出码致 && 链误推（空操作
+  无损害），已喂回 lessons。终态: main == origin/main @ 0d257fe3，两卡六提交
+  全并，TB worktree/分支与 TA 项全清，主干 check-fast PASS。
+- 2026-09-13 00:28 找活扫描（九源收敛）: 候选池三条——① CLI `authz role
+  update` 对等子命令（TA 遗留，tsv exempt 在案，触 CLI 面=新波）；
+  ② authz_role_update 审计事件（AuditKind 闭集扩 kind，随①同波）；
+  ③ mock-authz.ts 295/300 行逼近红线（打磨候选，下次触 mock 域时拆分）。
+  无人新指令不开新波，候选留池。
+- Ruling: 合并序 TA→TB 按计划执行；TB rebase 两次系主控账本提交插入主干所致
+  （非计划缺陷，ff-only 语义正常拦截）。依据: git log。错了的代价: 一次重
+  rebase（约 30s）。

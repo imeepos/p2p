@@ -13,3 +13,9 @@
   （views/contacts 角色管理 + stores/authz-store + lib/ipc* + mock-authz + i18n
   contacts.authz.manager.* 键块）、scripts/check/cli-parity.tsv authz 段、
   docs/design/gui-contract.md §18。分支前缀 feat/wra-*。来源：用户直接指令。
+- [释放] 2026-09-12 session-31ed5fb1（dev-orchestrator）：authz 角色权限 GUI 化波收官，
+  TA/TB 六提交全并，main==origin/main @ 0d257fe3（TA 尖全量 make check exit 0 @
+  ca9529cd 树、TB 尖全量 make check exit 0 @ 2653d429 树 = 合并后同构树，主干
+  check-fast PASS），两卡归档，worktree/分支全清。authz 角色管理域 scope 释放。
+  候选池：CLI authz role update 对等 + 审计事件、mock-authz.ts 拆分
+  （.orchestrator/2026-09-12-authz-role-gui/ledger.md）。

@@ -517,3 +517,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-12：多会话共树发布时，「验过的 HEAD」和「打 tag 的 HEAD」必须是同一个 sha——符号引用（HEAD）在校验与执行之间会漂移，锁 sha 才可审计可 revert；发布这类幂等敏感操作的每一步都该锚定具体 commit。
 - 2026-09-12：断言 `toHaveBeenCalledWith` 失败时先逐项 diff「收到的实参」与业务语义（哪些项本就该保留在数组里），再怀疑框架/jsdom 怪癖——本轮误把「预期数组漏算保留项 acp.session」当成「受控 checkbox 反向 toggle 失效」，连建两个探针测试空耗三分钟；实参 diff 首行（`+ "acp.session"`）当时就写明了答案。
 - 2026-09-12：react-refresh/only-export-components 门禁禁止组件文件混导出常量/函数（`PERM_LABEL_KEYS` + 组件同文件即双 error）——映射表、规则函数按仓库先例拆独立 `*-rules.ts`/`*-labels.ts` 纯 ts 文件，组件文件只出组件；连带收益是常量文件可被多个组件与测试复用。
+- 2026-09-12 WRA 波：`git merge --ff-only <分支> | head -6 && git push ...` 管道吞掉 merge 退出码（pipeline exit = head 的 0），merge 被拒后 && 链照样把推送全跑了（本次空操作无损害，纯运气）；合并类命令严禁管道化，要 tail 就 `cmd > log 2>&1; echo EXIT=$?` 落盘再读。
+- 2026-09-12 WRA 波：带 cargo target/node_modules 的 worktree（9.3G）`git worktree remove` 默认 60s 超时必被打断成半删态（status 满屏 D），要么 run_in_background 要么放宽超时；半删态收尾用 `git worktree remove --force` 重跑即干净。
