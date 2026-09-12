@@ -635,3 +635,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：`cargo check | tail` 报 EXIT=0，实际输出里有 "bash: cargo: command not found"——退出码是 tail 的，cargo 根本没跑；同会话更早还撞过扫全树 grep 超时（60s 两次）。
 - 原因：DSH bash 会话不复用登录 shell 的 PATH（~/.cargo/bin 缺席）；`set -o pipefail` 未开时管道退出码取末命令，"验证命令禁管道收尾"这条已知坑以新形态（命令找不到而非命令失败）复发。
 - 修法：跑 cargo 前 `export PATH="$HOME/.cargo/bin:$PATH"`；验证一律「输出落 /tmp 文件 + `echo EXIT=$?` 单独落同一文件再读」，让退出码与输出绑定同源。全树扫描用 glob/read 工具或 find 限定目录，禁裸 grep 扫根。
+
+## 2026-09-12 vitest forks worker 全体 60s 超时：vite-plus node shim 在 PATH + 软链 node_modules 双坑叠加（W-TD）
+- 症状：worktree 里 `pnpm vitest run` 全部报 "Failed to start forks worker / Timeout waiting for worker to respond"，主树同命令同红（误导向「worktree 环境坏」）；加 `--no-file-parallelism` 后部分文件能跑但仍有 worker 超时 error。
+- 原因：两个独立因素都卡 worker fork——①PATH 里 node 解析到 `/Users/imeepos/.vite-plus/bin/node`（→vp 启动器 shim，#372 同源：非 TTY 等待），vitest forks pool 用 process.execPath 派生 worker 时被挂；②node_modules 软链自主树时 pnpm 虚拟 store 的 realpath 解析跨树，worker 引导更脆（真实安装后仍需 ①的修复才全绿）。
+- 修法：跑任何 node 链命令前置 `export PATH="/Users/imeepos/.vite-plus/js_runtime/node/<ver>/bin:$PATH"`（which node 自证）；worktree 依赖必须本树 `pnpm install --prefer-offline`（store 硬链接 16s），禁 symlink 主树 node_modules。判环境问题先在主树跑同命令对照，别急着改自己的代码。
