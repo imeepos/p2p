@@ -660,3 +660,9 @@ failed: early eof（客户端侧超时中止）。
 - 原因：虚拟化重构 0c0b3aaa 把消息滚动域包进 `<div class="min-h-0 flex-1">`——包装层是块级盒子不是 flex 容器，子滚动域的 `flex-1` 静默失效，高度随内容生长（实测滚动域 587px > 包装层 353px），包装层 overflow visible 于是直接画到输入条上。群聊路径无包装层所以没炸——同一次重构可以只坏一半。
 - 修法：包装层改 `flex min-h-0 flex-1 flex-col`（a6276cb8），普通/虚拟两条渲染路径共用；补 DOM 结构契约回归测试（包装层缺 flex-col 即红）。
 - 教训通式：**重构滚动布局时，中间多包一层 div 就要重验整条 flex 高度链**——`flex-1`/`min-h-0` 只在直接 flex 上下文里生效，包一层块级 div 全部静默失效，且 jsdom 结构断言测不出来（无布局引擎），必须真实浏览器量 getBoundingClientRect。
+
+## 2026-09-13 client-v0.1.9 发布：gh-release 发布步 API 瞬时 Not Found + 凭据全死
+- 症状：tag 流水线 gate/四平台打包/产物上传/latest.json 全绿，唯独 release job「发布 GitHub Release」步 7 秒红；check-run 注解 `Not Found - docs.github.com/rest/releases/assets#update-a-release-asset`，且按 tag 查 release 404（根本没建出来）。
+- 原因：softprops/action-gh-release@v2 建 release→传资产的 API 序列偶发竞态（GitHub 侧瞬时 Not Found），非代码问题——同 tag 重跑即绿。
+- 修法（无 gh CLI、~/.config/gh/hosts.yml 两个 oauth_token 均已 401 失效、无法 rerun-failed-jobs 时）：`git push origin :refs/tags/<tag>` 删远端 tag（release 未建出则无残留）→ `git push origin <tag>` 重推同 sha 重触发整条流水线（~22 分钟）。产物重传无害，L5 祖先校验对同 commit 必过。
+- 教训通式：发布链最后一步红先分清「产物问题」还是「API 抖动」——看注解指向哪个 REST 端点 + release 是否已存在；API 抖动的恢复动作是重触发而不是改代码。
