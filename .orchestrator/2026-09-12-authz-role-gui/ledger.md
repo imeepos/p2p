@@ -36,3 +36,12 @@ Guesses:
 - 2026-09-12 22:54 plan v1 + 两份任务书落盘，SESSIONS.md 认领登记，提交存档，
   双 worktree 建立，两卡并行派发（session_link_create greeting=任务书全文）。
   下一步: 结束回合等回报；等待窗口做 wtd-gui 残留核查收尾准备。
+- 2026-09-12 23:19 TA 回报 DONE（三分支提交，头 e865ee8a，已 push origin）。
+  主控亲核: diff 复核（update_role 显式失败分叉无半态；四命令契约逐字；
+  tsv 四行带理由；§18.5 完整）+ worktree 亲跑 cargo test -p p2p-authz
+  46 passed exit 0。TA 三点备注均合理（tsv 豁免理由按事实修正、update 无审计
+  留后续轮、合并留主控）。完成了吗: TA 验收通过。下一步: 分支全量 make check
+  （bash-291）绿后按收尾四步合并 TA；等 TB。
+- 2026-09-12 23:19 Ruling: TA 备注「任务书原文称 role create 表外 key 报错附
+  清单」系主控笔误，实际附清单的是 authz check 面——按事实落表，exempt 结论
+  不变。依据: p2p-cli access.rs:38。错了的代价: 无（结论未变，仅理由修正）。
