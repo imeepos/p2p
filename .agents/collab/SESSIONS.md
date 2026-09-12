@@ -7,3 +7,9 @@
 - [释放] 2026-09-12 session-89ef72dc（dev-orchestrator）：tunnel 泛化波收官，
   六卡全并，main==origin/main @ 8d64663f（代码认证基 8f8e0daf，bash-203 全量
   绿），TE/TD 会话归档。tunnel 域 scope 释放。
+- [认领] 2026-09-12 session-31ed5fb1-8ca8-4500-9ee6-1fa8a9c1c81d（dev-orchestrator）：认领
+  authz 角色权限 GUI 化波（.orchestrator/2026-09-12-authz-role-gui/）——scope：
+  crates/p2p-authz（update_role）、apps/gui/src-tauri authz 命令面、apps/gui authz 前端域
+  （views/contacts 角色管理 + stores/authz-store + lib/ipc* + mock-authz + i18n
+  contacts.authz.manager.* 键块）、scripts/check/cli-parity.tsv authz 段、
+  docs/design/gui-contract.md §18。分支前缀 feat/wra-*。来源：用户直接指令。
