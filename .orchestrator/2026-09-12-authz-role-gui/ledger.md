@@ -45,3 +45,8 @@ Guesses:
 - 2026-09-12 23:19 Ruling: TA 备注「任务书原文称 role create 表外 key 报错附
   清单」系主控笔误，实际附清单的是 authz check 面——按事实落表，exempt 结论
   不变。依据: p2p-cli access.rs:38。错了的代价: 无（结论未变，仅理由修正）。
+- 2026-09-12 23:20 等待窗口: main 推送 origin（172ecac1，pre-push 快门禁 PASS）；
+  wtd-gui 残留实为非注册 worktree 的空目录（仅空 apps/ 子目录，git toplevel 解析
+  回主仓），已删除。.worktrees 现仅 wra-backend / wra-frontend。
+  在飞: TA 全量 make check（bash-291）、TB 前端卡。零迹象判据已具备（两 worktree
+  均有提交/门禁活动迹象）。
