@@ -1,8 +1,9 @@
 // pump 进程内状态编排（契约 §15，INLINE-ACP-PUMP 起为 in-process 装配）：订阅
 // acp-console 状态面，connected 即幂等登记「本机 agent」端点并自动连接、自动开
-// 新会话（/chat?agent=<本机id> 零二次点击直落）。peer 不在契约 status 内，从
-// console 发现面解析（首条发现条目 = 本机 agent，单机默认拓扑）；解析不到走有
-// 界轮询并显式留痕，绝不静默、绝不连接风暴。
+// 新会话（/chat?agent=<本机id> 零二次点击直落）。peer 不在契约 status 内，解析
+// 顺序：① 本机 agent 自描述文件（~/.dsh/acp/local-agent.json，持久身份，开箱
+// 即连主路径）→ ② console 发现面轮询（首条发现条目，agent 从未落盘时回落）；
+// 都解析不到显式留痕挂起，绝不静默、绝不连接风暴。
 import { ipc } from "@/lib/ipc";
 import type { AcpConsoleStatus } from "@/lib/ipc-types";
 import i18n from "@/i18n";
@@ -12,7 +13,9 @@ import {
   fetchDiscoveryPeers,
   localAgentEndpointOf,
   mergeLocalAgent,
+  stampLocalPeer,
 } from "./console-client";
+import { fetchLocalAgentPeer } from "./local-agent-peer";
 import { persistStored } from "./endpoint-storage";
 import type { AcpEndpoint } from "./protocol";
 import { useAcpStore } from "./acp-store";
@@ -26,6 +29,7 @@ let unsubscribe: (() => void) | null = null;
 let pollTimer: ReturnType<typeof setTimeout> | null = null;
 let pollAttempts = 0;
 let lastAutoKey = "";
+let descriptorInFlight = false;
 
 const DISCOVERY_POLL_MS = 1_000;
 const DISCOVERY_MAX_ATTEMPTS = 10;
@@ -86,17 +90,59 @@ function resolvePeerFromDirectory(): boolean {
   const discovered = s.directory.find((e) => e.source === "discovered");
   const draft = localAgentEndpointOf(s.console);
   if (!discovered || !draft) return false;
-  const merge = mergeLocalAgent(s.saved, draft, i18n.t("acp.console.localAgentName"));
   // mergeLocalAgent 保留用户 peer（本处为空才解析）：解析结果显式回写存档
-  const stamped: AcpEndpoint = { ...merge.endpoint, peer: discovered.peer };
-  const saved = merge.saved.map((e) =>
-    e.endpointId === LOCAL_AGENT_ENDPOINT_ID ? stamped : e,
+  const stamped = stampLocalPeer(
+    s.saved,
+    draft,
+    discovered.peer,
+    i18n.t("acp.console.localAgentName"),
   );
-  useAcpStore.setState({ saved });
-  persistStored({ draft: get().draft, saved });
+  useAcpStore.setState({ saved: stamped.saved });
+  persistStored({ draft: get().draft, saved: stamped.saved });
   setNotice(null);
-  startAutoConnect(stamped);
+  startAutoConnect(stamped.endpoint);
   return true;
+}
+
+/** 描述文件解析 peer（开箱主路径）：stamp 进存档并自动连接；不可用返回 false 回落发现面 */
+async function resolvePeerFromDescriptor(): Promise<boolean> {
+  if (descriptorInFlight) return false;
+  descriptorInFlight = true;
+  try {
+    const peer = await fetchLocalAgentPeer();
+    const s = get();
+    if (
+      !peer ||
+      s.console?.phase !== "connected" ||
+      s.saved.some((e) => e.endpointId === LOCAL_AGENT_ENDPOINT_ID && e.peer)
+    ) {
+      return false;
+    }
+    const draft = localAgentEndpointOf(s.console);
+    if (!draft) return false;
+    const stamped = stampLocalPeer(s.saved, draft, peer, i18n.t("acp.console.localAgentName"));
+    useAcpStore.setState({ saved: stamped.saved });
+    persistStored({ draft: get().draft, saved: stamped.saved });
+    setNotice(null);
+    startAutoConnect(stamped.endpoint);
+    return true;
+  } finally {
+    descriptorInFlight = false;
+  }
+}
+
+/** connected 后 peer 缺失的解析编排：描述文件优先，失败回落发现面轮询 */
+function resolvePeerFallbackToDiscovery(status: AcpConsoleStatus): void {
+  void resolvePeerFromDescriptor().then((resolved) => {
+    if (resolved || stage !== "registered") return;
+    if (get().console?.phase !== "connected") return;
+    if (status.statusUrl && status.token) {
+      startDiscoveryPoll(status.statusUrl, status.token);
+    } else {
+      console.warn("[acp] connected 快照缺 statusUrl：无法解析本机 agent peer，自动流程挂起");
+      setNotice("acp.console.resolveFailed");
+    }
+  });
 }
 
 function startDiscoveryPoll(statusUrl: string, token: string): void {
@@ -163,12 +209,7 @@ function applyConsoleStatus(status: AcpConsoleStatus): void {
     startAutoConnect(merge.endpoint);
     return;
   }
-  if (status.statusUrl && status.token) {
-    startDiscoveryPoll(status.statusUrl, status.token);
-  } else {
-    console.warn("[acp] connected 快照缺 statusUrl：无法解析本机 agent peer，自动流程挂起");
-    setNotice("acp.console.resolveFailed");
-  }
+  resolvePeerFallbackToDiscovery(status);
 }
 
 function ensureStoreSubscription(): void {
@@ -239,6 +280,7 @@ export function resetConsoleWatchForTest(): void {
   stage = "idle";
   lastAutoKey = "";
   watching = false;
+  descriptorInFlight = false;
   unsubscribe?.();
   unsubscribe = null;
 }

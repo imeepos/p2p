@@ -8,6 +8,7 @@ vi.stubEnv("VITE_MOCK_IPC", "1");
 
 const { mockAcpConsole: mockAcpWs, MockSocket } = await import("./mock-acp-ws");
 const { mockAcpConsole } = await import("@/lib/mock-acp-console");
+const { mockBackend } = await import("@/lib/mock-ipc");
 const { setWsFactory } = await import("./ws-factory");
 const { useAcpStore } = await import("./acp-store");
 const { ensureConsoleWatch, resetConsoleWatchForTest } = await import("./console-watch");
@@ -15,6 +16,7 @@ const { LOCAL_AGENT_ENDPOINT_ID } = await import("./console-client");
 await import("@/i18n");
 
 const PEER = "UYJtjuS5i36uXyv74V6aJDHbuShQsFAsZaHaJmRU2pX";
+const DESC_PEER = "2mzDescStubPeer9XGGUa3KguQQGc1Mc8LwNsVUZXk";
 
 function stubDiscoveryFetch(): void {
   vi.stubGlobal("fetch", vi.fn(async () => ({
@@ -50,6 +52,7 @@ afterEach(() => {
   resetConsoleWatchForTest();
   setWsFactory(null);
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   useAcpStore.getState().disconnect();
 });
 
@@ -107,5 +110,78 @@ describe("console-watch 自动登记与零点击直达（契约 §15）", () => 
       expect(useAcpStore.getState().activeEndpointId).toBe(LOCAL_AGENT_ENDPOINT_ID);
       expect(useAcpStore.getState().phase).toBe("online");
     });
+  });
+});
+
+describe("console-watch 零配置 peer 解序（描述文件优先，发现面回落）", () => {
+  it("本机自描述带 peer：开箱即连，全程不触碰发现面", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const spy = vi.spyOn(mockBackend, "acpLocalDescriptor").mockResolvedValue({
+      adminUrl: "http://127.0.0.1:8123",
+      token: "desc-tok",
+      peer: DESC_PEER,
+      agentName: "home-agent",
+      writtenAtUnix: 1_725_700_000,
+    });
+    try {
+      // mock WS 校验 peer 白名单：descriptor 直取的 peer 必须在拨号白名单内
+      mockAcpWs.configure({ token: "mock-console-token", peers: [DESC_PEER] });
+      ensureConsoleWatch();
+      emitConnected();
+      await vi.waitFor(() => {
+        expect(useAcpStore.getState().phase).toBe("online");
+        expect(useAcpStore.getState().activeEndpointId).toBe(LOCAL_AGENT_ENDPOINT_ID);
+      });
+      const local = useAcpStore
+        .getState()
+        .saved.find((e) => e.endpointId === LOCAL_AGENT_ENDPOINT_ID);
+      expect(local!.peer).toBe(DESC_PEER);
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("存量端点已带 peer：直接连接，不再查询描述文件（幂等零开销）", async () => {
+    useAcpStore.setState({
+      saved: [
+        {
+          endpointId: LOCAL_AGENT_ENDPOINT_ID,
+          wsUrl: "ws://127.0.0.1:8787",
+          token: "mock-console-token",
+          peer: PEER,
+          alias: "本机 agent",
+        },
+      ],
+    });
+    const spy = vi.spyOn(mockBackend, "acpLocalDescriptor");
+    try {
+      ensureConsoleWatch();
+      emitConnected();
+      await vi.waitFor(() => expect(useAcpStore.getState().phase).toBe("online"));
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("描述缺失（agent 从未落盘）：回落发现面轮询解析 peer", async () => {
+    stubDiscoveryFetch();
+    const spy = vi.spyOn(mockBackend, "acpLocalDescriptor").mockResolvedValue(null);
+    try {
+      ensureConsoleWatch();
+      emitConnected();
+      await vi.waitFor(() => {
+        expect(useAcpStore.getState().phase).toBe("online");
+      });
+      expect(
+        useAcpStore
+          .getState()
+          .saved.find((e) => e.endpointId === LOCAL_AGENT_ENDPOINT_ID)!.peer,
+      ).toBe(PEER);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

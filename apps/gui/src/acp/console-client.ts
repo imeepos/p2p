@@ -174,6 +174,21 @@ export function mergeLocalAgent(
   return { saved: out, endpoint: merged, changed };
 }
 
+/** 解析出的 peer 回填本机 agent 端点（descriptor/发现面共用）：幂等改写存档档位 */
+export function stampLocalPeer(
+  saved: AcpEndpoint[],
+  draft: AcpEndpoint,
+  peer: string,
+  alias: string,
+): { saved: AcpEndpoint[]; endpoint: AcpEndpoint } {
+  const merge = mergeLocalAgent(saved, draft, alias);
+  const endpoint: AcpEndpoint = { ...merge.endpoint, peer };
+  const out = merge.saved.map((e) =>
+    e.endpointId === LOCAL_AGENT_ENDPOINT_ID ? endpoint : e,
+  );
+  return { saved: out, endpoint };
+}
+
 const DENIED_UNAVAILABLE: ConnectShareOutcome = {
   ok: false,
   peer: null,
