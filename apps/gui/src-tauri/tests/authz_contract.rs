@@ -2,7 +2,10 @@
 //! p2p-cli 报告类型的 camelCase 逐字断言（expiresAt skip-none 先例）。
 
 use p2p_cli::authz::{BindReport, RoleListReport, RoleView, UnbindReport};
-use p2p_console::authz::{AuthzBindingJson, AuthzBindingsReport, AuthzDefaultRoleReport};
+use p2p_console::authz::{
+    AuthzBindingJson, AuthzBindingsReport, AuthzDefaultRoleReport, AuthzPermissionsReport,
+    AuthzRoleDeleteReport, AuthzRoleMutationReport,
+};
 use serde_json::json;
 
 #[test]
@@ -122,4 +125,47 @@ fn p2p_cli_role_and_unbind_report_shapes() {
         json!({ "peerId": "PeerA", "roleId": "ally" }),
         "UnbindReport 形状"
     );
+}
+
+#[test]
+fn authz_role_admin_report_shapes() {
+    let encoded = serde_json::to_value(AuthzPermissionsReport {
+        permissions: vec!["chat.send".into(), "llm.borrow".into()],
+    })
+    .expect("序列化");
+    assert_eq!(
+        encoded,
+        json!({ "permissions": ["chat.send", "llm.borrow"] }),
+        "§18.5 闭集枚举返回形状"
+    );
+
+    let mutation = AuthzRoleMutationReport {
+        role: RoleView {
+            role_id: "tester".into(),
+            name: "测试员".into(),
+            permissions: vec!["chat.send".into()],
+            builtin: false,
+            note: "备注".into(),
+        },
+    };
+    let encoded = serde_json::to_value(&mutation).expect("序列化");
+    assert_eq!(
+        encoded,
+        json!({
+            "role": {
+                "roleId": "tester",
+                "name": "测试员",
+                "permissions": ["chat.send"],
+                "builtin": false,
+                "note": "备注",
+            }
+        }),
+        "role 视图与 role_list 同源（§18.2 AuthzRoleView 逐字）"
+    );
+
+    let encoded = serde_json::to_value(AuthzRoleDeleteReport {
+        role_id: "tester".into(),
+    })
+    .expect("序列化");
+    assert_eq!(encoded, json!({ "roleId": "tester" }), "§18.5 删除返回形状");
 }

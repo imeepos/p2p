@@ -13,9 +13,10 @@
 
 use std::path::Path;
 
-use p2p_authz::SystemClock;
+use p2p_authz::{Permission, SystemClock};
 use p2p_cli::authz::{
-    bind, check, role_list, unbind, BindReport, CheckReport, RoleListReport, UnbindReport,
+    bind, check, role_create, role_delete, role_list, unbind, BindReport, CheckReport,
+    RoleListReport, RoleView, UnbindReport,
 };
 use serde::Serialize;
 use tauri::State;
@@ -156,4 +157,88 @@ pub async fn authz_default_role_save(
     cfg.authz_default_role = role_id.clone();
     state.config_save(cfg)?;
     Ok(AuthzDefaultRoleReport { role_id })
+}
+
+// ── §18.5 角色管理命令面（authz 角色管理波）：闭集枚举 + 角色 create/update/delete ──
+
+/// authz_permissions_list 返回：§4 闭集 key 全集。
+#[derive(Debug, Serialize)]
+pub struct AuthzPermissionsReport {
+    pub permissions: Vec<String>,
+}
+
+/// authz_role_create / authz_role_update 返回：角色视图与 role_list 的角色
+/// 形状同源（p2p-cli RoleView，camelCase = 契约 §18.5 AuthzRoleView）。
+#[derive(Debug, Serialize)]
+pub struct AuthzRoleMutationReport {
+    pub role: RoleView,
+}
+
+/// authz_role_delete 返回。
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthzRoleDeleteReport {
+    pub role_id: String,
+}
+
+/// authz_permissions_list：§4 闭集九 key（Permission::registry() 顺序，前端
+/// 权限复选框数据源）；静态只读不触存储，无 CLI 对等面（cli-parity exempt）。
+#[tauri::command]
+pub async fn authz_permissions_list() -> Result<AuthzPermissionsReport, String> {
+    Ok(AuthzPermissionsReport {
+        permissions: Permission::registry()
+            .iter()
+            .map(|p| p.as_str().to_owned())
+            .collect(),
+    })
+}
+
+/// authz_role_create：新建自定义角色（roleId 校验/内建冲突/表外 key 在
+/// core 层显式拒）；复用 p2p-cli 逻辑层，成功落 authz.role.created 审计。
+/// permissions 不设最小项数（与 CLI 对齐，前端自校验 ≥1）。
+#[tauri::command]
+pub async fn authz_role_create(
+    state: State<'_, AppState>,
+    role_id: String,
+    name: String,
+    permissions: Vec<String>,
+    note: String,
+) -> Result<AuthzRoleMutationReport, String> {
+    let dir = data_dir(&state);
+    let report = role_create(&dir, &role_id, Some(&name), &permissions, Some(&note))?;
+    Ok(AuthzRoleMutationReport { role: report.role })
+}
+
+/// authz_role_update：整体替换自定义角色 name/permissions/note（role_id
+/// 不可变，改 id = 删+建）；内建拒改/未登记拒/表外 key 拒均在 core 层。
+#[tauri::command]
+pub async fn authz_role_update(
+    state: State<'_, AppState>,
+    role_id: String,
+    name: String,
+    permissions: Vec<String>,
+    note: String,
+) -> Result<AuthzRoleMutationReport, String> {
+    let dir = data_dir(&state);
+    let role = p2p_authz::Authz::new(Path::new(&dir), SystemClock)
+        .update_role(&role_id, &name, &permissions, &note)
+        .map_err(|e| e.to_string())?;
+    Ok(AuthzRoleMutationReport {
+        role: RoleView::from(&role),
+    })
+}
+
+/// authz_role_delete：删自定义角色；加好友默认角色闸在命令层（authzDefaultRole
+/// 相等即拒，防悬空默认角色，对齐 default_role_save 的存在性校验语义）；
+/// 内建拒删/绑定引用拒在 core 层；成功落 authz.role.deleted 审计。
+#[tauri::command]
+pub async fn authz_role_delete(
+    state: State<'_, AppState>,
+    role_id: String,
+) -> Result<AuthzRoleDeleteReport, String> {
+    if state.config_get().authz_default_role == role_id {
+        return Err("该角色是加好友默认角色，请先更改默认角色再删除".into());
+    }
+    role_delete(&data_dir(&state), &role_id)?;
+    Ok(AuthzRoleDeleteReport { role_id })
 }
