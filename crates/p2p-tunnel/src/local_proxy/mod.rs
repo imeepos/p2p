@@ -69,6 +69,9 @@ impl ProxyCtx {
 /// 出处：apps/gui/src-tauri/src/tunnel/proxy.rs:49-102；绑定面 §19.3-1 / §3.3。
 pub struct LocalProxy {
     listener: TcpListener,
+    /// bind 时就地消费 `listener.local_addr()` 的 io::Result 存下的值：
+    /// panic-hygiene 门禁禁非测试路径 expect，local_addr() 直接回存储值。
+    addr: SocketAddr,
     pub ctx: Arc<ProxyCtx>,
 }
 
@@ -83,8 +86,10 @@ impl LocalProxy {
         opener: Arc<dyn TunnelOpener>,
     ) -> std::io::Result<Self> {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+        let addr = listener.local_addr()?;
         Ok(Self {
             listener,
+            addr,
             ctx: Arc::new(ProxyCtx::new(
                 target_port,
                 peer_id,
@@ -94,10 +99,10 @@ impl LocalProxy {
         })
     }
 
-    /// 反代监听地址（bind 成功后必有值）。
+    /// 反代监听地址（bind 成功即有值，存于 [Self::addr]）。
     /// 出处：apps/gui/src-tauri/src/tunnel/proxy.rs:76-78。
     pub fn local_addr(&self) -> SocketAddr {
-        self.listener.local_addr().expect("bound listener has addr")
+        self.addr
     }
 
     /// accept 循环；非回环来源直接拒（防绑定面意外暴露）。
