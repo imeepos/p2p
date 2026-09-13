@@ -184,3 +184,68 @@ Deny 一律带 reason 码入审计，不泄细节。
 2. bindings/roles 是否 yrs 化以支持 GUI/CLI 双进程与未来多设备（好友簿先例）？
 3. 撤销是否要求跨面踢会话（红线 3 的加强版）？
 4. chat.send/chat.attachment 何时真正接入判定（如「陌生人消息」特性时）。
+
+## Amended (2026-09-13): chat.send/chat.attachment 接入判定
+
+> 本节为文末增补（服务总控波 A 卡，wave 2026-09-13-service-master，plan §0.5
+> 「chat 收口行为兼容三件套」的契约面），不改动上文任何原文行；与原文冲突处
+> 以本节为准。本节落地即关闭 §14 开放问题 4，并取代 §8 表中「IM 聊天本轮
+> 不接判定」一行（原行保留作历史记录）。实现卡 = B5（crates/p2p-chat、
+> crates/p2p-authz、apps/cli、apps/gui/src-tauri/src/chat.rs）。
+
+### A-1 PEP 语义（入站判定）
+
+- 判定点：p2p-chat 入站单聊消息帧校验后、落库与事件广播前（wire.rs:249-298
+  现状直落库处，append_message :293 / receive_media :265-272 之前）。
+- 判定次序：先 `check(chat.send)`；消息携带媒体附件时再 `check(chat.attachment)`；
+  任一 Deny → 整帧拒收（不部分入库）。
+- Deny 语义（NotBound / Expired / BrokenRole / MissingPerm 四因全适用）：
+  拒收不入库、不广播 chat_message 事件、不向对端回任何帧（拒绝只入审计不回
+  wire，沿 acp session.rs:196 先例）；Deny 因 reason 码入审计
+  （`authz.denied`，含 peer/perm/detail），对端无从区分「未绑/过期/掉线」。
+- 存储故障：authz 读失败 = 拒（红线 2），同走拒收+审计路径，禁止静默放行。
+- 行为兼容锚点：已绑定且未过期的好友聊天零中断（§0.5c 存量回填保证）；
+  群聊路径本轮不动（§14 开放问题，九 key 闭集无群维度）。
+
+### A-2 CheckGate trait 注入方案（依赖方向不变）
+
+- crates/p2p-chat 定义并消费判定口子（chat 感知的是 trait 不是 authz crate，
+  维持 §3「chat 不感知 authz」依赖红线）：
+
+      pub trait CheckGate: Send + Sync {
+          /// 入站消息/媒体准入；Err = 拒（实现方自带 reason 码与审计）。
+          fn admit(&self, peer: &PeerId, media: bool) -> Result<(), Reject>;
+      }
+
+- p2p-chat 未注入 gate 时的行为 = 显式构造参数必填（builder 缺 gate 即编译期
+  不通过），不留「无闸默认放行」的静默回退路径；测试可用恒 Allow/恒 Deny
+  假 gate 注入。
+- authz 适配器（`impl CheckGate for AuthzCheckGate`）由 apps 装配处提供：
+  GUI 在 src-tauri state.rs 装配段注入，CLI 在 daemon 装配处注入；适配器内部
+  调 `Authz::check(peer, CHAT_SEND|CHAT_ATTACHMENT)` 并落审计。
+- 生效面：仅入站判定；本端发送不受 authz 判定（发送侧仍是好友簿语义）。
+
+### A-3 GUI auto-bind 补齐（§0.5b）
+
+- 现状缺口（inventory 问题 4）：auto_bind_default_role 唯一调用点在 CLI
+  chat friend add（friends.rs:166）；GUI chat_friend_invite / chat_invite_accept
+  （chat.rs:41,64）两入口无对应调用。
+- 补齐语义：GUI 邀请发出与接受来邀两入口在成功路径后调用与 CLI 同一
+  default_role 自动绑逻辑（缺省 friend；已有绑定跳过、角色不存在/读失败
+  降级警告，均不阻塞加好友主流程，沿 friends.rs:166 注释口径）。
+
+### A-4 存量回填（§0.5c，幂等）
+
+- 算法：扫描好友簿全集，`有好友关系 && 无 authz 绑定 → 绑 default_role`；
+  已有绑定（含已过期——过期是判定语义，回填不改写用户显式绑定）、未配置
+  default_role、default_role 角色不存在的均跳过；重跑幂等（第二次运行零变更）。
+- 入口（三处同算法）：① `p2pctl authz import friends` 子命令；② GUI/daemon
+  节点启动装配时自动执行一次；③ 每次执行落审计（`authz.import.friends`，
+  含 bound 数与 skipped 数），确保升级后老好友聊天零中断。
+- 回填只增不删：不解绑、不改既有绑定的角色与过期时间。
+
+### A-5 §8 表增行（PEP 表追加，原行不动）
+
+| 面 | 改造后准入判定（Amended 2026-09-13） | 保留防线（全部不动） |
+|---|---|---|
+| IM 聊天（Amended 接入行，取代「本轮不接判定」行） | 入站单聊消息与媒体接收前 `check(chat.send)` / `check(chat.attachment)`，Deny 拒收不入库、审计留痕、不回 wire（A-1/A-2） | 64MiB 附件上限、文件名净化、outbox/群聊既有路径 |
