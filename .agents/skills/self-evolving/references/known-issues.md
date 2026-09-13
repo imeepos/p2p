@@ -683,3 +683,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状：新 crate 首clippy 三连红：bool 断言 `assert_eq!(x, false)`（bool_assert_comparison）、match 形 bool 函数（match_like_matches_macro）、测试 helper 未用（dead_code，--all-targets 也扫非 #[test] 项）。
 - 修法：bool 断言一律 `assert!(!x)`；两分支 bool 函数直接 `matches!` 宏；测试没接的 helper 当轮删掉不留「以后用」。
 - 教训通式：**本项目门禁是 -D warnings，写新代码按 clippy 习惯直接落**（assert!/matches!/无死代码），比先写自然风格再被门禁打回省一轮编译。
+
+## 2026-09-13 git worktree add 超时被杀：分支 ref 已建 + 半截目录未注册，重跑撞 "branch already exists"
+- 症状：`git worktree add .worktrees/x -b feat/x <base>` 超 60s 被杀；重跑同命令报 fatal: a branch named 'feat/x' already exists，且 `git worktree list` 看不到它、目录里只有部分文件。
+- 原因：worktree add 先建分支 ref 再 checkout；被杀后 ref 已存在、注册表未落、checkout 半途——三态残留互不知情。
+- 修法：`rm -rf <残留目录>` 后改用 `git worktree add <目录> <已有分支名>`（attach 不带 -b）；若 ref 指向的基线不对（如指到 origin/main），在 worktree 内 `git merge --ff-only main`（空分支快进零 bubble）或 reset 对齐。慢盘（ext512）上给 worktree add 单独长超时或后台跑。
