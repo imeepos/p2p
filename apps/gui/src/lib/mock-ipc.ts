@@ -32,6 +32,7 @@ import { mockAcpConsole } from "./mock-acp-console";
 import { createMockLlmShare } from "./mock-llm-share";
 import { mockAuthzBackend, mockAuthzController } from "./mock-authz";
 import { createMockServices } from "./mock-services";
+import { createMockTunnelServe } from "./mock-tunnel-serve";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -247,10 +248,16 @@ const mockLlmShare = createMockLlmShare({ selfPeerId: () => state.peerId });
 const mockServices = createMockServices({
   isRunning: () => state.running,
   enableMdns: () => state.config.enableMdns,
-  lanOnly: () => state.config.lanOnly,
+  // GuiConfig.lanOnly 为 serde default 可选字段：缺省 false 与 v11 §16.5 口径一致。
+  lanOnly: () => state.config.lanOnly ?? false,
 });
 (window as unknown as Record<string, unknown>).__MOCK_SERVICES__ =
   mockServices.controller;
+
+// tunnel 被访侧 mock（契约 §19.1）：白名单/受理开关内存态，状态经 tunnelStatus.serve 呈现。
+const mockTunnelServe = createMockTunnelServe({ isRunning: () => state.running });
+(window as unknown as Record<string, unknown>).__MOCK_TUNNEL_SERVE__ =
+  mockTunnelServe.controller;
 
 // llm-share dev 注入入口：offer 五态、拒绝码四值与 stream_broken 相位矩阵（测试/演示共用）。
 (window as unknown as Record<string, unknown>).__MOCK_LLM_SHARE__ = mockLlmShare.controller;
@@ -316,7 +323,11 @@ export const mockBackend: IpcBackend & {
     state.connectedPeers.clear();
     state.metrics.activeConnections = 0;
     state.metrics.relaySessionsActive = 0;
-    if (wasRunning) emit({ type: "node_stopped" });
+    if (wasRunning) {
+      emit({ type: "node_stopped" });
+      // 被访侧槽位随节点卸载（对齐 state.rs clear）：受理回落关闭、白名单清空。
+      mockTunnelServe.controller.reset();
+    }
     return snapshot();
   },
 
@@ -443,7 +454,11 @@ export const mockBackend: IpcBackend & {
     state.connectedPeers.clear();
     state.peerId = randomPeerId();
     state.metrics = emptyMetrics();
-    if (wasRunning) emit({ type: "node_stopped" });
+    if (wasRunning) {
+      emit({ type: "node_stopped" });
+      // 被访侧槽位随节点卸载（对齐 state.rs clear）：受理回落关闭、白名单清空。
+      mockTunnelServe.controller.reset();
+    }
     return snapshot();
   },
 
@@ -488,13 +503,14 @@ export const mockBackend: IpcBackend & {
   async tunnelOpen() {
     throw new Error("mock 环境不支持远程访问：需在桌面应用内使用");
   },
+  ...mockTunnelServe.backend,
   async tunnelStatus() {
     return {
       active: false,
       localAddr: null,
       target: null,
       sessions: [],
-      serve: { enabled: false, allow: [], activeSessions: 0 },
+      serve: mockTunnelServe.status(),
     };
   },
   onTunnelStatus(_handler): Promise<UnlistenFn> {
