@@ -28,6 +28,7 @@ dependencies = [
  "p2p-identity",
  "p2p-log",
  "p2p-protocol",
+ "p2p-service",
  "p2p-transport",
  "serde",
  "serde_json",

@@ -21,6 +21,7 @@ pub mod policy;
 pub mod pump;
 pub mod reattach;
 pub(crate) mod router;
+pub mod services_gate;
 pub mod session;
 pub mod share;
 pub mod subprocess;

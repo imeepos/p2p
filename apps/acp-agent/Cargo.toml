@@ -25,6 +25,8 @@ p2p-discovery = { path = "../../crates/p2p-discovery" }
 p2p-identity = { path = "../../crates/p2p-identity" }
 p2p-log = { path = "../../crates/p2p-log" }
 p2p-protocol = { path = "../../crates/p2p-protocol" }
+# serve.a2a 服务注册表闸（服务总控波 B2）：启动面读 <data-dir>/services.json
+p2p-service = { path = "../../crates/p2p-service" }
 p2p-transport = { path = "../../crates/p2p-transport" }
 async-trait = "0.1"
 clap = { version = "4", features = ["derive"] }
