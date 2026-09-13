@@ -47,7 +47,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 |---|---|---|
 | cargo 在 PATH（`$HOME/.cargo/bin`） | 二进制构建（cargo build/clippy/test） | `cargo: command not found`（退出 127）；先 `export PATH=$HOME/.cargo/bin:$PATH` |
 | macOS 屏幕录制授权 | gui screenshot/record、scripts/ops/ui-regression.sh | 退出 1：CAPTURE_PERMISSION_DENIED（HTTP 403），PNG/GIF 不产出；GUI 重编译后 TCC 授权记录可能失效需重新授权（系统设置 > 隐私与安全性 > 屏幕录制），OS 级授权须人完成 |
-| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、acp share list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show、llm-share provider list/save/remove、a2a list、llm-share share create/list/revoke | —— |
+| 无（离线可跑） | config、profile、chat friends/history/media、chat serve、identity init/show/reset、log tail/path/clear、metrics get、update check/open、node status、acp allow/deny/list、acp share list、llm-share allow/deny/allowlist、llm-share ledger list、llm-share receipt verify、llm-share offer show/unpublish、llm-share provider list/save/remove、a2a list、llm-share share create/list/revoke | —— |
 | 本机身份已初始化（<data-dir>/p2p-data/key.seed） | llm-share offer publish、llm-share ledger balance、llm-share borrow | 退出 1：节点身份加载失败；offer publish 不代生成身份；正向门面是 p2pctl identity init（幂等，显式创建后即可重试） |
 | agent 节点身份已存在（<acp-data-dir>/identity/key.seed，由 acp-agent 首启生成） | acp share create | 退出 1：分享链接需要 agent 身份；CLI 不代生成，先启动一次 acp-agent |
 | 对端在线可达 | chat send（真正送达）、peer dial/connect/ping | chat send 退出 1：超时未送达 status=Pending / 对端身份不符快速失败 status=Failed（均保留本机记录，见 chat send 条目与附录A）；peer 域退出 1 |
@@ -91,7 +91,7 @@ p2pctl 实测 `--help` 命令面，逐条断言本文含该命令条目、参数
 | 撤销分享 | `acp share revoke <SHARE_ID>`（写，须人确认；已绑定 peer 时级联删除其策略条目） |
 | 把借方加入出借 allowlist（可带模型白名单） | `llm-share allow <PEER_ID> --model <M> --json`（写，须人确认；缺 --model 不限模型） |
 | 把借方移出 allowlist / 查 allowlist | `llm-share deny <PEER_ID>`（写，须人确认）/ `llm-share allowlist --json` |
-| 签名发布能力声明 / 查看生效声明与剩余 TTL | `llm-share offer publish --model <M> --spare <M>=<N> --period-ends <DATE> --json`（写，须人确认）/ `llm-share offer show --json` |
+| 签名发布能力声明 / 查看生效声明与剩余 TTL / 撤销声明（停借） | `llm-share offer publish --model <M> --spare <M>=<N> --period-ends <DATE> --json`（写，须人确认）/ `llm-share offer show --json` / `llm-share offer unpublish`（删 offer.json，重启节点后生效） |
 | 查本机流水 / 净差视图 | `llm-share ledger list --json` / `llm-share ledger balance --json`（按 lender+period 切分） |
 | 离线验签收据 | `llm-share receipt verify <PATH> --pubkey <BASE58>`（FAIL 退出 1，stdout 有 verdict 与原因） |
 | 重置身份（红线） | `identity reset`——不可逆，见 §3 |
@@ -1206,6 +1206,32 @@ file=/tmp/demo/p2p-data/llm-share/offer.json
 ```
 --json：同字段 camelCase（声明本体 + remaining_secs/status/file）。
 退出码：从未发布 → 1（提示先 publish）；信封文件损坏 → 1；TTL 过期不是错误：status=expired、remaining_secs≤0 照常输出。
+
+### p2pctl llm-share offer unpublish
+用途：撤销当前能力声明（停借）＝删除 <data-dir>/llm-share/offer.json。删后 serve 装配面读不到 live 信封即不再注册借出 handler（生效时机=借出面下次装配；运行中节点不热更，重启节点后生效）。输出为被撤销声明的最后快照（含撤销时 status）。前置：无（离线可跑；无声明显式报错退出 1，与 show 同口径；TTL 已过期的声明同样可撤销清理）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+peer=7V8SRkBS6XLhS731XBcYbpjGBDctApRsbo49w2xhJGSk
+models=gpt-4o,deepseek-v3
+spare=deepseek-v3=999999999,gpt-4o=1500000
+period_ends=2026-09-30
+max_per_req=gpt-4o=128000
+rate_limit=rpm=10,concurrency=2
+ttl=3600s
+retention=none
+issued_at=1788549309
+expires_at=1788552909
+status=live
+remaining_secs=3600
+file=/tmp/demo/p2p-data/llm-share/offer.json
+revoked=true
+```
+--json：同 show 的 camelCase 快照字段（声明本体 + remaining_secs/status/file；文本形态额外带 revoked=true 行，--json 以快照即撤销事实）。
+退出码：从未发布 → 1（暂无能力声明，无可撤销的 offer）；信封读取失败 → 1；声明文件删除失败（IO）→ 1。
 
 ### p2pctl llm-share ledger list
 用途：查询本机双边流水明细（§5.1 收据，append-only 存储序）。前置：无（离线可跑；流水文件缺失视为空账）。

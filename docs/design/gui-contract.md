@@ -862,12 +862,18 @@ type TunnelErrorCode =
 6. 被访侧服务面准入语义（规范页 §5.2 冻结）：enabled 默认关闭、白名单默认空 =
    全拒、目标 `127.0.0.1:<port>` 精确匹配；`tunnel_serve_start`/`tunnel_serve_stop`
    与每次拒绝都必须可观测（emit tunnel_status 或 Err 可读中文），禁止静默。
-7. 持久化口径：`allow` 累积项持久化（随 GUI 配置存盘，重启保留）；`enabled` 为
-   会话态不持久化，重启回落 false——即重启后白名单仍在但全拒，直到显式开启
-   （「按次开启」语义，对齐规范页 §5.2）。
+7. 持久化口径（2026-09-13 服务总控波 wsm-b2 修订）：`allow` 累积项持久化（随 GUI
+   配置存盘，重启保留）；`enabled` 升级为持久化——`tunnel_serve_start`/`stop`
+   翻转时同步 upsert `<data-dir>/services.json` 的 `serve.tunnel` 条目（先重读
+   合并 + 原子写；开启路径落盘失败 → Err 不开启，关闭路径落盘失败 → 告警日志
+   + 仍关闭），节点重启后按该条目恢复 enabled；无条目缺省仍关。**行为变化点
+   （§20.1 注明）：重启不再回落关闭**——本条 2026-09-13 前的「会话态、重启
+   回落 false」口径废止。
 8. CLI 对等：四条命令登记 cli-parity.tsv exempt——访侧会话与本地反代生命周期绑定
-   GUI 进程内（Tauri 事件 emit + 系统浏览器打开），被访侧 enabled 为不持久化的
-   会话态，均无 CLI 常驻进程面可对等（llm_share_serve_status 先例）；登记随命令
+   GUI 进程内（Tauri 事件 emit + 系统浏览器打开），被访侧 enabled 属 GUI 常驻节点
+   进程内状态（持久化面=§20 services.json，与 headless `p2pctl tunnel serve` 的
+   进程活语义非同一对象），无 GUI 事件面可对等（llm_share_serve_status 先例）；
+   登记随命令
    落地分卡进行（serve 两条随 W-T2，open_dsh/status 随 W-T3）。headless 隧道场景
    已按预留条款落地（2026-09-12，W-T5）：`p2pctl tunnel serve` 前台常驻独立进程
    面（进程活 = enabled，SIGINT/SIGTERM 收口，规范页 §5.2 并发默认值同源）；
