@@ -3,6 +3,12 @@
 //! 返回类型直接复用 p2p-chat 的 serde 形状（字段 camelCase、Option→null，与 §12.3 逐字一致）；
 //! 入参校验（peerId/昵称/addr/文本/媒体）全部在 crate 内完成，命令层只做 base64 解码与
 //! 尺寸预检；Err 一律可读中文（ChatError Display 即中文，节点未启动由 state.chat() 兜底）。
+//!
+//! authz 接线（Amended A-2/A-3/§0.5c）：本模块是 authz 判定核心与 chat
+//! CheckGate trait 的汇合点（§3 双向零依赖适配层），提供 gate 注入句柄。
+
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use base64::Engine;
 use p2p_chat::{ChatFriend, ChatKind, ChatSendReport};
@@ -45,9 +51,12 @@ pub async fn chat_friend_invite(
     addrs: Vec<String>,
 ) -> Result<p2p_chat::InviteReport, String> {
     let chat = state.chat().await?;
-    chat.friend_invite(&peer_id, &nickname, addrs, None)
+    let report = chat
+        .friend_invite(&peer_id, &nickname, addrs, None)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    auto_bind_default_role(&state, &peer_id);
+    Ok(report)
 }
 
 /// chat_invites_list：邀请列表（out 待对方同意 / in 待本机处理）。
@@ -59,7 +68,7 @@ pub async fn chat_invites_list(
     chat.invites_list().map_err(|e| e.to_string())
 }
 
-/// chat_invite_accept：同意来邀——本机立即互为好友并回投 ACCEPT。
+/// chat_invite_accept：同意来邀——本机立即互为好友并回投 ACCEPT（A-3 自动绑）。
 #[tauri::command]
 pub async fn chat_invite_accept(
     state: State<'_, AppState>,
@@ -67,9 +76,12 @@ pub async fn chat_invite_accept(
     nickname: String,
 ) -> Result<ChatFriend, String> {
     let chat = state.chat().await?;
-    chat.invite_accept(&peer_id, &nickname)
+    let friend = chat
+        .invite_accept(&peer_id, &nickname)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    auto_bind_default_role(&state, &peer_id);
+    Ok(friend)
 }
 
 /// chat_invite_reject：拒绝来邀（通知对方尽力而为）。
@@ -221,8 +233,69 @@ pub(crate) fn decode_media_input(
     })
 }
 
-/// base64 字符串的字节数安全上界：每组 4 字符至多 3 字节，余组至多 3 字节。
-/// 仅用于超限粗估（防解码超大载荷浪费内存），精确上限由 crate validate_media 兜底。
+/// base64 字符串的字节数安全上界：每组 4 字符至多 3 字节（超限粗估专用）。
 fn estimated_bytes(b64: &str) -> u64 {
     (b64.len() as u64 / 4 + 1) * 3
+}
+
+// ── authz 接线（Amended A-2/A-3/§0.5c）：判定适配 + 自动绑 + 启动回填 ──
+/// 好友成功路径后的 default_role 自动绑（Amended A-3）：与 CLI friends.rs 同走
+/// p2p-authz 共享实现；降级仅告警不阻塞加好友；数据根同 §18 口径。
+fn auto_bind_default_role(state: &AppState, peer_id: &str) {
+    let dir = state.data_dir().to_path_buf();
+    let role = state.config_get().authz_default_role;
+    match p2p_authz::auto_bind_default_role(&dir, peer_id, &role) {
+        p2p_authz::AutoBind::Warned { reason } => {
+            tracing::warn!(peer_id = %peer_id, reason = %reason, "default_role 自动绑未生效");
+        }
+        other => {
+            if let Some(note) = other.note() {
+                tracing::info!(peer_id = %peer_id, note = %note, "default_role 自动绑");
+            }
+        }
+    }
+}
+
+/// Amended A-2 适配壳：authz 判定核心 → chat CheckGate（Deny 一律 Err）。
+#[allow(dead_code)] // C1 接线（c1-wiring.patch）应用前无调用方
+pub(crate) struct AuthzCheckGate {
+    data_dir: PathBuf,
+}
+
+impl p2p_chat::CheckGate for AuthzCheckGate {
+    fn admit(&self, peer: &p2p_chat::PeerId, media: bool) -> Result<(), p2p_chat::Reject> {
+        p2p_authz::chat_admit(&self.data_dir, &peer.to_string(), media).map_err(|deny| {
+            p2p_chat::Reject {
+                reason: deny.reason,
+            }
+        })
+    }
+}
+
+/// C1 接线句柄：state.rs chat 装配段经此注入（数据根=app 数据目录，§18）。
+#[allow(dead_code)] // C1 接线（c1-wiring.patch）应用前无调用方
+pub(crate) fn authz_chat_gate(data_dir: PathBuf) -> Arc<dyn p2p_chat::CheckGate> {
+    Arc::new(AuthzCheckGate { data_dir })
+}
+
+/// C1 接线回填（§0.5c）：启动等价执行一次 authz import friends（幂等，
+/// 失败降级 warn 不阻断启动）。
+#[allow(dead_code)] // C1 接线（c1-wiring.patch）应用前无调用方
+pub(crate) fn startup_import_friends(data_dir: &Path, default_role: &str) {
+    let friends = match p2p_chat::friends_book(data_dir) {
+        Ok(friends) => friends,
+        Err(e) => {
+            tracing::warn!(error = %e, "好友簿读取失败，chat 存量回填跳过");
+            return;
+        }
+    };
+    let peers: Vec<String> = friends.iter().map(|f| f.peer_id.clone()).collect();
+    match p2p_authz::import_friends(data_dir, &peers, default_role) {
+        Ok(report) => tracing::info!(
+            bound = report.bound,
+            skipped = report.skipped,
+            "chat 存量好友 authz 回填完成"
+        ),
+        Err(e) => tracing::warn!(error = %e, "chat 存量好友 authz 回填失败"),
+    }
 }
