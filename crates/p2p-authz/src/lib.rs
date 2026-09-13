@@ -16,6 +16,7 @@
 //! default_role 自动绑（[auto_bind]）为本 crate 提供的共享逻辑面（Amended A-1/A-3/A-4）。
 
 pub mod audit;
+pub mod auto_bind;
 pub mod binding;
 pub mod clock;
 pub mod decision;
@@ -32,6 +33,9 @@ pub mod store;
 mod audit_tests;
 
 #[cfg(test)]
+mod auto_bind_tests;
+
+#[cfg(test)]
 mod engine_tests;
 
 #[cfg(test)]
@@ -44,6 +48,7 @@ mod ops_tests;
 mod store_tests;
 
 pub use audit::{AuditEvent, AuditKind};
+pub use auto_bind::{auto_bind_default_role, AutoBind};
 pub use binding::Binding;
 pub use clock::{Clock, SystemClock};
 pub use decision::{Decision, DenyReason};

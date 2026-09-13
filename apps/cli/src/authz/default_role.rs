@@ -1,86 +1,28 @@
 //! default_role 自动绑（authz-a3-plan §1 S2 P1d）：p2pctl friend add 成功后
 //! 按配置 authz.default_role（camelCase authzDefaultRole，缺省 friend；空串=
-//! 禁用）自动绑定。已有绑定跳过（不覆盖既有授权，防 ally 被降级覆写）；角色
-//! 不存在/存储读失败降级为警告不阻塞加好友（自动绑是旁路糖，执行判定另有
-//! 默认拒绝防线）；绑定成功事件由 p2p-cli authz bind 接线落审计（P1b）。
+//! 禁用）自动绑定。共享实现已下沉 p2p-authz（GUI 邀请/接受两入口同源消费，
+//! Amended A-3 / inventory 问题 4 收口）；本层只读 GuiConfig 并转发，行为与
+//! 下沉前逐字一致（回归测试原样保留）。
 
 use std::path::Path;
-
-use p2p_authz::store;
 
 use crate::paths::Paths;
 use crate::store::load_config;
 
-use p2p_cli::authz;
+pub use p2p_authz::AutoBind;
 
-/// 自动绑结果（测试与文案分叉的判别面）。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum AutoBind {
-    /// 配置空串：显式禁用，不做任何事。
-    Disabled,
-    /// peer 已有绑定（含既有角色 id），跳过。
-    SkippedAlreadyBound { role_id: String },
-    /// 绑定成功（落 authz.bound 审计事件）。
-    Bound { role_id: String },
-    /// 降级警告（角色不存在/存储读失败/绑定写失败），不阻塞加好友。
-    Warned { reason: String },
-}
-
-impl AutoBind {
-    /// 用户可见的追加说明（None = 无需追加文案）。
-    pub fn note(&self) -> Option<String> {
-        match self {
-            AutoBind::Disabled => None,
-            AutoBind::SkippedAlreadyBound { role_id } => {
-                Some(format!("已持有绑定 {role_id}，跳过自动绑"))
-            }
-            AutoBind::Bound { role_id } => Some(format!("已自动绑定默认角色 {role_id}")),
-            AutoBind::Warned { reason } => Some(format!("警告: 默认角色自动绑未生效（{reason}）")),
-        }
-    }
-}
-
-/// friend add 成功后的自动绑入口：读配置 → 既有绑定检查 → bind。
-/// 全程不返回 Err——自动绑失败只降级为 [AutoBind::Warned]。
+/// friend add 成功后的自动绑入口：读配置 → 共享实现（跳过/绑定/降级语义见
+/// p2p_authz::auto_bind）。全程不返回 Err——失败只降级为 [AutoBind::Warned]。
 pub fn auto_bind_default_role(data_dir: &str, peer_id: &str) -> AutoBind {
     let cfg = load_config(&Paths::new(data_dir));
-    let role_id = cfg.authz_default_role;
-    if role_id.is_empty() {
-        return AutoBind::Disabled;
-    }
-    // 既有绑定检查：读失败按警告降级（不阻塞加好友；判定面另有读失败=拒）。
-    let bindings = match store::load_bindings(Path::new(data_dir)) {
-        Ok(bindings) => bindings,
-        Err(e) => {
-            return AutoBind::Warned {
-                reason: format!("authz 绑定表读失败: {e}"),
-            }
-        }
-    };
-    if let Some(existing) = bindings.iter().find(|b| b.peer_id == peer_id) {
-        return AutoBind::SkippedAlreadyBound {
-            role_id: existing.role_id.clone(),
-        };
-    }
-    // bind 内部：角色不存在显式报错 → 降级警告；成功 → 落 authz.bound 审计。
-    match authz::bind(
-        data_dir,
-        peer_id,
-        &role_id,
-        None,
-        Some("auto: default_role"),
-    ) {
-        Ok(_) => AutoBind::Bound { role_id },
-        Err(e) => AutoBind::Warned {
-            reason: format!("绑定角色 {role_id} 失败: {e}"),
-        },
-    }
+    p2p_authz::auto_bind_default_role(Path::new(data_dir), peer_id, &cfg.authz_default_role)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use p2p_authz::audit::audit_path;
+    use p2p_authz::store;
     use p2p_cli::authz::bind;
 
     fn temp_dir(tag: &str) -> String {
