@@ -1,6 +1,6 @@
 //! authz 命令域（authz-role-design §10，§12 A1/A2）：role list/show/create/delete、
 //! bind/unbind（--expires Unix 秒）、check（dry-run 判定输出 reason）、
-//! import（§9 每面独立迁移子命令：llm-share / a2a / acp）。
+//! import（§9 每面独立迁移子命令：llm-share / a2a / acp / friends）。
 //! 逻辑面在 p2p-cli::authz，本层只做 clap 参数映射与双形态输出
 //! （默认 key=value 文本，--json 结构化）。数据在 <data-dir>/authz/。
 
@@ -9,6 +9,7 @@ mod check;
 pub mod default_role;
 mod import_a2a;
 mod import_acp;
+mod import_friends;
 mod import_llm_share;
 mod role;
 
@@ -45,6 +46,8 @@ pub enum ImportCommand {
     Acp(import_acp::AcpArgs),
     /// llm-share/allowlist.json 借方条目 → 绑定内建角色 ally（幂等可重跑）
     LlmShare(import_llm_share::LlmShareArgs),
+    /// 好友簿存量回填（Amended A-4）：无绑定好友绑 default_role（幂等可重跑）
+    Friends(import_friends::ImportFriendsArgs),
 }
 
 pub async fn run(command: AuthzCommand) -> CliResult<()> {
@@ -56,6 +59,7 @@ pub async fn run(command: AuthzCommand) -> CliResult<()> {
         AuthzCommand::Import { command } => match command {
             ImportCommand::A2a(args) => import_a2a::run(args),
             ImportCommand::Acp(args) => import_acp::run(args),
+            ImportCommand::Friends(args) => import_friends::run(args),
             ImportCommand::LlmShare(args) => {
                 import_llm_share::run(import_llm_share::ImportCommand::LlmShare(args))
             }

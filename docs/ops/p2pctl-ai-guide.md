@@ -1835,6 +1835,23 @@ source=llm-share/allowlist.json role=ally entries=0 imported=0 skipped=0（已�
 ```
 退出码：allowlist 损坏 → 1；空/缺失 → 0。
 
+### p2pctl authz import friends
+用途：存量回填（Amended A-4）：好友簿全量 peer 中无 authz 绑定者绑 default_role（authzDefaultRole，缺省 friend；空串=禁用零变更），幂等可重跑（重跑零新增）；已有绑定（含过期）不改写；每次执行落 authz.import.friends 审计（含 bound/skipped 计数）。前置：无（好友簿缺失输出 0 位照常成功）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+文本：
+```
+authz.default_role 未配置（空串=禁用），扫描 0 位好友，未做任何变更
+```
+或
+```
+好友存量回填完成（default_role=friend）：共 2 位，绑定 2，跳过 0（幂等可重跑）
+```
+--json：role/scanned/bound/skipped/disabled 字段 camelCase。
+退出码：好友簿/authz 表读写失败 → 1（可读报错）；default_role 角色未登记 → 0（整体跳过，审计留痕）。
+
 ### p2pctl tunnel serve
 用途：headless 被访侧隧道服务（gui-contract §19.8 预留条款落地）：前台常驻进程，进程活 = 受理开启（规范页 §5.2「按次开启」的进程级形态），复用 GUI 同源 p2p-tunnel responder（票据→准入→拨本地→哑泵→审计八字段）。SIGINT/SIGTERM 优雅收口：先关新建流（shutdown 码）→ 等在途会话逐条落终态审计 → 超时（10s）显式报错非零退出。前置：无；目标非 `127.0.0.1:<port>` 字面量 / --max-concurrent 0 / 端口绑定失败 → 启动即退（退出码 1，不部分生效）。
 | 参数 | 类型 | 必填 | 默认 |
