@@ -849,3 +849,72 @@ type TunnelErrorCode =
    事件复用 tunnel_status（不新增事件名，§19.2 单一形状不变）。`tunnel_open_dsh`
    保留不废弃：DSH 启动 URL 专用形态（token/path 透传），与通用命令并存，
    语义分层不混同。
+
+## 20. 服务总控（v19 加法，2026-09-13，服务总控波 A 卡契约；设计=docs/design/service-registry-design.md）
+
+本机 owner 对节点服务开关的统一管理面：枚举首批服务闭集（10 项，只加不删）、
+查询与翻转开关。真值源 = `<data-dir>/services.json`（与 authz 数据根同源同根，
+§18 口径；非 GuiConfig.dataDir 节点数据目录的例外同 §18：GUI app 数据目录根）。
+生效时机 = 下次节点启动（不热更）；服务面板对未运行项实时可翻，对运行中项
+提示重启生效。命令参数无效一律 Err 可读中文。
+
+### 20.1 服务清单（闭集 v1，与设计文档 §2 逐字一致）
+
+| serviceId | 型 | 默认 | 语义 |
+|---|---|---|---|
+| serve.llm_share | 布尔型 | off | llm-share 借出总闸：off 即不装配借出（B2） |
+| serve.tunnel | 布尔型 | off | 隧道被访受理持久化闸（B2 收编；重启后不再回落关闭——行为变化点） |
+| serve.a2a | 显式化型 | on | off 等价 acp-agent `--a2a-disabled`（B2） |
+| serve.acp | 显式化型 | on | off 即不受理非 owner ACP 会话（owner 本机面不经此闸） |
+| net.rendezvous_register | 显式化型 | on | 开关 AND bootstrap 非空双条件（默认 on 不改行为） |
+| net.relay | 显式化型 | on | 开关 AND relay_addrs 非空双条件 |
+| net.observe | 显式化型 | on | 开关 AND observation_addrs 非空双条件 |
+| serve.rendezvous_server | 显式化型 | on | 开关 AND public_only 策略双条件 |
+| discovery.mdns | 收编型 | 双读 | services.json 有条目用之，无条目回落 GuiConfig.enableMdns |
+| net.lan_only | 收编型 | 双读 | services.json 条目优先，缺失回落 GuiConfig.lanOnly（B1 补字段+消费，GUI/CLI 同语义） |
+
+### 20.2 命令表（追加；JSON 字段一律 camelCase）
+
+| 命令 | 参数 | 返回 | 语义 |
+|---|---|---|---|
+| services_list | - | { services: ServiceView[] } | 闭集 10 项全量（enabled 为持久化生效值：文件条目优先，缺失按默认/双读回落推导）；requiresRestart = 节点当前运行中（服务开关一律下次启动生效） |
+| services_set_enabled | serviceId: string, enabled: boolean | ServiceMutationReport | upsert 条目并原子写盘（先重读磁盘合并）；serviceId 不在闭集 → Err 可读中文（附闭集清单）；写失败 → Err；不改运行中节点行为，返回 requiresRestart 供面板提示 |
+
+### 20.3 数据类型
+
+```ts
+type ServiceKindJson = "boolean" | "explicit" | "adopted";
+
+interface ServiceView {
+  serviceId: string;         // §20.1 闭集 id
+  kind: ServiceKindJson;     // boolean=布尔型 / explicit=显式化型 / adopted=收编型
+  enabled: boolean;          // 持久化生效值（含默认与双读回落推导）
+  requiresRestart: boolean;  // true = 节点运行中，翻转需重启节点生效
+}
+
+interface ServiceMutationReport {
+  serviceId: string;
+  enabled: boolean;          // 落盘后的持久化值
+  requiresRestart: boolean;  // 节点运行中 = true，面板提示「重启节点后生效」
+}
+```
+
+### 20.4 语义约束（违约即验收红）
+
+1. 闭集纪律：serviceId 逐字取自 §20.1 表（snake_case id 原样透传不转 camel）；
+   表外 id 一律 Err，禁静默忽略。
+2. 存储纪律：services.json 损坏/版本不符/条目越闭集 → services_list 与
+   services_set_enabled 一律 Err 显式报错，禁止静默回退空表（沿 §18.4.4）。
+3. 双读语义（收编型）：services.json 无 discovery.mdns / net.lan_only 条目时
+   分别回落 GuiConfig.enableMdns / GuiConfig.lanOnly；用户翻转即落条目，此后
+   条目权威，旧字段不迁移不删除。
+4. 面板提示语义：requiresRestart=true 时服务面板对运行中项提示「重启节点后
+   生效」；显式化型运行中实际状态由既有状态接口呈现（如
+   llm_share_serve_status.assembled），面板不做本地推导冒充。
+5. CLI 对等：`p2pctl service list` / `service enable <id>` / `service disable
+   <id>` 三命令与 GUI 同源同语义（读同一 services.json，同一双读与闭集报错），
+   登记 cli-parity.tsv mapped——三行由实现卡（wsm-b3）随命令落地填充，本卡
+   仅在 tsv 预留 service 段注释锚点。
+6. 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase）；B 侧 TS 类型与
+   上表逐字一致（ipc-types.ts §20 注释块）；mock 与真实实现同签名；服务清单
+   数据源 = crates/p2p-service 闭集常量表（禁止前端硬编码服务列表）。
