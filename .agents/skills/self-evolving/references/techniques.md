@@ -577,3 +577,11 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 
 - 2026-09-13 wsm-b3：`cargo build 2>&1 | tail` 会让整条流水线退出码变成 tail 的 0，编译红了也显示成功（本轮误判一次）。验证型命令取 `echo EXIT=${PIPESTATUS[0]}`，或先把输出落文件再看 `$?`；「成败判定」与「输出裁剪」必须分开。
 - 2026-09-13 wsm-b3：并行波派发后 origin/main 会在会话开工间隙被主控推进（本轮 fetch 时 origin/main 与数分钟后不一致）。**建分支那一刻**重新 `git fetch && git rev-parse origin/main` 并确认依赖 crate（如契约桩 p2p-service）在树里，再 worktree add；别拿任务书里写的合并号当现场事实。
+
+## 2026-09-14 GUI 错误详情串定位法（error=endpointIncomplete 一问即达）
+- GUI「复制详情」里的 `error=<码> close=<kind>(code=N) ws=<url>` 串由 apps/gui/src/acp/error-help.ts 的 acpErrorDetail 拼装：排查直接 grep 该码（如 endpointIncomplete），命中链路 = store 里 setState({lastError}) 的动作文件（acp-actions.ts/store-events.ts）+ error-help.ts 映射的 i18n 人话文案；ws= 只是端点配置地址随详情带出，不代表连接真的拨过（endpointIncomplete 是 startConnect 的前置校验拦截，缺 draft.token 或 draft.peer，拨号根本没发起）。
+
+## 2026-09-14 首用零手填轮（acp 连接自动补全，ed5ccdd1）
+- mock 链两端对齐：console 状态快照发的 token（mock-console-token）≠ WS mock 校验的默认 token（mock-token），自动补全类流程测试必须 `mockAcpWs.configure({ token, peers })` 显式对齐两端再拨号，否则 401 假挂起超时（与 2026-09-12「GUI mock WS 的 peer 白名单」条同族，token 面补充；console-watch.test 有先例，写测试前先读同类测试）。
+- 改同步动作为 async 而不动时序的手法：async 函数体首个 await 前全同步执行——把 IPC 补全放在「字段缺失才走到」的 await 分支之后，complete 输入路径零时序变化，依赖同步相位落定的调用方（console-watch 的 startAutoConnect → s.connect()）无感知回归。
+- 自造测试助手前先怀疑自己：曾顺手写出无意义的 screen_getConnect 包装（内含死代码），复查时整段删掉回归 screen.getByTestId——测试代码同样过 60 行函数与「不造轮子」红线。
