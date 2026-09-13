@@ -519,3 +519,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-12：react-refresh/only-export-components 门禁禁止组件文件混导出常量/函数（`PERM_LABEL_KEYS` + 组件同文件即双 error）——映射表、规则函数按仓库先例拆独立 `*-rules.ts`/`*-labels.ts` 纯 ts 文件，组件文件只出组件；连带收益是常量文件可被多个组件与测试复用。
 - 2026-09-12 WRA 波：`git merge --ff-only <分支> | head -6 && git push ...` 管道吞掉 merge 退出码（pipeline exit = head 的 0），merge 被拒后 && 链照样把推送全跑了（本次空操作无损害，纯运气）；合并类命令严禁管道化，要 tail 就 `cmd > log 2>&1; echo EXIT=$?` 落盘再读。
 - 2026-09-12 WRA 波：带 cargo target/node_modules 的 worktree（9.3G）`git worktree remove` 默认 60s 超时必被打断成半删态（status 满屏 D），要么 run_in_background 要么放宽超时；半删态收尾用 `git worktree remove --force` 重跑即干净。
+- 2026-09-13 wsm 波：任务书模板「开工前 `git fetch && git rebase origin/main`」在主控未推 main 时不适用——先 `git merge-base --is-ancestor origin/main main` 判断；origin/main 是本地 main 祖先（落后）时，rebase 到它会回退丢掉已合并的契约卡提交，正确基线=任务书点名的本地 main 提交号，偏差在汇报与账本披露即可。
+- 2026-09-13 wsm-b1：给已有 struct 加字段（GuiConfig 加 lan_only）时，先用 `grep -rn "StructName {"` 全树扫字面量构造点再动手——集成测试 tests/ 目录的字面量构造不会被增量编译提前暴露，等全量 cargo test 才炸出 5 处 E0063，白等一轮 10 分钟构建。
