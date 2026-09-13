@@ -17,10 +17,16 @@ async fn main() {
 }
 
 async fn run(cli: Cli) -> Result<(), String> {
-    let config = acp_agent::cli::assemble(&cli).map_err(|err| err.to_string())?;
+    let mut config = acp_agent::cli::assemble(&cli).map_err(|err| err.to_string())?;
     let paths = config.paths();
     ensure_dir(paths.root.as_path())?;
     init_log(&paths.root);
+    // serve.a2a 注册表闸（服务注册表 §2 显式化型，§4.4 与 authz 表同根）：
+    // services.json off → 等价 --a2a-disabled（与显式 flag 取「或」）；读失败
+    // fail-safe 保持既有配置语义，错误显式上告警（§4.2 不静默）。
+    if let Err(err) = acp_agent::services_gate::apply_a2a_gate(&mut config, &paths.root) {
+        tracing::warn!(error = %err, "serve.a2a 注册表闸不可读");
+    }
     let node = p2p::Node::builder()
         .quic_port(config.quic_port)
         .tcp_port(config.tcp_port)
@@ -64,7 +70,7 @@ async fn start_a2a(
     workspaces: std::sync::Arc<acp_agent::WorkspaceStore>,
 ) -> Result<Option<std::sync::Arc<acp_agent::a2a::A2aAdminCtx>>, String> {
     if config.a2a_disabled {
-        eprintln!("acp-agent: a2a disabled (--a2a-disabled)");
+        eprintln!("acp-agent: a2a disabled (--a2a-disabled 或 serve.a2a=off)");
         return Ok(None);
     }
     let keypair = p2p_identity::load_seed(&node_identity_dir(paths).join("key.seed"))
