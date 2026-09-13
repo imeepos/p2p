@@ -1,0 +1,10 @@
+[package]
+name = "p2p-service"
+version.workspace = true
+edition.workspace = true
+description = "服务注册表（service-registry-design）：服务闭集登记、services.json version 信封与原子存储"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
