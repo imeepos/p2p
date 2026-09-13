@@ -18,6 +18,7 @@ use crate::node;
 use crate::peer;
 use crate::profile;
 use crate::relay;
+use crate::service;
 use crate::tunnel;
 use crate::update;
 
@@ -124,5 +125,10 @@ pub enum Command {
     Tunnel {
         #[command(subcommand)]
         command: tunnel::TunnelCommand,
+    },
+    /// 服务总控域：list/enable/disable（gui-contract §20 CLI 对等，服务总控波）
+    Service {
+        #[command(subcommand)]
+        command: service::ServiceCommand,
     },
 }

@@ -56,3 +56,7 @@ async-trait = "0.1"
 # 与发布页白名单校验。
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
 url = "2"
+
+# service 域（gui-contract §20 CLI 对等）：闭集常量表与 services.json 存储在
+# p2p-service（服务总控波 B3，与 GUI services_* 同一真值源）。
+p2p-service = { path = "../../crates/p2p-service" }

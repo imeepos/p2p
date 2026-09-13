@@ -27,6 +27,7 @@ mod peer;
 mod profile;
 mod relay;
 mod report;
+mod service;
 mod store;
 mod tunnel;
 mod types;
@@ -67,5 +68,6 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::A2a { command } => a2a::run(command).await,
         cli::Command::Authz { command } => authz::run(command).await,
         cli::Command::Tunnel { command } => tunnel::run(command).await,
+        cli::Command::Service { command } => service::run(command).await,
     }
 }
