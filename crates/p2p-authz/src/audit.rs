@@ -1,8 +1,8 @@
 //! 审计 sink（authz-a3-plan §1 S2 P1b）：<data>/authz/audit.jsonl append-only，
 //! 一行一个事件。事件形态对齐社区惯例：`{at(RFC3339), actor:"owner", kind,
-//! before, after, note}`；kind 闭集五类（授权变更与判定拒绝），before/after
-//! 为变更前后快照（无则 null）。写失败 `tracing::error` 且不阻塞主操作
-//! （失败必有日志信号，禁止静默丢）；不做哈希链/轮转（plan §4 克制条款）。
+//! before, after, note}`；kind 闭集六类（授权变更、判定拒绝与回填执行摘要），
+//! before/after 为变更前后快照（无则 null）。写失败 `tracing::error` 且不阻塞
+//! 主操作（失败必有日志信号，禁止静默丢）；不做哈希链/轮转（plan §4 克制条款）。
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -36,6 +36,9 @@ pub enum AuditKind {
     /// 判定拒绝（各 PEP 按面采样，acp 面复用既有 AuthzDenied 不双写）。
     #[serde(rename = "authz.denied")]
     Denied,
+    /// 存量好友回填执行摘要（Amended A-4：after 携带 bound/skipped 计数）。
+    #[serde(rename = "authz.import.friends")]
+    ImportFriends,
 }
 
 impl AuditKind {
@@ -46,6 +49,7 @@ impl AuditKind {
             AuditKind::Unbound => "authz.unbound",
             AuditKind::RoleDeleted => "authz.role.deleted",
             AuditKind::Denied => "authz.denied",
+            AuditKind::ImportFriends => "authz.import.friends",
         }
     }
 }
@@ -108,6 +112,16 @@ impl AuditEvent {
     /// 判定拒绝：无状态变更，note 携带面/对象/reason 码（不泄细节，§7）。
     pub fn denied(note: impl Into<String>) -> Self {
         Self::new(AuditKind::Denied, Value::Null, Value::Null, note)
+    }
+
+    /// 回填执行摘要（Amended A-4）：after 携带 bound/skipped 结构化计数。
+    pub fn import_friends(bound: usize, skipped: usize) -> Self {
+        Self::new(
+            AuditKind::ImportFriends,
+            Value::Null,
+            json!({ "bound": bound, "skipped": skipped }),
+            "",
+        )
     }
 }
 

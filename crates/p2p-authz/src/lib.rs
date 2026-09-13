@@ -21,6 +21,7 @@ pub mod binding;
 pub mod clock;
 pub mod decision;
 pub mod engine;
+pub mod import_friends;
 pub mod errors;
 pub mod gate;
 pub mod ops;
@@ -39,6 +40,9 @@ mod auto_bind_tests;
 mod engine_tests;
 
 #[cfg(test)]
+mod import_friends_tests;
+
+#[cfg(test)]
 mod gate_tests;
 
 #[cfg(test)]
@@ -53,6 +57,7 @@ pub use binding::Binding;
 pub use clock::{Clock, SystemClock};
 pub use decision::{Decision, DenyReason};
 pub use engine::AuthzEngine;
+pub use import_friends::{import_friends, ImportFriendsReport};
 pub use errors::AuthzError;
 pub use gate::{chat_admit, ChatGateDeny};
 pub use ops::Authz;
