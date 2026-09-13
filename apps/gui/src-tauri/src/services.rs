@@ -6,8 +6,8 @@
 //! 损坏/版本不符/越闭集显式 Err 不静默（§20.4-2 存储纪律）。
 //!
 //! 收编型双读回落（discovery.mdns←enableMdns、net.lan_only←lanOnly）取自
-//! 持久化配置的 camelCase 契约字面（serde_json Value 直读）：lanOnly 字段
-//! 由 B1 补入 GuiConfig 前，旧文件无此键按 false 兜底，语义与 CLI 镜像一致。
+//! GuiConfig 契约镜像字段（B1 已补 lan_only 并消费，GUI/CLI 同语义）；
+//! p2p-service::switches 是装配层消费面（B1），显式报错面归本命令模块。
 
 use std::path::Path;
 
@@ -15,10 +15,10 @@ use p2p_service::{
     effective_enabled, load_registry, save_registry, ServiceId, ServiceRegistry, ServiceStoreError,
 };
 use serde::Serialize;
-use serde_json::Value;
 use tauri::State;
 
 use crate::state::AppState;
+use crate::types::GuiConfig;
 
 /// §20.3 ServiceView（camelCase 逐字）：kind = boolean|explicit|adopted。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -50,7 +50,7 @@ pub struct ServiceMutationReportJson {
 pub async fn services_list(state: State<'_, AppState>) -> Result<ServicesListReport, String> {
     let node_running = state.status().await.running;
     let registry = load_registry(data_dir(&state)).map_err(store_err)?;
-    let cfg = config_json(&state);
+    let cfg = state.config_get();
     Ok(ServicesListReport {
         services: build_views(&registry, &cfg, node_running),
     })
@@ -99,25 +99,21 @@ fn parse_closed(service_id: &str) -> Result<ServiceId, String> {
     })
 }
 
-/// 生效值（service-registry-design §2 双读规则），推导委托 p2p-service。
-fn effective(id: ServiceId, registry: &ServiceRegistry, cfg: &Value) -> bool {
+/// 生效值（service-registry-design §2 双读规则），推导委托 p2p-service；
+/// legacy 取值用 GuiConfig 契约镜像（与 apps/cli service 域同形状）。
+fn effective(id: ServiceId, registry: &ServiceRegistry, cfg: &GuiConfig) -> bool {
     let legacy = match id {
-        ServiceId::DISCOVERY_MDNS => Some(flag(cfg, "enableMdns", true)),
-        ServiceId::NET_LAN_ONLY => Some(flag(cfg, "lanOnly", false)),
+        ServiceId::DISCOVERY_MDNS => Some(cfg.enable_mdns),
+        ServiceId::NET_LAN_ONLY => Some(cfg.lan_only),
         _ => None,
     };
     effective_enabled(id, registry, legacy)
 }
 
-/// 持久化配置 camelCase 键直读：键缺失/类型不符按出厂默认兜底。
-fn flag(cfg: &Value, key: &str, default: bool) -> bool {
-    cfg.get(key).and_then(Value::as_bool).unwrap_or(default)
-}
-
 /// 闭集全量视图（registry 顺序 = §20.1 表顺序）。
 fn build_views(
     registry: &ServiceRegistry,
-    cfg: &Value,
+    cfg: &GuiConfig,
     node_running: bool,
 ) -> Vec<ServiceViewJson> {
     ServiceId::registry()
@@ -146,18 +142,6 @@ fn now_unix() -> Result<u64, String> {
         .map_err(|e| format!("系统时钟异常，无法生成 updated_at: {e}"))
 }
 
-/// GuiConfig → Value（收编型 legacy 键读取面）；序列化失败留告警并按空值兜底
-///（enableMdns/lanOnly 缺键回落出厂默认，可观测不静默）。
-fn config_json(state: &State<'_, AppState>) -> Value {
-    match serde_json::to_value(state.config_get()) {
-        Ok(value) => value,
-        Err(e) => {
-            tracing::warn!("GuiConfig 序列化失败，收编型双读回落出厂默认: {e}");
-            Value::Null
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -171,9 +155,14 @@ mod tests {
         dir
     }
 
+    /// 出厂默认配置（serde default 补齐：enableMdns=true、lanOnly=false）。
+    fn default_cfg() -> GuiConfig {
+        serde_json::from_str("{}").unwrap()
+    }
+
     #[test]
     fn build_views_covers_full_closed_set_contract_shape() {
-        let views = build_views(&ServiceRegistry::default(), &Value::Null, true);
+        let views = build_views(&ServiceRegistry::default(), &default_cfg(), true);
         assert_eq!(views.len(), 10);
         let first = &views[0];
         assert_eq!(first.service_id, "serve.llm_share");
@@ -192,8 +181,9 @@ mod tests {
     }
 
     #[test]
-    fn adopted_legacy_fallback_reads_persisted_config_keys() {
-        let cfg: Value = serde_json::from_str(r#"{"enableMdns":false,"lanOnly":true}"#).unwrap();
+    fn adopted_legacy_fallback_reads_typed_config_fields() {
+        let cfg: GuiConfig =
+            serde_json::from_str(r#"{"enableMdns":false,"lanOnly":true}"#).unwrap();
         let registry = ServiceRegistry::default();
         assert!(!effective(ServiceId::DISCOVERY_MDNS, &registry, &cfg));
         assert!(effective(ServiceId::NET_LAN_ONLY, &registry, &cfg));
@@ -203,7 +193,7 @@ mod tests {
     fn entry_overrides_legacy_fallback() {
         let mut registry = ServiceRegistry::default();
         registry.set_enabled(ServiceId::NET_LAN_ONLY, false, 1);
-        let cfg: Value = serde_json::from_str(r#"{"lanOnly":true}"#).unwrap();
+        let cfg: GuiConfig = serde_json::from_str(r#"{"lanOnly":true}"#).unwrap();
         assert!(
             !effective(ServiceId::NET_LAN_ONLY, &registry, &cfg),
             "条目权威"
