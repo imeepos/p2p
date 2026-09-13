@@ -666,3 +666,20 @@ failed: early eof（客户端侧超时中止）。
 - 原因：softprops/action-gh-release@v2 建 release→传资产的 API 序列偶发竞态（GitHub 侧瞬时 Not Found），非代码问题——同 tag 重跑即绿。
 - 修法（无 gh CLI、~/.config/gh/hosts.yml 两个 oauth_token 均已 401 失效、无法 rerun-failed-jobs 时）：`git push origin :refs/tags/<tag>` 删远端 tag（release 未建出则无残留）→ `git push origin <tag>` 重推同 sha 重触发整条流水线（~22 分钟）。产物重传无害，L5 祖先校验对同 commit 必过。
 - 教训通式：发布链最后一步红先分清「产物问题」还是「API 抖动」——看注解指向哪个 REST 端点 + release 是否已存在；API 抖动的恢复动作是重触发而不是改代码。
+
+## 2026-09-13 Rust const fn 不能 match 含 &'static str 字段的自定义类型（E0658）
+- 症状：`pub const fn kind(self) -> Kind { match self { A | B => .., _ => .. } }`（self 是只含 `&'static str` 字段的单元元结构体）编译 14 连错：`cannot match on str in constant functions` + `PartialEq is not yet stable as a const trait`。
+- 原因：const 上下文里 str 比较不走稳定化的 const PartialEq，模式匹配自定义类型即退化为 == 比较。
+- 修法：去掉 `const` 关键字改普通 fn（调用点无一受影响）；非要 const 就 match `self.0` 字面量也不行（str match 同样禁止），只能查表或裸指针比较。
+- 教训通式：**给「常量表 + parse」型 API 写 kind/default 派生方法时，默认直接写普通 fn**；const fn 只对字面量/数值 match 稳定，别先写 const 再被 E0658 打回。
+
+## 2026-09-13 cargo fmt 与 edit 工具竞态：fmt 后必须重读再编辑
+- 症状：跑完 `cargo fmt` 再用 edit 工具改同文件，报「file changed since it was read」；恢复过程中心切反 old/new（想删 helper 反而插了一份），产生重复函数。
+- 原因：fmt 整文件重写在磁盘，edit 的已读快照失效；补救时凭记忆构造 old_string 没有先重读，方向搞反。
+- 修法：① fmt/clippy --fix 之后的编辑动作，先 grep/read 目标行再 edit；② 每次可疑编辑后立刻 `grep -n` 验证结果形态（重复/缺失当轮抓出）。
+- 教训通式：**任何会重写文件的外部命令（fmt/fix/代码生成）都是 edit 快照的失效事件**，处理顺序固定为：命令 → 重读 → 编辑 → grep 验证。
+
+## 2026-09-13 clippy -D warnings 门禁下新 crate 一次过三件套写法
+- 症状：新 crate 首clippy 三连红：bool 断言 `assert_eq!(x, false)`（bool_assert_comparison）、match 形 bool 函数（match_like_matches_macro）、测试 helper 未用（dead_code，--all-targets 也扫非 #[test] 项）。
+- 修法：bool 断言一律 `assert!(!x)`；两分支 bool 函数直接 `matches!` 宏；测试没接的 helper 当轮删掉不留「以后用」。
+- 教训通式：**本项目门禁是 -D warnings，写新代码按 clippy 习惯直接落**（assert!/matches!/无死代码），比先写自然风格再被门禁打回省一轮编译。
