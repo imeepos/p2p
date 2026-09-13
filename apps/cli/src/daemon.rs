@@ -5,7 +5,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use p2p::Node;
+use p2p::p2p_service::NodeServiceSwitches;
+use p2p::{Node, ServiceSwitches};
 use serde_json::{json, Value};
 use tokio::net::UnixListener;
 
@@ -17,16 +18,23 @@ use crate::paths::{remove_file_if_exists, Paths};
 use crate::store;
 use crate::types::{default_bootstrap, default_observation_addrs, default_relay_addrs, GuiConfig};
 
-/// GuiConfig → Node 装配（与 GUI build_node 同构）。lan-only 时公网三类
-/// 不接线（工厂默认也不回落），仅局域网发现与直连（F8 生效面）。
-async fn build_node(cfg: &GuiConfig) -> Result<Node, String> {
+/// GuiConfig → Node 装配（与 GUI state/node_build 同构）。开关生效值由 run()
+/// 经 services.json 双读解析后传入；lan-only（生效值）时公网三类不接线
+/// （工厂默认也不回落），仅局域网发现与直连（F8 生效面）。
+async fn build_node(cfg: &GuiConfig, switches: NodeServiceSwitches) -> Result<Node, String> {
     let builder = p2p::Node::builder()
         .quic_port(cfg.quic_port)
         .tcp_port(cfg.tcp_port)
-        .mdns(cfg.enable_mdns)
-        .data_dir(PathBuf::from(&cfg.data_dir))
-        .lan_only(cfg.lan_only);
-    if cfg.lan_only {
+        .mdns(switches.mdns)
+        .lan_only(switches.lan_only)
+        .service_switches(ServiceSwitches {
+            rendezvous_register: switches.rendezvous_register,
+            relay: switches.relay,
+            observe: switches.observe,
+            rendezvous_server: switches.rendezvous_server,
+        })
+        .data_dir(PathBuf::from(&cfg.data_dir));
+    if switches.lan_only {
         return builder
             .build()
             .await
@@ -66,7 +74,17 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
         .ensure_dir()
         .map_err(|e| CliError::Runtime(format!("创建数据目录失败: {e}")))?;
     init_log(&paths);
-    let config = store::load_config(&paths);
+    let mut config = store::load_config(&paths);
+    // 服务总控双读（service-registry-design §2/§4.4）：services.json 挂 CLI
+    // 数据根（与 authz 同源同根），条目优先，缺失回落 gui-config 既有字段；
+    // 生效值回填本地 config，daemon.log/meta/status 反映生效配置而非原始文件。
+    let switches = p2p::p2p_service::NodeServiceSwitches::load(
+        &paths.root,
+        config.enable_mdns,
+        config.lan_only,
+    );
+    config.enable_mdns = switches.mdns;
+    config.lan_only = switches.lan_only;
     // F8：外联声明落 daemon.log（可观测）；声明与实连同一份 config，不漂移
     eprintln!(
         "p2pctl-daemon: {}",
@@ -74,7 +92,7 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
             .text()
             .replace('\n', "\np2pctl-daemon: ")
     );
-    let node = build_node(&config)
+    let node = build_node(&config, switches)
         .await
         .map_err(CliError::Runtime)
         .inspect_err(|e| eprintln!("p2pctl-daemon: {e}"))?;

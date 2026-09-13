@@ -18,6 +18,7 @@ fn gui_config_camel_case_roundtrip() {
             "advertisedAddrs": ["9.9.9.9/u4000"],
             "observationPort": 3402,
             "observationAddrs": ["1.2.3.4:3402"],
+            "lanOnly": false,
             "authzDefaultRole": "operator",
         }),
     );
@@ -40,6 +41,7 @@ fn gui_config_optional_port_null_roundtrip() {
             "advertisedAddrs": ["9.9.9.9/u4000"],
             "observationPort": null,
             "observationAddrs": ["1.2.3.4:3402"],
+            "lanOnly": false,
             "authzDefaultRole": "operator",
         }),
     );
@@ -61,6 +63,45 @@ fn gui_config_missing_authz_default_role_fills_friend_default() {
     }))
     .expect("旧版配置可读");
     assert_eq!(cfg.authz_default_role, "friend", "缺字段补缺省 friend");
+}
+
+/// §16.5 lanOnly（inventory 问题 1 断链修复）：旧配置缺字段补缺省 false；
+/// 显式 true 经 camelCase 往返保真（前端设置页开关不再被 serde 丢弃）。
+#[test]
+fn gui_config_lan_only_defaults_false_and_roundtrips() {
+    let cfg: GuiConfig = serde_json::from_value(json!({
+        "quicPort": 3400,
+        "tcpPort": 3401,
+        "enableMdns": true,
+        "dataDir": "/data/p2p-data",
+        "bootstrap": ["1.2.3.4/u3400", "1.2.3.4/t3401"],
+        "relayAddrs": ["5.6.7.8/u3400"],
+        "advertisedAddrs": ["9.9.9.9/u4000"],
+        "observationPort": 3402,
+        "observationAddrs": ["1.2.3.4:3402"],
+    }))
+    .expect("旧版配置（无 lanOnly 字段）可读");
+    assert!(!cfg.lan_only, "缺字段补缺省 false：升级零行为变化");
+
+    roundtrip(
+        &GuiConfig {
+            lan_only: true,
+            ..sample_config()
+        },
+        json!({
+            "quicPort": 3400,
+            "tcpPort": 3401,
+            "enableMdns": true,
+            "dataDir": "/data/p2p-data",
+            "bootstrap": ["1.2.3.4/u3400", "1.2.3.4/t3401"],
+            "relayAddrs": ["5.6.7.8/u3400"],
+            "advertisedAddrs": ["9.9.9.9/u4000"],
+            "observationPort": 3402,
+            "observationAddrs": ["1.2.3.4:3402"],
+            "lanOnly": true,
+            "authzDefaultRole": "operator",
+        }),
+    );
 }
 
 #[test]

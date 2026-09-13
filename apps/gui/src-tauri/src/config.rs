@@ -59,6 +59,7 @@ impl Default for GuiConfig {
             advertised_addrs: Vec::new(),
             observation_port: None,
             observation_addrs: default_observation_addrs(),
+            lan_only: false,
             authz_default_role: default_authz_default_role(),
         }
     }
@@ -235,6 +236,22 @@ mod tests {
             crate::config::default_observation_addrs()
         );
         assert_eq!(cfg.tcp_port, 0);
+        assert!(!cfg.lan_only, "旧配置缺 lanOnly 字段补缺省 false（§16.5）");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// lanOnly 断链修复回归：设置页开关保存后重启仍生效（plan §1 B1 验收）。
+    #[test]
+    fn lan_only_survives_save_load_restart_cycle() {
+        let dir = temp_root("lan-only");
+        let store = ConfigStore::new(dir.join("app"));
+        let mut cfg = store.default_config();
+        assert!(!cfg.lan_only, "出厂默认 false");
+        cfg.lan_only = true;
+        store.save(&cfg).expect("保存 lanOnly=true");
+        // 重启 = 重新 load（新 ConfigStore 实例模拟进程重启）
+        let reloaded = ConfigStore::new(dir.join("app")).load();
+        assert!(reloaded.lan_only, "lanOnly 开关保存后重启仍生效");
         let _ = fs::remove_dir_all(&dir);
     }
 

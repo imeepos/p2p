@@ -12,9 +12,7 @@ use p2p::{Node, NodeEvent};
 use tokio::sync::{broadcast, Mutex};
 use tracing::warn;
 
-use crate::config::{
-    default_bootstrap, default_observation_addrs, default_relay_addrs, ConfigStore,
-};
+use crate::config::ConfigStore;
 use crate::history::{spawn_metrics_sampler, MetricsHistory, MetricsPoint};
 use crate::llm_share::serve::ServeSlot;
 use crate::profile::{NodeProfile, ProfileStore};
@@ -22,6 +20,7 @@ use crate::proto;
 use crate::types::{GuiConfig, MetricsJson, NodeStatus};
 
 mod chat;
+mod node_build;
 mod peers;
 
 /// 运行中的节点及其生效配置。
@@ -89,7 +88,7 @@ impl AppState {
         if slot.is_some() {
             return Err("节点已在运行，请勿重复启动".into());
         }
-        let node = build_node(&cfg).await?;
+        let node = node_build::build_node(&cfg, &self.app_data_dir).await?;
         let echo = proto::EchoHandler::new().map_err(|e| {
             warn!(error = %e, "echo 协议装配失败");
             format!("echo 协议装配失败: {e}")
@@ -276,40 +275,6 @@ impl AppState {
     ) -> Option<Arc<crate::llm_share::serve::gate::AllowlistGate>> {
         self.llm_serve.gate().await
     }
-}
-
-/// 空列表回落出厂默认：serde 默认只兜字段缺失，落盘的显式 `[]`（旧版本配置/
-/// 用户清空）在装配时兜底，兑现空态提示「列表为空时使用出厂默认端点」；
-/// 持久层保持原样不回写。
-fn with_factory_fallback(list: &[String], factory: fn() -> Vec<String>) -> Vec<String> {
-    if list.is_empty() {
-        factory()
-    } else {
-        list.to_vec()
-    }
-}
-
-/// GuiConfig → NodeBuilder 装配（契约 §1 node_start）；空地址列表回落出厂默认。
-async fn build_node(cfg: &GuiConfig) -> Result<Node, String> {
-    let mut builder = Node::builder()
-        .quic_port(cfg.quic_port)
-        .tcp_port(cfg.tcp_port)
-        .bootstrap(with_factory_fallback(&cfg.bootstrap, default_bootstrap))
-        .mdns(cfg.enable_mdns)
-        .data_dir(PathBuf::from(&cfg.data_dir))
-        .relay_addrs(with_factory_fallback(&cfg.relay_addrs, default_relay_addrs))
-        .advertised_addrs(cfg.advertised_addrs.clone());
-    if let Some(port) = cfg.observation_port {
-        builder = builder.observation_responder(port);
-    }
-    builder = builder.observation_addrs(with_factory_fallback(
-        &cfg.observation_addrs,
-        default_observation_addrs,
-    ));
-    builder.build().await.map_err(|e| {
-        warn!(error = %e, "节点装配失败");
-        format!("节点启动失败: {e}")
-    })
 }
 
 /// 删除身份数据目录内的种子文件（装配层固定为 key.seed）；不存在视为已重置。

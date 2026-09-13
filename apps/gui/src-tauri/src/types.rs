@@ -41,6 +41,11 @@ pub struct GuiConfig {
     pub observation_port: Option<u16>,
     #[serde(default = "crate::config::default_observation_addrs")]
     pub observation_addrs: Vec<String>,
+    /// 仅局域网模式（契约 §16.5 加法，F8/服务总控 net.lan_only 收编型）：
+    /// true 时不连任何公共设施，仅局域网发现与直连；缺省 false 零行为变化。
+    /// 节点装配经 services.json 双读消费（条目优先，缺失回落本字段）。
+    #[serde(default)]
+    pub lan_only: bool,
     /// 加好友自动绑角色（契约 §18.3 加法，P1d）：内建或自定义角色 id；
     /// 缺省 "friend"，空串 = 禁用自动绑。CLI 同名同文件消费（§18.3）。
     #[serde(default = "crate::config::default_authz_default_role")]

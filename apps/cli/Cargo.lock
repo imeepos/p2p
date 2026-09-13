@@ -1424,6 +1424,7 @@ dependencies = [
  "p2p-identity",
  "p2p-mux",
  "p2p-protocol",
+ "p2p-service",
  "p2p-swarm",
  "p2p-transport",
  "serde",
@@ -1588,6 +1589,16 @@ dependencies = [
  "tokio",
  "tracing",
  "x509-cert",
+]
+
+[[package]]
+name = "p2p-service"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tracing",
 ]
 
 [[package]]

@@ -19,6 +19,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 p2p = { path = "../../../crates/p2p" }
+# 服务注册表真值源（service-registry-design）：node_build 装配双读消费；
+# serve.* 闸消费（B2）沿用本依赖行
+p2p-service = { path = "../../../crates/p2p-service" }
 # ACP 泵进程内装配（INLINE-ACP-PUMP T3）：Pump::start 句柄面替代 sidecar
 acp-pump = { path = "../../../crates/acp-pump" }
 # 本机 agent 自描述读取（2026-09-07 裁决：分享流免手填 admin token）
