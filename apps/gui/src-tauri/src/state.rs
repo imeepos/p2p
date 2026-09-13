@@ -119,8 +119,10 @@ impl AppState {
         // 节点启动（assembled:false + lastError 落槽可查询，不回滚）。
         let llm_store = crate::llm_share::LlmShareStore::new(self.app_data_dir.clone());
         crate::llm_share::serve::install(&self.llm_serve, &llm_store, &cfg, &node).await;
-        // tunnel 被访侧装配（W-T2）：handler 进表；按次开关默认关，需显式开启。
-        self.tunnel_serve.install(&node).await;
+        // tunnel 被访侧装配（W-T2）：handler 进表；开关按 services.json
+        // serve.tunnel 条目恢复（§20 持久化闸；本行传 data-dir 系主控 2026-09-13
+        // 23:57 裁决的 state.rs 禁触显式豁免，1 行）。
+        self.tunnel_serve.install(&node, self.data_dir()).await;
         *slot = Some(RunningNode {
             node,
             config: cfg.clone(),
