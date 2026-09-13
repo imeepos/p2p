@@ -688,6 +688,7 @@ const enUS: typeof zhCN = {
       account: "Account",
       general: "General",
       network: "Network",
+      services: "Services",
       about: "About",
     },
     hint: "Config form lands in the views wave; effective config shown below",
@@ -1622,6 +1623,24 @@ const enUS: typeof zhCN = {
       peerPlaceholder: "PeerId (base58) of the visited machine's p2p node",
       open: "Open generic service",
       opening: "Opening…",
+    },
+    serve: {
+      title: "Tunnel Serve",
+      description:
+        "When enabled, other nodes may reach this machine's 127.0.0.1 loopback services in the allowlist through the tunnel",
+      port: "Target port",
+      portPlaceholder: "3080",
+      portHint:
+        "Only the 127.0.0.1:<port> literal is allowed (port 1-65535); repeated starts accumulate targets",
+      start: "Enable serve",
+      stop: "Disable serve",
+      starting: "Enabling…",
+      stopping: "Disabling…",
+      statusEnabled: "Serving",
+      statusDisabled: "Not serving",
+      allowlist: "Target allowlist",
+      emptyAllow: "Allowlist is empty",
+      activeSessions: "Active serve sessions",
     },
   },
   docs: {

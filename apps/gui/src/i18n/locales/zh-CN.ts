@@ -671,6 +671,7 @@ const zhCN = {
       account: "账号",
       general: "通用",
       network: "网络",
+      services: "服务",
       about: "关于",
     },
     hint: "节点配置表单将在视图波次接入，当前展示当前生效配置摘要",
@@ -1589,6 +1590,24 @@ const zhCN = {
       peerPlaceholder: "被访机 p2p 节点的 PeerId（base58）",
       open: "打开通用服务",
       opening: "打开中…",
+    },
+    serve: {
+      title: "隧道被访服务",
+      description:
+        "开启后，其他节点可经隧道访问本机白名单内的 127.0.0.1 回环服务",
+      port: "目标端口",
+      portPlaceholder: "3080",
+      portHint:
+        "仅允许 127.0.0.1:<端口> 字面量（端口 1-65535）；重复开启即累积多个目标",
+      start: "开启被访受理",
+      stop: "关闭被访受理",
+      starting: "开启中…",
+      stopping: "关闭中…",
+      statusEnabled: "受理中",
+      statusDisabled: "未受理",
+      allowlist: "目标白名单",
+      emptyAllow: "白名单为空",
+      activeSessions: "被访活动会话",
     },
   },
   docs: {
