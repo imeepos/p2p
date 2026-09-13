@@ -24,6 +24,7 @@ pub mod llm_share;
 pub mod media_export;
 pub mod profile;
 pub mod proto;
+pub mod services;
 pub mod state;
 pub mod tunnel;
 pub mod types;
@@ -126,6 +127,8 @@ pub fn run() {
             tunnel::tunnel_open_dsh,
             tunnel::tunnel_open,
             tunnel::tunnel_status,
+            services::services_list,
+            services::services_set_enabled,
         ])
         .plugin(tauri_plugin_opener::init())
         // 媒体附件导出（契约 §12 加法）：系统保存对话框选目标路径
