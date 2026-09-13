@@ -64,12 +64,27 @@ export function ServicesCard() {
     setLoadState("ready");
   }, []);
 
+  // 首次加载失败：错误态可见不白屏（重试按钮复用 load，失败走按钮 onError）。
+  // 挂载拉取走 effect 内联 IIFE（react-hooks/set-state-in-effect 合规形态，
+  // offer-panel/use-gui-config 先例）；cancelled 守卫防卸载后回落错误态。
   useEffect(() => {
-    load().catch((error) => {
-      console.error("[services] services_list 失败", error);
-      setLoadState("failed");
-    });
-  }, [load]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { services: list } = await ipc.servicesList();
+        if (!cancelled) {
+          setServices(list);
+          setLoadState("ready");
+        }
+      } catch (error) {
+        console.error("[services] services_list 失败", error);
+        if (!cancelled) setLoadState("failed");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggle = useCallback(
     async (service: ServiceView, next: boolean) => {
