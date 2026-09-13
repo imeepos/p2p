@@ -8,6 +8,10 @@ mod core;
 mod drain;
 mod events;
 mod friend;
+mod friends_book;
+mod gate;
+#[cfg(test)]
+mod gate_tests;
 mod ginvite;
 mod ginvite_api;
 mod ginvite_flow;
@@ -24,6 +28,7 @@ mod invite;
 mod invite_api;
 mod invite_handler;
 mod kind;
+mod media_in;
 mod model;
 mod outbox;
 mod outbox_api;
@@ -40,6 +45,9 @@ mod store_invite;
 mod store_io;
 mod store_lock;
 mod wire;
+mod wire_envelope;
+#[cfg(test)]
+mod wire_gate_tests;
 mod wire_invite;
 #[cfg(test)]
 mod wire_tests;
@@ -51,6 +59,8 @@ use tokio::sync::broadcast;
 
 pub use events::ChatEvent;
 pub use friend::{validate_group, ChatFriend, FriendPatch, MAX_GROUP_CHARS};
+pub use friends_book::friends_book;
+pub use gate::{CheckGate, Gate, Reject};
 pub use ginvite::{
     ChatInviteCard, GroupInvite, GroupInviteDirection, GroupInviteState, MAX_GROUP_INVITES,
 };
@@ -68,6 +78,7 @@ pub use model::{
 pub use outbox_api::{
     OutboxEntryReport, OutboxFlushPeerReport, OutboxFlushReport, OutboxPeerReport,
 };
+pub use p2p_identity::PeerId;
 pub use profile::PeerProfile;
 pub use serve_cfg::{load_serve_port, save_serve_port};
 

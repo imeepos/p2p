@@ -30,6 +30,21 @@ impl Chat {
         data_dir: PathBuf,
         local_profile: LocalProfileFn,
     ) -> Result<Self, ChatError> {
+        Self::with_gate(node, data_dir, local_profile, None)
+    }
+
+    /// 带准入闸装配（Amended A-2）：gate 由 apps 装配处提供（authz 适配器，
+    /// impl crate::gate::CheckGate）。None = chat authz 未接线，入站不设防
+    /// （行为与历史版本逐字节一致；warn 可观测，接线欠账不许静默）。
+    pub fn with_gate(
+        node: Arc<Node>,
+        data_dir: PathBuf,
+        local_profile: LocalProfileFn,
+        gate: crate::gate::Gate,
+    ) -> Result<Self, ChatError> {
+        if gate.is_none() {
+            tracing::warn!("chat authz 准入闸未接线（gate=None），入站消息不设防");
+        }
         let store = crate::store::Store::new(data_dir.join("chat"))?;
         let (tx, _) = broadcast::channel(EVENT_CAPACITY);
         let core = Arc::new(ChatCore {
@@ -39,6 +54,7 @@ impl Chat {
             send_locks: std::sync::Mutex::new(std::collections::HashMap::new()),
             flush_tried: std::sync::Mutex::new(std::collections::HashMap::new()),
             local_profile,
+            gate,
         });
         core.rearm_friend_addrs()?;
         invite_api::rearm_invite_addrs(&core)?;

@@ -1,22 +1,18 @@
 //! 聊天核心：实时投递、outbox flush、发送状态机与事件（design §6）。
-use std::collections::HashMap;
-use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use p2p::{Node, ProtocolId};
-use p2p_mux::BoxedStream;
-use p2p_protocol::read_frame;
-use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{broadcast, Mutex as AsyncMutex};
 
 use crate::events::ChatEvent;
-use crate::model::{
-    parse_peer_id, sanitize_name, ChatEnvelope, ChatError, ChatMediaMeta, ChatStatus,
-};
+use crate::model::{parse_peer_id, ChatEnvelope, ChatError, ChatStatus};
 use crate::store::Store;
-use crate::wire::{self, MediaBegin, MEDIA_BEGIN, MEDIA_CHUNK};
+use crate::wire;
 use crate::CHAT_PROTOCOL;
 
 /// 单次投递内 ACK 等待上限：死连接上 read_ack 无界等待是演练 D1 卡死的直接面。
@@ -32,6 +28,8 @@ pub(crate) struct ChatCore {
     /// 已给过重投机会的 failed 条目（peer,id）：每进程一次机会，二次即死信（outbox.rs）。
     pub(crate) flush_tried: Mutex<HashMap<(String, String), ()>>,
     pub(crate) local_profile: crate::LocalProfileFn, // 本机资料供给：/im/profile/1 应答源
+    /// 入站准入闸（Amended A-2）：None = 未接线不设防（与历史行为一致）。
+    pub(crate) gate: crate::gate::Gate,
 }
 
 impl ChatCore {
@@ -237,61 +235,6 @@ impl ChatCore {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .insert((peer.to_string(), id.to_string()), ());
-    }
-
-    /// 入站收媒体：MEDIA_BEGIN 校验 → 逐 MEDIA_CHUNK 写入 tmp 文件 → rename 落盘。
-    pub(crate) async fn receive_media(
-        &self,
-        stream: &mut BoxedStream,
-        peer: &str,
-        msg_id: &str,
-        meta: &ChatMediaMeta,
-    ) -> std::io::Result<PathBuf> {
-        let frame = read_frame(stream).await?;
-        let Some((&kind, payload)) = frame.split_first() else {
-            return Err(std::io::Error::other("媒体头帧缺类型头"));
-        };
-        if kind != MEDIA_BEGIN {
-            return Err(std::io::Error::other(format!(
-                "期望 MEDIA_BEGIN(0x02)，收到 {kind:#04x}"
-            )));
-        }
-        let head: MediaBegin = serde_json::from_slice(payload)
-            .map_err(|e| std::io::Error::other(format!("媒体头 JSON 非法：{e}")))?;
-        if head.len != meta.size {
-            return Err(std::io::Error::other(format!(
-                "媒体长度不一致：头 {} ≠ 信封 {}",
-                head.len, meta.size
-            )));
-        }
-        let dir = self.store.media_peer_dir(peer)?;
-        let final_path = dir.join(format!("{msg_id}_{}", sanitize_name(&meta.name)));
-        let tmp = dir.join(format!(".tmp-{msg_id}-{}", std::process::id()));
-        let mut file = fs::File::create(&tmp).await?;
-        let mut received: u64 = 0;
-        while received < head.len {
-            let frame = read_frame(stream).await?;
-            let Some((&kind, payload)) = frame.split_first() else {
-                let _ = fs::remove_file(&tmp).await;
-                return Err(std::io::Error::other("媒体分片缺类型头"));
-            };
-            if kind != MEDIA_CHUNK {
-                let _ = fs::remove_file(&tmp).await;
-                return Err(std::io::Error::other(format!(
-                    "期望 MEDIA_CHUNK(0x03)，收到 {kind:#04x}"
-                )));
-            }
-            received += payload.len() as u64;
-            if received > head.len {
-                let _ = fs::remove_file(&tmp).await;
-                return Err(std::io::Error::other("媒体超过声明长度，断流"));
-            }
-            file.write_all(payload).await?;
-        }
-        file.flush().await?;
-        drop(file);
-        fs::rename(&tmp, &final_path).await?;
-        Ok(final_path)
     }
 }
 

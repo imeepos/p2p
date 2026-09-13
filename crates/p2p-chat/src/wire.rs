@@ -2,10 +2,7 @@
 //!
 //! 帧载荷首字节 = 类型头（与 chunked 同风格）：ENVELOPE 0x01 / MEDIA_BEGIN 0x02 /
 //! MEDIA_CHUNK 0x03 / ACK 0x04；时序与断流纪律见 §8.1（wire-protocol.md）登记。
-//!
-//! 对端身份说明：底座 handler 拿不到对端 PeerId（serve.rs 分发不携带 peer），
-//! 故线上 peer 字段承载发端自身 PeerId；收端校验其合法、非本机且 sender 为 me
-//! （sender=them 即冒充本机）——内核只读约束下的纵深防御上限，流安全由底座保证。
+//! 信封形状与出入站转换见 [wire_envelope]（本文件 re-export 保持引用路径不变）。
 
 use std::io;
 use std::sync::Arc;
@@ -18,11 +15,10 @@ use p2p_protocol::{read_frame, write_frame, ProtocolId};
 use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use crate::events::ChatEvent;
-use crate::model::{
-    parse_peer_id, validate_media, validate_text, ChatEnvelope, ChatError, ChatKind, ChatMediaMeta,
-    ChatStatus, Sender,
-};
+use crate::model::{parse_peer_id, ChatEnvelope, ChatKind};
 use crate::ChatCore;
+
+pub(crate) use crate::wire_envelope::WireEnvelope;
 
 pub(crate) const ENVELOPE: u8 = 0x01;
 pub(crate) const MEDIA_BEGIN: u8 = 0x02;
@@ -30,36 +26,6 @@ pub(crate) const MEDIA_CHUNK: u8 = 0x03;
 pub(crate) const ACK: u8 = 0x04;
 /// 单分片数据上限（帧长 1MiB - 类型头 1 字节，对齐 CHUNK_DATA_SIZE）。
 pub(crate) const CHUNK_LEN: usize = 1_048_575;
-
-/// 线上信封：peer = 发端自身 PeerId；status/path 为本地字段不跨网。
-/// fromAddrs 加法字段（F1 地址自学习）：发端声明地址，收端回写好友簿；
-/// serde(default) 保证旧对端缺字段可读，旧对端收新字段也忽略（双向兼容）。
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct WireEnvelope {
-    id: String,
-    peer: String,
-    sender: Sender,
-    kind: ChatKind,
-    #[serde(rename = "tsMs")]
-    ts_ms: i64,
-    text: Option<String>,
-    media: Option<WireMedia>,
-    reply_to: Option<String>,
-    /// 入群邀请卡片载荷（IMC1 加法字段，kind=groupinvite 时有值；旧对端忽略）。
-    #[serde(default)]
-    pub(crate) card: Option<crate::ginvite::ChatInviteCard>,
-    #[serde(default)]
-    pub(crate) from_addrs: Option<Vec<String>>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct WireMedia {
-    name: String,
-    mime: String,
-    size: u64,
-}
 
 /// 媒体头（MEDIA_BEGIN 单帧载荷）。
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -77,117 +43,6 @@ pub(crate) struct AckFrame {
     pub(crate) id: String,
     pub(crate) ok: bool,
     pub(crate) reason: Option<String>,
-}
-
-impl WireEnvelope {
-    /// 发端声明地址取 serve 发布的 advertised（空则不携带）：一次性进程的
-    /// 即弃监听地址禁止上 wire，防对端好友簿被污染。
-    pub(crate) fn from_outbound(
-        env: &ChatEnvelope,
-        local: PeerId,
-        from_addrs: Vec<String>,
-    ) -> Self {
-        Self {
-            id: env.id.clone(),
-            peer: local.to_string(),
-            sender: Sender::Me,
-            kind: env.kind.clone(),
-            ts_ms: env.ts_ms,
-            text: env.text.clone(),
-            media: env.media.as_ref().map(|m| WireMedia {
-                name: m.name.clone(),
-                mime: m.mime.clone(),
-                size: m.size,
-            }),
-            reply_to: env.reply_to.clone(),
-            card: env.card.clone(),
-            from_addrs: if from_addrs.is_empty() {
-                None
-            } else {
-                Some(from_addrs)
-            },
-        }
-    }
-
-    /// 入站校验并转存储信封：sender 必须为 me、peer 合法且非本机。
-    pub(crate) fn into_inbound(self, local: PeerId) -> Result<ChatEnvelope, ChatError> {
-        if self.sender != Sender::Me {
-            return Err(ChatError::Protocol(
-                "入站信封 sender 非 me（对端视角），疑似伪装".into(),
-            ));
-        }
-        let peer_id = parse_peer_id(&self.peer)?;
-        if peer_id == local {
-            return Err(ChatError::Protocol(
-                "入站信封 peer 指向本机，疑似伪装".into(),
-            ));
-        }
-        match self.kind {
-            ChatKind::Text => {
-                let text = validate_text(self.text.as_deref().unwrap_or_default())?;
-                if self.media.is_some() {
-                    return Err(ChatError::InvalidMedia("text 消息携带附件，拒绝".into()));
-                }
-                Ok(ChatEnvelope {
-                    id: self.id,
-                    peer: self.peer,
-                    sender: Sender::Them,
-                    kind: ChatKind::Text,
-                    ts_ms: self.ts_ms,
-                    text: Some(text),
-                    media: None,
-                    status: ChatStatus::Delivered,
-                    reply_to: self.reply_to,
-                    card: None,
-                })
-            }
-            ChatKind::GroupInvite => {
-                if self.media.is_some() {
-                    return Err(ChatError::InvalidMedia(
-                        "groupinvite 卡片不接受附件，拒绝".into(),
-                    ));
-                }
-                let card = self.card.ok_or_else(|| {
-                    ChatError::InvalidMedia("groupinvite 卡片缺载荷，拒绝".into())
-                })?;
-                Ok(ChatEnvelope {
-                    id: self.id,
-                    peer: self.peer,
-                    sender: Sender::Them,
-                    kind: ChatKind::GroupInvite,
-                    ts_ms: self.ts_ms,
-                    text: None,
-                    media: None,
-                    status: ChatStatus::Delivered,
-                    reply_to: self.reply_to,
-                    card: Some(card),
-                })
-            }
-            kind => {
-                let m = self
-                    .media
-                    .ok_or_else(|| ChatError::InvalidMedia(format!("{kind} 消息缺附件，拒绝")))?;
-                validate_media(&kind, &m.mime, m.size)?;
-                Ok(ChatEnvelope {
-                    id: self.id,
-                    peer: self.peer,
-                    sender: Sender::Them,
-                    kind,
-                    ts_ms: self.ts_ms,
-                    text: None,
-                    media: Some(ChatMediaMeta {
-                        name: m.name,
-                        mime: m.mime,
-                        size: m.size,
-                        path: None,
-                    }),
-                    status: ChatStatus::Delivered,
-                    reply_to: self.reply_to,
-                    card: None,
-                })
-            }
-        }
-    }
 }
 
 /// 写一帧：类型头 + 载荷（帧长受 read_frame/write_frame 1MiB 上限约束）。
@@ -246,7 +101,11 @@ impl ProtocolHandler for ChatHandler {
 }
 
 impl ChatHandler {
-    async fn handle_inbound(&self, stream: &mut BoxedStream) -> io::Result<()> {
+    /// 读首帧并校验转存储信封；返回信封、发端 PeerId（闸判定键）与声明地址。
+    async fn read_envelope(
+        core: &ChatCore,
+        stream: &mut BoxedStream,
+    ) -> io::Result<(ChatEnvelope, PeerId, Vec<String>)> {
         let frame = read_frame(stream).await?;
         let Some((&kind, payload)) = frame.split_first() else {
             return Err(io::Error::other("信封帧缺类型头"));
@@ -259,10 +118,19 @@ impl ChatHandler {
         let wire: WireEnvelope = serde_json::from_slice(payload)
             .map_err(|e| io::Error::other(format!("信封 JSON 非法：{e}")))?;
         let learned = wire.from_addrs.clone().unwrap_or_default();
-        let local = self.core.node.local_peer_id();
-        let mut env = wire
-            .into_inbound(local)
+        let env = wire
+            .into_inbound(core.node.local_peer_id())
             .map_err(|e| io::Error::other(e.to_string()))?;
+        let peer = parse_peer_id(&env.peer).map_err(|e| io::Error::other(e.to_string()))?;
+        Ok((env, peer, learned))
+    }
+
+    /// 入站主链（Amended A-1）：帧校验 → 准入闸（send→attachment）→ 地址学习 →
+    /// 收媒体 → ACK → 落库 → 事件。闸拒 = 整帧拒收：不落库、不广播、不回帧。
+    async fn handle_inbound(&self, stream: &mut BoxedStream) -> io::Result<()> {
+        let (mut env, peer, learned) = Self::read_envelope(&self.core, stream).await?;
+        crate::gate::admit_message(&self.core.gate, &peer, env.media.is_some())
+            .map_err(|r| io::Error::other(format!("入站准入拒绝: {}", r.reason)))?;
         if !learned.is_empty() {
             crate::addr_learn::learn_friend_addrs(&self.core, &env.peer, &learned);
         }
