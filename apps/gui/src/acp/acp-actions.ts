@@ -1,6 +1,7 @@
 // store 动作实现：凡需触碰连接实例（conn）或做跨切片归并的动作都在此，
 // acp-store 只留状态与一行委托，避免单文件超限。失败路径一律 console.warn 留痕。
 import { cancelledOutcome, selectedOutcome } from "./protocol";
+import { autofillDraft, changedFields } from "./draft-autofill";
 import {
   applyConfigOptions,
   rejectUnanswered,
@@ -66,7 +67,9 @@ export function rejectPendingPermissions(sessionId: string, respond: boolean): v
   mapInteraction(sessionId, (s) => rejectUnanswered(s));
 }
 
-export function startConnect(): void {
+/** 首用零手填：complete 草稿同步直通（console-watch 自动连接时序不变）；
+ *  缺 token/peer 先自动补全（console 快照 + 本机自描述）并回写表单，补不齐才报错。 */
+export async function startConnect(): Promise<void> {
   const existing = currentConnection();
   if (existing) {
     const phase = get().phase;
@@ -74,7 +77,15 @@ export function startConnect(): void {
     if (phase !== "idle" && phase !== "offline") return;
     closeConnection();
   }
-  const draft = get().draft;
+  const before = get().draft;
+  let draft = before;
+  if (!draft.token || !draft.peer) {
+    const filled = await autofillDraft(draft);
+    if (filled.changed) {
+      get().setDraft(changedFields(before, filled.next));
+      draft = filled.next;
+    }
+  }
   if (!draft.token || !draft.peer) {
     useAcpStore.setState({ lastError: "endpointIncomplete" });
     return;
