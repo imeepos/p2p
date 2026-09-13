@@ -1667,6 +1667,7 @@ dependencies = [
  "p2p-identity",
  "p2p-log",
  "p2p-protocol",
+ "p2p-service",
  "p2p-swarm",
  "p2p-tunnel",
  "reqwest 0.13.4",
