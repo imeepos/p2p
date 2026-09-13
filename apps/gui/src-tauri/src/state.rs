@@ -3,7 +3,6 @@
 //! 命令层薄封装，业务判断集中在此；AppHandle 不进本模块，保证可脱离 Tauri 单测。
 //! peer 拨号/测距见子模块 peers。
 
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
@@ -230,7 +229,7 @@ impl AppState {
             self.chat.uninstall().await;
             self.llm_serve.clear().await;
         }
-        remove_seed(Path::new(&data_dir))?;
+        node_build::remove_seed(Path::new(&data_dir))?;
         Ok((self.status().await, was_running))
     }
 
@@ -274,25 +273,6 @@ impl AppState {
         &self,
     ) -> Option<Arc<crate::llm_share::serve::gate::AllowlistGate>> {
         self.llm_serve.gate().await
-    }
-}
-
-/// 删除身份数据目录内的种子文件（装配层固定为 key.seed）；不存在视为已重置。
-fn remove_seed(data_dir: &Path) -> Result<(), String> {
-    let seed = data_dir.join("key.seed");
-    match fs::remove_file(&seed) {
-        Ok(()) => {
-            tracing::info!(path = %seed.display(), "已删除身份种子文件");
-            Ok(())
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            tracing::info!(path = %seed.display(), "种子文件不存在，身份已视为重置");
-            Ok(())
-        }
-        Err(e) => {
-            warn!(error = %e, path = %seed.display(), "删除种子文件失败");
-            Err(format!("删除身份数据失败: {e}"))
-        }
     }
 }
 

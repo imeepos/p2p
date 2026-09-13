@@ -1,5 +1,7 @@
 //! 生命周期单测：仅本地回环装配（随机端口、mdns 关、无 bootstrap/relay），不产生真实网络流量。
 
+use std::fs;
+
 use super::*;
 
 /// 独立临时目录，结束清理。
