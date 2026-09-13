@@ -257,7 +257,6 @@ fn auto_bind_default_role(state: &AppState, peer_id: &str) {
 }
 
 /// Amended A-2 适配壳：authz 判定核心 → chat CheckGate（Deny 一律 Err）。
-#[allow(dead_code)] // C1 接线（c1-wiring.patch）应用前无调用方
 pub(crate) struct AuthzCheckGate {
     data_dir: PathBuf,
 }
@@ -273,14 +272,12 @@ impl p2p_chat::CheckGate for AuthzCheckGate {
 }
 
 /// C1 接线句柄：state.rs chat 装配段经此注入（数据根=app 数据目录，§18）。
-#[allow(dead_code)] // C1 接线（c1-wiring.patch）应用前无调用方
 pub(crate) fn authz_chat_gate(data_dir: PathBuf) -> Arc<dyn p2p_chat::CheckGate> {
     Arc::new(AuthzCheckGate { data_dir })
 }
 
 /// C1 接线回填（§0.5c）：启动等价执行一次 authz import friends（幂等，
 /// 失败降级 warn 不阻断启动）。
-#[allow(dead_code)] // C1 接线（c1-wiring.patch）应用前无调用方
 pub(crate) fn startup_import_friends(data_dir: &Path, default_role: &str) {
     let friends = match p2p_chat::friends_book(data_dir) {
         Ok(friends) => friends,
