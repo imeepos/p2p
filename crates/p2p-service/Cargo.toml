@@ -8,3 +8,5 @@ description = "服务注册表（service-registry-design）：服务闭集登记
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+# switches 装配 fail-safe 读的告警信号（读失败留痕，禁止静默吞错）
+tracing = { workspace = true }

@@ -199,4 +199,57 @@ mod tests {
             "成功写后不留 .tmp 残留"
         );
     }
+
+    /// 实装补强：save 自动建缺失的 data-dir（首用态目录尚不存在）。
+    #[test]
+    fn save_creates_missing_data_dir_and_roundtrips() {
+        let dir = scratch_dir("mkdir");
+        let nested = dir.join("a").join("b");
+        let mut reg = ServiceRegistry::default();
+        reg.set_enabled(ServiceId::NET_LAN_ONLY, true, 1);
+        save_registry(&nested, &reg).unwrap();
+        assert_eq!(load_registry(&nested).unwrap(), reg);
+    }
+
+    /// 实装补强（§4.5 先重读磁盘再 upsert 合并）：写路径 = load → set_enabled →
+    /// save，与磁盘既有条目合并且后写者胜，不丢他人先落的条目。
+    #[test]
+    fn read_modify_write_upsert_merges_with_disk_state() {
+        let dir = scratch_dir("merge");
+        let mut first = ServiceRegistry::default();
+        first.set_enabled(ServiceId::DISCOVERY_MDNS, false, 1);
+        first.set_enabled(ServiceId::NET_RELAY, true, 1);
+        save_registry(&dir, &first).unwrap();
+
+        let mut second = load_registry(&dir).unwrap();
+        second.set_enabled(ServiceId::NET_RELAY, false, 2);
+        second.set_enabled(ServiceId::SERVE_ACP, true, 2);
+        save_registry(&dir, &second).unwrap();
+
+        let merged = load_registry(&dir).unwrap();
+        assert_eq!(merged.entries().len(), 3, "磁盘既有条目不被覆盖写丢失");
+        assert_eq!(merged.file_value(ServiceId::DISCOVERY_MDNS), Some(false));
+        assert_eq!(
+            merged.file_value(ServiceId::NET_RELAY),
+            Some(false),
+            "后写者胜"
+        );
+        assert_eq!(merged.file_value(ServiceId::SERVE_ACP), Some(true));
+    }
+
+    /// 实装补强：残留 .tmp（上次崩溃遗留）不污染正式文件，下次原子写照常消费它。
+    #[test]
+    fn stale_tmp_does_not_break_next_atomic_save() {
+        let dir = scratch_dir("stale-tmp");
+        std::fs::write(dir.join("services.json.tmp"), "garbage").unwrap();
+        let mut reg = ServiceRegistry::default();
+        reg.set_enabled(ServiceId::NET_OBSERVE, false, 5);
+        save_registry(&dir, &reg).unwrap();
+        assert_eq!(
+            load_registry(&dir).unwrap(),
+            reg,
+            "正式文件不受残留 tmp 影响"
+        );
+        assert!(!dir.join("services.json.tmp").exists());
+    }
 }
