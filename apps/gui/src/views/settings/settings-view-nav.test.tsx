@@ -2,23 +2,27 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { configGetMock, configSaveMock, profileGetMock } = vi.hoisted(() => ({
-  configGetMock: vi.fn(),
-  configSaveMock: vi.fn(),
-  profileGetMock: vi.fn(),
-}));
+const { configGetMock, configSaveMock, profileGetMock, servicesListMock } =
+  vi.hoisted(() => ({
+    configGetMock: vi.fn(),
+    configSaveMock: vi.fn(),
+    profileGetMock: vi.fn(),
+    servicesListMock: vi.fn(),
+  }));
 
 vi.mock("@/lib/ipc", () => ({
   ipc: {
     configGet: configGetMock,
     configSave: configSaveMock,
     profileGet: profileGetMock,
+    servicesList: servicesListMock,
   },
 }));
 
 import "@/i18n";
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { ThemeProvider } from "@/theme/theme-provider";
+import { fullServiceList } from "./services-card-fixtures";
 import { SettingsView } from "./settings-view";
 
 const CONFIG = {
@@ -63,6 +67,9 @@ describe("设置页分节导航（微信式双栏）", () => {
     profileGetMock
       .mockReset()
       .mockResolvedValue({ name: "", description: "", avatar: null });
+    servicesListMock.mockReset().mockResolvedValue({
+      services: fullServiceList(),
+    });
   });
 
   it("默认落在账号分节，其余分节隐藏但保持挂载", async () => {

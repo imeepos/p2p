@@ -1,4 +1,10 @@
-import { InfoIcon, NetworkIcon, Settings2Icon, UserRoundIcon } from "lucide-react";
+import {
+  InfoIcon,
+  NetworkIcon,
+  ServerIcon,
+  Settings2Icon,
+  UserRoundIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useUpdateStore } from "@/stores/update-store";
@@ -9,6 +15,7 @@ const NAV_ITEMS = [
   { id: "account", labelKey: "settings.nav.account", Icon: UserRoundIcon },
   { id: "general", labelKey: "settings.nav.general", Icon: Settings2Icon },
   { id: "network", labelKey: "settings.nav.network", Icon: NetworkIcon },
+  { id: "services", labelKey: "settings.nav.services", Icon: ServerIcon },
   { id: "about", labelKey: "settings.nav.about", Icon: InfoIcon },
 ] as const;
 

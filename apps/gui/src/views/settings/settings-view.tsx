@@ -20,6 +20,7 @@ import { AppearanceCard } from "./appearance-card";
 import { IdentityCard } from "./identity-card";
 import { NetworkCard } from "./network-card";
 import { ProfileCard } from "./profile-card";
+import { ServicesCard } from "./services-card";
 import { SettingsNav, type SettingsSectionId } from "./settings-nav";
 import { AboutUpdateCard } from "@/views/update/about-update-card";
 import { DocsEntryCard } from "./docs-entry-card";
@@ -42,7 +43,13 @@ function LoadingSkeleton() {
 
 // 分节容器常驻挂载（hidden 显隐）：表单值与资料草稿在切签后不丢，
 // 路由守卫口径与全卡常挂时代一致。
-const SECTIONS: SettingsSectionId[] = ["account", "general", "network", "about"];
+const SECTIONS: SettingsSectionId[] = [
+  "account",
+  "general",
+  "network",
+  "services",
+  "about",
+];
 
 function SettingsSections({ active }: { active: SettingsSectionId }) {
   const content: Record<SettingsSectionId, ReactNode> = {
@@ -59,6 +66,7 @@ function SettingsSections({ active }: { active: SettingsSectionId }) {
         <AdvertiseCard />
       </>
     ),
+    services: <ServicesCard />,
     about: (
       <>
         <AboutUpdateCard />

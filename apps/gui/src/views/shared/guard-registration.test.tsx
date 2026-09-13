@@ -13,6 +13,20 @@ vi.mock("@/lib/ipc", () => ({
     configSave: vi.fn(async (cfg: unknown) => cfg),
     profileGet: vi.fn(async () => ({ name: "", description: "", avatar: null })),
     profileSave: vi.fn(async (p: unknown) => p),
+    servicesList: vi.fn(async () => ({
+      services: [
+        { serviceId: "serve.llm_share", kind: "boolean", enabled: false, requiresRestart: false },
+        { serviceId: "serve.tunnel", kind: "boolean", enabled: false, requiresRestart: false },
+        { serviceId: "serve.a2a", kind: "explicit", enabled: true, requiresRestart: false },
+        { serviceId: "serve.acp", kind: "explicit", enabled: true, requiresRestart: false },
+        { serviceId: "net.rendezvous_register", kind: "explicit", enabled: true, requiresRestart: false },
+        { serviceId: "net.relay", kind: "explicit", enabled: true, requiresRestart: false },
+        { serviceId: "net.observe", kind: "explicit", enabled: true, requiresRestart: false },
+        { serviceId: "serve.rendezvous_server", kind: "explicit", enabled: true, requiresRestart: false },
+        { serviceId: "discovery.mdns", kind: "adopted", enabled: true, requiresRestart: false },
+        { serviceId: "net.lan_only", kind: "adopted", enabled: false, requiresRestart: false },
+      ],
+    })),
   },
 }));
 // SettingsView 含 AppearanceCard（useTheme），本文件不验证主题，直接 mock
