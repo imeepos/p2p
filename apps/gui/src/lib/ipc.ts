@@ -56,6 +56,8 @@ import type {
   NodeStatus,
   PeerProfileJson,
   PingOutcome,
+  ServiceMutationReport,
+  ServiceView,
   UpdateCheckResult,
   UpdateDownloadBackend,
 } from "./ipc-types";
@@ -257,6 +259,11 @@ const tauriBackend: IpcBackend = {
     }),
   authzRoleDelete: (roleId) =>
     invoke<AuthzRoleDeleteReport>("authz_role_delete", { roleId }),
+  // 契约 §20（服务总控）签名桩：命令面由实现卡落地，invoke 名先逐字对齐契约；
+  // 表外 serviceId 与存储损坏的可读中文错误语义在 Rust 命令层实现（§20.4）。
+  servicesList: () => invoke<{ services: ServiceView[] }>("services_list"),
+  servicesSetEnabled: (serviceId, enabled) =>
+    invoke<ServiceMutationReport>("services_set_enabled", { serviceId, enabled }),
   onNodeEvent: (handler: NodeEventHandler) =>
     listen<NodeEventJson>(NODE_EVENT_CHANNEL, (event) => handler(event.payload)).then(
       (unlisten) => () => {

@@ -461,6 +461,15 @@ export const mockBackend: IpcBackend & {
     return Promise.resolve(mockAcpConsole.subscribe(handler));
   },
 
+  // 契约 §20（服务总控）签名桩：mock 链路（闭集清单/内存翻转/面板）由实现卡
+  // 落地；沿 tunnel 访侧先例显式报错不假装可用，禁止静默空数据。
+  async servicesList() {
+    throw new Error("mock 环境未实现服务总控清单：需在桌面应用内使用");
+  },
+  async servicesSetEnabled() {
+    throw new Error("mock 环境未实现服务总控开关：需在桌面应用内使用");
+  },
+
   onNodeEvent(handler): Promise<UnlistenFn> {
     handlers.add(handler);
     return Promise.resolve(() => {

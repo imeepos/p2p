@@ -572,6 +572,26 @@ export interface AuthzRoleDeleteReport {
   roleId: string;
 }
 
+// ── 契约 §20 加法（服务总控波）：服务总控，与 docs/design/gui-contract.md §20 逐字对齐，禁止改名 ──
+
+// 服务清单闭集（10 项，只加不删）：id/型/默认值真值源 = crates/p2p-service
+// 常量表；前端禁硬编码服务列表，一律经 servicesList 枚举。
+export type ServiceKindJson = "boolean" | "explicit" | "adopted";
+
+// enabled 为持久化生效值（services.json 条目优先，缺失按默认/双读回落推导）。
+export interface ServiceView {
+  serviceId: string; // §20.1 闭集 id（snake_case 原样透传）
+  kind: ServiceKindJson;
+  enabled: boolean;
+  requiresRestart: boolean; // true = 节点运行中，翻转需重启节点生效
+}
+
+export interface ServiceMutationReport {
+  serviceId: string;
+  enabled: boolean; // 落盘后的持久化值
+  requiresRestart: boolean;
+}
+
 export interface IpcBackend {
   acpConsoleStatus(): Promise<AcpConsoleStatus>;
   acpLocalDescriptor(): Promise<AcpLocalDescriptor | null>;
@@ -716,6 +736,10 @@ export interface IpcBackend {
     note: string,
   ): Promise<AuthzRoleMutationReport>;
   authzRoleDelete(roleId: string): Promise<AuthzRoleDeleteReport>;
+  // 契约 §20 加法（服务总控波）：服务总控命令面（invoke 名逐字 snake_case）。
+  // 表外 serviceId → Err 可读中文（附闭集清单）；存储损坏 → Err 不静默回退（§20.4）。
+  servicesList(): Promise<{ services: ServiceView[] }>;
+  servicesSetEnabled(serviceId: string, enabled: boolean): Promise<ServiceMutationReport>;
   onNodeEvent(handler: NodeEventHandler): Promise<UnlistenFn>;
   // W-T3 tunnel 访侧（gui-contract §19）：peer 可选，缺省由用户在视图必填。
   tunnelOpenDsh(url: string, peer: string): Promise<TunnelOpenReport>;
