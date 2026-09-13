@@ -684,8 +684,12 @@ failed: early eof（客户端侧超时中止）。
 - 修法：bool 断言一律 `assert!(!x)`；两分支 bool 函数直接 `matches!` 宏；测试没接的 helper 当轮删掉不留「以后用」。
 - 教训通式：**本项目门禁是 -D warnings，写新代码按 clippy 习惯直接落**（assert!/matches!/无死代码），比先写自然风格再被门禁打回省一轮编译。
 
-## 2026-09-13 git worktree add 60s 超时被杀：残留分支 + 半检出目录
-- 症状：`git worktree add .worktrees/<卡> -b <分支> main` 前台跑 1909 文件检出，60s 超时 SIGTERM；现场=分支 ref 已建 + 目录检出了一半 + `git worktree list` 不显示该 worktree 但目录在，`git -C <目录> status` 报 not a git repository。
-- 原因：add 的顺序是建分支 ref → 注册 worktree 元数据 → 检出文件；检出中途被杀，元数据回滚但 ref 与工作目录残留。
-- 修法：`git worktree prune` → `rm -rf <半成品目录>` → `git branch -D <分支>` → 重建时 run_in_background（检出 2 分钟级别，别信默认 60s）。
-- 教训通式：**大仓库 worktree add/remove 都按长操作对待**，一律后台跑；中断后先 prune 再查 ref 与目录两处残留，别直接重试（分支已存在会让 add 二次报错）。
+## 2026-09-13 wsm-b3：git worktree add 超时被杀 → 半注册 worktree
+- 症状：`git worktree add` 跑满 60s 超时被 SIGTERM 后，目标目录已完整 checkout、分支已建，但 `git worktree list` 看不到它、`.git/worktrees/<名>/` 管理目录缺失；后续在该目录 cargo 必报 manifest 缺失之类怪错。
+- 修法：`git branch -D <分支> && rm -rf <目录> && git worktree prune && git worktree add …` 重来；worktree add 冷仓可能超 60s，直接给 300s 级 timeout 或 run_in_background。
+- 教训通式：**worktree add 被中断 ≠ 无害**——checkout 与注册是两步，杀在中间留下既不在册也不能用的目录；先查 `.git/worktrees/` 再决定删还是续。
+
+## 2026-09-13 wsm-b3：git worktree add 超时被杀 → 半注册 worktree
+- 症状：`git worktree add` 跑满 60s 超时被 SIGTERM 后，目标目录已完整 checkout、分支已建，但 `git worktree list` 看不到它、`.git/worktrees/<名>/` 管理目录缺失；后续在该目录 cargo 必报 manifest 缺失之类怪错。
+- 修法：`git branch -D <分支> && rm -rf <目录> && git worktree prune && git worktree add …` 重来；worktree add 冷仓可能超 60s，直接给 300s 级 timeout 或 run_in_background。
+- 教训通式：**worktree add 被中断 ≠ 无害**——checkout 与注册是两步，杀在中间留下既不在册也不能用的目录；先查 `.git/worktrees/` 再决定删还是续。

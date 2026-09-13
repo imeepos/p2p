@@ -574,3 +574,6 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - `make release-check` 本地全量约 1 小时且大头是 `cargo test --workspace`：cargo 主进程 0% CPU 不代表挂死，`pgrep -P <pid>` 看子进程（rustdoc/测试二进制）在不在换新即知在推进；长等待用后台 job + 分段 poll，前台 `sleep 900` 会被执行器 600s cap 截杀。
 - 2026-09-12 排查「UI 元素互相遮挡/溢出」类 bug：跑 `VITE_MOCK_IPC=1 npx vite`（worktree 里 symlink 主树 node_modules 即可，勿 pnpm run 触发 verify-deps），浏览器里对 flex 链每个环节量 `getBoundingClientRect` 对照（谁 bottom 超过谁 top 一眼定位），再用 `el.style.display='flex'` 就地验证假设后才动代码；mock 会话种子走页面 console 动态 `import('/src/lib/ipc.ts')` 调 `chatFriendAdd`/`chatSend`，注意 goto 刷新会清 mock 内存态，加好友后要点导航链接（SPA 切路由）让列表重载。
 - 2026-09-12：i18n 严格键类型下把 `t` 传给辅助函数，参数别写 `(key: string) => string`（TFunction 逆变成不兼容）——从 `@/i18n/types` 取 `I18nKey` 做参数与映射表 `Record<string, I18nKey>` 的值类型，映射表值即获得编译期键存在性校验（键拼错 build 期红）。
+
+- 2026-09-13 wsm-b3：`cargo build 2>&1 | tail` 会让整条流水线退出码变成 tail 的 0，编译红了也显示成功（本轮误判一次）。验证型命令取 `echo EXIT=${PIPESTATUS[0]}`，或先把输出落文件再看 `$?`；「成败判定」与「输出裁剪」必须分开。
+- 2026-09-13 wsm-b3：并行波派发后 origin/main 会在会话开工间隙被主控推进（本轮 fetch 时 origin/main 与数分钟后不一致）。**建分支那一刻**重新 `git fetch && git rev-parse origin/main` 并确认依赖 crate（如契约桩 p2p-service）在树里，再 worktree add；别拿任务书里写的合并号当现场事实。
