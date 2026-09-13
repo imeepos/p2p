@@ -10,6 +10,9 @@ mod observe;
 mod rendezvous;
 mod static_peers;
 
+#[cfg(test)]
+mod assembly_tests;
+
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -18,7 +21,36 @@ pub use p2p_identity::PeerId;
 pub use p2p_mux::BoxedStream;
 pub use p2p_protocol::{ProtocolHandler, ProtocolId};
 pub use p2p_swarm::{gate_fn, ConnectionGate, GateFn, NodeEvent};
+// 服务注册表 crate 面（service-registry-design）：无法直接依赖 p2p-service 的
+// 宿主（apps/cli/Cargo.toml 归 B3，装配面 daemon.rs）经本 facade 复用同一真值源。
+pub use p2p_service;
 pub use rendezvous::TransportLink;
+
+/// 服务总控显式化型开关（service-registry-design §2）：经 p2p-service
+/// resolve 后的显式布尔，装配期「开关 AND 配置」双条件的开关位；默认全 on
+/// = 现行为零变化。收编型 mdns/lan_only 沿用既有 enable_mdns/lan_only 字段。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ServiceSwitches {
+    /// net.rendezvous_register：false 时 bootstrap 非空也不接线 rendezvous 注册。
+    pub rendezvous_register: bool,
+    /// net.relay：false 时降级链剥离 relay，止于直连/打洞。
+    pub relay: bool,
+    /// net.observe：false 时跳过出站地址观测。
+    pub observe: bool,
+    /// serve.rendezvous_server：false 时不装配 RendezvousServer（public_only 语义保留）。
+    pub rendezvous_server: bool,
+}
+
+impl Default for ServiceSwitches {
+    fn default() -> Self {
+        Self {
+            rendezvous_register: true,
+            relay: true,
+            observe: true,
+            rendezvous_server: true,
+        }
+    }
+}
 
 /// 节点配置（design §4 builder 入参）。
 #[derive(Clone, Debug)]
@@ -53,6 +85,8 @@ pub struct NodeConfig {
     /// 仅局域网模式（F8）：true 时装配期剥离全部公网端点（bootstrap/relay/
     /// observation），仅保留局域网发现与直连；默认 false 保持现行为。
     pub lan_only: bool,
+    /// 服务总控显式化型开关（service-registry-design §2，B1）：默认全 on。
+    pub service_switches: ServiceSwitches,
 }
 
 impl Default for NodeConfig {
@@ -73,6 +107,7 @@ impl Default for NodeConfig {
             rendezvous_public_only: false,
             static_peers_file: None,
             lan_only: false,
+            service_switches: ServiceSwitches::default(),
         }
     }
 }
@@ -173,6 +208,13 @@ impl NodeBuilder {
     /// 仅局域网模式（F8）：公网外联显式关闭，详情见 [NodeConfig::lan_only]。
     pub fn lan_only(mut self, on: bool) -> Self {
         self.0.lan_only = on;
+        self
+    }
+
+    /// 服务总控显式化型开关（service-registry-design §2）：入参为 p2p-service
+    /// resolve 后的显式布尔，默认全 on；生效时机=下次节点启动（不热更）。
+    pub fn service_switches(mut self, switches: ServiceSwitches) -> Self {
+        self.0.service_switches = switches;
         self
     }
 

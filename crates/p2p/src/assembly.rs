@@ -38,6 +38,9 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     } else {
         cfg
     };
+    // 服务总控显式化型开关（service-registry-design §2，生效时机=下次启动）：
+    // off 即从装配输入剥离对应面，info 级信号与 lan-only 同机制。
+    let cfg = apply_explicit_switches(cfg);
     let keypair = Arc::new(load_identity(&cfg.data_dir)?);
 
     // 观测反射器（bootstrap 角色节点）：独立 UDP 口，回答对端观测地址
@@ -77,11 +80,12 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
     })
     .await?;
 
-    // 底座自身能力与业务协议同机制注册（design §2 dogfooding）；
-    // 公共部署（rendezvous_public_only）拒收全不可路由注册（E5 地址卫生）
-    swarm.register(Arc::new(RendezvousServer::with_public_only(
-        cfg.rendezvous_public_only,
-    )?));
+    // 底座自身能力与业务协议同机制注册（design §2 dogfooding）；serve
+    // .rendezvous_server=off 不装配；开启时公共部署（rendezvous_public_only）
+    // 拒收全不可路由注册（E5 地址卫生），策略语义原样保留。
+    if let Some(handler) = rendezvous_server_handler(&cfg)? {
+        swarm.register(handler);
+    }
 
     let listen_addrs = swarm.listen_addrs();
     let observed_addrs = observe::observed_transport_addrs(&observed, &listen_addrs);
@@ -123,12 +127,45 @@ pub(crate) async fn build(cfg: NodeConfig) -> Result<Node, NodeError> {
 
 /// lan-only 端点剥离（纯函数）：公网三类清空 + 观测反射口关闭；
 /// mdns/静态对端/监听端口等局域网面原样保留（F8 生效面）。
-fn strip_public_endpoints(mut cfg: NodeConfig) -> NodeConfig {
+pub(crate) fn strip_public_endpoints(mut cfg: NodeConfig) -> NodeConfig {
     cfg.bootstrap.clear();
     cfg.relay_addrs.clear();
     cfg.observation_addrs.clear();
     cfg.observation_port = None;
     cfg
+}
+
+/// 显式化型开关消费（纯函数，service-registry-design §2）：开关 off 即清空
+/// 对应装配输入（配置侧列表非空不再兜底）。rendezvous_register 清 bootstrap
+/// 同时复用既有空表跳线路径与「无可路由地址注册」告警，不产生误导信号。
+pub(crate) fn apply_explicit_switches(mut cfg: NodeConfig) -> NodeConfig {
+    if !cfg.service_switches.rendezvous_register {
+        tracing::info!("net.rendezvous_register=off: rendezvous registration wiring skipped");
+        cfg.bootstrap.clear();
+    }
+    if !cfg.service_switches.relay {
+        tracing::info!("net.relay=off: relay stripped from degraded dial chain");
+        cfg.relay_addrs.clear();
+    }
+    if !cfg.service_switches.observe {
+        tracing::info!("net.observe=off: outbound address observation skipped");
+        cfg.observation_addrs.clear();
+    }
+    cfg
+}
+
+/// serve.rendezvous_server 显式化型（service-registry-design §2）：off 不装配
+/// 服务端 handler；on 时 public_only 策略原样传入，语义零变化。
+pub(crate) fn rendezvous_server_handler(
+    cfg: &NodeConfig,
+) -> Result<Option<Arc<RendezvousServer>>, NodeError> {
+    if !cfg.service_switches.rendezvous_server {
+        tracing::info!("serve.rendezvous_server=off: rendezvous server not assembled");
+        return Ok(None);
+    }
+    Ok(Some(Arc::new(RendezvousServer::with_public_only(
+        cfg.rendezvous_public_only,
+    )?)))
 }
 
 /// 登记一条静态对端；坏条目 warn 跳过不拖垮启动（数据文件可人工编辑）。
@@ -200,7 +237,7 @@ fn spawn_discovery(
     Ok(rendezvous)
 }
 
-fn wire_rendezvous(
+pub(crate) fn wire_rendezvous(
     cfg: &NodeConfig,
     keypair: &Arc<Keypair>,
     reg_addrs: &[TransportAddr],
@@ -236,46 +273,4 @@ fn listen_ports(addrs: &[TransportAddr]) -> (Option<u16>, Option<u16>) {
         }
     }
     (quic, tcp)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::PathBuf;
-
-    fn public_config() -> NodeConfig {
-        NodeConfig {
-            bootstrap: vec!["43.240.223.138/u3400".into()],
-            relay_addrs: vec!["43.240.223.138/u3403".into()],
-            observation_addrs: vec!["121.196.193.177:3402".into()],
-            observation_port: Some(3402),
-            ..NodeConfig::default()
-        }
-    }
-
-    #[test]
-    fn lan_only_default_false_preserves_public_endpoints() {
-        let cfg = NodeConfig::default();
-        assert!(!cfg.lan_only, "默认必须为 false：不开启时现网行为零变化");
-        let base = public_config();
-        assert_eq!(base.bootstrap.len(), 1, "lan_only=false 装配不动公网端点");
-        assert_eq!(base.observation_port, Some(3402));
-    }
-
-    #[test]
-    fn lan_only_strips_public_endpoints_keeps_lan_facets() {
-        let mut cfg = public_config();
-        cfg.lan_only = true;
-        cfg.enable_mdns = true;
-        cfg.static_peers_file = Some(PathBuf::from("/tmp/peers.json"));
-        cfg.quic_port = 3400;
-        let stripped = strip_public_endpoints(cfg);
-        assert!(stripped.bootstrap.is_empty(), "不拨公网 bootstrap");
-        assert!(stripped.relay_addrs.is_empty(), "不连公网 relay");
-        assert!(stripped.observation_addrs.is_empty(), "不上报 observation");
-        assert_eq!(stripped.observation_port, None, "不开公共观测反射口");
-        assert!(stripped.enable_mdns, "局域网发现保留");
-        assert!(stripped.static_peers_file.is_some(), "局域网直连登记保留");
-        assert_eq!(stripped.quic_port, 3400, "监听端口保留");
-    }
 }
