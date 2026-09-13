@@ -747,6 +747,10 @@ export interface IpcBackend {
   tunnelOpen(target: string, peer: string): Promise<TunnelOpenReport>;
   tunnelStatus(): Promise<TunnelStatusReport>;
   onTunnelStatus(handler: (status: TunnelStatusReport) => void): Promise<UnlistenFn>;
+  // tunnel 被访侧（§19.1）：target=127.0.0.1:<port> 字面量（服务端校验，
+  // 先校验后动作不部分生效）；stop 幂等且保留白名单。
+  tunnelServeStart(target: string): Promise<TunnelServeStatus>;
+  tunnelServeStop(): Promise<TunnelServeStatus>;
 }
 
 // 契约 v3 加法（G-H 观测）：诊断命令面，与节点控制面分离；mock/tauri 同签名。

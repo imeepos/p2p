@@ -49,6 +49,7 @@ import type {
   MetricsJson,
   MetricsPoint,
   TunnelOpenReport,
+  TunnelServeStatus,
   TunnelStatusReport,
   NodeEventJson,
   NodeEventHandler,
@@ -275,6 +276,10 @@ const tauriBackend: IpcBackend = {
   tunnelOpen: (target, peer) =>
     invoke<TunnelOpenReport>("tunnel_open", { target, peer }),
   tunnelStatus: () => invoke<TunnelStatusReport>("tunnel_status"),
+  // 契约 §19.1 被访侧：target 校验在 Rust 命令层（先校验后动作），前端透传。
+  tunnelServeStart: (target) =>
+    invoke<TunnelServeStatus>("tunnel_serve_start", { target }),
+  tunnelServeStop: () => invoke<TunnelServeStatus>("tunnel_serve_stop"),
   onTunnelStatus: (handler) =>
     listen<TunnelStatusReport>(TUNNEL_STATUS_EVENT, (event) => handler(event.payload)).then(
       (unlisten) => () => {

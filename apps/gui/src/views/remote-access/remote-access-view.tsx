@@ -18,6 +18,7 @@ import type { TunnelOpenReport, TunnelStatusReport } from "@/lib/ipc-types";
 import { PageHeader } from "@/components/page/page-header";
 
 import { GenericTunnelCard } from "./generic-tunnel-card";
+import { TunnelServeCard } from "./tunnel-serve-card";
 
 type Phase = "idle" | "open" | "error";
 
@@ -170,6 +171,13 @@ export function RemoteAccessView() {
         </CardContent>
       </Card>
       <GenericTunnelCard onOpened={openGeneric} onError={onGenericError} />
+      <TunnelServeCard
+        serve={status.serve}
+        onServeUpdate={(serve) =>
+          setStatus((prev) => ({ ...prev, serve }))
+        }
+        onError={onGenericError}
+      />
       <Card className="col-span-12 lg:col-span-6">
         <CardHeader>
           <CardTitle>{t("remoteAccess.status.open")}</CardTitle>
