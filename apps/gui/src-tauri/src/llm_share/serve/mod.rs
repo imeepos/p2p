@@ -8,11 +8,13 @@
 
 pub mod authz;
 pub mod gate;
+pub mod master_gate;
 pub mod proxy;
 pub mod redeem;
 pub mod replay;
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
 
 use llm_share_ledger::LimitPolicy;
@@ -106,6 +108,22 @@ impl ServeSlot {
 /// 与告警，节点照常启动（不回滚不占槽失败）。槽位已占用时拒绝重装配并留痕
 ///（防静默覆盖；Node facade 未暴露已注册协议查询，以本槽位占用为判据）。
 pub(crate) async fn install(slot: &ServeSlot, store: &LlmShareStore, cfg: &GuiConfig, node: &Node) {
+    // serve.llm_share 总闸（服务注册表 §2 布尔型，安全默认关）：off 或注册表读
+    // 失败（§4.2 fail-safe=关）一律不注册双 handler；拒绝路径留可观测日志，槽位
+    // 保持空 = llm_share_serve_status 缺省 assembled:false（契约 §5 面板口径）。
+    match master_gate::assembly_allowed(Path::new(&store.data_dir())) {
+        Ok(true) => {}
+        Ok(false) => {
+            tracing::info!(
+                "serve.llm_share 总闸关闭：借出 serve 不装配（services.json 条目或缺省默认）"
+            );
+            return;
+        }
+        Err(reason) => {
+            warn!(reason = %reason, "serve.llm_share 总闸状态不可读：借出 serve 不装配");
+            return;
+        }
+    }
     {
         let occupied = slot.assembled.lock().await;
         if occupied.is_some() {
