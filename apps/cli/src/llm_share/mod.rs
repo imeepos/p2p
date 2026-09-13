@@ -27,7 +27,7 @@ pub enum LlmShareCommand {
     Allowlist(allow::ListArgs),
     /// allowlist：移除借方（不存在明确报错）
     Deny(allow::DenyArgs),
-    /// 能力声明：publish 签名发布 / show 查看生效声明与剩余 TTL
+    /// 能力声明：publish 签名发布 / show 查看生效声明 / unpublish 撤销（停借）
     Offer {
         #[command(subcommand)]
         command: offer::OfferCommand,
