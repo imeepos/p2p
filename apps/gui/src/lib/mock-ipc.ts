@@ -31,6 +31,7 @@ import {
 import { mockAcpConsole } from "./mock-acp-console";
 import { createMockLlmShare } from "./mock-llm-share";
 import { mockAuthzBackend, mockAuthzController } from "./mock-authz";
+import { createMockServices } from "./mock-services";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -242,6 +243,15 @@ const mockLlmShare = createMockLlmShare({ selfPeerId: () => state.peerId });
 // authz 命令面 mock（契约 §18）：同签名独立文件；判定瀑布内存态模拟。
 (window as unknown as Record<string, unknown>).__MOCK_AUTHZ__ = mockAuthzController;
 
+// 服务总控命令面 mock（契约 §20）：闭集清单/双读回落/内存翻转经独立文件实现。
+const mockServices = createMockServices({
+  isRunning: () => state.running,
+  enableMdns: () => state.config.enableMdns,
+  lanOnly: () => state.config.lanOnly,
+});
+(window as unknown as Record<string, unknown>).__MOCK_SERVICES__ =
+  mockServices.controller;
+
 // llm-share dev 注入入口：offer 五态、拒绝码四值与 stream_broken 相位矩阵（测试/演示共用）。
 (window as unknown as Record<string, unknown>).__MOCK_LLM_SHARE__ = mockLlmShare.controller;
 
@@ -447,6 +457,9 @@ export const mockBackend: IpcBackend & {
   // 契约 §18：authz 命令面 mock（同签名透传独立 mock 实例）。
   ...mockAuthzBackend,
 
+  // 契约 §20：服务总控 mock（闭集清单/内存翻转，沿 §18 先例独立文件）。
+  ...mockServices.backend,
+
   // 契约 v10 §15：acp-console 托管面 mock（同签名，相位经 mockAcpConsole 可控）。
   async acpConsoleStatus() {
     return mockAcpConsole.status();
@@ -459,15 +472,6 @@ export const mockBackend: IpcBackend & {
 
   onAcpConsoleEvent(handler): Promise<UnlistenFn> {
     return Promise.resolve(mockAcpConsole.subscribe(handler));
-  },
-
-  // 契约 §20（服务总控）签名桩：mock 链路（闭集清单/内存翻转/面板）由实现卡
-  // 落地；沿 tunnel 访侧先例显式报错不假装可用，禁止静默空数据。
-  async servicesList() {
-    throw new Error("mock 环境未实现服务总控清单：需在桌面应用内使用");
-  },
-  async servicesSetEnabled() {
-    throw new Error("mock 环境未实现服务总控开关：需在桌面应用内使用");
   },
 
   onNodeEvent(handler): Promise<UnlistenFn> {
