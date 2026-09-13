@@ -100,6 +100,8 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
         p2p_cli::echo::EchoHandler::new()
             .map_err(|e| CliError::Runtime(format!("echo 协议装配失败: {e}")))?,
     ));
+    // 存量回填（§0.5c）：daemon 启动等价执行一次 authz import friends（幂等；失败仅告警）。
+    crate::authz::import_friends::startup_backfill(&paths.root);
     // 采集器尽早起：装配后到 serve 前的发现事件也归约进注册表。
     let registry = Arc::new(PeerRegistry::new());
     observe::spawn_collector(&node, registry.clone());

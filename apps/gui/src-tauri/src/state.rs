@@ -105,14 +105,19 @@ impl AppState {
         let profile_store = self.profile.clone();
         let local_profile: p2p_chat::LocalProfileFn =
             Arc::new(move || profile_store.load().into_peer_profile());
+        // chat PEP 准入闸（Amended A-2）：authz 适配器注入，无绑定 peer 入站拒收；
+        // 数据根 = app 数据目录（authz 表同根，§18 口径）。
+        let chat_gate = crate::chat::authz_chat_gate(self.app_data_dir.clone());
         let (chat_events, group_events) = self
             .chat
-            .install(node.clone(), local_profile)
+            .install(node.clone(), local_profile, Some(chat_gate))
             .await
             .inspect_err(|_| {
                 node.shutdown();
                 history.stop_and_clear();
             })?;
+        // 存量回填（§0.5c）：启动等价执行一次 authz import friends（幂等；失败仅告警）。
+        crate::chat::startup_import_friends(&self.app_data_dir, &cfg.authz_default_role);
         // 出借方常驻 serve 装配（§16.6 v13）：chat install 之后；装配失败不阻断
         // 节点启动（assembled:false + lastError 落槽可查询，不回滚）。
         let llm_store = crate::llm_share::LlmShareStore::new(self.app_data_dir.clone());
