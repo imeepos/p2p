@@ -112,3 +112,14 @@ ACS1 内部提交序（注册类独立小提交纪律）：
   （与实现者同族不合规）；重派 a9264b34（minimax-cn/MiniMax-M3，只读，
   同一评审 prompt）。同期核活：ACS2 session-b2d05d3f 健康在飞
   （worktree @ 0883e722，2 分钟前有提交），不干预。
+- 2026-09-14 18:25 ACS3 评审结论：APPROVE，零 Critical（M3 耗时 4 分钟）。
+  验收复核五项全 PASS（门禁可信/测试真实性/i18n 完整/红线/越界）。
+  三发现裁定：
+  - F1 [Important→执行修复] agent-endpoint-sidebar.tsx:18 AgentEndpointSidebar
+    函数 107 行超 60 行红线（AGENTS.md 硬规则，不采信评审者的「历史风格」
+    降级）：以 [补充] 排队给 ACS2 在飞会话，抽 EndpointList 子组件；
+    ACS2 任务书「不动 /agent 新页」边界由本裁定显式放开该单点。
+  - F2 [Minor→接受入档] endpointRows useMemo 依赖含 t,i18n 切换瞬间多一次
+    重渲染：频次极低无功能缺陷，入候选池打磨项，不修复。
+  - F3 [Minor→无需动作] chat-route 旁路 query 透传：评审者自证与测试口径
+    一致，仅登记「后续新增副作用键需复测」备忘。
