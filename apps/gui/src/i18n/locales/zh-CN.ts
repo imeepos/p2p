@@ -484,6 +484,10 @@ const zhCN = {
       permissionPending: "有 {{count}} 条待应答权限请求",
       permissionPendingAction: "去处理",
     },
+    feedback: {
+      sessionCreated: "会话已创建",
+      sessionCreating: "正在创建会话…",
+    },
     peerOnline: "在线",
     peerOffline: "离线",
     noMessages: "暂无消息",

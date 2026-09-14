@@ -495,6 +495,10 @@ const enUS: typeof zhCN = {
       permissionPending: "{{count}} permission request(s) awaiting response",
       permissionPendingAction: "Review",
     },
+    feedback: {
+      sessionCreated: "Session created",
+      sessionCreating: "Creating session…",
+    },
     peerOnline: "Online",
     peerOffline: "Offline",
     noMessages: "No messages yet",
