@@ -1,0 +1,65 @@
+diff --git a/apps/cli/src/daemon.rs b/apps/cli/src/daemon.rs
+index 802c6ef1..719e99f5 100644
+--- a/apps/cli/src/daemon.rs
++++ b/apps/cli/src/daemon.rs
+@@ -82,6 +82,8 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
+         p2p_cli::echo::EchoHandler::new()
+             .map_err(|e| CliError::Runtime(format!("echo 协议装配失败: {e}")))?,
+     ));
++    // 存量回填（§0.5c）：daemon 启动等价执行一次 authz import friends（幂等；失败仅告警）。
++    crate::authz::import_friends::startup_backfill(&paths.root);
+     // 采集器尽早起：装配后到 serve 前的发现事件也归约进注册表。
+     let registry = Arc::new(PeerRegistry::new());
+     observe::spawn_collector(&node, registry.clone());
+diff --git a/apps/gui/src-tauri/src/state.rs b/apps/gui/src-tauri/src/state.rs
+index 2b5dfc5d..a2a32e3c 100644
+--- a/apps/gui/src-tauri/src/state.rs
++++ b/apps/gui/src-tauri/src/state.rs
+@@ -107,14 +107,19 @@ impl AppState {
+         let profile_store = self.profile.clone();
+         let local_profile: p2p_chat::LocalProfileFn =
+             Arc::new(move || profile_store.load().into_peer_profile());
++        // chat PEP 准入闸（Amended A-2）：authz 适配器注入，无绑定 peer 入站拒收；
++        // 数据根 = app 数据目录（authz 表同根，§18 口径）。
++        let chat_gate = crate::chat::authz_chat_gate(self.app_data_dir.clone());
+         let (chat_events, group_events) = self
+             .chat
+-            .install(node.clone(), local_profile)
++            .install(node.clone(), local_profile, Some(chat_gate))
+             .await
+             .inspect_err(|_| {
+                 node.shutdown();
+                 history.stop_and_clear();
+             })?;
++        // 存量回填（§0.5c）：启动等价执行一次 authz import friends（幂等；失败仅告警）。
++        crate::chat::startup_import_friends(&self.app_data_dir, &cfg.authz_default_role);
+         // 出借方常驻 serve 装配（§16.6 v13）：chat install 之后；装配失败不阻断
+         // 节点启动（assembled:false + lastError 落槽可查询，不回滚）。
+         let llm_store = crate::llm_share::LlmShareStore::new(self.app_data_dir.clone());
+diff --git a/apps/gui/src-tauri/src/state/chat.rs b/apps/gui/src-tauri/src/state/chat.rs
+index 6443a3aa..e8461a7c 100644
+--- a/apps/gui/src-tauri/src/state/chat.rs
++++ b/apps/gui/src-tauri/src/state/chat.rs
+@@ -27,11 +27,13 @@ impl ChatSlot {
+ 
+     /// 节点启动后装配（data_dir = app_data_dir，crate 内部 join "chat"）；
+     /// local_profile 为 /im/profile/1 应答内容源（本机节点资料读取器）；
++    /// gate 为入站准入闸（Amended A-2，authz 适配器，None=未接线不设防）；
+     /// 返回（1:1 事件, 群事件）接收端（命令层转发）。失败留告警并回抛中文 Err。
+     pub async fn install(
+         &self,
+         node: Arc<Node>,
+         local_profile: p2p_chat::LocalProfileFn,
++        gate: Option<Arc<dyn p2p_chat::CheckGate>>,
+     ) -> Result<
+         (
+             broadcast::Receiver<ChatEvent>,
+@@ -39,7 +41,7 @@ impl ChatSlot {
+         ),
+         String,
+     > {
+-        let chat = Chat::with_local_profile(node, self.app_data_dir.clone(), local_profile)
++        let chat = Chat::with_gate(node, self.app_data_dir.clone(), local_profile, gate)
+             .map_err(|e| {
+                 warn!(error = %e, "聊天模块装配失败");
+                 format!("聊天模块装配失败: {e}")
