@@ -585,3 +585,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - mock 链两端对齐：console 状态快照发的 token（mock-console-token）≠ WS mock 校验的默认 token（mock-token），自动补全类流程测试必须 `mockAcpWs.configure({ token, peers })` 显式对齐两端再拨号，否则 401 假挂起超时（与 2026-09-12「GUI mock WS 的 peer 白名单」条同族，token 面补充；console-watch.test 有先例，写测试前先读同类测试）。
 - 改同步动作为 async 而不动时序的手法：async 函数体首个 await 前全同步执行——把 IPC 补全放在「字段缺失才走到」的 await 分支之后，complete 输入路径零时序变化，依赖同步相位落定的调用方（console-watch 的 startAutoConnect → s.connect()）无感知回归。
 - 自造测试助手前先怀疑自己：曾顺手写出无意义的 screen_getConnect 包装（内含死代码），复查时整段删掉回归 screen.getByTestId——测试代码同样过 60 行函数与「不造轮子」红线。
+
+## 2026-09-14 initializeFailed 三层剥洋葱与 launchd agent 子命令坑（本机部署修复）
+- GUI 报 `initializeFailed + detail=acp-connection-closed` 只说明「pump 的 WS 在 initialize 握手前被关」，真因全在 agent 侧，按三层剥：① GUI pump 日志 ~/Library/Logs/com.p2p.console/p2p-console.log 的 acp_pump::state conn transition（dial no known address = agent 进程没跑；Online 后 PeerClosed = agent 侧子进程死）→ ② agent audit ~/.dsh/acp-agent/launchd-stderr.log（conn-established + subprocess exit status:1 = 桥的子进程秒退）→ ③ 子进程 stderr ~/.dsh/acp-agent/acp-logs/<peer>-<conn>.log（空 = 命令在 exec/解析层就死了）。
+- launchd agent 子命令两坑：acp-agent 的 --command 必须是**单个 argv**（agent 自行按空格切分，plist 拆成多 item 直接 clap usage 拒绝）；默认命令 `pnpm dsh` 依赖 cwd 有 package.json——launchd WorkingDirectory=$HOME 必炸 NO_IMPORTER_MANIFEST_FOUND（且子进程日志为空，别被「stderr 空」误导成「没执行」）。正解：plist 显式 `--command /Users/imeepos/.vite-plus/bin/dsh --profile acp`（绝对路径 shim）+ PATH 前置 nvm node。
+- 本机 launchd 部署物的持久性：com.imeepos.acp-agent.plist 不在 repo，scripts/ops/acp-local-setup.sh 只 kickstart 不覆写——手修 plist 持久生效；但 ~/.dsh/bin/acp-agent 与 repo HEAD 可能差几个 style 提交，判断是否要重建用 `git log <二进制日期>..main -- <crate路径>` 而非 mtime 直觉。
