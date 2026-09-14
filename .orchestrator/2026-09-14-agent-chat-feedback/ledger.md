@@ -25,3 +25,20 @@
 | 16:28 | AF2 重报骑在 8a0732e8（6 提交含 i18n 重复键合并 30bbe4e8 + 冲突标记清理 c6d96e4d）；主控复核（marker 零残留/文件面授权域内/独立复跑 13/13 绿）→ **AF2 验收通过**；首次合并尝试实际 exit 1 被他人 lessons.md 未提交 WIP 阻塞（git "Updating..."+Aborting，tail -1 截断输出误读为成功） | 分支 ref 安全；教训记账：合并成败必须 rev-parse 双向核对，禁 tail -1 链式判读 |
 | 16:31 | 主对主索取 lessons.md 入库 → a0e58375 已提交并推送，主树工作区首次全净 | AF2 最后一轮 rebase a0e58375 指令已下；重报即收官合并 |
 | 16:32 | AF2 回报与指令再度交错：以旧证据（merge-base=8a0732e8）答"无需再 rebase"，未执行 a0e58375 rebase | 纠偏带硬数字防误判（新旧 tip、预期 EOF 冲突处置、证据行须含 a0e58375）；若再无进展启用 Plan B：主控开集成分支 cherry-pick 六提交自行消解 EOF，其分支作废待命归档 |
+| 16:34 | AF2 最终重报 merge-base=a0e58375 ✓；快核（marker 零/文件面授权域内/tip f75e0323）→ 抢锁 → push 分支 → **ff-only a0e58375→f75e0323** → push main（rev-parse 双向核对）→ 释放锁；主干 gui-check PASS | **AF2 验收通过并落主干** |
+| 16:38 | AF2 worktree/分支清理；AF2 收官回执 + e1cd6aa4 hash 回执（f75e0323 + listWorkspaces 影响面=仅 share-admin 三调用方，conversation-list/两级树零影响）；双子会话归档（296/297） | 波次进入收官 |
+| 16:47 | 收官清扫交叉：e1cd6aa4 侧 sweep 将我波文档（plan/briefs/progress/ledger/checklist）与 SESSIONS/TODO/lessons 全部入库推净（origin/main..main=0），wsm-b3 重复行由 63414a88 修复（移交项闭环）；我方 lessons 两条主控教训幸存核验 ✓ | 无需再提交，登记表释放已入 git |
+
+## 收官 · 找活扫描九源（2026-09-14 16:47）
+
+1. 需求对账：用户指令（新建会话反馈 + 全按钮 点击-loading-成功微提示-错误轻提示）已全量交付 @ f75e0323 — 已核无新活
+2. Guesses 到期：本波无 Guesses 记录 — 无
+3. Known Issues：lessons.md wsm-b3 重复行 → 63414a88 已修闭环；AsyncButton 驻留期吞点击 → resultHoldMs 可调 + 夹具就绪等待已解决 — 无未决
+4. 用户等待项：无
+5. 质量债：AgentConversation 函数 ~120 行存量超长 → 已移交 uix 波；connection 按钮 toast 化 → 裁定不做（状态驱动反馈面已足）— 记录在案
+6. 安全风险：无
+7. 验收工具化：聚焦矩阵 + gui 门禁已足 — 无
+8. 待细化区：uix 波 T3 视觉对齐在飞（其 rebase 保留本波接线），e1cd6aa4 主导 — 非本波事项
+9. 经验沉淀：主控 2 条 + 子会话 5 条已入 self-evolving/lessons.md 并入库 — 完成
+
+**收官四段**：本轮新派 AF1（新建会话反馈闭环，1 修复轮后过）+ AF2（全按钮走查 58 控件 + 契约修复，2 修复轮后过）；等人项准备链——与 e1cd6aa4 的协调（B 移交/冲突序/hash 回执/移交项修复）全部闭环，无未决等人；候选池——空（两移交项均已闭环）；下一波次触发器——用户试用新反馈 UX 的意见，或 uix T3 合并后按钮面回归即开新微波。
