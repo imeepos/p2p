@@ -160,7 +160,7 @@ export function ChatPage() {
         <section
           aria-label={t("chat.conversations.searchPlaceholder")}
           data-testid="chat-list-pane"
-          className="bg-wx-list flex min-h-0 w-[264px] shrink-0 flex-col border-r border-border/60 xl:w-[320px]"
+          className="bg-wx-list flex min-h-0 w-[264px] shrink-0 flex-col border-r-[0.5px] border-border xl:w-[320px]"
         >
           <ConversationList
             entries={entries}

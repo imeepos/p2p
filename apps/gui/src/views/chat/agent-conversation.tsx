@@ -124,7 +124,7 @@ function PendingPermissionBanner({ endpointId }: { endpointId: string }) {
     <div
       role="status"
       data-testid="agent-permission-banner"
-      className="border-warning/50 bg-warning/10 text-warning mx-4 mt-2 flex shrink-0 items-center gap-2 rounded-md border px-3 py-1.5 text-xs"
+      className="border-warning/50 bg-warning/10 text-warning mx-4 mt-2 flex shrink-0 items-center gap-2 rounded-md border-[0.5px] px-3 py-1.5 text-xs"
     >
       <TriangleAlertIcon aria-hidden className="size-3.5 shrink-0" />
       <span className="min-w-0 flex-1 truncate" data-testid="agent-permission-banner-text">
@@ -176,18 +176,32 @@ export function AgentConversation({ endpointId }: { endpointId: string }) {
   if (connected) {
     return (
       <div data-testid="agent-conversation" className="flex min-h-0 flex-1 flex-col">
-        <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border/60 px-4 text-sm font-medium">
+        {/* uix-spec §3 会话头：56px 折中高度 + 0.5px hairline；wsUrl 降为右侧弱标注 */}
+        <div className="flex h-14 shrink-0 items-center gap-2 border-b-[0.5px] border-border px-5 text-sm font-medium">
           <span className="inline-flex items-center gap-2">
             <Bot aria-hidden className="size-4" />
             {title}
           </span>
-          <span className="text-muted-foreground min-w-0 truncate text-xs">{endpoint.wsUrl}</span>
+          <span className="text-muted-foreground/70 ml-auto min-w-0 truncate text-xs font-normal">
+            {endpoint.wsUrl}
+          </span>
         </div>
         <PendingPermissionBanner endpointId={endpointId} />
         {activeSessionId === null ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2">
-            <p className="text-muted-foreground text-sm">{t("acp.sessions.empty")}</p>
-            <Button type="button" size="sm" onClick={() => void newSession()} data-testid="agent-new-session">
+          // uix-spec §3 空态 hero：居中「徽标 + 标题 + 说明 + 动作」栈替代裸文案
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <span className="flex size-12 items-center justify-center rounded-2xl border-[0.5px] border-border bg-card shadow-sm">
+              <Bot aria-hidden className="text-muted-foreground size-6" />
+            </span>
+            <p className="text-[26px] leading-tight font-medium">{t("acp.sessions.empty")}</p>
+            <p className="text-muted-foreground text-[13px]">{t("acp.sessions.emptyHint")}</p>
+            <Button
+              type="button"
+              size="sm"
+              className="mt-1 rounded-full px-4"
+              onClick={() => void newSession()}
+              data-testid="agent-new-session"
+            >
               {t("chat.agentPane.newSession")}
             </Button>
           </div>

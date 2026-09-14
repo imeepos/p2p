@@ -70,9 +70,10 @@ function AssistantTurn(props: {
   const { turn } = props;
   return (
     <div className="flex justify-start" data-testid={"acp-turn-assistant-" + turn.id}>
+      {/* uix-spec #20：DSW 气泡——白卡面 22px 圆角 10/16 内距，替代整块灰底面板 */}
       <div
         className={cn(
-          "bg-muted text-foreground max-w-[80%] rounded-2xl rounded-bl-sm px-3 py-2 text-sm",
+          "max-w-[80%] rounded-[22px] border-[0.5px] border-border bg-card px-4 py-2.5 text-sm leading-6 text-foreground",
           turn.streaming && "animate-pulse",
         )}
       >
@@ -100,7 +101,11 @@ function AssistantTurn(props: {
             </Button>
           </>
         ) : turn.stopReason ? (
-          <span className="text-muted-foreground text-xs" data-testid={"acp-stop-reason-" + turn.id}>
+          // stopReason 收敛为气泡内右下角弱标注，不再悬挂突兀
+          <span
+            className="text-muted-foreground mt-1 block text-right text-[11px] leading-4 opacity-70"
+            data-testid={"acp-stop-reason-" + turn.id}
+          >
             {stopReasonText(t, turn.stopReason)}
           </span>
         ) : null}
@@ -128,9 +133,12 @@ function UserTurn({ turn }: { turn: Extract<Turn, { kind: "user" }> }) {
   const { t } = useTranslation();
   return (
     <div className="flex justify-end" data-testid={"acp-turn-user-" + turn.id}>
-      <div className="bg-primary text-primary-foreground max-w-[80%] rounded-2xl rounded-br-sm px-3 py-2 text-sm">
+      {/* uix-spec #20：用户侧主色气泡与 assistant 白卡气泡形成对话层次 */}
+      <div className="max-w-[80%] rounded-[22px] bg-primary px-4 py-2.5 text-sm leading-6 text-primary-foreground">
         <p className="whitespace-pre-wrap break-words">{turn.text}</p>
-        <span className="text-primary-foreground/70 text-right text-xs">{t("acp.transcript.user")}</span>
+        <span className="text-primary-foreground/70 block text-right text-[11px] leading-4">
+          {t("acp.transcript.user")}
+        </span>
       </div>
     </div>
   );
@@ -191,10 +199,14 @@ export function Transcript({ sessionId }: TranscriptProps) {
     <div
       ref={scrollRef}
       onScroll={onScroll}
-      className="scroll-slim flex max-h-[65vh] min-h-0 flex-col gap-2 overflow-y-auto"
+      className="scroll-slim flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]"
       data-testid="acp-transcript-scroll"
     >
-      <div className="flex flex-col gap-2" data-testid="acp-transcript">
+      {/* uix-spec #18/#19：与输入卡同一居中内容列，行距 8px */}
+      <div
+        className="mx-auto flex w-full max-w-[var(--dsh-chat-content-width)] flex-col gap-2 px-4 py-3"
+        data-testid="acp-transcript"
+      >
         {turns.map((turn) => {
           if (turn.kind === "thought") return <ThoughtTurn key={turn.id} sessionId={sessionId} turn={turn} />;
           if (turn.kind === "assistant") {

@@ -47,6 +47,8 @@
   --wx-bubble-me: #95ec69;
   --wx-bubble-them: #ffffff;
   --wx-badge: #fa5151;
+  /* agent 会话区内容宽度轴（uix-spec §1 #18）：消息列与输入卡共用同一居中列 */
+  --dsh-chat-content-width: clamp(680px, 64%, 920px);
 }
 
 .dark {
