@@ -721,8 +721,16 @@ failed: early eof（客户端侧超时中止）。
 - 症状：任务一边要求「不破坏 chat-render-matrix 断言」，一边要求移除被钉死的旧样式（选中行 `bg-primary text-white`），字面冲突必然红一条。
 - 修法：辨明断言语义（选中行视觉可辨 + aria）与样式钉（具体类名）两层；语义保留、样式钉随主变更同提交更新，并在回报中显式声明改了哪条钉、为何不损语义；新钉选择器避开易撞的 `span span` 裸层级（会命中头像内层 span），用语义类名定位。
 - 教训通式：**「不破坏既有断言」约束的对象是语义不是类名字面量**；改视觉前先 grep 测试里的类名断言，把钉更新与样式变更压进同一提交保证每步绿。
+<<<<<<< HEAD
 
 ## 2026-09-14 收尾四步：branch -d 在「已 ff 合并、未推 main」时误报未合并
 - 症状：`git merge --ff-only <分支>` 成功后 `git branch -d <分支>` 报 not fully merged（对照 refs/remotes/origin/main 判定，本地 origin/main ref 还停在旧 tip）。
 - 修法：先 `git push origin main` + `git fetch` 让 origin/main ref 追上，`branch -d` 即自然通过；别用 -D 绕过（那会失去这层安全检查的语义）。
 - 通式：收尾四步脚本里「推 main」是 branch -d 的前置而非可选项；主树 ff 合并后先同步远端 main 再删分支。
+
+## 2026-09-14 share-admin-client.listWorkspaces 吞错契约：UI 层无法区分「无工作区」与「拉取失败」（05adb91d 已修）
+- 症状：local-acp-card 刷新按钮接 AsyncButton 后错误 toast 永远不触发——按钮 action 不可能 reject。
+- 根因：`listWorkspaces` 里 `adminJson(url, token).catch(() => ({}))` 把全部失败（HTTP 4xx/5xx/网络错）吞成空表返回，空结果与「旧 agent 无该端点」合法空态无法在组件层区分；同文件的 listShares/revokeShare 无此吞错。
+- 影响面：local-acp-card 刷新与 share-create-dialog 弹层内 workspace 拉取两处（失败静默回落默认工作区）。
+- 修法（AF2 修复轮 1 已修，05adb91d）：adminJson 改抛 AdminHttpError（携带 status、消息格式不变）；listWorkspaces 仅 404 容错返回空表，其余上抛；两调用方补错误 toast/行内 alert + 500 失败路径红绿断言。
+- 教训通式：客户端层「容错解析」只该容错**响应体形状**，不该容错**状态码**——把 HTTP 失败吞成合法空态会让 UI 层永远失去错误呈现能力；需要区分「旧版本无端点」这类语义时按 status 精确豁免并写进注释。
