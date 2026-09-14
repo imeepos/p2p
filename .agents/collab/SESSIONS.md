@@ -77,3 +77,9 @@
   基线 origin/main@da861ce1；允许面 apps/gui/src（views/chat 拆除主体、contacts/acp-manage
   深链源头、i18n 死键）+ .orchestrator/本波 + 本文件；禁触 /agent 新页内部行为、
   routes/agent-redirect.ts 兜底、src-tauri/crates/docs/design。收尾仅①push，②③④主控执行。
+- [完工释放] 2026-09-14 18:54 session-3aa89cd2（主控/lead）：ACS 波收官——ACS1
+  （session-920a4593）+ ACS2（session-b2d05d3f）全并主干，rebase 后
+  main==origin/main@68246e76，主干 check-fast exit=0；ACS3 交叉评审
+  （MiniMax-M3 subagent）APPROVE 零 Critical；worktree/分支本地远端全清，
+  两子会话归档。scope=agent 会话独立页 释放。候选池与收官报告见
+  .orchestrator/2026-09-14-agent-chat-standalone-page/plan.md 收官节。

@@ -133,3 +133,41 @@ ACS1 内部提交序（注册类独立小提交纪律）：
   hintAgentOnly 仅本机 Agent）批准 [补充·终项] 修复（显式放开只删不改，
   zh/en 同步+测试随改）；②kind=agent union 保留接受入候选池；③app-boot
   兜底冒烟测试保留（合同守卫）。待其文案回报后合并收官。
+- 2026-09-14 18:50 终项完成（DONE）：efd4f4c6 两条文案 zh/en 改写
+  （emptyHint 去 Agent 聚合表述；hintAgentOnly 改 A2A 语义），聚焦 4 文件
+  35 例 + tsc exit=0。合并遇 ff-only 失败（主控账本提交 adcafa1d 与分支
+  基线 8f1dcac3 分叉一格）——按协议回 worktree rebase main（8/8 零冲突）
+  重试，主干 @ 68246e76 已推。
+- 2026-09-14 18:52 收尾②③④：worktree/本地分支/远端分支全清（首次远端
+  删除推送撞 60s 超时，实删已生效，二次删除得 remote ref does not exist
+  佐证）。主干门禁复跑见下条。
+
+## 收官（2026-09-14）
+
+**四段收官报告**
+1. 本轮新派：ACS1（独立 /agent 页，session-920a4593，DONE_WITH_CONCERNS→
+   验收合并）、ACS2（/chat 拆除+深链源头，session-b2d05d3f，DONE）、
+   ACS3（只读交叉评审，deepseek-v4-flash 限流废案 → MiniMax-M3 重派，
+   APPROVE 零 Critical）。三任务三会话，零返工重派，修复轮合计 2。
+2. 等人项准备链：TODO.md 服务总控三裁决项（落地形态/收口范围/持久化语义）
+   仍等用户——属 2026-09-13 主波次范畴，本波不铺备忘录，登记为触发器。
+3. 候选池：P1 per-session 会话时刻（SessionSummary 无时间字段，客户端交互
+   日志方案）；P2 TS 侧单函数 60 行机械门禁（现 line-limit 仅扫 .rs，本波
+   F1 即人工发现）；P3 /agent 打磨三件（任务清单卡片=ACP plan 事件、
+   对话/轨迹双 tab、附件+模型选择器，用户裁决过方向未排期）；P4
+   open-conversation-window kind=agent union 清理（连带 prefs 键位）；
+   P5 endpointRows useMemo t 依赖微优化。
+4. 下一波次触发器：用户对服务总控三裁决项表态 → 重启 2026-09-13 主波次；
+   用户点名 /agent 打磨要素 → 立 ACS 打磨微波次；无触发则本波次为终态，
+   /agent 页独立入口形态交付完毕。
+
+**找活扫描九源**：需求对账=TODO.md 主波次三裁决等人（已核）；Guesses=G1/G2
+本波裁定闭环；Known Issues=F2/P4 入候选池；用户等待=三裁决项（等人合法）；
+质量债=P1/P2 入候选池；安全风险=零新增；验收工具化=P2；待细化区=P3；
+经验沉淀=评审限流换族（M3 实证 4 分钟交付）、任务书收尾边界条款、
+账本提交与分支基线分叉会破 ff-only（本波实证，重 rebase 解）——均已入档。
+
+- 2026-09-14 18:54 终态确认：主干 check-fast 复跑 exit=0（@ 68246e76）；
+  main==origin/main==68246e76；worktree/分支本地远端全清；两子会话归档
+  （汇报均已入账本）。波次闭环，main 终态含 ACS1+ACS2 全量
+  （/agent 独立页 + /chat 拆除 + 深链兜底 + i18n 收敛）。
