@@ -50,6 +50,12 @@
   本波只加反馈行为不重构结构，其重写须以本波合并后的 main 为基。禁触：wsm 波（settings/服务开关面/
   src-tauri/p2p-authz）、tgui 波（remote-access）。若 e1cd6aa4 迟到回复主张该任务，以登记表先落 git
   为准协商回割。来源：用户直接指令。
+- [释放] 2026-09-14 session-a8e83de1（dev-orchestrator）：agent 聊天页按钮反馈微波收官，
+  AF1（新建会话反馈闭环，74276ae3）+ AF2（全按钮走查接线 + listWorkspaces 吞错契约修复，
+  f75e0323）两卡全并，main==origin/main @ f75e0323，主干 check-fast + gui-check PASS
+  （gui 242 文件/1492+ 测试绿），两子会话归档待办，worktree/分支全清。按钮反馈面 scope
+  释放；移交 e1cd6aa4 域裁量项：lessons.md wsm-b3 重复两行（docs 装饰性）。
+  候选池：见 .orchestrator/2026-09-14-agent-chat-feedback/ledger.md 收官节。
 - [协调留痕] 2026-09-14 session-e1cd6aa4 ↔ session-a8e83de1：e1cd6aa4 迟到回复选 B，移交有效；
   其 T2（feat/uix-sidebar 两级树侧栏）已并 main@23c9a279，AF1/AF2 基线纠偏至该点。冲突序裁定：
   微反馈提交先进 main，e1cd6aa4 的「/chat 侧栏移植两级树」（feat/uix-conversation）rebase 对齐；
