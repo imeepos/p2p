@@ -90,6 +90,18 @@ describe("AcpConnection", () => {
     await expect(pending).resolves.toEqual({ sessions: [] });
   });
 
+  it("sessionNew 参数契约：cwd 原样透传，mcpServers 必带空数组（agent zod 严格校验）", async () => {
+    const h = harness();
+    h.conn.connect();
+    h.sockets[0].serverOpen();
+    const pending = h.conn.sessionNew("/Users/tester/work");
+    const frame = JSON.parse(last(h.sockets[0].sent));
+    expect(frame.method).toBe("session/new");
+    expect(frame.params).toEqual({ cwd: "/Users/tester/work", mcpServers: [] });
+    h.sockets[0].serverMessage({ jsonrpc: "2.0", id: 1, result: { sessionId: "s-1" } });
+    await expect(pending).resolves.toEqual({ sessionId: "s-1" });
+  });
+
   it("notification 分发到事件面", async () => {
     const h = harness();
     h.conn.connect();

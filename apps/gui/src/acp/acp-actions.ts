@@ -2,6 +2,7 @@
 // acp-store 只留状态与一行委托，避免单文件超限。失败路径一律 console.warn 留痕。
 import { cancelledOutcome, selectedOutcome } from "./protocol";
 import { autofillDraft, changedFields } from "./draft-autofill";
+import { resolveSessionCwd } from "./session-cwd";
 import {
   applyConfigOptions,
   rejectUnanswered,
@@ -127,7 +128,11 @@ export async function runNewSession(): Promise<void> {
   const conn = currentConnection();
   if (!conn) return;
   try {
-    const r = (await conn.sessionNew()) as { sessionId: string; configOptions?: import("./protocol").ConfigOption[] };
+    // ACP session/new 必填 cwd（owner 本机直透子进程）：主目录解析见 session-cwd.ts
+    const r = (await conn.sessionNew(await resolveSessionCwd())) as {
+      sessionId: string;
+      configOptions?: import("./protocol").ConfigOption[];
+    };
     useAcpStore.setState({ activeSessionId: r.sessionId });
     mapInteraction(r.sessionId, (s) => applyConfigOptions(s, r.configOptions));
     await get().refreshSessions();

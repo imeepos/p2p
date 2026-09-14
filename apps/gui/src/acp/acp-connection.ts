@@ -269,8 +269,9 @@ export class AcpConnection {
     return (await this.request("session/set_config_option", params)) as ConfigOptionsResult;
   }
 
-  async sessionNew(cwd?: string): Promise<SessionNewResult> {
-    return (await this.request("session/new", { cwd: cwd ?? null })) as SessionNewResult;
+  /** session/new：cwd 与 mcpServers 均为 ACP 必填（agent 侧 zod 严格校验，缺者 -32602） */
+  async sessionNew(cwd: string): Promise<SessionNewResult> {
+    return (await this.request("session/new", { cwd, mcpServers: [] })) as SessionNewResult;
   }
 
   /** 长回合可能远超通用 30s：prompt 不挂通用超时，只由应答/错误/断连结算 */
