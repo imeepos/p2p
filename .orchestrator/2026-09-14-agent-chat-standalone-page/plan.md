@@ -106,3 +106,9 @@ ACS1 内部提交序（注册类独立小提交纪律）：
   无新事实；回执告知 ACS2 已派新会话（一个任务一个会话，不续用）、本会话
   保持存活作 ACS1 修复循环通道。ACS2 在飞 session-b2d05d3f；
   ACS3 评审在飞 subagent 634ae79e（deepseek-v4-flash，只读）。
+- 2026-09-14 18:19 评审子代理换模型（用户指令「那个模型应该限流了」）：
+  634ae79e（deepseek-v4-flash）运行 1h12m 零产出，判限流卡死，interrupt
+  终止（无残留产物）；volces 对本会话不可用，bigmodel 仅 GLM-5.3-Flash
+  （与实现者同族不合规）；重派 a9264b34（minimax-cn/MiniMax-M3，只读，
+  同一评审 prompt）。同期核活：ACS2 session-b2d05d3f 健康在飞
+  （worktree @ 0883e722，2 分钟前有提交），不干预。
