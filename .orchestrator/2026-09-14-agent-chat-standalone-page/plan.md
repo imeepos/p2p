@@ -62,3 +62,23 @@ ACS1 内部提交序（注册类独立小提交纪律）：
 - 2026-09-14 16:10 账本+任务书+截图入库 @ ca9ded67（pre-push 门禁 PASS，已推 origin/main）。
 - 2026-09-14 16:10 ACS1 派发 session-920a4593-129a-4989-84b6-357abfd36258
   （feat/acs-standalone）；下一步：等汇报，窗口内预写 ACS2 任务书草案。
+- 2026-09-14 16:50 ACS1 执行留痕（session-920a4593，分支 feat/acs-standalone
+  @ 7 个提交，rebase 后基线 origin/main@9bb45b6f）：
+  - Guess 验证：G1 成立一半——acp-page.tsx 路由挂载点仅剩自身测试引用，
+    但 AcpView 被 8 个测试文件与 palette 注册面引用，非死代码，本轮不动；
+    G2 不成立——session-sidebar 只依赖 acp-store/workspace-model，与
+    acp-view 无耦合（可复用），但其树按 workspace 分组且无端点维度、
+    sessions 仅属当前连接，故新写端点-会话两级侧栏（agentChat 侧栏四件套）。
+  - 数据面缺口（如实上报）：store 无 per-session 时刻，会话行相对时间只在
+    「当前端点+当前会话」取 lastInteractionByEndpoint（语义即当前会话最后
+    交互），其余行不显时间不冒充；ACS2+ 如需每会话历史时间需扩 store（本波
+    禁触协议面）。
+  - 门禁：make check-fast exit 0（内含 gui-check：lint+build+247 文件/1529
+    测试绿）；make gui-check 独立复跑 exit 0；聚焦矩阵 11 例 + redirects
+    全应用挂载 15 例绿。
+  - 走查证据：evidence/acs1-agent-{empty,disconnected,connected}.png
+    （VITE_MOCK_IPC=1 dev 5199，rail 第二项 /agent、侧栏端点清单含本机徽标、
+    选中态/离线提示/在线三区+新建会话按钮均实证；会话行相对时间的走查需真实
+    mock 连接，以矩阵测试 agent-session-time-s-001 断言为证）。
+  - 交接注意：/acp 存量守卫 src/test/app-redirects.test.tsx 已随改指更新并补
+    agent 深链两例；palette-nav 守卫基线 16->17 项；/chat 页内零改动。
