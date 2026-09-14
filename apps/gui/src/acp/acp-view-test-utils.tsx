@@ -45,8 +45,20 @@ export async function renderConnected() {
   }, { timeout: FIXTURE_WAIT_TIMEOUT });
 }
 
+/** 新建按钮已是 AsyncButton 反馈面：busy/驻留期点击不生效，先等其回到可用再点 */
+export async function clickNewSession() {
+  const button = screen.getByTestId("acp-session-new");
+  await waitFor(
+    () => {
+      expect((button as HTMLButtonElement).disabled).toBe(false);
+    },
+    { timeout: FIXTURE_WAIT_TIMEOUT },
+  );
+  fireEvent.click(button);
+}
+
 export async function newSession() {
-  fireEvent.click(screen.getByTestId("acp-session-new"));
+  await clickNewSession();
   await waitFor(() => {
     expect(screen.getByTestId("acp-session-row-s-001")).toBeTruthy();
   }, { timeout: FIXTURE_WAIT_TIMEOUT });

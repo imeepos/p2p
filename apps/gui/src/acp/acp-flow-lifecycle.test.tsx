@@ -8,7 +8,9 @@ vi.stubEnv("VITE_MOCK_IPC", "1");
 const { AcpView } = await import("./acp-view");
 const { mockAcpConsole } = await import("./mock-acp-ws");
 const { useAcpStore } = await import("./acp-store");
-const { renderConnected, newSession, resetFixtures } = await import("./acp-view-test-utils");
+const { renderConnected, newSession, clickNewSession, resetFixtures } = await import(
+  "./acp-view-test-utils"
+);
 const { setWsFactory } = await import("./ws-factory");
 await import("@/i18n");
 
@@ -102,7 +104,7 @@ describe("AcpView session focus fallback", () => {
   it("关闭当前会话后焦点自动落到列表下一个", async () => {
     await renderConnected();
     await newSession();
-    fireEvent.click(screen.getByTestId("acp-session-new"));
+    await clickNewSession();
     await screen.findByTestId("acp-session-row-s-002");
     expect(useAcpStore.getState().activeSessionId).toBe("s-002");
     fireEvent.click(screen.getByTestId("acp-session-close-s-002"));
@@ -202,7 +204,7 @@ describe("AcpView composer lock per session", () => {
   it("turn 所在会话显示 Stop，切到其他会话恢复 Send", async () => {
     await renderConnected();
     await newSession();
-    fireEvent.click(screen.getByTestId("acp-session-new"));
+    await clickNewSession();
     await screen.findByTestId("acp-session-row-s-002");
     act(() => {
       useAcpStore.setState({ promptPendingBySession: { "s-001": true } });

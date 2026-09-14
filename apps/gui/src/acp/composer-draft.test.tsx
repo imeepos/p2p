@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.stubEnv("VITE_MOCK_IPC", "1");
 
 const { useAcpStore } = await import("./acp-store");
-const { renderConnected, newSession, resetFixtures } = await import("./acp-view-test-utils");
+const { renderConnected, newSession, clickNewSession, resetFixtures } = await import(
+  "./acp-view-test-utils"
+);
 await import("@/i18n");
 
 beforeEach(() => {
@@ -31,7 +33,7 @@ describe("AcpView composer draft isolation", () => {
     await renderConnected();
     await newSession();
     fireEvent.change(composer(), { target: { value: "给一号 agent 的话" } });
-    fireEvent.click(screen.getByTestId("acp-session-new"));
+    await clickNewSession();
     await screen.findByTestId("acp-session-row-s-002");
     // 切到 s-002：显示 s-002 自己的（空）草稿，不含 s-001 的内容
     expect(composer().value).toBe("");
@@ -46,7 +48,7 @@ describe("AcpView composer draft isolation", () => {
     await renderConnected();
     await newSession();
     fireEvent.change(composer(), { target: { value: "draft-a" } });
-    fireEvent.click(screen.getByTestId("acp-session-new"));
+    await clickNewSession();
     await screen.findByTestId("acp-session-row-s-002");
     fireEvent.change(composer(), { target: { value: "draft-b" } });
     fireEvent.click(screen.getByTestId("acp-composer-send"));
@@ -67,7 +69,7 @@ describe("AcpView composer draft isolation", () => {
     await renderConnected();
     await newSession();
     fireEvent.change(composer(), { target: { value: " doomed" } });
-    fireEvent.click(screen.getByTestId("acp-session-new"));
+    await clickNewSession();
     await screen.findByTestId("acp-session-row-s-002");
     useAcpStore.setState({ activeSessionId: "s-001" });
     useAcpStore.getState().closeSession("s-001");
