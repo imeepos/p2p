@@ -4,15 +4,17 @@ import { cn } from "@/lib/utils";
 
 // WX1 微信风格方形头像：列表/气泡/侧栏共用。src 缺省回退首字符 +
 // seed 稳定取色（同 id 恒同色，无闪烁）；icon 优先级高于首字符（bot 条目）。
+// uix-spec 丑点 d：色板整体降饱和（oklch 彩度 ≤0.05），与灰白基调和解，
+// 仍按 hue 八档可分辨
 const AVATAR_TONES = [
-  "bg-[#5b7cdb]",
-  "bg-[#4ca0e0]",
-  "bg-[#48b884]",
-  "bg-[#e0a03c]",
-  "bg-[#e06c5b]",
-  "bg-[#9a6fe0]",
-  "bg-[#48b0b8]",
-  "bg-[#c274b8]",
+  "bg-[oklch(0.68_0.05_250)]",
+  "bg-[oklch(0.70_0.05_200)]",
+  "bg-[oklch(0.70_0.05_155)]",
+  "bg-[oklch(0.73_0.05_90)]",
+  "bg-[oklch(0.69_0.05_45)]",
+  "bg-[oklch(0.69_0.05_330)]",
+  "bg-[oklch(0.68_0.045_285)]",
+  "bg-[oklch(0.71_0.04_15)]",
 ] as const;
 
 function avatarTone(seed: string): string {

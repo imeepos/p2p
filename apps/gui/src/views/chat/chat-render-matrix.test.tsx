@@ -350,10 +350,10 @@ describe("渲染矩阵·补缺口", () => {
   it("会话行 WX1 视觉：选中态样式、time dateTime、失败/发送中状态图标带 aria", () => {
     const pidF = peerId("row-f");
     const first = renderWxRow("row-f", { tsMs: 4000, status: "failed" }, true);
-    // 选中行：绿底白字（WX1 选中态；样式挂在 li > button 上）
+    // 选中行：accent 弱填充 + 标题加重（uix-spec #8；样式挂在 li > button 上）
     const activeBtn = first.container.querySelector("button");
-    expect(activeBtn?.className).toContain("bg-primary");
-    expect(activeBtn?.className).toContain("text-white");
+    expect(activeBtn?.className).toContain("bg-accent");
+    expect(activeBtn?.querySelector(".truncate.text-sm")?.className).toContain("font-semibold");
     // time 带 dateTime 机器可读（W1-14）
     const time = first.container.querySelector("time");
     expect(time?.getAttribute("dateTime")).toBe(new Date(4000).toISOString());

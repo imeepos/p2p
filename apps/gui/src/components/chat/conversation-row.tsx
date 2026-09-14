@@ -10,7 +10,8 @@ import type { ConversationEntry } from "@/lib/conversation-entry";
 import type { Locale } from "@/i18n";
 import { cn } from "@/lib/utils";
 
-// WX1 微信风格会话行：方形头像 + 名称/时间行 + 预览行；选中态微信绿底白字。
+// WX1 微信风格会话行：方形头像 + 名称/时间行 + 预览行；选中态 accent 弱填充 +
+// 标题加重（uix-spec #8，替换原微信绿满宽白字高噪选中）。
 // 未读红点角标（≥100 显 99+，§2.3）；failed/error 显红色感叹角标，pending 显
 // 时钟图标；头像右上在线状态点保留（功能位）。
 
@@ -20,7 +21,9 @@ const DOT_CLASS: Record<string, string> = {
   red: "bg-destructive",
 };
 
-function RowAvatar({ entry, active }: { entry: ConversationEntry; active: boolean }) {
+// uix-spec §1 #8：选中态与 hover 同为 accent 弱填充（靠字重/徽章区分），
+// 替换微信绿满宽白字的高噪选中样式
+function RowAvatar({ entry }: { entry: ConversationEntry }) {
   const dot = entry.kindMark.dot;
   return (
     <span className="relative shrink-0">
@@ -41,8 +44,7 @@ function RowAvatar({ entry, active }: { entry: ConversationEntry; active: boolea
           aria-hidden
           data-testid={`conversation-dot-${entry.id}`}
           className={cn(
-            "absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2",
-            active ? "ring-white" : "ring-background",
+            "absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-background",
             DOT_CLASS[dot],
           )}
         />
@@ -71,14 +73,14 @@ export function ConversationRow({ entry, active, onSelect, onContextMenu, muted 
         role="img"
         aria-label={t("chat.status.failed")}
         data-testid={`conversation-sendstate-${entry.id}`}
-        className="size-3.5 shrink-0 text-destructive"
+        className="text-destructive size-3.5 shrink-0"
       />
     ) : entry.sendState === "pending" ? (
       <Clock3
         role="img"
         aria-label={t("chat.status.pending")}
         data-testid={`conversation-sendstate-${entry.id}`}
-        className={cn("size-3.5 shrink-0", active ? "text-white/80" : "text-muted-foreground")}
+        className="text-muted-foreground size-3.5 shrink-0"
       />
     ) : null;
   return (
@@ -90,36 +92,28 @@ export function ConversationRow({ entry, active, onSelect, onContextMenu, muted 
         aria-current={active || undefined}
         data-testid={`conversation-row-${entry.kind}-${entry.id}`}
         className={cn(
-          // WX1：行通栏直角（选中绿条贴满列表宽度，微信桌面同款）
+          // 行通栏直角；选中/悬停同一 accent 弱填充（uix-spec §1 #7/#8）
           "flex w-full items-start gap-2.5 px-3 py-2.5 text-left transition-colors",
-          active ? "bg-primary text-white" : "hover:bg-wx-hover",
+          active ? "bg-accent" : "hover:bg-wx-hover",
         )}
       >
-        <RowAvatar entry={entry} active={active} />
+        <RowAvatar entry={entry} />
         <span className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="flex items-center justify-between gap-2">
-            <span className="truncate text-sm font-medium">{entry.title}</span>
+            <span className={cn("truncate text-sm", active ? "font-semibold" : "font-medium")}>
+              {entry.title}
+            </span>
             {showTime ? (
               <time
                 dateTime={new Date(entry.lastTsMs).toISOString()}
-                className={cn(
-                  "shrink-0 text-[11px]",
-                  active ? "text-white/75" : "text-muted-foreground",
-                )}
+                className="text-muted-foreground shrink-0 text-[11px]"
               >
                 {formatConversationTime(entry.lastTsMs, locale)}
               </time>
             ) : null}
           </span>
           {entry.subtitle ? (
-            <span
-              className={cn(
-                "truncate text-xs",
-                active ? "text-white/80" : "text-muted-foreground",
-              )}
-            >
-              {entry.subtitle}
-            </span>
+            <span className="text-muted-foreground truncate text-xs">{entry.subtitle}</span>
           ) : null}
           <span className="flex items-center gap-1 text-xs">
             {entry.statusBadge ? (
@@ -127,12 +121,7 @@ export function ConversationRow({ entry, active, onSelect, onContextMenu, muted 
                 {entry.statusBadge.label}
               </Badge>
             ) : null}
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate",
-                active ? "text-white/80" : "text-muted-foreground",
-              )}
-            >
+            <span className="text-muted-foreground min-w-0 flex-1 truncate">
               {entry.lastPreview ?? ""}
             </span>
             {muted ? (
@@ -140,10 +129,7 @@ export function ConversationRow({ entry, active, onSelect, onContextMenu, muted 
                 role="img"
                 aria-label={t("chat.conversations.mutedAria")}
                 data-testid={`conversation-muted-${entry.id}`}
-                className={cn(
-                  "size-3.5 shrink-0",
-                  active ? "text-white/80" : "text-muted-foreground",
-                )}
+                className="text-muted-foreground size-3.5 shrink-0"
               />
             ) : null}
             {sendStateIcon}
@@ -151,10 +137,7 @@ export function ConversationRow({ entry, active, onSelect, onContextMenu, muted 
               <span
                 data-testid={`conversation-unread-${entry.id}`}
                 aria-label={t("chat.unread.aria", { count: entry.unread })}
-                className={cn(
-                  "ml-auto inline-flex min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[10px] leading-4 font-medium text-white",
-                  active ? "bg-white/30" : "bg-wx-badge",
-                )}
+                className="ml-auto inline-flex min-w-4 shrink-0 items-center justify-center rounded-full bg-wx-badge px-1 text-[10px] leading-4 font-medium text-white"
               >
                 {formatUnreadCount(entry.unread)}
               </span>
