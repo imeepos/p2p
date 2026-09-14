@@ -693,3 +693,7 @@ failed: early eof（客户端侧超时中止）。
 - 症状：`git worktree add` 跑满 60s 超时被 SIGTERM 后，目标目录已完整 checkout、分支已建，但 `git worktree list` 看不到它、`.git/worktrees/<名>/` 管理目录缺失；后续在该目录 cargo 必报 manifest 缺失之类怪错。
 - 修法：`git branch -D <分支> && rm -rf <目录> && git worktree prune && git worktree add …` 重来；worktree add 冷仓可能超 60s，直接给 300s 级 timeout 或 run_in_background。
 - 教训通式：**worktree add 被中断 ≠ 无害**——checkout 与注册是两步，杀在中间留下既不在册也不能用的目录；先查 `.git/worktrees/` 再决定删还是续。
+
+## 2026-09-14 tgui-web：外置卷全树 find 必超时（任务书有预警仍踩）
+- 症状：`find <repo> -name "*.sh" | xargs grep -l` 在外置卷仓库跑满 60s 被 SIGTERM。
+- 修法：定位文件用定向 ls + grep 工具（指定 path），或 package.json scripts 里找线索（check:i18n 指向 apps/gui/scripts/check/）；绝不对外置卷全树 find。

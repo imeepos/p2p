@@ -595,3 +595,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 两端各自「对」合起来就错：GUI 按 ACP 契约补发必填 mcpServers，桥按 §6 默认策略剥字段，子进程 zod 又必填——修跨进程契约必须三方核对（GUI / 桥改写点 / 子进程 schema），只看两端的「各自正确」会修出新 bug。桥的剥离策略演进为「就地重写为空数组」（字段保留+零 host 定义=安全语义等价）。
 - mock 层两大盲区：不校验请求参数（-32602 在真机才炸）、不模拟冷启动时延（30s 假超时）。参数契约可以逐字段断言帧内容钉住；时延类假超时的通用修法=关键首请求（initialize/首个 session/new）单独挂慢速包络 + 假时钟包络测试（advanceTimersByTime 驱动 30s 不假超时/120s 结算）。
 - prompt 全链路报 LLM 401 = 链路已通、死在环境资产：多 DSH home 的 .credentials.yaml 各自漂移（主 home key 过期、dsh012-clean 的还活着），修法 = 免费 GET /models 探针逐 key 判活（tail4 对账不打印全文）+ 从健康 home 定向替换 + kickstart 让子进程重读 env；但 agent-default-model 指向的 bigmodel key 两把全失效，属用户资产缺口只能报告不能代造。
+
+## 2026-09-14 tunnel GUI 轮（tgui-web）
+- 任务书提到 i18n 键集合校验脚本时先定位真实路径：本仓在 apps/gui/scripts/check/i18n-diff.sh（apps/gui package.json 的 check:i18n），locale 键奇偶另有 tsc 双保险（en-US.ts 声明为 `typeof zhCN`，键缺失 tsc -b 直接红）；不要凭空猜 scripts/check/ 根目录有同名脚本。
+- 全量套件慢（本仓 gui 240 文件/1470 用例 ≈ 220s）：开发期只跑 scope 内目录（pnpm vitest run --no-file-parallelism src/views/<页> + 相关 lib/i18n 门禁），收尾合并前把全量套件丢后台跑，避免阻塞但不错过回归。
+- worktree 无 node_modules：pnpm-workspace 仓在 worktree 里 pnpm install --prefer-offline 走全局 content-addressable store，458 包全复用 9s 完成；先台跑安装、同时继续读码，零等待。
