@@ -123,3 +123,13 @@ ACS1 内部提交序（注册类独立小提交纪律）：
     重渲染：频次极低无功能缺陷，入候选池打磨项，不修复。
   - F3 [Minor→无需动作] chat-route 旁路 query 透传：评审者自证与测试口径
     一致，仅登记「后续新增副作用键需复测」备忘。
+- 2026-09-14 18:45 ACS2 结单收讫（session-b2d05d3f，DONE_WITH_CONCERNS，
+  修复轮次 1/2）：分支 feat/acs-chat-removal @ 7e68b23a 已推 origin（基线
+  8f1dcac3，收尾仅①——任务书修正生效）。主控独立复核吻合：7 提交、
+  diff 33 文件 +188/−581 净拆除、验收1 grep 零命中 exit=1、残留命中全为
+  兼容层、check-fast exit=0 / 246 文件 1520 测试绿。五偏离均正当（组件
+  随唯一消费点迁移、T5 树拆除是零命中必要条件、i18n 实删 3 死键、F1 重构
+  52/59/34 行）。三 concerns 裁定：①两条失准文案（emptyHint 提 Agent 聚合/
+  hintAgentOnly 仅本机 Agent）批准 [补充·终项] 修复（显式放开只删不改，
+  zh/en 同步+测试随改）；②kind=agent union 保留接受入候选池；③app-boot
+  兜底冒烟测试保留（合同守卫）。待其文案回报后合并收官。
