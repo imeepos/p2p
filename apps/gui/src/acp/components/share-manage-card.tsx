@@ -8,9 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { AsyncButton } from "@/components/feedback/async-button";
 import { useAcpStore } from "@/acp/acp-store";
 import { useConfirm } from "@/components/feedback/confirm-provider";
-import { toastError } from "@/components/feedback/toast";
+import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { adminEndpointCandidates } from "@/acp/admin-endpoints";
 import { useLocalAdminCandidate } from "@/acp/use-local-admin";
 import { listShares, revokeShare } from "@/acp/share-admin-client";
@@ -18,7 +19,8 @@ import { shareStatus, type ShareEntry, type ShareStatus } from "@/acp/share-mode
 import type { I18nKey } from "@/i18n/types";
 import type { Locale } from "@/i18n";
 import { formatDateTime } from "@/lib/format";
-import { RefreshCw } from "lucide-react";
+import { errorText } from "@/views/shared/form-flow";
+import { LoaderCircleIcon, RefreshCw } from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/views/shared/status-badge";
 import { ShareCreateDialog } from "./share-create-dialog";
 
@@ -40,6 +42,12 @@ const STATUS_KEY: Record<ShareStatus, I18nKey> = {
 
 type ShareRowModel = ShareEntry & { status: ShareStatus };
 
+// 状态徽章在取数时刻推导一次（渲染期不调用 Date.now 保持纯函数）
+function toRowModels(list: ShareEntry[]): ShareRowModel[] {
+  const nowUnix = Math.floor(Date.now() / 1000);
+  return list.map((e) => ({ ...e, status: shareStatus(e, nowUnix) }));
+}
+
 function ShareRow({
   entry,
   onRevoked,
@@ -53,13 +61,15 @@ function ShareRow({
 }) {
   const { t, i18n } = useTranslation();
   const confirm = useConfirm();
+  const [revoking, setRevoking] = useState(false);
   const expiresText = entry.expires_at_unix
     ? t("acp.share.manage.expiresAt", {
         time: formatDateTime(entry.expires_at_unix * 1000, i18n.language as Locale),
       })
     : "-";
   const revoke = () => {
-    // 破坏性操作确认纪律（P2）：撤销先过确认弹框（级联语义见文案）
+    // 破坏性操作确认纪律（P2）：撤销先过确认弹框（级联语义见文案）；
+    // 弹框流程不动，请求在途时行内按钮 pending，成功撤销有微提示。
     void confirm({
       title: t("acp.share.manage.revokeConfirmTitle"),
       description: t("acp.share.manage.revokeConfirmDescription"),
@@ -68,14 +78,18 @@ function ShareRow({
       destructive: true,
     }).then(async (ok) => {
       if (!ok) return;
+      setRevoking(true);
       try {
         await revokeShare(adminUrl, adminToken, entry.share_id);
         onRevoked();
+        toastSuccess(t("chat.feedback.actions.revoked"));
       } catch (error) {
         toastError(t("acp.share.manage.revokeFailed"), {
           description: error instanceof Error ? error.message : String(error),
           context: "acp-share-revoke",
         });
+      } finally {
+        setRevoking(false);
       }
     });
   };
@@ -106,8 +120,10 @@ function ShareRow({
             size="sm"
             variant="outline"
             onClick={revoke}
+            disabled={revoking}
             data-testid={"acp-share-revoke-" + entry.share_id}
           >
+            {revoking ? <LoaderCircleIcon className="size-4 animate-spin" aria-hidden /> : null}
             {t("acp.share.manage.revoke")}
           </Button>
         ) : null}
@@ -138,16 +154,31 @@ export function ShareManageCard() {
   const [tick, setTick] = useState(0);
   const bump = useCallback(() => setTick((n) => n + 1), []);
 
+  // 台账加载：effect 兜 endpoint 变化/弹层关闭后的重取；刷新、重载按钮走
+  // load（AsyncButton 需要 reject 语义），失败 toast + 行内面板双留痕。
+  const load = useCallback(async () => {
+    if (!endpointUrl) return;
+    setRows(toRowModels(await listShares(endpointUrl, endpointToken)));
+    setLoadError(false);
+  }, [endpointUrl, endpointToken]);
+
+  const onLoaded = () => toastSuccess(t("chat.feedback.actions.refreshed"));
+  const onLoadError = (error: unknown) => {
+    setLoadError(true);
+    toastError(t("chat.feedback.actions.refreshFailed"), {
+      description: errorText(error),
+      context: "acp-share-list",
+    });
+  };
+
   useEffect(() => {
     if (!endpointUrl) return;
     let dead = false;
-    const load = async () => {
+    const loadQuiet = async () => {
       try {
         const list = await listShares(endpointUrl, endpointToken);
         if (dead) return;
-        // 状态徽章在取数时刻推导一次（渲染期不调用 Date.now 保持纯函数）
-        const nowUnix = Math.floor(Date.now() / 1000);
-        setRows(list.map((e) => ({ ...e, status: shareStatus(e, nowUnix) })));
+        setRows(toRowModels(list));
         setLoadError(false);
       } catch (error) {
         console.warn("[acp] share list load failed", error);
@@ -156,7 +187,7 @@ export function ShareManageCard() {
         setLoadError(true);
       }
     };
-    void load();
+    void loadQuiet();
     return () => {
       dead = true;
     };
@@ -167,15 +198,18 @@ export function ShareManageCard() {
       <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-base">{t("acp.share.manage.card")}</CardTitle>
         <div className="flex items-center gap-1">
-          <Button
+          <AsyncButton
             size="icon"
             variant="ghost"
-            onClick={bump}
+            iconOnly
+            action={load}
+            onSuccess={onLoaded}
+            onError={onLoadError}
             aria-label={t("acp.share.manage.refresh")}
             data-testid="acp-share-manage-refresh"
           >
             <RefreshCw aria-hidden className="size-4" />
-          </Button>
+          </AsyncButton>
           <Button
             size="sm"
             variant="outline"
@@ -196,9 +230,16 @@ export function ShareManageCard() {
             <p className="text-destructive text-sm" data-testid="acp-share-manage-error">
               {t("acp.share.manage.loadFailed")}
             </p>
-            <Button size="sm" variant="outline" onClick={bump} data-testid="acp-share-manage-reload">
+            <AsyncButton
+              size="sm"
+              variant="outline"
+              action={load}
+              onSuccess={onLoaded}
+              onError={onLoadError}
+              data-testid="acp-share-manage-reload"
+            >
               {t("acp.share.manage.reload")}
-            </Button>
+            </AsyncButton>
           </div>
         ) : rows === null ? null : rows.length === 0 ? (
           <p className="text-muted-foreground text-sm" data-testid="acp-share-manage-empty">

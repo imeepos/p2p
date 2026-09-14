@@ -4,6 +4,8 @@ import { FolderGit2, RefreshCw, Settings2, Share2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AsyncButton } from "@/components/feedback/async-button";
+import { toastSuccess } from "@/components/feedback/toast";
 import { useAcpStore } from "@/acp/acp-store";
 import { listWorkspaces, type AcpWorkspace } from "@/acp/share-admin-client";
 import { useLocalAdminCandidate } from "@/acp/use-local-admin";
@@ -31,16 +33,20 @@ export function LocalAcpCard() {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | undefined>();
   const bump = useCallback(() => setTick((n) => n + 1), []);
 
+  // 工作区清单：effect 兜 endpoint 变化/弹层关闭后的重取；刷新按钮走 load
+  // （AsyncButton 需要 reject 语义）。listWorkspaces 契约吞错返回 []
+  // （share-admin-client），错误 toast 待其透出失败后再补。
+  const load = useCallback(async () => {
+    if (!endpointUrl) return;
+    setRows(await listWorkspaces(endpointUrl, endpointToken));
+  }, [endpointUrl, endpointToken]);
+
   useEffect(() => {
     if (!endpointUrl) return;
     let dead = false;
-    listWorkspaces(endpointUrl, endpointToken)
-      .then((list) => {
-        if (!dead) setRows(list);
-      })
-      .catch(() => {
-        if (!dead) setRows([]);
-      });
+    listWorkspaces(endpointUrl, endpointToken).then((list) => {
+      if (!dead) setRows(list);
+    });
     return () => {
       dead = true;
     };
@@ -65,15 +71,17 @@ export function LocalAcpCard() {
           >
             <Settings2 aria-hidden className="size-4" />
           </Button>
-          <Button
+          <AsyncButton
             size="icon"
             variant="ghost"
-            onClick={bump}
+            iconOnly
+            action={load}
+            onSuccess={() => toastSuccess(t("chat.feedback.actions.refreshed"))}
             aria-label={t("acp.local.refresh")}
             data-testid="acp-local-refresh"
           >
             <RefreshCw aria-hidden className="size-4" />
-          </Button>
+          </AsyncButton>
           <Button
             size="sm"
             variant="outline"

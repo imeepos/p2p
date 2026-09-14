@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toastError } from "@/components/feedback/toast";
+import { AsyncButton } from "@/components/feedback/async-button";
 import { CopyButton } from "@/components/feedback/copy-button";
 import { ShareCreateFields } from "./share-create-fields";
 import { ShareSendTargets } from "./share-send-targets";
@@ -229,9 +230,11 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink, initialWorks
         )}
         <DialogFooter>
           {link && onSendLink && !sent ? (
-            <Button type="button" onClick={() => void sendToChat()} data-testid="acp-share-send">
+            // 发送在途 pending 由 AsyncButton 呈现；成功关弹框（调用方 toast），
+            // 失败 toast 在 sendToChat 内（context=acp-share-send），不双弹。
+            <AsyncButton type="button" action={sendToChat} data-testid="acp-share-send">
               {t("acp.share.sendToChat")}
-            </Button>
+            </AsyncButton>
           ) : null}
           <Button
             type="button"
