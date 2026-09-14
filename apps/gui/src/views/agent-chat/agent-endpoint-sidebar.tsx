@@ -1,49 +1,20 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
-import { Bot, Server } from "lucide-react";
+import { Plus, Server } from "lucide-react";
 
 import { useAcpStore } from "@/acp/acp-store";
-import { cn } from "@/lib/utils";
+import { newSessionAction } from "@/acp/new-session-action";
+import { AsyncButton } from "@/components/feedback/async-button";
+import { toastSuccess } from "@/components/feedback/toast";
 import { EmptyState } from "@/views/shared/empty-state";
 
-import { endpointRows, type AgentEndpointRow } from "./endpoint-rows";
+import { EndpointButton, EndpointSessions } from "./agent-endpoint-block";
+import { endpointRows, sessionsOfEndpoint } from "./endpoint-rows";
 
-// ACS1 侧栏（三区左区）容器：端点清单（本机 + 远端 saved 全量）为一级，
-// 选中态路由化 ?endpoint=<id>——与对话区共用同一 query 主键，深链与点击同源。
-// 端点下的会话清单与新建会话入口随下一提交接入。
-function EndpointButton(props: {
-  row: AgentEndpointRow;
-  active: boolean;
-  onSelect: (endpointId: string) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <button
-      type="button"
-      onClick={() => props.onSelect(props.row.endpointId)}
-      aria-current={props.active ? "true" : undefined}
-      data-testid={"agent-endpoint-row-" + props.row.endpointId}
-      className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors",
-        props.active ? "bg-accent font-semibold" : "hover:bg-wx-hover",
-      )}
-    >
-      {props.row.local ? (
-        <Bot aria-hidden className="size-4 shrink-0" />
-      ) : (
-        <Server aria-hidden className="text-muted-foreground size-4 shrink-0" />
-      )}
-      <span className="min-w-0 flex-1 truncate text-sm">{props.row.label}</span>
-      {props.row.local ? (
-        <span className="text-muted-foreground shrink-0 text-[10px]">
-          {t("agentChat.sidebar.localBadge")}
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
+// ACS1 侧栏（三区左区）容器：端点清单（本机 + 远端 saved 全量）为一级，会话清单
+// 挂在已连接端点之下（store 的 sessions 只属于当前连接）。选中态路由化
+// ?endpoint=<id>，与对话区共用同一 query 主键，深链与点击同源。
 export function AgentEndpointSidebar({
   selectedEndpointId,
 }: {
@@ -53,8 +24,14 @@ export function AgentEndpointSidebar({
   const [searchParams, setSearchParams] = useSearchParams();
   const saved = useAcpStore((s) => s.saved);
   const consoleStatus = useAcpStore((s) => s.console);
+  const phase = useAcpStore((s) => s.phase);
+  const sessions = useAcpStore((s) => s.sessions);
+  const activeEndpointId = useAcpStore((s) => s.activeEndpointId);
+  const activeSessionId = useAcpStore((s) => s.activeSessionId);
+  const newSessionPending = useAcpStore((s) => s.newSessionPending);
   const unreadByEndpoint = useAcpStore((s) => s.unreadByEndpoint);
   const lastInteractionByEndpoint = useAcpStore((s) => s.lastInteractionByEndpoint);
+  const resumeSession = useAcpStore((s) => s.resumeSession);
 
   const rows = useMemo(
     () =>
@@ -74,6 +51,11 @@ export function AgentEndpointSidebar({
     setSearchParams(next, { replace: true });
   };
 
+  const online = phase === "online";
+  // 新建会话只对当前连接端点有意义：选中非连接端点时不显按钮，避免误发到别的 agent
+  const canCreate =
+    online && selectedEndpointId !== null && selectedEndpointId === activeEndpointId;
+
   return (
     <section
       aria-label={t("agentChat.sidebar.title")}
@@ -83,6 +65,22 @@ export function AgentEndpointSidebar({
       {/* uix-spec §3 会话头：56px 折中高度 + 0.5px hairline */}
       <div className="flex h-14 shrink-0 items-center gap-2 border-b-[0.5px] border-border px-4 text-sm font-medium">
         <span className="min-w-0 flex-1 truncate">{t("agentChat.sidebar.title")}</span>
+        {canCreate ? (
+          <AsyncButton
+            size="sm"
+            variant="outline"
+            disabled={newSessionPending}
+            action={newSessionAction}
+            onSuccess={() => toastSuccess(t("chat.feedback.sessionCreated"))}
+            loadingLabel={t("chat.feedback.sessionCreating")}
+            resultHoldMs={300}
+            aria-label={t("agentChat.sidebar.newSession")}
+            title={t("agentChat.sidebar.newSession")}
+            data-testid="agent-sidebar-new-session"
+          >
+            <Plus aria-hidden className="size-4" />
+          </AsyncButton>
+        ) : null}
       </div>
       {rows.length === 0 ? (
         <div className="p-4">
@@ -95,12 +93,29 @@ export function AgentEndpointSidebar({
           className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto p-2"
         >
           {rows.map((row) => (
-            <EndpointButton
-              key={row.endpointId}
-              row={row}
-              active={row.endpointId === selectedEndpointId}
-              onSelect={select}
-            />
+            <div key={row.endpointId} className="flex flex-col gap-0.5">
+              <EndpointButton
+                row={row}
+                active={row.endpointId === selectedEndpointId}
+                onSelect={select}
+              />
+              {row.endpointId === selectedEndpointId ? (
+                <EndpointSessions
+                  endpointId={row.endpointId}
+                  online={online && activeEndpointId === row.endpointId}
+                  sessions={sessionsOfEndpoint({
+                    sessions,
+                    endpointId: row.endpointId,
+                    activeEndpointId,
+                    phase,
+                  })}
+                  activeSessionId={activeSessionId}
+                  activeEndpointId={activeEndpointId}
+                  lastInteractionByEndpoint={lastInteractionByEndpoint}
+                  onOpen={(sessionId) => void resumeSession(sessionId)}
+                />
+              ) : null}
+            </div>
           ))}
         </nav>
       )}
