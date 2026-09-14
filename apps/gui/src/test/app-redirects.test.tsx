@@ -51,11 +51,24 @@ describe.each([
   ["/events", "/network/events"],
   ["/diagnostics", "/network/diagnostics"],
   ["/group", "/chat?kind=group"],
-  ["/acp", "/chat?kind=agent"],
+  // ACS1：agent 唯一入口迁独立页 /agent（原 /chat?kind=agent 落点）
+  ["/acp", "/agent"],
 ])("5.3 重定向行 %s", (from, to) => {
   it(`重定向到 ${to}`, async () => {
     window.location.hash = "#" + from;
     await waitForHash("#" + to);
+  });
+});
+
+describe("ACS1 agent 深链兜底（整应用真实挂载）", () => {
+  it("/chat?agent=X 归一为 /agent?endpoint=X", async () => {
+    window.location.hash = "#/chat?agent=ep-walk-1";
+    await waitForHash("#/agent?endpoint=ep-walk-1");
+  });
+
+  it("/chat?kind=agent 落 /agent", async () => {
+    window.location.hash = "#/chat?kind=agent";
+    await waitForHash("#/agent");
   });
 });
 
