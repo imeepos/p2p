@@ -733,3 +733,8 @@ failed: early eof（客户端侧超时中止）。
 - 影响面：local-acp-card 刷新与 share-create-dialog 弹层内 workspace 拉取两处（失败静默回落默认工作区）。
 - 修法（AF2 修复轮 1 已修，05adb91d）：adminJson 改抛 AdminHttpError（携带 status、消息格式不变）；listWorkspaces 仅 404 容错返回空表，其余上抛；两调用方补错误 toast/行内 alert + 500 失败路径红绿断言。
 - 教训通式：客户端层「容错解析」只该容错**响应体形状**，不该容错**状态码**——把 HTTP 失败吞成合法空态会让 UI 层永远失去错误呈现能力；需要区分「旧版本无端点」这类语义时按 status 精确豁免并写进注释。
+
+## 2026-09-14 p2p GUI 浏览器 mock 走查的两条固有 console 噪声
+- 症状：任意页面 console 恒有 `ERR_CONNECTION_REFUSED @ http://127.0.0.1:8788/discovery` 与 `404 @ /favicon.ico` 两条 error。
+- 原因：mock console status 快照带 statusUrl(8788)，浏览器实例无伴生 HTTP 服务，发现面轮询探测被拒（console-watch 显式 warn「console 发现面不可达」后停止，不静默）；favicon 从未配置。
+- 修法：非本次改动引入、无需修；判定新增报错时把这两条列为环境基线，只看其余 error。

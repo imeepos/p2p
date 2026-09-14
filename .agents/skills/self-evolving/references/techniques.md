@@ -612,3 +612,7 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - Playwright MCP 截图 filename 用绝对路径（如 /Users/.../.orchestrator/<任务>/after.png）直接落盘任务目录；相对路径落在 MCP server cwd 里难找回，全盘 find 定位一次就超时。
 - 本机是 BSD grep：没有 `-P`，unicode/emoji 扫描别用 grep -Pr（静默失败还走 || 分支给你假「clean」）；用 node 单行 `node -e '.../[\u{1F300}-...]/u.test(line)...'` 逐文件逐行扫，配合 `perl -CSD` 也会被 shell 引号吞 -e 模板，node 单引号包裹最稳。
 - worktree 里没跑 pnpm install 直接 `pnpm vitest run` 能绿（pnpm workspace 全局 store 复用），开发期无需先装依赖；首次跑前拿一个最小测试文件试水即可确认。
+
+- 2026-09-14 ACS1：新 worktree 首次跑门禁，`pnpm install --frozen-lockfile --offline` 走全局 content-addressable store 3 秒装完（无需赌 workspace 复用，也不碰网络）；先 install 再跑，省掉「vitest 二进制缺失」这类意外。
+- 2026-09-14 ACS1：浏览器 mock 走查三件事：①仓库已提交 apps/gui/.env.development.local（VITE_MOCK_IPC=0）会压过 .env.development 的默认 mock，必须 shell 显式 VITE_MOCK_IPC=1 起 dev；②在线态截图用 window.__acpInjectAgentOnlineSession()（只置 store 相位、无真实 conn），所以 session/new 在注入态必失败——会话行/相对时间这类「要先建会话」的证据改用单测断言，别在走查上烧轮次；③「console 零新增报错」验收用 beforeEach vi.spyOn(console,'error') + afterEach 断言未调用，机械且不误伤 warn。
+- 2026-09-14 ACS1：门禁双跑策略——check-fast（受影响域裁剪，gui 变更时内含 gui.sh）先跑抓快红，随后 make gui-check 独立复跑拿专属退出码贴汇报；本机有并行会话抢 CPU 时 vitest 从 155s 涨到 703s，等门禁期间不要对同一 worktree 做任何写操作（含起 dev server 写 .vite 缓存）。
