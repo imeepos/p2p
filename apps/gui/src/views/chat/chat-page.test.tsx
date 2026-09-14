@@ -8,6 +8,7 @@ import type {
   NodeEventHandler,
 } from "@/lib/ipc-types";
 import { useAcpStore } from "@/acp/acp-store";
+import { resetWorkspaceUiForTest } from "@/acp/workspace-ui-store";
 import { useGroupStore } from "@/stores/group-store";
 import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import {
@@ -72,10 +73,12 @@ beforeEach(() => {
   }
   // 不清 handlers：store 订阅为模块级单例，重复注册的归并幂等（按消息 id 去重）
   seed();
+  // T5：agent 段树的开合态为模块级 zustand，逐用例复位防跨用例串态
+  resetWorkspaceUiForTest();
 });
 
-describe("三来源条目同列混排（§2.2）", () => {
-  it("friend/group/agent 条目同列渲染并按 lastTsMs 降序，无消息 agent 垫底", async () => {
+describe("三来源分段渲染（§2.2 + T5 树移植）", () => {
+  it("agent 段两级树在前，好友/群扁平段按 lastTsMs 降序混排", async () => {
     renderAt();
     const friendRow = await screen.findByTestId("conversation-row-friend-" + PEER);
     expect(friendRow.textContent).toContain("小圆");
@@ -86,16 +89,18 @@ describe("三来源条目同列混排（§2.2）", () => {
     const agentRow = screen.getByTestId("conversation-row-agent-" + ENDPOINT_ID);
     expect(agentRow.textContent).toContain("助手甲");
     expect(agentRow.textContent).toContain("未连接");
-    // 排序：群(4000) > friend PEER(3000) > friend PEER_B(2000) > agent(0)
+    // T5 分段：agent 条目进两级树（host 组头 + agent 行），好友/群保持扁平；
+    // 扁平段相对序不变：群(4000) > friend PEER(3000) > friend PEER_B(2000)
     const list = screen.getByTestId("conversation-items");
     const order = [...list.querySelectorAll("button")].map((b) =>
       b.getAttribute("data-testid"),
     );
     expect(order).toEqual([
+      "acp-group-row-127.0.0.1:8787",
+      "conversation-row-agent-" + ENDPOINT_ID,
       "conversation-row-group-" + GROUP_ID,
       "conversation-row-friend-" + PEER,
       "conversation-row-friend-" + PEER_B,
-      "conversation-row-agent-" + ENDPOINT_ID,
     ]);
   });
 
@@ -195,5 +200,46 @@ describe("已退出/已解散群聊默认隐藏（IM 开关可显）", () => {
     await screen.findByTestId("conversation-row-friend-" + PEER);
     fireEvent.click(screen.getByTestId("inactive-groups-switch"));
     expect(await screen.findByTestId("conversation-row-group-" + LEFT_ID)).toBeTruthy();
+  });
+});
+
+describe("T5 侧栏移植渲染矩阵", () => {
+  it("agent 段两级树：分组头渲染，折叠隐藏 agent 行、群/好友行不受影响", async () => {
+    renderAt();
+    await screen.findByTestId("conversation-row-friend-" + PEER);
+    const head = screen.getByTestId("acp-group-row-127.0.0.1:8787");
+    expect(head.getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(head);
+    expect(screen.queryByTestId("conversation-row-agent-" + ENDPOINT_ID)).toBeNull();
+    expect(screen.getByTestId("conversation-row-group-" + GROUP_ID)).toBeTruthy();
+    expect(screen.getByTestId("conversation-row-friend-" + PEER)).toBeTruthy();
+    fireEvent.click(screen.getByTestId("acp-group-row-127.0.0.1:8787"));
+    expect(screen.getByTestId("conversation-row-agent-" + ENDPOINT_ID)).toBeTruthy();
+  });
+
+  it("?agent= 深链选中：所在组 folder 高亮 info 且强制展开", async () => {
+    renderAt("/chat?agent=" + ENDPOINT_ID);
+    await screen.findByTestId("conversation-row-agent-" + ENDPOINT_ID);
+    const folder = screen
+      .getByTestId("acp-group-row-127.0.0.1:8787")
+      .querySelector("svg");
+    expect(folder?.className.baseVal).toContain("text-info");
+    // 含当前会话的组即使点了组头也不收敛（isGroupOpen 强制展开）
+    fireEvent.click(screen.getByTestId("acp-group-row-127.0.0.1:8787"));
+    expect(screen.getByTestId("conversation-row-agent-" + ENDPOINT_ID)).toBeTruthy();
+  });
+
+  it("好友/群段条目与移植前等价：标题/备注/预览逐项断言", async () => {
+    renderAt();
+    const friendRow = await screen.findByTestId("conversation-row-friend-" + PEER);
+    expect(friendRow.textContent).toContain("小圆");
+    expect(friendRow.textContent).toContain("备注甲");
+    expect(friendRow.textContent).toContain("晚安");
+    const friendBRow = screen.getByTestId("conversation-row-friend-" + PEER_B);
+    expect(friendBRow.textContent).toContain("阿北");
+    expect(friendBRow.textContent).toContain("早");
+    const groupRow = screen.getByTestId("conversation-row-group-" + GROUP_ID);
+    expect(groupRow.textContent).toContain("项目组");
+    expect(groupRow.textContent).toContain("阿北：开会啦");
   });
 });

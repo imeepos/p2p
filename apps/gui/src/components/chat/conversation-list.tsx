@@ -2,6 +2,7 @@ import { MessageCircle, SearchIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { AgentSessionTree } from "@/components/chat/agent-session-tree";
 import { ConversationContextMenu } from "@/components/chat/conversation-context-menu";
 import { ConversationRow } from "@/components/chat/conversation-row";
 import { InvitePlaceholderRow } from "@/components/chat/invite-placeholder-row";
@@ -21,9 +22,11 @@ import {
 import type { PendingInviteItem } from "@/views/chat/use-pending-invites";
 import { EmptyState } from "@/views/shared/empty-state";
 
-// 会话列表（§2.1/§2.4）：顶部常驻搜索框 + 统一条目混排。搜索为列表内
+// 会话列表（§2.1/§2.4）：顶部常驻搜索框 + 分段条目。搜索为列表内
 // 即时过滤（title/subtitle 子串、ID 前缀、agent host），不做历史全文检索；
 // 过滤只影响显示不动排序，清空恢复，无结果显「无匹配会话」空态。
+// T5：agent 段嵌接两级树（agent-session-tree 复用 acp/workspace-model），
+// 好友/群/a2a 段保持微信风扁平混排，选中/置顶/邀请面板语义不变。
 export interface ConversationListProps {
   entries: ConversationEntry[];
   selectedId: string | null;
@@ -61,6 +64,13 @@ export function ConversationList({
       (p) => p.title.toLowerCase().includes(q) || p.id.toLowerCase().startsWith(q),
     );
   }, [pendingInvites, query]);
+  // T5 分段：agent 条目进两级树，其余保持扁平混排（各自相对序不变）
+  const agentEntries = useMemo(() => visible.filter((e) => e.kind === "agent"), [visible]);
+  const flatEntries = useMemo(() => visible.filter((e) => e.kind !== "agent"), [visible]);
+  const mutedOf = (entry: ConversationEntry) =>
+    convFlags[conversationKey(entry.kind, entry.id)]?.muted === true;
+  const openMenu = (entry: ConversationEntry, anchor: ContextMenuAnchor) =>
+    setMenu({ entry, anchor });
 
   if (loading) {
     return (
@@ -116,39 +126,67 @@ export function ConversationList({
           icon={SearchIcon}
           title={t("chat.conversations.noMatch")}
         />
-      ) : visible.length + visiblePending.length > CONVERSATION_VIRTUAL_THRESHOLD ? (
-        <VirtualConversationList
-          entries={visible}
-          pendingInvites={visiblePending}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          mutedOf={(entry) => convFlags[conversationKey(entry.kind, entry.id)]?.muted === true}
-          onRowContextMenu={(entry, anchor) => setMenu({ entry, anchor })}
-        />
+      ) : flatEntries.length + visiblePending.length > CONVERSATION_VIRTUAL_THRESHOLD ? (
+        <>
+          {/* 虚拟路径：树段行高可变（组头+会话行）不进定高 windowing，改为
+              独立限高滚动；agent 端点为手工收藏、量级小，树段恒走普通渲染 */}
+          {agentEntries.length > 0 ? (
+            <div className="scroll-slim max-h-56 shrink-0 overflow-y-auto border-b border-border/60 pb-1">
+              <AgentSessionTree
+                entries={agentEntries}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                mutedOf={mutedOf}
+                onRowContextMenu={openMenu}
+              />
+            </div>
+          ) : null}
+          <VirtualConversationList
+            entries={flatEntries}
+            pendingInvites={visiblePending}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            mutedOf={mutedOf}
+            onRowContextMenu={openMenu}
+          />
+        </>
       ) : (
-        <ul
+        <div
           className="scroll-slim min-h-0 flex-1 overflow-y-auto"
           data-testid="conversation-items"
         >
-          {visible.map((entry) => (
-            <ConversationRow
-              key={entry.kind + ":" + entry.id}
-              entry={entry}
-              active={entry.id === selectedId}
-              onSelect={onSelect}
-              muted={convFlags[conversationKey(entry.kind, entry.id)]?.muted === true}
-              onContextMenu={(event) => {
-                // 阻止浏览器默认菜单与外层关闭监听（stopPropagation 截断冒泡）
-                event.preventDefault();
-                event.stopPropagation();
-                setMenu({ entry, anchor: { x: event.clientX, y: event.clientY } });
-              }}
-            />
-          ))}
-          {visiblePending.map((item) => (
-            <InvitePlaceholderRow key={`invite:${item.kind}:${item.id}`} item={item} />
-          ))}
-        </ul>
+          {agentEntries.length > 0 ? (
+            <div className="pb-1">
+              <AgentSessionTree
+                entries={agentEntries}
+                selectedId={selectedId}
+                onSelect={onSelect}
+                mutedOf={mutedOf}
+                onRowContextMenu={openMenu}
+              />
+            </div>
+          ) : null}
+          <ul>
+            {flatEntries.map((entry) => (
+              <ConversationRow
+                key={entry.kind + ":" + entry.id}
+                entry={entry}
+                active={entry.id === selectedId}
+                onSelect={onSelect}
+                muted={mutedOf(entry)}
+                onContextMenu={(event) => {
+                  // 阻止浏览器默认菜单与外层关闭监听（stopPropagation 截断冒泡）
+                  event.preventDefault();
+                  event.stopPropagation();
+                  openMenu(entry, { x: event.clientX, y: event.clientY });
+                }}
+              />
+            ))}
+            {visiblePending.map((item) => (
+              <InvitePlaceholderRow key={`invite:${item.kind}:${item.id}`} item={item} />
+            ))}
+          </ul>
+        </div>
       )}
       <ConversationContextMenu
         entry={menu?.entry ?? null}
