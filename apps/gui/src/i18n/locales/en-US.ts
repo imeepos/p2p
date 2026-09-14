@@ -411,13 +411,6 @@ const enUS: typeof zhCN = {
     },
   },
   chat: {
-    feedback: {
-      actions: {
-        refreshed: "Refreshed",
-        refreshFailed: "Refresh failed",
-        revoked: "Share revoked",
-      },
-    },
     title: "Chat",
     description: "1:1 direct chat with friends: text, emoji and attachments",
     friends: "Friend list",
@@ -506,6 +499,11 @@ const enUS: typeof zhCN = {
     feedback: {
       sessionCreated: "Session created",
       sessionCreating: "Creating session…",
+      actions: {
+        refreshed: "Refreshed",
+        refreshFailed: "Refresh failed",
+        revoked: "Share revoked",
+      },
     },
     peerOnline: "Online",
     peerOffline: "Offline",

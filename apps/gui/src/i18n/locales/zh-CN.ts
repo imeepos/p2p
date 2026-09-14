@@ -400,13 +400,6 @@ const zhCN = {
     },
   },
   chat: {
-    feedback: {
-      actions: {
-        refreshed: "已刷新",
-        refreshFailed: "刷新失败",
-        revoked: "分享已撤销",
-      },
-    },
     title: "聊天",
     description: "好友 1:1 私聊：文本、表情与附件",
     friends: "好友",
@@ -495,6 +488,11 @@ const zhCN = {
     feedback: {
       sessionCreated: "会话已创建",
       sessionCreating: "正在创建会话…",
+      actions: {
+        refreshed: "已刷新",
+        refreshFailed: "刷新失败",
+        revoked: "分享已撤销",
+      },
     },
     peerOnline: "在线",
     peerOffline: "离线",
