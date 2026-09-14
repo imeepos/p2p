@@ -590,3 +590,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - GUI 报 `initializeFailed + detail=acp-connection-closed` 只说明「pump 的 WS 在 initialize 握手前被关」，真因全在 agent 侧，按三层剥：① GUI pump 日志 ~/Library/Logs/com.p2p.console/p2p-console.log 的 acp_pump::state conn transition（dial no known address = agent 进程没跑；Online 后 PeerClosed = agent 侧子进程死）→ ② agent audit ~/.dsh/acp-agent/launchd-stderr.log（conn-established + subprocess exit status:1 = 桥的子进程秒退）→ ③ 子进程 stderr ~/.dsh/acp-agent/acp-logs/<peer>-<conn>.log（空 = 命令在 exec/解析层就死了）。
 - launchd agent 子命令两坑：acp-agent 的 --command 必须是**单个 argv**（agent 自行按空格切分，plist 拆成多 item 直接 clap usage 拒绝）；默认命令 `pnpm dsh` 依赖 cwd 有 package.json——launchd WorkingDirectory=$HOME 必炸 NO_IMPORTER_MANIFEST_FOUND（且子进程日志为空，别被「stderr 空」误导成「没执行」）。正解：plist 显式 `--command /Users/imeepos/.vite-plus/bin/dsh --profile acp`（绝对路径 shim）+ PATH 前置 nvm node。
 - 本机 launchd 部署物的持久性：com.imeepos.acp-agent.plist 不在 repo，scripts/ops/acp-local-setup.sh 只 kickstart 不覆写——手修 plist 持久生效；但 ~/.dsh/bin/acp-agent 与 repo HEAD 可能差几个 style 提交，判断是否要重建用 `git log <二进制日期>..main -- <crate路径>` 而非 mtime 直觉。
+
+## 2026-09-14 跨进程契约三方核对与 mock 盲区（acp mcp/init 轮，1b9e3ebf+66c5a147）
+- 两端各自「对」合起来就错：GUI 按 ACP 契约补发必填 mcpServers，桥按 §6 默认策略剥字段，子进程 zod 又必填——修跨进程契约必须三方核对（GUI / 桥改写点 / 子进程 schema），只看两端的「各自正确」会修出新 bug。桥的剥离策略演进为「就地重写为空数组」（字段保留+零 host 定义=安全语义等价）。
+- mock 层两大盲区：不校验请求参数（-32602 在真机才炸）、不模拟冷启动时延（30s 假超时）。参数契约可以逐字段断言帧内容钉住；时延类假超时的通用修法=关键首请求（initialize/首个 session/new）单独挂慢速包络 + 假时钟包络测试（advanceTimersByTime 驱动 30s 不假超时/120s 结算）。
+- prompt 全链路报 LLM 401 = 链路已通、死在环境资产：多 DSH home 的 .credentials.yaml 各自漂移（主 home key 过期、dsh012-clean 的还活着），修法 = 免费 GET /models 探针逐 key 判活（tail4 对账不打印全文）+ 从健康 home 定向替换 + kickstart 让子进程重读 env；但 agent-default-model 指向的 bigmodel key 两把全失效，属用户资产缺口只能报告不能代造。
