@@ -945,6 +945,10 @@ const zhCN = {
       closeConfirmTitle: "关闭该会话？",
       closeConfirmDescription: "将关闭 agent 侧会话「{{title}}」并移除本地记录，未决权限按拒绝处理。",
       closeConfirmAction: "关闭会话",
+      searchPlaceholder: "搜索会话",
+      searchEmpty: "无匹配会话",
+      ungrouped: "未分组",
+      expandMore: "展开 {{count}} 个",
     },
     transcript: {
       empty: "暂无消息",

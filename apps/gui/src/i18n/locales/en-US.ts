@@ -970,6 +970,10 @@ const enUS: typeof zhCN = {
       closeConfirmTitle: "Close this session?",
       closeConfirmDescription: "The agent-side session \"{{title}}\" will be closed and removed locally; pending permissions are denied.",
       closeConfirmAction: "Close session",
+      searchPlaceholder: "Search sessions",
+      searchEmpty: "No matching sessions",
+      ungrouped: "Ungrouped",
+      expandMore: "Show {{count}} more",
     },
     transcript: {
       empty: "No messages",
