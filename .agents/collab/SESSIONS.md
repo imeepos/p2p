@@ -61,3 +61,9 @@
   微反馈提交先进 main，e1cd6aa4 的「/chat 侧栏移植两级树」（feat/uix-conversation）rebase 对齐；
   移植时复用 AF1 的 AsyncButton + toast + newSessionPending 模式。e1cd6aa4 保留结构面，
   a8e83de1 保留按钮微反馈面（横切小改）。双方账本各自登记。
+
+## 2026-09-14 agent 独立会话页（ACS 波）
+- [认领] 2026-09-14 16:09 session-3aa89cd2（主控/lead）：scope=agent 会话独立页
+  （apps/gui 新路由 /agent + /chat agent 形态拆除），波次
+  .orchestrator/2026-09-14-agent-chat-standalone-page/；ACS1 派发中，
+  分支前缀 feat/acs-*，当前 main==origin/main@2cb41b8a。用户三裁决入波次 plan.md。
