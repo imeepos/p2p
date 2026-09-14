@@ -82,3 +82,23 @@ ACS1 内部提交序（注册类独立小提交纪律）：
     mock 连接，以矩阵测试 agent-session-time-s-001 断言为证）。
   - 交接注意：/acp 存量守卫 src/test/app-redirects.test.tsx 已随改指更新并补
     agent 深链两例；palette-nav 守卫基线 16->17 项；/chat 页内零改动。
+- 2026-09-14 16:55 主干验收合并 ACS1：ff-only @ 5d2fadd8 已推 origin/main；
+  主干 check-fast 复跑 exit 0（panic-hygiene/protocol-registry/cli-parity/
+  ai-docs-sync 全 PASS）。
+- 2026-09-14 16:55 Ruling: 偏差①（会话行相对时间仅当前会话显示）接受现状——
+  SessionSummary 协议无时间字段（protocol.ts L58-62 仅 sessionId/title/cwd），
+  子会话不冒充端点时刻是正确处置；per-session 时刻需客户端交互日志（纯前端
+  可做但历史会话冷启动无数据），入候选池不进 ACS2。
+- 2026-09-14 16:55 Guess 裁定：G1 半成立（AcpView 非死代码，8 测试+palette
+  引用，保持不动）；G2 不成立（新写端点-会话两级侧栏正确）。
+- 2026-09-14 16:56 收尾启动：worktree remove（主控执行成功）。
+- 2026-09-14 17:00 竞态事件与裁定：子会话在汇报后按 AGENTS.md 收尾四步自行
+  续做——补推 self-evolving 复盘提交 170273d6（docs-only）→ 主树 ff-only 合并
+  → push origin main → 分支/远端双删。与主控清理指令竞态（branch -d 曾短暂
+  失败，后自愈）。内容无损，最终态 main==origin/main@170273d6、worktree/分支
+  全清。Ruling: 接受现状；流程缺口在主控任务书——只写「不自行合并主干」未禁
+  收尾②③④，ACS2 起任务书显式改为「子会话仅做①push 分支，②③④一律主控执行」。
+- 2026-09-14 17:01 ACS1 事实闭环：验收 PASS（7+1 提交、门禁双绿、三态截图、
+  偏差①裁定入候选池）；主干 @ 170273d6；ACS1 会话 920a4593 暂不归档
+  （留修复循环通道，ACS3 评审结论后处置）。下一步：ACS2 定稿派发 +
+  ACS3 只读评审（ACS1 diff，subagent 换模型交叉评审）并行。
