@@ -46,7 +46,7 @@ function renderDialog() {
           path="/contacts"
           element={<EndpointAddDialog open onOpenChange={() => {}} onSaved={() => {}} />}
         />
-        <Route path="/chat" element={<div data-testid="chat-probe" />} />
+        <Route path="/agent" element={<div data-testid="agent-probe" />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -111,14 +111,14 @@ describe("endpoint 添加表单收敛（UX3）", () => {
     );
   });
 
-  it("「添加并开始对话」一条龙：保存 + 连接 + 跳转 /chat?agent=<id>", async () => {
+  it("「添加并开始对话」一条龙：保存 + 连接 + 跳转 /agent?endpoint=<id>", async () => {
     setWsFactory(createMockWsFactory());
     renderDialog();
     await waitFor(() => expect(screen.getByTestId("contacts-endpoint-dialog")).toBeTruthy());
     await pickTarget("本机助手");
     fireEvent.click(screen.getByTestId("contacts-endpoint-add-open"));
     // 跳转会话
-    await waitFor(() => expect(screen.getByTestId("chat-probe")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("agent-probe")).toBeTruthy());
     // 保存 + 连接语义：收藏在册、phase 进入连接期/在线
     const saved = useAcpStore.getState().saved;
     expect(saved).toHaveLength(1);

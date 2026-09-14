@@ -68,7 +68,7 @@ describe("console-watch 自动登记与零点击直达（契约 §15）", () => 
     expect(local!.wsUrl).toBe("ws://127.0.0.1:8787");
     expect(local!.token).toBe("mock-console-token");
     expect(local!.statusUrl).toBe("http://127.0.0.1:8788");
-    // 自动连接 + 自动开会话：/chat?agent=<本机id> 直落会话的前提
+    // 自动连接 + 自动开会话：/agent?endpoint=<本机id> 直落会话的前提
     await vi.waitFor(() => {
       expect(useAcpStore.getState().phase).toBe("online");
       expect(useAcpStore.getState().activeEndpointId).toBe(LOCAL_AGENT_ENDPOINT_ID);

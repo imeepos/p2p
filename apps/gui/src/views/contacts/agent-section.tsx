@@ -108,7 +108,7 @@ function AgentRow(props: {
         ) : (
           <Button type="button" variant="ghost" size="icon" className="size-7" asChild>
             <Link
-              to={"/chat?agent=" + id}
+              to={"/agent?endpoint=" + encodeURIComponent(id)}
               data-testid={"contact-agent-message-" + id}
               title={t("contacts.agents.message")}
               aria-label={t("contacts.agents.message")}

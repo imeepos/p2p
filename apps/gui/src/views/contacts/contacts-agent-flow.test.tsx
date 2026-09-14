@@ -31,7 +31,7 @@ function renderSection(entry = "/contacts") {
         <ThemeProvider>
           <Routes>
             <Route path="/contacts" element={<AgentSection />} />
-            <Route path="/chat" element={<div data-testid="chat-probe" />} />
+            <Route path="/agent" element={<div data-testid="agent-probe" />} />
           </Routes>
           {/* 全局 toast 面随真实应用挂载：失败 toast 断言依赖它在场 */}
           <AppToaster position="top-right" />
@@ -108,7 +108,7 @@ function savedId(): string {
     await waitFor(() => expect(screen.getByTestId("contact-agent-" + savedId())).toBeTruthy());
     expect(
       screen.getByTestId("contact-agent-message-" + savedId()).getAttribute("href"),
-    ).toBe("/chat?agent=" + savedId());
+    ).toBe("/agent?endpoint=" + encodeURIComponent(savedId()));
     // 存档语义：localStorage 收藏（endpoint-storage 键）含该端点
     const stored = JSON.parse(localStorage.getItem("p2p-gui-acp-endpoints") ?? "{}");
     expect((stored.saved ?? []).some((e: { endpointId?: string }) => e.endpointId === savedId())).toBe(true);
@@ -299,14 +299,14 @@ describe("详情抽屉五块与权限档变更（P2 验收 5）", () => {
     expect(screen.getByTestId("contacts-agent-sessions-empty")).toBeTruthy();
   });
 
-  it("在线时会话块列出历史会话，点击跳 /chat?agent= 并载入 transcript（resume）", async () => {
+  it("在线时会话块列出历史会话，点击跳 /agent?endpoint= 并载入 transcript（resume）", async () => {
     await openDrawer(true);
     await act(async () => {
       await useAcpStore.getState().newSession();
     });
     await waitFor(() => expect(screen.getByTestId("contacts-agent-session-s-001")).toBeTruthy());
     fireEvent.click(screen.getByTestId("contacts-agent-session-s-001"));
-    await waitFor(() => expect(screen.getByTestId("chat-probe")).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId("agent-probe")).toBeTruthy());
   });
 
   it("权限档变更：编辑器改动即时写入 endpoint 元数据（对后续请求生效）", async () => {

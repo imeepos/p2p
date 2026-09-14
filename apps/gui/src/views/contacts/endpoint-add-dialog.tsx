@@ -144,7 +144,7 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
     onOpenChange(false);
     onSaved(stamped);
     start(stamped);
-    navigate("/chat?agent=" + stamped.endpointId);
+    navigate("/agent?endpoint=" + encodeURIComponent(stamped.endpointId));
   };
 
   // 本机连接面（console ready 时直传导入流，免经 store draft 中转）

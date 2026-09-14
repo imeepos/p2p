@@ -54,7 +54,7 @@ const routes = createRoutesFromChildren(
     </Route>
     <Route path="chat" element={<ChatRoutePage />} />
     {/* ACS1：agent 独立会话页（append-only 登记，2026-09-14 用户拍板；
-        rail 一级入口，旧 /chat?agent= 深链经 chat-route 改道至此） */}
+        rail 一级入口，旧 chat agent 深链经 chat-route 改道至此） */}
     <Route path="agent" element={<AgentChatPage />} />
     {/* IMC3：消息中心（入群/好友邀请），append-only 登记 */}
     <Route path="messages" element={<MessagesPage />} />
@@ -70,14 +70,15 @@ const routes = createRoutesFromChildren(
     {/* W-T3：远程访问页（append-only 登记，rail 不动，命令面板可达） */}
     <Route path="remote-access" element={<RemoteAccessPage />} />
     <Route path="settings" element={guarded(<SettingsPage />)} />
-    {/* 5.3 重定向层：旧路由 → 新位置；/group /acp 落 /chat?kind=*（已拍板项 1） */}
+    {/* 5.3 重定向层：旧路由 → 新位置；/group 落 /chat?kind=group（已拍板项 1），
+        /acp 落 /agent（ACS1 迁移） */}
     <Route path="peers" element={<QueryRedirect to="/network/peers" />} />
     <Route path="discovery" element={<QueryRedirect to="/network/discovery" />} />
     <Route path="relay" element={<QueryRedirect to="/network/relay" />} />
     <Route path="events" element={<QueryRedirect to="/network/events" />} />
     <Route path="diagnostics" element={<QueryRedirect to="/network/diagnostics" />} />
     <Route path="group" element={<QueryRedirect to="/chat?kind=group" />} />
-    {/* ACS1：agent 唯一入口迁独立页；/chat?kind=agent 仅作存量深链兜底 */}
+    {/* ACS1：agent 唯一入口迁独立页；旧 chat agent 深链仅由 chat-route 兜底改道 */}
     <Route path="acp" element={<QueryRedirect to="/agent" />} />
   </Route>,
 );

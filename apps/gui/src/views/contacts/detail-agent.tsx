@@ -96,7 +96,7 @@ export function DetailAgent({ agent }: { agent: AcpEndpoint }) {
             icon={MessageSquareIcon}
             label={t("contacts.agents.message")}
             testId="contacts-detail-message"
-            to={"/chat?agent=" + id}
+            to={"/agent?endpoint=" + encodeURIComponent(id)}
           />
         )}
         <DetailAction

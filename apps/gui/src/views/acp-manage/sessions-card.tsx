@@ -32,7 +32,7 @@ export function SessionsCard() {
           <div className="flex flex-col gap-2" data-testid="acp-sessions-offline">
             <EmptyState icon={MessagesSquare} title={t("acpManage.sessions.notConnected")} description={t("acpManage.sessions.offlineHint")} />
             <Button asChild size="sm" variant="outline" className="self-start">
-              <Link to="/chat?kind=agent" data-testid="acp-sessions-go-chat">{t("acpManage.sessions.goChat")}</Link>
+              <Link to="/agent" data-testid="acp-sessions-go-agent">{t("acpManage.sessions.goChat")}</Link>
             </Button>
           </div>
         ) : sessions.length === 0 ? (

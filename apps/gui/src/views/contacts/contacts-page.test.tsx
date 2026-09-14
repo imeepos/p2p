@@ -196,7 +196,7 @@ describe("通讯录三区渲染（§3.1）", () => {
     expect(row.textContent).toContain("127.0.0.1:8787");
     expect(row.textContent).toContain("自动1");
     expect(screen.getByTestId("contact-agent-message-ep-1").getAttribute("href")).toBe(
-      "/chat?agent=ep-1",
+      "/agent?endpoint=ep-1",
     );
     expect(screen.getByTestId("contact-agent-detail-ep-1")).toBeTruthy();
     expect(screen.getByTestId("contact-agent-disable-ep-1")).toBeTruthy();

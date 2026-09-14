@@ -62,7 +62,7 @@ const routes: Array<[string, string | null]> = [
   // P1 统一会话页：mock 后端无群/无端点时 ?kind=* 落空态（拍板项 1）；
   // UX 审计 F01（20260907）：空态改为首公里双 CTA 文案
   ["#/chat?kind=group", "还没有可聊的会话"],
-  // ACS2：/chat agent 形态拆除，旧 kind=agent 深链经 agent-redirect 落 /agent 空态
+  // ACS2：/chat agent 形态拆除，旧 kind 深链经 agent-redirect 落 /agent 空态
   ["#/chat?kind=agent", "选择端点开始会话"],
   ["#/contacts", "通讯录"],
   // DOC2：协议文档页真实挂载冒烟（marker = docs.title zh chrome）

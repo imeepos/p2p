@@ -106,7 +106,7 @@ export function AgentDetailDrawer({
         toastInfo(t("contacts.agents.resumeDegraded"), errorText(error));
       }
     }
-    navigate("/chat?agent=" + endpointId);
+    navigate("/agent?endpoint=" + encodeURIComponent(endpointId));
     onOpenChange(false);
   };
 
