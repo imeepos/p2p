@@ -29,7 +29,7 @@ version_gate() {
     || fail "三处版本一致性校验未过（口径同 scripts/check/release.sh）"
   [ -n "$APP_NAME" ] || fail "tauri.conf.json 未解析到 productName"
   [ -n "$VERSION" ] || fail "package.json 未解析到 version"
-  log "版本口径：$VERSION（productName=$APP_NAME，三处一致）"
+  log "版本口径：${VERSION}（productName=${APP_NAME}，三处一致）"
 }
 
 # 装载 updater 签名私钥；返回 0=signed / 1=unsigned。配置存在但文件缺失属硬错误。
@@ -66,7 +66,7 @@ run_build() {
   fi
   (cd "$GUI" && pnpm tauri "${args[@]}") >"$BUILD_LOG" 2>&1 || {
     tail -n 40 "$BUILD_LOG" >&2
-    fail "tauri build 失败（完整日志 $BUILD_LOG）"
+    fail "tauri build 失败（完整日志 ${BUILD_LOG}）"
   }
   tail -n 3 "$BUILD_LOG"
 }
@@ -90,7 +90,7 @@ gen_latest_json() {
     '{version: $version, pub_date: $pub_date,
       platforms: {($plat): {signature: $sig, url: $url}}}' \
     > "$BUNDLE/macos/latest.json" || fail "latest.json 组装失败（jq 非法输入?）"
-  log "2/5 latest.json 组装 OK（$plat -> $url，签名复用 tauri .sig）"
+  log "2/5 latest.json 组装 OK（${plat} -> ${url}，签名复用 tauri .sig）"
 }
 
 smoke_app() {
@@ -102,7 +102,7 @@ smoke_app() {
   [ "$plist_ver" = "$VERSION" ] || fail "Info.plist 版本 $plist_ver 与三处口径 $VERSION 不一致"
   bin="$(find "$app/Contents/MacOS" -maxdepth 1 -type f -size +0c | head -n1)"
   [ -n "$bin" ] || fail "主二进制缺失或为空：$app/Contents/MacOS"
-  LC_ALL=C grep -aqF -- "$VERSION" "$bin" || fail "二进制内未匹配到 version 串 $VERSION：$bin"
+  LC_ALL=C grep -aqF -- "$VERSION" "$bin" || fail "二进制内未匹配到 version 串 ${VERSION}：${bin}"
   log "3/5 APP OK $(size_line "$app") Info.plist=$plist_ver 二进制含 $VERSION"
 }
 
@@ -144,7 +144,7 @@ validate_latest_json() {
     base="$(basename "$url")"
     find "$BUNDLE" -name "$base" -type f | grep -q . \
       || fail "latest.json 引用的产物不在位：$base"
-    log "4/5 SIG OK $base（签名字段非空且产物在位）"
+    log "4/5 SIG OK ${base}（签名字段非空且产物在位）"
   done < <(node -e 'const j=require(process.argv[1]);for(const v of Object.values(j.platforms))console.log(v.url)' "$latest")
 }
 
