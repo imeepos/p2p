@@ -97,6 +97,8 @@ export function AgentDetailDrawer({
   };
 
   const openSession = async (sessionId: string) => {
+    // 会话块仅在 endpointId 非空时渲染；防御性收口（旧串拼会把 null 落成字面量）
+    if (!endpointId) return;
     if (isActive && phase === "online") {
       try {
         await resumeSession(sessionId);

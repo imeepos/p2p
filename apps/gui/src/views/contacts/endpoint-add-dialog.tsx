@@ -140,11 +140,12 @@ export function EndpointAddDialog({ open, onOpenChange, onSaved }: EndpointAddDi
   // UX3 一条龙：保存 + 测试连接（连接即测试）+ 连接 + 跳转会话，零二次点击
   const addAndOpen = () => {
     if (!validate(true) || !requireTarget()) return;
-    const stamped = upsertSaved({ ...form, endpointId: ensureId() });
+    const endpointId = ensureId();
+    const stamped = upsertSaved({ ...form, endpointId });
     onOpenChange(false);
     onSaved(stamped);
     start(stamped);
-    navigate("/agent?endpoint=" + encodeURIComponent(stamped.endpointId));
+    navigate("/agent?endpoint=" + encodeURIComponent(endpointId));
   };
 
   // 本机连接面（console ready 时直传导入流，免经 store draft 中转）
