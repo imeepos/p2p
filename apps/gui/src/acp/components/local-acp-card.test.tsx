@@ -115,4 +115,30 @@ describe("LocalAcpCard 刷新反馈（AF2）", () => {
     fireEvent.click(screen.getByTestId("acp-local-refresh"));
     expect(await screen.findByText("p2p-renamed")).toBeTruthy();
   });
+
+  // AF2 修复轮 1：listWorkspaces 去 404 外吞错后，500 必须以 toast + 行内
+  // 错误提示双留痕呈现，不得再静默回落空态。
+  it("刷新失败（500）：toast「刷新失败」且行内错误提示出现", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 500, json: async () => ({ error: "boom" }) })),
+    );
+    render(
+      <>
+        <LocalAcpCard />
+        <Toaster position="bottom-right" />
+      </>,
+    );
+    // 先等 descriptor 发现完成（effect 首拉失败即其就绪信号），否则 endpointUrl
+    // 尚为 null，load 会提前 return 被 AsyncButton 记成成功。
+    expect(await screen.findByTestId("acp-local-workspace-error")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("acp-local-refresh"));
+    // 行内提示与 toast 同文案：effect 首拉失败 1 处 + 点击失败 toast 1 处
+    await vi.waitFor(() =>
+      expect(screen.getAllByText("刷新失败").length).toBeGreaterThanOrEqual(2),
+    );
+    act(() => {
+      toast.dismiss();
+    });
+  });
 });

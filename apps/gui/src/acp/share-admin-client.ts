@@ -20,6 +20,16 @@ export interface ShareCreateResponse {
   expiresAtUnix: number | null;
 }
 
+/** admin HTTP 错误：带状态码供调用方语义分流（404=旧 agent 无端点等）；
+ *  消息格式与旧纯 Error 一致，存量 startsWith("HTTP 422") 判断不受影响。 */
+export class AdminHttpError extends Error {
+  readonly status: number;
+  constructor(status: number, detail: string) {
+    super("HTTP " + status + (detail ? ": " + detail : ""));
+    this.status = status;
+  }
+}
+
 /** admin HTTP 统一入口（Bearer + 容错解析）；a2a 管理面客户端复用同一管道。 */
 export async function adminJson(
   url: string,
@@ -37,7 +47,7 @@ export async function adminJson(
   const body = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   if (!res.ok) {
     const detail = typeof body?.error === "string" ? body.error : "";
-    throw new Error("HTTP " + res.status + (detail ? ": " + detail : ""));
+    throw new AdminHttpError(res.status, detail);
   }
   return body ?? {};
 }
@@ -82,13 +92,20 @@ export async function createShare(
   return { shareId, token, link, expiresAtUnix: parts.expUnix };
 }
 
-/** 工作区清单；旧 agent（无此端点）返回 404 → 空列表（创建回退默认工作区） */
+/** 工作区清单；旧 agent（无此端点）404 → 空列表（创建回退默认工作区），
+ *  其余失败显式上抛（失败可观测红线），由调用方呈现错误态。 */
 export async function listWorkspaces(
   adminUrl: string,
   adminToken: string,
 ): Promise<AcpWorkspace[]> {
   const url = adminUrl.replace(/\/+$/, "") + "/workspaces";
-  const data: Record<string, unknown> = await adminJson(url, adminToken).catch(() => ({}));
+  let data: Record<string, unknown>;
+  try {
+    data = await adminJson(url, adminToken);
+  } catch (error) {
+    if (error instanceof AdminHttpError && error.status === 404) return [];
+    throw error;
+  }
   const raw: unknown[] = Array.isArray(data.workspaces) ? data.workspaces : [];
   return raw
     .filter((w): w is Record<string, unknown> => !!w && typeof w === "object")

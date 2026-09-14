@@ -70,6 +70,7 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink, initialWorks
   const [creating, setCreating] = useState(false);
   const [link, setLink] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [wsError, setWsError] = useState(false);
 
   // 打开瞬间播种一次（渲染期状态调整，不落 effect）：重置表单回默认档
   const [seededOpen, setSeededOpen] = useState(false);
@@ -92,7 +93,8 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink, initialWorks
   const endpoint = candidates.find((c) => c.id === endpointId) ?? candidates[0] ?? localCandidate;
 
   // 工作区清单（多工作区加法）：端点就绪且选中 workspace 范围后才拉取；
-  // 旧 agent 无此端点 → 空表回落默认工作区（body 不带 workspace 字段）。
+  // 旧 agent 无此端点 404 → 空表回落默认工作区（body 不带 workspace 字段）；
+  // 其余失败同回落但行内错误提示留痕（不可见失败=静默假成功）。
   const endpointUrl_ = endpoint?.url ?? null;
   const endpointToken_ = endpoint?.token ?? "";
   useEffect(() => {
@@ -102,11 +104,15 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink, initialWorks
       .then((rows) => {
         if (dead) return;
         setWorkspaces(rows);
+        setWsError(false);
         // 展示的默认项即定向目标：未显式选择时播种首行（所见即所分享）
         setWorkspaceId((prev) => prev || rows[0]?.id || "");
       })
-      .catch(() => {
-        if (!dead) setWorkspaces([]);
+      .catch((error) => {
+        console.warn("[acp] dialog workspace list load failed", error);
+        if (dead) return;
+        setWorkspaces([]);
+        setWsError(true);
       });
     return () => {
       dead = true;
@@ -213,6 +219,16 @@ export function ShareCreateDialog({ open, onOpenChange, onSendLink, initialWorks
               workspaceId={workspaceId}
               onWorkspaceChange={setWorkspaceId}
             />
+
+            {wsError && scope === "workspace" ? (
+              <p
+                className="text-destructive text-xs"
+                role="alert"
+                data-testid="acp-share-ws-error"
+              >
+                {t("chat.feedback.actions.refreshFailed")}
+              </p>
+            ) : null}
 
             {link ? (
               <>

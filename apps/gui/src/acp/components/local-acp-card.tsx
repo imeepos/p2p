@@ -5,7 +5,8 @@ import { FolderGit2, RefreshCw, Settings2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AsyncButton } from "@/components/feedback/async-button";
-import { toastSuccess } from "@/components/feedback/toast";
+import { toastError, toastSuccess } from "@/components/feedback/toast";
+import { errorText } from "@/views/shared/form-flow";
 import { useAcpStore } from "@/acp/acp-store";
 import { listWorkspaces, type AcpWorkspace } from "@/acp/share-admin-client";
 import { useLocalAdminCandidate } from "@/acp/use-local-admin";
@@ -28,25 +29,36 @@ export function LocalAcpCard() {
   const endpointToken = endpoint?.token ?? "";
 
   const [rows, setRows] = useState<AcpWorkspace[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [tick, setTick] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | undefined>();
   const bump = useCallback(() => setTick((n) => n + 1), []);
 
   // 工作区清单：effect 兜 endpoint 变化/弹层关闭后的重取；刷新按钮走 load
-  // （AsyncButton 需要 reject 语义）。listWorkspaces 契约吞错返回 []
-  // （share-admin-client），错误 toast 待其透出失败后再补。
+  // （AsyncButton 需要 reject 语义）。失败双留痕：按钮路径 toast，两路共用
+  // 行内错误提示；404（旧 agent 无端点）契约性回落空态不算失败。
   const load = useCallback(async () => {
     if (!endpointUrl) return;
-    setRows(await listWorkspaces(endpointUrl, endpointToken));
+    const list = await listWorkspaces(endpointUrl, endpointToken);
+    setRows(list);
+    setLoadError(false);
   }, [endpointUrl, endpointToken]);
 
   useEffect(() => {
     if (!endpointUrl) return;
     let dead = false;
-    listWorkspaces(endpointUrl, endpointToken).then((list) => {
-      if (!dead) setRows(list);
-    });
+    listWorkspaces(endpointUrl, endpointToken)
+      .then((list) => {
+        if (dead) return;
+        setRows(list);
+        setLoadError(false);
+      })
+      .catch((error) => {
+        console.warn("[acp] workspace list load failed", error);
+        if (dead) return;
+        setLoadError(true);
+      });
     return () => {
       dead = true;
     };
@@ -77,6 +89,13 @@ export function LocalAcpCard() {
             iconOnly
             action={load}
             onSuccess={() => toastSuccess(t("chat.feedback.actions.refreshed"))}
+            onError={(error) => {
+              setLoadError(true);
+              toastError(t("chat.feedback.actions.refreshFailed"), {
+                description: errorText(error),
+                context: "acp-local-workspace-list",
+              });
+            }}
             aria-label={t("acp.local.refresh")}
             data-testid="acp-local-refresh"
           >
@@ -95,6 +114,15 @@ export function LocalAcpCard() {
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
+        {loadError ? (
+          <p
+            className="text-destructive text-xs"
+            role="alert"
+            data-testid="acp-local-workspace-error"
+          >
+            {t("chat.feedback.actions.refreshFailed")}
+          </p>
+        ) : null}
         {!endpoint && localDone ? (
           <p className="text-muted-foreground text-sm" data-testid="acp-local-need-agent">
             {t("acp.local.empty")}

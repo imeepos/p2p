@@ -93,3 +93,26 @@ describe("ShareCreateDialog 发送反馈（AF2）", () => {
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
   });
 });
+
+// AF2 修复轮 1：listWorkspaces 去吞错后，弹层内 workspace 拉取失败必须有
+// 可见反馈（行内错误提示），同时保留「失败回落默认工作区」既有语义。
+describe("ShareCreateDialog 工作区清单失败反馈（AF2）", () => {
+  it("workspace 拉取失败：行内错误提示出现且回落提示仍在", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, _init?: RequestInit) => {
+        if (String(url).endsWith("/workspaces")) {
+          return { ok: false, status: 500, json: async () => ({ error: "boom" }) };
+        }
+        return OK;
+      }),
+    );
+    const onOpenChange = vi.fn();
+    const onSendLink = vi.fn(async () => {});
+    await renderDialog(onSendLink, onOpenChange);
+    fireEvent.click(await screen.findByTestId("acp-share-scope"));
+    fireEvent.click(await screen.findByRole("option", { name: "工作区目录" }));
+    expect(await screen.findByTestId("acp-share-ws-error")).toBeTruthy();
+    expect(screen.getByText("工作区范围要求 agent 已配置工作区目录，否则创建即被拒绝")).toBeTruthy();
+  });
+});
