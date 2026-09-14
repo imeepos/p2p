@@ -50,6 +50,8 @@ interface AcpConsoleState {
   capabilities: InitializeResult | null;
   sessions: SessionSummary[];
   activeSessionId: string | null;
+  /** 新建会话进行中：跨入口禁用新建按钮的单一事实源（AF1 反馈闭环） */
+  newSessionPending: boolean;
   transcripts: Record<string, TranscriptState>;
   interactions: Record<string, InteractionState>;
   directory: DirectoryEntry[];
@@ -85,7 +87,9 @@ interface AcpConsoleState {
   dismissReattachNotice: () => void;
   /** 原会话失效引导手动关闭 */
   dismissSessionLostNotice: () => void;
-  newSession: () => Promise<void>;
+  /** 单飞：in-flight 重复调用复用同一 promise（session/new 最坏 120s，防连点双发 IPC）；
+   *  resolve false=失败（错误 toast 由 store 层 notifyActionFailure 统一弹，不在此重复） */
+  newSession: () => Promise<boolean>;
   refreshSessions: () => Promise<void>;
   resumeSession: (sessionId: string) => Promise<void>;
   closeSession: (sessionId: string) => Promise<void>;
@@ -103,6 +107,9 @@ interface AcpConsoleState {
 
 const stored = loadStored();
 
+/** newSession 单飞句柄：in-flight 期间所有调用方共享同一 promise */
+let newSessionFlight: Promise<boolean> | null = null;
+
 export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   phase: "idle",
   draft: stored.draft,
@@ -119,6 +126,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   capabilities: null,
   sessions: [],
   activeSessionId: null,
+  newSessionPending: false,
   transcripts: {},
   interactions: {},
   directory: [],
@@ -203,7 +211,25 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
   retryNow: () => runRetryNow(),
   dismissReattachNotice: () => set({ reattachNotice: null }),
   dismissSessionLostNotice: () => set({ sessionLostNotice: false }),
-  newSession: () => runNewSession(),
+  newSession: () => {
+    const existing = newSessionFlight;
+    if (existing) return existing;
+    // 失败判定用 lastError 差值法（同 lib/pages/acp-page failOnNewLastError 惯例）：
+    // 先清本动作残留码，防「上次失败 → 本次成功」被残留码误判为失败
+    if (get().lastError === "sessionNewFailed") set({ lastError: null });
+    set({ newSessionPending: true });
+    const flight = (async () => {
+      try {
+        await runNewSession();
+      } finally {
+        newSessionFlight = null;
+        set({ newSessionPending: false });
+      }
+      return get().lastError !== "sessionNewFailed";
+    })();
+    newSessionFlight = flight;
+    return flight;
+  },
   refreshSessions: () => runRefreshSessions(),
   resumeSession: (sessionId) => runResumeSession(sessionId),
   closeSession: (sessionId) => runCloseSession(sessionId),
@@ -243,6 +269,7 @@ export const useAcpStore = create<AcpConsoleState>()((set, get) => ({
       capabilities: null,
       sessions: [],
       activeSessionId: null,
+      newSessionPending: false,
       transcripts: {},
       interactions: {},
       promptPendingBySession: {},
