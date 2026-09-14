@@ -601,3 +601,8 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 全量套件慢（本仓 gui 240 文件/1470 用例 ≈ 220s）：开发期只跑 scope 内目录（pnpm vitest run --no-file-parallelism src/views/<页> + 相关 lib/i18n 门禁），收尾合并前把全量套件丢后台跑，避免阻塞但不错过回归。
 - worktree 无 node_modules：pnpm-workspace 仓在 worktree 里 pnpm install --prefer-offline 走全局 content-addressable store，458 包全复用 9s 完成；先台跑安装、同时继续读码，零等待。
 - 门禁红了先判旧账再动手：`git stash` 后在干净基线上重跑同一门禁脚本，红=main 既有欠账（另开 docs/fix 小提交或移交归属会话），绿=自己改坏的；本次 ai-docs-sync 缺 service 条目即 main 旧账，10 分钟按 --help 补齐条目单独提交，避免把无关修复混进 bugfix 提交。
+
+## 2026-09-14 uix-chat-integrate（T5 侧栏移植轮）
+- GUI 无 Tauri 也能出真实页面截图：`VITE_MOCK_IPC=1 vite dev`（.env.development 已默认 mock）+ Playwright 打开 `/#/chat`，ACP 端点从 localStorage 种（键 `p2p-gui-acp-endpoints`，形如 {draft,saved:[{wsUrl,token,peer,endpointId,alias}]}），setItem 后重导航即生效；浏览器快照断言树结构比截图可靠（组头 button[expanded] + 嵌套 list）。
+- Playwright MCP 截图落盘路径 = Playwright server 进程 cwd（本机实证是 ~/,不是会话 cwd）：文件名只给 basename 后用 find 全盘搜，别在会话目录里干等。
+- 本会话模型（glm-5.3-flash）read_image 不支持图片输入：拿不到视觉确认时，用 browser_snapshot 的 a11y 树逐节点断言（button 文本/expanded 态/listitem 嵌套）替代看图，验收证据照交截图文件（给会话链上其他可读图的会话/人看）。
