@@ -2096,6 +2096,26 @@ const enUS: typeof zhCN = {
       details: "Details",
     },
   },
+  // ACS1（2026-09-14 用户拍板）：standalone /agent session page; keys live here
+  agentChat: {
+    title: "Agent",
+    description: "Standalone session page for local and remote ACP endpoints",
+    sidebar: {
+      title: "Endpoints & sessions",
+      newSession: "New session",
+      endpointsEmpty: "No endpoints yet; add an agent in Contacts first",
+      sessionsEmpty: "No sessions on this endpoint",
+      sessionsOffline: "Sessions appear once connected",
+      sessionsAria: "Sessions of {{name}}",
+      localBadge: "Local",
+      unreadAria: "{{count}} unread",
+    },
+    empty: {
+      title: "Pick an endpoint to start",
+      description: "All saved endpoints are listed on the left",
+    },
+    back: "Back to endpoints",
+  },
   // A2A3（a2a-over-p2p-design §8）：/agents page (discover/mine dual view)
   agents: {
     title: "Agents",

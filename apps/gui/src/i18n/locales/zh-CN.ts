@@ -2061,6 +2061,26 @@ const zhCN = {
       details: "详情",
     },
   },
+  // ACS1（2026-09-14 用户拍板）：/agent 独立 agent 会话页；键全部收本命名空间
+  agentChat: {
+    title: "智能体",
+    description: "本机与远端 ACP 端点的独立会话页",
+    sidebar: {
+      title: "端点与会话",
+      newSession: "新建会话",
+      endpointsEmpty: "暂无端点，先到通讯录添加智能体",
+      sessionsEmpty: "该端点暂无会话",
+      sessionsOffline: "连接后显示该端点的会话",
+      sessionsAria: "{{name}} 的会话",
+      localBadge: "本机",
+      unreadAria: "{{count}} 条未读",
+    },
+    empty: {
+      title: "选择端点开始会话",
+      description: "左侧列出全部已保存端点，选中后进入对话",
+    },
+    back: "返回端点列表",
+  },
   // A2A3（a2a-over-p2p-design §8）：/agents 智能体页（发现/我的双视图）
   agents: {
     title: "智能体",

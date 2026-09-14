@@ -30,6 +30,8 @@ export interface PaletteNavEntry {
 
 export const PALETTE_NAV_ENTRIES: readonly PaletteNavEntry[] = [
   { path: "/chat", labelKey: "chat.title", icon: MessageCircle },
+  // ACS1：agent 独立会话页（append-only 登记，与 rail 注册同步）
+  { path: "/agent", labelKey: "agentChat.title", icon: Bot },
   { path: "/contacts", labelKey: "contacts.title", icon: UsersRound },
   { path: "/network", labelKey: "network.title", icon: Network },
   { path: "/settings", labelKey: "settings.title", icon: Settings },

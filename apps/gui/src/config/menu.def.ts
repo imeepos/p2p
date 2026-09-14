@@ -8,6 +8,7 @@
 // 子页/tab 不进本表：命令面板持有独立全量注册表（5.2 解耦约束）。
 import {
   Bell,
+  Bot,
   MessageCircle,
   Network,
   Settings,
@@ -27,6 +28,9 @@ export interface MenuEntry {
 
 export const MENU_ENTRIES: readonly MenuEntry[] = [
   { path: "/chat", titleKey: "chat.title", icon: MessageCircle },
+  // ACS1（2026-09-14 用户拍板）：agent 独立会话页升 rail 一级入口，序插 /chat 后
+  // （注册序即快捷键 Cmd/Ctrl+2；rail 上限 9 未被突破，后续项顺延不越界）
+  { path: "/agent", titleKey: "agentChat.title", icon: Bot },
   { path: "/contacts", titleKey: "contacts.title", icon: UsersRound },
   { path: "/network", titleKey: "network.title", icon: Network },
   // F15：消息中心升 rail 常驻（append-only 注册）
