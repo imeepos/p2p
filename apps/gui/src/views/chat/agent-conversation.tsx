@@ -3,10 +3,13 @@ import { Link } from "react-router-dom";
 import { Bot, Loader2, TriangleAlertIcon } from "lucide-react";
 
 import { useAcpStore } from "@/acp/acp-store";
+import { newSessionAction } from "@/acp/new-session-action";
 import { acpErrorDetail, connectFailureText } from "@/acp/error-help";
 import { LOCAL_AGENT_ENDPOINT_ID } from "@/acp/console-client";
 import type { AcpCloseInfo } from "@/acp/protocol";
+import { AsyncButton } from "@/components/feedback/async-button";
 import { CopyButton } from "@/components/feedback/copy-button";
+import { toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import { PromptComposer } from "@/acp/components/prompt-composer";
 import { Transcript } from "@/acp/components/transcript";
@@ -151,7 +154,7 @@ export function AgentConversation({ endpointId }: { endpointId: string }) {
   const flowNotice = useAcpStore((s) => s.consoleFlowNotice);
   const setDraft = useAcpStore((s) => s.setDraft);
   const connect = useAcpStore((s) => s.connect);
-  const newSession = useAcpStore((s) => s.newSession);
+  const newSessionPending = useAcpStore((s) => s.newSessionPending);
 
   const isLocal = endpointId === LOCAL_AGENT_ENDPOINT_ID;
   const consoleDown = consoleStatus !== null && consoleStatus.phase !== "connected";
@@ -195,15 +198,19 @@ export function AgentConversation({ endpointId }: { endpointId: string }) {
             </span>
             <p className="text-[26px] leading-tight font-medium">{t("acp.sessions.empty")}</p>
             <p className="text-muted-foreground text-[13px]">{t("acp.sessions.emptyHint")}</p>
-            <Button
+            <AsyncButton
               type="button"
               size="sm"
               className="mt-1 rounded-full px-4"
-              onClick={() => void newSession()}
+              disabled={newSessionPending}
+              action={newSessionAction}
+              onSuccess={() => toastSuccess(t("chat.feedback.sessionCreated"))}
+              loadingLabel={t("chat.feedback.sessionCreating")}
+              resultHoldMs={300}
               data-testid="agent-new-session"
             >
               {t("chat.agentPane.newSession")}
-            </Button>
+            </AsyncButton>
           </div>
         ) : (
           <>

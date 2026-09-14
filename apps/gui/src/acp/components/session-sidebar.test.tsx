@@ -1,10 +1,17 @@
 // 会话侧栏渲染矩阵（uix-spec §2 两级树）：分组/折叠/当前组强制展开/行内限流/
-// 搜索/选中态/空态/离线禁用/可访问性。
-import { fireEvent, render, screen } from "@testing-library/react";
+// 搜索/选中态/空态/离线禁用/可访问性。AF1 追加：新建会话反馈闭环矩阵（跨入口
+// pending 禁用/连点单发/成功与失败 toast 单弹）。
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { Toaster } from "sonner";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { useAcpStore } from "@/acp/acp-store";
+import { AgentConversation } from "@/views/chat/agent-conversation";
 import type { SessionSummary } from "@/acp/protocol";
+import { mockAcpConsole, MockSocket } from "@/acp/mock-acp-ws";
+import { setWsFactory, type WsLike, type WebSocketFactory } from "@/acp/ws-factory";
+import { MOCK_AGENT_INFO } from "@/acp/mock-script";
 import { resetWorkspaceUiForTest } from "@/acp/workspace-ui-store";
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { SessionSidebar } from "./session-sidebar";
@@ -136,5 +143,143 @@ describe("SessionSidebar 可访问性与离线禁用", () => {
     expect((screen.getByTestId("acp-session-new") as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByTestId("acp-group-row-ungrouped"));
     expect(screen.queryByTestId("acp-session-row-s-1")).toBeNull();
+  });
+});
+
+const EP = {
+  endpointId: "ep-1",
+  wsUrl: "ws://127.0.0.1:8787",
+  token: "mock-token",
+  peer: "mock-peer",
+};
+
+function renderBothEntries() {
+  return render(
+    <MemoryRouter>
+      <ConfirmProvider>
+        <SessionSidebar />
+        <AgentConversation endpointId="ep-1" />
+        <Toaster position="top-right" />
+      </ConfirmProvider>
+    </MemoryRouter>,
+  );
+}
+
+function seedOnlineView(): void {
+  useAcpStore.setState({
+    saved: [EP],
+    activeEndpointId: "ep-1",
+    activeSessionId: null,
+  });
+}
+
+/** 走真实 mock 连接：connect 到 online，供点击触达 store → IPC 全链 */
+async function connectMockAgent(): Promise<void> {
+  setWsFactory((url) => new MockSocket(url, mockAcpConsole));
+  useAcpStore.setState({ draft: { ...EP } });
+  useAcpStore.getState().connect();
+  await waitFor(() => {
+    expect(useAcpStore.getState().phase).toBe("online");
+  });
+}
+
+/** initialize 成功但 session/new 一律失败的 socket：失败链路确定性驱动 */
+class FailNewSocket implements WsLike {
+  onopen: (() => void) | null = null;
+  onclose: ((ev: { code: number; reason: string }) => void) | null = null;
+  onerror: ((ev: { message?: string }) => void) | null = null;
+  onmessage: ((ev: { data: unknown }) => void) | null = null;
+  constructor() {
+    window.setTimeout(() => this.onopen?.(), 0);
+  }
+  send(data: string): void {
+    for (const line of data.split("\n")) {
+      if (!line.trim()) continue;
+      const msg = JSON.parse(line) as { id?: number; method?: string };
+      if (typeof msg.id !== "number" || !msg.method) continue;
+      if (msg.method === "initialize") {
+        this.deliver({ jsonrpc: "2.0", id: msg.id, result: MOCK_AGENT_INFO });
+      } else if (msg.method === "session/new") {
+        this.deliver({
+          jsonrpc: "2.0",
+          id: msg.id,
+          error: { code: -32000, message: "mock session/new rejected" },
+        });
+      } else {
+        this.deliver({ jsonrpc: "2.0", id: msg.id, result: {} });
+      }
+    }
+  }
+  private deliver(msg: unknown): void {
+    this.onmessage?.({ data: new TextEncoder().encode(JSON.stringify(msg) + "\n") });
+  }
+  close(): void {
+    this.onclose?.({ code: 1000, reason: "client-close" });
+  }
+}
+
+function connectFailNewAgent(): Promise<void> {
+  const factory: WebSocketFactory = () => new FailNewSocket();
+  setWsFactory(factory);
+  useAcpStore.setState({ draft: { ...EP } });
+  useAcpStore.getState().connect();
+  return waitFor(() => {
+    expect(useAcpStore.getState().phase).toBe("online");
+  }).then(() => undefined);
+}
+
+describe("新建会话反馈闭环渲染矩阵（AF1）", () => {
+  it("store pending 为 true 时两入口同时禁用，复位后恢复", () => {
+    seedOnlineView();
+    renderBothEntries();
+    expect((screen.getByTestId("acp-session-new") as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId("agent-new-session") as HTMLButtonElement).disabled).toBe(false);
+    act(() => {
+      useAcpStore.setState({ newSessionPending: true });
+    });
+    expect((screen.getByTestId("acp-session-new") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("agent-new-session") as HTMLButtonElement).disabled).toBe(true);
+    act(() => {
+      useAcpStore.setState({ newSessionPending: false });
+    });
+    expect((screen.getByTestId("acp-session-new") as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId("agent-new-session") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("连点只触发一次 session/new，成功 toast 单弹「会话已创建」", async () => {
+    seedOnlineView();
+    renderBothEntries();
+    await connectMockAgent();
+    fireEvent.click(screen.getByTestId("agent-new-session"));
+    fireEvent.click(screen.getByTestId("agent-new-session"));
+    expect(useAcpStore.getState().newSessionPending).toBe(true);
+    expect((screen.getByTestId("agent-new-session") as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId("acp-session-new") as HTMLButtonElement).disabled).toBe(true);
+    const created = await screen.findByText("会话已创建");
+    expect(created).toBeTruthy();
+    expect(screen.queryAllByText("会话已创建")).toHaveLength(1);
+    await waitFor(() => {
+      expect(useAcpStore.getState().activeSessionId).toBe("s-001");
+    });
+    expect(useAcpStore.getState().newSessionPending).toBe(false);
+  });
+
+  it("失败时错误 toast 只出现一次（不与新链路双弹），结束后按钮恢复", async () => {
+    seedOnlineView();
+    renderBothEntries();
+    await connectFailNewAgent();
+    fireEvent.click(screen.getByTestId("acp-session-new"));
+    const failure = await screen.findByText("新建会话失败");
+    expect(failure).toBeTruthy();
+    expect(screen.queryAllByText("新建会话失败")).toHaveLength(1);
+    expect(useAcpStore.getState().lastError).toBe("sessionNewFailed");
+    expect(useAcpStore.getState().newSessionPending).toBe(false);
+    await waitFor(
+      () => {
+        expect((screen.getByTestId("acp-session-new") as HTMLButtonElement).disabled).toBe(false);
+        expect((screen.getByTestId("agent-new-session") as HTMLButtonElement).disabled).toBe(false);
+      },
+      { timeout: 4_000 },
+    );
   });
 });

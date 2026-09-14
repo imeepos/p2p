@@ -12,7 +12,7 @@ import { Button, type ButtonProps } from "@/components/ui/button";
 type AsyncStatus = "idle" | "loading" | "success" | "fail";
 
 const MIN_LOADING_MS = 300;
-const RESULT_HOLD_MS = 1200;
+const DEFAULT_RESULT_HOLD_MS = 1200;
 
 export interface AsyncButtonProps
   extends Omit<ButtonProps, "onClick" | "asChild" | "children"> {
@@ -23,6 +23,9 @@ export interface AsyncButtonProps
   loadingLabel?: ReactNode;
   /** 图标按钮：busy/结果态只渲染状态图标，避免与 children 图标重复 */
   iconOnly?: boolean;
+  /** 结果态驻留时长 ms（默认 1200）：驻留期点击被吞，短周期可重入动作宜调短，
+   *  成功反馈由 toast 承载时尤其如此 */
+  resultHoldMs?: number;
   children?: ReactNode;
 }
 
@@ -58,6 +61,7 @@ export function AsyncButton({
   onError,
   loadingLabel,
   iconOnly = false,
+  resultHoldMs = DEFAULT_RESULT_HOLD_MS,
   children,
   disabled,
   ...props
@@ -76,7 +80,7 @@ export function AsyncButton({
       defer(timers.current, () => {
         setStatus(next);
         notify();
-        defer(timers.current, () => setStatus("idle"), RESULT_HOLD_MS);
+        defer(timers.current, () => setStatus("idle"), resultHoldMs);
       }, wait);
     };
     try {
@@ -85,7 +89,7 @@ export function AsyncButton({
     } catch (error) {
       settle("fail", () => onError?.(error));
     }
-  }, [action, onError, onSuccess, status]);
+  }, [action, onError, onSuccess, resultHoldMs, status]);
 
   const busy = status !== "idle";
   const label =

@@ -16,6 +16,9 @@ import {
 } from "@/acp/workspace-model";
 import { useWorkspaceUiStore } from "@/acp/workspace-ui-store";
 import { useAcpStore } from "@/acp/acp-store";
+import { newSessionAction } from "@/acp/new-session-action";
+import { AsyncButton } from "@/components/feedback/async-button";
+import { toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -133,7 +136,7 @@ export function SessionSidebar() {
   const sessions = useAcpStore((s) => s.sessions);
   const activeSessionId = useAcpStore((s) => s.activeSessionId);
   const online = useAcpStore((s) => s.phase) === "online";
-  const newSession = useAcpStore((s) => s.newSession);
+  const newSessionPending = useAcpStore((s) => s.newSessionPending);
   const resumeSession = useAcpStore((s) => s.resumeSession);
   const closeSession = useAcpStore((s) => s.closeSession);
 
@@ -159,16 +162,19 @@ export function SessionSidebar() {
     <Card className="flex flex-col">
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">{t("acp.sessions.card")}</CardTitle>
-        <Button
+        <AsyncButton
           size="sm"
           variant="outline"
-          disabled={!online}
-          onClick={() => void newSession()}
+          disabled={!online || newSessionPending}
+          action={newSessionAction}
+          onSuccess={() => toastSuccess(t("chat.feedback.sessionCreated"))}
+          loadingLabel={t("chat.feedback.sessionCreating")}
+          resultHoldMs={300}
           data-testid="acp-session-new"
         >
           <Plus className="size-4" aria-hidden />
           {t("acp.sessions.new")}
-        </Button>
+        </AsyncButton>
       </CardHeader>
       <CardContent className="flex min-h-0 flex-1 flex-col gap-2">
         <label className="relative block">
