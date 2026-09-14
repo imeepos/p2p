@@ -154,7 +154,7 @@ out-of-process 子代理的同一哲学：隔离即设计。
 | 认证 | 底座传输层已互认（QUIC TLS1.3 证书内嵌公钥 / Noise XX 握手即互认 PeerId） | 零成本拿到密码学身份，桥不另发明鉴权 |
 | 授权 | 节点策略表：PeerId → scope | **默认拒绝**；owner 用 `p2p-cli acp allow <peer> --scope …` 显式授予（TOFU + 指纹确认） |
 | 工作区 | cwd 改写 | scope=sandbox → `<root>/<peerId>/` 每 peer 监狱；scope=workspace → 锁定授权目录；owner 本机 = 全 root。**远程 peer 永远不能自指任意路径** |
-| MCP | `session/new.mcpServers` = 远程任意命令执行 | **默认整字段剥离**；`allow_mcp` 白名单里 peer 只能**按名引用** node 配置预定义的服务定义（命令字节永远在 host 手里） |
+| MCP | `session/new.mcpServers` = 远程任意命令执行 | **默认就地重写为空数组**（字段保留——ACP 子进程 schema 必填，剥字段触发 -32602；空数组零 host 定义，安全语义与剥离等价）；`allow_mcp` 白名单里 peer 只能**按名引用** node 配置预定义的服务定义（命令字节永远在 host 手里） |
 | 工具 | ACP `request_permission` 瀑布 | ① 静态策略（read/think/fetch=allow，execute/edit/delete=ask）→ ② ask 路由到远程 GUI 内联按钮（60s 超时=reject）或按策略路由给 owner 本机 → ③ 一次性 grant，永不持久化（沿 harness 红线） |
 | 凭据 | API key 只在子进程环境 | wire 上只有语义更新（ACP 原生设计）；中继为密文透传，端到端加密不落地 |
 | 本地面 | GUI⇄console 本地 WS | 绑 127.0.0.1 + 随机 token（防浏览器 drive-by 打本地 WS） |

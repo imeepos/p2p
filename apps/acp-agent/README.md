@@ -53,7 +53,10 @@ ACP over P2P 的 agent 侧端点：监听 `/dsh-acp/1`，按策略表把远程 p
 
 ### mcpServers 处置（session/new 安全改写点）
 
-- 默认（`allow_mcp` 为空）：`params.mcpServers` **整字段剥离**后转发。
+- 默认（`allow_mcp` 为空）：`params.mcpServers` **就地重写为空数组 `[]`** 后转发
+  （2026-09-14 裁决：ACP 子进程 schema 对该字段必填，剥整字段会让子进程回
+  -32602 Invalid params；空数组同样不执行任何 host 定义，安全语义与剥离等价；
+  字段缺失时注入 `[]`）。
 - 白名单 peer：数组每项必须是 `{"name":"<名>"}` 按名引用，且名字同时在
   `allow_mcp` 白名单与 node 配置 `mcp_definitions`（完整 host 侧定义，含命令字节）；
   桥把数组整体替换为对应 host 定义。命令字节永远在 host 手里。

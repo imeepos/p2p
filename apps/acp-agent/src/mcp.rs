@@ -1,7 +1,8 @@
 //! session/new.mcpServers 安全改写点（设计 §6 MCP 行，全案最重要一行）：
-//! 默认整字段剥离；allow_mcp 白名单 peer 仅可按名引用 node 预定义服务定义，
-//! 桥替换为 host 侧定义（命令字节永远在 host 手里）；白名单外引用整请求拒绝。
-//! 非 session/new 行零改动透传（协议智能不进 Rust 的边界在此保持）。
+//! 默认就地重写为空数组（字段保留：ACP 子进程 schema 必填，剥字段会触发
+//! -32602；空数组零 host 定义，安全语义与剥离等价）；allow_mcp 白名单 peer
+//! 仅可按名引用 node 预定义服务定义，桥替换为 host 侧定义（命令字节永远在
+//! host 手里）；白名单外引用整请求拒绝。非 session/new 行零改动透传。
 
 use std::collections::BTreeMap;
 
@@ -34,12 +35,31 @@ pub fn rewrite(
     if obj.get("method").and_then(Value::as_str) != Some("session/new") {
         return passthrough(line);
     }
-    let Some(servers) = take_mcp_servers(obj) else {
+    let Some(params) = obj.get_mut("params").and_then(Value::as_object_mut) else {
         return passthrough(line);
     };
+    let had = params.remove("mcpServers");
     if allow_mcp.is_empty() {
-        return strip(root, &servers);
+        // ACP 子进程 schema 对 mcpServers 必填：默认策略就地重写为空数组
+        // （零 host 定义，安全语义与剥离等价），字段缺失时注入。
+        params.insert("mcpServers".to_owned(), Value::Array(Vec::new()));
+        let detail = strip_detail(had.as_ref());
+        return McpOutcome {
+            action: "stripped",
+            detail,
+            child_line: Some(reserialize(root)),
+            wire_error: None,
+        };
     }
+    let Some(servers) = had else {
+        params.insert("mcpServers".to_owned(), Value::Array(Vec::new()));
+        return McpOutcome {
+            action: "stripped",
+            detail: strip_detail(None),
+            child_line: Some(reserialize(root)),
+            wire_error: None,
+        };
+    };
     match replace_servers(&servers, allow_mcp, definitions) {
         Ok((names, defined)) => replace(root, names, defined),
         Err(detail) => reject(obj.get("id"), detail),
@@ -55,18 +75,13 @@ fn passthrough(line: &[u8]) -> McpOutcome {
     }
 }
 
-/// 摘除 params.mcpServers；字段不存在视为无事发生。
-fn take_mcp_servers(obj: &mut serde_json::Map<String, Value>) -> Option<Value> {
-    obj.get_mut("params")?.as_object_mut()?.remove("mcpServers")
-}
-
-fn strip(root: Value, servers: &Value) -> McpOutcome {
-    let entries = servers.as_array().map_or(0, Vec::len);
-    McpOutcome {
-        action: "stripped",
-        detail: format!("removed mcpServers with {entries} entries"),
-        child_line: Some(reserialize(root)),
-        wire_error: None,
+fn strip_detail(had: Option<&Value>) -> String {
+    match had {
+        None => "injected empty mcpServers (was absent)".to_owned(),
+        Some(v) => {
+            let entries = v.as_array().map_or(0, Vec::len);
+            format!("rewrote mcpServers to [] (was {entries} entries)")
+        }
     }
 }
 
@@ -170,14 +185,35 @@ mod tests {
     }
 
     #[test]
-    fn default_peer_strips_field() {
+    fn default_peer_rewrites_field_to_empty_array() {
         let params = json!({"sessionId": "s", "mcpServers": [{"command": "evil"}]});
         let out = rewrite(&session_new(params), &[], &BTreeMap::new());
         assert_eq!(out.action, "stripped");
         let sent = out.child_line.expect("forward");
         let root: Value = serde_json::from_slice(&sent).expect("json");
-        assert!(root["params"].get("mcpServers").is_none());
+        assert_eq!(root["params"]["mcpServers"], json!([]));
         assert!(out.wire_error.is_none());
+    }
+
+    #[test]
+    fn default_peer_injects_field_when_absent() {
+        let params = json!({"sessionId": "s", "cwd": "/tmp"});
+        let out = rewrite(&session_new(params), &[], &BTreeMap::new());
+        assert_eq!(out.action, "stripped");
+        let sent = out.child_line.expect("forward");
+        let root: Value = serde_json::from_slice(&sent).expect("json");
+        assert_eq!(root["params"]["mcpServers"], json!([]));
+        assert_eq!(root["params"]["cwd"], "/tmp");
+    }
+
+    #[test]
+    fn whitelist_peer_injects_field_when_absent() {
+        let params = json!({"sessionId": "s", "cwd": "/tmp"});
+        let out = rewrite(&session_new(params), &["fs".to_owned()], &defs());
+        assert_eq!(out.action, "stripped");
+        let sent = out.child_line.expect("forward");
+        let root: Value = serde_json::from_slice(&sent).expect("json");
+        assert_eq!(root["params"]["mcpServers"], json!([]));
     }
 
     #[test]
