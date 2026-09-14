@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // 契约 §15 验收（in-process pump 三态）：console disconnected 相位显引导卡
 // （失败留痕 + 日志指引，不静默）、connecting 相位显进行时；connected 且登记后
-// 自动连接+自动开会话，/chat?agent=<本机id> 直落会话零二次点击。
+// 自动连接+自动开会话，/agent?endpoint=<本机id> 直落会话零二次点击。
 // 全动态导入：stubEnv 必须先于模块求值（静态 import 提升会让 console-watch
 // 在 env 就位前绑定 tauri 后端），resetModules 保证整链按 mock 态重求值。
 vi.stubEnv("VITE_MOCK_IPC", "1");
@@ -133,7 +133,7 @@ describe("agent 会话 console 引导卡与直落（契约 §15）", () => {
     );
   });
 
-  it("自动流程就绪后 /chat?agent=<本机id> 直落会话：transcript 就位零二次点击", async () => {
+  it("自动流程就绪后 /agent?endpoint=<本机id> 直落会话：transcript 就位零二次点击", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => ({ ok: true, json: async () => ({ peers: [{ peer: PEER, addrs: [], source: "mdns" }] }) })),

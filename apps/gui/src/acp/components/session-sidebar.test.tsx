@@ -7,7 +7,7 @@ import { Toaster } from "sonner";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { useAcpStore } from "@/acp/acp-store";
-import { AgentConversation } from "@/views/chat/agent-conversation";
+import { AgentConversation } from "@/views/agent-chat/agent-conversation";
 import type { SessionSummary } from "@/acp/protocol";
 import { mockAcpConsole, MockSocket } from "@/acp/mock-acp-ws";
 import { setWsFactory, type WsLike, type WebSocketFactory } from "@/acp/ws-factory";

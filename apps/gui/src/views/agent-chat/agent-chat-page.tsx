@@ -6,7 +6,7 @@ import { ArrowLeft, Bot } from "lucide-react";
 import { useAcpStore } from "@/acp/acp-store";
 import { Button } from "@/components/ui/button";
 import { NARROW_CHAT_QUERY, useMediaQuery } from "@/hooks/use-media-query";
-import { AgentConversation } from "@/views/chat/agent-conversation";
+import { AgentConversation } from "./agent-conversation";
 import { EmptyState } from "@/views/shared/empty-state";
 
 import { AgentEndpointSidebar } from "./agent-endpoint-sidebar";
@@ -15,7 +15,8 @@ import { AgentEndpointSidebar } from "./agent-endpoint-sidebar";
 // （会话头 + Transcript + PromptComposer，复用 AgentConversation）+ 底部输入。
 // 选中态路由化 ?endpoint=<id>；<768 单栏互斥与 /chat 同规则（§2.1）：默认显
 // 侧栏，选中切入对话，对话左上返回清选中。
-// 深链兜底：/chat?agent=X 与 /chat?kind=agent 由 routes/agent-redirect 改道至此。
+// 深链兜底：存量 agent 深链由 routes/agent-redirect 改道至此。
+// ACS2：会话组件随唯一消费点迁入本目录（agent-conversation.tsx，行为零改动）。
 export function AgentChatPage() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,7 +24,7 @@ export function AgentChatPage() {
   const endpointId = searchParams.get("endpoint");
   const setFocusedEndpoint = useAcpStore((s) => s.setFocusedEndpoint);
 
-  // 聚焦语义与 /chat?agent= 一致：停在本页即取消未读计数，离开（切端点/卸载）
+  // 聚焦语义：停在本页即取消未读计数，离开（切端点/卸载）
   // 复原聚焦态，agent 回复重新计未读。
   useEffect(() => {
     setFocusedEndpoint(endpointId);

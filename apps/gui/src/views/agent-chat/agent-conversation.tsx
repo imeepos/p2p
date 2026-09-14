@@ -17,13 +17,14 @@ import { EmptyState } from "@/views/shared/empty-state";
 import type { AcpConsoleStatus } from "@/lib/ipc-types";
 import { wsHostOf } from "@/lib/conversation-entry";
 import type { I18nKey } from "@/i18n/types";
-// 模块加载即订阅 acp-console 托管事件（幂等；chat 路由静态链保证应用启动即生效）
+// 模块加载即订阅 acp-console 托管事件（幂等；agent 页路由静态链保证应用启动即生效）
 import "@/acp/console-watch";
 // 模块加载即注册 VITE_MOCK_IPC=1 走查注入入口（生产构建不暴露）
 import "./agent-conversation-inject";
 
-// agent 会话记录区（§2.1 右栏 agent 形态）：连接期复用 acp transcript/
-// prompt-composer；未连接显连接引导卡（连接态与错误显式呈现，不静默）。
+// agent 会话记录区（/agent 页对话区，ACS2 自 /chat 迁入，行为零改动）：
+// 连接期复用 acp transcript/prompt-composer；未连接显连接引导卡（连接态与
+// 错误显式呈现，不静默）。
 // INLINE-ACP-PUMP 起 console 为 in-process 泵三态（connecting/connected/
 // disconnected）：disconnected 显失败留痕与日志指引，connecting 显进行时，
 // 绝不静默。

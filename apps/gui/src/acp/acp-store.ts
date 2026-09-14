@@ -36,7 +36,7 @@ interface AcpConsoleState {
   activePeer: string | null;
   /** 当前连接对应的本地端点 id（§2.2 主键）；草稿未保存时为 null */
   activeEndpointId: string | null;
-  /** /chat?agent= 聚焦的端点 id：null 表示聊天页未停在该 agent 会话 */
+  /** /agent 会话页聚焦的端点 id：null 表示会话页未停在该 agent 会话 */
   focusedEndpointId: string | null;
   /** §2.2/§2.3：每端点最后交互时间与未读（仅内存态，重启归零） */
   lastInteractionByEndpoint: Record<string, number>;

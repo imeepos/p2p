@@ -1,6 +1,6 @@
 // pump 进程内状态编排（契约 §15，INLINE-ACP-PUMP 起为 in-process 装配）：订阅
 // acp-console 状态面，connected 即幂等登记「本机 agent」端点并自动连接、自动开
-// 新会话（/chat?agent=<本机id> 零二次点击直落）。peer 不在契约 status 内，解析
+// 新会话（/agent 会话页零二次点击直落）。peer 不在契约 status 内，解析
 // 顺序：① 本机 agent 自描述文件（~/.dsh/acp/local-agent.json，持久身份，开箱
 // 即连主路径）→ ② console 发现面轮询（首条发现条目，agent 从未落盘时回落）；
 // 都解析不到显式留痕挂起，绝不静默、绝不连接风暴。

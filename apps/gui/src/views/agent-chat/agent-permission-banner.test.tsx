@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// R2-24 验收：chat agent 形态待应答权限的可见性与深链；无待应答零痕迹。
+// R2-24 验收：agent 会话待应答权限的可见性与深链；无待应答零痕迹。
 // mock 回放脚本无法自然触达权限请求，登记走 store 注入（与生产消费
 // request_permission 帧后的 store 形状一致），并顺带断言 window 注入路径。
 // 全动态导入：stubEnv 先于模块求值（console-watch 绑定 tauri 后端）。
@@ -68,7 +68,7 @@ beforeEach(() => {
   useAcpStore.getState().resetConsoleState();
 });
 
-describe("chat agent 形态待应答权限指示（R2-24）", () => {
+describe("agent 会话待应答权限指示（R2-24）", () => {
   it("无待应答时零痕迹：不渲染任何指示节点", () => {
     const ep = seedConnected();
     useAcpStore.setState({ interactions: {} });
