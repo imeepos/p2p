@@ -1577,7 +1577,7 @@ const enUS: typeof zhCN = {
   remoteAccess: {
     title: "Remote Access",
     description:
-      "Open the peer machine's DSH console in the system browser via the p2p tunnel (loopback reverse proxy)",
+      "Share any local http/ws service with a chosen node, or access services opened by the peer node (via the p2p tunnel loopback reverse proxy)",
     form: {
       url: "DSH boot URL",
       urlPlaceholder: "http://127.0.0.1:3080/?token=…",
@@ -1641,6 +1641,42 @@ const enUS: typeof zhCN = {
       allowlist: "Target allowlist",
       emptyAllow: "Allowlist is empty",
       activeSessions: "Active serve sessions",
+    },
+    tunnel: {
+      bannerSuccessTitle: "Tunnel established",
+      bannerFailTitle: "Operation failed",
+      bannerTarget: "Shared target",
+      bannerPeer: "Peer node",
+      bannerCode: "Error code",
+      wsAddr: "WS address",
+      wsHint:
+        "ws clients can connect to this address directly (same port as the http entry; the proxy passes ws upgrades through)",
+      copyWs: "Copy WS address",
+      wsCopied: "WS address copied",
+      copyFailed: "Copy failed",
+      friendPick: "Pick from friends",
+      friendPickPlaceholder: "Choose a contact friend",
+      friendPickSearch: "Search friends by name or PeerId",
+      friendPickEmpty: "No friends yet; type a PeerId manually instead",
+      peerManualHint: "Filled from the friend picker above, or paste a base58 PeerId",
+      guideTitle: "Peer usage guide",
+      guideGuiLine:
+        "Peer GUI: Remote Access page → Generic Service, port {{port}}, PeerId {{peer}}",
+      guideCliLine: "Peer CLI: {{cmd}}",
+      guideCopy: "Copy guide",
+      guideCopied: "Guide copied",
+      guideSelfPeerMissing: "Local node is not started; the guide needs the local PeerId first",
+      allowTablePort: "Port",
+      allowTableAddedAt: "Added at",
+      allowTableStatus: "Status",
+      code: {
+        bad_ticket: "Ticket validation failed",
+        target_not_allowed: "Target not allowed",
+        busy: "Peer at concurrency limit",
+        dial_failed: "Peer service dial failed",
+        io: "Data-plane read/write error",
+        shutdown: "Peer is shutting down",
+      },
     },
   },
   docs: {
