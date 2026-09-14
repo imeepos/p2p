@@ -706,3 +706,18 @@ failed: early eof（客户端侧超时中止）。
 - 根因：三方只对齐了两方——契约/前端 `LlmProviderSaveReq.apiKey?: string`（更新留空=保留原密钥）与 flows 层空串语义都已落地，但 IPC 入参结构体 `LlmProviderSaveInput.api_key` 仍是必填 `String`；前端 `apiKey: v || undefined` 序列化时该键整个消失，serde 在进入 flows 显性校验前就报 missing field。
 - 修法：`#[serde(default)] api_key: Option<String>` + flows `unwrap_or("")` 统一走保留语义；回归测试用 `serde_json::from_str` 复刻「JSON 缺字段」路径（直构 struct 的单测绕过了 IPC 反序列化层，正是盲区所在）。
 - 教训通式：**「X 可选/缺省=保持现状」的契约要四方核对**：TS 类型、前端调用点、IPC 入参 struct（serde 必填性）、flows 语义层；跨语言边界上 `undefined` 会被序列化剥键而非传 null，Rust 侧 `Option` 必须显式 `#[serde(default)]`。单元测试直构 struct 测不到 IPC 层，可选字段必须补一条真实 JSON 反序列化断言。
+
+## 2026-09-14 uix-conversation：Tauri GUI after 截图不能走 p2pctl 全窗路线（安装版共享数据目录）
+- 症状：视觉任务要给运行中的 GUI 拍 after 截图，p2pctl 经 `--gui-data-dir` 发现 GUI 控制端点（`<data_dir>/control/endpoint.json`）；而 `tauri dev` 实例与已安装的 p2p-console.app identifier 相同 → `app_data_dir` 相同 → dev 实例会覆写 endpoint.json、退出时删除，劫持安装版的控制通道。
+- 修法：组件级视觉取证改走 `VITE_MOCK_IPC=1 vite dev`（独立端口 + strictPort）+ 浏览器 1080x800 截图；store 状态用浏览器 `import("/src/acp/acp-store.ts")` 动态注入（vite dev 图可加载内部模块）；transcript 会话流 mock 缺伴生时直接 setState 既有形状（照 acp-view-test-utils fixture）。T2 同波已用同路线，主控认账。
+- 教训通式：**GUI 全窗截图前先查「谁在跑、数据目录是否共享」**；identifier 不隔离的 dev 实例会与安装版互踩控制端点/本地存储。
+
+## 2026-09-14 uix-conversation：playwright MCP 截图相对路径落在 MCP 进程 cwd（home）
+- 症状：`browser_take_screenshot` 返回 `./xxx.png`，在 `.cache/dsh-browser-ops/output/` 找不到；全盘 find 定位超时被杀。
+- 修法：该相对路径解析到 MCP server 进程 cwd（本机实测 = `/Users/imeepos`），直接 `ls ~/xxx.png` 即中；拍完立刻 mv 进归档目录。
+- 教训通式：**MCP 工具输出的相对路径以「工具宿主进程 cwd」为基准**，不是浏览器 ops 缓存目录；落盘后先 ls 确认再继续。
+
+## 2026-09-14 uix-conversation：视觉改造撞上 chat-render-matrix 样式钉
+- 症状：任务一边要求「不破坏 chat-render-matrix 断言」，一边要求移除被钉死的旧样式（选中行 `bg-primary text-white`），字面冲突必然红一条。
+- 修法：辨明断言语义（选中行视觉可辨 + aria）与样式钉（具体类名）两层；语义保留、样式钉随主变更同提交更新，并在回报中显式声明改了哪条钉、为何不损语义；新钉选择器避开易撞的 `span span` 裸层级（会命中头像内层 span），用语义类名定位。
+- 教训通式：**「不破坏既有断言」约束的对象是语义不是类名字面量**；改视觉前先 grep 测试里的类名断言，把钉更新与样式变更压进同一提交保证每步绿。
