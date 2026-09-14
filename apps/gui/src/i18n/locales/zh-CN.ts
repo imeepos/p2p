@@ -400,6 +400,13 @@ const zhCN = {
     },
   },
   chat: {
+    feedback: {
+      actions: {
+        refreshed: "已刷新",
+        refreshFailed: "刷新失败",
+        revoked: "分享已撤销",
+      },
+    },
     title: "聊天",
     description: "好友 1:1 私聊：文本、表情与附件",
     friends: "好友",
