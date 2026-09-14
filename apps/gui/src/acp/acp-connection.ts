@@ -22,8 +22,9 @@ import type { ReattachAnswer } from "./console-client";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
 
 const REQUEST_TIMEOUT_MS = 30_000;
-/** dsh 子进程冷启动（插件栈装配）可能超 30s：initialize 单独放宽 */
-const INITIALIZE_TIMEOUT_MS = 120_000;
+/** dsh 子进程冷启动（插件栈装配/pump 重拨退避）可能远超 30s：initialize
+ *  与 session/new 挂慢速包络（首个 session/new 常撞上子进程冷启动） */
+const SLOW_REQUEST_TIMEOUT_MS = 120_000;
 const BASE_RECONNECT_DELAY_MS = 1_000;
 const MAX_RECONNECT_DELAY_MS = 15_000;
 
@@ -262,7 +263,7 @@ export class AcpConnection {
   async initialize(): Promise<InitializeResult> {
     return (
       (await this.request("initialize", initializeParams(), {
-        timeoutMs: INITIALIZE_TIMEOUT_MS,
+        timeoutMs: SLOW_REQUEST_TIMEOUT_MS,
       })) as InitializeResult
     );
   }
@@ -276,9 +277,14 @@ export class AcpConnection {
     return (await this.request("session/set_config_option", params)) as ConfigOptionsResult;
   }
 
-  /** session/new：cwd 与 mcpServers 均为 ACP 必填（agent 侧 zod 严格校验，缺者 -32602） */
+  /** session/new：cwd 与 mcpServers 均为 ACP 必填（agent 侧 zod 严格校验，缺者 -32602）；
+   *  首个 session/new 常撞 dsh 冷启动，挂慢速包络 */
   async sessionNew(cwd: string): Promise<SessionNewResult> {
-    return (await this.request("session/new", { cwd, mcpServers: [] })) as SessionNewResult;
+    return (
+      (await this.request("session/new", { cwd, mcpServers: [] }, {
+        timeoutMs: SLOW_REQUEST_TIMEOUT_MS,
+      })) as SessionNewResult
+    );
   }
 
   /** 长回合可能远超通用 30s：prompt 不挂通用超时，只由应答/错误/断连结算 */

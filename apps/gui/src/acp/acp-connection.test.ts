@@ -102,6 +102,33 @@ describe("AcpConnection", () => {
     await expect(pending).resolves.toEqual({ sessionId: "s-1" });
   });
 
+  // 真机回归（2026-09-14）：首个 session/new 常撞 dsh 子进程冷启动，30s 通用包络
+  // 必假超时；慢速包络 = initialize/sessionNew 120s。mock 层此前不校验参数、
+  // 不模拟时延，两处契约只能靠这里钉住。
+  it.each(["initialize", "sessionNew"] as const)(
+    "%s 走慢速包络：30s 不假超时，120s 结算 acp-request-timeout",
+    async (method) => {
+      vi.useFakeTimers();
+      try {
+        const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const h = harness();
+        h.conn.connect();
+        h.sockets[0].serverOpen();
+        let settled = "pending";
+        void (method === "initialize"
+          ? h.conn.initialize().then(() => (settled = "resolved"), (e) => (settled = String(e.message)))
+          : h.conn.sessionNew("/w").then(() => (settled = "resolved"), (e) => (settled = String(e.message))));
+        await vi.advanceTimersByTimeAsync(30_000);
+        expect(settled).toBe("pending");
+        await vi.advanceTimersByTimeAsync(90_000);
+        expect(settled).toBe("acp-request-timeout");
+        expect(warnSpy.mock.calls.some((c) => String(c[0]).includes("请求超时"))).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
   it("notification 分发到事件面", async () => {
     const h = harness();
     h.conn.connect();
