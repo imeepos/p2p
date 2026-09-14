@@ -72,3 +72,8 @@
   允许面 apps/gui/src（views/agent-chat 新建、acp、routes、config、i18n、App.tsx）+
   .orchestrator/本波 + 本文件；禁触 /chat 页内 agent 形态与 contacts/acp-manage 深链源头
   （ACS2 专属）、src-tauri/crates/docs/design。
+- [认领] 2026-09-14 session-b2d05d3f（frontend）：scope=/chat agent 形态拆除（ACS2，破），
+  分支 feat/acs-chat-removal / worktree .worktrees/acs-chat-removal，派发者 session-3aa89cd2。
+  基线 origin/main@da861ce1；允许面 apps/gui/src（views/chat 拆除主体、contacts/acp-manage
+  深链源头、i18n 死键）+ .orchestrator/本波 + 本文件；禁触 /agent 新页内部行为、
+  routes/agent-redirect.ts 兜底、src-tauri/crates/docs/design。收尾仅①push，②③④主控执行。
