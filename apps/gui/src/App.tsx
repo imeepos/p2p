@@ -16,6 +16,7 @@ import { DiagnosticsPage } from "@/routes/diagnostics-page";
 import { DiscoveryPage } from "@/routes/discovery-page";
 import { EventsPage } from "@/routes/events-page";
 import { AcpManagePage } from "@/routes/acp-manage-page";
+import { AgentChatPage } from "@/views/agent-chat/agent-chat-page";
 import { LlmSharePage } from "@/routes/llm-share-page";
 import { NetworkIndexRedirect } from "@/routes/network-index-redirect";
 import { NetworkOverviewPage } from "@/routes/network-overview-page";
@@ -52,6 +53,9 @@ const routes = createRoutesFromChildren(
       </Route>
     </Route>
     <Route path="chat" element={<ChatRoutePage />} />
+    {/* ACS1：agent 独立会话页（append-only 登记，2026-09-14 用户拍板；
+        rail 一级入口，旧 /chat?agent= 深链经 chat-route 改道至此） */}
+    <Route path="agent" element={<AgentChatPage />} />
     {/* IMC3：消息中心（入群/好友邀请），append-only 登记 */}
     <Route path="messages" element={<MessagesPage />} />
     <Route path="contacts" element={<ContactsPage />} />
@@ -73,7 +77,8 @@ const routes = createRoutesFromChildren(
     <Route path="events" element={<QueryRedirect to="/network/events" />} />
     <Route path="diagnostics" element={<QueryRedirect to="/network/diagnostics" />} />
     <Route path="group" element={<QueryRedirect to="/chat?kind=group" />} />
-    <Route path="acp" element={<QueryRedirect to="/chat?kind=agent" />} />
+    {/* ACS1：agent 唯一入口迁独立页；/chat?kind=agent 仅作存量深链兜底 */}
+    <Route path="acp" element={<QueryRedirect to="/agent" />} />
   </Route>,
 );
 
