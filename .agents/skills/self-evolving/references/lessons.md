@@ -525,3 +525,4 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 
 - 2026-09-13 wsm-b3：读的是主树路径、编辑的是 worktree 路径，会被「file has not been read」拒一次。worktree 内一切文件先按 worktree 绝对路径 read 再 edit；主树读过的内容不算数（fmt 也会让已读文件失配，编辑前再读一次）。
 - 2026-09-13 wsm-b3：门禁脚本预留的 tsv 锚点注释行（如 `service enable|disable <id>`）不能原样去注释了事——cli-parity 守卫按空格分层叶子路径实测存在性，`enable|disable` 复合写法必红；mapped 行的 invocation 必须是单个真实叶子命令，多对一映射写进 reason 列（映射说明非豁免）。
+- 2026-09-14 AF1：并行波次里 rebase/修复完成到对方核对之间存在分钟级时序窗，回执慢一步就会被判「未执行」打回——凡涉基线类结论（merge-base/门禁），首次汇报就附原生命令证据行（merge-base=、exit code=），别让对方用旧快照核对。
