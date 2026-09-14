@@ -571,7 +571,7 @@ GuiConfig 增 lanOnly?: boolean（serde default，缺省 false；PR4 已落 serd
 | 命令 | 参数 | 返回 | 语义 |
 |---|---|---|---|
 | llm_share_provider_list | - | { providers: LlmProviderView[] } | apiKey 只出掩码；损坏存档=显式报错回空不静默 |
-| llm_share_provider_save | config{id?, name, baseUrl, protocol:openai\|claude, apiKey, models[]} | LlmProviderView | id 缺省生成；apiKey 明文仅入参落 0600 密钥文件；name/baseUrl/models 必填显性报错 |
+| llm_share_provider_save | config{id?, name, baseUrl, protocol:openai\|claude, apiKey?, models[]} | LlmProviderView | id 缺省生成；apiKey 可选：缺省/留空=更新态保留原密钥，明文仅入参落 0600 密钥文件；name/baseUrl/models 必填显性报错 |
 | llm_share_provider_remove | providerId | { removed: true } | 不存在=显式报错非错误态；级联删 key 文件 |
 | llm_share_share_create | req{providerId, models?, expiresAt?, maxActivations?, note?} | { link, shareId, expiresAt, models } | models 缺省=provider 全模型且须 ⊆ offer.models；maxActivations 固定 1；token 原文只在这条响应出现一次 |
 | llm_share_share_list | - | { shares: LlmShareEntry[] } | 永不含 token/明文 key；status 推导 active/expired/revoked/exhausted |

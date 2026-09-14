@@ -19,7 +19,7 @@ fn provider_input(name: &str, models: &[&str]) -> LlmProviderSaveInput {
         name: name.to_owned(),
         base_url: "https://api.example.com/v1".to_owned(),
         protocol: "openai".to_owned(),
-        api_key: "sk-test-1234567890".to_owned(),
+        api_key: Some("sk-test-1234567890".to_owned()),
         models: models.iter().map(|m| m.to_string()).collect(),
     }
 }
@@ -56,17 +56,38 @@ fn v13_provider_update_blank_api_key_preserves_stored_key() {
     // W4 接缝约定：更新时 apiKey 留空 = 保留原密钥（列表只回掩码无法回传明文）。
     let mut update = provider_input("主号改名", &["gpt-4o"]);
     update.id = Some(first.id.clone());
-    update.api_key = String::new();
+    update.api_key = None;
     let view = flows_share::provider_save(&store, update).expect("update");
     assert_eq!(view.name, "主号改名");
     assert_eq!(view.api_key_masked, "sk-t****7890", "掩码来自保留的原密钥");
     let stored_after = std::fs::read_to_string(&key_file).expect("key file");
     assert_eq!(stored_before, stored_after, "密钥文件未被重写");
-    // 换模型避开唯一映射校验，定位到「留空密钥 + 不存在 provider」的显式报错。
+    // 换模型避开唯一映射校验，定位到「缺省密钥 + 不存在 provider」的显式报错。
     let mut bad = provider_input("新号", &["m2"]);
-    bad.api_key = String::new();
+    bad.api_key = None;
     let err = flows_share::provider_save(&store, bad).unwrap_err();
     assert!(err.contains("仅允许更新既有"), "{err}");
+}
+
+#[test]
+fn v13_provider_update_missing_api_key_field_deserializes_and_keeps_key() {
+    let (_t, store) = store("v13-missing-key");
+    let first =
+        flows_share::provider_save(&store, provider_input("主号", &["gpt-4o"])).expect("save");
+    let key_file = p2p_cli::llm_share::provider::key_path(&store.data_dir(), &first.id);
+    let stored_before = std::fs::read_to_string(&key_file).expect("key file");
+    // 回归：二次编辑时前端只持掩码不回传 apiKey，入参 JSON 缺该字段，IPC
+    // 反序列化曾因必填 String 报 missing field `apiKey`（保存失败）。
+    let payload = format!(
+        r#"{{"id":"{}","name":"主号改名","baseUrl":"https://api.example.com/v1","protocol":"openai","models":["gpt-4o"]}}"#,
+        first.id
+    );
+    let input: LlmProviderSaveInput = serde_json::from_str(&payload).expect("缺 apiKey 可反序列化");
+    let view = flows_share::provider_save(&store, input).expect("update");
+    assert_eq!(view.name, "主号改名");
+    assert_eq!(view.api_key_masked, "sk-t****7890");
+    let stored_after = std::fs::read_to_string(&key_file).expect("key file");
+    assert_eq!(stored_before, stored_after, "密钥文件未被重写");
 }
 
 #[test]

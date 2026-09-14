@@ -21,9 +21,9 @@ pub fn provider_save(
     store: &LlmShareStore,
     input: LlmProviderSaveInput,
 ) -> Result<ProviderView, String> {
-    let api_key = input.api_key.trim();
-    // W4 接缝约定：更新既有 provider 时 apiKey 留空 = 保留原密钥（列表只回
-    // 掩码无法回传明文）；非空 = 覆盖写 0600 密钥文件。
+    // W4 接缝约定：更新既有 provider 时 apiKey 缺省/留空 = 保留原密钥（前端
+    // 只持掩码无法回传明文）；非空 = 覆盖写 0600 密钥文件。
+    let api_key = input.api_key.as_deref().unwrap_or("").trim();
     let api_key_opt = if api_key.is_empty() {
         None
     } else {

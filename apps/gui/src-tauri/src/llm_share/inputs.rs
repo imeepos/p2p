@@ -61,7 +61,8 @@ pub struct LlmBorrowRequest {
 }
 
 /// llm_share_provider_save 入参（§16.6）：name/baseUrl/models 必填由 IPC 层
-/// 显性报错；apiKey 明文仅经 IPC 入参落 0600 密钥文件，禁进日志/台账/链接/argv。
+/// 显性报错；apiKey 可选（缺省/留空=更新态保留原密钥，前端只持掩码无法回传明文），
+/// 明文仅经 IPC 入参落 0600 密钥文件，禁进日志/台账/链接/argv。
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LlmProviderSaveInput {
@@ -71,7 +72,8 @@ pub struct LlmProviderSaveInput {
     pub base_url: String,
     /// openai|claude（未知值显式报错）。
     pub protocol: String,
-    pub api_key: String,
+    #[serde(default)]
+    pub api_key: Option<String>,
     #[serde(default)]
     pub models: Vec<String>,
 }
