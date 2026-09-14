@@ -16,8 +16,11 @@ use uuid::Uuid;
 /// A2A 卡片/邀请事件通道协议 ID（单一真值源 = crates/a2a，wire-protocol §3.2 登记）。
 const A2A_PROTOCOL_ID: &str = a2a::PROTOCOL_ID;
 
-/// 握手往返护栏：loopback 毫秒级，广域经中继也在数秒内。
-pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+/// 桥 accept 后的 ready 帧窗口：被访侧桥要现场 spawn ACP 子进程（如 dsh
+/// 冷启动装配插件栈，高负载实测 >10s），窗口须盖过子进程冷启动，否则
+/// 「连上-超时-杀子进程-重连」死循环、GUI 永远到不了在线态。
+/// loopback 毫秒级，广域经中继也在数秒内——60s 只在病态冷启动时生效。
+pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(60);
 
 /// 拨号目标协议（WS query ?proto=）：acp=会话泵（缺省），a2a=卡片/邀请事件
 /// 通道（gui-contract §17）。未知值在 ws 鉴权层显式拒绝，不静默回落。

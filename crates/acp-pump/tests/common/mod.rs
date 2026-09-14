@@ -24,8 +24,8 @@ mod util;
 #[allow(unused_imports)]
 pub use util::*;
 
-/// 单步等待上限：必须留足服务端拨号护栏（dial::HANDSHAKE_TIMEOUT 10s）的余量，
-/// 否则并行负载下「服务端 10s 超时如实回执」与「客户端 10s 放弃」竞态互踩。
+/// 单步等待上限：必须留足服务端拨号护栏（dial::HANDSHAKE_TIMEOUT）的余量，
+/// 否则并行负载下「服务端超时如实回执」与「客户端提前放弃」竞态互踩。
 pub const STEP: Duration = Duration::from_secs(20);
 /// 测试用续连窗口：短窗让 offline 迁移在测试内可见。
 pub const TEST_WINDOW: Duration = Duration::from_millis(400);
