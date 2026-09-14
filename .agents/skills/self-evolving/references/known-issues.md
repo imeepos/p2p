@@ -697,3 +697,7 @@ failed: early eof（客户端侧超时中止）。
 ## 2026-09-14 tgui-web：外置卷全树 find 必超时（任务书有预警仍踩）
 - 症状：`find <repo> -name "*.sh" | xargs grep -l` 在外置卷仓库跑满 60s 被 SIGTERM。
 - 修法：定位文件用定向 ls + grep 工具（指定 path），或 package.json scripts 里找线索（check:i18n 指向 apps/gui/scripts/check/）；绝不对外置卷全树 find。
+## 2026-09-14 pump 握手窗 10s vs dsh 子进程冷启动死循环（5196b508 已修）
+- 症状:GUI agent 聊天页常驻离线/重连错误态(「很丑像丢了样式」),pump 日志反复 Connecting→Online→Offline "handshake timeout after 10s"。
+- 根因:crates/acp-pump/src/dial.rs HANDSHAKE_TIMEOUT=10s,而被访桥 accept 后现场 spawn 的 dsh 子进程冷启动(插件栈装配、高负载)可超 10s → 握手窗先到期 → 杀子进程 → 重连再冷启动,确定性死循环。
+- 修法:窗口放宽 60s(稳态路径零变化);修复验证=pump Connecting→Online 58ms 一把过。判别口诀:GUI「离线态观感差」先查 pump conn transition 日志再谈样式。
