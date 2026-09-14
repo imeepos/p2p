@@ -67,3 +67,8 @@
   （apps/gui 新路由 /agent + /chat agent 形态拆除），波次
   .orchestrator/2026-09-14-agent-chat-standalone-page/；ACS1 派发中，
   分支前缀 feat/acs-*，当前 main==origin/main@2cb41b8a。用户三裁决入波次 plan.md。
+- [认领] 2026-09-14 16:10 session-920a4593（frontend）：scope=agent 独立会话页（ACS1，立），
+  分支 feat/acs-standalone / worktree .worktrees/acs-standalone，派发者 session-3aa89cd2。
+  允许面 apps/gui/src（views/agent-chat 新建、acp、routes、config、i18n、App.tsx）+
+  .orchestrator/本波 + 本文件；禁触 /chat 页内 agent 形态与 contacts/acp-manage 深链源头
+  （ACS2 专属）、src-tauri/crates/docs/design。
