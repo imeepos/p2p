@@ -20,3 +20,4 @@
 | 00:26 | T5 基线确认回执:无动作缺口,维持 DONE(账本勘误:main tip = e0c50ffd + 8a0732e8,c1f38cfb 为其祖先;树内零 newSessionPending 引用已核实) | T5 关闭,不再回执避免回执循环 |
 | 00:29 | AF2 合并意图广播(全按钮走查+listWorkspaces 契约修复):放行,已索要合并后 main hash 与 listWorkspaces 影响面说明(T3 在飞需对齐) | 等 AF2 合并结果回执 |
 | 00:33 | listWorkspaces 影响面说明收讫:仅 share-admin 三调用方(静默空表→可见错误,行为改善),两级树/T3 数据面零影响,T3 rebase 无需适配 | 等 AF2 合并完成回执 main hash;T3 在飞 |
+| 15:44 | 完整形态打包安装完成(main@63414a88 含 T2/T3/T5/AF1/AF2 全部+去重,W2-RELEASE-OK,PID 12876);全窗复拍仍 403——重装重置 TCC 授权,等用户重授 | 阻塞=屏幕录制权限(用户动作);其余全绿收官 |
