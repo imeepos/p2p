@@ -436,7 +436,7 @@ const zhCN = {
     conversations: {
       searchPlaceholder: "搜索会话",
       empty: "选择或发起会话",
-      emptyHint: "从左侧列表选择会话；好友、群聊与 Agent 会话在此聚合",
+      emptyHint: "从左侧列表选择会话；好友与群聊会话在此聚合",
       noMatch: "无匹配会话",
       back: "返回会话列表",
       loading: "正在加载会话…",
@@ -594,7 +594,7 @@ const zhCN = {
     empty: {
       pendingTitle: "还没有可聊的会话",
       hintListEmpty: "会话列表还是空的；添加好友，对方同意后即可开始私聊",
-      hintAgentOnly: "会话列表目前只有本机 Agent；添加好友，对方同意后即可开始私聊",
+      hintAgentOnly: "会话列表目前只有 A2A 智能体对话；添加好友，对方同意后即可开始私聊",
       hintInviting: "邀请已发出，等待对方同意；同意后即可开始私聊",
       addFriendCta: "添加好友",
       goContactsCta: "去通讯录",

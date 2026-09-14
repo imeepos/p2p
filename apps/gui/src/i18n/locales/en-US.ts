@@ -447,7 +447,7 @@ const enUS: typeof zhCN = {
     conversations: {
       searchPlaceholder: "Search conversations",
       empty: "Select or start a conversation",
-      emptyHint: "Pick a conversation from the list; friends, groups and agents aggregate here",
+      emptyHint: "Pick a conversation from the list; friends and groups aggregate here",
       noMatch: "No matching conversations",
       back: "Back to conversation list",
       loading: "Loading conversations…",
@@ -609,7 +609,7 @@ const enUS: typeof zhCN = {
       hintListEmpty:
         "The conversation list is empty; add a friend and start chatting once they accept",
       hintAgentOnly:
-        "Only the local agent is in the list for now; add a friend and start chatting once they accept",
+        "Only A2A agent conversations are in the list for now; add a friend and start chatting once they accept",
       hintInviting:
         "Invitation sent, waiting for approval; you can start chatting once it is accepted",
       addFriendCta: "Add friend",
