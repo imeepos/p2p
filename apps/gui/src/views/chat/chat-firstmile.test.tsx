@@ -52,14 +52,6 @@ function peerIdOf(seed: string): string {
   return out;
 }
 
-const AGENT_ENDPOINT = {
-  wsUrl: "ws://127.0.0.1:8787",
-  token: "t",
-  peer: "agent-peer",
-  endpointId: "ep-1",
-  alias: "助手甲",
-};
-
 function friendOf(id: string, nickname: string): ChatFriendJson {
   return { peerId: id, nickname, addrs: [], note: null };
 }
@@ -133,36 +125,20 @@ beforeEach(() => {
     lastMessageByGroup: {},
     unreadByGroup: {},
   });
-  useAcpStore.setState({
-    saved: [AGENT_ENDPOINT],
-    phase: "idle",
-    activePeer: null,
-    activeEndpointId: null,
-    focusedEndpointId: null,
-    unreadByEndpoint: {},
-    lastInteractionByEndpoint: {},
-  });
+  // ACS2：agent 条目已拆除（唯一入口 /agent），仅复位防跨用例串态
+  useAcpStore.setState({ saved: [], focusedEndpointId: null });
 });
 
 describe("F01 新用户空态双 CTA", () => {
-  it("列表只有本机 agent：空态文案贴合真实状态，双 CTA 可点通", async () => {
+  it("列表全空：空态给全空措辞 + 双 CTA 可点通", async () => {
     let loc = "";
     renderChat((next) => (loc = next));
     expect(await screen.findByText("还没有可聊的会话")).toBeTruthy();
-    expect(screen.getByText(/会话列表目前只有本机 Agent/)).toBeTruthy();
+    expect(screen.getByText(/会话列表还是空的/)).toBeTruthy();
     fireEvent.click(screen.getByTestId("chat-empty-add-friend"));
     await waitFor(() => expect(loc).toBe("/contacts?add="));
     fireEvent.click(screen.getByTestId("chat-empty-go-contacts"));
     await waitFor(() => expect(loc).toBe("/contacts"));
-  });
-
-  it("列表全空：空态给全空措辞 + 双 CTA", async () => {
-    useAcpStore.setState({ saved: [] });
-    renderChat(noop);
-    expect(await screen.findByText("还没有可聊的会话")).toBeTruthy();
-    expect(screen.getByText(/会话列表还是空的/)).toBeTruthy();
-    expect(screen.getByTestId("chat-empty-add-friend")).toBeTruthy();
-    expect(screen.getByTestId("chat-empty-go-contacts")).toBeTruthy();
   });
 
   it("已有好友/群可选条目：维持原文案，不再出现首公里 CTA", async () => {

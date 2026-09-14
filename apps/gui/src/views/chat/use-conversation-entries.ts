@@ -1,11 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 
-import { useAcpStore } from "@/acp/acp-store";
-import { lastTurnText } from "@/acp/agent-summary";
-import type { AcpPhase } from "@/acp/protocol";
 import {
-  agentEntry,
   friendEntry,
   groupEntry,
   visibleGroups,
@@ -22,21 +18,13 @@ import { useUiPrefsStore } from "@/stores/ui-prefs-store";
 import { useA2aStore } from "@/a2a/a2a-store";
 import { useAgentsStore } from "@/a2a/agents-store";
 
-// §2.2 store 层聚合：四来源构建统一条目并混排排序，渲染层无来源分支。
-// agent 为单连接语义：仅 activeEndpointId 继承全局连接态，其余端点显未连接。
+// §2.2 store 层聚合：三来源（好友/群/A2A）构建统一条目并混排排序，渲染层无来源分支。
+// ACS2：agent 条目拆除，会话唯一入口收敛 /agent（views/agent-chat）。
 
 const GROUP_STATE_KEYS = {
   left: "group.state.left",
   kicked: "group.state.kicked",
   disbanded: "group.state.disbanded",
-} as const;
-
-const PHASE_KEYS = {
-  idle: "acp.connection.phase.idle",
-  connecting: "acp.connection.phase.connecting",
-  online: "acp.connection.phase.online",
-  reconnecting: "acp.connection.phase.reconnecting",
-  offline: "acp.connection.phase.offline",
 } as const;
 
 export function useConversationEntries(): ConversationEntry[] {
@@ -49,14 +37,6 @@ export function useConversationEntries(): ConversationEntry[] {
   const lastMessageByGroup = useGroupStore((s) => s.lastMessageByGroup);
   const unreadByGroup = useGroupStore((s) => s.unreadByGroup);
   const selfPeerId = useGroupStore((s) => s.selfPeerId);
-  const saved = useAcpStore((s) => s.saved);
-  const phase = useAcpStore((s) => s.phase);
-  const activeEndpointId = useAcpStore((s) => s.activeEndpointId);
-  const activeSessionId = useAcpStore((s) => s.activeSessionId);
-  const transcripts = useAcpStore((s) => s.transcripts);
-  const lastInteractionByEndpoint = useAcpStore((s) => s.lastInteractionByEndpoint);
-  const unreadByEndpoint = useAcpStore((s) => s.unreadByEndpoint);
-  const promptPendingBySession = useAcpStore((s) => s.promptPendingBySession);
   const showInactiveGroups = useUiPrefsStore((s) => s.showInactiveGroups);
   const convFlags = useConversationPrefsStore((s) => s.flags);
   const dismissedAt = useConversationPrefsStore((s) => s.dismissedAt);
@@ -99,27 +79,6 @@ export function useConversationEntries(): ConversationEntry[] {
         labels,
       }),
     );
-    const agentEntries = saved.map((endpoint, index) => {
-      const id = endpoint.endpointId ?? endpoint.wsUrl;
-      const isActive = id === activeEndpointId;
-      const entryPhase: AcpPhase = isActive ? phase : "idle";
-      return agentEntry({
-        endpointId: id,
-        alias: endpoint.alias ?? "",
-        wsUrl: endpoint.wsUrl,
-        phase: entryPhase,
-        connectFailed: isActive && phase === "offline",
-        connectionLabel: t(PHASE_KEYS[entryPhase]),
-        lastText: isActive ? lastTurnText(transcripts, activeSessionId) : null,
-        lastInteractionMs: lastInteractionByEndpoint[id] ?? 0,
-        unread: unreadByEndpoint[id] ?? 0,
-        promptPending: isActive
-          ? (activeSessionId !== null && (promptPendingBySession[activeSessionId] ?? false))
-          : false,
-        joinSeq: index,
-        labels,
-      });
-    });
 
     // A2A 条目：从 discovered agents 和 tasks 构建
     const lastMessages = new Map<string, { text: string; tsMs: number }>();
@@ -146,14 +105,12 @@ export function useConversationEntries(): ConversationEntry[] {
 
     // 右键菜单偏好在列表层统一覆盖：删除/不显示过滤、标为未读抬底、置顶分区
     return applyConversationPrefs(
-      [...friendEntries, ...groupEntries, ...agentEntries, ...a2aEntriesList],
+      [...friendEntries, ...groupEntries, ...a2aEntriesList],
       { flags: convFlags, dismissedAt },
     );
   }, [
     t, friends, lastMessageByPeer, unreadByPeer, groups, groupFriends,
-    lastMessageByGroup, unreadByGroup, selfPeerId, saved, phase,
-    activeEndpointId, activeSessionId, transcripts, lastInteractionByEndpoint,
-    unreadByEndpoint, promptPendingBySession, showInactiveGroups,
+    lastMessageByGroup, unreadByGroup, selfPeerId, showInactiveGroups,
     convFlags, dismissedAt, discoveredAgents, a2aTasks, unreadByAgent,
   ]);
 }

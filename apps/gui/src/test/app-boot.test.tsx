@@ -49,8 +49,8 @@ describe("app boot smoke", () => {
 // relay/settings 的崩溃恰好发生在配置就绪挂载表单卡那一刻
 // （原启动冒烟只踩默认路由，放过过 relay 页整树崩溃，2026-09-03 用户实测白屏）。
 // 外壳重设计 P0：旧 10 视图在新位置逐一冒烟——五排障面 + 网络总览（F22
-// 统一命名「概览」）落 /network/*，群聊/ACP 整页形态经 /chat?kind=* 可达
-// （七、并存策略），另含 /contacts 占位页。
+// 统一命名「概览」）落 /network/*，群聊经 /chat?kind=group 可达
+// （七、并存策略；ACP 整页形态已迁 /agent），另含 /contacts 占位页。
 const routes: Array<[string, string | null]> = [
   ["#/network/overview", "概览"],
   ["#/network/peers", null],
@@ -62,7 +62,8 @@ const routes: Array<[string, string | null]> = [
   // P1 统一会话页：mock 后端无群/无端点时 ?kind=* 落空态（拍板项 1）；
   // UX 审计 F01（20260907）：空态改为首公里双 CTA 文案
   ["#/chat?kind=group", "还没有可聊的会话"],
-  ["#/chat?kind=agent", "还没有可聊的会话"],
+  // ACS2：/chat agent 形态拆除，旧 kind=agent 深链经 agent-redirect 落 /agent 空态
+  ["#/chat?kind=agent", "选择端点开始会话"],
   ["#/contacts", "通讯录"],
   // DOC2：协议文档页真实挂载冒烟（marker = docs.title zh chrome）
   ["#/docs", "协议文档"],

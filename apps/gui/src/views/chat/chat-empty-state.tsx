@@ -9,11 +9,11 @@ import { EmptyState } from "@/views/shared/empty-state";
 // 条目）时提供双 CTA：「添加好友」走 #/contacts?add= 预填契约（消费端
 // UX-E；新用户无 peerId，传空值仅拉起添加弹窗），「去通讯录」直达列表。
 // 文案随列表真实状态切换：有可选条目维持原文案；否则按「等待中邀请 /
-// 仅本机 agent / 全空」三态措辞。
+// 仅 agent 类条目（A2A）/ 全空」三态措辞。
+// ACS2：agent 会话条目拆除（唯一入口 /agent），agentCount 计数随之移除。
 export interface ChatEmptyStateProps {
   friendCount: number;
   groupCount: number;
-  agentCount: number;
   a2aCount: number;
   pendingInviteCount: number;
 }
@@ -21,7 +21,6 @@ export interface ChatEmptyStateProps {
 export function ChatEmptyState({
   friendCount,
   groupCount,
-  agentCount,
   a2aCount,
   pendingInviteCount,
 }: ChatEmptyStateProps) {
@@ -40,7 +39,7 @@ export function ChatEmptyState({
   const hint =
     pendingInviteCount > 0
       ? t("chat.empty.hintInviting")
-      : agentCount > 0 || a2aCount > 0
+      : a2aCount > 0
         ? t("chat.empty.hintAgentOnly")
         : t("chat.empty.hintListEmpty");
   return (

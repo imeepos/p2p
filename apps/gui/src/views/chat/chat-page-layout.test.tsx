@@ -8,7 +8,6 @@ import type {
   NodeEventHandler,
 } from "@/lib/ipc-types";
 import {
-  ENDPOINT_ID,
   GROUP_ID,
   PEER,
   PEER_B,
@@ -104,8 +103,8 @@ describe("<768 单栏互斥（§2.1，jsdom 视口模拟）", () => {
 
   it("深链 + 窄屏：直接切入记录区（列表隐藏），返回后回列表", async () => {
     setViewportNarrow(true);
-    renderAt("/chat?agent=" + ENDPOINT_ID);
-    await screen.findByTestId("agent-connect-card");
+    renderAt("/chat?peer=" + PEER);
+    await waitFor(() => expect(screen.getByTestId("chat-input")).toBeTruthy());
     expect(screen.queryByTestId("chat-list-pane")).toBeNull();
     fireEvent.click(screen.getByTestId("chat-back"));
     await waitFor(() => expect(screen.getByTestId("chat-list-pane")).toBeTruthy());
@@ -118,11 +117,10 @@ describe("会话搜索（§2.4）", () => {
     await screen.findByTestId("conversation-row-friend-" + PEER);
     const input = screen.getByTestId("conversation-search") as HTMLInputElement;
 
-    // 标题子串：命中「小圆」，排除群与 agent
+    // 标题子串：命中「小圆」，排除群
     fireEvent.change(input, { target: { value: "小圆" } });
     expect(screen.getByTestId("conversation-row-friend-" + PEER)).toBeTruthy();
     expect(screen.queryByTestId("conversation-row-group-" + GROUP_ID)).toBeNull();
-    expect(screen.queryByTestId("conversation-row-agent-" + ENDPOINT_ID)).toBeNull();
 
     // 备注命中：PEER_B note=备注甲
     fireEvent.change(input, { target: { value: "备注甲" } });
@@ -139,6 +137,6 @@ describe("会话搜索（§2.4）", () => {
 
     // 清空恢复全量
     fireEvent.change(input, { target: { value: "" } });
-    expect(screen.getByTestId("conversation-row-agent-" + ENDPOINT_ID)).toBeTruthy();
+    expect(screen.getByTestId("conversation-row-friend-" + PEER)).toBeTruthy();
   });
 });

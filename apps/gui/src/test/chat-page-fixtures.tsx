@@ -8,7 +8,6 @@ import type {
   GroupJson,
   GroupMessageJson,
 } from "@/lib/ipc-types";
-import { useAcpStore } from "@/acp/acp-store";
 import { useChatStore } from "@/stores/chat-store";
 import { useGroupStore } from "@/stores/group-store";
 import { NARROW_CHAT_QUERY } from "@/hooks/use-media-query";
@@ -20,7 +19,6 @@ import { ChatPage } from "@/views/chat/chat-page";
 export const PEER = "3xY9whporr5wt4u8t1z33G85F6K5CBEETKGSHWGPNRRe";
 export const PEER_B = "3xY9whporr5wt4u8t1z33G85F6K5CBEETKGSHWGPNRRf";
 export const GROUP_ID = "11111111-2222-3333-4444-555555555555";
-export const ENDPOINT_ID = "ep-page-1";
 
 /** 各测试文件 vi.hoisted 的 ipc mock 面（vi.mock 须逐文件注册，无法共享） */
 export interface MediaMocks {
@@ -64,17 +62,7 @@ export function groupMsg(id: string, senderId: string, text: string, tsMs: numbe
   };
 }
 
-export function agentEndpoint() {
-  return {
-    wsUrl: "ws://127.0.0.1:8787",
-    token: "t",
-    peer: "agent-peer",
-    endpointId: ENDPOINT_ID,
-    alias: "助手甲",
-  };
-}
-
-/** 三来源播种：mock 与 store 播种同源——ChatPage 挂载即拉取，防 load 后覆盖 */
+/** 双来源播种：mock 与 store 播种同源——ChatPage 挂载即拉取，防 load 后覆盖 */
 export function seedAll(mocks: MediaMocks): void {
   mocks.friends.mockResolvedValue([friendOf(PEER, "小圆"), friendOf(PEER_B, "阿北")]);
   mocks.history.mockImplementation(async (peer: string) => {
@@ -118,15 +106,6 @@ export function seedAll(mocks: MediaMocks): void {
     hasMore: {},
     historyError: {},
     olderError: {},
-  });
-  useAcpStore.setState({
-    saved: [agentEndpoint()],
-    phase: "idle",
-    activePeer: null,
-    activeEndpointId: null,
-    focusedEndpointId: null,
-    unreadByEndpoint: {},
-    lastInteractionByEndpoint: {},
   });
 }
 
