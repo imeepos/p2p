@@ -701,3 +701,8 @@ failed: early eof（客户端侧超时中止）。
 - 症状:GUI agent 聊天页常驻离线/重连错误态(「很丑像丢了样式」),pump 日志反复 Connecting→Online→Offline "handshake timeout after 10s"。
 - 根因:crates/acp-pump/src/dial.rs HANDSHAKE_TIMEOUT=10s,而被访桥 accept 后现场 spawn 的 dsh 子进程冷启动(插件栈装配、高负载)可超 10s → 握手窗先到期 → 杀子进程 → 重连再冷启动,确定性死循环。
 - 修法:窗口放宽 60s(稳态路径零变化);修复验证=pump Connecting→Online 58ms 一把过。判别口诀:GUI「离线态观感差」先查 pump conn transition 日志再谈样式。
+## 2026-09-14 llm-share 二次编辑保存失败：IPC 入参必填字段 vs 契约可选字段（8c387af0 已修）
+- 症状：GUI 二次编辑 provider（不动 apiKey）保存报 `invalid args config for command llm_share_provider_save: missing field apiKey`；新增场景正常。
+- 根因：三方只对齐了两方——契约/前端 `LlmProviderSaveReq.apiKey?: string`（更新留空=保留原密钥）与 flows 层空串语义都已落地，但 IPC 入参结构体 `LlmProviderSaveInput.api_key` 仍是必填 `String`；前端 `apiKey: v || undefined` 序列化时该键整个消失，serde 在进入 flows 显性校验前就报 missing field。
+- 修法：`#[serde(default)] api_key: Option<String>` + flows `unwrap_or("")` 统一走保留语义；回归测试用 `serde_json::from_str` 复刻「JSON 缺字段」路径（直构 struct 的单测绕过了 IPC 反序列化层，正是盲区所在）。
+- 教训通式：**「X 可选/缺省=保持现状」的契约要四方核对**：TS 类型、前端调用点、IPC 入参 struct（serde 必填性）、flows 语义层；跨语言边界上 `undefined` 会被序列化剥键而非传 null，Rust 侧 `Option` 必须显式 `#[serde(default)]`。单元测试直构 struct 测不到 IPC 层，可选字段必须补一条真实 JSON 反序列化断言。

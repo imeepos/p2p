@@ -600,3 +600,4 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 任务书提到 i18n 键集合校验脚本时先定位真实路径：本仓在 apps/gui/scripts/check/i18n-diff.sh（apps/gui package.json 的 check:i18n），locale 键奇偶另有 tsc 双保险（en-US.ts 声明为 `typeof zhCN`，键缺失 tsc -b 直接红）；不要凭空猜 scripts/check/ 根目录有同名脚本。
 - 全量套件慢（本仓 gui 240 文件/1470 用例 ≈ 220s）：开发期只跑 scope 内目录（pnpm vitest run --no-file-parallelism src/views/<页> + 相关 lib/i18n 门禁），收尾合并前把全量套件丢后台跑，避免阻塞但不错过回归。
 - worktree 无 node_modules：pnpm-workspace 仓在 worktree 里 pnpm install --prefer-offline 走全局 content-addressable store，458 包全复用 9s 完成；先台跑安装、同时继续读码，零等待。
+- 门禁红了先判旧账再动手：`git stash` 后在干净基线上重跑同一门禁脚本，红=main 既有欠账（另开 docs/fix 小提交或移交归属会话），绿=自己改坏的；本次 ai-docs-sync 缺 service 条目即 main 旧账，10 分钟按 --help 补齐条目单独提交，避免把无关修复混进 bugfix 提交。
