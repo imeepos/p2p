@@ -22,6 +22,8 @@ import type { ReattachAnswer } from "./console-client";
 import type { WsLike, WebSocketFactory } from "./ws-factory";
 
 const REQUEST_TIMEOUT_MS = 30_000;
+/** dsh 子进程冷启动（插件栈装配）可能超 30s：initialize 单独放宽 */
+const INITIALIZE_TIMEOUT_MS = 120_000;
 const BASE_RECONNECT_DELAY_MS = 1_000;
 const MAX_RECONNECT_DELAY_MS = 15_000;
 
@@ -256,8 +258,13 @@ export class AcpConnection {
     ws.send(JSON.stringify({ jsonrpc: "2.0", id, result }));
   }
 
+  /** initialize 超时 120s：pump 重拨退避 + dsh 子进程冷启动可能远超通用 30s */
   async initialize(): Promise<InitializeResult> {
-    return (await this.request("initialize", initializeParams())) as InitializeResult;
+    return (
+      (await this.request("initialize", initializeParams(), {
+        timeoutMs: INITIALIZE_TIMEOUT_MS,
+      })) as InitializeResult
+    );
   }
 
   async setConfigOption(
