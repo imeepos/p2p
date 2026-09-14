@@ -1896,3 +1896,40 @@ timeout 5 p2pctl tunnel serve --target 127.0.0.1:8080 --data-dir ./p2p-data
 timeout 5 p2pctl tunnel connect --peer US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx --target 127.0.0.1:8080 --data-dir ./p2p-data
 ```
 语义：先校验后动作（目标字面量与 peer base58 全过才装配节点）；对等面为独立进程，与 GUI `tunnel_open_dsh` 的 GUI 内会话态不混同（cli-parity exempt，TD 卡补登记）。反代地址由 OS 分配（确定性端口属后续契约加法候选）。退出码：0 = 信号收口完成；1 = 装配失败/收口超时（在途连接未全落终态，留显式报错）。
+
+### p2pctl service list
+用途：列出服务闭集 10 项（型别/默认/生效值/来源，gui-contract §20 CLI 对等）。前置：无。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+示例：
+```
+p2pctl service list --data-dir ./p2p-data
+```
+
+### p2pctl service enable
+用途：启用服务（upsert 落盘 services.json，下次节点启动生效）。前置：无；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <SERVICE_ID> | 位置参数 string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+示例：
+```
+p2pctl service enable serve.llm_share --data-dir ./p2p-data
+```
+退出码：未知服务 id（§20.1 闭集外）→ 1。
+
+### p2pctl service disable
+用途：停用服务（upsert 落盘 services.json，下次节点启动生效）。前置：无；写操作须人确认。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <SERVICE_ID> | 位置参数 string | 是 | —— |
+| --json | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+示例：
+```
+p2pctl service disable serve.llm_share --data-dir ./p2p-data
+```
+退出码：未知服务 id（§20.1 闭集外）→ 1。
