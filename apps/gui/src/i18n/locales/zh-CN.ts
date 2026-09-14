@@ -438,6 +438,7 @@ const zhCN = {
       empty: "选择或发起会话",
       emptyHint: "从左侧列表选择会话；好友、群聊与 Agent 会话在此聚合",
       noMatch: "无匹配会话",
+      agentSection: "Agent 工作区会话",
       back: "返回会话列表",
       loading: "正在加载会话…",
       self: "我",

@@ -449,6 +449,7 @@ const enUS: typeof zhCN = {
       empty: "Select or start a conversation",
       emptyHint: "Pick a conversation from the list; friends, groups and agents aggregate here",
       noMatch: "No matching conversations",
+      agentSection: "Agent workspace sessions",
       back: "Back to conversation list",
       loading: "Loading conversations…",
       self: "Me",
