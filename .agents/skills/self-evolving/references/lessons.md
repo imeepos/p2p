@@ -523,9 +523,9 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-13 wsm-b3：读的是主树路径、编辑的是 worktree 路径，会被「file has not been read」拒一次。worktree 内一切文件先按 worktree 绝对路径 read 再 edit；主树读过的内容不算数（fmt 也会让已读文件失配，编辑前再读一次）。
 - 2026-09-13 wsm-b3：门禁脚本预留的 tsv 锚点注释行（如 `service enable|disable <id>`）不能原样去注释了事——cli-parity 守卫按空格分层叶子路径实测存在性，`enable|disable` 复合写法必红；mapped 行的 invocation 必须是单个真实叶子命令，多对一映射写进 reason 列（映射说明非豁免）。
 
-- 2026-09-13 wsm-b3：读的是主树路径、编辑的是 worktree 路径，会被「file has not been read」拒一次。worktree 内一切文件先按 worktree 绝对路径 read 再 edit；主树读过的内容不算数（fmt 也会让已读文件失配，编辑前再读一次）。
-- 2026-09-13 wsm-b3：门禁脚本预留的 tsv 锚点注释行（如 `service enable|disable <id>`）不能原样去注释了事——cli-parity 守卫按空格分层叶子路径实测存在性，`enable|disable` 复合写法必红；mapped 行的 invocation 必须是单个真实叶子命令，多对一映射写进 reason 列（映射说明非豁免）。
 - 2026-09-14 AF1：并行波次里 rebase/修复完成到对方核对之间存在分钟级时序窗，回执慢一步就会被判「未执行」打回——凡涉基线类结论（merge-base/门禁），首次汇报就附原生命令证据行（merge-base=、exit code=），别让对方用旧快照核对。
 - 2026-09-14 AF1：给同步快动作换 AsyncButton 类反馈组件时，组件 busy/结果驻留期会吞掉期间点击——既有测试夹具「看到结果就点下一发」的节奏与真人连点都会踩；解法=动作就绪等待（等按钮 disabled=false 再点）+ 可调 resultHoldMs 缩驻留，且失败反馈别在视图层重复弹（store 已弹就 onError 留空）。
 - 2026-09-14 AF2：eslint-plugin-react-hooks v6 的 `set-state-in-effect` 会穿透追踪「effect 里调用的函数」内部的 setState：把含 setRows 的 useCallback 取数函数直接 `void load()` 或 `load().catch(cb)` 写在 effect 里必红；通过的形态是 effect 内联 async fn + try/catch（或对**外部** promise 的 .then 里 setState）。要给按钮提供可 reject 的动作、又留 effect 自取数时，拆成两份（effect 内联静默路径 + 模块级 toRowModels 纯函数共享映射），别硬塞一个函数两用。
 - 2026-09-14 AF2：接线「确认弹框之后才发异步请求」的按钮（confirm→await revoke）不能用 AsyncButton——它的 action 绑定首次点击，而真实点击只开弹框；弹框流程不动的前提下，正确做法是行内按钮加本地 revoking 态（disabled+spinner），取消路径 return false 早早退出，别让 AsyncButton 把「取消」也演成成功/失败图标。
+- 2026-09-14 acf 主控：520 行 WRA 同款坑**复发**——ff-only 被他人未提交 WIP 阻塞时 git 先打「Updating a..b」再 Aborting（exit 1），`&&` 链 + `tail -1` 判读又把失败当成功；本仓此坑已两见，合并后必须 `rev-parse` 双向核对（main 与 origin/main 都等于预期 tip）才能继续链式动作，把这条从「教训」升级为合并流程固定步骤。
+- 2026-09-14 acf 主控：多会话并行时消息时序交叉会连环吃掉修复轮次（纠偏到达前对方已按旧快照重报 DONE，反向亦然）——纠偏消息必须带硬数字（当时 tip hash）+「非交错副本」标记 + 「以 fetch 到的最新 tip 为准」兜底条款；同一协调点交叉超过两轮，停止消息往返，主控开集成分支自行 cherry-pick 消化，不为消息时序空转。
