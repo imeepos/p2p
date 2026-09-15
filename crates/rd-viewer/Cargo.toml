@@ -1,0 +1,16 @@
+[package]
+name = "rd-viewer"
+version.workspace = true
+edition.workspace = true
+description = "远程桌面 viewer 侧会话装配：拨号/hello 握手/视频泵（解码→渲染 sink）/断开会话"
+
+[dependencies]
+async-trait.workspace = true
+flate2 = "1"
+p2p = { path = "../p2p" }
+p2p-mux = { path = "../p2p-mux" }
+p2p-protocol = { path = "../p2p-protocol" }
+rd-wire = { path = "../rd-wire" }
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
