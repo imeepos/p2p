@@ -157,6 +157,7 @@ async fn rd_video_zlib_codec_roundtrip() {
     let _host = RdHost::with_config(
         host_node.clone(),
         Arc::new(SyntheticFactory { w: W, h: H }),
+        Arc::new(rd_input::recording::RecordingInjectorFactory::new()),
         config,
     )
     .unwrap();
