@@ -18,15 +18,21 @@ pub(crate) async fn do_pass(
     stream: &mut BoxedStream,
 ) -> io::Result<Flow> {
     let Some(user) = st.pending_user.take() else {
-        return reply(stream, 503, "USER first").await.map(|()| Flow::Continue);
+        return reply(stream, 503, "USER first")
+            .await
+            .map(|()| Flow::Continue);
     };
     if server.auth().login(peer, &user, &pass) {
         tracing::info!(peer = %peer, user = %user, "ftp login accepted");
         st.user = Some(user);
-        reply(stream, 230, "logged in").await.map(|()| Flow::Continue)
+        reply(stream, 230, "logged in")
+            .await
+            .map(|()| Flow::Continue)
     } else {
         tracing::warn!(peer = %peer, user = %user, "ftp login rejected");
-        reply(stream, 530, "login incorrect").await.map(|()| Flow::Continue)
+        reply(stream, 530, "login incorrect")
+            .await
+            .map(|()| Flow::Continue)
     }
 }
 
@@ -44,8 +50,12 @@ pub(crate) async fn do_cwd(
             st.cwd = path;
             reply(stream, 250, "cwd ok").await.map(|()| Flow::Continue)
         }
-        Ok(_) => reply(stream, 550, "not a directory").await.map(|()| Flow::Continue),
-        Err(e) => send(stream, io_err_reply(&e)).await.map(|()| Flow::Continue),
+        Ok(_) => reply(stream, 550, "not a directory")
+            .await
+            .map(|()| Flow::Continue),
+        Err(e) => send(stream, io_err_reply(&e))
+            .await
+            .map(|()| Flow::Continue),
     }
 }
 
@@ -66,7 +76,9 @@ pub(crate) async fn do_remove(
     };
     match result {
         Ok(()) => reply(stream, 250, "removed").await.map(|()| Flow::Continue),
-        Err(e) => send(stream, io_err_reply(&e)).await.map(|()| Flow::Continue),
+        Err(e) => send(stream, io_err_reply(&e))
+            .await
+            .map(|()| Flow::Continue),
     }
 }
 
@@ -77,14 +89,18 @@ pub(crate) async fn do_rnto(
     stream: &mut BoxedStream,
 ) -> io::Result<Flow> {
     let Some(from) = st.rnfr.take() else {
-        return reply(stream, 503, "RNFR first").await.map(|()| Flow::Continue);
+        return reply(stream, 503, "RNFR first")
+            .await
+            .map(|()| Flow::Continue);
     };
     let Some(to) = normalize(&st.cwd, arg) else {
         return reject_path(stream).await;
     };
     match server.fs().rename(&from, &to).await {
         Ok(()) => reply(stream, 250, "renamed").await.map(|()| Flow::Continue),
-        Err(e) => send(stream, io_err_reply(&e)).await.map(|()| Flow::Continue),
+        Err(e) => send(stream, io_err_reply(&e))
+            .await
+            .map(|()| Flow::Continue),
     }
 }
 
@@ -98,10 +114,14 @@ pub(crate) async fn do_size(
         return reject_path(stream).await;
     };
     match server.fs().metadata(&path).await {
-        Ok(e) if e.kind == EntryKind::File => {
-            reply(stream, 213, e.size.to_string()).await.map(|()| Flow::Continue)
-        }
-        Ok(_) => reply(stream, 550, "not a regular file").await.map(|()| Flow::Continue),
-        Err(e) => send(stream, io_err_reply(&e)).await.map(|()| Flow::Continue),
+        Ok(e) if e.kind == EntryKind::File => reply(stream, 213, e.size.to_string())
+            .await
+            .map(|()| Flow::Continue),
+        Ok(_) => reply(stream, 550, "not a regular file")
+            .await
+            .map(|()| Flow::Continue),
+        Err(e) => send(stream, io_err_reply(&e))
+            .await
+            .map(|()| Flow::Continue),
     }
 }

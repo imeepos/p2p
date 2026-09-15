@@ -136,7 +136,7 @@ impl Command {
             Command::Retr(p) => format!("RETR {p}"),
             Command::Stor(p) => format!("STOR {p}"),
             Command::Appe(p) => format!("APPE {p}"),
-            Command::Unknown(v) => format!("{v}"),
+            Command::Unknown(v) => v.clone(),
         }
     }
 }
@@ -161,7 +161,10 @@ pub struct Reply {
 
 impl Reply {
     pub fn new(code: u16, text: impl Into<String>) -> Self {
-        Self { code, text: text.into() }
+        Self {
+            code,
+            text: text.into(),
+        }
     }
 
     pub fn parse(line: &str) -> Option<Self> {
@@ -170,7 +173,10 @@ impl Reply {
         if code.len() != 3 || !code.bytes().all(|b| b.is_ascii_digit()) {
             return None;
         }
-        Some(Self { code: code.parse().ok()?, text: text.to_string() })
+        Some(Self {
+            code: code.parse().ok()?,
+            text: text.to_string(),
+        })
     }
 
     pub async fn write(&self, w: &mut (impl AsyncWrite + Unpin + Send)) -> io::Result<()> {
@@ -179,8 +185,8 @@ impl Reply {
 
     pub async fn read(r: &mut (impl AsyncRead + Unpin + Send)) -> io::Result<Reply> {
         let frame = read_frame(r).await?;
-        let line = String::from_utf8(frame)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
+        let line =
+            String::from_utf8(frame).map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
         Reply::parse(&line).ok_or_else(|| {
             io::Error::new(io::ErrorKind::InvalidData, format!("bad ftp reply: {line}"))
         })

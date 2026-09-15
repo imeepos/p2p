@@ -26,7 +26,7 @@ pub use server::{serve, serve_with_config, FtpConfig, FtpServer};
 pub use transfer::DataKind;
 pub use vfs::{Entry, EntryKind, FileSystem};
 
-use p2p_protocol::{ProtocolId, ProtocolError};
+use p2p_protocol::{ProtocolError, ProtocolId};
 
 /// 控制通道协议 ID：一帧一行（命令/应答），服务端先发 220 问候。
 pub const PROTO_CTRL: &str = "/ftp/ctrl/1";

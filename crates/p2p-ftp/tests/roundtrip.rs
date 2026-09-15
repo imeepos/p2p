@@ -52,7 +52,9 @@ async fn full_file_session_roundtrip() {
     serve_b(&b, &root, FtpConfig::default()).await;
     link(&a, &b).await;
 
-    let mut c = FtpClient::connect(a.clone(), b.local_peer_id()).await.unwrap();
+    let mut c = FtpClient::connect(a.clone(), b.local_peer_id())
+        .await
+        .unwrap();
     c.login("alice", "secret").await.unwrap();
 
     c.mkd("/docs").await.unwrap();
@@ -82,7 +84,9 @@ async fn full_file_session_roundtrip() {
     assert_eq!(got, data.len() as u64);
     assert_eq!(sink, data);
 
-    c.rename("/docs/big.bin", "/docs/renamed.bin").await.unwrap();
+    c.rename("/docs/big.bin", "/docs/renamed.bin")
+        .await
+        .unwrap();
     assert!(c.size("/docs/big.bin").await.is_err());
     assert!(c.size("/docs/renamed.bin").await.is_ok());
 
@@ -91,7 +95,10 @@ async fn full_file_session_roundtrip() {
     let mut src2 = &more[..];
     let n2 = c.appe("/docs/renamed.bin", &mut src2).await.unwrap();
     assert_eq!(n2, more.len() as u64);
-    assert_eq!(c.size("/docs/renamed.bin").await.unwrap(), (data.len() + more.len()) as u64);
+    assert_eq!(
+        c.size("/docs/renamed.bin").await.unwrap(),
+        (data.len() + more.len()) as u64
+    );
 
     c.dele("/docs/renamed.bin").await.unwrap();
     c.rmd("/docs").await.unwrap();
@@ -110,12 +117,22 @@ async fn auth_gate_rejects_before_login() {
     let mut users = std::collections::HashMap::new();
     users.insert("alice".to_string(), "right".to_string());
     let fs = Arc::new(LocalFs::open(&root).unwrap());
-    p2p_ftp::serve_with_config(&b, fs, Arc::new(StaticAuth::new(users)), FtpConfig::default())
-        .unwrap();
+    p2p_ftp::serve_with_config(
+        &b,
+        fs,
+        Arc::new(StaticAuth::new(users)),
+        FtpConfig::default(),
+    )
+    .unwrap();
     link(&a, &b).await;
 
-    let mut c = FtpClient::connect(a.clone(), b.local_peer_id()).await.unwrap();
-    assert!(c.list(Some("/")).await.is_err(), "未登录 LIST 必须 530 拒绝");
+    let mut c = FtpClient::connect(a.clone(), b.local_peer_id())
+        .await
+        .unwrap();
+    assert!(
+        c.list(Some("/")).await.is_err(),
+        "未登录 LIST 必须 530 拒绝"
+    );
 
     c.login("alice", "wrong").await.unwrap_err();
     // 失败后重新走完整序列
@@ -132,20 +149,37 @@ async fn path_jail_and_target_errors() {
     serve_b(&b, &root, FtpConfig::default()).await;
     link(&a, &b).await;
 
-    let mut c = FtpClient::connect(a.clone(), b.local_peer_id()).await.unwrap();
+    let mut c = FtpClient::connect(a.clone(), b.local_peer_id())
+        .await
+        .unwrap();
     c.login("u", "p").await.unwrap();
 
-    assert!(matches!(c.cwd("/../etc").await, Err(FtpError::Rejected { code: 550, .. })));
-    assert!(matches!(c.cwd("/nope").await, Err(FtpError::Rejected { code: 550, .. })));
-    assert!(matches!(c.retr("/../x", &mut Vec::new()).await, Err(FtpError::Rejected { code: 550, .. })));
-    assert!(matches!(c.list(Some("/nope")).await, Err(FtpError::Rejected { code: 550, .. })));
+    assert!(matches!(
+        c.cwd("/../etc").await,
+        Err(FtpError::Rejected { code: 550, .. })
+    ));
+    assert!(matches!(
+        c.cwd("/nope").await,
+        Err(FtpError::Rejected { code: 550, .. })
+    ));
+    assert!(matches!(
+        c.retr("/../x", &mut Vec::new()).await,
+        Err(FtpError::Rejected { code: 550, .. })
+    ));
+    assert!(matches!(
+        c.list(Some("/nope")).await,
+        Err(FtpError::Rejected { code: 550, .. })
+    ));
 
     // 目录当文件 RETR / 文件当目录 CWD
     let mut src = &b"seed"[..];
     c.stor("/seed.txt", &mut src).await.unwrap();
     let retr = c.retr("/seed.txt", &mut Vec::new()).await;
     assert!(retr.is_ok() || matches!(retr, Err(FtpError::Rejected { code: 550, .. })));
-    assert!(matches!(c.cwd("/seed.txt").await, Err(FtpError::Rejected { code: 550, .. })));
+    assert!(matches!(
+        c.cwd("/seed.txt").await,
+        Err(FtpError::Rejected { code: 550, .. })
+    ));
     assert!(matches!(c.size("/").await, Err(FtpError::Rejected { .. })));
 }
 
@@ -158,12 +192,17 @@ async fn upload_limit_enforced() {
     serve_b(
         &b,
         &root,
-        FtpConfig { max_upload_bytes: 1024, ..FtpConfig::default() },
+        FtpConfig {
+            max_upload_bytes: 1024,
+            ..FtpConfig::default()
+        },
     )
     .await;
     link(&a, &b).await;
 
-    let mut c = FtpClient::connect(a.clone(), b.local_peer_id()).await.unwrap();
+    let mut c = FtpClient::connect(a.clone(), b.local_peer_id())
+        .await
+        .unwrap();
     c.login("u", "p").await.unwrap();
 
     let big = vec![9u8; 1024 * 1024];

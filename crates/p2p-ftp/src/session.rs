@@ -28,7 +28,9 @@ pub(crate) async fn run(
         let line = match String::from_utf8(frame) {
             Ok(l) => l,
             Err(_) => {
-                Reply::new(501, "command must be utf-8").write(&mut stream).await?;
+                Reply::new(501, "command must be utf-8")
+                    .write(&mut stream)
+                    .await?;
                 continue;
             }
         };
@@ -54,7 +56,12 @@ pub(crate) struct SessionState {
 
 impl SessionState {
     fn new() -> Self {
-        Self { pending_user: None, user: None, cwd: "/".into(), rnfr: None }
+        Self {
+            pending_user: None,
+            user: None,
+            cwd: "/".into(),
+            rnfr: None,
+        }
     }
 
     fn logged_in(&self) -> bool {
@@ -116,27 +123,29 @@ async fn dispatch(
         }
         Command::Pass(p) => do_pass(server, st, peer, p, stream).await,
         Command::Quit => reply(stream, 221, "bye").await.map(|()| Flow::Quit),
-        Command::Syst => reply(stream, 215, "UNIX Type: L8").await.map(|()| Flow::Continue),
+        Command::Syst => reply(stream, 215, "UNIX Type: L8")
+            .await
+            .map(|()| Flow::Continue),
         Command::Feat => reply(stream, 211, "utf8 size list nlst retr stor appe")
             .await
             .map(|()| Flow::Continue),
         Command::Noop => reply(stream, 200, "ok").await.map(|()| Flow::Continue),
-        Command::Type => reply(stream, 200, "binary only").await.map(|()| Flow::Continue),
-        Command::Pwd => {
-            reply(stream, 257, format!("\"{}\" is the cwd", st.cwd))
-                .await
-                .map(|()| Flow::Continue)
-        }
+        Command::Type => reply(stream, 200, "binary only")
+            .await
+            .map(|()| Flow::Continue),
+        Command::Pwd => reply(stream, 257, format!("\"{}\" is the cwd", st.cwd))
+            .await
+            .map(|()| Flow::Continue),
         Command::Cwd(p) => do_cwd(server, st, &p, stream).await,
         Command::Cdup => do_cwd(server, st, "..", stream).await,
         Command::Mkd(p) => match normalize(&st.cwd, &p) {
             Some(path) => match server.fs().mkdir(&path).await {
-                Ok(()) => {
-                    reply(stream, 257, format!("\"{path}\" created"))
-                        .await
-                        .map(|()| Flow::Continue)
-                }
-                Err(e) => send(stream, io_err_reply(&e)).await.map(|()| Flow::Continue),
+                Ok(()) => reply(stream, 257, format!("\"{path}\" created"))
+                    .await
+                    .map(|()| Flow::Continue),
+                Err(e) => send(stream, io_err_reply(&e))
+                    .await
+                    .map(|()| Flow::Continue),
             },
             None => reject_path(stream).await,
         },
@@ -145,7 +154,9 @@ async fn dispatch(
         Command::Rnfr(p) => match normalize(&st.cwd, &p) {
             Some(path) => {
                 st.rnfr = Some(path);
-                reply(stream, 350, "ready for RNTO").await.map(|()| Flow::Continue)
+                reply(stream, 350, "ready for RNTO")
+                    .await
+                    .map(|()| Flow::Continue)
             }
             None => reject_path(stream).await,
         },
@@ -169,7 +180,9 @@ async fn dispatch(
 }
 
 pub(crate) async fn reject_path(stream: &mut BoxedStream) -> io::Result<Flow> {
-    reply(stream, 550, "path rejected").await.map(|()| Flow::Continue)
+    reply(stream, 550, "path rejected")
+        .await
+        .map(|()| Flow::Continue)
 }
 
 /// 传输编排：预检 → 签发令牌 + 150 → 等数据通道结果 → 226/426。

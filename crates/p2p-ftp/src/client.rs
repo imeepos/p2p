@@ -13,9 +13,11 @@ use p2p_mux::BoxedStream;
 use p2p_protocol::write_frame;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use crate::vfs::Entry;
 use crate::vfs::parse_listing;
-use crate::wire::{data_header, Command, Reply, DATA_OP_GET, DATA_OP_LIST, DATA_OP_NLST, DATA_OP_PUT};
+use crate::vfs::Entry;
+use crate::wire::{
+    data_header, Command, Reply, DATA_OP_GET, DATA_OP_LIST, DATA_OP_NLST, DATA_OP_PUT,
+};
 use crate::{proto, FtpError, PROTO_CTRL, PROTO_DATA};
 
 /// FTP 客户端：单控制连接会话。并发传输不提供（与经典 FTP 控制连接同义）。
@@ -28,14 +30,19 @@ pub struct FtpClient {
 impl FtpClient {
     /// 拨号并等待 220 问候（未登录，先 [FtpClient::login]）。
     pub async fn connect(node: Arc<Node>, peer: PeerId) -> Result<Self, FtpError> {
-        node.connect(peer).await.map_err(|e| FtpError::Assembly(e.to_string()))?;
+        node.connect(peer)
+            .await
+            .map_err(|e| FtpError::Assembly(e.to_string()))?;
         let mut ctrl = node
             .new_stream(peer, proto(PROTO_CTRL)?)
             .await
             .map_err(|e| FtpError::Assembly(e.to_string()))?;
         let greeting = Reply::read(&mut ctrl).await?;
         if greeting.code != 220 {
-            return Err(FtpError::Rejected { code: greeting.code, text: greeting.text });
+            return Err(FtpError::Rejected {
+                code: greeting.code,
+                text: greeting.text,
+            });
         }
         Ok(Self { node, peer, ctrl })
     }
@@ -43,55 +50,60 @@ impl FtpClient {
     /// USER/PASS 登录序列（服务端 331 → 230）。
     pub async fn login(&mut self, user: &str, pass: &str) -> Result<(), FtpError> {
         let r = self.cmd(&Command::User(user.to_string()).encode()).await?;
-        self.expect(&r, 331)?;
+        self.require(&r, 331)?;
         let r = self.cmd(&Command::Pass(pass.to_string()).encode()).await?;
-        self.expect(&r, 230)
+        self.require(&r, 230)
     }
 
     pub async fn pwd(&mut self) -> Result<String, FtpError> {
         let r = self.cmd("PWD").await?;
-        self.expect(&r, 257)?;
-        r.text.split('"').nth(1).map(str::to_string).ok_or_else(|| {
-            FtpError::BadReply(format!("unquoted path in 257: {}", r.text))
-        })
+        self.require(&r, 257)?;
+        r.text
+            .split('"')
+            .nth(1)
+            .map(str::to_string)
+            .ok_or_else(|| FtpError::BadReply(format!("unquoted path in 257: {}", r.text)))
     }
 
     pub async fn cwd(&mut self, path: &str) -> Result<(), FtpError> {
         let r = self.cmd(&format!("CWD {path}")).await?;
-        self.expect(&r, 250)
+        self.require(&r, 250)
     }
 
     pub async fn mkd(&mut self, path: &str) -> Result<(), FtpError> {
         let r = self.cmd(&format!("MKD {path}")).await?;
-        self.expect(&r, 257)
+        self.require(&r, 257)
     }
 
     pub async fn rmd(&mut self, path: &str) -> Result<(), FtpError> {
         let r = self.cmd(&format!("RMD {path}")).await?;
-        self.expect(&r, 250)
+        self.require(&r, 250)
     }
 
     pub async fn dele(&mut self, path: &str) -> Result<(), FtpError> {
         let r = self.cmd(&format!("DELE {path}")).await?;
-        self.expect(&r, 250)
+        self.require(&r, 250)
     }
 
     pub async fn rename(&mut self, from: &str, to: &str) -> Result<(), FtpError> {
         let r = self.cmd(&format!("RNFR {from}")).await?;
-        self.expect(&r, 350)?;
+        self.require(&r, 350)?;
         let r = self.cmd(&format!("RNTO {to}")).await?;
-        self.expect(&r, 250)
+        self.require(&r, 250)
     }
 
     pub async fn size(&mut self, path: &str) -> Result<u64, FtpError> {
         let r = self.cmd(&format!("SIZE {path}")).await?;
-        self.expect(&r, 213)?;
-        r.text.trim().parse().map_err(|_| FtpError::BadReply(r.text.clone()))
+        self.require(&r, 213)?;
+        r.text
+            .trim()
+            .parse()
+            .map_err(|_| FtpError::BadReply(r.text.clone()))
     }
 
     pub async fn noop(&mut self) -> Result<(), FtpError> {
         let r = self.cmd("NOOP").await?;
-        self.expect(&r, 200)
+        self.require(&r, 200)
     }
 
     /// LIST 明细列表（None = 当前目录）；目录项为小量元数据，内存聚合。
@@ -103,7 +115,11 @@ impl FtpClient {
     /// NLST 名字列表（None = 当前目录）。
     pub async fn nlst(&mut self, path: Option<&str>) -> Result<Vec<String>, FtpError> {
         let body = self.read_data(nlst_line(path), DATA_OP_NLST).await?;
-        Ok(body.lines().filter(|l| !l.is_empty()).map(str::to_string).collect())
+        Ok(body
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(str::to_string)
+            .collect())
     }
 
     /// RETR 下载：数据流分片直写 sink，返回实收字节数。
@@ -138,7 +154,7 @@ impl FtpClient {
 
     pub async fn quit(mut self) -> Result<(), FtpError> {
         let r = self.cmd("QUIT").await?;
-        self.expect(&r, 221)
+        self.require(&r, 221)
     }
 
     async fn put(
@@ -148,7 +164,9 @@ impl FtpClient {
         append: bool,
     ) -> Result<u64, FtpError> {
         let verb = if append { "APPE" } else { "STOR" };
-        let mut data = self.open_data(format!("{verb} {path}"), DATA_OP_PUT).await?;
+        let mut data = self
+            .open_data(format!("{verb} {path}"), DATA_OP_PUT)
+            .await?;
         let n = tokio::io::copy(src, &mut data).await?;
         data.shutdown().await?;
         self.finish().await?;
@@ -174,10 +192,16 @@ impl FtpClient {
     async fn open_data(&mut self, line: String, op: u8) -> Result<BoxedStream, FtpError> {
         let r = self.cmd(&line).await?;
         if r.code != 150 {
-            return Err(FtpError::Rejected { code: r.code, text: r.text });
+            return Err(FtpError::Rejected {
+                code: r.code,
+                text: r.text,
+            });
         }
         let Some(token) = r.transfer_token() else {
-            return Err(FtpError::BadReply(format!("missing token in 150: {}", r.text)));
+            return Err(FtpError::BadReply(format!(
+                "missing token in 150: {}",
+                r.text
+            )));
         };
         let mut data = self
             .node
@@ -194,7 +218,10 @@ impl FtpClient {
         if r.code == 226 {
             Ok(())
         } else {
-            Err(FtpError::Rejected { code: r.code, text: r.text })
+            Err(FtpError::Rejected {
+                code: r.code,
+                text: r.text,
+            })
         }
     }
 
@@ -203,11 +230,14 @@ impl FtpClient {
         Ok(Reply::read(&mut self.ctrl).await?)
     }
 
-    fn expect(&self, r: &Reply, code: u16) -> Result<(), FtpError> {
+    fn require(&self, r: &Reply, code: u16) -> Result<(), FtpError> {
         if r.code == code {
             Ok(())
         } else {
-            Err(FtpError::Rejected { code: r.code, text: r.text.clone() })
+            Err(FtpError::Rejected {
+                code: r.code,
+                text: r.text.clone(),
+            })
         }
     }
 }

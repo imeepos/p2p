@@ -52,11 +52,16 @@ pub(crate) struct TransferRegistry {
 
 impl TransferRegistry {
     pub(crate) fn new(token_ttl: Duration) -> Self {
-        Self { inner: Mutex::new(HashMap::new()), token_ttl }
+        Self {
+            inner: Mutex::new(HashMap::new()),
+            token_ttl,
+        }
     }
 
     fn lock(&self) -> MutexGuard<'_, HashMap<[u8; TOKEN_LEN], PendingTransfer>> {
-        self.inner.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+        self.inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     /// 签发新令牌并登记结果通道；顺带清理过期令牌。
@@ -93,10 +98,9 @@ impl TransferRegistry {
     /// （令牌 256 位随机不可猜，留给合法节点兑付），过期则作废移除。
     pub(crate) fn take(&self, token: &[u8; TOKEN_LEN], peer: &PeerId) -> Option<PendingTransfer> {
         let mut guard = self.lock();
-        let valid = match guard.get(token) {
-            Some(p) => &p.peer == peer && p.issued_at.elapsed() < self.token_ttl,
-            None => return None,
-        };
+        let valid = guard
+            .get(token)
+            .is_some_and(|p| &p.peer == peer && p.issued_at.elapsed() < self.token_ttl);
         if valid {
             guard.remove(token)
         } else {

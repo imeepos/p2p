@@ -52,9 +52,7 @@ pub fn normalize(base: &str, arg: &str) -> Option<String> {
         match seg {
             "" | "." => {}
             ".." => {
-                if parts.pop().is_none() {
-                    return None;
-                }
+                parts.pop()?;
             }
 
             s => parts.push(s),
@@ -71,7 +69,10 @@ pub fn format_listing(entries: &[Entry]) -> String {
             EntryKind::Dir => 'd',
             EntryKind::File => 'f',
         };
-        out.push_str(&format!("{kind}\t{}\t{}\t{}\n", e.size, e.mtime_unix, e.name));
+        out.push_str(&format!(
+            "{kind}\t{}\t{}\t{}\n",
+            e.size, e.mtime_unix, e.name
+        ));
     }
     out
 }
@@ -89,7 +90,12 @@ pub fn parse_listing(body: &str) -> Vec<Entry> {
             let size = parts.next()?.parse().ok()?;
             let mtime_unix = parts.next()?.parse().ok()?;
             let name = parts.next()?.to_string();
-            Some(Entry { name, kind, size, mtime_unix })
+            Some(Entry {
+                name,
+                kind,
+                size,
+                mtime_unix,
+            })
         })
         .collect()
 }
@@ -118,8 +124,18 @@ mod tests {
     #[test]
     fn listing_roundtrip_and_bad_line_skipped() {
         let entries = vec![
-            Entry { name: "a.txt".into(), kind: EntryKind::File, size: 12, mtime_unix: 99 },
-            Entry { name: "sub dir".into(), kind: EntryKind::Dir, size: 0, mtime_unix: 7 },
+            Entry {
+                name: "a.txt".into(),
+                kind: EntryKind::File,
+                size: 12,
+                mtime_unix: 99,
+            },
+            Entry {
+                name: "sub dir".into(),
+                kind: EntryKind::Dir,
+                size: 0,
+                mtime_unix: 7,
+            },
         ];
         let body = format_listing(&entries);
         assert_eq!(parse_listing(&body), entries);

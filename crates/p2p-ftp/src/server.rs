@@ -62,7 +62,13 @@ impl FtpServer {
         cfg: FtpConfig,
     ) -> Result<Self, FtpError> {
         let transfers = TransferRegistry::new(cfg.token_ttl);
-        Ok(Self { proto: proto(PROTO_CTRL)?, fs, auth, cfg, transfers })
+        Ok(Self {
+            proto: proto(PROTO_CTRL)?,
+            fs,
+            auth,
+            cfg,
+            transfers,
+        })
     }
 
     pub(crate) fn fs(&self) -> &Arc<dyn FileSystem> {
@@ -123,13 +129,20 @@ impl ProtocolHandler for DataHandler {
         let frame = read_frame(&mut stream).await?;
         let Some((_, token)) = parse_data_header(&frame) else {
             tracing::warn!(peer = %peer, "ftp data header malformed, closing");
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "bad data header"));
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "bad data header",
+            ));
         };
         let Some(pending) = self.server.transfers().take(&token, &peer) else {
             tracing::warn!(peer = %peer, "ftp data token unknown/expired/peer-mismatch, closing");
-            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "bad transfer token"));
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "bad transfer token",
+            ));
         };
-        let outcome = run_data_transfer(&self.server, pending.kind, &pending.vpath, &mut stream).await;
+        let outcome =
+            run_data_transfer(&self.server, pending.kind, &pending.vpath, &mut stream).await;
         if pending.done.send(outcome).is_err() {
             tracing::warn!(path = %pending.vpath, "ftp control session gone before data result");
         }
@@ -217,6 +230,9 @@ pub fn serve_with_config(
     let server = Arc::new(FtpServer::with_config(fs, auth, cfg)?);
     node.handle_protocol(server.clone());
     let data_proto = proto(PROTO_DATA)?;
-    node.handle_protocol(Arc::new(DataHandler { proto: data_proto, server: server.clone() }));
+    node.handle_protocol(Arc::new(DataHandler {
+        proto: data_proto,
+        server: server.clone(),
+    }));
     Ok(server)
 }

@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
 use async_trait::async_trait;
-use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::fs;
+use tokio::io::{AsyncRead, AsyncWrite};
 
 use crate::vfs::{Entry, EntryKind, FileSystem};
 
@@ -21,7 +21,9 @@ pub struct LocalFs {
 impl LocalFs {
     /// 根目录 canonicalize 后固定为监狱边界。
     pub fn open(root: impl Into<PathBuf>) -> io::Result<Self> {
-        Ok(Self { root: std::fs::canonicalize(root.into())? })
+        Ok(Self {
+            root: std::fs::canonicalize(root.into())?,
+        })
     }
 
     fn jail_err() -> io::Error {
@@ -61,14 +63,23 @@ fn relative_parts(vpath: &str) -> PathBuf {
 }
 
 fn to_entry(name: String, meta: &std::fs::Metadata) -> Entry {
-    let kind = if meta.is_dir() { EntryKind::Dir } else { EntryKind::File };
+    let kind = if meta.is_dir() {
+        EntryKind::Dir
+    } else {
+        EntryKind::File
+    };
     let mtime_unix = meta
         .modified()
         .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    Entry { name, kind, size: meta.len(), mtime_unix }
+    Entry {
+        name,
+        kind,
+        size: meta.len(),
+        mtime_unix,
+    }
 }
 
 async fn dir_entries(path: &Path) -> io::Result<Vec<Entry>> {
@@ -76,7 +87,10 @@ async fn dir_entries(path: &Path) -> io::Result<Vec<Entry>> {
     let mut rd = fs::read_dir(path).await?;
     while let Some(item) = rd.next_entry().await? {
         let meta = item.metadata().await?;
-        out.push(to_entry(item.file_name().to_string_lossy().into_owned(), &meta));
+        out.push(to_entry(
+            item.file_name().to_string_lossy().into_owned(),
+            &meta,
+        ));
     }
     out.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(out)
@@ -121,7 +135,10 @@ impl FileSystem for LocalFs {
     async fn rename(&self, from: &str, to: &str) -> io::Result<()> {
         let src = self.resolve(from)?;
         if std::fs::canonicalize(&src).is_err() {
-            return Err(io::Error::new(io::ErrorKind::NotFound, "rename source missing"));
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "rename source missing",
+            ));
         }
         fs::rename(src, self.resolve_for_write(to)?).await
     }
@@ -132,7 +149,11 @@ impl FileSystem for LocalFs {
         Ok(Box::new(file))
     }
 
-    async fn writer(&self, vpath: &str, append: bool) -> io::Result<Box<dyn AsyncWrite + Unpin + Send>> {
+    async fn writer(
+        &self,
+        vpath: &str,
+        append: bool,
+    ) -> io::Result<Box<dyn AsyncWrite + Unpin + Send>> {
         let path = self.resolve_for_write(vpath)?;
         let file = fs::OpenOptions::new()
             .create(true)
@@ -167,11 +188,15 @@ mod tests {
         let fs = LocalFs::open(&root).unwrap();
         fs.mkdir("/sub").await.unwrap();
         let mut w = fs.writer("/sub/a.txt", false).await.unwrap();
-        tokio::io::AsyncWriteExt::write_all(&mut w, b"hello").await.unwrap();
+        tokio::io::AsyncWriteExt::write_all(&mut w, b"hello")
+            .await
+            .unwrap();
 
         let mut buf = Vec::new();
         let mut r = fs.reader("/sub/a.txt").await.unwrap();
-        tokio::io::AsyncReadExt::read_to_end(&mut r, &mut buf).await.unwrap();
+        tokio::io::AsyncReadExt::read_to_end(&mut r, &mut buf)
+            .await
+            .unwrap();
         assert_eq!(buf, b"hello");
         let _ = std::fs::remove_dir_all(&root);
     }
