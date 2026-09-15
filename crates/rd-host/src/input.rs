@@ -11,7 +11,10 @@ pub struct InputDispatch {
 
 impl InputDispatch {
     pub fn new(injector: Box<dyn InputInjector>) -> Self {
-        Self { injector, buttons: [false; 3] }
+        Self {
+            injector,
+            buttons: [false; 3],
+        }
     }
 
     /// 鼠标消息：先移动到位 → 按键 diff → 滚轮（点击落在目标位置）。

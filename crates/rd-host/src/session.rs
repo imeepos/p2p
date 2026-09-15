@@ -9,14 +9,14 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use crate::input::InputDispatch;
+use crate::sessions::HostSessions;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use p2p::PeerId;
 use p2p_mux::BoxedStream;
 use p2p_protocol::{ProtocolHandler, ProtocolId};
 use rd_capture::{CaptureError, CaptureSource};
-use crate::input::InputDispatch;
-use crate::sessions::HostSessions;
 use rd_input::InjectorFactory;
 use rd_wire::io::{recv_control, send_control, send_large};
 use rd_wire::video::{encode_frame, FrameHeader, Rect};
