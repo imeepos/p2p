@@ -1,0 +1,17 @@
+[package]
+name = "rd-host"
+version.workspace = true
+edition.workspace = true
+description = "远程桌面 host 侧会话装配：/rd/control/1 + /rd/video/1 处理器、屏幕采集接线、帧泵与保活"
+
+[dependencies]
+async-trait.workspace = true
+flate2 = "1"
+p2p = { path = "../p2p" }
+p2p-mux = { path = "../p2p-mux" }
+p2p-protocol = { path = "../p2p-protocol" }
+rd-capture = { path = "../rd-capture" }
+rd-wire = { path = "../rd-wire" }
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
