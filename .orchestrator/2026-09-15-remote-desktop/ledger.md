@@ -36,11 +36,28 @@
   （鼠标按下/松开/移动/滚轮 + 修饰键组合 + 全键重置，13 事件顺序断言）。
 - 门禁：fmt/clippy -D warnings 零告警（五 crate）。
 
+## M4（本轮）执行记录
+- 2026-09-15 crates/rd-clipboard：ClipboardBackend trait + SystemClipboard（arboard 3，
+  跨平台无 Swift）+ MemoryClipboard/Factory（共享 Arc，set_external 模拟外部变更），
+  3 单测。
+- 2026-09-15 rd-host：控制循环重构——帧读独立 reader 任务 + mpsc 队列（修 select!
+  与 read_frame 竞态截帧，read_frame 非 cancel-safe）；剪贴板双向（viewer 消息写入
+  本机；500ms 轮询 diff 上行 + last_seen 回声抑制）；握手期剪贴板/输入工厂失败显式
+  hello_ack 拒绝；session.rs 拆 control.rs/sessions.rs（行数红线）。
+- 2026-09-15 rd-viewer：connect_full 增剪贴板后端参数；控制流 split 读写半，读任务
+  处理 host 下行（Clipboard→本机写入/Close）；ControlWrite::clipboard 便捷面；
+  close 改 ctl_task.abort（读循环阻塞在 recv_control 不可协作取消）。
+- 2026-09-15 crates/p2p-itest/tests/rd_clipboard_wave.rs：E2E 绿（viewer→host 写入、
+  host 外部变更→viewer 两连发、回声抑制断言）；既有 input/video 波适配 with_config
+  五参签名并全绿。
+- 门禁：fmt/clippy -D warnings 零告警（四 crate + itest）。
+
 ## 里程碑状态
 - M1：已收官合并（main @ dc870038）。
 - M2：已收官合并（main @ 2a367e20）。
-- M3：实现完成，待全量门禁绿后合并。
-- M4：剪贴板双向同步；见 plan.md。
+- M3：已收官合并（main @ cbc5072a）。
+- M4：实现完成，待全量门禁绿后合并。
+- M5：文件传输（浏览/上下传/进度/取消/续传/路径卫生落地）；见 plan.md。
 
 ## 依赖挂账
 - p2p-service 服务开关（rd-host/rd-viewer）：wsm 波（feat/wsm-b2）合入后接线。

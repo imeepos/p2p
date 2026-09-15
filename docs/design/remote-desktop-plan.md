@@ -54,7 +54,7 @@
 | `rd-wire` | 全部线协议消息模型 + 编解码 + 帧封装/分块 I/O（纯逻辑） | 全平台 |
 | `rd-capture` | 屏幕采集抽象：CaptureSource trait + 确定性合成源（E2E）；`sck` feature 启用 ScreenCaptureKit 真实源（macOS 13+，Swift 运行时） | macOS（后续多平台） |
 | `rd-input` | 输入注入：InputInjector trait + USB HID→macOS 键码映射 + 修饰键状态机 + RecordingInjector（E2E）+ macOS CGEvent 真实注入（core-graphics，Accessibility 授权探测） | macOS |
-| `rd-clipboard` | 剪贴板读写与变更订阅（arboard 或 NSPasteboard） | macOS（arboard 跨平台） |
+| `rd-clipboard` | 剪贴板后端抽象：系统剪贴板（arboard，跨平台无 Swift）+ 共享内存后端（E2E）；host 轮询 diff 变更探测 + 回声抑制 | 全平台 |
 | `rd-fs` | 远程文件系统：目录浏览、stat、传输分块、续传索引 | 全平台 |
 | `rd-host` | host 侧会话装配：capture+clipboard+fs 接线、准入审批、审计 | 全平台 |
 | `rd-viewer` | viewer 侧会话装配：解码渲染管线、输入采集接线 | 全平台 |
@@ -165,7 +165,7 @@ JSON 控制消息（双向）+ 数据块（viewer↔host 双向，按传输方�
 | M1（本轮） | 设计定稿 + `crates/rd-wire`（全部消息模型/编解码/帧 I/O + 单测）+ 协议注册（registry.toml/specs/wire-protocol.md） | make check 绿；rd-wire 单测覆盖编解码往返/非法输入拒绝/分块边界 |
 | M2 | video 全链：rd-capture（trait+合成源+SCK feature 门控）+ rd-host/rd-viewer 会话 + 双节点 E2E（raw/zlib 双编码、keyframe 同步、重复拨号拒绝、close 清理） | 3 项 E2E 绿（crates/p2p-itest/tests/rd_video_wave.rs）；SCK 真实采集待带授权真机验证（本机无 Swift 运行时） |
 | M3 | 输入注入：rd-input（键码映射/修饰键状态机/RecordingInjector/E2E + macOS CGEvent 授权门控）+ host 控制循环输入分发 + viewer 便捷面 | 全链 E2E 绿（crates/p2p-itest/tests/rd_input_wave.rs）；真实注入待带辅助功能授权真机（#[ignore] 冒烟） |
-| M4 | 剪贴板双向同步 | 文本剪贴板两端一致；变更订阅驱动 |
+| M4 | 剪贴板双向同步：rd-clipboard + host 轮询 diff 上行/下行 + viewer 下行写入 + 回声抑制 | E2E 绿（crates/p2p-itest/tests/rd_clipboard_wave.rs：viewer→host 写入、host 外部变更→viewer 两连发、无回声）；控制流 reader 任务化修 select! 帧截断竞态 |
 | M5 | 文件传输（浏览/上下传/进度/取消/续传/路径卫生） | 单测 + 双节点 E2E 大文件校验和一致 |
 | M6 | 商用收口：多显示器/质量自适应/重连/审批 GUI/审计/authz+服务开关接线/CLI 对等 | 全量 make check；真机走查报告 |
 | M7（可选） | 音频 + 硬件编码（H.264） | 独立验收 |
