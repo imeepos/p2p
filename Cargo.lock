@@ -1514,6 +1514,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "p2p-ftp"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "p2p",
+ "p2p-identity",
+ "p2p-mux",
+ "p2p-protocol",
+ "rand 0.8.8",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "p2p-identity"
 version = "0.1.0"
 dependencies = [

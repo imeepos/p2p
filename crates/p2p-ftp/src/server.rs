@@ -1,0 +1,222 @@
+//! 服务端装配：控制 handler + 数据 handler。
+//!
+//! 传输令牌登记簿见 [crate::transfer]。控制会话签发令牌并等 oneshot
+//! 结果；数据流入站兑付令牌、执行传输、回传结果。两 handler 均要求
+//! 对端身份（swarm 安全握手互认），裸流一律显式拒绝。
+
+use std::io;
+use std::sync::Arc;
+use std::time::Duration;
+
+use p2p::Node;
+use p2p_identity::PeerId;
+use p2p_mux::BoxedStream;
+use p2p_protocol::{read_frame, ProtocolHandler, ProtocolId};
+use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
+use crate::auth::Authenticator;
+use crate::session;
+use crate::transfer::{DataKind, TransferRegistry};
+use crate::vfs::{format_listing, FileSystem};
+use crate::wire::parse_data_header;
+use crate::{proto, FtpError, PROTO_CTRL, PROTO_DATA};
+
+/// 服务配置（超限即失败路径显式报错，禁止静默截断）。
+#[derive(Debug, Clone)]
+pub struct FtpConfig {
+    /// 单次上传字节上限（STOR/APPE）。
+    pub max_upload_bytes: u64,
+    /// 传输令牌有效期（签发起算）。
+    pub token_ttl: Duration,
+    /// 控制侧等待数据通道完成的时限。
+    pub transfer_timeout: Duration,
+}
+
+impl Default for FtpConfig {
+    fn default() -> Self {
+        Self {
+            max_upload_bytes: 256 << 20,
+            token_ttl: Duration::from_secs(60),
+            transfer_timeout: Duration::from_secs(300),
+        }
+    }
+}
+
+/// FTP 服务端：控制通道 handler。数据通道由 [`serve`] 一并装配。
+pub struct FtpServer {
+    proto: ProtocolId,
+    fs: Arc<dyn FileSystem>,
+    auth: Arc<dyn Authenticator>,
+    cfg: FtpConfig,
+    transfers: TransferRegistry,
+}
+
+impl FtpServer {
+    pub fn new(fs: Arc<dyn FileSystem>, auth: Arc<dyn Authenticator>) -> Result<Self, FtpError> {
+        Self::with_config(fs, auth, FtpConfig::default())
+    }
+
+    pub fn with_config(
+        fs: Arc<dyn FileSystem>,
+        auth: Arc<dyn Authenticator>,
+        cfg: FtpConfig,
+    ) -> Result<Self, FtpError> {
+        let transfers = TransferRegistry::new(cfg.token_ttl);
+        Ok(Self { proto: proto(PROTO_CTRL)?, fs, auth, cfg, transfers })
+    }
+
+    pub(crate) fn fs(&self) -> &Arc<dyn FileSystem> {
+        &self.fs
+    }
+
+    pub(crate) fn auth(&self) -> &Arc<dyn Authenticator> {
+        &self.auth
+    }
+
+    pub(crate) fn cfg(&self) -> &FtpConfig {
+        &self.cfg
+    }
+
+    pub(crate) fn transfers(&self) -> &TransferRegistry {
+        &self.transfers
+    }
+}
+
+#[async_trait::async_trait]
+impl ProtocolHandler for FtpServer {
+    fn protocol(&self) -> ProtocolId {
+        self.proto.clone()
+    }
+
+    /// 裸流无对端身份，令牌无法绑定签发方：显式拒绝（禁静默服务）。
+    async fn handle(&self, _stream: BoxedStream) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "ftp control channel requires peer identity",
+        ))
+    }
+
+    async fn handle_inbound(&self, peer: PeerId, stream: BoxedStream) -> io::Result<()> {
+        session::run(self, peer, stream).await
+    }
+}
+
+struct DataHandler {
+    proto: ProtocolId,
+    server: Arc<FtpServer>,
+}
+
+#[async_trait::async_trait]
+impl ProtocolHandler for DataHandler {
+    fn protocol(&self) -> ProtocolId {
+        self.proto.clone()
+    }
+
+    async fn handle(&self, _stream: BoxedStream) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "ftp data channel requires peer identity",
+        ))
+    }
+
+    async fn handle_inbound(&self, peer: PeerId, mut stream: BoxedStream) -> io::Result<()> {
+        let frame = read_frame(&mut stream).await?;
+        let Some((_, token)) = parse_data_header(&frame) else {
+            tracing::warn!(peer = %peer, "ftp data header malformed, closing");
+            return Err(io::Error::new(io::ErrorKind::InvalidData, "bad data header"));
+        };
+        let Some(pending) = self.server.transfers().take(&token, &peer) else {
+            tracing::warn!(peer = %peer, "ftp data token unknown/expired/peer-mismatch, closing");
+            return Err(io::Error::new(io::ErrorKind::PermissionDenied, "bad transfer token"));
+        };
+        let outcome = run_data_transfer(&self.server, pending.kind, &pending.vpath, &mut stream).await;
+        if pending.done.send(outcome).is_err() {
+            tracing::warn!(path = %pending.vpath, "ftp control session gone before data result");
+        }
+        Ok(())
+    }
+}
+
+async fn run_data_transfer(
+    server: &FtpServer,
+    kind: DataKind,
+    vpath: &str,
+    stream: &mut BoxedStream,
+) -> io::Result<u64> {
+    match kind {
+        DataKind::Get => {
+            let mut reader = server.fs().reader(vpath).await?;
+            let n = tokio::io::copy(&mut reader, stream).await?;
+            stream.flush().await?;
+            stream.shutdown().await?;
+            Ok(n)
+        }
+        DataKind::Put | DataKind::Append => {
+            let mut writer = server.fs().writer(vpath, kind == DataKind::Append).await?;
+            let n = copy_limited(stream, &mut writer, server.cfg().max_upload_bytes).await?;
+            writer.flush().await?;
+            Ok(n)
+        }
+        DataKind::List | DataKind::Nlst => {
+            let body = match kind {
+                DataKind::Nlst => server
+                    .fs()
+                    .list(vpath)
+                    .await?
+                    .into_iter()
+                    .map(|e| format!("{}\n", e.name))
+                    .collect::<String>(),
+                _ => format_listing(&server.fs().list(vpath).await?),
+            };
+            stream.write_all(body.as_bytes()).await?;
+            stream.flush().await?;
+            stream.shutdown().await?;
+            Ok(body.len() as u64)
+        }
+    }
+}
+
+async fn copy_limited(
+    src: &mut BoxedStream,
+    dst: &mut (impl AsyncWrite + Unpin + Send),
+    max: u64,
+) -> io::Result<u64> {
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut total: u64 = 0;
+    loop {
+        let n = src.read(&mut buf).await?;
+        if n == 0 {
+            return Ok(total);
+        }
+        total += n as u64;
+        if total > max {
+            return Err(io::Error::new(
+                io::ErrorKind::StorageFull,
+                format!("upload exceeds configured limit of {max} bytes"),
+            ));
+        }
+        dst.write_all(&buf[..n]).await?;
+    }
+}
+
+/// 宿主装配入口：把控制/数据两个 handler 注册进节点，返回控制句柄。
+pub fn serve(
+    node: &Node,
+    fs: Arc<dyn FileSystem>,
+    auth: Arc<dyn Authenticator>,
+) -> Result<Arc<FtpServer>, FtpError> {
+    serve_with_config(node, fs, auth, FtpConfig::default())
+}
+
+pub fn serve_with_config(
+    node: &Node,
+    fs: Arc<dyn FileSystem>,
+    auth: Arc<dyn Authenticator>,
+    cfg: FtpConfig,
+) -> Result<Arc<FtpServer>, FtpError> {
+    let server = Arc::new(FtpServer::with_config(fs, auth, cfg)?);
+    node.handle_protocol(server.clone());
+    let data_proto = proto(PROTO_DATA)?;
+    node.handle_protocol(Arc::new(DataHandler { proto: data_proto, server: server.clone() }));
+    Ok(server)
+}

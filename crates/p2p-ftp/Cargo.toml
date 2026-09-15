@@ -1,0 +1,16 @@
+[package]
+name = "p2p-ftp"
+version.workspace = true
+edition.workspace = true
+description = "FTP 语义 over P2P：/ftp 控制通道 + 数据通道（RFC 959 命令集子集，一次性传输令牌准入）"
+
+[dependencies]
+async-trait.workspace = true
+p2p = { path = "../p2p" }
+p2p-identity = { path = "../p2p-identity" }
+p2p-mux = { path = "../p2p-mux" }
+p2p-protocol = { path = "../p2p-protocol" }
+rand.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
