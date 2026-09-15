@@ -1,0 +1,12 @@
+[package]
+name = "rd-input"
+version.workspace = true
+edition.workspace = true
+description = "远程桌面输入注入：InputInjector trait + USB HID→macOS 键码映射 + 修饰键状态机 + RecordingInjector（测试/E2E）+ macOS CGEvent 真实注入"
+
+[dependencies]
+thiserror.workspace = true
+tracing.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-graphics = { version = "0.24", features = ["highsierra"] }
