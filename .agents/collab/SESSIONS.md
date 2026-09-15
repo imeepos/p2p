@@ -101,3 +101,9 @@
   src-tauri 服务开关面、p2p-service）、tunnel 域（已释放但 GUI remote-access 属 tgui 波
   已收官，只读复用）。依赖注意：远程桌面服务开关接 p2p-service 注册表，wsm 波合入后接线。
  (docs(collab): 远程桌面波 scope 认领登记)
+- [完工释放] 2026-09-16 05:06 goal-9f609d90（FTP 目标会话）：FTP over P2P 收官——
+  crates/p2p-ftp 全链落地（/ftp/ctrl/1 + /ftp/data/1 登记 23 号注册表），
+  15 单测 + 4 双节点 E2E 绿，全量 make check 绿（test 段一次 SIGKILL 重跑过），
+  rebase 解 rd-wire 撞 registry/wire-protocol 尾部冲突（双方登记块都保留），
+  main==origin/main@68abe761，worktree/分支本地远端全清。scope=FTP over P2P 释放。
+  后续候选：p2pctl ftp 子命令、serve.ftp 服务开关闭集登记（需改设计表，先问）、authz 收编。
