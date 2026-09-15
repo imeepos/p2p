@@ -9,7 +9,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::input::InputDispatch;
 use crate::sessions::HostSessions;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
@@ -17,134 +16,11 @@ use p2p::PeerId;
 use p2p_mux::BoxedStream;
 use p2p_protocol::{ProtocolHandler, ProtocolId};
 use rd_capture::{CaptureError, CaptureSource};
-use rd_input::InjectorFactory;
-use rd_wire::io::{recv_control, send_control, send_large};
+use rd_wire::io::send_large;
 use rd_wire::video::{encode_frame, FrameHeader, Rect};
-use rd_wire::{ControlMsg, Role};
 use tokio::io;
 
 use crate::{HostConfig, SourceFactory};
-
-/// /rd/control/1 处理器：hello 握手 → 控制循环（输入注入/Close/空闲超时退出）。
-pub struct ControlHandler {
-    pub sessions: Arc<Mutex<HostSessions>>,
-    pub proto: ProtocolId,
-    pub injector: Arc<dyn InjectorFactory>,
-    pub config: Arc<HostConfig>,
-}
-
-#[async_trait::async_trait]
-impl ProtocolHandler for ControlHandler {
-    fn protocol(&self) -> ProtocolId {
-        self.proto.clone()
-    }
-
-    async fn handle(&self, _stream: BoxedStream) -> io::Result<()> {
-        tracing::warn!("rd-host: bare stream without peer identity rejected");
-        Ok(())
-    }
-
-    async fn handle_inbound(&self, peer: PeerId, mut stream: BoxedStream) -> io::Result<()> {
-        let hello = match recv_control(&mut stream).await {
-            Ok(ControlMsg::Hello {
-                role: Role::Viewer,
-                session_id,
-                ..
-            }) => session_id,
-            Ok(other) => {
-                tracing::warn!("rd-host: unexpected first control msg from {peer}: {other:?}");
-                return Ok(());
-            }
-            Err(e) => return Err(e),
-        };
-        let mut dispatch = match self.injector.new_injector() {
-            Ok(i) => InputDispatch::new(i),
-            Err(e) => {
-                tracing::error!("rd-host: input injector unavailable for {peer}: {e}");
-                let _ = send_control(
-                    &mut stream,
-                    &ControlMsg::HelloAck {
-                        ok: false,
-                        reason: Some(format!("input unavailable: {e}")),
-                        session_id: hello,
-                    },
-                )
-                .await;
-                return Ok(());
-            }
-        };
-        let registered = match self.sessions.lock() {
-            Ok(mut g) => g.insert(peer, hello.clone()),
-            Err(poison) => poison.into_inner().insert(peer, hello.clone()),
-        };
-        if let Err(reason) = registered {
-            tracing::warn!("rd-host: reject {peer}: {reason}");
-            let _ = send_control(
-                &mut stream,
-                &ControlMsg::HelloAck {
-                    ok: false,
-                    reason: Some(reason),
-                    session_id: hello,
-                },
-            )
-            .await;
-            return Ok(());
-        }
-        let ack = ControlMsg::HelloAck {
-            ok: true,
-            reason: None,
-            session_id: hello.clone(),
-        };
-        if let Err(e) = send_control(&mut stream, &ack).await {
-            let _ = self.sessions.lock().map(|mut g| g.remove(&peer));
-            return Err(e);
-        }
-        tracing::info!("rd-host: session {hello} started with {peer}");
-        let idle = Duration::from_secs(self.config.idle_timeout_secs);
-        loop {
-            let next = if self.config.idle_timeout_secs > 0 {
-                tokio::time::timeout(idle, recv_control(&mut stream)).await
-            } else {
-                Ok(recv_control(&mut stream).await)
-            };
-            match next {
-                Ok(Ok(ControlMsg::Close { .. })) => break,
-                Ok(Ok(ControlMsg::InputMouse {
-                    x,
-                    y,
-                    buttons: mask,
-                    wheel_dx,
-                    wheel_dy,
-                })) => {
-                    dispatch.mouse(x, y, mask, wheel_dx, wheel_dy);
-                }
-                Ok(Ok(ControlMsg::InputKey {
-                    code,
-                    down,
-                    modifiers,
-                })) => {
-                    dispatch.key(code, down, modifiers);
-                }
-                Ok(Ok(ControlMsg::InputKeyReset)) => {
-                    dispatch.reset();
-                }
-                Ok(Ok(_)) => {}
-                Ok(Err(e)) => {
-                    tracing::warn!("rd-host: control read error: {e}");
-                    break;
-                }
-                Err(_) => {
-                    tracing::warn!("rd-host: control idle timeout, closing session {hello}");
-                    break;
-                }
-            }
-        }
-        dispatch.reset();
-        let _ = self.sessions.lock().map(|mut g| g.remove(&peer));
-        tracing::info!("rd-host: session {hello} ended with {peer}");
-        Ok(())
-    }
-}
 
 /// /rd/video/1 处理器：按 PeerId 绑定会话 → 实例化采集源 → 帧泵。
 pub struct VideoHandler {

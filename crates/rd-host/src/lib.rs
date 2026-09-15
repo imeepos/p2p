@@ -8,6 +8,7 @@
 //! 会话准入（M3 简化）：默认接受；authz/服务开关/审批闸在 M6 接入
 //! （依赖 wsm 服务总控波合入）。
 
+mod control;
 mod input;
 mod session;
 mod sessions;
@@ -18,6 +19,7 @@ use p2p::Node;
 use p2p_protocol::{ProtocolError, ProtocolId};
 use rd_capture::CaptureError;
 use rd_capture::CaptureSource;
+use rd_clipboard::ClipboardFactory;
 use rd_input::InjectorFactory;
 use rd_wire::{CONTROL_PROTOCOL_ID, VIDEO_PROTOCOL_ID};
 
@@ -56,21 +58,23 @@ pub struct RdHost {
 }
 
 impl RdHost {
-    /// 默认配置装配（注入器 = macOS 真实注入；非 macOS 为 recording）。
+    /// 默认配置装配（注入器 = macOS 真实注入；非 macOS 为 recording；剪贴板 = 系统）。
     pub fn new(node: Arc<Node>, source: Arc<dyn SourceFactory>) -> Result<Self, HostError> {
         Self::with_config(
             node,
             source,
             default_injector_factory(),
+            Arc::new(rd_clipboard::SystemClipboardFactory),
             HostConfig::default(),
         )
     }
 
-    /// 显式配置装配：解析协议 ID 后注册控制（含输入）/视频处理器。
+    /// 显式配置装配：解析协议 ID 后注册控制（含输入/剪贴板）/视频处理器。
     pub fn with_config(
         node: Arc<Node>,
         source: Arc<dyn SourceFactory>,
         injector: Arc<dyn InjectorFactory>,
+        clipboard: Arc<dyn ClipboardFactory>,
         config: HostConfig,
     ) -> Result<Self, HostError> {
         let control_id = ProtocolId::new(CONTROL_PROTOCOL_ID)?;
@@ -81,10 +85,11 @@ impl RdHost {
             sessions: sessions.clone(),
             _node: node.clone(),
         };
-        node.handle_protocol(Arc::new(session::ControlHandler {
+        node.handle_protocol(Arc::new(control::ControlHandler {
             sessions: sessions.clone(),
             proto: control_id,
             injector,
+            clipboard,
             config: config.clone(),
         }));
         node.handle_protocol(Arc::new(session::VideoHandler {
