@@ -83,3 +83,10 @@
   （MiniMax-M3 subagent）APPROVE 零 Critical；worktree/分支本地远端全清，
   两子会话归档。scope=agent 会话独立页 释放。候选池与收官报告见
   .orchestrator/2026-09-14-agent-chat-standalone-page/plan.md 收官节。
+
+## 2026-09-16 FTP over P2P（goal-9f609d90）
+- [认领] 2026-09-16 03:02 goal-9f609d90（FTP 目标会话）：scope=在 p2p 底座实现 FTP 协议
+  （新建 crates/p2p-ftp + docs/protocol/registry.toml 与 wire-protocol.md §3.2 登记 +
+  specs/ftp.md + README crate map 行），分支 feat/ftp-protocol / worktree
+  .worktrees/ftp-protocol，任务来源=用户目标「在p2p协议基础上实现ftp协议」。
+  禁触 .worktrees/rd-wire、.worktrees/wsm-b2 与他波在飞面（apps/gui、p2p-service 注册表闭集）。
