@@ -24,10 +24,23 @@
   zlib 往返）。门禁：fmt/clippy -D warnings 零告警（rd-wire/rd-capture/rd-host/rd-viewer/
   p2p-itest 五 crate 全量）。
 
+## M3（本轮）执行记录
+- 2026-09-15 crates/rd-input：USB HID→macOS 键码映射表（字母/数字/F1-12/修饰/导航，
+  8 单测）、修饰键状态机（host 权威按住集合 + FlagsChanged 全量 flags）、
+  RecordingInjector + 工厂（E2E）、MacInjector（core-graphics 0.24，AXIsProcessTrusted
+  授权探测，CGEventSource 非 Send 故逐事件新建）；#[ignore] 真实注入冒烟。
+- 2026-09-15 rd-host：控制循环输入分发（move→buttons diff→wheel；未映射键丢弃告警；
+  断线/关闭必 reset_keys）；with_config 注入 factory 参数。
+- 2026-09-15 rd-viewer：ControlWrite 便捷面 mouse/key/key_reset。
+- 2026-09-15 crates/p2p-itest/tests/rd_input_wave.rs：真实双 Node 输入全链 E2E 绿
+  （鼠标按下/松开/移动/滚轮 + 修饰键组合 + 全键重置，13 事件顺序断言）。
+- 门禁：fmt/clippy -D warnings 零告警（五 crate）。
+
 ## 里程碑状态
 - M1：已收官合并（main @ dc870038）。
-- M2：实现完成，待全量门禁绿后合并。
-- M3：输入注入（cgevents/CGEvent）沿控制通道接入；见 plan.md。
+- M2：已收官合并（main @ 2a367e20）。
+- M3：实现完成，待全量门禁绿后合并。
+- M4：剪贴板双向同步；见 plan.md。
 
 ## 依赖挂账
 - p2p-service 服务开关（rd-host/rd-viewer）：wsm 波（feat/wsm-b2）合入后接线。

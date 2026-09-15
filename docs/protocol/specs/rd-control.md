@@ -38,3 +38,9 @@
 - `clipboard.text` UTF-8 字节数 MUST ≤ 8 MiB，超限拒收。
 - 解码端对任何字段越界/类型错误 MUST 以 InvalidData 断流，不猜测不降级。
 - 会话存活判据：heartbeat 双向 5s 窗口；超时由宿主按策略关闭并审计。
+- 输入注入（M3 实现）：
+  - `input_key.code` 为 USB HID 键盘 usage id；宿主维护权威修饰键按住集合，
+    事件 flags 反映宿主态（不采信 viewer 上报态，防漂移）。
+  - 会话断开（显式 close/超时/流错）宿主 MUST 调 `input_key_reset` 语义
+    （释放全部按键），防远程卡键。
+  - 未映射键码宿主 MUST 丢弃并告警（不清流，输入错误不中断会话）。

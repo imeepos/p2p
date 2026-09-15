@@ -24,4 +24,6 @@
   的 dyld cache 缺该库 → 测试二进制加载即 SIGABRT。处置：rd-capture 的 SCK 模块
   feature 门控（`sck`，默认关），工作区门禁零 Swift 依赖；真实采集在带授权 + Swift
   运行时真机验证（GUI 波）。
-- 待 M3 开工验证：cgevents 版本与 macOS 兼容面。
+- M3 结论：注入实现选 core-graphics 0.24（servo 系纯 Rust C-FFI，无 Swift 依赖，
+  macOS 全版本可用；CGEvent 构造/投递 + KeyCode 常量 + CGEventFlags 齐备），
+  弃 cgevents（同类 API，生态更小）。Accessibility 授权经 AXIsProcessTrusted FFI 探测。
