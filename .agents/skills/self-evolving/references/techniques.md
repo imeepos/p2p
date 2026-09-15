@@ -616,3 +616,5 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-14 ACS1：新 worktree 首次跑门禁，`pnpm install --frozen-lockfile --offline` 走全局 content-addressable store 3 秒装完（无需赌 workspace 复用，也不碰网络）；先 install 再跑，省掉「vitest 二进制缺失」这类意外。
 - 2026-09-14 ACS1：浏览器 mock 走查三件事：①仓库已提交 apps/gui/.env.development.local（VITE_MOCK_IPC=0）会压过 .env.development 的默认 mock，必须 shell 显式 VITE_MOCK_IPC=1 起 dev；②在线态截图用 window.__acpInjectAgentOnlineSession()（只置 store 相位、无真实 conn），所以 session/new 在注入态必失败——会话行/相对时间这类「要先建会话」的证据改用单测断言，别在走查上烧轮次；③「console 零新增报错」验收用 beforeEach vi.spyOn(console,'error') + afterEach 断言未调用，机械且不误伤 warn。
 - 2026-09-14 ACS1：门禁双跑策略——check-fast（受影响域裁剪，gui 变更时内含 gui.sh）先跑抓快红，随后 make gui-check 独立复跑拿专属退出码贴汇报；本机有并行会话抢 CPU 时 vitest 从 155s 涨到 703s，等门禁期间不要对同一 worktree 做任何写操作（含起 dev server 写 .vite 缓存）。
+- 2026-09-16 ftp：排查 E2E 传输失败别盲猜，给服务端 fs 调用处插 `eprintln!("[DBG] ... kind={:?}", e.kind())` 探针跑单用例（cargo test -p X --test Y <用例名>），两分钟定位；跑完必须撤探针。比加 tracing-subscriber 依赖或翻日志轻得多。
+- 2026-09-16 ftp：git worktree remove 超时被打断会留下半删状态（status 一片 D），再 remove 会报 "contains modified or untracked files"——先确认分支已 ff 进主干且推送（commit 安全在 ref 上），再 `--force` 删，勿手动 rm -rf 留下 worktree 元数据悬挂。

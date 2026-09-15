@@ -738,3 +738,5 @@ failed: early eof（客户端侧超时中止）。
 - 症状：任意页面 console 恒有 `ERR_CONNECTION_REFUSED @ http://127.0.0.1:8788/discovery` 与 `404 @ /favicon.ico` 两条 error。
 - 原因：mock console status 快照带 statusUrl(8788)，浏览器实例无伴生 HTTP 服务，发现面轮询探测被拒（console-watch 显式 warn「console 发现面不可达」后停止，不静默）；favicon 从未配置。
 - 修法：非本次改动引入、无需修；判定新增报错时把这两条列为环境基线，只看其余 error。
+- 2026-09-16 ftp：panic-hygiene 门禁是文本扫描——自定义方法名叫 `expect`（`self.expect(&r, 200)`）也会命中 `.expect(` 规则被判 FAIL，与真实 unwrap 无关。修法：业务代码里「断言应答码」类方法取名 require/assert_reply 避开保留名。
+- 2026-09-16 ftp：make check 的 test 段（cargo test --workspace）在本机多 worktree 并行（vite preview/其他 cargo）时可能被 macOS jetsam SIGKILL（exit 137 "Killed: 9"），非用例红。修法：直接重跑 make check，编译缓存热后增量很快；全绿后照常合并。误判为测试失败去修测试是浪费时间。

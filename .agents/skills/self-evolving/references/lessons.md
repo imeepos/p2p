@@ -531,3 +531,5 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-14 acf 主控：多会话并行时消息时序交叉会连环吃掉修复轮次（纠偏到达前对方已按旧快照重报 DONE，反向亦然）——纠偏消息必须带硬数字（当时 tip hash）+「非交错副本」标记 + 「以 fetch 到的最新 tip 为准」兜底条款；同一协调点交叉超过两轮，停止消息往返，主控开集成分支自行 cherry-pick 消化，不为消息时序空转。
 - 2026-09-14 ACS1：中央注册面/重定向目标的守卫不止一层——menu 登记守卫、palette-nav 计数基线、app 级重定向表（src/test/app-redirects.test.tsx 每行一条断言，读的是真实挂载 hash 落点）、i18n-diff 各自独立看门。改 /acp 落点时只核了 acp-registration.test.ts，漏了 app-redirects 的 /acp 行期望，被 12 分钟的 check-fast 抓红返工一整轮。动作：动 App.tsx 路由/menu.def/redirect 目标前，先对旧值跑一遍 `grep -rn "旧值" src --include=*.test.*`，把测试层的硬编码期望一并清点。
 - 2026-09-14 ACS1：techniques.md 明明已有「Playwright 截图 filename 用绝对路径」，走查时仍用相对名踩同坑（截图落 $HOME，全盘 find 找回还超时一次）——问题不是知识缺失而是「进入对应阶段前没重读 skill」。动作：开始走查/截图/dev server 阶段前，先 grep 一遍 techniques.md 关键词（截图/dev/端口/install），相关条目当场过目再动手。
+- 2026-09-16 ftp：多命令协议的传输类操作，前置检查必须按操作类型分叉——PUT/APPE 目标可以不存在（新建语义），先无条件 fetch 目标 metadata 再 match 类型 = 新文件必假红 550（本次 E2E 两处同因失败，浪费一轮调试）。动作：写 precheck/前置校验时先把「每种操作哪些目标允许不存在」列清楚再落码。
+- 2026-09-16 ftp：契约登记文件（registry.toml / wire-protocol.md §3.2 表）是 append-only 尾部热点，并行会话各自「最大号+1」必在文件尾撞。解法已实证：rebase 时冲突两侧登记块都保留（先合并者在前列序），机械门禁只做集合核对不在乎顺序。动作：新增协议 ID 前先 fetch + rebase 再登记（同迁移号规则）。
