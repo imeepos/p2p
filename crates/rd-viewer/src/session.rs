@@ -19,6 +19,40 @@ use crate::{DecodedFrame, RenderSink, ViewerError};
 #[async_trait::async_trait]
 pub trait ControlWrite: Send + Sync {
     async fn send(&self, msg: ControlMsg) -> Result<(), ViewerError>;
+
+    /// 输入便捷面（M3）：鼠标绝对坐标事件。
+    async fn mouse(
+        &self,
+        x: u16,
+        y: u16,
+        buttons: u8,
+        wheel_dx: i8,
+        wheel_dy: i8,
+    ) -> Result<(), ViewerError> {
+        self.send(ControlMsg::InputMouse {
+            x,
+            y,
+            buttons,
+            wheel_dx,
+            wheel_dy,
+        })
+        .await
+    }
+
+    /// 输入便捷面（M3）：键盘事件（USB HID 键码）。
+    async fn key(&self, code: u16, down: bool, modifiers: u8) -> Result<(), ViewerError> {
+        self.send(ControlMsg::InputKey {
+            code,
+            down,
+            modifiers,
+        })
+        .await
+    }
+
+    /// 输入便捷面（M3）：释放全部按键（失焦/断线时调用）。
+    async fn key_reset(&self) -> Result<(), ViewerError> {
+        self.send(ControlMsg::InputKeyReset).await
+    }
 }
 
 /// 活跃会话：控制写半 + 视频泵任务 + 停止旗标。
