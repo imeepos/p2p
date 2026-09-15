@@ -39,6 +39,7 @@ p2p-transport = { path = "../p2p-transport" }
 p2p-tunnel = { path = "../p2p-tunnel" }
 # rd M2 视频全链 E2E（rd_video_wave）
 rd-capture = { path = "../rd-capture" }
+rd-clipboard = { path = "../rd-clipboard" }
 rd-input = { path = "../rd-input" }
 rd-host = { path = "../rd-host" }
 rd-viewer = { path = "../rd-viewer" }

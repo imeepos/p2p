@@ -158,6 +158,7 @@ async fn rd_video_zlib_codec_roundtrip() {
         host_node.clone(),
         Arc::new(SyntheticFactory { w: W, h: H }),
         Arc::new(rd_input::recording::RecordingInjectorFactory::new()),
+        Arc::new(rd_clipboard::memory::MemoryClipboardFactory::new()),
         config,
     )
     .unwrap();

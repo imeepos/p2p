@@ -67,6 +67,7 @@ async fn rd_input_wave_e2e() {
         host_node.clone(),
         Arc::new(SyntheticFactory { w: W, h: H }),
         inject_factory,
+        Arc::new(rd_clipboard::memory::MemoryClipboardFactory::new()),
         rd_host::HostConfig::default(),
     )
     .unwrap();
