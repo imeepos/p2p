@@ -11,6 +11,7 @@ p2p = { path = "../p2p" }
 p2p-mux = { path = "../p2p-mux" }
 p2p-protocol = { path = "../p2p-protocol" }
 rd-capture = { path = "../rd-capture" }
+rd-input = { path = "../rd-input" }
 rd-wire = { path = "../rd-wire" }
 thiserror.workspace = true
 tokio.workspace = true

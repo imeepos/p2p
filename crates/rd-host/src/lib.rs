@@ -1,10 +1,11 @@
 //! rd-host：远程桌面 host 侧装配（remote-desktop-plan §2.3）。
 //!
-//! [RdHost] 注册 /rd/control/1 与 /rd/video/1 处理器：控制通道完成 hello 握手与
-//! 控制循环（心跳/关闭），视频通道按对端 PeerId 绑定会话后跑帧泵
-//! （采集 → 编码 → chunked 发送）。同 Peer 同时只允许一个活跃会话。
+//! [RdHost] 注册 /rd/control/1 与 /rd/video/1 处理器：控制通道完成 hello 握手并
+//! 处理输入事件（M3：鼠标/键盘/重置经 [rd_input] 注入接缝落到注入器），
+//! 视频通道按对端 PeerId 绑定会话后跑帧泵（采集 → 编码 → chunked 发送）。
+//! 同 Peer 同时只允许一个活跃会话。
 //!
-//! 会话准入（M2 简化）：默认接受；authz/服务开关/审批闸在 M6 接入
+//! 会话准入（M3 简化）：默认接受；authz/服务开关/审批闸在 M6 接入
 //! （依赖 wsm 服务总控波合入）。
 
 mod session;
@@ -15,6 +16,7 @@ use p2p::Node;
 use p2p_protocol::{ProtocolError, ProtocolId};
 use rd_capture::CaptureError;
 use rd_capture::CaptureSource;
+use rd_input::InjectorFactory;
 use rd_wire::{CONTROL_PROTOCOL_ID, VIDEO_PROTOCOL_ID};
 
 /// host 装配失败。
@@ -52,15 +54,21 @@ pub struct RdHost {
 }
 
 impl RdHost {
-    /// 默认配置装配。
+    /// 默认配置装配（注入器 = macOS 真实注入；非 macOS 为 recording）。
     pub fn new(node: Arc<Node>, source: Arc<dyn SourceFactory>) -> Result<Self, HostError> {
-        Self::with_config(node, source, HostConfig::default())
+        Self::with_config(
+            node,
+            source,
+            default_injector_factory(),
+            HostConfig::default(),
+        )
     }
 
-    /// 显式配置装配：解析协议 ID 后注册控制/视频两个处理器。
+    /// 显式配置装配：解析协议 ID 后注册控制（含输入）/视频处理器。
     pub fn with_config(
         node: Arc<Node>,
         source: Arc<dyn SourceFactory>,
+        injector: Arc<dyn InjectorFactory>,
         config: HostConfig,
     ) -> Result<Self, HostError> {
         let control_id = ProtocolId::new(CONTROL_PROTOCOL_ID)?;
@@ -74,6 +82,7 @@ impl RdHost {
         node.handle_protocol(Arc::new(session::ControlHandler {
             sessions: sessions.clone(),
             proto: control_id,
+            injector,
             config: config.clone(),
         }));
         node.handle_protocol(Arc::new(session::VideoHandler {
@@ -89,6 +98,17 @@ impl RdHost {
     pub fn session_count(&self) -> usize {
         self.sessions.lock().map(|g| g.len()).unwrap_or(0)
     }
+}
+
+/// 默认注入器工厂：macOS 用 CGEvent 真实注入，其余平台用 recording（本仓库面向 macOS）。
+#[cfg(target_os = "macos")]
+fn default_injector_factory() -> Arc<dyn InjectorFactory> {
+    Arc::new(rd_input::macos::MacInjectorFactory)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn default_injector_factory() -> Arc<dyn InjectorFactory> {
+    Arc::new(rd_input::recording::RecordingInjectorFactory::new())
 }
 
 /// 采集源工厂：每会话一个采集实例（真实源按显示器绑定）。

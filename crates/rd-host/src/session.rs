@@ -16,6 +16,7 @@ use p2p::PeerId;
 use p2p_mux::BoxedStream;
 use p2p_protocol::{ProtocolHandler, ProtocolId};
 use rd_capture::{CaptureError, CaptureSource};
+use rd_input::{InjectError, InjectorFactory, InputInjector, MouseButton};
 use rd_wire::io::{recv_control, send_control, send_large};
 use rd_wire::video::{encode_frame, FrameHeader, Rect};
 use rd_wire::{ControlMsg, Role};
@@ -67,10 +68,11 @@ impl HostSessions {
     }
 }
 
-/// /rd/control/1 处理器：hello 握手 → 控制循环（Close/空闲超时退出）。
+/// /rd/control/1 处理器：hello 握手 → 控制循环（输入注入/Close/空闲超时退出）。
 pub struct ControlHandler {
     pub sessions: Arc<Mutex<HostSessions>>,
     pub proto: ProtocolId,
+    pub injector: Arc<dyn InjectorFactory>,
     pub config: Arc<HostConfig>,
 }
 
@@ -97,6 +99,22 @@ impl ProtocolHandler for ControlHandler {
                 return Ok(());
             }
             Err(e) => return Err(e),
+        };
+        let mut injector = match self.injector.new_injector() {
+            Ok(i) => i,
+            Err(e) => {
+                tracing::error!("rd-host: input injector unavailable for {peer}: {e}");
+                let _ = send_control(
+                    &mut stream,
+                    &ControlMsg::HelloAck {
+                        ok: false,
+                        reason: Some(format!("input unavailable: {e}")),
+                        session_id: hello,
+                    },
+                )
+                .await;
+                return Ok(());
+            }
         };
         let registered = match self.sessions.lock() {
             Ok(mut g) => g.insert(peer, hello.clone()),
@@ -126,6 +144,7 @@ impl ProtocolHandler for ControlHandler {
         }
         tracing::info!("rd-host: session {hello} started with {peer}");
         let idle = Duration::from_secs(self.config.idle_timeout_secs);
+        let mut buttons = [false; 3];
         loop {
             let next = if self.config.idle_timeout_secs > 0 {
                 tokio::time::timeout(idle, recv_control(&mut stream)).await
@@ -134,6 +153,45 @@ impl ProtocolHandler for ControlHandler {
             };
             match next {
                 Ok(Ok(ControlMsg::Close { .. })) => break,
+                Ok(Ok(ControlMsg::InputMouse {
+                    x,
+                    y,
+                    buttons: mask,
+                    wheel_dx,
+                    wheel_dy,
+                })) => {
+                    // 顺序：先移动到位 → 再按键/滚轮（点击落在目标位置）
+                    if let Err(e) = injector.mouse_move(x, y) {
+                        warn_inject("mouse_move", &e);
+                    }
+                    let cur = MouseButton::from_mask(mask);
+                    for (i, down) in cur.into_iter().enumerate() {
+                        if down != buttons[i] {
+                            inject_mouse_button(&mut *injector, btn_at(i), down);
+                            buttons[i] = down;
+                        }
+                    }
+                    if wheel_dx != 0 || wheel_dy != 0 {
+                        if let Err(e) = injector.mouse_wheel(wheel_dx, wheel_dy) {
+                            warn_inject("mouse_wheel", &e);
+                        }
+                    }
+                }
+                Ok(Ok(ControlMsg::InputKey {
+                    code,
+                    down,
+                    modifiers,
+                })) => {
+                    if let Err(e) = injector.key(code, down, modifiers) {
+                        warn_inject("key", &e);
+                    }
+                }
+                Ok(Ok(ControlMsg::InputKeyReset)) => {
+                    if let Err(e) = injector.reset_keys() {
+                        warn_inject("reset_keys", &e);
+                    }
+                    buttons = [false; 3];
+                }
                 Ok(Ok(_)) => {}
                 Ok(Err(e)) => {
                     tracing::warn!("rd-host: control read error: {e}");
@@ -145,10 +203,29 @@ impl ProtocolHandler for ControlHandler {
                 }
             }
         }
+        let _ = injector.reset_keys();
         let _ = self.sessions.lock().map(|mut g| g.remove(&peer));
         tracing::info!("rd-host: session {hello} ended with {peer}");
         Ok(())
     }
+}
+
+fn inject_mouse_button(inj: &mut (impl InputInjector + ?Sized), btn: MouseButton, down: bool) {
+    if let Err(e) = inj.mouse_button(btn, down) {
+        warn_inject("mouse_button", &e);
+    }
+}
+
+fn btn_at(i: usize) -> MouseButton {
+    match i {
+        0 => MouseButton::Left,
+        1 => MouseButton::Right,
+        _ => MouseButton::Middle,
+    }
+}
+
+fn warn_inject(op: &str, e: &InjectError) {
+    tracing::warn!("rd-host: {op} inject failed: {e}");
 }
 
 /// /rd/video/1 处理器：按 PeerId 绑定会话 → 实例化采集源 → 帧泵。
