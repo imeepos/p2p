@@ -8,7 +8,9 @@
 //! 会话准入（M3 简化）：默认接受；authz/服务开关/审批闸在 M6 接入
 //! （依赖 wsm 服务总控波合入）。
 
+mod input;
 mod session;
+mod sessions;
 
 use std::sync::{Arc, Mutex};
 
@@ -49,7 +51,7 @@ impl Default for HostConfig {
 
 /// host 侧服务装配：持有会话注册表，控制/视频处理器共享。
 pub struct RdHost {
-    sessions: Arc<Mutex<session::HostSessions>>,
+    sessions: Arc<Mutex<sessions::HostSessions>>,
     _node: Arc<Node>,
 }
 
@@ -73,7 +75,7 @@ impl RdHost {
     ) -> Result<Self, HostError> {
         let control_id = ProtocolId::new(CONTROL_PROTOCOL_ID)?;
         let video_id = ProtocolId::new(VIDEO_PROTOCOL_ID)?;
-        let sessions = Arc::new(Mutex::new(session::HostSessions::default()));
+        let sessions = Arc::new(Mutex::new(sessions::HostSessions::default()));
         let config = Arc::new(config);
         let host = Self {
             sessions: sessions.clone(),
