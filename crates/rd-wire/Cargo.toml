@@ -1,0 +1,14 @@
+[package]
+name = "rd-wire"
+version.workspace = true
+edition.workspace = true
+description = "远程桌面线协议 crate：/rd/control/1 /rd/video/1 /rd/file/1 消息模型与编解码（纯逻辑，平台无关）"
+
+[dependencies]
+base64.workspace = true
+p2p-protocol = { path = "../p2p-protocol" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
