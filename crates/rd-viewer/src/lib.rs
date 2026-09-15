@@ -65,6 +65,18 @@ impl RdViewer {
         let inner = session::connect(self.node.clone(), peer, session_id, sink).await?;
         Ok(ViewerSession { inner })
     }
+
+    /// 连接 host（M4 剪贴板版）：clip 为 viewer 本机剪贴板后端，host 下行写入此处。
+    pub async fn connect_full(
+        &self,
+        peer: p2p::PeerId,
+        session_id: String,
+        sink: Arc<dyn RenderSink>,
+        clip: Option<Arc<tokio::sync::Mutex<dyn rd_clipboard::ClipboardBackend>>>,
+    ) -> Result<ViewerSession, ViewerError> {
+        let inner = session::connect_full(self.node.clone(), peer, session_id, sink, clip).await?;
+        Ok(ViewerSession { inner })
+    }
 }
 
 /// 活跃 viewer 会话：close() 显式关闭（视频泵任务随之退出）。

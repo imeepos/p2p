@@ -8,6 +8,7 @@ use std::sync::Arc;
 use flate2::read::ZlibDecoder;
 use p2p::Node;
 use p2p_mux::BoxedStream;
+use rd_clipboard::ClipboardBackend;
 use rd_wire::io::{recv_control, recv_large, send_control};
 use rd_wire::video::{decode_frame, CODEC_RAW_RGBA, CODEC_ZLIB_RGBA};
 use rd_wire::{ControlMsg, Role};
@@ -53,11 +54,17 @@ pub trait ControlWrite: Send + Sync {
     async fn key_reset(&self) -> Result<(), ViewerError> {
         self.send(ControlMsg::InputKeyReset).await
     }
+
+    /// 剪贴板便捷面（M4）：推送本机文本剪贴板。
+    async fn clipboard(&self, text: String) -> Result<(), ViewerError> {
+        self.send(ControlMsg::Clipboard { text }).await
+    }
 }
 
-/// 活跃会话：控制写半 + 视频泵任务 + 停止旗标。
+/// 活跃会话：控制写半 + 控制读任务 + 视频泵任务 + 停止旗标。
 pub struct ViewerSession {
     ctl: Arc<dyn ControlWrite>,
+    ctl_task: tokio::task::JoinHandle<()>,
     video_task: tokio::task::JoinHandle<()>,
     stop: Arc<AtomicBool>,
 }
@@ -76,26 +83,22 @@ impl ViewerSession {
             })
             .await;
         self.stop.store(true, Ordering::Relaxed);
+        self.ctl_task.abort();
         let _ = self.video_task.await;
         Ok(())
     }
 }
 
-/// 控制写半实现：独占控制流（tokio Mutex 串行化并发 send）。
+/// 控制写半实现：独占写半（tokio Mutex 串行化并发 send）。
 pub struct CtlHalf {
-    stream: Mutex<BoxedStream>,
+    stream: Mutex<tokio::io::WriteHalf<BoxedStream>>,
 }
 
 impl CtlHalf {
-    fn new(stream: BoxedStream) -> Self {
+    fn new(stream: tokio::io::WriteHalf<BoxedStream>) -> Self {
         Self {
             stream: Mutex::new(stream),
         }
-    }
-
-    /// 握手期独占访问（hello/hello_ack 之后不再使用）。
-    async fn lock(&self) -> tokio::sync::MutexGuard<'_, BoxedStream> {
-        self.stream.lock().await
     }
 }
 
@@ -107,55 +110,102 @@ impl ControlWrite for CtlHalf {
     }
 }
 
-/// 拨号流程：control 流 hello 握手 → video 流 → 视频泵。
+/// 控制读任务：处理 host 下行消息（剪贴板写入本机后端；Close 退出）。
+async fn control_read_loop(
+    mut read_half: tokio::io::ReadHalf<BoxedStream>,
+    clip: Option<Arc<Mutex<dyn ClipboardBackend>>>,
+    stop: Arc<AtomicBool>,
+) {
+    loop {
+        if stop.load(Ordering::Relaxed) {
+            break;
+        }
+        let msg = match recv_control(&mut read_half).await {
+            Ok(m) => m,
+            Err(e) => {
+                if !stop.load(Ordering::Relaxed) {
+                    tracing::warn!("rd-viewer: control recv ended: {e}");
+                }
+                break;
+            }
+        };
+        match msg {
+            ControlMsg::Clipboard { text } => {
+                if let Some(clip) = &clip {
+                    let mut g = clip.lock().await;
+                    if let Err(e) = g.write_text(&text) {
+                        tracing::warn!("rd-viewer: clipboard write failed: {e}");
+                    }
+                }
+            }
+            ControlMsg::Close { .. } => break,
+            _ => {}
+        }
+    }
+}
+
+/// 拨号流程（不带剪贴板 sink）：等价 connect_full(None)。
 pub async fn connect(
     node: Arc<Node>,
     peer: p2p::PeerId,
     session_id: String,
     sink: Arc<dyn RenderSink>,
 ) -> Result<ViewerSession, ViewerError> {
-    let ctl_stream = node
+    connect_full(node, peer, session_id, sink, None).await
+}
+
+/// 拨号流程（M4）：control 流 hello 握手 → split 读写半 → video 流 → 泵。
+/// clip 为 viewer 本机剪贴板后端（可选）：host 下行剪贴板写到这里。
+pub async fn connect_full(
+    node: Arc<Node>,
+    peer: p2p::PeerId,
+    session_id: String,
+    sink: Arc<dyn RenderSink>,
+    clip: Option<Arc<Mutex<dyn ClipboardBackend>>>,
+) -> Result<ViewerSession, ViewerError> {
+    let mut ctl_stream = node
         .new_stream(peer, rd_wire::control_protocol_id()?)
         .await?;
-    let ctl = CtlHalf::new(ctl_stream);
-    {
-        let mut s = ctl.lock().await;
-        send_control(
-            &mut *s,
-            &ControlMsg::Hello {
-                v: rd_wire::PROTOCOL_VERSION,
-                role: Role::Viewer,
-                session_id: session_id.clone(),
-                caps: rd_wire::Caps {
-                    audio: false,
-                    file: true,
-                    clipboard: true,
-                },
+    send_control(
+        &mut ctl_stream,
+        &ControlMsg::Hello {
+            v: rd_wire::PROTOCOL_VERSION,
+            role: Role::Viewer,
+            session_id: session_id.clone(),
+            caps: rd_wire::Caps {
+                audio: false,
+                file: true,
+                clipboard: true,
             },
-        )
-        .await?;
-        let ack = recv_control(&mut *s).await?;
-        match ack {
-            ControlMsg::HelloAck {
-                ok: true,
-                session_id: sid,
-                ..
-            } if sid == session_id => {}
-            ControlMsg::HelloAck {
-                ok: false, reason, ..
-            } => {
-                let why = reason.unwrap_or_else(|| "no reason".into());
-                return Err(ViewerError::Rejected(why));
-            }
-            other => return Err(ViewerError::Decode(format!("unexpected ack: {other:?}"))),
+        },
+    )
+    .await?;
+    let ack = recv_control(&mut ctl_stream).await?;
+    match ack {
+        ControlMsg::HelloAck {
+            ok: true,
+            session_id: sid,
+            ..
+        } if sid == session_id => {}
+        ControlMsg::HelloAck {
+            ok: false, reason, ..
+        } => {
+            let why = reason.unwrap_or_else(|| "no reason".into());
+            return Err(ViewerError::Rejected(why));
         }
+        other => return Err(ViewerError::Decode(format!("unexpected ack: {other:?}"))),
     }
+    let (read_half, write_half) = tokio::io::split(ctl_stream);
+    let ctl = CtlHalf::new(write_half);
     let video_stream = node.new_stream(peer, rd_wire::video_protocol_id()?).await?;
     let stop = Arc::new(AtomicBool::new(false));
-    let task_stop = stop.clone();
-    let video_task = tokio::spawn(video_pump(video_stream, sink, task_stop));
+    let ctl_stop = stop.clone();
+    let video_stop = stop.clone();
+    let ctl_task = tokio::spawn(control_read_loop(read_half, clip, ctl_stop));
+    let video_task = tokio::spawn(video_pump(video_stream, sink, video_stop));
     Ok(ViewerSession {
         ctl: Arc::new(ctl),
+        ctl_task,
         video_task,
         stop,
     })
