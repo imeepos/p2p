@@ -16,7 +16,12 @@
 - 键码映射：viewer 侧 DOM key → USB HID usage id（u16，已入 rd-wire input_key）→
   macOS virtual keycode（CGKeyCode）映射表随 rd-input 落地并单测。
 
-## 待 M2 开工时验证
-- screencapturekit-rs 的 region/delta 截取 API 形状与帧率控制；
-- cgevents 的 Cargo 版本与 macOS 版本兼容面；
-- 两库在 rust 1.98.1 / macOS 本机（Tauri 壳）下的构建可行性。
+## M2 实测结论（2026-09-15）
+- screencapturekit 10.0.3 编译通过（rust 1.98.1 aarch64），API：SCShareableContent →
+  SCContentFilter/SCStreamConfiguration → SCStream::add_output_handler(closure) →
+  CMSampleBufferExt::pixel_buffer → CVPixelBuffer lock_read_only + base_address 逐行拷贝。
+- **运行时硬约束**：SCK 依赖 Swift 运行时（libswift_Concurrency），本机 macOS 26.6
+  的 dyld cache 缺该库 → 测试二进制加载即 SIGABRT。处置：rd-capture 的 SCK 模块
+  feature 门控（`sck`，默认关），工作区门禁零 Swift 依赖；真实采集在带授权 + Swift
+  运行时真机验证（GUI 波）。
+- 待 M3 开工验证：cgevents 版本与 macOS 兼容面。

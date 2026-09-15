@@ -32,7 +32,13 @@ rect 8B = x u16 | y u16 | w u16 | h u16（帧内坐标，x+w ≤ w、y+h ≤ h�
 | n_rects | ≤ 256 |
 | payload_len | ≤ 256 MiB，且 MUST 与剩余字节数一致（截断/多余均断流） |
 
-### 2.2 行为约定
+### 2.2 会话绑定
+
+同一 Peer 同时只允许一个活跃会话；视频流按对端 PeerId 与 /rd/control/1 会话隐式绑定，
+不做显式 bind 帧（同 Peer 多会话并发属后续版本演进）。视频流先于 control 握手完成到达
+MUST 拒绝并关流。
+
+### 2.3 行为约定
 
 - host 侧 fps 节流 + 阻塞即跳帧：只发最新帧；viewer 忽略乱序 seq 之前的帧。
 - keyframe 每 N 帧至少一张（同步兜底，N 属实现策略）；viewer 未同步前丢弃 delta 帧。

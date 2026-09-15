@@ -44,13 +44,15 @@
 
 控制通道承担全部小载荷与命令；大载荷（画面/文件数据）走专用通道，避免命令饥饿。
 视频通道不重传丢帧（实时性优先）；控制通道帧序严格（输入必须有序送达）。
+同一 Peer 同时只允许一个活跃会话，视频流按 PeerId 与 control 会话隐式绑定
+（不做显式 bind 帧；多会话并发在 M6 多显示器波再演进）。
 
 ### 2.3 Crate 地图（crates/rd-*）
 
 | crate | 职责 | 平台 |
 |---|---|---|
 | `rd-wire` | 全部线协议消息模型 + 编解码 + 帧封装/分块 I/O（纯逻辑） | 全平台 |
-| `rd-capture` | 屏幕采集：ScreenCaptureKit（macOS 12.3+）/ CGDisplayStream 兜底；帧差分离屏区 | macOS（后续多平台） |
+| `rd-capture` | 屏幕采集抽象：CaptureSource trait + 确定性合成源（E2E）；`sck` feature 启用 ScreenCaptureKit 真实源（macOS 13+，Swift 运行时） | macOS（后续多平台） |
 | `rd-input` | 输入注入：CGEvent 鼠标/键盘；修饰键状态机；Accessibility 授权探测 | macOS |
 | `rd-clipboard` | 剪贴板读写与变更订阅（arboard 或 NSPasteboard） | macOS（arboard 跨平台） |
 | `rd-fs` | 远程文件系统：目录浏览、stat、传输分块、续传索引 | 全平台 |
@@ -161,7 +163,7 @@ JSON 控制消息（双向）+ 数据块（viewer↔host 双向，按传输方�
 | 里程碑 | 内容 | 验收 |
 |---|---|---|
 | M1（本轮） | 设计定稿 + `crates/rd-wire`（全部消息模型/编解码/帧 I/O + 单测）+ 协议注册（registry.toml/specs/wire-protocol.md） | make check 绿；rd-wire 单测覆盖编解码往返/非法输入拒绝/分块边界 |
-| M2 | host 采集（ScreenCaptureKit）+ video 通道 + viewer 解码渲染 + 双节点 E2E（itest） | 真机双节点画面贯通；丢帧跳帧断言；首帧 ≤ 1s |
+| M2 | video 全链：rd-capture（trait+合成源+SCK feature 门控）+ rd-host/rd-viewer 会话 + 双节点 E2E（raw/zlib 双编码、keyframe 同步、重复拨号拒绝、close 清理） | 3 项 E2E 绿（crates/p2p-itest/tests/rd_video_wave.rs）；SCK 真实采集待带授权真机验证（本机无 Swift 运行时） |
 | M3 | 输入注入（鼠标/键盘/修饰键）+ input 通道 | 真机远程可操作；断线按键重置；Accessibility 缺失显式报错 |
 | M4 | 剪贴板双向同步 | 文本剪贴板两端一致；变更订阅驱动 |
 | M5 | 文件传输（浏览/上下传/进度/取消/续传/路径卫生） | 单测 + 双节点 E2E 大文件校验和一致 |
