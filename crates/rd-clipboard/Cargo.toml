@@ -1,0 +1,10 @@
+[package]
+name = "rd-clipboard"
+version.workspace = true
+edition.workspace = true
+description = "远程桌面剪贴板同步：ClipboardBackend trait + 系统剪贴板（arboard）+ 共享内存后端（测试/E2E）"
+
+[dependencies]
+arboard = "3"
+thiserror.workspace = true
+tracing.workspace = true
