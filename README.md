@@ -39,6 +39,7 @@
 | `crates/p2p-itest` | 双节点跨 crate 集成测试（发现/中继/聊天全链 E2E） |
 | `crates/p2p-cli` | CLI 复用库：echo 协议与节点装配（apps/cli p2pctl 经路径依赖复用） |
 | `crates/p2p-chat` | IM 聊天业务层：/im/chat/1 协议、好友簿、消息/附件存储、outbox 离线队列 |
+| `crates/p2p-ftp` | FTP 语义 over P2P：/ftp/ctrl/1 命令应答 + /ftp/data/1 令牌数据流，LocalFs 监狱后端与 Authenticator 接缝（docs/protocol/specs/ftp.md） |
 | `crates/repair-bridge` | 远程支持接入桥：runner stdio ⇄ /repair/bridge/1 帧双向对拷 |
 | `crates/repair-helper` | MCP 宿主：工具面装配、票据校验、shell_exec 执行与审计 |
 | `crates/repair-enforce` | 执法核心（纯逻辑）：红线/scope 门/审批状态机/白名单判定 |

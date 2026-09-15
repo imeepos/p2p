@@ -233,3 +233,25 @@ spec_status = "draft"
 summary = "远程桌面音频信道（预留）：host→viewer 二进制帧，随音频波实现"
 vectors = []
 since = "2026-09-15"
+
+[[protocols]]
+id = "/ftp/ctrl/1"
+family = "file"
+owner = "crates/p2p-ftp"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/ftp.md"
+summary = "FTP 控制通道：一帧一行命令/应答（RFC 959 命令集子集），150 发放一次性传输令牌"
+vectors = []
+since = "2026-09-16"
+
+[[protocols]]
+id = "/ftp/data/1"
+family = "file"
+owner = "crates/p2p-ftp"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/ftp.md"
+summary = "FTP 数据通道：首帧操作码+令牌兑付（节点绑定+TTL），其后原始字节流定向流动"
+vectors = []
+since = "2026-09-16"

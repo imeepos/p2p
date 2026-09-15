@@ -74,6 +74,8 @@
 | `/rd/video/1` | 远程桌面视频帧：小端二进制信封（帧头+rects+载荷，raw/zlib，chunked 承载大帧） | 已实现（crates/rd-wire，规范页 docs/protocol/specs/rd-video.md） |
 | `/rd/file/1` | 远程文件传输：目录浏览/stat/建删/分块上传下载/进度/取消（JSON + base64 数据块） | 已实现（crates/rd-wire，规范页 docs/protocol/specs/rd-file.md） |
 | `/rd/audio/1` | 远程桌面音频信道（预留）：host→viewer 二进制帧 | 已登记 planned（crates/rd-wire，规范页 docs/protocol/specs/rd-audio.md，随音频波实现） |
+| `/ftp/ctrl/1` | FTP 控制通道：一帧一行命令/应答（RFC 959 子集），150 发放一次性数据令牌 | 已实现（crates/p2p-ftp/src/session.rs，规范页 docs/protocol/specs/ftp.md） |
+| `/ftp/data/1` | FTP 数据通道：首帧操作码+令牌兑付（节点绑定+TTL），其后原始字节流 | 已实现（crates/p2p-ftp/src/server.rs，规范页 docs/protocol/specs/ftp.md） |
 
 业务协议 ID（如 `/myapp/chat/1`）与内置 ID 使用完全相同的注册与路由机制，无特权差别。
 
