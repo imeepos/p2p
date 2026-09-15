@@ -2047,6 +2047,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rd-wire"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "p2p-protocol",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
