@@ -70,6 +70,10 @@
 | `/llm-share/proxy/1` | 闲置 LLM 额度共享代理：三闸准入、SSE 逐帧转发、预授权结算 | 已实现（crates/llm-share-proxy/src/wire.rs） |
 | `/a2a/1` | A2A 智能体 card 相（list/get/subscribe/push/remove）+ task 相（JSON-RPC 2.0，1 task=1 流） | 协议 ID 自 crates/a2a 定义（llm-share-offer 先例），随 A2A 波落地（a2a-over-p2p-design.md） |
 | `/p2p-base/tunnel/1` | 票据准入的本地 HTTP 隧道：JSON 票据帧 + ack/error 应答 + 双向字节流分块（访侧回环反代） | 已实现（crates/p2p-tunnel，规范页 docs/protocol/specs/tunnel.md；被访侧已落地，访侧 GUI 面 W-T3 落地中） |
+| `/rd/control/1` | 远程桌面控制通道：握手/输入/剪贴板/显示/质量/心跳/关闭（JSON，双向） | 已实现（crates/rd-wire，规范页 docs/protocol/specs/rd-control.md） |
+| `/rd/video/1` | 远程桌面视频帧：小端二进制信封（帧头+rects+载荷，raw/zlib，chunked 承载大帧） | 已实现（crates/rd-wire，规范页 docs/protocol/specs/rd-video.md） |
+| `/rd/file/1` | 远程文件传输：目录浏览/stat/建删/分块上传下载/进度/取消（JSON + base64 数据块） | 已实现（crates/rd-wire，规范页 docs/protocol/specs/rd-file.md） |
+| `/rd/audio/1` | 远程桌面音频信道（预留）：host→viewer 二进制帧 | 已登记 planned（crates/rd-wire，规范页 docs/protocol/specs/rd-audio.md，随音频波实现） |
 
 业务协议 ID（如 `/myapp/chat/1`）与内置 ID 使用完全相同的注册与路由机制，无特权差别。
 

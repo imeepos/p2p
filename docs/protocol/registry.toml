@@ -190,3 +190,46 @@ spec = "specs/tunnel.md"
 summary = "票据准入的本地 HTTP 隧道：JSON 票据帧 + ack/error 应答 + 双向字节流分块，访侧回环反代"
 vectors = []
 since = "2026-09-11"
+
+[[protocols]]
+id = "/rd/control/1"
+family = "ecosystem"
+owner = "crates/rd-wire"
+impl = "implemented"
+spec_status = "draft"
+spec = "specs/rd-control.md"
+summary = "远程桌面控制通道：握手/输入/剪贴板/显示/质量/心跳/关闭（JSON，双向）"
+vectors = []
+since = "2026-09-15"
+
+[[protocols]]
+id = "/rd/video/1"
+family = "ecosystem"
+owner = "crates/rd-wire"
+impl = "implemented"
+spec_status = "draft"
+spec = "specs/rd-video.md"
+summary = "远程桌面视频帧：小端二进制信封（帧头+rects+载荷，raw/zlib，chunked 承载大帧）"
+vectors = []
+since = "2026-09-15"
+
+[[protocols]]
+id = "/rd/file/1"
+family = "ecosystem"
+owner = "crates/rd-wire"
+impl = "implemented"
+spec_status = "draft"
+spec = "specs/rd-file.md"
+summary = "远程文件传输：目录浏览/stat/建删/分块上传下载/进度/取消（JSON + base64 数据块）"
+vectors = []
+since = "2026-09-15"
+
+[[protocols]]
+id = "/rd/audio/1"
+family = "ecosystem"
+owner = "crates/rd-wire"
+impl = "planned"
+spec_status = "draft"
+summary = "远程桌面音频信道（预留）：host→viewer 二进制帧，随音频波实现"
+vectors = []
+since = "2026-09-15"
