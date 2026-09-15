@@ -48,6 +48,7 @@
 | `crates/llm-share-proxy` | E10 代理：/llm-share/proxy/1 三闸准入、SSE 逐帧转发、预授权结算、拨号客户端 |
 | `crates/llm-share-link` | 分享链接纯逻辑：dsh-llm-share:// 链接组装/解析、CSPRNG token（台账只存 sha256）、shares.json 台账（兑换激活防 TOCTOU）、/llm-share/redeem/1 兑换帧 |
 | `crates/acp-pump` | ACP 操作者侧泵：本地 WS(127.0.0.1+token) ⇄ P2P 流哑泵 + 节点发现 + 连接状态机 + share-link；宿主 = GUI 进程内装配与 p2pctl acp console（INLINE-ACP-PUMP） |
+| `crates/rd-wire` | 远程桌面线协议：/rd/control/1 /rd/video/1 /rd/file/1 消息模型与编解码、帧 I/O（M1；方案见 remote-desktop-plan.md） |
 
 依赖方向：facade -> swarm -> relay/discovery/protocol -> transport/security/mux -> identity；
 层间只经 trait 交互，任一层可替换（design §3）。
