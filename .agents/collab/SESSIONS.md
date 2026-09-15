@@ -90,3 +90,14 @@
   specs/ftp.md + README crate map 行），分支 feat/ftp-protocol / worktree
   .worktrees/ftp-protocol，任务来源=用户目标「在p2p协议基础上实现ftp协议」。
   禁触 .worktrees/rd-wire、.worktrees/wsm-b2 与他波在飞面（apps/gui、p2p-service 注册表闭集）。
+- [认领] 2026-09-15 session-rd-goal（goal round 主会话）：认领远程桌面控制波
+  （.orchestrator/2026-09-15-remote-desktop/）——scope：新建 crates/rd-wire（协议编解码，
+  本轮）、后续 crates/rd-capture|rd-input|rd-clipboard|rd-fs|rd-service、apps/gui
+  views/remote-desktop 域、src-tauri rd 命令面、docs/design/remote-desktop-plan.md（新增）、
+  docs/protocol（registry.toml + specs/rd-*.md + wire-protocol.md §3.2 对应行）、
+  docs/ops/p2pctl-ai-guide.md rd 域（后续）。分支前缀 feat/rd-*。来源：用户直接指令
+  （远程桌面控制，要求覆盖 rustdesk 核心功能至商用程度）。
+  禁触：wsm 服务总控波（feat/wsm-b2，session-cd1cdce3 在飞，settings/services-card、
+  src-tauri 服务开关面、p2p-service）、tunnel 域（已释放但 GUI remote-access 属 tgui 波
+  已收官，只读复用）。依赖注意：远程桌面服务开关接 p2p-service 注册表，wsm 波合入后接线。
+ (docs(collab): 远程桌面波 scope 认领登记)
