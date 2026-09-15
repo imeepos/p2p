@@ -11,8 +11,8 @@
 
 mod control;
 mod file;
-mod io;
-mod video;
+pub mod io;
+pub mod video;
 
 pub use control::{validate as validate_control, Caps, ControlMsg, DisplayInfo, Role};
 pub use file::{sanitize_rel_path, Entry, FileMsg, FsKind, XferDir, MAX_DATA_RAW_BYTES};
@@ -28,6 +28,21 @@ pub const FILE_PROTOCOL_ID: &str = "/rd/file/1";
 
 /// 协议版本：hello.v 与视频信封 ver 字段共用。
 pub const PROTOCOL_VERSION: u8 = 1;
+
+/// 解析控制通道协议 ID（常量合法性的机器核对点；调用方处理 Err）。
+pub fn control_protocol_id() -> Result<p2p_protocol::ProtocolId, p2p_protocol::ProtocolError> {
+    p2p_protocol::ProtocolId::new(CONTROL_PROTOCOL_ID)
+}
+
+/// 解析视频通道协议 ID。
+pub fn video_protocol_id() -> Result<p2p_protocol::ProtocolId, p2p_protocol::ProtocolError> {
+    p2p_protocol::ProtocolId::new(VIDEO_PROTOCOL_ID)
+}
+
+/// 解析文件通道协议 ID。
+pub fn file_protocol_id() -> Result<p2p_protocol::ProtocolId, p2p_protocol::ProtocolError> {
+    p2p_protocol::ProtocolId::new(FILE_PROTOCOL_ID)
+}
 
 /// rd-wire 编解码错误：解码端对任意非法输入 MUST 报错拒绝，不猜测不降级。
 #[derive(Debug, thiserror::Error)]
