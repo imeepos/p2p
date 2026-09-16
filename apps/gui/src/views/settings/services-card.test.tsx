@@ -57,7 +57,7 @@ describe("服务总控卡（gui-contract §20）", () => {
   it("渲染 services_list 全量 10 行：名称/型别/状态/开关", async () => {
     render(<ServicesCard />);
     expect(await screen.findByText("LLM 借出服务")).toBeTruthy();
-    expect(screen.getAllByRole("switch")).toHaveLength(10);
+    expect(screen.getAllByRole("switch")).toHaveLength(11);
     expect(screen.getByTestId("service-kind-serve.llm_share").textContent).toBe(
       "布尔闸",
     );
@@ -128,6 +128,6 @@ describe("服务总控卡（gui-contract §20）", () => {
     listMock.mockImplementation(async () => ({ services: fullServiceList() }));
     fireEvent.click(screen.getByRole("button", { name: "刷新" }));
     expect(await screen.findByText("LLM 借出服务")).toBeTruthy();
-    expect(screen.getAllByRole("switch")).toHaveLength(10);
+    expect(screen.getAllByRole("switch")).toHaveLength(11);
   });
 });
