@@ -44,16 +44,26 @@ pub enum XferDir {
 pub enum FileMsg {
     /// 目录浏览请求（viewer→host）。
     FsList { path: String },
-    /// 目录条目应答。
-    FsListAck { path: String, entries: Vec<Entry> },
+    /// 目录条目应答（error 非空 = 浏览失败）。
+    FsListAck {
+        path: String,
+        entries: Vec<Entry>,
+        error: Option<String>,
+    },
     /// 单条目 stat。
     FsStat { path: String },
-    /// stat 应答（entry=None 表示不存在）。
-    FsStatAck { path: String, entry: Option<Entry> },
+    /// stat 应答（entry=None 表示不存在；error 非空 = stat 失败）。
+    FsStatAck {
+        path: String,
+        entry: Option<Entry>,
+        error: Option<String>,
+    },
     /// 建目录。
     FsMkdir { path: String },
     /// 删除（host 实现选择移除或回收站语义）。
     FsRm { path: String },
+    /// 建目录/删除应答（M5 加法）。
+    FsOpAck { ok: bool, reason: Option<String> },
     /// 传输登记（viewer 生成 id；download = host 读文件发回）。
     XferStart {
         id: String,
@@ -126,16 +136,19 @@ impl FileMsg {
 }
 
 /// 路径字段全部走相对 POSIX 路径卫生（禁绝对/`..`/NUL/超长）。
+/// 例外：FsList/FsStat 的空串表示根目录浏览（M5 加法），其余消息空串仍拒绝。
 fn validate_paths(msg: &FileMsg) -> Result<(), WireError> {
-    let paths: Vec<&str> = match msg {
-        FileMsg::FsList { path }
-        | FileMsg::FsStat { path }
-        | FileMsg::FsMkdir { path }
-        | FileMsg::FsRm { path }
-        | FileMsg::XferStart { path, .. } => vec![path],
+    let paths: Vec<(&str, bool)> = match msg {
+        FileMsg::FsList { path } | FileMsg::FsStat { path } => vec![(path, true)],
+        FileMsg::FsMkdir { path } | FileMsg::FsRm { path } | FileMsg::XferStart { path, .. } => {
+            vec![(path, false)]
+        }
         _ => Vec::new(),
     };
-    for p in paths {
+    for (p, allow_root) in paths {
+        if allow_root && p.is_empty() {
+            continue;
+        }
         sanitize_rel_path(p)?;
     }
     Ok(())
