@@ -2,8 +2,6 @@
 
 use std::sync::Arc;
 
-use tokio::io::AsyncWriteExt;
-
 use crate::backend::FsBackend;
 use crate::error::{ErrorKind, VDriveError};
 use crate::http::{HttpRequest, HttpResponse, ResponseBody};
@@ -17,11 +15,11 @@ pub async fn get(backend: &Arc<dyn FsBackend>, vpath: &str, head_only: bool) -> 
     };
     match entry.kind {
         EntryKind::Dir => dir_index(backend, vpath, head_only).await,
-        EntryKind::File => file_response(backend, vpath, &entry, head_only),
+        EntryKind::File => file_response(backend, vpath, &entry, head_only).await,
     }
 }
 
-fn file_response(
+async fn file_response(
     backend: &Arc<dyn FsBackend>,
     vpath: &str,
     entry: &crate::wire::Entry,
@@ -34,41 +32,19 @@ fn file_response(
             .with_header("ETag", &format!("\"{}-{}\"", entry.size, entry.mtime))
             .body(ResponseBody::Size(entry.size));
     }
-    let (stream, len) = pump(backend.clone(), vpath.to_string(), entry.size);
+    // 一次传输一次句柄（SFTP 同款先例）：open_reader 由后端决定本地
+    // File 或远端 chunk 泵，桥不再自行分块。
+    let stream = match backend.open_reader(vpath).await {
+        Ok(reader) => reader,
+        Err(e) => return status_for(&e),
+    };
     HttpResponse::status(200)
         .with_header("Content-Type", content_type)
         .with_header("ETag", &format!("\"{}-{}\"", entry.size, entry.mtime))
         .body(ResponseBody::Stream {
-            stream: Box::new(stream),
-            len: Some(len),
+            stream,
+            len: Some(entry.size),
         })
-}
-
-/// 下行泵：后端分块读 → duplex 流，桥接内存占用 = 一个 chunk。
-fn pump(backend: Arc<dyn FsBackend>, vpath: String, size: u64) -> (tokio::io::DuplexStream, u64) {
-    let (mut tx, rx) = tokio::io::duplex(crate::wire::MAX_CHUNK as usize * 2);
-    tokio::spawn(async move {
-        let mut offset = 0u64;
-        while offset < size {
-            let want = ((size - offset).min(crate::wire::MAX_CHUNK as u64)) as u32;
-            match backend.read(&vpath, offset, want).await {
-                Ok(bytes) if bytes.is_empty() => break,
-                Ok(bytes) => {
-                    offset += bytes.len() as u64;
-                    if tx.write_all(&bytes).await.is_err() {
-                        break; // 下行端已断开（客户端取消），泵自然结束
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(vpath = %vpath, "dav GET read failed mid-stream: {e}");
-                    break; // 显式截断：客户端以短读感知失败，此处已发过 200 头
-                }
-            }
-        }
-        let _ = tx.flush().await;
-        drop(tx);
-    });
-    (rx, size)
 }
 
 async fn dir_index(backend: &Arc<dyn FsBackend>, vpath: &str, head_only: bool) -> HttpResponse {

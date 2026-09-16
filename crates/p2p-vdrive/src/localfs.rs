@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 use tokio::fs;
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use crate::backend::{FsBackend, FsResult};
 use crate::error::{ErrorKind, VDriveError};
@@ -263,6 +263,17 @@ impl FsBackend for LocalFs {
         f.flush().await?;
         Ok(data.len() as u64)
     }
+
+    async fn open_reader(&self, path: &str) -> FsResult<Box<dyn AsyncRead + Unpin + Send>> {
+        let target = self.resolve(path)?;
+        let f = fs::File::open(&target)
+            .await
+            .map_err(|e| attach_not_dir(e, &target))?;
+        if f.metadata().await?.is_dir() {
+            return Err(VDriveError::new(ErrorKind::NotDir, "is a directory"));
+        }
+        Ok(Box::new(f))
+    }
 }
 
 /// 目录路径上的文件操作统一转 NotDir（而非底层 io 错误），供 HTTP 405 映射。
@@ -280,5 +291,27 @@ mod tests {
     #[tokio::test]
     async fn open_rejects_missing_root() {
         assert!(LocalFs::open("/definitely/not/exists").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn open_reader_streams_whole_file_once() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = LocalFs::open(tmp.path()).await.unwrap();
+        fs::create_dir(tmp.path().join("d")).await.unwrap();
+        fs::write(tmp.path().join("d/big.bin"), vec![7u8; 600_000])
+            .await
+            .unwrap();
+        let mut reader = f.open_reader("/d/big.bin").await.unwrap();
+        use tokio::io::AsyncReadExt;
+        let mut got = Vec::new();
+        reader.read_to_end(&mut got).await.unwrap();
+        assert_eq!(got.len(), 600_000);
+        assert!(got.iter().all(|b| *b == 7));
+        // 目录读体必须 NotDir（HTTP 405 映射面）。
+        let err = match f.open_reader("/d").await {
+            Err(e) => e,
+            Ok(_) => panic!("目录读体应被拒绝"),
+        };
+        assert_eq!(err.kind, ErrorKind::NotDir);
     }
 }

@@ -9,6 +9,7 @@ use async_trait::async_trait;
 use p2p::Node;
 use p2p_identity::PeerId;
 use p2p_protocol::{read_frame, ProtocolId};
+use tokio::io::AsyncRead;
 
 use crate::backend::FsBackend;
 use crate::error::{ErrorKind, VDriveError};
@@ -205,5 +206,16 @@ impl FsBackend for VDriveClient {
             )
             .await?;
         expect_written(reply)
+    }
+
+    async fn open_reader(
+        &self,
+        path: &str,
+    ) -> Result<Box<dyn AsyncRead + Unpin + Send>, VDriveError> {
+        // 远端形态无句柄可跨 RPC：缺省 chunk 泵（一次传输一条流）。
+        Ok(crate::backend::stream_via_chunks(
+            Arc::new(self.clone()),
+            path.to_string(),
+        ))
     }
 }
