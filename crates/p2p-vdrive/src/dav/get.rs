@@ -45,11 +45,7 @@ fn file_response(
 }
 
 /// 下行泵：后端分块读 → duplex 流，桥接内存占用 = 一个 chunk。
-fn pump(
-    backend: Arc<dyn FsBackend>,
-    vpath: String,
-    size: u64,
-) -> (tokio::io::DuplexStream, u64) {
+fn pump(backend: Arc<dyn FsBackend>, vpath: String, size: u64) -> (tokio::io::DuplexStream, u64) {
     let (mut tx, rx) = tokio::io::duplex(crate::wire::MAX_CHUNK as usize * 2);
     tokio::spawn(async move {
         let mut offset = 0u64;
@@ -157,7 +153,13 @@ async fn parent_exists(backend: &Arc<dyn FsBackend>, vpath: &str) -> bool {
 }
 
 fn mime_of(path: &str) -> &'static str {
-    match path.rsplit('.').next().unwrap_or("").to_ascii_lowercase().as_str() {
+    match path
+        .rsplit('.')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "txt" | "md" | "log" | "rs" | "toml" | "json" => "text/plain; charset=utf-8",
         "html" | "htm" => "text/html; charset=utf-8",
         "png" => "image/png",

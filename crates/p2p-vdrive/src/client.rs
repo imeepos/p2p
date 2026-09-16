@@ -12,9 +12,8 @@ use p2p_protocol::{read_frame, ProtocolId};
 
 use crate::backend::FsBackend;
 use crate::error::{ErrorKind, VDriveError};
-use crate::wire::{
-    decode_reply, write_request, Entry, ReplyData, Request, StatFs, MAX_CHUNK, PROTO_FS,
-};
+use crate::reply::{decode_reply, ReplyData};
+use crate::wire::{write_request, Entry, Request, StatFs, MAX_CHUNK, PROTO_FS};
 
 #[derive(Clone)]
 pub struct VDriveClient {
@@ -137,31 +136,53 @@ impl FsBackend for VDriveClient {
     }
 
     async fn unlink(&self, path: &str) -> Result<(), VDriveError> {
-        self.rpc(Request::Unlink { path: path.into() }, None).await?;
+        self.rpc(Request::Unlink { path: path.into() }, None)
+            .await?;
         Ok(())
     }
 
     async fn rename(&self, from: &str, to: &str) -> Result<(), VDriveError> {
-        self.rpc(Request::Rename { from: from.into(), to: to.into() }, None)
-            .await?;
+        self.rpc(
+            Request::Rename {
+                from: from.into(),
+                to: to.into(),
+            },
+            None,
+        )
+        .await?;
         Ok(())
     }
 
     async fn truncate(&self, path: &str, size: u64) -> Result<(), VDriveError> {
-        self.rpc(Request::Truncate { path: path.into(), size }, None)
-            .await?;
+        self.rpc(
+            Request::Truncate {
+                path: path.into(),
+                size,
+            },
+            None,
+        )
+        .await?;
         Ok(())
     }
 
     async fn create(&self, path: &str) -> Result<Entry, VDriveError> {
-        let (reply, _) = self.rpc(Request::Create { path: path.into() }, None).await?;
+        let (reply, _) = self
+            .rpc(Request::Create { path: path.into() }, None)
+            .await?;
         expect_entry(reply)
     }
 
     async fn read(&self, path: &str, offset: u64, len: u32) -> Result<Vec<u8>, VDriveError> {
         let len = len.min(MAX_CHUNK);
         let (reply, data) = self
-            .rpc(Request::Read { path: path.into(), offset, len }, None)
+            .rpc(
+                Request::Read {
+                    path: path.into(),
+                    offset,
+                    len,
+                },
+                None,
+            )
             .await?;
         let _ = reply;
         Ok(data.unwrap_or_default())
@@ -175,7 +196,13 @@ impl FsBackend for VDriveClient {
             ));
         }
         let (reply, _) = self
-            .rpc(Request::Write { path: path.into(), offset }, Some(data))
+            .rpc(
+                Request::Write {
+                    path: path.into(),
+                    offset,
+                },
+                Some(data),
+            )
             .await?;
         expect_written(reply)
     }

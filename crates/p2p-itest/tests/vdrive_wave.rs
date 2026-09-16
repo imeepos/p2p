@@ -30,14 +30,21 @@ async fn fs_lifecycle_over_real_nodes() {
 
     c.mkdir("/docs").await.expect("mkdir");
     let err = c.mkdir("/docs").await.unwrap_err();
-    assert_eq!(err.kind, ErrorKind::AlreadyExists, "重复 mkdir 报 already_exists");
+    assert_eq!(
+        err.kind,
+        ErrorKind::AlreadyExists,
+        "重复 mkdir 报 already_exists"
+    );
 
     let entry = c.create("/docs/hello.txt").await.expect("create");
     assert_eq!(entry.kind, EntryKind::File);
     assert_eq!(entry.size, 0);
 
     let payload = b"hello vdrive network disk".to_vec();
-    let written = c.write("/docs/hello.txt", 0, &payload).await.expect("write");
+    let written = c
+        .write("/docs/hello.txt", 0, &payload)
+        .await
+        .expect("write");
     assert_eq!(written, payload.len() as u64);
 
     let st = c.stat("/docs/hello.txt").await.expect("stat");
@@ -46,16 +53,24 @@ async fn fs_lifecycle_over_real_nodes() {
 
     let got = c.read("/docs/hello.txt", 0, MAX_CHUNK).await.expect("read");
     assert_eq!(got, payload);
-    let tail = c.read("/docs/hello.txt", 6, MAX_CHUNK).await.expect("read tail");
+    let tail = c
+        .read("/docs/hello.txt", 6, MAX_CHUNK)
+        .await
+        .expect("read tail");
     assert_eq!(tail, &payload[6..], "偏移读");
-    let eof = c.read("/docs/hello.txt", 999, MAX_CHUNK).await.expect("read eof");
+    let eof = c
+        .read("/docs/hello.txt", 999, MAX_CHUNK)
+        .await
+        .expect("read eof");
     assert!(eof.is_empty(), "越界偏移 = 短读 0（EOF 语义）");
 
     let entries = c.list("/docs").await.expect("list");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].name, "hello.txt");
 
-    c.rename("/docs/hello.txt", "/docs/hi.txt").await.expect("rename");
+    c.rename("/docs/hello.txt", "/docs/hi.txt")
+        .await
+        .expect("rename");
     let err = c.stat("/docs/hello.txt").await.unwrap_err();
     assert_eq!(err.kind, ErrorKind::NotFound, "旧名消失");
     c.truncate("/docs/hi.txt", 4).await.expect("truncate");
@@ -92,7 +107,10 @@ async fn large_file_chunked_roundtrip() {
     let mut back = Vec::with_capacity(payload.len());
     let mut pos = 0u64;
     loop {
-        let chunk = c.read("/big.bin", pos, MAX_CHUNK).await.expect("chunk read");
+        let chunk = c
+            .read("/big.bin", pos, MAX_CHUNK)
+            .await
+            .expect("chunk read");
         if chunk.is_empty() {
             break;
         }
@@ -121,8 +139,11 @@ async fn jail_escape_rejected() {
 #[tokio::test]
 async fn write_policy_denied_but_read_allowed() {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let fs: Arc<dyn p2p_vdrive::FsBackend> =
-        Arc::new(p2p_vdrive::LocalFs::open(tmp.path()).await.expect("localfs"));
+    let fs: Arc<dyn p2p_vdrive::FsBackend> = Arc::new(
+        p2p_vdrive::LocalFs::open(tmp.path())
+            .await
+            .expect("localfs"),
+    );
     let host = Arc::new(
         p2p::Node::builder()
             .mdns(false)

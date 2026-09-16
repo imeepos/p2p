@@ -13,7 +13,9 @@ use tokio::io::AsyncWriteExt;
 
 use crate::backend::FsBackend;
 use crate::error::{ErrorKind, VDriveError};
-use crate::wire::{read_data_frame, read_frame_opt, write_reply, ReplyData, Request, MAX_CHUNK, PROTO_FS};
+use crate::reply::write_reply;
+use crate::reply::ReplyData;
+use crate::wire::{read_data_frame, read_frame_opt, Request, MAX_CHUNK, PROTO_FS};
 
 /// 操作类别：读 / 写（策略裁决粒度）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,7 +108,10 @@ impl ProtocolHandler for VDriveServer {
             tracing::info!(peer = %peer, op = class_of(&req), "vdrive denied by policy");
             return write_reply(
                 &mut stream,
-                &Err(VDriveError::new(ErrorKind::PermissionDenied, "denied by policy")),
+                &Err(VDriveError::new(
+                    ErrorKind::PermissionDenied,
+                    "denied by policy",
+                )),
             )
             .await;
         }
@@ -196,7 +201,10 @@ fn with_data(reply: ReplyData) -> (ReplyData, Option<Vec<u8>>) {
 }
 
 /// 宿主装配入口：注册 handler 进节点。
-pub fn serve(node: &p2p::Node, backend: Arc<dyn FsBackend>) -> Result<Arc<VDriveServer>, VDriveError> {
+pub fn serve(
+    node: &p2p::Node,
+    backend: Arc<dyn FsBackend>,
+) -> Result<Arc<VDriveServer>, VDriveError> {
     serve_with_policy(node, backend, Arc::new(AllowAll))
 }
 

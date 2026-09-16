@@ -9,8 +9,10 @@ use p2p::Node;
 use p2p_identity::PeerId;
 use p2p_vdrive::{LocalFs, VDriveClient};
 
+#[allow(dead_code)]
 pub const STEP: Duration = Duration::from_secs(10);
 
+#[allow(dead_code)]
 pub struct Rig {
     pub host: Arc<Node>,
     pub guest: Arc<Node>,
@@ -63,6 +65,7 @@ pub async fn rig(name: &str) -> Rig {
 }
 
 /// 手写 HTTP/1.1 往返：恒 Connection: close，读到 EOF 收完整应答。
+#[allow(dead_code)]
 pub async fn http(
     addr: SocketAddr,
     method: &str,
@@ -70,7 +73,9 @@ pub async fn http(
     headers: &[(&str, &str)],
     body: &[u8],
 ) -> (u16, Vec<(String, String)>, Vec<u8>) {
-    let mut tcp = tokio::net::TcpStream::connect(addr).await.expect("dav connect");
+    let mut tcp = tokio::net::TcpStream::connect(addr)
+        .await
+        .expect("dav connect");
     let mut head = format!("{method} {target} HTTP/1.1\r\nHost: bridge\r\n");
     for (k, v) in headers {
         head.push_str(&format!("{k}: {v}\r\n"));
@@ -94,6 +99,7 @@ pub async fn http(
     parse_response(&buf)
 }
 
+#[allow(dead_code)]
 fn parse_response(buf: &[u8]) -> (u16, Vec<(String, String)>, Vec<u8>) {
     let sep = buf
         .windows(4)
@@ -115,6 +121,7 @@ fn parse_response(buf: &[u8]) -> (u16, Vec<(String, String)>, Vec<u8>) {
     (status, headers, body)
 }
 
+#[allow(dead_code)]
 pub fn header<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a str> {
     headers
         .iter()

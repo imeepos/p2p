@@ -67,8 +67,12 @@ pub fn copy_tree<'a>(
             EntryKind::Dir => {
                 backend.mkdir(to).await?;
                 for child in backend.list(from).await? {
-                    copy_tree(backend, &join_vpath(from, &child.name), &join_vpath(to, &child.name))
-                        .await?;
+                    copy_tree(
+                        backend,
+                        &join_vpath(from, &child.name),
+                        &join_vpath(to, &child.name),
+                    )
+                    .await?;
                 }
                 Ok(())
             }
@@ -130,7 +134,10 @@ pub async fn clear_dest(
         }
         Err(e) if e.kind == ErrorKind::NotFound => {
             if !dest_parent_ok(backend, dest).await {
-                return Err(VDriveError::new(ErrorKind::NotFound, "destination parent missing"));
+                return Err(VDriveError::new(
+                    ErrorKind::NotFound,
+                    "destination parent missing",
+                ));
             }
             Ok(false)
         }

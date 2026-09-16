@@ -8,7 +8,6 @@ mod vdrive_common;
 use std::sync::Arc;
 
 use p2p_vdrive::bridge::{MountBridge, MountConfig};
-use p2p_vdrive::dav::DavService;
 use p2p_vdrive::FsBackend;
 use tokio::sync::watch;
 use vdrive_common::{header, http, rig};
@@ -46,34 +45,24 @@ async fn bridge_rig(name: &str) -> BridgeRig {
 async fn dav_options_and_propfind() {
     let rig = bridge_rig("dav1").await;
     rig.client.mkdir("/docs").await.expect("seed mkdir");
-    let seed = rig.client.create("/docs/hello.txt").await.expect("seed file");
+    let seed = rig
+        .client
+        .create("/docs/hello.txt")
+        .await
+        .expect("seed file");
     let _ = seed;
 
     let (status, headers, _) = http(rig.addr, "OPTIONS", "/", &[], b"").await;
     assert_eq!(status, 200);
     assert_eq!(header(&headers, "DAV"), Some("1, 2"), "Class 1+2 声明");
 
-    let (status, _, body) = http(
-        rig.addr,
-        "PROPFIND",
-        "/",
-        &[("Depth", "1")],
-        b"",
-    )
-    .await;
+    let (status, _, body) = http(rig.addr, "PROPFIND", "/", &[("Depth", "1")], b"").await;
     assert_eq!(status, 207, "PROPFIND 根");
     let xml = String::from_utf8_lossy(&body);
     assert!(xml.contains("<D:href>/</D:href>"), "{xml}");
     assert!(xml.contains("<D:href>/docs/</D:href>"), "{xml}");
 
-    let (status, _, body) = http(
-        rig.addr,
-        "PROPFIND",
-        "/docs/",
-        &[("Depth", "1")],
-        b"",
-    )
-    .await;
+    let (status, _, body) = http(rig.addr, "PROPFIND", "/docs/", &[("Depth", "1")], b"").await;
     assert_eq!(status, 207);
     assert!(String::from_utf8_lossy(&body).contains("hello.txt"));
 
@@ -92,18 +81,11 @@ async fn dav_options_and_propfind() {
 #[tokio::test]
 async fn dav_put_get_large_file_streaming() {
     let rig = bridge_rig("dav2").await;
-    let mut payload = vec![0u8; MAX as usize * 2 + 333];
+    let mut payload = vec![0u8; MAX * 2 + 333];
     for (i, b) in payload.iter_mut().enumerate() {
         *b = (i % 249) as u8;
     }
-    let (status, _, _) = http(
-        rig.addr,
-        "PUT",
-        "/big%20file.bin",
-        &[],
-        &payload,
-    )
-    .await;
+    let (status, _, _) = http(rig.addr, "PUT", "/big%20file.bin", &[], &payload).await;
     assert_eq!(status, 201, "PUT 新建");
 
     // PUT 走 chunked 传输编码（上行流式解码路径）：1000 字节单 chunk

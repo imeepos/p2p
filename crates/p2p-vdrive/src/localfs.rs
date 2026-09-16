@@ -38,7 +38,10 @@ impl LocalFs {
     /// 虚拟路径 → 监狱内绝对路径；越狱返回 InvalidPath。
     pub fn resolve(&self, vpath: &str) -> FsResult<PathBuf> {
         let rel = normalize_vpath(vpath).ok_or_else(|| {
-            VDriveError::new(ErrorKind::InvalidPath, format!("path escapes root: {vpath}"))
+            VDriveError::new(
+                ErrorKind::InvalidPath,
+                format!("path escapes root: {vpath}"),
+            )
         })?;
         let target = if rel == "/" {
             self.root.clone()
@@ -73,24 +76,14 @@ impl LocalFs {
     }
 }
 
-/// 虚拟路径规范化：绝对化 + 折叠 `.`/空段/`..`；越出根返回 None。
-pub fn normalize_vpath(vpath: &str) -> Option<String> {
-    let vpath = vpath.strip_suffix('/').unwrap_or(vpath);
-    let mut parts: Vec<&str> = Vec::new();
-    for seg in vpath.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                parts.pop()?;
-            }
-            s => parts.push(s),
-        }
-    }
-    Some(format!("/{}", parts.join("/")))
-}
+pub use crate::path::normalize_vpath;
 
 fn entry_of(name: String, meta: &std::fs::Metadata) -> Entry {
-    let kind = if meta.is_dir() { EntryKind::Dir } else { EntryKind::File };
+    let kind = if meta.is_dir() {
+        EntryKind::Dir
+    } else {
+        EntryKind::File
+    };
     let mtime = meta
         .modified()
         .ok()
@@ -183,7 +176,10 @@ impl FsBackend for LocalFs {
         let dst = self.resolve(to)?;
         // 目标父目录必须已存在（与 WebDAV MOVE 409 语义对齐，禁隐式建父）。
         if !self.parent_of(to)?.is_dir() {
-            return Err(VDriveError::new(ErrorKind::NotFound, "destination parent missing"));
+            return Err(VDriveError::new(
+                ErrorKind::NotFound,
+                "destination parent missing",
+            ));
         }
         fs::rename(&src, &dst).await?;
         Ok(())
@@ -202,7 +198,10 @@ impl FsBackend for LocalFs {
 
     async fn create(&self, path: &str) -> FsResult<Entry> {
         if !self.parent_of(path)?.is_dir() {
-            return Err(VDriveError::new(ErrorKind::NotFound, "parent directory missing"));
+            return Err(VDriveError::new(
+                ErrorKind::NotFound,
+                "parent directory missing",
+            ));
         }
         let target = self.resolve(path)?;
         let f = fs::OpenOptions::new()
@@ -219,7 +218,9 @@ impl FsBackend for LocalFs {
 
     async fn read(&self, path: &str, offset: u64, len: u32) -> FsResult<Vec<u8>> {
         let target = self.resolve(path)?;
-        let mut f = fs::File::open(&target).await.map_err(|e| attach_not_dir(e, &target))?;
+        let mut f = fs::File::open(&target)
+            .await
+            .map_err(|e| attach_not_dir(e, &target))?;
         let meta = f.metadata().await?;
         if meta.is_dir() {
             return Err(VDriveError::new(ErrorKind::NotDir, "is a directory"));
@@ -244,11 +245,15 @@ impl FsBackend for LocalFs {
 
     async fn write(&self, path: &str, offset: u64, data: &[u8]) -> FsResult<u64> {
         if !self.parent_of(path)?.is_dir() {
-            return Err(VDriveError::new(ErrorKind::NotFound, "parent directory missing"));
+            return Err(VDriveError::new(
+                ErrorKind::NotFound,
+                "parent directory missing",
+            ));
         }
         let target = self.resolve(path)?;
         let mut f = fs::OpenOptions::new()
             .create(true)
+            .truncate(false) // 定位写：保留未覆盖尾段（截断走 truncate/create）
             .write(true)
             .open(&target)
             .await
@@ -271,17 +276,6 @@ fn attach_not_dir(e: std::io::Error, path: &Path) -> std::io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn normalize_folds_and_rejects_escape() {
-        assert_eq!(normalize_vpath("/a/b"), Some("/a/b".into()));
-        assert_eq!(normalize_vpath("a//b/./c"), Some("/a/b/c".into()));
-        assert_eq!(normalize_vpath("/a/b/.."), Some("/a".into()));
-        assert_eq!(normalize_vpath("/a/.."), Some("/".into()));
-        assert_eq!(normalize_vpath("/.."), None);
-        assert_eq!(normalize_vpath("/a/../../x"), None);
-        assert_eq!(normalize_vpath("/dir/"), Some("/dir".into()));
-    }
 
     #[tokio::test]
     async fn open_rejects_missing_root() {

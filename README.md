@@ -19,6 +19,9 @@
 - 远程支持 P0b 收官：repair-bridge/helper/enforce/playbook 四工件 + 工单全链贯通，
   真机 3 例为人工里程碑（docs/ops/repair-p0b-drill.md）。
 - CLI 对等波推进（apps/cli，p2pctl）：CL1-CL3 已合入，CL4 对等守卫+文档在途。
+- 网络硬盘（p2p-vdrive）落地：/vdrive/fs/1 一请求一流文件系统协议 + WebDAV
+  挂载桥，`p2pctl vdrive serve|mount` headless 进程面，macOS mount_webdav
+  实挂实测（scripts/ops/vdrive-mount-smoke.sh，口径 VDRIVE-MOUNT-SMOKE-OK）。
 - E10 闲置 LLM 额度共享 Phase 0 落地：llm-share 三件套 + p2p-itest 双节点 E2E（A1-A7），设计见 docs/design/idle-token-sharing-plan.md。
 - 分包、分支与验收口径见 `docs/coordination.md`（协调者维护，各会话只读）。
 
@@ -40,6 +43,7 @@
 | `crates/p2p-cli` | CLI 复用库：echo 协议与节点装配（apps/cli p2pctl 经路径依赖复用） |
 | `crates/p2p-chat` | IM 聊天业务层：/im/chat/1 协议、好友簿、消息/附件存储、outbox 离线队列 |
 | `crates/p2p-ftp` | FTP 语义 over P2P：/ftp/ctrl/1 命令应答 + /ftp/data/1 令牌数据流，LocalFs 监狱后端与 Authenticator 接缝（docs/protocol/specs/ftp.md） |
+| `crates/p2p-vdrive` | 网络硬盘协议：/vdrive/fs/1 文件系统操作面（FsBackend 可插拔/LocalFs 监狱）+ 本机回环 WebDAV 挂载桥，OS 原生客户端可直接挂载远端目录（docs/protocol/specs/vdrive.md） |
 | `crates/repair-bridge` | 远程支持接入桥：runner stdio ⇄ /repair/bridge/1 帧双向对拷 |
 | `crates/repair-helper` | MCP 宿主：工具面装配、票据校验、shell_exec 执行与审计 |
 | `crates/repair-enforce` | 执法核心（纯逻辑）：红线/scope 门/审批状态机/白名单判定 |

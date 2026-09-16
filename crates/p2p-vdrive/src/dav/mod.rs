@@ -15,7 +15,7 @@ use async_trait::async_trait;
 
 use crate::backend::FsBackend;
 use crate::error::ErrorKind;
-use crate::http::{HttpRequest, HttpResponse, HttpHandler};
+use crate::http::{HttpHandler, HttpRequest, HttpResponse};
 use copymove::{clear_dest, copy_tree, delete_tree, destination_vpath};
 use get::status_for;
 
@@ -121,9 +121,7 @@ impl HttpHandler for DavService {
         let depth = req.header("depth").map(str::to_string);
         match method.as_str() {
             "OPTIONS" => dav_options(),
-            "PROPFIND" => {
-                self.propfind(&vpath, depth.as_deref()).await
-            }
+            "PROPFIND" => self.propfind(&vpath, depth.as_deref()).await,
             "PROPPATCH" => proppatch_stub(&vpath),
             "GET" => get::get(&self.backend, &vpath, false).await,
             "HEAD" => get::get(&self.backend, &vpath, true).await,
@@ -139,7 +137,8 @@ impl HttpHandler for DavService {
     }
 }
 
-const DAV_METHODS: &str = "OPTIONS, GET, HEAD, PUT, PROPFIND, PROPPATCH, MKCOL, DELETE, MOVE, COPY, LOCK, UNLOCK";
+const DAV_METHODS: &str =
+    "OPTIONS, GET, HEAD, PUT, PROPFIND, PROPPATCH, MKCOL, DELETE, MOVE, COPY, LOCK, UNLOCK";
 
 fn dav_options() -> HttpResponse {
     HttpResponse::status(200)

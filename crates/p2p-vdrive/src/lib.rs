@@ -15,6 +15,8 @@ pub mod dav;
 pub mod error;
 pub mod http;
 pub mod localfs;
+pub mod path;
+pub mod reply;
 pub mod server;
 pub mod wire;
 

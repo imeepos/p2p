@@ -40,7 +40,10 @@ impl BodyReader {
         }
     }
 
-    pub fn from_stream(inner: Box<dyn AsyncRead + Unpin + Send>, content_length: Option<u64>) -> Self {
+    pub fn from_stream(
+        inner: Box<dyn AsyncRead + Unpin + Send>,
+        content_length: Option<u64>,
+    ) -> Self {
         let mode = match content_length {
             Some(n) => BodyMode::Length(n),
             None => BodyMode::Chunked,
@@ -97,9 +100,8 @@ impl BodyReader {
                 n
             }
         };
-        match self.mode {
-            BodyMode::Length(0) => self.finished = true,
-            _ => {}
+        if matches!(self.mode, BodyMode::Length(0)) {
+            self.finished = true;
         }
         Ok(n)
     }
@@ -108,7 +110,10 @@ impl BodyReader {
         let line = read_line(&mut self.inner, 1024).await?;
         let size_part = line.split(';').next().unwrap_or("").trim();
         let size = u64::from_str_radix(size_part, 16).map_err(|_| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, format!("bad chunk size: {size_part}"))
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("bad chunk size: {size_part}"),
+            )
         })?;
         if size == 0 {
             // 尾随头块：读到空行为止（连接随后关闭，无需保存）。
@@ -138,10 +143,7 @@ impl BodyReader {
     }
 }
 
-async fn read_line(
-    r: &mut (impl AsyncRead + Unpin),
-    cap: usize,
-) -> std::io::Result<String> {
+async fn read_line(r: &mut (impl AsyncRead + Unpin), cap: usize) -> std::io::Result<String> {
     let mut buf = Vec::new();
     let mut byte = [0u8; 1];
     loop {

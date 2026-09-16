@@ -86,7 +86,10 @@ pub fn multistatus(entries: &[Entry]) -> String {
             EntryKind::Dir => xml.push_str("<D:resourcetype><D:collection/></D:resourcetype>\n"),
             EntryKind::File => {
                 xml.push_str("<D:resourcetype/>\n");
-                xml.push_str(&format!("<D:getcontentlength>{}</D:getcontentlength>\n", e.size));
+                xml.push_str(&format!(
+                    "<D:getcontentlength>{}</D:getcontentlength>\n",
+                    e.size
+                ));
                 xml.push_str(&format!(
                     "<D:getetag>\"{}-{}\"</D:getetag>\n",
                     e.size, e.mtime
