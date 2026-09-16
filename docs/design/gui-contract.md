@@ -919,3 +919,34 @@ interface ServiceMutationReport {
 6. 验收对齐点：A 侧 serde 字段名与上表逐字一致（camelCase）；B 侧 TS 类型与
    上表逐字一致（ipc-types.ts §20 注释块）；mock 与真实实现同签名；服务清单
    数据源 = crates/p2p-service 闭集常量表（禁止前端硬编码服务列表）。
+
+## 21. 远程桌面面（§21 加法，2026-09-15，M6B 契约；线格式真值源=docs/protocol/specs/rd-*.md）
+
+### 21.1 命令表（JSON 字段一律 camelCase）
+
+| 命令 | 入参 | 返回 | 语义 |
+|---|---|---|---|
+| `rd_host_start` | require_approval?: bool（缺省 true） | RdHostStatus | 开启 rd host 服务（翻转节点内会话态；审批闸按参设置）。节点未启动 → Err |
+| `rd_host_stop` | — | RdHostStatus | 关闭服务并停全部活跃会话 |
+| `rd_host_status` | — | RdHostStatus | 状态快照 |
+| `rd_approve` | peer: string（base58） | bool | 审批通过（返回是否确有 pending 消费）；peer 非法 → Err |
+| `rd_deny` | peer: string（base58） | bool | 拒绝审批（仅清 pending） |
+| `rd_quality_set` | fps/scale/codec: number | RdHostStatus | 质量档位设置（越界回旧档不报错，快照可查） |
+| `rd_viewer_connect` | peer: string, session_id?: string（16 hex） | RdViewerStatus | 建 viewer 会话（握手+视频流；拒绝原因上抛） |
+| `rd_viewer_close` | — | RdViewerStatus | 关闭 viewer 会话 |
+| `rd_viewer_status` | — | RdViewerStatus | 会话快照 |
+
+### 21.2 数据类型
+
+```ts
+interface RdHostStatus { running: boolean; requireApproval: boolean; sessionCount: number;
+  pendingApprovals: string[]; fps: number }
+interface RdViewerStatus { connected: boolean; sessionId?: string }
+```
+
+### 21.3 语义约束
+
+- host 服务为节点内会话态：rd_host_stop 后重启回落关闭（与 tunnel_serve 同构，cli-parity 全豁免）。
+- host 画面源当前为合成源（零系统权限）；真实 ScreenCaptureKit 采集/输入注入随后续 GUI 采集波并入（rd-capture sck feature）。
+- 审批语义：require_approval 开启时 viewer hello 拒 `awaiting_approval`，approve 后 viewer 重连成功（RustDesk 审批同款）。
+- viewer 渲染接缝（RenderSink → canvas）与文件传输 GUI 面属后续波，本契约只覆盖会话/审批/质量命令面。
