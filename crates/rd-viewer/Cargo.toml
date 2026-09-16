@@ -13,5 +13,6 @@ p2p-protocol = { path = "../p2p-protocol" }
 rd-clipboard = { path = "../rd-clipboard" }
 rd-wire = { path = "../rd-wire" }
 thiserror.workspace = true
+uuid.workspace = true
 tokio.workspace = true
 tracing.workspace = true

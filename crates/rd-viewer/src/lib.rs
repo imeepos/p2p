@@ -4,10 +4,12 @@
 //! 视频泵解码帧（raw/zlib）交给 [RenderSink]；会话可显式 close。
 //! 输入注入（M3）与剪贴板（M4）沿控制通道增量接入。
 
+mod file;
 mod session;
 
 use std::sync::Arc;
 
+use crate::file::FileChannel;
 use p2p::Node;
 use p2p_protocol::ProtocolError;
 
@@ -26,6 +28,8 @@ pub enum ViewerError {
     Wire(#[from] rd_wire::WireError),
     #[error("decode: {0}")]
     Decode(String),
+    #[error("aborted: {0}")]
+    Aborted(String),
     #[error("closed")]
     Closed,
 }
@@ -63,7 +67,10 @@ impl RdViewer {
         sink: Arc<dyn RenderSink>,
     ) -> Result<ViewerSession, ViewerError> {
         let inner = session::connect(self.node.clone(), peer, session_id, sink).await?;
-        Ok(ViewerSession { inner })
+        Ok(ViewerSession {
+            inner,
+            fs: FileChannel::new(self.node.clone(), peer),
+        })
     }
 
     /// 连接 host（M4 剪贴板版）：clip 为 viewer 本机剪贴板后端，host 下行写入此处。
@@ -75,13 +82,17 @@ impl RdViewer {
         clip: Option<Arc<tokio::sync::Mutex<dyn rd_clipboard::ClipboardBackend>>>,
     ) -> Result<ViewerSession, ViewerError> {
         let inner = session::connect_full(self.node.clone(), peer, session_id, sink, clip).await?;
-        Ok(ViewerSession { inner })
+        Ok(ViewerSession {
+            inner,
+            fs: FileChannel::new(self.node.clone(), peer),
+        })
     }
 }
 
 /// 活跃 viewer 会话：close() 显式关闭（视频泵任务随之退出）。
 pub struct ViewerSession {
     inner: session::ViewerSession,
+    fs: FileChannel,
 }
 
 impl ViewerSession {
@@ -93,5 +104,10 @@ impl ViewerSession {
     /// 控制写半（M3 输入注入复用）。
     pub fn control(&self) -> Arc<dyn session::ControlWrite> {
         self.inner.control()
+    }
+
+    /// 文件通道（M5）：目录浏览/上下传单飞操作。
+    pub fn fs(&self) -> &FileChannel {
+        &self.fs
     }
 }
