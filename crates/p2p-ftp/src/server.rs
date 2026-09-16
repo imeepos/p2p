@@ -30,6 +30,8 @@ pub struct FtpConfig {
     pub token_ttl: Duration,
     /// 控制侧等待数据通道完成的时限。
     pub transfer_timeout: Duration,
+    /// 单次 LIST/NLST 条目数上限（防超大目录拖垮内存/带宽）。
+    pub max_list_entries: u64,
 }
 
 impl Default for FtpConfig {
@@ -38,6 +40,7 @@ impl Default for FtpConfig {
             max_upload_bytes: 256 << 20,
             token_ttl: Duration::from_secs(60),
             transfer_timeout: Duration::from_secs(300),
+            max_list_entries: 10_000,
         }
     }
 }

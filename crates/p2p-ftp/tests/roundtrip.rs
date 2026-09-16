@@ -225,3 +225,49 @@ async fn upload_limit_enforced() {
     assert_eq!(std::fs::read(root.join("ok.bin")).unwrap(), small);
     assert!(!root.join(".ok.bin.p2p-ftp-partial").exists());
 }
+
+/// 列表上限：超限目录 LIST/NLST 显式失败，限内正常（克制版分页防御）。
+#[tokio::test]
+async fn list_entry_limit_enforced() {
+    let a = spawn_node("lst-a").await;
+    let b = spawn_node("lst-b").await;
+    let root = fs_root("lst");
+    serve_b(
+        &b,
+        &root,
+        FtpConfig {
+            max_list_entries: 2,
+            ..FtpConfig::default()
+        },
+    )
+    .await;
+    link(&a, &b).await;
+
+    let mut c = FtpClient::connect(a.clone(), b.local_peer_id())
+        .await
+        .unwrap();
+    c.login("u", "p").await.unwrap();
+    c.mkd("/d").await.unwrap();
+    for name in ["a", "b"] {
+        let mut src: &[u8] = b"x";
+        c.stor(&format!("/d/{name}"), &mut src).await.unwrap();
+    }
+    assert!(c.list(Some("/d")).await.unwrap().len() == 2, "限内正常");
+
+    let mut src: &[u8] = b"x";
+    c.stor("/d/c", &mut src).await.unwrap();
+    assert!(
+        matches!(
+            c.list(Some("/d")).await,
+            Err(FtpError::Rejected { code: 552, .. })
+        ),
+        "超限必须 552 显式拒绝"
+    );
+    assert!(
+        matches!(
+            c.nlst(Some("/d")).await,
+            Err(FtpError::Rejected { code: 552, .. })
+        ),
+        "NLST 同受上限保护"
+    );
+}

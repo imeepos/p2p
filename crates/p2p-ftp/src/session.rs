@@ -81,11 +81,11 @@ pub(crate) async fn reply(
     send(stream, Reply::new(code, text)).await
 }
 
-/// 文件系统错误 → 应答码映射：找不到/越狱 550，容量超限 552，其余 451。
+/// 文件系统错误 → 应答码映射：找不到/越狱 550，容量/策略超限 552，其余 451。
 pub(crate) fn io_err_reply(e: &io::Error) -> Reply {
     let code = match e.kind() {
         io::ErrorKind::NotFound | io::ErrorKind::PermissionDenied => 550,
-        io::ErrorKind::StorageFull => 552,
+        io::ErrorKind::StorageFull | io::ErrorKind::InvalidData => 552,
         _ => 451,
     };
     Reply::new(code, e.to_string())

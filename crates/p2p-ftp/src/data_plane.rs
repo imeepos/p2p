@@ -81,6 +81,16 @@ async fn run_list(
     stream: &mut BoxedStream,
 ) -> io::Result<u64> {
     let entries = server.fs().list(vpath).await?;
+    if entries.len() as u64 > server.cfg().max_list_entries {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "directory has {} entries, exceeds configured limit of {}",
+                entries.len(),
+                server.cfg().max_list_entries
+            ),
+        ));
+    }
     let body = match kind {
         DataKind::Nlst => entries
             .into_iter()
