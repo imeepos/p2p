@@ -102,3 +102,6 @@ rd_quality_set	exempt		质量协商经活跃 viewer 会话交互（fps/scale/cod
 rd_viewer_connect	exempt		GUI 建完整 viewer 会话（握手+视频流+控制通道），CLI 对等面=p2pctl rd probe 仅握手探测（不建会话），语义不混同
 rd_viewer_close	exempt		会话态操作，CLI 无常驻 viewer 会话可关
 rd_viewer_status	exempt		GUI 会话态快照，CLI 无常驻 viewer 实例可查询
+rd_input_mouse	exempt		GUI canvas 鼠标事件经活跃 viewer 控制通道下发，CLI 无画布交互面（rd probe 仅握手）
+rd_input_key	exempt		GUI canvas 键盘事件同上；键码/修饰位语义见 rd-control.md 消息表
+rd_input_key_reset	exempt		GUI 画布失焦/断连护栏（释放 host 侧滞留按键），CLI 无对等交互面
