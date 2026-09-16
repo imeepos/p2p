@@ -27,6 +27,7 @@ mod output;
 mod paths;
 mod peer;
 mod profile;
+mod rd;
 mod relay;
 mod report;
 mod service;
@@ -61,6 +62,7 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Peer { command } => peer::run(command).await,
         cli::Command::Discovery { command } => discovery::run(command).await,
         cli::Command::Relay { command } => relay::run(command).await,
+        cli::Command::Rd { command } => rd::run(command).await,
         cli::Command::Gui { command } => gui::run(command).await,
         cli::Command::Identity { command } => identity::run(command).await,
         cli::Command::Log { command } => log::run(command).await,

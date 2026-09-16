@@ -18,6 +18,7 @@ use crate::metrics;
 use crate::node;
 use crate::peer;
 use crate::profile;
+use crate::rd;
 use crate::relay;
 use crate::service;
 use crate::tunnel;
@@ -72,6 +73,11 @@ pub enum Command {
     Discovery {
         #[command(subcommand)]
         command: discovery::DiscoveryCommand,
+    },
+    /// 远程桌面域（M6）：host 前台服务 / viewer 握手探测
+    Rd {
+        #[command(subcommand)]
+        command: rd::RdCommand,
     },
     /// 中继域：会话/水位只读查询（F10 观测对等）
     Relay {

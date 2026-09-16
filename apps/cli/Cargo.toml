@@ -48,8 +48,13 @@ p2p-identity = { path = "../../crates/p2p-identity" }
 # authz 域（A1）：逻辑面在 p2p-cli::authz（判定与存储在 p2p-authz）。
 p2p-authz = { path = "../../crates/p2p-authz" }
 
-# tunnel 域（W-T5）：headless 被访侧前台服务复用 p2p-tunnel responder 装配。
 p2p-tunnel = { path = "../../crates/p2p-tunnel" }
+# rd 域（M6）：headless host 前台服务 + viewer 握手探测复用 rd-* 装配。
+rd-capture = { path = "../../crates/rd-capture" }
+rd-clipboard = { path = "../../crates/rd-clipboard" }
+rd-host = { path = "../../crates/rd-host" }
+rd-input = { path = "../../crates/rd-input" }
+rd-viewer = { path = "../../crates/rd-viewer" }
 
 # vdrive 域（网络硬盘）：serve=被挂端 / mount=挂载端 WebDAV 桥。
 p2p-vdrive = { path = "../../crates/p2p-vdrive" }
