@@ -90,6 +90,7 @@ impl DavService {
         }
         let dest_existed = match clear_dest(&self.backend, &dest, overwrite).await {
             Ok(existed) => existed,
+            Err(e) if e.kind == ErrorKind::AlreadyExists => return HttpResponse::status(412),
             Err(e) => return status_for(&e),
         };
         let outcome = if is_move {

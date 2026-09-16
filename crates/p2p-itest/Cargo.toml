@@ -37,6 +37,8 @@ p2p-security = { path = "../p2p-security" }
 p2p-transport = { path = "../p2p-transport" }
 # W-T2 tunnel 被访侧/访侧（/p2p-base/tunnel/1）
 p2p-tunnel = { path = "../p2p-tunnel" }
+# 网络硬盘协议波（/vdrive/fs/1 + WebDAV 桥）
+p2p-vdrive = { path = "../p2p-vdrive" }
 # rd M2 视频全链 E2E（rd_video_wave）
 rd-capture = { path = "../rd-capture" }
 rd-clipboard = { path = "../rd-clipboard" }

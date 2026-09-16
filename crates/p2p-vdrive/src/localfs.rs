@@ -128,7 +128,13 @@ impl FsBackend for LocalFs {
     async fn stat(&self, path: &str) -> FsResult<Entry> {
         let target = self.resolve(path)?;
         let meta = fs::metadata(&target).await?;
-        Ok(entry_of(name_of(&target), &meta))
+        // 根条目名字恒空（WebDAV href = "/"），非根取末段。
+        let name = if target == self.root {
+            String::new()
+        } else {
+            name_of(&target)
+        };
+        Ok(entry_of(name, &meta))
     }
 
     async fn list(&self, path: &str) -> FsResult<Vec<Entry>> {
