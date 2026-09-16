@@ -18,6 +18,7 @@ use tokio::io;
 
 use crate::input::InputDispatch;
 use crate::sessions::HostSessions;
+use crate::state::{admission_allowed, SharedState};
 use crate::HostConfig;
 
 /// 剪贴板轮询间隔（文本级变更探测，500ms 商用可感粒度）。
@@ -26,6 +27,7 @@ const CLIP_POLL_INTERVAL: Duration = Duration::from_millis(500);
 /// /rd/control/1 处理器。
 pub struct ControlHandler {
     pub sessions: Arc<Mutex<HostSessions>>,
+    pub state: SharedState,
     pub proto: ProtocolId,
     pub injector: Arc<dyn InjectorFactory>,
     pub clipboard: Arc<dyn ClipboardFactory>,
@@ -56,6 +58,26 @@ impl ProtocolHandler for ControlHandler {
             }
             Err(e) => return Err(e),
         };
+        // 审批闸：require_approval 且 peer 未批准 → 登记 pending 并拒（viewer 批准后重连）。
+        // 锁在纯同步块内释放（guard 非 Send，禁跨 await）。
+        let admitted = {
+            let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            if admission_allowed(&st, self.config.require_approval, &peer) {
+                true
+            } else {
+                st.pending.insert(peer);
+                false
+            }
+        };
+        if !admitted {
+            tracing::info!(
+                audit_event = "session_awaiting_approval",
+                peer = %peer,
+                session_id = %hello
+            );
+            reject(&mut stream, &hello, "awaiting_approval".into()).await;
+            return Ok(());
+        }
         let mut dispatch = match self.injector.new_injector() {
             Ok(i) => InputDispatch::new(i),
             Err(e) => {
@@ -87,20 +109,30 @@ impl ProtocolHandler for ControlHandler {
             session_id: hello.clone(),
         };
         if let Err(e) = send_control(&mut stream, &ack).await {
-            let _ = self.sessions.lock().map(|mut g| g.remove(&peer));
+            let _ = self.sessions.lock().map(|mut g| g.remove_if(&peer, &hello));
             return Err(e);
         }
-        tracing::info!("rd-host: session {hello} started with {peer}");
+        tracing::info!(
+            audit_event = "session_open",
+            peer = %peer,
+            session_id = %hello
+        );
         let outcome = control_loop(
             stream,
             &mut dispatch,
             &mut *clip,
             &peer,
             self.config.as_ref(),
+            self.state.clone(),
         )
         .await;
-        let _ = self.sessions.lock().map(|mut g| g.remove(&peer));
-        tracing::info!("rd-host: session {hello} ended with {peer}: {outcome:?}");
+        let _ = self.sessions.lock().map(|mut g| g.remove_if(&peer, &hello));
+        tracing::info!(
+            audit_event = "session_close",
+            peer = %peer,
+            session_id = %hello,
+            outcome = ?outcome
+        );
         Ok(())
     }
 }
@@ -125,6 +157,7 @@ async fn control_loop(
     clip: &mut (impl ClipboardBackend + ?Sized),
     peer: &PeerId,
     config: &HostConfig,
+    state: SharedState,
 ) -> io::Result<()> {
     let (mut read_half, mut write_half) = tokio::io::split(stream);
     let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<ControlMsg, io::Error>>(64);
@@ -168,6 +201,28 @@ async fn control_loop(
                         }
                         ControlMsg::InputKeyReset => {
                             dispatch.reset();
+                        }
+                        ControlMsg::Quality { fps, scale, codec } => {
+                            // 锁内只算应答（guard 非 Send 禁跨 await），锁外发送
+                            let ack = {
+                                let mut st = state.lock().unwrap_or_else(|e| e.into_inner());
+                                match st.apply_quality(fps, scale, codec) {
+                                    Ok(q) => ControlMsg::QualityAck {
+                                        fps: q.fps,
+                                        scale: q.scale,
+                                        codec: q.codec,
+                                    },
+                                    Err(e) => {
+                                        tracing::warn!("rd-host: quality rejected: {e}");
+                                        ControlMsg::QualityAck {
+                                            fps: st.quality.fps,
+                                            scale: st.quality.scale,
+                                            codec: st.quality.codec,
+                                        }
+                                    }
+                                }
+                            };
+                            let _ = send_control(&mut write_half, &ack).await;
                         }
                         _ => {}
                     },

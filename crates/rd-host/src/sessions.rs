@@ -44,8 +44,14 @@ impl HostSessions {
         }
     }
 
-    /// 移除会话（幂等）。
-    pub fn remove(&mut self, peer: &PeerId) -> Option<HostCtx> {
-        self.inner.remove(peer)
+    /// 仅当会话仍属于给定 session_id 时移除（防迟退的旧处理器误删新会话，同 peer 重连竞态）。
+    pub fn remove_if(&mut self, peer: &PeerId, session_id: &str) -> bool {
+        match self.inner.get(peer) {
+            Some(ctx) if ctx.session_id == session_id => {
+                self.inner.remove(peer);
+                true
+            }
+            _ => false,
+        }
     }
 }

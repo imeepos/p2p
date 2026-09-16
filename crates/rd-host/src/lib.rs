@@ -13,12 +13,14 @@ mod file;
 mod input;
 mod session;
 mod sessions;
+mod state;
 
 use std::sync::{Arc, Mutex};
 
 use std::path::PathBuf;
 
 use p2p::Node;
+use p2p::PeerId;
 use p2p_protocol::{ProtocolError, ProtocolId};
 use rd_capture::CaptureError;
 use rd_capture::CaptureSource;
@@ -26,6 +28,7 @@ use rd_clipboard::ClipboardFactory;
 use rd_fs::FsService;
 use rd_input::InjectorFactory;
 use rd_wire::{CONTROL_PROTOCOL_ID, FILE_PROTOCOL_ID, VIDEO_PROTOCOL_ID};
+use state::{HostState, SharedState};
 
 /// host 装配失败。
 #[derive(Debug, thiserror::Error)]
@@ -45,6 +48,9 @@ pub struct HostConfig {
     pub codec: u8,
     /// 文件隔离根（viewer 可见的目录树根）。
     pub fs_root: PathBuf,
+    /// 会话审批闸：开启后新 viewer hello 被拒（awaiting_approval），
+    /// 需 approve(peer) 后重连（RustDesk 临时口令/审批同款模式）。
+    pub require_approval: bool,
 }
 
 impl Default for HostConfig {
@@ -54,6 +60,7 @@ impl Default for HostConfig {
             idle_timeout_secs: 15,
             codec: rd_wire::video::CODEC_RAW_RGBA,
             fs_root: default_fs_root(),
+            require_approval: false,
         }
     }
 }
@@ -70,6 +77,7 @@ fn default_fs_root() -> PathBuf {
 /// host 侧服务装配：持有会话注册表，控制/视频处理器共享。
 pub struct RdHost {
     sessions: Arc<Mutex<sessions::HostSessions>>,
+    state: SharedState,
     _node: Arc<Node>,
 }
 
@@ -97,13 +105,16 @@ impl RdHost {
         let video_id = ProtocolId::new(VIDEO_PROTOCOL_ID)?;
         let file_id = ProtocolId::new(FILE_PROTOCOL_ID)?;
         let sessions = Arc::new(Mutex::new(sessions::HostSessions::default()));
+        let state: SharedState = Arc::new(Mutex::new(HostState::default()));
         let config = Arc::new(config);
         let host = Self {
             sessions: sessions.clone(),
+            state: state.clone(),
             _node: node.clone(),
         };
         node.handle_protocol(Arc::new(control::ControlHandler {
             sessions: sessions.clone(),
+            state: state.clone(),
             proto: control_id,
             injector,
             clipboard,
@@ -111,6 +122,7 @@ impl RdHost {
         }));
         node.handle_protocol(Arc::new(session::VideoHandler {
             sessions: sessions.clone(),
+            state: state.clone(),
             proto: video_id,
             source,
             config: config.clone(),
@@ -127,6 +139,35 @@ impl RdHost {
     /// 活跃会话数（观测/测试）。
     pub fn session_count(&self) -> usize {
         self.sessions.lock().map(|g| g.len()).unwrap_or(0)
+    }
+
+    /// 审批通过 peer（require_approval 开启后生效）；返回是否确有 pending 消费。
+    pub fn approve(&self, peer: &PeerId) -> bool {
+        let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        let consumed = st.pending.remove(peer);
+        st.approved.insert(*peer);
+        consumed
+    }
+
+    /// 拒绝审批（仅清 pending，不加入 approved）。
+    pub fn deny(&self, peer: &PeerId) -> bool {
+        self.state
+            .lock()
+            .map(|mut st| st.pending.remove(peer))
+            .unwrap_or(false)
+    }
+
+    /// 待审批 peer 列表（GUI 审批队列数据源）。
+    pub fn pending_approvals(&self) -> Vec<PeerId> {
+        self.state
+            .lock()
+            .map(|st| st.pending.iter().copied().collect())
+            .unwrap_or_default()
+    }
+
+    /// 当前采纳帧率（质量协商读回；测试/E2E 断言用）。
+    pub fn active_fps(&self) -> u8 {
+        self.state.lock().map(|st| st.quality.fps).unwrap_or(0)
     }
 }
 

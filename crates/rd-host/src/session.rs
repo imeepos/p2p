@@ -25,6 +25,7 @@ use crate::{HostConfig, SourceFactory};
 /// /rd/video/1 处理器：按 PeerId 绑定会话 → 实例化采集源 → 帧泵。
 pub struct VideoHandler {
     pub sessions: Arc<Mutex<HostSessions>>,
+    pub state: crate::state::SharedState,
     pub proto: ProtocolId,
     pub source: Arc<dyn SourceFactory>,
     pub config: Arc<HostConfig>,
@@ -50,6 +51,13 @@ impl ProtocolHandler for VideoHandler {
             tracing::warn!("rd-host: video stream without session from {peer}");
             return Ok(());
         };
+        {
+            let st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+            if !crate::state::admission_allowed(&st, self.config.require_approval, &peer) {
+                tracing::warn!("rd-host: video stream from unapproved peer {peer}");
+                return Ok(());
+            }
+        }
         tracing::info!("rd-host: video channel bound to session {session_id}");
         let mut capture = match self.source.new_source() {
             Ok(c) => c,
@@ -61,8 +69,18 @@ impl ProtocolHandler for VideoHandler {
                 return Ok(());
             }
         };
-        let result = pump_frames(&mut stream, &mut capture, stop, self.config.as_ref()).await;
-        let _ = self.sessions.lock().map(|mut g| g.remove(&peer));
+        let result = pump_frames(
+            &mut stream,
+            &mut capture,
+            stop,
+            self.config.as_ref(),
+            self.state.clone(),
+        )
+        .await;
+        let _ = self
+            .sessions
+            .lock()
+            .map(|mut g| g.remove_if(&peer, &session_id));
         tracing::info!("rd-host: video channel ended for {peer}");
         result
     }
@@ -74,15 +92,21 @@ async fn pump_frames(
     capture: &mut Box<dyn CaptureSource + Send>,
     stop: Arc<AtomicBool>,
     config: &HostConfig,
+    state: crate::state::SharedState,
 ) -> io::Result<()> {
-    let fps = config.fps.clamp(1, 60);
-    let period = Duration::from_millis(1000 / fps as u64);
     let keyframe_every = 30u32;
     let mut seq: u32 = 0;
     loop {
         if stop.load(Ordering::Relaxed) {
             break;
         }
+        // 帧率逐帧读协商态（viewer 质量请求即时生效）
+        let fps = state
+            .lock()
+            .map(|st| st.quality.fps)
+            .unwrap_or(config.fps)
+            .clamp(1, 60);
+        let period = Duration::from_millis(1000 / fps as u64);
         let frame = match capture.next_frame() {
             Ok(f) => f,
             Err(e) => {
