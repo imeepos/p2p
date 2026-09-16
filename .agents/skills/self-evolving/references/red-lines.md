@@ -103,3 +103,4 @@
 - 2026-09-10 PROTO 轮：协调者不得在归属会话仍运行时对其 worktree 做 rebase/add 等写操作——分支 ref 被 worktree 占用时连 `git branch -D` 都会拒绝；代合并走 cherry-pick -x（不动对方分支），分支删除等对方确认冻结后执行。
 - 禁止把经验喂回/文档类小提交直接打在主树 main 分支上，即使内容只是 skill references 一行——主树 main 只读，任何变更（含 .agents/docs）一律开独立分支走 worktree 流程后 push（2026-09-11 W-T5 协调者裁定：24936a13 直打 main 属协议瑕疵，由协调者 rebase 消化）。
 - 禁止派发任务书的验收清单只写「cargo 面单」而不含全量门禁清单或显式豁免条款：make 级门禁（panic-hygiene/cli-parity/ai-docs-sync/line-limit/fmt）不在 cargo 面里，两次实证（2026-09-11 W-T2 漏 src-tauri clippy+cli-parity、2026-09-12 W-TB 漏 panic-hygiene）都是主干汇总检查才爆、打回一轮。任务书模板固定段：门禁基线=fmt+clippy+聚焦测试+panic-hygiene，按卡面增补 cli-parity/ai-docs-sync/gui-check。
+- 禁止在同一 worktree 并发跑两条含 gui-check 的门禁（如 check-fast 与 gui.sh 并行）：两套 vite build 同写 dist、两套 vitest 满载互踩，实测 ACP 用例偶发红 + 环境初始化 169s→523s。check-fast 本身已含 gui-check，再叠加 gui.sh 属重复；要单独验证就等前一条退出码落地后串行跑（2026-09-16 rd-gui 实证，串行复跑即绿）。
