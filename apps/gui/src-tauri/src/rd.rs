@@ -16,8 +16,7 @@ use tokio::sync::Mutex;
 
 use crate::state::AppState;
 
-// pub(crate)：generate_handler! 需从 lib.rs 解析 rd::input::rd_input_* 路径。
-pub(crate) mod input;
+mod input;
 mod relay;
 
 /// host 状态快照（camelCase，GUI 三态渲染）。

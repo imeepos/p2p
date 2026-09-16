@@ -1,15 +1,12 @@
-//! rd 输入命令面（M6C）：GUI canvas 鼠标/键盘事件 → 活跃 viewer 会话控制通道。
+//! rd 输入实现（M6C §21.4）：GUI canvas 鼠标/键盘事件 → 活跃 viewer 会话控制通道。
 //!
 //! 无活跃 viewer 会话时返回 false（幂等护栏，不报错——审批等待/断连瞬间不炸 UI）；
-//! 发送失败同样以 false 呈现并记 warn（失败路径可观测）。
-
-use tauri::State;
+//! 发送失败同样以 false 呈现；命令薄壳见 crate 根 rd_input.rs。
 
 use super::RdSlot;
-use crate::state::AppState;
 
 impl RdSlot {
-    pub(super) async fn input_mouse(
+    pub(crate) async fn input_mouse(
         &self,
         x: u16,
         y: u16,
@@ -28,7 +25,7 @@ impl RdSlot {
         }
     }
 
-    pub(super) async fn input_key(&self, code: u16, down: bool, modifiers: u8) -> bool {
+    pub(crate) async fn input_key(&self, code: u16, down: bool, modifiers: u8) -> bool {
         let ctl = {
             let g = self.viewer.lock().await;
             g.as_ref().map(|s| s.control())
@@ -39,7 +36,7 @@ impl RdSlot {
         }
     }
 
-    pub(super) async fn input_key_reset(&self) -> bool {
+    pub(crate) async fn input_key_reset(&self) -> bool {
         let ctl = {
             let g = self.viewer.lock().await;
             g.as_ref().map(|s| s.control())
@@ -49,34 +46,4 @@ impl RdSlot {
             None => false,
         }
     }
-}
-
-#[tauri::command]
-pub async fn rd_input_mouse(
-    state: State<'_, AppState>,
-    x: u16,
-    y: u16,
-    buttons: u8,
-    wheel_dx: i8,
-    wheel_dy: i8,
-) -> Result<bool, String> {
-    Ok(state
-        .rd()
-        .input_mouse(x, y, buttons, wheel_dx, wheel_dy)
-        .await)
-}
-
-#[tauri::command]
-pub async fn rd_input_key(
-    state: State<'_, AppState>,
-    code: u16,
-    down: bool,
-    modifiers: u8,
-) -> Result<bool, String> {
-    Ok(state.rd().input_key(code, down, modifiers).await)
-}
-
-#[tauri::command]
-pub async fn rd_input_key_reset(state: State<'_, AppState>) -> Result<bool, String> {
-    Ok(state.rd().input_key_reset().await)
 }

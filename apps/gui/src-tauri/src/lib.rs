@@ -25,6 +25,7 @@ pub mod media_export;
 pub mod profile;
 pub mod proto;
 pub mod rd;
+pub mod rd_input;
 pub mod services;
 pub mod state;
 pub mod tunnel;
@@ -132,9 +133,9 @@ pub fn run() {
             rd::rd_viewer_connect,
             rd::rd_viewer_close,
             rd::rd_viewer_status,
-            rd::input::rd_input_mouse,
-            rd::input::rd_input_key,
-            rd::input::rd_input_key_reset,
+            rd_input::rd_input_mouse,
+            rd_input::rd_input_key,
+            rd_input::rd_input_key_reset,
             tunnel::tunnel_serve_start,
             tunnel::tunnel_serve_stop,
             tunnel::tunnel_open_dsh,
