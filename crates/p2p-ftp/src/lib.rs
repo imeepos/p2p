@@ -43,8 +43,6 @@ pub enum FtpError {
     Rejected { code: u16, text: String },
     #[error("非法应答帧: {0}")]
     BadReply(String),
-    #[error("数据流异常结束")]
-    DataAborted,
     #[error("节点装配: {0}")]
     Assembly(String),
 }
