@@ -56,6 +56,8 @@ pub struct AppState {
     llm_serve: ServeSlot,
     /// tunnel 被访侧槽位（W-T2：handler 进表，会话态默认关闭）。
     tunnel_serve: crate::tunnel::TunnelServeSlot,
+    /// rd 远程桌面槽位（M6B：host/审批/viewer 命令面）。
+    rd: crate::rd::RdSlot,
 }
 
 impl AppState {
@@ -68,6 +70,7 @@ impl AppState {
             chat: chat::ChatSlot::new(app_data_dir),
             llm_serve: ServeSlot::new(),
             tunnel_serve: crate::tunnel::TunnelServeSlot::new(),
+            rd: crate::rd::RdSlot::new(),
         }
     }
 
@@ -79,6 +82,11 @@ impl AppState {
     /// tunnel 被访侧槽位句柄（tunnel_serve_start/stop 命令面）。
     pub(crate) fn tunnel_serve(&self) -> &crate::tunnel::TunnelServeSlot {
         &self.tunnel_serve
+    }
+
+    /// rd 槽位句柄（rd_host_* / rd_viewer_* 命令面）。
+    pub(crate) fn rd(&self) -> &crate::rd::RdSlot {
+        &self.rd
     }
 
     /// node_start：已运行 Err；成功后占槽并注册 echo handler、订阅事件。
@@ -124,6 +132,8 @@ impl AppState {
         crate::llm_share::serve::install(&self.llm_serve, &llm_store, &cfg, &node).await;
         // tunnel 被访侧装配（W-T2）：handler 进表；按次开关默认关，需显式开启。
         self.tunnel_serve.install(&node).await;
+        // rd 远程桌面装配（M6B）：handler 进表，服务默认关，需 rd_host_start 开启。
+        self.rd.install(&node).await;
         *slot = Some(RunningNode {
             node,
             config: cfg.clone(),
@@ -157,6 +167,7 @@ impl AppState {
                 self.chat.uninstall().await;
                 self.llm_serve.clear().await;
                 self.tunnel_serve.clear().await;
+                self.rd.clear().await;
                 true
             }
             None => false,

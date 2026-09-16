@@ -24,6 +24,7 @@ pub mod llm_share;
 pub mod media_export;
 pub mod profile;
 pub mod proto;
+pub mod rd;
 pub mod services;
 pub mod state;
 pub mod tunnel;
@@ -122,6 +123,15 @@ pub fn run() {
             authz::authz_role_create,
             authz::authz_role_update,
             authz::authz_role_delete,
+            rd::rd_host_start,
+            rd::rd_host_stop,
+            rd::rd_host_status,
+            rd::rd_approve,
+            rd::rd_deny,
+            rd::rd_quality_set,
+            rd::rd_viewer_connect,
+            rd::rd_viewer_close,
+            rd::rd_viewer_status,
             tunnel::tunnel_serve_start,
             tunnel::tunnel_serve_stop,
             tunnel::tunnel_open_dsh,
