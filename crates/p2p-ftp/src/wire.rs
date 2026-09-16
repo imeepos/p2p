@@ -22,25 +22,6 @@ pub const DATA_OP_NLST: u8 = 4;
 /// 令牌字节数（256 位随机，抗猜测与重放）。
 pub const TOKEN_LEN: usize = 32;
 
-/// 数据通道首帧载荷。
-pub fn data_header(op: u8, token: &[u8; TOKEN_LEN]) -> Vec<u8> {
-    let mut frame = Vec::with_capacity(1 + TOKEN_LEN);
-    frame.push(op);
-    frame.extend_from_slice(token);
-    frame
-}
-
-/// 解析数据通道首帧；长度不符或令牌缺字返回 None（由调用方断流）。
-pub fn parse_data_header(frame: &[u8]) -> Option<(u8, [u8; TOKEN_LEN])> {
-    let (&op, rest) = frame.split_first()?;
-    if rest.len() != TOKEN_LEN {
-        return None;
-    }
-    let mut token = [0u8; TOKEN_LEN];
-    token.copy_from_slice(rest);
-    Some((op, token))
-}
-
 /// 控制命令（RFC 959 子集）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
@@ -109,6 +90,34 @@ impl Command {
             "STOR" => need(arg, Command::Stor),
             "APPE" => need(arg, Command::Appe),
             _ => Command::Unknown(verb.to_string()),
+        }
+    }
+
+    /// 授权类别映射；None = 免判（登录序列/探测/退出）。
+    pub fn op(&self) -> Option<crate::auth::FtpOp> {
+        match self {
+            Self::Pwd
+            | Self::Cwd(_)
+            | Self::Cdup
+            | Self::Size(_)
+            | Self::List(_)
+            | Self::Nlst(_)
+            | Self::Retr(_) => Some(crate::auth::FtpOp::Read),
+            Self::Mkd(_)
+            | Self::Rmd(_)
+            | Self::Dele(_)
+            | Self::Rnfr(_)
+            | Self::Rnto(_)
+            | Self::Stor(_)
+            | Self::Appe(_) => Some(crate::auth::FtpOp::Write),
+            Self::User(_)
+            | Self::Pass(_)
+            | Self::Syst
+            | Self::Feat
+            | Self::Noop
+            | Self::Quit
+            | Self::Type
+            | Self::Unknown(_) => None,
         }
     }
 
@@ -263,14 +272,5 @@ mod tests {
     fn unhex_rejects_bad_input() {
         assert!(unhex("zz").is_none());
         assert!(unhex("abcd").is_none());
-    }
-
-    #[test]
-    fn data_header_roundtrip() {
-        let mut token = [1u8; TOKEN_LEN];
-        token[7] = 9;
-        let frame = data_header(DATA_OP_PUT, &token);
-        assert_eq!(parse_data_header(&frame), Some((DATA_OP_PUT, token)));
-        assert!(parse_data_header(&frame[..10]).is_none());
     }
 }

@@ -16,9 +16,9 @@ use p2p_protocol::{read_frame, ProtocolHandler, ProtocolId};
 use crate::auth::{AllowAll, Authenticator, Authorizer};
 use crate::data_plane::run_data_transfer;
 use crate::session;
+use crate::transfer::parse_data_header;
 use crate::transfer::TransferRegistry;
 use crate::vfs::FileSystem;
-use crate::wire::parse_data_header;
 use crate::{proto, FtpError, PROTO_CTRL, PROTO_DATA};
 
 /// 服务配置（超限即失败路径显式报错，禁止静默截断）。

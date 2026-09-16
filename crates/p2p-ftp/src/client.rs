@@ -13,11 +13,10 @@ use p2p_mux::BoxedStream;
 use p2p_protocol::write_frame;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+use crate::transfer::data_header;
 use crate::vfs::parse_listing;
 use crate::vfs::Entry;
-use crate::wire::{
-    data_header, Command, Reply, DATA_OP_GET, DATA_OP_LIST, DATA_OP_NLST, DATA_OP_PUT,
-};
+use crate::wire::{Command, Reply, DATA_OP_GET, DATA_OP_LIST, DATA_OP_NLST, DATA_OP_PUT};
 use crate::{proto, FtpError, PROTO_CTRL, PROTO_DATA};
 
 /// FTP 客户端：单控制连接会话。并发传输不提供（与经典 FTP 控制连接同义）。
