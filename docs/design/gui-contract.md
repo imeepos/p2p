@@ -858,7 +858,7 @@ type TunnelErrorCode =
 生效时机 = 下次节点启动（不热更）；服务面板对未运行项实时可翻，对运行中项
 提示重启生效。命令参数无效一律 Err 可读中文。
 
-### 20.1 服务清单（闭集 v1，与设计文档 §2 逐字一致）
+### 20.1 服务清单（闭集 v1，与设计文档 §2 逐字一致；ftp 收尾波 FT5 追加 serve.ftp）
 
 | serviceId | 型 | 默认 | 语义 |
 |---|---|---|---|
@@ -872,12 +872,13 @@ type TunnelErrorCode =
 | serve.rendezvous_server | 显式化型 | on | 开关 AND public_only 策略双条件 |
 | discovery.mdns | 收编型 | 双读 | services.json 有条目用之，无条目回落 GuiConfig.enableMdns |
 | net.lan_only | 收编型 | 双读 | services.json 条目优先，缺失回落 GuiConfig.lanOnly（B1 补字段+消费，GUI/CLI 同语义） |
+| serve.ftp | 布尔型 | off | FTP 服务端总闸：on 且 ftp.json 配置 root 才装配 /ftp/ctrl/1+/ftp/data/1（CLI daemon 消费；GUI 服务面板自动含此行） |
 
 ### 20.2 命令表（追加；JSON 字段一律 camelCase）
 
 | 命令 | 参数 | 返回 | 语义 |
 |---|---|---|---|
-| services_list | - | { services: ServiceView[] } | 闭集 10 项全量（enabled 为持久化生效值：文件条目优先，缺失按默认/双读回落推导）；requiresRestart = 节点当前运行中（服务开关一律下次启动生效） |
+| services_list | - | { services: ServiceView[] } | 闭集 11 项全量（enabled 为持久化生效值：文件条目优先，缺失按默认/双读回落推导）；requiresRestart = 节点当前运行中（服务开关一律下次启动生效） |
 | services_set_enabled | serviceId: string, enabled: boolean | ServiceMutationReport | upsert 条目并原子写盘（先重读磁盘合并）；serviceId 不在闭集 → Err 可读中文（附闭集清单）；写失败 → Err；不改运行中节点行为，返回 requiresRestart 供面板提示 |
 
 ### 20.3 数据类型

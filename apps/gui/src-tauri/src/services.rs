@@ -30,7 +30,7 @@ pub struct ServiceViewJson {
     pub requires_restart: bool,
 }
 
-/// services_list 返回（§20.2）：闭集 10 项全量。
+/// services_list 返回（§20.2）：闭集 11 项全量（FT5 追加 serve.ftp）。
 #[derive(Debug, Serialize)]
 pub struct ServicesListReport {
     pub services: Vec<ServiceViewJson>,
@@ -163,7 +163,9 @@ mod tests {
     #[test]
     fn build_views_covers_full_closed_set_contract_shape() {
         let views = build_views(&ServiceRegistry::default(), &default_cfg(), true);
-        assert_eq!(views.len(), 10);
+        assert_eq!(views.len(), 11);
+        let ftp = views.iter().find(|v| v.service_id == "serve.ftp");
+        assert_eq!(ftp.map(|v| v.enabled), Some(false), "serve.ftp 默认关");
         let first = &views[0];
         assert_eq!(first.service_id, "serve.llm_share");
         assert_eq!(first.kind, "boolean");
