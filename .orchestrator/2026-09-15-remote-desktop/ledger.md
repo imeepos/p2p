@@ -96,3 +96,31 @@
 ## 依赖挂账
 - p2p-service 服务开关（rd-host/rd-viewer）：wsm 波（feat/wsm-b2）合入后接线。
 - p2p-authz 能力 key：M6 接线。
+
+## M6B（2026-09-16 收官）：GUI 命令面 + 前端卡
+- 2026-09-16 feat/rd-front 收官合并（main @ bfe3be2b）：rd 九命令 IPC 面 +
+  remote-access 页 RemoteDesktopCard（host 开关/审批队列/质量/连接表单）+
+  remoteAccess.rd.* 双语键 + 渲染矩阵三态测试；gui-check PASS（门禁抓出并修复
+  use-rd-model 硬编码 CJK 文案——改走已登记键 remoteAccess.rd.errors.nodeOffline）。
+- 收尾四步完整执行：push → 主树 ff-only（35bbaec0→bfe3be2b）→ worktree remove →
+  分支本地/远端双删。
+
+## M6C（2026-09-16，feat/rd-gui-viewer 分支在飞）：GUI viewer 渲染/输入面
+- 契约先行：gui-contract §21.4（commit be62d19f）——帧通道二进制格式
+  [w:u16 LE][h:u16 LE][seq:u32 LE][rgba8]、rd_input_mouse/key/key_reset 命令、
+  坐标恒帧坐标系（scale 重标定责任在 host 真采集波）、cli-parity 豁免。
+- src-tauri（commit 4ab0ca80）：connect_viewer_with_sink 接 RenderSink 注入口，
+  WebviewSink 经 tauri Channel 推帧（<1024B eval 直执行、大帧走 fetch 队列，
+  两路均以 ArrayBuffer 抵达 JS）；rd/input.rs 三命令——Arc 克隆后释放槽位锁，
+  网络 await 不持锁；无活跃会话幂等返回 false；帧编码单测。
+- 前端（commits 6000f6cf/753abd67）：rd-frame 纯函数解析（坏帧丢弃）+
+  rd-keymap（DOM→HID usage id/位掩码/wheel i8 收敛）；RdFrameCanvas 帧到即
+  putImageData、失焦/卸载 key_reset 防卡键；mock 帧泵（320×180@10fps 确定性
+  图案）+输入录制，渲染矩阵测试覆盖画布下发鼠标/键盘/释放三事件。
+- 环境事故记录：git worktree remove rd-front 后主树 apps/gui/node_modules 的
+  vite/vitest 符号链接悬空（链接指向被删 worktree 的 .pnpm 存储），
+  check-fast 的 mock-ipc 护栏自测红；rm -rf apps/gui/node_modules + pnpm install
+  重建（pnpm 增量 install/–force 均不修悬空链接，须整目录重建）。
+- 挂账（下一轮）：真机 GUI 双实例冒烟（host 合成源 + viewer 连接，目视画布
+  动画 + 输入注入生效）需人工目视确认；多显示器、p2p-authz 能力 key、wsm
+  开关接线仍按 M6 二部分挂账。
