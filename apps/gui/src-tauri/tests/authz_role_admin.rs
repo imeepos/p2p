@@ -1,5 +1,5 @@
 //! gui-contract.md §18.5 角色管理命令面回环（authz 角色管理波）：mock runtime
-//! 直调命令层（authz_command 装配口径）。覆盖：闭集枚举九 key、角色
+//! 直调命令层（authz_command 装配口径）。覆盖：闭集枚举十一 key、角色
 //! create/update/delete 全链、内建拒改删、表外 key 拒、默认角色删除闸、审计。
 
 use std::path::PathBuf;
@@ -53,7 +53,7 @@ fn perms(keys: &[&str]) -> Vec<String> {
 }
 
 #[tokio::test]
-async fn permissions_list_returns_registry_order_nine_keys() {
+async fn permissions_list_returns_registry_order_eleven_keys() {
     let report = authz_permissions_list().await.expect("闭集枚举");
     assert_eq!(
         report.permissions,
@@ -67,8 +67,10 @@ async fn permissions_list_returns_registry_order_nine_keys() {
             "llm.borrow",
             "repair.diag",
             "repair.fix",
+            "file.read",
+            "file.write",
         ]),
-        "九 key 且 registry 顺序（§4 设计表逐字）"
+        "十一 key 且 registry 顺序（§4 设计表逐字）"
     );
 }
 
