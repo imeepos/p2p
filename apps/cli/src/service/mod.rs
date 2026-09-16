@@ -17,7 +17,7 @@ use crate::types::GuiConfig;
 
 #[derive(Subcommand)]
 pub enum ServiceCommand {
-    /// 列出服务闭集 10 项（型别/默认/生效值/来源）
+    /// 列出服务闭集 11 项（型别/默认/生效值/来源）
     List(list::ListArgs),
     /// 启用服务（upsert 落盘 services.json，下次节点启动生效）
     Enable(set::SetArgs),

@@ -1,4 +1,4 @@
-//! 服务闭集（service-registry-design §2）：首批 10 项，只加不删（废用标
+//! 服务闭集（service-registry-design §2）：首批 11 项，只加不删（废用标
 //! deprecated）。id/型别/默认值单一真值源 = 本表（描述不进 services.json，
 //! plan §0.2 防双真值源漂移）；数据一致性测试逐字锚定设计表，改表即测试红
 //! （沿 p2p-authz permissions.rs 先例）。

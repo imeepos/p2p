@@ -24,9 +24,9 @@ beforeEach(() => {
 });
 
 describe("mock servicesList", () => {
-  it("返回闭集 10 项且 id/kind 与 §20.1 一致", async () => {
+  it("返回闭集 11 项且 id/kind 与 §20.1 一致", async () => {
     const { services } = await mockBackend.servicesList();
-    expect(services).toHaveLength(10);
+    expect(services).toHaveLength(11);
     expect(services.map((s) => [s.serviceId, s.kind])).toEqual([
       ["serve.llm_share", "boolean"],
       ["serve.tunnel", "boolean"],
@@ -38,6 +38,7 @@ describe("mock servicesList", () => {
       ["serve.rendezvous_server", "explicit"],
       ["discovery.mdns", "adopted"],
       ["net.lan_only", "adopted"],
+      ["serve.ftp", "boolean"],
     ]);
   });
 

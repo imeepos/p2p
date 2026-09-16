@@ -574,7 +574,7 @@ export interface AuthzRoleDeleteReport {
 
 // ── 契约 §20 加法（服务总控波）：服务总控，与 docs/design/gui-contract.md §20 逐字对齐，禁止改名 ──
 
-// 服务清单闭集（10 项，只加不删）：id/型/默认值真值源 = crates/p2p-service
+// 服务清单闭集（11 项，只加不删）：id/型/默认值真值源 = crates/p2p-service
 // 常量表；前端禁硬编码服务列表，一律经 servicesList 枚举。
 export type ServiceKindJson = "boolean" | "explicit" | "adopted";
 

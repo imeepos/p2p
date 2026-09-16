@@ -29,6 +29,7 @@ const CLOSED_SET: ReadonlyArray<ClosedSetEntry> = [
   { serviceId: "serve.rendezvous_server", kind: "explicit", defaultEnabled: true },
   { serviceId: "discovery.mdns", kind: "adopted", defaultEnabled: true },
   { serviceId: "net.lan_only", kind: "adopted", defaultEnabled: false },
+  { serviceId: "serve.ftp", kind: "boolean", defaultEnabled: false },
 ];
 
 const CORRUPT_ERROR =

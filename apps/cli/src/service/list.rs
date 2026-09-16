@@ -1,4 +1,4 @@
-//! p2pctl service list：闭集 10 项只读清单（id/型别/默认/生效值/来源），
+//! p2pctl service list：闭集 11 项只读清单（id/型别/默认/生效值/来源），
 //! 离线可跑；requiresRestart = 节点运行中（守护进程在线探测，与 GUI 同语义）。
 
 use clap::Args;
