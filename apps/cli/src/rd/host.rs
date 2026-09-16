@@ -66,7 +66,7 @@ pub async fn run(args: HostArgs) -> CliResult<()> {
         require_approval: false,
         ..Default::default()
     };
-    let _host = RdHost::with_config(
+    let host = RdHost::with_config(
         node.clone(),
         Arc::new(SyntheticFactory { w: args.width, h: args.height }),
         Arc::new(rd_input::recording::RecordingInjectorFactory::new()),
@@ -74,6 +74,7 @@ pub async fn run(args: HostArgs) -> CliResult<()> {
         config,
     )
     .map_err(|e| CliError::Runtime(format!("rd host 装配失败: {e}")))?;
+    host.set_enabled(true);
     emit_ready(&node);
     wait_signal().await;
     node.shutdown();
