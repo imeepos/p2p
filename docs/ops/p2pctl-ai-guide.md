@@ -1981,3 +1981,80 @@ timeout 3 p2pctl vdrive serve --root ./p2p-data --data-dir ./p2p-data --no-mdns
 p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 --data-dir ./p2p-data --no-mdns
 ```
 语义：桥不增设鉴权面（网络边界在底座、本机边界在回环）；真机挂载验收 scripts/ops/vdrive-mount-smoke.sh（VDRIVE-MOUNT-SMOKE-OK）。退出码：0 = 信号收口完成；1 = 对端不可达/端口绑定失败/挂载点全不可建（--mount 时以 mount-failed 行降级为桥模式，不算失败）。
+### p2pctl ftp ls
+用途：列远端目录明细（类型 d/f、大小字节、mtime Unix 秒、名）。一次性连接：装配最小节点 → 拨号对端 → 登录 → LIST → 退出。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER> | 位置参数 string | 是 | —— |
+| --user | string | 否 | anonymous |
+| --password | string | 否 | 空 |
+| --data-dir | path | 否 | ./p2p-data |
+| [PATH] | 位置参数 string | 否 | 根目录 / |
+退出码：成功 0；远端拒绝（550 不存在等）/网络失败 1。
+
+### p2pctl ftp get
+用途：下载远端文件到本地路径（RETR，64KiB 分片流式直写）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER> | 位置参数 string | 是 | —— |
+| --user | string | 否 | anonymous |
+| --password | string | 否 | 空 |
+| --data-dir | path | 否 | ./p2p-data |
+| <REMOTE> | 位置参数 string | 是 | —— |
+| <LOCAL> | 位置参数 string | 是 | —— |
+退出码：成功 0；远端拒绝/本地文件创建失败 1。
+
+### p2pctl ftp put
+用途：上传本地文件到远端路径（STOR 截断语义；服务端 HiddenStores：失败零残留，成功前目标不可见）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER> | 位置参数 string | 是 | —— |
+| --user | string | 否 | anonymous |
+| --password | string | 否 | 空 |
+| --data-dir | path | 否 | ./p2p-data |
+| <LOCAL> | 位置参数 string | 是 | —— |
+| <REMOTE> | 位置参数 string | 是 | —— |
+退出码：成功 0；远端拒绝（552 超限/550 父目录缺失）/本地文件打开失败 1。
+
+### p2pctl ftp mkdir
+用途：建远端目录（MKD）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER> | 位置参数 string | 是 | —— |
+| --user | string | 否 | anonymous |
+| --password | string | 否 | 空 |
+| --data-dir | path | 否 | ./p2p-data |
+| <PATH> | 位置参数 string | 是 | —— |
+退出码：成功 0；已存在/越狱 550 → 1。
+
+### p2pctl ftp rmdir
+用途：删远端空目录（RMD，非空失败）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER> | 位置参数 string | 是 | —— |
+| --user | string | 否 | anonymous |
+| --password | string | 否 | 空 |
+| --data-dir | path | 否 | ./p2p-data |
+| <PATH> | 位置参数 string | 是 | —— |
+退出码：成功 0；目录非空/不存在 → 1。
+
+### p2pctl ftp delete
+用途：删远端文件（DELE）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER> | 位置参数 string | 是 | —— |
+| --user | string | 否 | anonymous |
+| --password | string | 否 | 空 |
+| --data-dir | path | 否 | ./p2p-data |
+| <PATH> | 位置参数 string | 是 | —— |
+退出码：成功 0；不存在 → 1。
+
+### p2pctl ftp pwd
+用途：查服务端当前目录（登录后恒为根 /，连通性/登录验证用）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| <PEER> | 位置参数 string | 是 | —— |
+| --user | string | 否 | anonymous |
+| --password | string | 否 | 空 |
+| --data-dir | path | 否 | ./p2p-data |
+退出码：成功 0；登录失败（530）→ 1。

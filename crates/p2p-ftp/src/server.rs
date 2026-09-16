@@ -16,7 +16,7 @@ use p2p_protocol::{read_frame, ProtocolHandler, ProtocolId};
 use crate::auth::Authenticator;
 use crate::data_plane::run_data_transfer;
 use crate::session;
-use crate::transfer::{DataKind, TransferRegistry};
+use crate::transfer::TransferRegistry;
 use crate::vfs::FileSystem;
 use crate::wire::parse_data_header;
 use crate::{proto, FtpError, PROTO_CTRL, PROTO_DATA};

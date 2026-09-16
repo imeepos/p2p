@@ -10,6 +10,7 @@ mod control;
 mod daemon;
 mod discovery;
 mod error;
+mod ftp;
 mod group;
 mod gui;
 mod identity;
@@ -68,6 +69,7 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::LlmShare { command } => llm_share::run(command).await,
         cli::Command::A2a { command } => a2a::run(command).await,
         cli::Command::Authz { command } => authz::run(command).await,
+        cli::Command::Ftp { command } => ftp::run(command).await,
         cli::Command::Tunnel { command } => tunnel::run(command).await,
         cli::Command::Service { command } => service::run(command).await,
         cli::Command::Vdrive { command } => vdrive::run(command).await,

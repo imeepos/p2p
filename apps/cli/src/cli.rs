@@ -7,6 +7,7 @@ use crate::acp;
 use crate::authz;
 use crate::chat;
 use crate::config;
+use crate::ftp;
 use crate::discovery;
 use crate::group;
 use crate::gui;
@@ -136,5 +137,10 @@ pub enum Command {
     Vdrive {
         #[command(subcommand)]
         command: vdrive::VDriveCommand,
+    },
+    /// FTP 域：ls/get/put/mkdir/rmdir/delete/pwd（ftp 收尾波 FT4）
+    Ftp {
+        #[command(subcommand)]
+        command: ftp::FtpCommand,
     },
 }

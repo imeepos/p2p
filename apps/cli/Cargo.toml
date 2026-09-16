@@ -29,6 +29,9 @@ p2p-log = { path = "../../crates/p2p-log" }
 # chat 域（CL3）：复用 p2p-chat 门面（好友簿/历史/发送/媒体）。
 p2p-chat = { path = "../../crates/p2p-chat" }
 
+# ftp 域（ftp 收尾波 FT4）：复用 p2p-ftp 客户端门面。
+p2p-ftp = { path = "../../crates/p2p-ftp" }
+
 # acp 域（ACP5）：复用 acp-common 策略表 serde+原子文件存取与路径派生。
 acp-common = { path = "../acp-common" }
 
