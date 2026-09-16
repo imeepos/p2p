@@ -6,7 +6,6 @@ mod common;
 use std::sync::Arc;
 
 use common::{fs_root, link, payload, serve_b, spawn_node};
-use p2p::PeerId;
 use p2p_ftp::{FtpClient, FtpConfig, FtpError, LocalFs, OpenAuth, StaticAuth};
 
 /// 主链路：登录 → 建目录 → 上传 → 查 size/list → 下载 → 改名/删除 → 退出。
