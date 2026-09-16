@@ -110,4 +110,3 @@ pub(super) fn name_of(path: &Path) -> String {
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default()
 }
-
