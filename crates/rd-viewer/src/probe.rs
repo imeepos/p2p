@@ -14,21 +14,33 @@ pub async fn probe(
     peer: p2p::PeerId,
     session_id: String,
 ) -> Result<String, ViewerError> {
-    let mut stream = node.new_stream(peer, rd_wire::control_protocol_id()?).await?;
+    let mut stream = node
+        .new_stream(peer, rd_wire::control_protocol_id()?)
+        .await?;
     send_control(
         &mut stream,
         &ControlMsg::Hello {
             v: rd_wire::PROTOCOL_VERSION,
             role: Role::Viewer,
             session_id: session_id.clone(),
-            caps: rd_wire::Caps { audio: false, file: true, clipboard: true },
+            caps: rd_wire::Caps {
+                audio: false,
+                file: true,
+                clipboard: true,
+            },
         },
     )
     .await?;
     let ack = recv_control(&mut stream).await?;
     match ack {
-        ControlMsg::HelloAck { ok: true, session_id: sid, .. } if sid == session_id => Ok(sid),
-        ControlMsg::HelloAck { ok: false, reason, .. } => Err(ViewerError::Rejected(
+        ControlMsg::HelloAck {
+            ok: true,
+            session_id: sid,
+            ..
+        } if sid == session_id => Ok(sid),
+        ControlMsg::HelloAck {
+            ok: false, reason, ..
+        } => Err(ViewerError::Rejected(
             reason.unwrap_or_else(|| "no reason".into()),
         )),
         other => Err(ViewerError::Decode(format!("unexpected ack: {other:?}"))),
