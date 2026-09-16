@@ -950,3 +950,24 @@ interface RdViewerStatus { connected: boolean; sessionId?: string }
 - host 画面源当前为合成源（零系统权限）；真实 ScreenCaptureKit 采集/输入注入随后续 GUI 采集波并入（rd-capture sck feature）。
 - 审批语义：require_approval 开启时 viewer hello 拒 `awaiting_approval`，approve 后 viewer 重连成功（RustDesk 审批同款）。
 - viewer 渲染接缝（RenderSink → canvas）与文件传输 GUI 面属后续波，本契约只覆盖会话/审批/质量命令面。
+
+### 21.4 viewer 渲染/输入面（M6C 加法，2026-09-16）
+
+命令表加法（JSON 字段一律 camelCase；`rd_viewer_connect` 的 `onFrame` 为 tauri Channel 入参，浏览器 mock 环境省略）：
+
+| 命令 | 入参 | 返回 | 语义 |
+|---|---|---|---|
+| `rd_viewer_connect` | peer, session_id?, on_frame?: Channel | RdViewerStatus | 建 viewer 会话；解码帧经 channel 二进制推送 |
+| `rd_input_mouse` | x: u16, y: u16, buttons: u8, wheelDx: i8, wheelDy: i8 | bool | 鼠标事件下发（无活跃 viewer 会话 → false） |
+| `rd_input_key` | code: u16, down: bool, modifiers: u8 | bool | 键盘事件下发（同上） |
+| `rd_input_key_reset` | — | bool | 释放全部按键（失焦/断连护栏） |
+
+帧通道格式（二进制 Raw，一帧一消息）：`[w:u16 LE][h:u16 LE][seq:u32 LE][rgba8 × w×h×4]`；JS 侧收到 ArrayBuffer，按头解析后 `putImageData` 渲染。推送速率 = host 质量档 fps，无前端限速。
+
+输入语义（与线协议 rd-control.md 消息表一致）：
+- 坐标系：输入 x/y 与帧同坐标系（host 真采集引入 scale 时由 host 侧重标定，viewer 恒发帧坐标）。
+- buttons：bit0 左 / bit1 右 / bit2 中；wheel 为 i8 增量。
+- 键码：USB HID usage id（u16）；modifiers：0x1 shift / 0x2 ctrl / 0x4 alt / 0x8 meta。
+- GUI 护栏：canvas 失焦/会话关闭时自动发 `rd_input_key_reset`，防按键卡键。
+
+cli-parity：三条 input 命令入既有 rd 豁免登记（GUI 会话态）。
