@@ -16,6 +16,10 @@ use tokio::sync::Mutex;
 
 use crate::state::AppState;
 
+// pub(crate)：generate_handler! 需从 lib.rs 解析 rd::input::rd_input_* 路径。
+pub(crate) mod input;
+mod relay;
+
 /// host 状态快照（camelCase，GUI 三态渲染）。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -150,11 +154,12 @@ impl RdSlot {
         host.set_quality(fps, scale, codec).map(|_| ())
     }
 
-    /// viewer 会话：连接对端（握手 + 视频流；渲染接缝后续 GUI 波接入）。
-    pub async fn connect_viewer(
+    /// viewer 会话：连接对端（握手 + 视频流）；帧经 sink 交付（None = 丢弃）。
+    pub async fn connect_viewer_with_sink(
         &self,
         peer: PeerId,
         session_id: Option<String>,
+        sink: Option<Arc<dyn rd_viewer::RenderSink>>,
     ) -> Result<RdViewerStatus, String> {
         let node = self
             .node
@@ -164,8 +169,12 @@ impl RdSlot {
             .ok_or_else(|| "节点未启动".to_string())?;
         let sid = session_id.unwrap_or_else(random_session_id);
         let viewer = rd_viewer::RdViewer::new(node);
+        let sink: Arc<dyn rd_viewer::RenderSink> = match sink {
+            Some(s) => s,
+            None => Arc::new(NoopSink),
+        };
         let session = viewer
-            .connect(peer, sid.clone(), Arc::new(NoopSink))
+            .connect(peer, sid.clone(), sink)
             .await
             .map_err(|e| format!("rd 连接失败: {e}"))?;
         *self.viewer.lock().await = Some(session);
@@ -194,7 +203,7 @@ impl RdSlot {
     }
 }
 
-/// 无操作渲染 sink（渲染接缝后续 GUI 波接入）。
+/// 无操作渲染 sink（无 Channel 的探测型连接兜底）。
 struct NoopSink;
 impl rd_viewer::RenderSink for NoopSink {
     fn on_frame(&self, _frame: rd_viewer::DecodedFrame) {}
@@ -273,9 +282,14 @@ pub async fn rd_viewer_connect(
     state: State<'_, AppState>,
     peer: String,
     session_id: Option<String>,
+    on_frame: tauri::ipc::Channel,
 ) -> Result<RdViewerStatus, String> {
     let peer = parse_peer(&peer)?;
-    state.rd().connect_viewer(peer, session_id).await
+    let sink: Arc<dyn rd_viewer::RenderSink> = Arc::new(relay::WebviewSink::new(on_frame));
+    state
+        .rd()
+        .connect_viewer_with_sink(peer, session_id, Some(sink))
+        .await
 }
 
 #[tauri::command]
