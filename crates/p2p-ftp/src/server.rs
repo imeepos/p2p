@@ -12,12 +12,12 @@ use p2p::Node;
 use p2p_identity::PeerId;
 use p2p_mux::BoxedStream;
 use p2p_protocol::{read_frame, ProtocolHandler, ProtocolId};
-use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::auth::Authenticator;
+use crate::data_plane::run_data_transfer;
 use crate::session;
 use crate::transfer::{DataKind, TransferRegistry};
-use crate::vfs::{format_listing, FileSystem};
+use crate::vfs::FileSystem;
 use crate::wire::parse_data_header;
 use crate::{proto, FtpError, PROTO_CTRL, PROTO_DATA};
 
@@ -147,68 +147,6 @@ impl ProtocolHandler for DataHandler {
             tracing::warn!(path = %pending.vpath, "ftp control session gone before data result");
         }
         Ok(())
-    }
-}
-
-async fn run_data_transfer(
-    server: &FtpServer,
-    kind: DataKind,
-    vpath: &str,
-    stream: &mut BoxedStream,
-) -> io::Result<u64> {
-    match kind {
-        DataKind::Get => {
-            let mut reader = server.fs().reader(vpath).await?;
-            let n = tokio::io::copy(&mut reader, stream).await?;
-            stream.flush().await?;
-            stream.shutdown().await?;
-            Ok(n)
-        }
-        DataKind::Put | DataKind::Append => {
-            let mut writer = server.fs().writer(vpath, kind == DataKind::Append).await?;
-            let n = copy_limited(stream, &mut writer, server.cfg().max_upload_bytes).await?;
-            writer.flush().await?;
-            Ok(n)
-        }
-        DataKind::List | DataKind::Nlst => {
-            let body = match kind {
-                DataKind::Nlst => server
-                    .fs()
-                    .list(vpath)
-                    .await?
-                    .into_iter()
-                    .map(|e| format!("{}\n", e.name))
-                    .collect::<String>(),
-                _ => format_listing(&server.fs().list(vpath).await?),
-            };
-            stream.write_all(body.as_bytes()).await?;
-            stream.flush().await?;
-            stream.shutdown().await?;
-            Ok(body.len() as u64)
-        }
-    }
-}
-
-async fn copy_limited(
-    src: &mut BoxedStream,
-    dst: &mut (impl AsyncWrite + Unpin + Send),
-    max: u64,
-) -> io::Result<u64> {
-    let mut buf = vec![0u8; 64 * 1024];
-    let mut total: u64 = 0;
-    loop {
-        let n = src.read(&mut buf).await?;
-        if n == 0 {
-            return Ok(total);
-        }
-        total += n as u64;
-        if total > max {
-            return Err(io::Error::new(
-                io::ErrorKind::StorageFull,
-                format!("upload exceeds configured limit of {max} bytes"),
-            ));
-        }
-        dst.write_all(&buf[..n]).await?;
     }
 }
 

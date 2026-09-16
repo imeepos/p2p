@@ -55,7 +55,11 @@
 之后为原始字节流，不分帧：
 
 - GET/LIST/NLST：服务端写完整 payload 后半关流（EOF）。
-- PUT：客户端写完后半关流；服务端读到 EOF 即落盘完成。
+- PUT：客户端写完后半关流；服务端读到 EOF 即落盘完成。STOR 服务端走
+  HiddenStores（ProFTPD 同名机制）：先写同目录隐藏临时文件
+  `.<name>.p2p-ftp-partial`，成功后原子 rename 到目标，任何失败（超限/断流/
+  rename 失败）自动清临时文件——目标路径永不出现半截文件；APPE 直写目标
+  （追加语义=断点续传友好）。
 
 LIST 明细行：`<d|f>\t<size>\t<mtime>\t<name>\n`（类型 d=目录 f=文件，
 mtime 为 Unix 秒；名字含空格安全，坏行由客户端跳过）。
@@ -96,7 +100,9 @@ NLST：每行一个名字。
   必须仍在根内（反符号链接逃逸）；写路径校验父目录在根内。
   会话层 `normalize` 先拒 `..` 越根（双闸纵深）。
 - 上传限额：`FtpConfig.max_upload_bytes`（默认 256 MiB）逐片累计，
-  超限即断流回 552，禁止静默截断。
+  超限即断流回 552，禁止静默截断；HiddenStores 保证失败零残留。
+- 列表上限：`FtpConfig.max_list_entries`（默认 10 000），超限显式报错，
+  防超大目录拖垮内存/带宽（FTP 无分页标准的社区通行防御位）。
 - 裸流拒绝：控制/数据 handler 均要求对端身份（swarm 安全握手互认），
   无身份上下文的裸流一律 PermissionDenied（令牌绑定签发方不可绕过）。
 

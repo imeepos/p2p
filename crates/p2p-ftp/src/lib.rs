@@ -11,6 +11,7 @@
 
 pub mod auth;
 mod client;
+mod data_plane;
 mod localfs;
 pub mod server;
 mod session;

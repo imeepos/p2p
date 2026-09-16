@@ -183,7 +183,7 @@ async fn path_jail_and_target_errors() {
     assert!(matches!(c.size("/").await, Err(FtpError::Rejected { .. })));
 }
 
-/// 上传限额：超限传输在数据通道失败，控制面回非 226，且文件不完整落盘。
+/// 上传限额 + HiddenStores：超限传输失败，目标与隐藏临时文件都不得残留。
 #[tokio::test]
 async fn upload_limit_enforced() {
     let a = spawn_node("lim-a").await;
@@ -209,6 +209,19 @@ async fn upload_limit_enforced() {
     let mut src = &big[..];
     let result = c.stor("/big.bin", &mut src).await;
     assert!(result.is_err(), "超限上传必须失败");
-    let on_disk = std::fs::read(root.join("big.bin")).unwrap_or_default();
-    assert!(on_disk.len() < big.len(), "超限后不得整文件落盘");
+    assert!(
+        !root.join("big.bin").exists(),
+        "HiddenStores：目标不得出现半截文件"
+    );
+    assert!(
+        !root.join(".big.bin.p2p-ftp-partial").exists(),
+        "失败清场：隐藏临时文件必须被清"
+    );
+
+    // 限额内小文件正常走 HiddenStores 成功路径，且无临时残留
+    let small = vec![1u8; 512];
+    let mut src = &small[..];
+    c.stor("/ok.bin", &mut src).await.unwrap();
+    assert_eq!(std::fs::read(root.join("ok.bin")).unwrap(), small);
+    assert!(!root.join(".ok.bin.p2p-ftp-partial").exists());
 }
