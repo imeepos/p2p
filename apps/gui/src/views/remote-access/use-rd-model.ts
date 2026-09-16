@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { toastError } from "@/components/feedback/toast";
 import { ipc } from "@/lib/ipc";
@@ -17,6 +18,7 @@ const IDLE_VIEWER: RdViewerStatus = { connected: false, sessionId: null };
 // 远程桌面页状态模型（gui-contract §21）：host/审批/质量/viewer 命令面快照同步。
 // 节点未运行一律显式告警（不静默）；动作期 busy 防重入。
 export function useRdPageModel() {
+  const { t } = useTranslation();
   const running = useNodeStore((s) => s.status?.running === true);
   const [hostRaw, setHost] = useState<RdHostStatus>(IDLE_HOST);
   const [viewerRaw, setViewer] = useState<RdViewerStatus>(IDLE_VIEWER);
@@ -48,12 +50,12 @@ export function useRdPageModel() {
 
   const guardRunning = useCallback((): boolean => {
     if (!running) {
-      const message = "请先在网络页启动本机 p2p 节点";
+      const message = t("remoteAccess.rd.errors.nodeOffline");
       setLastError(message);
       return false;
     }
     return true;
-  }, [running]);
+  }, [running, t]);
 
   const startHost = useCallback(
     async (requireApproval: boolean) => {
