@@ -394,3 +394,4 @@ im-group-design.md §3），与冻结的 /im/chat/1 并存路由。一流一事�
 | QUIC keepalive | 10 s | crates/p2p-transport/src/quic.rs:19 |
 | mDNS 服务类型 | `_p2pbase._udp.local` | crates/p2p-discovery/src/mdns.rs:16 |
 | 内置协议 ID（5 个） | 见 §3.2 全表 | crates/p2p-relay/src/lib.rs:9-13 |
+| `/vdrive/fs/1` | 网络硬盘文件系统操作面：JSON 请求一帧（op 内标签）+ 结构化应答（ok/data/err.kind），read 应答后随原始数据帧、write 请求后随数据帧；配套本机 WebDAV 桥（OS 可直接挂载） | 已实现（crates/p2p-vdrive/src/{wire,server,client}.rs，规范页 docs/protocol/specs/vdrive.md） |

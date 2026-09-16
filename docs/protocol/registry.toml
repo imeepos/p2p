@@ -255,3 +255,14 @@ spec = "specs/ftp.md"
 summary = "FTP 数据通道：首帧操作码+令牌兑付（节点绑定+TTL），其后原始字节流定向流动"
 vectors = []
 since = "2026-09-16"
+
+[[protocols]]
+id = "/vdrive/fs/1"
+family = "file"
+owner = "crates/p2p-vdrive"
+impl = "implemented"
+spec_status = "stable"
+spec = "specs/vdrive.md"
+summary = "网络硬盘文件系统操作面：JSON 请求（stat/list/read/write/...）+ 结构化应答，读应答后随原始数据帧；配套本机 WebDAV 桥供 OS 直接挂载"
+vectors = []
+since = "2026-09-16"
