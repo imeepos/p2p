@@ -618,3 +618,6 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-14 ACS1：门禁双跑策略——check-fast（受影响域裁剪，gui 变更时内含 gui.sh）先跑抓快红，随后 make gui-check 独立复跑拿专属退出码贴汇报；本机有并行会话抢 CPU 时 vitest 从 155s 涨到 703s，等门禁期间不要对同一 worktree 做任何写操作（含起 dev server 写 .vite 缓存）。
 - 2026-09-16 ftp：排查 E2E 传输失败别盲猜，给服务端 fs 调用处插 `eprintln!("[DBG] ... kind={:?}", e.kind())` 探针跑单用例（cargo test -p X --test Y <用例名>），两分钟定位；跑完必须撤探针。比加 tracing-subscriber 依赖或翻日志轻得多。
 - 2026-09-16 ftp：git worktree remove 超时被打断会留下半删状态（status 一片 D），再 remove 会报 "contains modified or untracked files"——先确认分支已 ff 进主干且推送（commit 安全在 ref 上），再 `--force` 删，勿手动 rm -rf 留下 worktree 元数据悬挂。
+- 2026-09-16 vdrive：批量结构化代码改动（拆模块/挪函数带断言防错）用 `python3 - <<'PYEOF'` heredoc（读-替换-assert in-写），比 `perl -pi -e` 可靠——perl 在复杂模式里 `$1` 插值失配会静默留下 `$1` 字面量炸编译；改完立即 `cargo check` 收口。
+- 2026-09-16 vdrive：`cargo fmt --all` 会让 edit 工具「file changed since read」拒写（读-校-写流程），格式化窗口内的多处修改要么先 fmt 再编辑，要么用脚本带断言改。
+- 2026-09-16 vdrive：全量 `make check` 超过前台超时上限（执行器封顶 600s），直接 `run_in_background` + 轮询日志尾部；先跑已知快的门禁（protocol-registry/line-limit/clippy）做快速反馈，全量留后台。

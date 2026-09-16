@@ -740,3 +740,7 @@ failed: early eof（客户端侧超时中止）。
 - 修法：非本次改动引入、无需修；判定新增报错时把这两条列为环境基线，只看其余 error。
 - 2026-09-16 ftp：panic-hygiene 门禁是文本扫描——自定义方法名叫 `expect`（`self.expect(&r, 200)`）也会命中 `.expect(` 规则被判 FAIL，与真实 unwrap 无关。修法：业务代码里「断言应答码」类方法取名 require/assert_reply 避开保留名。
 - 2026-09-16 ftp：make check 的 test 段（cargo test --workspace）在本机多 worktree 并行（vite preview/其他 cargo）时可能被 macOS jetsam SIGKILL（exit 137 "Killed: 9"），非用例红。修法：直接重跑 make check，编译缓存热后增量很快；全绿后照常合并。误判为测试失败去修测试是浪费时间。
+- 2026-09-16 vdrive：macOS `mount_webdav` 挂 `/Volumes/<name>` 在非管理员 shell 上下文会 EPERM（`mkdir /Volumes/x: Permission denied`），挂用户自有目录（如 `~/.vdrive-mounts/<name>`）完全等效可用（rc=0、读写正常）。修法：CLI 逐候选回退 `/Volumes` → `~/.vdrive-mounts`，挂载点经 stdout JSON 行回读，脚本不要硬编码 /Volumes。
+- 2026-09-16 vdrive：测试双 `Node::builder()` 不传 `data_dir` 会共享默认身份种子 → 两节点同 PeerId，`connect` 报 `refusing to dial self`（发生在 guest 侧，报错点离根因远）。修法：每节点独立 `data_dir`（tempdir 下 id-host/id-guest）。
+- 2026-09-16 vdrive：测试 rig 把 tempfile::TempDir 存私有字段后又被部分移动（解构取用其他字段），TempDir 随局部 drop → 后端根目录被删 → LocalFs 监狱校验按 `InvalidPath: resolved path escapes root` 拒绝，表象像越狱逻辑误判，实为生命周期问题。修法：Rig 字段全 pub 并让用例显式持有 `_tmp`。
+- 2026-09-16 vdrive：`a2a` crate `book::tests::insert_verify_clamp_and_version` 满载并行下偶发红（`t = now()` 与卡内 `now()` 跨秒界），隔离重跑恒绿——先隔离复跑再定性，勿动业务码（本波实证：make check 红→单独跑绿→整轮重跑全绿）。

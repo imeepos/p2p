@@ -533,3 +533,6 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-14 ACS1：techniques.md 明明已有「Playwright 截图 filename 用绝对路径」，走查时仍用相对名踩同坑（截图落 $HOME，全盘 find 找回还超时一次）——问题不是知识缺失而是「进入对应阶段前没重读 skill」。动作：开始走查/截图/dev server 阶段前，先 grep 一遍 techniques.md 关键词（截图/dev/端口/install），相关条目当场过目再动手。
 - 2026-09-16 ftp：多命令协议的传输类操作，前置检查必须按操作类型分叉——PUT/APPE 目标可以不存在（新建语义），先无条件 fetch 目标 metadata 再 match 类型 = 新文件必假红 550（本次 E2E 两处同因失败，浪费一轮调试）。动作：写 precheck/前置校验时先把「每种操作哪些目标允许不存在」列清楚再落码。
 - 2026-09-16 ftp：契约登记文件（registry.toml / wire-protocol.md §3.2 表）是 append-only 尾部热点，并行会话各自「最大号+1」必在文件尾撞。解法已实证：rebase 时冲突两侧登记块都保留（先合并者在前列序），机械门禁只做集合核对不在乎顺序。动作：新增协议 ID 前先 fetch + rebase 再登记（同迁移号规则）。
+- 2026-09-16 vdrive：serde_json 对象键序不保证（按字母序输出），`{"ok":true,"data":...}` 断言用 `contains` 语义字段，勿断言 `starts_with` 全串形态。
+- 2026-09-16 vdrive：WebDAV 兼容层两处「想当然」被实测纠正——根目录 stat 的 Entry.name 必须为空串（href="/"，返回 basename 会让 Finder 挂载后目录名错乱）；MOVE/COPY 拒绝覆盖的规范码是 412 不是 405。挂载类协议兼容性必须用真实客户端（curl + mount_webdav）回归，单测过了不等于能挂。
+- 2026-09-16 vdrive：chunked 帧手拼时 data 后的 CRLF 最易漏（`size\r\ndata\r\n0\r\n\r\n`），漏了服务端报 chunk terminator 错——先核对 RFC 形态再写测试帧。
