@@ -744,3 +744,5 @@ failed: early eof（客户端侧超时中止）。
 - 2026-09-16 vdrive：测试双 `Node::builder()` 不传 `data_dir` 会共享默认身份种子 → 两节点同 PeerId，`connect` 报 `refusing to dial self`（发生在 guest 侧，报错点离根因远）。修法：每节点独立 `data_dir`（tempdir 下 id-host/id-guest）。
 - 2026-09-16 vdrive：测试 rig 把 tempfile::TempDir 存私有字段后又被部分移动（解构取用其他字段），TempDir 随局部 drop → 后端根目录被删 → LocalFs 监狱校验按 `InvalidPath: resolved path escapes root` 拒绝，表象像越狱逻辑误判，实为生命周期问题。修法：Rig 字段全 pub 并让用例显式持有 `_tmp`。
 - 2026-09-16 vdrive：`a2a` crate `book::tests::insert_verify_clamp_and_version` 满载并行下偶发红（`t = now()` 与卡内 `now()` 跨秒界），隔离重跑恒绿——先隔离复跑再定性，勿动业务码（本波实证：make check 红→单独跑绿→整轮重跑全绿）。
+- 2026-09-16 vdrive 跨机冒烟：脚本经 ssh 远程化长驻进程有三个连环坑——①`nohup cmd &` 后台进程持 stdin 管道导致本地 ssh 永不返回（修：ssh -n + cmd </dev/null）；②`A && B && nohup C &` 的 & 作用于整条链，常驻 subshell 占住 ssh 通道 fd（修：多行远端脚本让 & 只作用 nohup 一行）；③`pkill -f "pattern"` 的 pattern 出现在同条 bash -c 命令串里会自杀会话（修：^ 锚定目标 cmdline 起始，如 `^./target/...`）。
+- 2026-09-16 vdrive：OS WebDAV 客户端（macOS mount_webdav）对服务器侧新增文件无缓存失效通知，挂载点看不到服务器侧新写入属固有行为非协议缺陷；验证服务器侧写入用直读桥端口或卸载重挂。
