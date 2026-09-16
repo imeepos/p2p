@@ -50,7 +50,6 @@ impl RdSlot {
 
     /// node_start 装配：注册 rd 处理器，服务默认关闭（需 rd_host_start 显式开启）。
     pub async fn install(&self, node: &Arc<Node>) {
-        
         let config = rd_host::HostConfig {
             fs_root: default_fs_root(),
             require_approval: true,
@@ -84,7 +83,10 @@ impl RdSlot {
 
     /// 服务开启（审批闸按参数翻转）。
     pub fn start(&self, require_approval: bool) -> Result<(), String> {
-        let host = self.host.blocking_lock().clone()
+        let host = self
+            .host
+            .blocking_lock()
+            .clone()
             .ok_or_else(|| "节点未启动，rd host 不可用".to_string())?;
         host.set_require_approval(require_approval);
         host.set_enabled(true);
@@ -93,7 +95,10 @@ impl RdSlot {
 
     /// 服务关闭：停全部活跃会话。
     pub fn stop(&self) -> Result<(), String> {
-        let host = self.host.blocking_lock().clone()
+        let host = self
+            .host
+            .blocking_lock()
+            .clone()
             .ok_or_else(|| "节点未启动，rd host 不可用".to_string())?;
         host.set_enabled(false);
         host.stop_all();
@@ -120,23 +125,42 @@ impl RdSlot {
 
     /// 审批通过（返回是否确有 pending 消费）。
     pub fn approve(&self, peer: &PeerId) -> bool {
-        self.host.blocking_lock().as_ref().map(|h| h.approve(peer)).unwrap_or(false)
+        self.host
+            .blocking_lock()
+            .as_ref()
+            .map(|h| h.approve(peer))
+            .unwrap_or(false)
     }
 
     pub fn deny(&self, peer: &PeerId) -> bool {
-        self.host.blocking_lock().as_ref().map(|h| h.deny(peer)).unwrap_or(false)
+        self.host
+            .blocking_lock()
+            .as_ref()
+            .map(|h| h.deny(peer))
+            .unwrap_or(false)
     }
 
     /// 质量协商（host 侧采纳，viewer 请求经控制通道同路径）。
     pub fn set_quality(&self, fps: u8, scale: u8, codec: u8) -> Result<(), String> {
-        let host = self.host.blocking_lock().clone()
+        let host = self
+            .host
+            .blocking_lock()
+            .clone()
             .ok_or_else(|| "节点未启动，rd host 不可用".to_string())?;
         host.set_quality(fps, scale, codec).map(|_| ())
     }
 
     /// viewer 会话：连接对端（握手 + 视频流；渲染接缝后续 GUI 波接入）。
-    pub async fn connect_viewer(&self, peer: PeerId, session_id: Option<String>) -> Result<RdViewerStatus, String> {
-        let node = self.node.lock().await.clone()
+    pub async fn connect_viewer(
+        &self,
+        peer: PeerId,
+        session_id: Option<String>,
+    ) -> Result<RdViewerStatus, String> {
+        let node = self
+            .node
+            .lock()
+            .await
+            .clone()
             .ok_or_else(|| "节点未启动".to_string())?;
         let sid = session_id.unwrap_or_else(random_session_id);
         let viewer = rd_viewer::RdViewer::new(node);
@@ -145,7 +169,10 @@ impl RdSlot {
             .await
             .map_err(|e| format!("rd 连接失败: {e}"))?;
         *self.viewer.lock().await = Some(session);
-        Ok(RdViewerStatus { connected: true, session_id: Some(sid) })
+        Ok(RdViewerStatus {
+            connected: true,
+            session_id: Some(sid),
+        })
     }
 
     /// viewer 会话关闭。
@@ -158,7 +185,10 @@ impl RdSlot {
     pub async fn viewer_status(&self) -> RdViewerStatus {
         let g = self.viewer.lock().await;
         match g.as_ref() {
-            Some(_) => RdViewerStatus { connected: true, session_id: None },
+            Some(_) => RdViewerStatus {
+                connected: true,
+                session_id: None,
+            },
             None => RdViewerStatus::default(),
         }
     }
