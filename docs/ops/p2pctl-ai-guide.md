@@ -1933,3 +1933,51 @@ p2pctl service enable serve.llm_share --data-dir ./p2p-data
 p2pctl service disable serve.llm_share --data-dir ./p2p-data
 ```
 退出码：未知服务 id（§20.1 闭集外）→ 1。
+
+### p2pctl vdrive serve
+用途：网络硬盘被挂端（headless 前台常驻）：把本地目录经 `/vdrive/fs/1`（specs/vdrive.md）发布为全网可见的盘；对端经 `p2pctl vdrive mount`（或任意 FsBackend 客户端）访问。`--read-only` 走内置只读 AccessPolicy（写类操作一律 permission_denied，留日志）。LocalFs 后端双闸监狱（`..` 折叠 + canonicalize 前缀）。SIGINT/SIGTERM 优雅收口。前置：`--root` 目录必须已存在（否则启动即退，退出码 1）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --root | path（已存在目录） | 是 | —— |
+| --read-only | flag | 否 | off |
+| --data-dir | path | 否 | ./p2p-data |
+| --quic-port | u16 | 否 | 0（随机） |
+| --tcp-port | u16 | 否 | 0（随机） |
+| --no-mdns | flag | 否 | off |
+| --bootstrap | string（ip/u端口 或 ip/t端口，可重复） | 否 | 无 |
+文本（stdout JSON 行；日志走 stderr）：
+```
+{"kind":"ready","role":"serve","peerId":"…","listenAddrs":["127.0.0.1/u64632","127.0.0.1/t52479"],"root":"/srv/vdrive","readOnly":false}
+{"kind":"stopped","role":"serve"}
+```
+示例（前台常驻，ctrl_c 收口；非交互验证用 timeout 发 SIGTERM）：
+```
+timeout 3 p2pctl vdrive serve --root ./p2p-data --data-dir ./p2p-data --no-mdns
+```
+语义：进程活 = 发布开启；`--read-only` 不改变「目录必须存在」前置。退出码：0 = 信号收口完成；1 = root 不可用/装配失败。
+
+### p2pctl vdrive mount
+用途：网络硬盘挂载端（headless 前台常驻）：拨通被挂端 → 本机回环 WebDAV 桥（127.0.0.1 随机/指定端口）→ macOS `--mount` 自动 `mount_webdav`（/Volumes 不可写时回退 `~/.vdrive-mounts/<name>`，退出自动 `diskutil unmount`）；Linux/Windows 仅起桥（打印挂载提示）。桥就绪前先做 statfs 连通预检（5s 超时显式报错）。前置：`--peer` base58 32 字节；可达性由 `--addr`（serve 就绪行 listenAddrs，可重复）或 mDNS/rendezvous 提供。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --peer | base58 PeerId | 是 | —— |
+| --addr | string（ip/u端口 或 ip/t端口，可重复） | 否 | 无 |
+| --port | u16（本机桥监听） | 否 | 0（随机） |
+| --mount | flag | 否 | off |
+| --name | string（卷/挂载点名，禁含路径分隔符） | 否 | vdrive |
+| --data-dir | path | 否 | ./p2p-data |
+| --quic-port | u16 | 否 | 0（随机） |
+| --tcp-port | u16 | 否 | 0（随机） |
+| --no-mdns | flag | 否 | off |
+| --bootstrap | string（ip/u端口 或 ip/t端口，可重复） | 否 | 无 |
+文本（stdout JSON 行；日志走 stderr）：
+```
+{"kind":"ready","role":"mount","url":"http://127.0.0.1:20841","peerId":"…","hint":"mount_webdav http://127.0.0.1:20841/ /Volumes/vdrive"}
+{"kind":"mounted","mountpoint":"/Users/me/.vdrive-mounts/vdrive"}
+{"kind":"stopped","role":"mount"}
+```
+示例（对端不可达 → 连通预检显式失败，验证退出码 1）：
+```
+p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 --data-dir ./p2p-data --no-mdns
+```
+语义：桥不增设鉴权面（网络边界在底座、本机边界在回环）；真机挂载验收 scripts/ops/vdrive-mount-smoke.sh（VDRIVE-MOUNT-SMOKE-OK）。退出码：0 = 信号收口完成；1 = 对端不可达/端口绑定失败/挂载点全不可建（--mount 时以 mount-failed 行降级为桥模式，不算失败）。
