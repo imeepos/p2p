@@ -44,6 +44,7 @@ impl rd_viewer::RenderSink for WebviewSink {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rd_viewer::RenderSink;
 
     #[test]
     fn encode_frame_header_and_payload() {
@@ -79,5 +80,39 @@ mod tests {
         let seq = u32::from_le_bytes([buf[4], buf[5], buf[6], buf[7]]);
         assert_eq!((w, h, seq), (640, 360, 7));
         assert_eq!(buf.len(), FRAME_HEADER_LEN + 64);
+    }
+
+    #[test]
+    fn webview_sink_delivers_raw_payload_via_channel() {
+        let received: std::sync::Arc<std::sync::Mutex<Vec<Vec<u8>>>> = std::sync::Arc::default();
+        let received_clone = received.clone();
+        let channel = Channel::new(move |body: InvokeResponseBody| match body {
+            InvokeResponseBody::Raw(bytes) => {
+                received_clone.lock().unwrap().push(bytes);
+                Ok(())
+            }
+            // Json 载荷不预期；不依赖 Debug，靠后续 len==1 断言暴露
+            InvokeResponseBody::Json(_) => Ok(()),
+        });
+        let sink = WebviewSink::new(channel);
+        sink.on_frame(DecodedFrame {
+            w: 8,
+            h: 2,
+            keyframe: true,
+            seq: 3,
+            rgba: vec![9; 64],
+        });
+        let got = received.lock().unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(
+            got[0],
+            encode_frame(&DecodedFrame {
+                w: 8,
+                h: 2,
+                keyframe: true,
+                seq: 3,
+                rgba: vec![9; 64],
+            })
+        );
     }
 }
