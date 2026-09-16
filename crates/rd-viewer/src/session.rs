@@ -59,6 +59,11 @@ pub trait ControlWrite: Send + Sync {
     async fn clipboard(&self, text: String) -> Result<(), ViewerError> {
         self.send(ControlMsg::Clipboard { text }).await
     }
+
+    /// 质量协商便捷面（M6）：请求档位（fps/缩放%/codec）。
+    async fn quality(&self, fps: u8, scale: u8, codec: u8) -> Result<(), ViewerError> {
+        self.send(ControlMsg::Quality { fps, scale, codec }).await
+    }
 }
 
 /// 活跃会话：控制写半 + 控制读任务 + 视频泵任务 + 停止旗标。
@@ -269,4 +274,43 @@ fn zlib_decompress(bytes: &[u8]) -> Result<Vec<u8>, ViewerError> {
     dec.read_to_end(&mut out)
         .map_err(|e| ViewerError::Decode(format!("inflate: {e}")))?;
     Ok(out)
+}
+
+/// 握手探测：hello → hello_ack（含 awaiting_approval 等拒绝原因上抛）即关流。
+pub async fn probe(
+    node: Arc<Node>,
+    peer: p2p::PeerId,
+    session_id: String,
+) -> Result<String, ViewerError> {
+    let mut stream = node
+        .new_stream(peer, rd_wire::control_protocol_id()?)
+        .await?;
+    send_control(
+        &mut stream,
+        &ControlMsg::Hello {
+            v: rd_wire::PROTOCOL_VERSION,
+            role: Role::Viewer,
+            session_id: session_id.clone(),
+            caps: rd_wire::Caps {
+                audio: false,
+                file: true,
+                clipboard: true,
+            },
+        },
+    )
+    .await?;
+    let ack = recv_control(&mut stream).await?;
+    match ack {
+        ControlMsg::HelloAck {
+            ok: true,
+            session_id: sid,
+            ..
+        } if sid == session_id => Ok(sid),
+        ControlMsg::HelloAck {
+            ok: false, reason, ..
+        } => Err(ViewerError::Rejected(
+            reason.unwrap_or_else(|| "no reason".into()),
+        )),
+        other => Err(ViewerError::Decode(format!("unexpected ack: {other:?}"))),
+    }
 }

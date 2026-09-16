@@ -73,6 +73,15 @@ impl RdViewer {
         })
     }
 
+    /// 握手探测（M6，CLI 连通性）：hello → hello_ack 即断，返回会话 id。
+    pub async fn probe(
+        &self,
+        peer: p2p::PeerId,
+        session_id: String,
+    ) -> Result<String, ViewerError> {
+        session::probe(self.node.clone(), peer, session_id).await
+    }
+
     /// 连接 host（M4 剪贴板版）：clip 为 viewer 本机剪贴板后端，host 下行写入此处。
     pub async fn connect_full(
         &self,
