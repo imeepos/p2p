@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { toastError } from "@/components/feedback/toast";
 import { ipc } from "@/lib/ipc";
-import type { RdHostStatus, RdViewerStatus } from "@/lib/ipc-types";
+import type { RdFrameListener, RdHostStatus, RdViewerStatus } from "@/lib/ipc-types";
 import { useNodeStore } from "@/stores/node-store";
 
 const IDLE_HOST: RdHostStatus = {
@@ -24,6 +24,8 @@ export function useRdPageModel() {
   const [viewerRaw, setViewer] = useState<RdViewerStatus>(IDLE_VIEWER);
   const [busy, setBusy] = useState<"start" | "stop" | "connect" | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  // 帧订阅集（§21.4）：connect 时把派发器挂进通道，组件经 onFrame 订阅。
+  const frameListeners = useRef(new Set<RdFrameListener>());
 
   // 节点未运行：派生回退空态（避免 effect 内 setState，react-hooks 规则）。
   const host = running ? hostRaw : IDLE_HOST;
@@ -135,7 +137,10 @@ export function useRdPageModel() {
       setBusy("connect");
       setLastError(null);
       try {
-        setViewer(await ipc.rdViewerConnect(peer));
+        const dispatch: RdFrameListener = (buf) => {
+          frameListeners.current.forEach((listener) => listener(buf));
+        };
+        setViewer(await ipc.rdViewerConnect(peer, undefined, dispatch));
       } catch (error) {
         const message = String(error);
         setLastError(message);
@@ -146,6 +151,52 @@ export function useRdPageModel() {
     },
     [guardRunning],
   );
+
+  // 帧订阅（canvas 渲染入口）；返回退订函数。
+  const onFrame = useCallback((listener: RdFrameListener) => {
+    frameListeners.current.add(listener);
+    return () => {
+      frameListeners.current.delete(listener);
+    };
+  }, []);
+
+  // 输入发送（§21.4）：断连时静默 false（UI 已呈未连接态）；
+  // 真发送失败 warn 留观测，不 toast 轰炸高频事件。
+  const sendMouse = useCallback(
+    async (x: number, y: number, buttons: number, wheelDx: number, wheelDy: number) => {
+      if (!viewer.connected) return false;
+      try {
+        return await ipc.rdInputMouse(x, y, buttons, wheelDx, wheelDy);
+      } catch (error) {
+        console.warn("[rd] 鼠标事件下发失败", error);
+        return false;
+      }
+    },
+    [viewer.connected],
+  );
+
+  const sendKey = useCallback(
+    async (code: number, down: boolean, modifiers: number) => {
+      if (!viewer.connected) return false;
+      try {
+        return await ipc.rdInputKey(code, down, modifiers);
+      } catch (error) {
+        console.warn("[rd] 键盘事件下发失败", error);
+        return false;
+      }
+    },
+    [viewer.connected],
+  );
+
+  const resetKeys = useCallback(async () => {
+    if (!viewer.connected) return false;
+    try {
+      return await ipc.rdInputKeyReset();
+    } catch (error) {
+      console.warn("[rd] 按键释放失败", error);
+      return false;
+    }
+  }, [viewer.connected]);
 
   const closeViewer = useCallback(async () => {
     if (!guardRunning()) return;
@@ -169,6 +220,10 @@ export function useRdPageModel() {
     setQuality,
     connectViewer,
     closeViewer,
+    onFrame,
+    sendMouse,
+    sendKey,
+    resetKeys,
   };
 }
 

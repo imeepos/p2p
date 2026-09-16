@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 import type { UseRdPageModel } from "./use-rd-model";
+import { RdFrameCanvas } from "./rd-frame-canvas";
 
 interface Props {
   model: UseRdPageModel;
@@ -166,13 +167,16 @@ export function RemoteDesktopCard({ model }: Props) {
             {t("remoteAccess.rd.viewer.description")}
           </div>
           {model.viewer.connected ? (
-            <div className="flex items-center justify-between gap-2">
-              <Badge>
-                {t("remoteAccess.rd.viewer.connected")}
-              </Badge>
-              <Button variant="outline" onClick={() => void model.closeViewer()}>
-                {t("remoteAccess.rd.viewer.disconnect")}
-              </Button>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <Badge>
+                  {t("remoteAccess.rd.viewer.connected")}
+                </Badge>
+                <Button variant="outline" onClick={() => void model.closeViewer()}>
+                  {t("remoteAccess.rd.viewer.disconnect")}
+                </Button>
+              </div>
+              <RdFrameCanvas model={model} />
             </div>
           ) : (
             <div className="flex gap-2">

@@ -1,5 +1,7 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { encodeRdFrame } from "@/lib/rd-frame";
 
 const startMock = vi.fn(async (requireApproval: boolean) => ({
   running: true,
@@ -37,6 +39,13 @@ const statusMock = vi.fn(async () => ({
   fps: 15,
 }));
 const viewerStatusMock = vi.fn(async () => ({ connected: false, sessionId: null }));
+const mouseMock = vi.fn(
+  async (_x: number, _y: number, _b: number, _dx: number, _dy: number) => true,
+);
+const keyMock = vi.fn(
+  async (_code: number, _down: boolean, _mods: number) => true,
+);
+const resetKeysMock = vi.fn(async () => true);
 
 vi.mock("@/lib/ipc", () => ({
   ipc: {
@@ -98,6 +107,19 @@ function idleModel(): UseRdPageModel {
     closeViewer: async () => {
       void closeMock();
     },
+    onFrame: () => () => {},
+    sendMouse: async (x: number, y: number, b: number, dx: number, dy: number) => {
+      void mouseMock(x, y, b, dx, dy);
+      return true;
+    },
+    sendKey: async (code: number, down: boolean, mods: number) => {
+      void keyMock(code, down, mods);
+      return true;
+    },
+    resetKeys: async () => {
+      void resetKeysMock();
+      return true;
+    },
   };
 }
 
@@ -153,5 +175,48 @@ describe("RemoteDesktopCard", () => {
     render(<RemoteDesktopCard model={model2} />);
     fireEvent.click(screen.getByRole("button", { name: "断开" }));
     await waitFor(() => expect(closeMock).toHaveBeenCalled());
+  });
+
+  it("连接后渲染画布并下发鼠标/键盘/释放事件", async () => {
+    const model = idleModel();
+    model.viewer = { connected: true, sessionId: "0123456789abcdef" };
+    let sink: ((buf: ArrayBuffer) => void) | null = null;
+    model.onFrame = (cb) => {
+      sink = cb;
+      return () => {};
+    };
+    const { unmount } = render(<RemoteDesktopCard model={model} />);
+    const canvas = screen.getByTestId("rd-frame-canvas");
+    canvas.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        width: 320,
+        height: 180,
+        right: 320,
+        bottom: 180,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    // 首帧设置画布尺寸（jsdom 无 2d ctx，跳过绘制但保留坐标映射）
+    act(() => {
+      sink?.(encodeRdFrame(320, 180, 1, new Uint8ClampedArray(320 * 180 * 4)));
+    });
+    fireEvent.pointerDown(canvas, {
+      clientX: 160,
+      clientY: 90,
+      buttons: 1,
+      button: 0,
+    });
+    await waitFor(() => expect(mouseMock).toHaveBeenCalled());
+    expect(mouseMock.mock.calls[0].slice(0, 2)).toEqual([160, 90]);
+    fireEvent.keyDown(canvas, { code: "KeyA", shiftKey: true });
+    await waitFor(() =>
+      expect(keyMock).toHaveBeenCalledWith(0x04, true, 0x1),
+    );
+    fireEvent.blur(canvas);
+    await waitFor(() => expect(resetKeysMock).toHaveBeenCalled());
+    unmount();
   });
 });

@@ -291,10 +291,27 @@ const tauriBackend: IpcBackend = {
   rdDeny: (peer) => invoke<boolean>("rd_deny", { peer }),
   rdQualitySet: (fps, scale, codec) =>
     invoke<RdHostStatus>("rd_quality_set", { fps, scale, codec }),
-  rdViewerConnect: (peer, sessionId) =>
-    invoke<RdViewerStatus>("rd_viewer_connect", { peer, sessionId }),
+  // rd_viewer_connect 命令要求 Channel 必填：无渲染订阅时给丢弃通道。
+  rdViewerConnect: (peer, sessionId, onFrame) => {
+    const channel = new Channel<ArrayBuffer>();
+    if (onFrame) {
+      channel.onmessage = (message) => {
+        if (message instanceof ArrayBuffer) onFrame(message);
+      };
+    }
+    return invoke<RdViewerStatus>("rd_viewer_connect", {
+      peer,
+      sessionId,
+      onFrame: channel,
+    });
+  },
   rdViewerClose: () => invoke<RdViewerStatus>("rd_viewer_close"),
   rdViewerStatus: () => invoke<RdViewerStatus>("rd_viewer_status"),
+  rdInputMouse: (x, y, buttons, wheelDx, wheelDy) =>
+    invoke<boolean>("rd_input_mouse", { x, y, buttons, wheelDx, wheelDy }),
+  rdInputKey: (code, down, modifiers) =>
+    invoke<boolean>("rd_input_key", { code, down, modifiers }),
+  rdInputKeyReset: () => invoke<boolean>("rd_input_key_reset"),
   onTunnelStatus: (handler) =>
     listen<TunnelStatusReport>(TUNNEL_STATUS_EVENT, (event) => handler(event.payload)).then(
       (unlisten) => () => {

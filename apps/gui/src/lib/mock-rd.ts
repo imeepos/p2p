@@ -1,8 +1,10 @@
-import type { RdHostStatus, RdViewerStatus } from "./ipc-types";
+import type { RdFrameListener, RdHostStatus, RdViewerStatus } from "./ipc-types";
 
-// rd 远程桌面 mock（gui-contract §21）：内存会话态（host 服务开关/审批队列/
-// viewer 会话）。与 rd.rs 同语义：节点未运行拒绝、host 默认关、审批开时
-// viewer 连接被拒（awaiting_approval）直至 approve。
+import { startFramePump, type MockFramePump } from "./mock-rd-frame-pump";
+
+// rd 远程桌面 mock（gui-contract §21/§21.4）：内存会话态（host 服务开关/审批
+// 队列/viewer 会话）+ 帧泵 + 输入录制。与 rd.rs 同语义：节点未运行拒绝、
+// host 默认关、审批开时 viewer 连接被拒（awaiting_approval）直至 approve。
 
 export interface MockRdDeps {
   isRunning: () => boolean;
@@ -17,6 +19,8 @@ export function createMockRd(deps: MockRdDeps) {
     fps: 15,
     viewerConnected: false,
     viewerSessionId: null as string | null,
+    framePump: null as MockFramePump | null,
+    lastInput: null as string | null,
   };
 
   function requireRunning(): void {
@@ -89,7 +93,11 @@ export function createMockRd(deps: MockRdDeps) {
       return hostSnapshot();
     },
 
-    async rdViewerConnect(peer: string, sessionId?: string): Promise<RdViewerStatus> {
+    async rdViewerConnect(
+      peer: string,
+      sessionId?: string,
+      onFrame?: RdFrameListener,
+    ): Promise<RdViewerStatus> {
       await delay(150);
       requireRunning();
       if (state.requireApproval && state.pendingApprovals.length > 0) {
@@ -100,11 +108,15 @@ export function createMockRd(deps: MockRdDeps) {
       state.viewerSessionId = sessionId ?? randomSession();
       state.sessionCount = 1;
       void peer;
+      if (onFrame) {
+        state.framePump = startFramePump(onFrame);
+      }
       return { connected: true, sessionId: state.viewerSessionId };
     },
 
     async rdViewerClose(): Promise<RdViewerStatus> {
       await delay(80);
+      stopPump();
       state.viewerConnected = false;
       state.viewerSessionId = null;
       state.sessionCount = 0;
@@ -117,11 +129,41 @@ export function createMockRd(deps: MockRdDeps) {
         sessionId: state.viewerSessionId,
       };
     },
+
+    async rdInputMouse(
+      x: number,
+      y: number,
+      buttons: number,
+      wheelDx: number,
+      wheelDy: number,
+    ): Promise<boolean> {
+      if (!state.viewerConnected) return false;
+      state.lastInput = `mouse(${x},${y},b${buttons},w${wheelDx},${wheelDy})`;
+      return true;
+    },
+
+    async rdInputKey(code: number, down: boolean, modifiers: number): Promise<boolean> {
+      if (!state.viewerConnected) return false;
+      state.lastInput = `key(${code},${down ? "down" : "up"},m${modifiers})`;
+      return true;
+    },
+
+    async rdInputKeyReset(): Promise<boolean> {
+      if (!state.viewerConnected) return false;
+      state.lastInput = "key-reset";
+      return true;
+    },
   };
+
+  function stopPump(): void {
+    state.framePump?.stop();
+    state.framePump = null;
+  }
 
   // dev 注入入口：复位会话态；测试可经 controller 预置审批队列。
   const controller = {
     reset(): void {
+      stopPump();
       state.running = false;
       state.requireApproval = true;
       state.sessionCount = 0;
@@ -129,6 +171,7 @@ export function createMockRd(deps: MockRdDeps) {
       state.fps = 15;
       state.viewerConnected = false;
       state.viewerSessionId = null;
+      state.lastInput = null;
     },
     queueApproval(peer: string): void {
       if (!state.pendingApprovals.includes(peer)) {
@@ -137,6 +180,9 @@ export function createMockRd(deps: MockRdDeps) {
     },
     setRunning(v: boolean): void {
       state.running = v;
+    },
+    lastInput(): string | null {
+      return state.lastInput;
     },
   };
 

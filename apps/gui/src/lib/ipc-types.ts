@@ -751,16 +751,24 @@ export interface IpcBackend {
   // 先校验后动作不部分生效）；stop 幂等且保留白名单。
   tunnelServeStart(target: string): Promise<TunnelServeStatus>;
   tunnelServeStop(): Promise<TunnelServeStatus>;
-  // rd 远程桌面（§21）：host 服务开关/审批/质量/viewer 会话（camelCase 快照）。
+  // rd 远程桌面（§21/§21.4）：host 服务开关/审批/质量/viewer 会话 + 帧通道/输入。
   rdHostStart(requireApproval: boolean): Promise<RdHostStatus>;
   rdHostStop(): Promise<RdHostStatus>;
   rdHostStatus(): Promise<RdHostStatus>;
   rdApprove(peer: string): Promise<boolean>;
   rdDeny(peer: string): Promise<boolean>;
   rdQualitySet(fps: number, scale: number, codec: number): Promise<RdHostStatus>;
-  rdViewerConnect(peer: string, sessionId?: string): Promise<RdViewerStatus>;
+  // onFrame：解码帧二进制回调（§21.4 帧格式）；tauri 经 Channel，mock 直调。
+  rdViewerConnect(
+    peer: string,
+    sessionId?: string,
+    onFrame?: RdFrameListener,
+  ): Promise<RdViewerStatus>;
   rdViewerClose(): Promise<RdViewerStatus>;
   rdViewerStatus(): Promise<RdViewerStatus>;
+  rdInputMouse(x: number, y: number, buttons: number, wheelDx: number, wheelDy: number): Promise<boolean>;
+  rdInputKey(code: number, down: boolean, modifiers: number): Promise<boolean>;
+  rdInputKeyReset(): Promise<boolean>;
 }
 
 // 契约 v3 加法（G-H 观测）：诊断命令面，与节点控制面分离；mock/tauri 同签名。
@@ -803,6 +811,9 @@ export interface RdViewerStatus {
   connected: boolean;
   sessionId?: string | null;
 }
+
+// rd 帧回调（§21.4）：payload 为帧格式二进制（ArrayBuffer），解析见 lib/rd-frame。
+export type RdFrameListener = (frame: ArrayBuffer) => void;
 
 
 export interface TunnelSessionAudit {
