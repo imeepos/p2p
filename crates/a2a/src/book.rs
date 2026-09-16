@@ -160,7 +160,13 @@ mod tests {
             .unwrap_or(0)
     }
 
-    fn card_for(kp: &Keypair, agent_id: &str, visibility: Visibility, version: u64) -> SignedCard {
+    fn card_for(
+        kp: &Keypair,
+        agent_id: &str,
+        visibility: Visibility,
+        version: u64,
+        t: u64,
+    ) -> SignedCard {
         let host = kp.peer_id().to_string();
         let card = AgentCard {
             agent_id: agent_id.into(),
@@ -179,7 +185,7 @@ mod tests {
             ttl_secs: crate::card::TTL_DEFAULT_SECS,
             version,
         };
-        SignedCard::sign(card, kp, now()).expect("sign")
+        SignedCard::sign(card, kp, t).expect("sign")
     }
 
     #[test]
@@ -187,19 +193,19 @@ mod tests {
         let kp = Keypair::generate();
         let t = now();
         let mut book = AgentBook::new();
-        book.insert(card_for(&kp, "a1", Visibility::Public, 1), t)
+        book.insert(card_for(&kp, "a1", Visibility::Public, 1, t), t)
             .unwrap();
         assert_eq!(book.len(), 1);
         // 旧版本拒
         assert_eq!(
-            book.insert(card_for(&kp, "a1", Visibility::Public, 1), t),
+            book.insert(card_for(&kp, "a1", Visibility::Public, 1, t), t),
             Err(BookError::StaleVersion)
         );
         // 新版本替换
-        book.insert(card_for(&kp, "a1", Visibility::Public, 2), t)
+        book.insert(card_for(&kp, "a1", Visibility::Public, 2, t), t)
             .unwrap();
         assert_eq!(
-            book.get(&card_for(&kp, "a1", Visibility::Public, 2).key().unwrap())
+            book.get(&card_for(&kp, "a1", Visibility::Public, 2, t).key().unwrap())
                 .map(|c| c.0.payload.version),
             Some(2)
         );
@@ -211,12 +217,12 @@ mod tests {
         let t = now();
         let mut book = AgentBook::new();
         // 未来 10 分钟签发 → skew 拒
-        let future = card_for(&kp, "f1", Visibility::Public, 1);
+        let future = card_for(&kp, "f1", Visibility::Public, 1, t);
         let mut future = future;
         future.0.issued_at = t + 600;
         assert_eq!(book.insert(future, t), Err(BookError::Skew));
         // TTL 超上限拒
-        let mut long = card_for(&kp, "f2", Visibility::Public, 1);
+        let mut long = card_for(&kp, "f2", Visibility::Public, 1, t);
         long.0.payload.ttl_secs = TTL_MAX_SECS + 1;
         assert_eq!(book.insert(long, t), Err(BookError::TtlTooLong));
     }
@@ -226,11 +232,11 @@ mod tests {
         let kp = Keypair::generate();
         let t = now();
         let mut book = AgentBook::new();
-        book.insert(card_for(&kp, "pub", Visibility::Public, 1), t)
+        book.insert(card_for(&kp, "pub", Visibility::Public, 1, t), t)
             .unwrap();
-        book.insert(card_for(&kp, "priv", Visibility::Private, 1), t)
+        book.insert(card_for(&kp, "priv", Visibility::Private, 1, t), t)
             .unwrap();
-        book.insert(card_for(&kp, "loc", Visibility::Local, 1), t)
+        book.insert(card_for(&kp, "loc", Visibility::Local, 1, t), t)
             .unwrap();
         // 授权函数全部拒绝：仅 public 可见，private/local 必须授权才出现
         let vis = book.visible_to(t, &|_: &PeerId, _: &str| false);
@@ -248,7 +254,7 @@ mod tests {
         let kp = Keypair::generate();
         let t = now();
         let mut book = AgentBook::new();
-        let card = card_for(&kp, "e1", Visibility::Public, 1);
+        let card = card_for(&kp, "e1", Visibility::Public, 1, t);
         let key = card.key().unwrap();
         book.insert(card, t).unwrap();
         // 过期：TTL 之后 live 为空、evict 出键
@@ -257,7 +263,7 @@ mod tests {
         assert!(evicted.contains(&key));
         assert!(book.is_empty());
         // 移除
-        book.insert(card_for(&kp, "e2", Visibility::Public, 1), t)
+        book.insert(card_for(&kp, "e2", Visibility::Public, 1, t), t)
             .unwrap();
         let key2 = book.keys().into_iter().next().unwrap();
         assert!(book.remove(&key2));
