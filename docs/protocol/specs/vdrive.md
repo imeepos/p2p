@@ -125,6 +125,11 @@
   （LocalFs 持 tokio::fs::File；远端客户端缺省 chunk 泵），禁逐块重开
   （SFTP SftpInputStreamAsync 同款先例）。
 
+- 缓存语义：OS WebDAV 客户端对服务器侧新增无缓存失效（WebDAV 固有），
+  服务器侧写入须经重挂或直读桥端口方见；挂载侧写入实时落对侧不受此限。
+- 跨机验收：scripts/ops/vdrive-lan-smoke.sh（102 Linux serve + Mac
+  mount_webdav 实挂，双向读写，口径 VDRIVE-LAN-SMOKE-OK）。
+
 验收：crates/p2p-vdrive 单测（wire/监狱/日期/XML/HTTP 体/statfs/流式读）+
 crates/p2p-itest/tests/vdrive_wave.rs 双节点全链（协议操作面 +
 真 TCP 回环 WebDAV 方法面 + 越狱拒绝）；真机挂载冒烟

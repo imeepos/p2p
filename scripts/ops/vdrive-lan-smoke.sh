@@ -18,9 +18,9 @@ MOUNTPOINT=""
 cleanup() {
   if [ "$MOUNTED" = "1" ]; then diskutil unmount force "$MOUNTPOINT" >/dev/null 2>&1 || true; fi
   for pid in "${PIDS[@]:-}"; do kill "$pid" >/dev/null 2>&1 || true; done
-  ssh -o ConnectTimeout=5 "$HOST" "pkill -f 'vdrive serve --root /tmp/vdrive-lan-root' >/dev/null 2>&1 || true" >/dev/null 2>&1 || true
+  ssh -n -o ConnectTimeout=5 "$HOST" "pkill -f 'vdrive serve --root /tmp/vdrive-lan-roo[t]' >/dev/null 2>&1 || true" >/dev/null 2>&1 || true
   wait 2>/dev/null || true
-  rm -rf "$WORK" "$HOME/.vdrive-mounts/$NAME"
+  [ "${VDRIVE_KEEP_ARTIFACTS:-0}" = "1" ] || rm -rf "$WORK" "$HOME/.vdrive-mounts/$NAME"
   rmdir "$HOME/.vdrive-mounts" 2>/dev/null || true
 }
 trap cleanup EXIT
@@ -28,32 +28,43 @@ trap cleanup EXIT
 fail() { echo "vdrive-lan-smoke: FAIL: $*" >&2; exit 1; }
 ready_field() { python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('$1',''))"; }
 
-ssh -o ConnectTimeout=5 "$HOST" 'echo probe-ok' >/dev/null || fail "ssh 不可达: $HOST"
+ssh -n -o ConnectTimeout=5 "$HOST" 'echo probe-ok' >/dev/null || fail "ssh 不可达: $HOST"
 
 # 1) 仓库以 bundle 投递（self-contained，不依赖 102 访问 github）
 echo "[1/4] 投递仓库 bundle …"
 git -C "$(pwd)" bundle create "$WORK/p2p.bundle" main >/dev/null 2>&1 || fail "bundle 创建失败"
 scp -q "$WORK/p2p.bundle" "$HOST:/tmp/p2p-lan-smoke.bundle"
-ssh "$HOST" "rm -rf $REMOTE_DIR /tmp/p2p-lan-smoke.bundle.tmp && \
-  git clone -q /tmp/p2p-lan-smoke.bundle $REMOTE_DIR -b main && \
-  cd $REMOTE_DIR && git bundle verify /tmp/p2p-lan-smoke.bundle >/dev/null 2>&1 || true"
+# 仓库持久化保留 target/ 构建缓存：存在则 fetch+reset，缺目录才 clone
+ssh -n "$HOST" "if [ -d $REMOTE_DIR/.git ]; then \
+  git -C $REMOTE_DIR fetch -q /tmp/p2p-lan-smoke.bundle main && \
+  git -C $REMOTE_DIR reset -q --hard FETCH_HEAD; \
+else \
+  git clone -q /tmp/p2p-lan-smoke.bundle $REMOTE_DIR -b main; fi"
 
 # 2) 102 构建并启动 serve（marker 便于收口 pkill）
 echo "[2/4] 102 构建 p2pctl（首次数分钟）…"
-ssh "$HOST" "cd $REMOTE_DIR/apps/cli && cargo build -q 2>&1 | tail -2; [ -x target/debug/p2pctl ] || exit 1"
-ssh "$HOST" "rm -rf /tmp/vdrive-lan-root && mkdir -p /tmp/vdrive-lan-root/docs && \
-  echo remote-102-seed > /tmp/vdrive-lan-root/docs/seed.txt && \
-  cd $REMOTE_DIR/apps/cli && nohup ./target/debug/p2pctl vdrive serve \
-    --root /tmp/vdrive-lan-root --data-dir /tmp/vdrive-lan-id --no-mdns \
-    --quic-port $QUIC_PORT >/tmp/vdrive-lan-serve.out 2>/tmp/vdrive-lan-serve.err & echo \$!"
+ssh -n "$HOST" "cd $REMOTE_DIR/apps/cli && cargo build -q 2>&1 | tail -2; [ -x target/debug/p2pctl ] || exit 1"
+# -n + stdin 重定向：后台化进程持 stdin 会让 ssh 永不返回（实测坑）。
+# & 只作用于 nohup 一行（整链后台化会让常驻 subshell 占住 ssh 通道）。
+ssh -n "$HOST" '
+pkill -f "^./target/debug/p2pctl vdrive serve --root /tmp/vdrive-lan-roo[t]" >/dev/null 2>&1 || true
+rm -rf /tmp/vdrive-lan-root
+mkdir -p /tmp/vdrive-lan-root/docs
+echo remote-102-seed > /tmp/vdrive-lan-root/docs/seed.txt
+cd $HOME/vdrive-lan-smoke/apps/cli
+nohup ./target/debug/p2pctl vdrive serve --root /tmp/vdrive-lan-root \
+  --data-dir /tmp/vdrive-lan-id --no-mdns --quic-port '"$QUIC_PORT"' \
+  </dev/null >/tmp/vdrive-lan-serve.out 2>/tmp/vdrive-lan-serve.err &
+echo $!
+'
 sleep 1
 for _ in $(seq 1 60); do
-  ssh "$HOST" "grep -q '\"kind\":\"ready\"' /tmp/vdrive-lan-serve.out 2>/dev/null" && break
+  ssh -n "$HOST" "grep -q '\"kind\":\"ready\"' /tmp/vdrive-lan-serve.out 2>/dev/null" && break
   sleep 1
 done
-ssh "$HOST" "grep -q '\"kind\":\"ready\"' /tmp/vdrive-lan-serve.out" || {
-  ssh "$HOST" "tail -5 /tmp/vdrive-lan-serve.err" >&2; fail "102 serve 未就绪"; }
-READY_LINE=$(ssh "$HOST" "grep ready /tmp/vdrive-lan-serve.out | tail -1")
+ssh -n "$HOST" "grep -q '\"kind\":\"ready\"' /tmp/vdrive-lan-serve.out" || {
+  ssh -n "$HOST" "tail -5 /tmp/vdrive-lan-serve.err" >&2; fail "102 serve 未就绪"; }
+READY_LINE=$(ssh -n "$HOST" "grep ready /tmp/vdrive-lan-serve.out | tail -1")
 PEER=$(printf '%s' "$READY_LINE" | ready_field peerId)
 # 监听串里的 127.0.0.1 替换为对端 LAN IP（跨机拨号必须非环回）
 ADDR=$(printf '%s' "$READY_LINE" | python3 -c "
@@ -89,9 +100,18 @@ echo "[4/4] 跨机读写验证 …"
 [ "$MOUNTED" = "1" ] || fail "未完成挂载（桥级可查 $WORK/mount.out）"
 [ "$(cat "$MOUNTPOINT/docs/seed.txt")" = "remote-102-seed" ] || fail "挂载点读 102 seed 不符"
 echo "written-from-mac-over-lan" > "$MOUNTPOINT/docs/from-mac.txt"
-ssh "$HOST" "grep -q written-from-mac-over-lan /tmp/vdrive-lan-root/docs/from-mac.txt" \
+ssh -n "$HOST" "grep -q written-from-mac-over-lan /tmp/vdrive-lan-root/docs/from-mac.txt" \
   || fail "Mac 写入未落 102 磁盘"
-echo "written-on-102" | ssh "$HOST" "cat > /tmp/vdrive-lan-root/docs/from-102.txt"
-[ "$(cat "$MOUNTPOINT/docs/from-102.txt")" = "written-on-102" ] || fail "102 写入未见于挂载点"
+ssh -n "$HOST" "echo written-on-102 > /tmp/vdrive-lan-root/docs/from-102.txt"
+# OS WebDAV 客户端对服务器侧新增无缓存失效（WebDAV 固有，specs/vdrive.md §5），
+# 卸载重挂后读取 —— 同时证明 102 写入落盘且数据面可再次挂载服务。
+CURL_PORT=$(grep '"kind":"ready"' "$WORK/mount.out" | tail -n 1 | ready_field url | sed 's|http://127.0.0.1:||')
+[ "$(curl -sf "http://127.0.0.1:$CURL_PORT/docs/from-102.txt")" = "written-on-102" ] \
+  || fail "桥协议面未见 102 写入"
+diskutil unmount "$MOUNTPOINT" >/dev/null 2>&1 || true
+MOUNTED=0
+mount_webdav "http://127.0.0.1:$CURL_PORT/" "$MOUNTPOINT" >/dev/null 2>&1 || fail "重挂失败"
+MOUNTED=1
+[ "$(cat "$MOUNTPOINT/docs/from-102.txt")" = "written-on-102" ] || fail "重挂后仍未见 102 写入"
 echo "LAN checks: PASS"
 echo "VDRIVE-LAN-SMOKE-OK"
