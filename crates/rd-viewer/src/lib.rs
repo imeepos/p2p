@@ -5,6 +5,7 @@
 //! 输入注入（M3）与剪贴板（M4）沿控制通道增量接入。
 
 mod file;
+mod probe;
 mod session;
 
 use std::sync::Arc;
@@ -79,7 +80,7 @@ impl RdViewer {
         peer: p2p::PeerId,
         session_id: String,
     ) -> Result<String, ViewerError> {
-        session::probe(self.node.clone(), peer, session_id).await
+        probe::probe(self.node.clone(), peer, session_id).await
     }
 
     /// 连接 host（M4 剪贴板版）：clip 为 viewer 本机剪贴板后端，host 下行写入此处。
