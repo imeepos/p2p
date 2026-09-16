@@ -1691,6 +1691,7 @@ const zhCN = {
         connected: "已连接",
         idle: "未连接",
         session: "会话",
+        canvasHint: "点击画面获取键盘焦点；鼠标/滚轮/按键直接作用于远端",
       },
       quality: {
         title: "视频质量",

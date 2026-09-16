@@ -1725,6 +1725,8 @@ const enUS: typeof zhCN = {
         connected: "Connected",
         idle: "Not connected",
         session: "Session",
+        canvasHint:
+          "Click the canvas to capture keyboard; mouse, wheel and keys act on the remote end",
       },
       quality: {
         title: "Video quality",
