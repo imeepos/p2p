@@ -113,3 +113,11 @@
   FT1-FT6（crates/p2p-ftp 语义完善 + apps/cli ftp 域 + p2p-service/p2p-authz
   闭集扩容），计划 .orchestrator/2026-09-16-ftp-closeout/plan.md，分支
   feat/ftp-closeout / worktree .worktrees/ftp-closeout。禁触 rd-m2、wsm-b2 在飞面。
+- [完工释放] 2026-09-16 10:58 goal-9f609d90（FTP 目标会话续）：FTP 收尾波 FT1-FT6
+  全并主干（main==origin/main@2db444e1），全量 make check 绿。FT1 死变体清理、
+  FT2 HiddenStores（STOR 失败零残留）、FT3 LIST 条目上限（552）、FT4 p2pctl ftp
+  七命令（真机冒烟 pwd/put/ls/mkdir/get/delete/rmdir + StaticAuth 530 路径）、
+  FT5 serve.ftp 闭集第 11 项 + daemon 装配（开关 AND ftp.json 双条件）、
+  FT6 file.read/file.write 权限 key + Authorizer 接缝 + authz:true 桥。
+  rebase 解 vdrive 撞尾冲突（双方保留），闭集锚点四处波及面（cli/tauri/
+  gui mock/gui-contract）全同步。worktree/分支本地远端全清。scope 释放。
