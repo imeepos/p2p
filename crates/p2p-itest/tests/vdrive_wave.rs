@@ -26,7 +26,8 @@ async fn fs_lifecycle_over_real_nodes() {
     let c = &rig.client;
 
     let statfs = c.statfs().await.expect("statfs");
-    assert_eq!(statfs.total_bytes, 0, "M1 容量不报告（0 = unknown）");
+    assert!(statfs.total_bytes > 0, "LocalFs 经 statvfs 报告真容量");
+    assert!(statfs.free_bytes <= statfs.total_bytes);
 
     c.mkdir("/docs").await.expect("mkdir");
     let err = c.mkdir("/docs").await.unwrap_err();

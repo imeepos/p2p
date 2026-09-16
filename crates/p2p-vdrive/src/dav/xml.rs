@@ -69,7 +69,8 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
 }
 
 /// PROPFIND 207 multistatus：entries[0] 为目标自身，其余为 Depth:1 子项。
-pub fn multistatus(entries: &[Entry]) -> String {
+/// `quota` 为 Some((used, available)) 时给 collection 条目补 RFC 4331 配额。
+pub fn multistatus(entries: &[Entry], quota: Option<(u64, u64)>) -> String {
     let mut xml = String::from(
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<D:multistatus xmlns:D=\"DAV:\">\n",
     );
@@ -83,7 +84,15 @@ pub fn multistatus(entries: &[Entry]) -> String {
             escape(&e.name)
         ));
         match e.kind {
-            EntryKind::Dir => xml.push_str("<D:resourcetype><D:collection/></D:resourcetype>\n"),
+            EntryKind::Dir => {
+                xml.push_str("<D:resourcetype><D:collection/></D:resourcetype>\n");
+                if let Some((used, available)) = quota {
+                    xml.push_str(&format!(
+                        "<D:quota-used-bytes>{used}</D:quota-used-bytes>\n\
+<D:quota-available-bytes>{available}</D:quota-available-bytes>\n"
+                    ));
+                }
+            }
             EntryKind::File => {
                 xml.push_str("<D:resourcetype/>\n");
                 xml.push_str(&format!(
@@ -173,10 +182,17 @@ mod tests {
                 ctime: 1_789_516_800,
             },
         ];
-        let xml = multistatus(&entries);
+        let xml = multistatus(&entries, Some((512, 1024)));
         assert!(xml.contains("<D:href>/</D:href>"), "{xml}");
         assert!(xml.contains("<D:href>/a.txt</D:href>"));
         assert!(xml.contains("<D:collection/>"));
         assert!(xml.contains("<D:getcontentlength>3</D:getcontentlength>"));
+        assert!(
+            xml.contains("<D:quota-available-bytes>1024</D:quota-available-bytes>")
+                && xml.contains("<D:quota-used-bytes>512</D:quota-used-bytes>"),
+            "collection 条目带 RFC 4331 配额"
+        );
+        let xml_no_quota = multistatus(&entries, None);
+        assert!(!xml_no_quota.contains("quota-"), "未知容量省略配额属性");
     }
 }

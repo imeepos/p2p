@@ -79,7 +79,8 @@
   返回 written 恒等于数据帧长度，写不满即报错。
 - rename 为 POSIX 语义：目标存在则覆盖（目录覆盖要求为空）。
 - create 为创建或截断（PUT 新建与覆盖共用），父目录缺失 not_found。
-- statfs 允许后端不报告容量（0/0），挂载桥据此省略配额属性。
+- statfs 允许后端不报告容量（0/0），挂载桥据此省略配额属性；LocalFs 经
+  libc::statvfs 报告宿主真容量（f_frsize × f_blocks / f_bavail）。
 
 ## 4. 安全
 
@@ -100,7 +101,10 @@
 - 方法面：OPTIONS / PROPFIND / GET / HEAD / PUT / MKCOL / DELETE /
   MOVE / COPY / PROPPATCH(形答 207) / LOCK(假持锁) / UNLOCK。
 - 兼容取舍：PROPFIND 忽略请求体恒按超集属性应答；Depth: infinity
-  显式 400（RFC 4918 §9.1 允许）；DELETE/COPY 为 Depth: infinity
+  显式 400（RFC 4918 §9.1.1 允许；社区先例：Apache mod_dav 的
+  DavDepthInfinity 指令默认 off 防 DoS，与本桥同取向）；collection
+  条目附 RFC 4331 quota-used/available-bytes（容量未知时省略，
+  Finder/Windows 据此显示剩余空间）；DELETE/COPY 为 Depth: infinity
   递归语义；mtime 以后端系统语义为准，PROPPATCH 不落盘。
 - 流式：GET 下行与 PUT 上行逐块搬运（512 KiB chunk），桥内存占用
   恒定，不整文件驻留。
@@ -117,7 +121,11 @@
 | 桥监听 | 127.0.0.1:0（默认随机） | crates/p2p-vdrive/src/bridge.rs MountConfig |
 | 请求头解析限时 | 10 s | crates/p2p-vdrive/src/http/mod.rs HEAD_TIMEOUT |
 
-验收：crates/p2p-vdrive 单测（wire/监狱/日期/XML/HTTP 体）+
+- 大文件下行：GET 经 FsBackend::open_reader 一次传输一次句柄
+  （LocalFs 持 tokio::fs::File；远端客户端缺省 chunk 泵），禁逐块重开
+  （SFTP SftpInputStreamAsync 同款先例）。
+
+验收：crates/p2p-vdrive 单测（wire/监狱/日期/XML/HTTP 体/statfs/流式读）+
 crates/p2p-itest/tests/vdrive_wave.rs 双节点全链（协议操作面 +
 真 TCP 回环 WebDAV 方法面 + 越狱拒绝）；真机挂载冒烟
 scripts/ops/vdrive-mount-smoke.sh（mount_webdav 实挂实测）。

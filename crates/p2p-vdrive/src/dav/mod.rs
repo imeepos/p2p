@@ -46,10 +46,16 @@ impl DavService {
                 Err(e) => return status_for(&e),
             }
         }
+        let quota = match self.backend.statfs().await {
+            Ok(s) if s.total_bytes > 0 => {
+                Some((s.total_bytes.saturating_sub(s.free_bytes), s.free_bytes))
+            }
+            _ => None,
+        };
         HttpResponse::bytes(
             207,
             "application/xml; charset=utf-8",
-            xml::multistatus(&entries).into_bytes(),
+            xml::multistatus(&entries, quota).into_bytes(),
         )
     }
 

@@ -114,8 +114,27 @@ fn name_of(path: &Path) -> String {
 #[async_trait]
 impl FsBackend for LocalFs {
     async fn statfs(&self) -> FsResult<StatFs> {
-        // M1：容量不报告（0 = unknown），映射为 WebDAV 不含配额属性。
-        Ok(StatFs::default())
+        // libc::statvfs（lfs-core 同款）：真容量喂给 WebDAV RFC 4331 quota。
+        // 纯内存元数据读取（微秒级），不值得 spawn_blocking。
+        #[cfg(unix)]
+        {
+            let cpath = std::ffi::CString::new(self.root.as_os_str().as_encoded_bytes())
+                .map_err(|_| VDriveError::new(ErrorKind::InvalidPath, "root path has NUL"))?;
+            let mut st: libc::statvfs = unsafe { std::mem::zeroed() };
+            let rc = unsafe { libc::statvfs(cpath.as_ptr(), &mut st) };
+            if rc != 0 {
+                return Err(VDriveError::from(std::io::Error::last_os_error()));
+            }
+            let bs = st.f_frsize as u64;
+            Ok(StatFs {
+                total_bytes: st.f_blocks as u64 * bs,
+                free_bytes: st.f_bavail as u64 * bs,
+            })
+        }
+        #[cfg(not(unix))]
+        {
+            Ok(StatFs::default())
+        }
     }
 
     async fn stat(&self, path: &str) -> FsResult<Entry> {
@@ -287,6 +306,16 @@ fn attach_not_dir(e: std::io::Error, path: &Path) -> std::io::Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn statfs_reports_real_capacity() {
+        let tmp = tempfile::tempdir().unwrap();
+        let f = LocalFs::open(tmp.path()).await.unwrap();
+        let s = f.statfs().await.unwrap();
+        assert!(s.total_bytes > 0, "宿主容量必须为真值: {s:?}");
+        assert!(s.free_bytes > 0);
+        assert!(s.free_bytes <= s.total_bytes);
+    }
 
     #[tokio::test]
     async fn open_rejects_missing_root() {
