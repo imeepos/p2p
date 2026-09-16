@@ -93,3 +93,12 @@ tunnel_status	exempt		访侧会话快照（active/sessions 审计）服务 GUI �
 services_list	mapped	service list
 services_set_enabled	mapped	service enable	disable 为同域 upsert 对偶（p2pctl service disable <id> 同源落盘同语义），映射说明非豁免
 
+rd_host_start	exempt		rd host 是独立前台常驻进程（进程活=受理开启），GUI rd_host_start 翻转的是 GUI 常驻节点进程内的 rd 会话态开关（enabled 不持久化、重启回落关闭），非同一对象；tunnel_serve_start 豁免先例同构（M6B）
+rd_host_stop	exempt		同 rd_host_start：生命周期绑定 GUI 常驻节点进程，CLI 对等面=p2pctl rd host 独立进程（退出即收口），非同一对象
+rd_host_status	exempt		GUI 会话态快照（running/approval/session/fps）服务远程桌面视图三态渲染，CLI 无常驻进程实例可查询（对等面=rd host 就绪行，进程级）
+rd_approve	exempt		审批是 GUI 常驻 host 的交互队列（pending→approve 后 viewer 重连），CLI 无对等常驻审批面（rd host 默认免审批；审批波随 GUI 面交付）
+rd_deny	exempt		同 rd_approve：审批队列消费操作，CLI 无对等面
+rd_quality_set	exempt		质量协商经活跃 viewer 会话交互（fps/scale/codec 采纳），CLI rd probe 仅握手不建会话，无对等面
+rd_viewer_connect	exempt		GUI 建完整 viewer 会话（握手+视频流+控制通道），CLI 对等面=p2pctl rd probe 仅握手探测（不建会话），语义不混同
+rd_viewer_close	exempt		会话态操作，CLI 无常驻 viewer 会话可关
+rd_viewer_status	exempt		GUI 会话态快照，CLI 无常驻 viewer 实例可查询
