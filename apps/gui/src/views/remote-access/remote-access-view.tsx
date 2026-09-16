@@ -2,9 +2,11 @@ import { PageHeader } from "@/components/page/page-header";
 
 import { DshOpenCard } from "./dsh-open-card";
 import { GenericTunnelCard } from "./generic-tunnel-card";
+import { RemoteDesktopCard } from "./remote-desktop-card";
 import { TunnelServeCard } from "./tunnel-serve-card";
 import { TunnelTerminalBanner } from "./tunnel-terminal-banner";
 import { TunnelStatusCard } from "./tunnel-status-card";
+import { useRdPageModel } from "./use-rd-model";
 import { useTunnelPageModel } from "./use-tunnel-page-model";
 
 // 远程访问页（W-T3）：双语义——把本机任意 http/ws 服务分享给指定节点
@@ -12,6 +14,7 @@ import { useTunnelPageModel } from "./use-tunnel-page-model";
 // + 通用入口，含好友选择与 ws 派生地址）。终态统一以页面横幅呈现。
 export function RemoteAccessView() {
   const page = useTunnelPageModel();
+  const rd = useRdPageModel();
   return (
     <>
       <PageHeader
@@ -44,6 +47,7 @@ export function RemoteAccessView() {
         onBanner={page.setBanner}
       />
       <TunnelStatusCard status={page.status} openUrl={page.openUrl} />
+      <RemoteDesktopCard model={rd} />
     </>
   );
 }

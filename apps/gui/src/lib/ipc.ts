@@ -51,6 +51,8 @@ import type {
   TunnelOpenReport,
   TunnelServeStatus,
   TunnelStatusReport,
+  RdHostStatus,
+  RdViewerStatus,
   NodeEventJson,
   NodeEventHandler,
   NodeProfile,
@@ -280,6 +282,19 @@ const tauriBackend: IpcBackend = {
   tunnelServeStart: (target) =>
     invoke<TunnelServeStatus>("tunnel_serve_start", { target }),
   tunnelServeStop: () => invoke<TunnelServeStatus>("tunnel_serve_stop"),
+  // rd 远程桌面（§21）命令面。
+  rdHostStart: (requireApproval) =>
+    invoke<RdHostStatus>("rd_host_start", { requireApproval }),
+  rdHostStop: () => invoke<RdHostStatus>("rd_host_stop"),
+  rdHostStatus: () => invoke<RdHostStatus>("rd_host_status"),
+  rdApprove: (peer) => invoke<boolean>("rd_approve", { peer }),
+  rdDeny: (peer) => invoke<boolean>("rd_deny", { peer }),
+  rdQualitySet: (fps, scale, codec) =>
+    invoke<RdHostStatus>("rd_quality_set", { fps, scale, codec }),
+  rdViewerConnect: (peer, sessionId) =>
+    invoke<RdViewerStatus>("rd_viewer_connect", { peer, sessionId }),
+  rdViewerClose: () => invoke<RdViewerStatus>("rd_viewer_close"),
+  rdViewerStatus: () => invoke<RdViewerStatus>("rd_viewer_status"),
   onTunnelStatus: (handler) =>
     listen<TunnelStatusReport>(TUNNEL_STATUS_EVENT, (event) => handler(event.payload)).then(
       (unlisten) => () => {

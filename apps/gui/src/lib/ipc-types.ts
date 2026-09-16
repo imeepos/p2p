@@ -751,6 +751,16 @@ export interface IpcBackend {
   // 先校验后动作不部分生效）；stop 幂等且保留白名单。
   tunnelServeStart(target: string): Promise<TunnelServeStatus>;
   tunnelServeStop(): Promise<TunnelServeStatus>;
+  // rd 远程桌面（§21）：host 服务开关/审批/质量/viewer 会话（camelCase 快照）。
+  rdHostStart(requireApproval: boolean): Promise<RdHostStatus>;
+  rdHostStop(): Promise<RdHostStatus>;
+  rdHostStatus(): Promise<RdHostStatus>;
+  rdApprove(peer: string): Promise<boolean>;
+  rdDeny(peer: string): Promise<boolean>;
+  rdQualitySet(fps: number, scale: number, codec: number): Promise<RdHostStatus>;
+  rdViewerConnect(peer: string, sessionId?: string): Promise<RdViewerStatus>;
+  rdViewerClose(): Promise<RdViewerStatus>;
+  rdViewerStatus(): Promise<RdViewerStatus>;
 }
 
 // 契约 v3 加法（G-H 观测）：诊断命令面，与节点控制面分离；mock/tauri 同签名。
@@ -780,6 +790,20 @@ export interface TunnelServeStatus {
   allow: string[];
   activeSessions: number;
 }
+// rd 远程桌面状态快照（gui-contract §21.2，camelCase）。
+export interface RdHostStatus {
+  running: boolean;
+  requireApproval: boolean;
+  sessionCount: number;
+  pendingApprovals: string[];
+  fps: number;
+}
+
+export interface RdViewerStatus {
+  connected: boolean;
+  sessionId?: string | null;
+}
+
 
 export interface TunnelSessionAudit {
   sessionId: string;

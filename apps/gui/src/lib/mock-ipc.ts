@@ -33,6 +33,7 @@ import { createMockLlmShare } from "./mock-llm-share";
 import { mockAuthzBackend, mockAuthzController } from "./mock-authz";
 import { createMockServices } from "./mock-services";
 import { createMockTunnelServe } from "./mock-tunnel-serve";
+import { createMockRd } from "./mock-rd";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -256,6 +257,7 @@ const mockServices = createMockServices({
 
 // tunnel 被访侧 mock（契约 §19.1）：白名单/受理开关内存态，状态经 tunnelStatus.serve 呈现。
 const mockTunnelServe = createMockTunnelServe({ isRunning: () => state.running });
+const mockRd = createMockRd({ isRunning: () => state.running });
 (window as unknown as Record<string, unknown>).__MOCK_TUNNEL_SERVE__ =
   mockTunnelServe.controller;
 
@@ -327,6 +329,7 @@ export const mockBackend: IpcBackend & {
       emit({ type: "node_stopped" });
       // 被访侧槽位随节点卸载（对齐 state.rs clear）：受理回落关闭、白名单清空。
       mockTunnelServe.controller.reset();
+      mockRd.controller.reset();
     }
     return snapshot();
   },
@@ -458,6 +461,7 @@ export const mockBackend: IpcBackend & {
       emit({ type: "node_stopped" });
       // 被访侧槽位随节点卸载（对齐 state.rs clear）：受理回落关闭、白名单清空。
       mockTunnelServe.controller.reset();
+      mockRd.controller.reset();
     }
     return snapshot();
   },
@@ -504,6 +508,7 @@ export const mockBackend: IpcBackend & {
     throw new Error("mock 环境不支持远程访问：需在桌面应用内使用");
   },
   ...mockTunnelServe.backend,
+  ...mockRd.backend,
   async tunnelStatus() {
     return {
       active: false,
