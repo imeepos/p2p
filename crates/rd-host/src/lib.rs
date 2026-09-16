@@ -188,7 +188,10 @@ impl RdHost {
 
     /// 审批闸读回。
     pub fn state_require_approval(&self) -> bool {
-        self.state.lock().map(|st| st.require_approval).unwrap_or(false)
+        self.state
+            .lock()
+            .map(|st| st.require_approval)
+            .unwrap_or(false)
     }
 
     /// 质量档位直接设置（GUI 命令面；校验失败回旧档）。
@@ -206,11 +209,7 @@ impl RdHost {
 
     /// 服务关闭时停止全部活跃会话（信号 stop 旗标，由处理器各自收尾）。
     pub fn stop_all(&self) {
-        let peers: Vec<PeerId> = self
-            .sessions
-            .lock()
-            .map(|g| g.peers())
-            .unwrap_or_default();
+        let peers: Vec<PeerId> = self.sessions.lock().map(|g| g.peers()).unwrap_or_default();
         if let Ok(g) = self.sessions.lock() {
             for p in peers {
                 g.signal_stop(&p);
