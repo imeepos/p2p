@@ -83,6 +83,7 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
         config.enable_mdns,
         config.lan_only,
     );
+    let ftp_enabled = switches.ftp; // build_node 会 move switches，先摘出开关位
     config.enable_mdns = switches.mdns;
     config.lan_only = switches.lan_only;
     // F8：外联声明落 daemon.log（可观测）；声明与实连同一份 config，不漂移
@@ -102,6 +103,8 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
     ));
     // 存量回填（§0.5c）：daemon 启动等价执行一次 authz import friends（幂等；失败仅告警）。
     crate::authz::import_friends::startup_backfill(&paths.root);
+    // serve.ftp（service-registry-design §2）：开关 AND ftp.json 双条件才装配。
+    crate::ftp_serve::maybe_serve(&node, &paths.root, ftp_enabled);
     // 采集器尽早起：装配后到 serve 前的发现事件也归约进注册表。
     let registry = Arc::new(PeerRegistry::new());
     observe::spawn_collector(&node, registry.clone());

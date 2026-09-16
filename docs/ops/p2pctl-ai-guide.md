@@ -1990,6 +1990,7 @@ p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 
 | --password | string | 否 | 空 |
 | --data-dir | path | 否 | ./p2p-data |
 | [PATH] | 位置参数 string | 否 | 根目录 / |
+| --addr | string | 否 | mDNS 局域网发现（传输地址形如 127.0.0.1/q41001，取 node status 的 listenAddrs） |
 退出码：成功 0；远端拒绝（550 不存在等）/网络失败 1。
 
 ### p2pctl ftp get
@@ -2002,6 +2003,7 @@ p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 
 | --data-dir | path | 否 | ./p2p-data |
 | <REMOTE> | 位置参数 string | 是 | —— |
 | <LOCAL> | 位置参数 string | 是 | —— |
+| --addr | string | 否 | mDNS 局域网发现（传输地址形如 127.0.0.1/q41001，取 node status 的 listenAddrs） |
 退出码：成功 0；远端拒绝/本地文件创建失败 1。
 
 ### p2pctl ftp put
@@ -2014,6 +2016,7 @@ p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 
 | --data-dir | path | 否 | ./p2p-data |
 | <LOCAL> | 位置参数 string | 是 | —— |
 | <REMOTE> | 位置参数 string | 是 | —— |
+| --addr | string | 否 | mDNS 局域网发现（传输地址形如 127.0.0.1/q41001，取 node status 的 listenAddrs） |
 退出码：成功 0；远端拒绝（552 超限/550 父目录缺失）/本地文件打开失败 1。
 
 ### p2pctl ftp mkdir
@@ -2025,6 +2028,7 @@ p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 
 | --password | string | 否 | 空 |
 | --data-dir | path | 否 | ./p2p-data |
 | <PATH> | 位置参数 string | 是 | —— |
+| --addr | string | 否 | mDNS 局域网发现（传输地址形如 127.0.0.1/q41001，取 node status 的 listenAddrs） |
 退出码：成功 0；已存在/越狱 550 → 1。
 
 ### p2pctl ftp rmdir
@@ -2036,6 +2040,7 @@ p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 
 | --password | string | 否 | 空 |
 | --data-dir | path | 否 | ./p2p-data |
 | <PATH> | 位置参数 string | 是 | —— |
+| --addr | string | 否 | mDNS 局域网发现（传输地址形如 127.0.0.1/q41001，取 node status 的 listenAddrs） |
 退出码：成功 0；目录非空/不存在 → 1。
 
 ### p2pctl ftp delete
@@ -2047,6 +2052,7 @@ p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 
 | --password | string | 否 | 空 |
 | --data-dir | path | 否 | ./p2p-data |
 | <PATH> | 位置参数 string | 是 | —— |
+| --addr | string | 否 | mDNS 局域网发现（传输地址形如 127.0.0.1/q41001，取 node status 的 listenAddrs） |
 退出码：成功 0；不存在 → 1。
 
 ### p2pctl ftp pwd
@@ -2057,4 +2063,5 @@ p2pctl vdrive mount --peer 11111111111111111111111111111112 --addr 127.0.0.1/u1 
 | --user | string | 否 | anonymous |
 | --password | string | 否 | 空 |
 | --data-dir | path | 否 | ./p2p-data |
+| --addr | string | 否 | mDNS 局域网发现（传输地址形如 127.0.0.1/q41001，取 node status 的 listenAddrs） |
 退出码：成功 0；登录失败（530）→ 1。

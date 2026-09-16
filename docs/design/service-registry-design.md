@@ -18,7 +18,7 @@
 非目标：不做运行时热切换（生效时机=下次节点启动，plan §0.6）；不做跨机同步；
 不改线协议；acp-console 泵 / update / repair-helper / 群聊不入首批（待细化区）。
 
-## 2. 首批服务闭集 v1（10 项，只加不删）
+## 2. 首批服务闭集 v1（11 项，只加不删；ftp 收尾波 FT5 追加第 11 项）
 
 三型语义（与 plan §0.3 逐字一致）：
 
@@ -38,6 +38,7 @@
 | `serve.rendezvous_server` | 显式化型 | on | assembly.rs:82-84 恒注册 RendezvousServer（crates/p2p/src/lib.rs:49-50 rendezvous_public_only） | 现状每节点恒开收编为显式化：开关 AND public_only 策略双条件，默认 on 不改行为 |
 | `discovery.mdns` | 收编型 | 双读：无条目回落 `enable_mdns`（现状默认 true） | GUI state.rs:298 / CLI daemon.rs:26 / 底座 assembly.rs:180-187 | 迁移期双读：services.json 有条目用之，无条目回落 GuiConfig.enable_mdns；gui-config.json 字段保留不迁移 |
 | `net.lan_only` | 收编型 | false | assembly.rs:126-132 装配期剥离 bootstrap/relay；CLI daemon.rs:28 | 修复 GUI 断链（inventory 问题 1）：B1 给 GuiConfig 补 lan_only 字段并消费；双读规则同 mdns（services.json 条目优先，缺失回落 GuiConfig 字段），GUI/CLI 同语义 |
+| `serve.ftp` | 布尔型 | off | CLI daemon 装配（apps/cli/src/ftp_serve.rs：开关 AND ftp.json root 配置双条件才装配 /ftp/ctrl/1 + /ftp/data/1） | ftp 收尾波 FT5：默认关=零行为变化；ftp.json 缺失/损坏 fail-safe 跳过装配留告警；账号表空 = OpenAuth 仅限信任网（FT6 接 authz 后收敛） |
 
 双读规则（收编型统一）：`services.json` 存在该 service_id 条目 → 条目权威；
 缺失 → 回落既有配置字段。用户首次在服务面板/CLI 翻转该开关即落条目，此后旧

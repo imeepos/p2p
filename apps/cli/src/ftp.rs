@@ -28,6 +28,9 @@ struct Target {
     /// 身份数据目录
     #[arg(long, default_value = DEFAULT_DATA_DIR)]
     data_dir: String,
+    /// 对端传输地址（如 127.0.0.1/q41001）；缺省靠 mDNS 局域网发现
+    #[arg(long)]
+    addr: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -121,6 +124,10 @@ async fn dial(target: &Target) -> CliResult<FtpClient> {
         .await
         .map_err(|e| CliError::Runtime(format!("节点装配失败（data-dir={}）: {e}", target.data_dir)))?;
     let peer = parse_peer(&target.peer)?;
+    if let Some(addr) = &target.addr {
+        node.add_peer_address(peer, addr)
+            .map_err(|e| CliError::Runtime(format!("--addr 非法（{addr}）: {e}")))?;
+    }
     let mut client = FtpClient::connect(Arc::new(node), peer)
         .await
         .map_err(ftp_err)?;

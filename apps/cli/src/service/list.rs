@@ -120,10 +120,13 @@ mod tests {
     fn build_views_covers_full_closed_set_with_contract_shape() {
         let registry = ServiceRegistry::default();
         let views = build_views(&registry, &GuiConfig::default(), true);
-        assert_eq!(views.len(), 10);
+        assert_eq!(views.len(), 11);
         assert_eq!(views[0].service_id, "serve.llm_share");
         assert_eq!(views[0].kind, "boolean");
         assert!(!views[0].enabled, "布尔型默认 off");
+        let ftp = views.iter().find(|v| v.service_id == "serve.ftp");
+        assert_eq!(ftp.map(|v| v.kind.clone()), Some("boolean"), "FT5 闭集第 11 项");
+        assert_eq!(ftp.map(|v| v.enabled), Some(false), "serve.ftp 默认关");
         assert!(views[0].requires_restart);
         let mdns = views.iter().find(|v| v.service_id == "discovery.mdns");
         assert_eq!(mdns.map(|v| v.kind), Some("adopted"));

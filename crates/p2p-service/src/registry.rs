@@ -46,6 +46,7 @@ impl ServiceId {
     pub const SERVE_RENDEZVOUS_SERVER: ServiceId = ServiceId("serve.rendezvous_server");
     pub const DISCOVERY_MDNS: ServiceId = ServiceId("discovery.mdns");
     pub const NET_LAN_ONLY: ServiceId = ServiceId("net.lan_only");
+    pub const SERVE_FTP: ServiceId = ServiceId("serve.ftp");
 
     pub const fn as_str(self) -> &'static str {
         self.0
@@ -63,7 +64,9 @@ impl ServiceId {
     /// 型别与默认值（§2 表逐字；改表即测试红）。
     pub fn kind(self) -> ServiceKind {
         match self {
-            ServiceId::SERVE_LLM_SHARE | ServiceId::SERVE_TUNNEL => ServiceKind::Boolean,
+            ServiceId::SERVE_LLM_SHARE | ServiceId::SERVE_TUNNEL | ServiceId::SERVE_FTP => {
+                ServiceKind::Boolean
+            }
             ServiceId::DISCOVERY_MDNS | ServiceId::NET_LAN_ONLY => ServiceKind::Adopted,
             _ => ServiceKind::Explicit,
         }
@@ -74,7 +77,10 @@ impl ServiceId {
     pub fn default_enabled(self) -> bool {
         !matches!(
             self,
-            ServiceId::SERVE_LLM_SHARE | ServiceId::SERVE_TUNNEL | ServiceId::NET_LAN_ONLY
+            ServiceId::SERVE_LLM_SHARE
+                | ServiceId::SERVE_TUNNEL
+                | ServiceId::NET_LAN_ONLY
+                | ServiceId::SERVE_FTP
         )
     }
 
@@ -93,7 +99,7 @@ impl ServiceId {
     }
 }
 
-/// §2 首批闭集（10 项），顺序与设计表一致。
+/// §2 首批闭集（11 项，ftp 收尾波 FT5 追加），顺序与设计表一致。
 static REGISTRY: &[ServiceId] = &[
     ServiceId::SERVE_LLM_SHARE,
     ServiceId::SERVE_TUNNEL,
@@ -105,6 +111,7 @@ static REGISTRY: &[ServiceId] = &[
     ServiceId::SERVE_RENDEZVOUS_SERVER,
     ServiceId::DISCOVERY_MDNS,
     ServiceId::NET_LAN_ONLY,
+    ServiceId::SERVE_FTP,
 ];
 
 impl fmt::Display for ServiceId {

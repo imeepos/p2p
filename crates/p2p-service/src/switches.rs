@@ -27,6 +27,8 @@ pub struct NodeServiceSwitches {
     pub observe: bool,
     /// serve.rendezvous_server 开关位。
     pub rendezvous_server: bool,
+    /// serve.ftp 开关位（Boolean 默认关；FTP 服务端装配另需 ftp.json 配置）。
+    pub ftp: bool,
 }
 
 impl NodeServiceSwitches {
@@ -44,6 +46,7 @@ impl NodeServiceSwitches {
             observe: ServiceId::NET_OBSERVE.resolve(value(ServiceId::NET_OBSERVE), None),
             rendezvous_server: ServiceId::SERVE_RENDEZVOUS_SERVER
                 .resolve(value(ServiceId::SERVE_RENDEZVOUS_SERVER), None),
+            ftp: ServiceId::SERVE_FTP.resolve(value(ServiceId::SERVE_FTP), None),
         }
     }
 
@@ -105,6 +108,7 @@ mod tests {
         let resolved = NodeServiceSwitches::resolve(&ServiceRegistry::default(), false, false);
         assert!(resolved.rendezvous_register && resolved.relay && resolved.observe);
         assert!(resolved.rendezvous_server, "显式化型默认 on 不改行为");
+        assert!(!resolved.ftp, "serve.ftp 布尔型默认关（零行为变化）");
 
         let mut reg = ServiceRegistry::default();
         reg.set_enabled(ServiceId::NET_RELAY, false, 1);

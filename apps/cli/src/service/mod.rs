@@ -105,7 +105,7 @@ mod tests {
         assert!(msg.contains("owner.superuser"), "实际: {msg}");
         assert!(msg.contains("serve.llm_share"), "实际: {msg}");
         assert!(msg.contains("net.lan_only"), "实际: {msg}");
-        assert_eq!(closed_set_list().split(", ").count(), 10);
+        assert_eq!(closed_set_list().split(", ").count(), 11);
     }
 
     #[test]

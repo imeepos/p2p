@@ -4,7 +4,7 @@
 use crate::registry::{ServiceEntry, ServiceId, ServiceKind, ServiceRegistry};
 
 /// §2 逐字锚点：改表即测试红（顺序敏感）。
-const DESIGN_IDS: [&str; 10] = [
+const DESIGN_IDS: [&str; 11] = [
     "serve.llm_share",
     "serve.tunnel",
     "serve.a2a",
@@ -15,11 +15,12 @@ const DESIGN_IDS: [&str; 10] = [
     "serve.rendezvous_server",
     "discovery.mdns",
     "net.lan_only",
+    "serve.ftp",
 ];
 
 #[test]
-fn registry_is_ten_ids_verbatim() {
-    assert_eq!(ServiceId::registry().len(), 10);
+fn registry_is_eleven_ids_verbatim() {
+    assert_eq!(ServiceId::registry().len(), 11);
     let ids: Vec<_> = ServiceId::registry().iter().map(|s| s.as_str()).collect();
     assert_eq!(ids, DESIGN_IDS);
 }
@@ -39,7 +40,7 @@ fn parse_covers_registry_and_rejects_outside_ids() {
 /// §2「型 / 默认值」两列逐字锚点。
 #[test]
 fn kinds_and_defaults_match_design_table() {
-    let expected: [(&str, ServiceKind, bool); 10] = [
+    let expected: [(&str, ServiceKind, bool); 11] = [
         ("serve.llm_share", ServiceKind::Boolean, false),
         ("serve.tunnel", ServiceKind::Boolean, false),
         ("serve.a2a", ServiceKind::Explicit, true),
@@ -50,6 +51,7 @@ fn kinds_and_defaults_match_design_table() {
         ("serve.rendezvous_server", ServiceKind::Explicit, true),
         ("discovery.mdns", ServiceKind::Adopted, true),
         ("net.lan_only", ServiceKind::Adopted, false),
+        ("serve.ftp", ServiceKind::Boolean, false),
     ];
     for (id, kind, default) in expected {
         let parsed = ServiceId::parse(id).unwrap_or_else(|| panic!("缺 id: {id}"));

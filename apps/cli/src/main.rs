@@ -11,6 +11,7 @@ mod daemon;
 mod discovery;
 mod error;
 mod ftp;
+mod ftp_serve;
 mod group;
 mod gui;
 mod identity;
