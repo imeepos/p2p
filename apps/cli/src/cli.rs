@@ -21,6 +21,7 @@ use crate::relay;
 use crate::service;
 use crate::tunnel;
 use crate::update;
+use crate::vdrive;
 
 #[derive(Parser)]
 #[command(
@@ -130,5 +131,10 @@ pub enum Command {
     Service {
         #[command(subcommand)]
         command: service::ServiceCommand,
+    },
+    /// 网络硬盘域：serve（被挂端）/ mount（挂载端 WebDAV 桥 + 自动挂载）
+    Vdrive {
+        #[command(subcommand)]
+        command: vdrive::VDriveCommand,
     },
 }

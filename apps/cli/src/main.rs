@@ -32,6 +32,7 @@ mod store;
 mod tunnel;
 mod types;
 mod update;
+mod vdrive;
 
 use clap::Parser;
 
@@ -69,5 +70,6 @@ async fn dispatch(cli: Cli) -> CliResult<()> {
         cli::Command::Authz { command } => authz::run(command).await,
         cli::Command::Tunnel { command } => tunnel::run(command).await,
         cli::Command::Service { command } => service::run(command).await,
+        cli::Command::Vdrive { command } => vdrive::run(command).await,
     }
 }

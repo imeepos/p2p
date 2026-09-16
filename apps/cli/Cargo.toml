@@ -48,6 +48,9 @@ p2p-authz = { path = "../../crates/p2p-authz" }
 # tunnel 域（W-T5）：headless 被访侧前台服务复用 p2p-tunnel responder 装配。
 p2p-tunnel = { path = "../../crates/p2p-tunnel" }
 
+# vdrive 域（网络硬盘）：serve=被挂端 / mount=挂载端 WebDAV 桥。
+p2p-vdrive = { path = "../../crates/p2p-vdrive" }
+
 # tunnel connect 域（W-TC）：opener 装配需 StreamFactory trait 面。
 p2p-protocol = { path = "../../crates/p2p-protocol" }
 async-trait = "0.1"
