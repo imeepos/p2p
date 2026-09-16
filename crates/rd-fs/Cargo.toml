@@ -1,0 +1,11 @@
+[package]
+name = "rd-fs"
+version.workspace = true
+edition.workspace = true
+description = "远程文件服务：隔离根目录内的浏览/建删/分块传输状态机（路径防逃逸，供 /rd/file/1 宿主）"
+
+[dependencies]
+rd-wire = { path = "../rd-wire" }
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
