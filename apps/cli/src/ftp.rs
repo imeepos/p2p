@@ -16,9 +16,9 @@ use crate::node::DEFAULT_DATA_DIR;
 
 /// 对端目标 + 身份根 + 登录账号（域内命令共通）。
 #[derive(clap::Args)]
-struct Target {
+pub(crate) struct Target {
     /// 对端 PeerId（base58，服务端节点身份）
-    peer: String,
+    pub(crate) peer: String,
     /// 登录账号（服务端 Authenticator 判定）
     #[arg(long, default_value = "anonymous")]
     user: String,
@@ -34,7 +34,7 @@ struct Target {
 }
 
 #[derive(clap::Args)]
-struct LsArgs {
+pub(crate) struct LsArgs {
     #[command(flatten)]
     target: Target,
     /// 远端目录（缺省当前目录，登录后恒为根 /）
@@ -42,7 +42,7 @@ struct LsArgs {
 }
 
 #[derive(clap::Args)]
-struct GetArgs {
+pub(crate) struct GetArgs {
     #[command(flatten)]
     target: Target,
     /// 远端文件路径
@@ -52,7 +52,7 @@ struct GetArgs {
 }
 
 #[derive(clap::Args)]
-struct PutArgs {
+pub(crate) struct PutArgs {
     #[command(flatten)]
     target: Target,
     /// 本地源文件路径
@@ -62,7 +62,7 @@ struct PutArgs {
 }
 
 #[derive(clap::Args)]
-struct PathArgs {
+pub(crate) struct PathArgs {
     #[command(flatten)]
     target: Target,
     /// 远端路径
