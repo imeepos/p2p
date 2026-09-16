@@ -16,6 +16,9 @@ pub struct MountArgs {
     /// 被挂端 PeerId（base58）
     #[arg(long, value_name = "PEER_ID", required = true)]
     pub peer: String,
+    /// 被挂端地址（ip/u端口 或 ip/t端口，即 serve 就绪行 listenAddrs），可多次
+    #[arg(long = "addr", value_name = "ADDR")]
+    pub addrs: Vec<String>,
     /// 本机桥监听端口（0 = 随机）
     #[arg(long, default_value_t = 0, value_name = "PORT")]
     pub port: u16,
@@ -60,6 +63,10 @@ pub async fn run(args: MountArgs) -> CliResult<()> {
     let _ = p2p_log::init(p2p_log::LogConfig::default());
     let plan = build_plan(&args)?;
     let node = Arc::new(build_node(&args.node).await?);
+    for addr in &args.addrs {
+        node.add_peer_address(plan.peer, addr)
+            .map_err(|e| CliError::Runtime(format!("--addr {addr} 非法: {e}")))?;
+    }
     let client: Arc<dyn p2p_vdrive::FsBackend> = Arc::new(
         p2p_vdrive::VDriveClient::new(Arc::clone(&node), plan.peer)
             .map_err(|e| CliError::Runtime(format!("vdrive 客户端装配失败: {e}")))?,
@@ -103,11 +110,28 @@ pub async fn run(args: MountArgs) -> CliResult<()> {
 
 #[cfg(target_os = "macos")]
 async fn mount_volume(url: &str, name: &str) -> Option<String> {
-    let mountpoint = format!("/Volumes/{name}");
-    if let Err(e) = tokio::fs::create_dir_all(&mountpoint).await {
-        emit(json!({"kind": "mount-failed", "reason": format!("挂载点创建失败: {e}")}));
-        return None;
+    // /Volumes 需管理员组写权限；不可用则回退用户目录挂载点。
+    let candidates = [
+        format!("/Volumes/{name}"),
+        format!(
+            "{}/.vdrive-mounts/{name}",
+            std::env::var("HOME").unwrap_or_else(|_| ".".into())
+        ),
+    ];
+    let mut mountpoint: Option<String> = None;
+    for candidate in &candidates {
+        match tokio::fs::create_dir_all(candidate).await {
+            Ok(()) => {
+                mountpoint = Some(candidate.clone());
+                break;
+            }
+            Err(e) => eprintln!("p2pctl-vdrive: 挂载点 {candidate} 创建失败: {e}"),
+        }
     }
+    let Some(mountpoint) = mountpoint else {
+        emit(json!({"kind": "mount-failed", "reason": "挂载点均不可创建（/Volumes 与 ~/.vdrive-mounts）"}));
+        return None;
+    };
     let out = tokio::process::Command::new("mount_webdav")
         .args([format!("{url}/"), mountpoint.clone()])
         .output()
