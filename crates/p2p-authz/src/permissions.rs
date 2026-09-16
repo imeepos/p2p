@@ -1,4 +1,4 @@
-//! 权限登记表（authz-role-design §4）：首批闭集九 key，单一真值源。
+//! 权限登记表（authz-role-design §4）：首批闭集十一 key，单一真值源。
 //! key 形如 "<domain>.<capability>"，只加不删（废用标 deprecated，不删除）；
 //! registry 无 owner-only key，模型上杜绝经角色提权到 owner（§11 红线 1）。
 //! 数据一致性测试逐字锚定本表与内建角色阶梯（§5），改表即测试红。
@@ -21,6 +21,8 @@ impl Permission {
     pub const LLM_BORROW: Permission = Permission("llm.borrow");
     pub const REPAIR_DIAG: Permission = Permission("repair.diag");
     pub const REPAIR_FIX: Permission = Permission("repair.fix");
+    pub const FILE_READ: Permission = Permission("file.read");
+    pub const FILE_WRITE: Permission = Permission("file.write");
 
     pub const fn as_str(self) -> &'static str {
         self.0
@@ -36,7 +38,8 @@ impl Permission {
     }
 }
 
-/// §4 首批闭集（九 key），顺序与设计表一致。
+/// §4 首批闭集（十一 key，ftp 收尾波 FT6 追加 file.*），顺序与设计表一致。
+/// file.* 不入任何内建角色（安全默认拒绝），经自定义角色授予。
 static REGISTRY: &[Permission] = &[
     Permission::CHAT_SEND,
     Permission::CHAT_ATTACHMENT,
@@ -47,6 +50,8 @@ static REGISTRY: &[Permission] = &[
     Permission::LLM_BORROW,
     Permission::REPAIR_DIAG,
     Permission::REPAIR_FIX,
+    Permission::FILE_READ,
+    Permission::FILE_WRITE,
 ];
 
 impl fmt::Display for Permission {
@@ -74,7 +79,7 @@ mod tests {
     use super::*;
 
     /// §4 逐字锚点：改表即测试红。
-    const DESIGN_KEYS: [&str; 9] = [
+    const DESIGN_KEYS: [&str; 11] = [
         "chat.send",
         "chat.attachment",
         "a2a.discover",
@@ -84,11 +89,13 @@ mod tests {
         "llm.borrow",
         "repair.diag",
         "repair.fix",
+        "file.read",
+        "file.write",
     ];
 
     #[test]
-    fn registry_is_nine_keys_verbatim() {
-        assert_eq!(REGISTRY.len(), 9);
+    fn registry_is_eleven_keys_verbatim() {
+        assert_eq!(REGISTRY.len(), 11);
         let keys: Vec<_> = REGISTRY.iter().map(|p| p.as_str()).collect();
         assert_eq!(keys, DESIGN_KEYS);
     }

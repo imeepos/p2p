@@ -64,6 +64,8 @@
 | `llm.borrow` | 经我代理借用上游 LLM 额度 | llm-share 闸 1 |
 | `repair.diag` | 可获签 diag 工单 | mint 前置（新增闸） |
 | `repair.fix` | 可获签 fix 工单 | mint 前置（新增闸） |
+| `file.read` | 经我 FTP 服务端读（LIST/RETR/导航） | ftp 收尾波 FT6：Authorizer 接缝；内建角色不含，自定义角色授予 |
+| `file.write` | 经我 FTP 服务端写（STOR/APPE/MKD/RMD/DELE/改名） | 同上；写不含读，读不含写 |
 
 Key 发布规则：新 key 必须先登记本表 + 同步 §8 接入点说明，随常规 PR 评审；
 registry 无 owner-only key —— **模型上杜绝经角色提权到 owner**（§11）。
