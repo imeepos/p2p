@@ -107,3 +107,9 @@
   rebase 解 rd-wire 撞 registry/wire-protocol 尾部冲突（双方登记块都保留），
   main==origin/main@68abe761，worktree/分支本地远端全清。scope=FTP over P2P 释放。
   后续候选：p2pctl ftp 子命令、serve.ftp 服务开关闭集登记（需改设计表，先问）、authz 收编。
+
+## 2026-09-16 FTP 收尾波（goal-9f609d90 后续）
+- [认领] 2026-09-16 08:18 goal-9f609d90（FTP 目标会话续）：scope=FTP 收尾波
+  FT1-FT6（crates/p2p-ftp 语义完善 + apps/cli ftp 域 + p2p-service/p2p-authz
+  闭集扩容），计划 .orchestrator/2026-09-16-ftp-closeout/plan.md，分支
+  feat/ftp-closeout / worktree .worktrees/ftp-closeout。禁触 rd-m2、wsm-b2 在飞面。
