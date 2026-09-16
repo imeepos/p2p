@@ -1689,6 +1689,51 @@ const enUS: typeof zhCN = {
         shutdown: "Peer is shutting down",
       },
     },
+    rd: {
+      title: "Remote Desktop",
+      description:
+        "Control this machine remotely (host) or connect to a peer's remote desktop (viewer): screen, input, clipboard, files",
+      host: {
+        title: "Host service",
+        description:
+          "When enabled, approved peers may control this machine (screen capture currently synthetic; real capture lands with the GUI capture wave)",
+        start: "Enable host",
+        stop: "Disable host",
+        starting: "Enabling…",
+        stopping: "Disabling…",
+        approvalLabel: "Require approval for new sessions",
+        statusEnabled: "Serving",
+        statusDisabled: "Not serving",
+        sessions: "Active sessions",
+        fps: "Current fps",
+      },
+      approvals: {
+        title: "Pending approvals",
+        empty: "No pending approvals",
+        approve: "Approve",
+        deny: "Deny",
+      },
+      viewer: {
+        title: "Viewer",
+        description:
+          "Connect to a peer's remote desktop session (handshake + video stream)",
+        peer: "Peer PeerId",
+        peerPlaceholder: "PeerId (base58)",
+        connect: "Connect",
+        connecting: "Connecting…",
+        disconnect: "Disconnect",
+        connected: "Connected",
+        idle: "Not connected",
+        session: "Session",
+      },
+      quality: {
+        title: "Video quality",
+        fps: "Frame rate (fps)",
+      },
+      errors: {
+        nodeOffline: "Start the local p2p node on the network page first",
+      },
+    },
   },
   docs: {
     title: "Protocol Docs",

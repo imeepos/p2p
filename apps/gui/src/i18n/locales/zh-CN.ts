@@ -1656,6 +1656,50 @@ const zhCN = {
         shutdown: "对端停机中",
       },
     },
+    rd: {
+      title: "远程桌面",
+      description:
+        "本机作为被控端（host）或连接对端远程桌面（viewer）：画面/输入/剪贴板/文件",
+      host: {
+        title: "被控端服务",
+        description:
+          "开启后审批通过的节点可控制本机（画面采集当前为合成源，真实采集随 GUI 采集波并入）",
+        start: "开启被控",
+        stop: "关闭被控",
+        starting: "开启中…",
+        stopping: "关闭中…",
+        approvalLabel: "新会话需审批",
+        statusEnabled: "服务中",
+        statusDisabled: "未服务",
+        sessions: "活跃会话",
+        fps: "当前帧率",
+      },
+      approvals: {
+        title: "待审批会话",
+        empty: "暂无待审批",
+        approve: "批准",
+        deny: "拒绝",
+      },
+      viewer: {
+        title: "控制端",
+        description: "连接对端远程桌面会话（握手 + 视频流）",
+        peer: "对端 PeerId",
+        peerPlaceholder: "PeerId（base58）",
+        connect: "连接",
+        connecting: "连接中…",
+        disconnect: "断开",
+        connected: "已连接",
+        idle: "未连接",
+        session: "会话",
+      },
+      quality: {
+        title: "视频质量",
+        fps: "帧率（fps）",
+      },
+      errors: {
+        nodeOffline: "请先在网络页启动本机 p2p 节点",
+      },
+    },
   },
   docs: {
     title: "协议文档",
