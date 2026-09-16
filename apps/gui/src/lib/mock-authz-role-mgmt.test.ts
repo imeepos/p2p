@@ -18,9 +18,9 @@ beforeEach(() => {
 });
 
 describe("mock authzPermissionsList", () => {
-  it("返回闭集九 key", async () => {
+  it("返回闭集十一 key", async () => {
     const { permissions } = await mockAuthzBackend.authzPermissionsList();
-    expect(permissions).toHaveLength(9);
+    expect(permissions).toHaveLength(11);
     expect(new Set(permissions)).toEqual(
       new Set([
         "chat.send",
@@ -32,6 +32,8 @@ describe("mock authzPermissionsList", () => {
         "llm.borrow",
         "repair.diag",
         "repair.fix",
+        "file.read",
+        "file.write",
       ]),
     );
   });

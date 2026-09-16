@@ -63,10 +63,13 @@ const BUILTIN_ROLE_SOURCES: Array<
   },
 ];
 
-// §4 闭集九 key 恰为内建阶梯并集（改阶梯即改闭集，与 p2p-authz 数据一致性同思路）。
-const PERMISSION_REGISTRY: ReadonlySet<string> = new Set(
-  BUILTIN_ROLE_SOURCES.flatMap((r) => r.permissions),
-);
+// §4 闭集十一 key = 内建阶梯并集 + file.*（FT6：file.* 不入内建角色，
+// 自定义角色授予；与 p2p-authz 数据一致性同思路）。
+const PERMISSION_REGISTRY: ReadonlySet<string> = new Set([
+  ...BUILTIN_ROLE_SOURCES.flatMap((r) => r.permissions),
+  "file.read",
+  "file.write",
+]);
 
 const PEER_RE = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
 const DAY_SECS = 86_400;

@@ -181,7 +181,7 @@ pub struct AuthzRoleDeleteReport {
     pub role_id: String,
 }
 
-/// authz_permissions_list：§4 闭集九 key（Permission::registry() 顺序，前端
+/// authz_permissions_list：§4 闭集十一 key（Permission::registry() 顺序，前端
 /// 权限复选框数据源）；静态只读不触存储，无 CLI 对等面（cli-parity exempt）。
 #[tauri::command]
 pub async fn authz_permissions_list() -> Result<AuthzPermissionsReport, String> {
