@@ -77,6 +77,7 @@ async fn rd_clipboard_wave_e2e() {
         rd_host::HostConfig::default(),
     )
     .unwrap();
+    host.set_enabled(true);
     let viewer = RdViewer::new(viewer_node.clone());
 
     let host_peer = host_node.local_peer_id();

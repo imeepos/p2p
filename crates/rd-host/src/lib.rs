@@ -28,6 +28,7 @@ use rd_clipboard::ClipboardFactory;
 use rd_fs::FsService;
 use rd_input::InjectorFactory;
 use rd_wire::{CONTROL_PROTOCOL_ID, FILE_PROTOCOL_ID, VIDEO_PROTOCOL_ID};
+pub use state::QualityState;
 use state::{HostState, SharedState};
 
 /// host 装配失败。
@@ -105,7 +106,10 @@ impl RdHost {
         let video_id = ProtocolId::new(VIDEO_PROTOCOL_ID)?;
         let file_id = ProtocolId::new(FILE_PROTOCOL_ID)?;
         let sessions = Arc::new(Mutex::new(sessions::HostSessions::default()));
-        let state: SharedState = Arc::new(Mutex::new(HostState::default()));
+        let state: SharedState = Arc::new(Mutex::new(HostState {
+            require_approval: config.require_approval,
+            ..HostState::default()
+        }));
         let config = Arc::new(config);
         let host = Self {
             sessions: sessions.clone(),
@@ -168,6 +172,50 @@ impl RdHost {
     /// 当前采纳帧率（质量协商读回；测试/E2E 断言用）。
     pub fn active_fps(&self) -> u8 {
         self.state.lock().map(|st| st.quality.fps).unwrap_or(0)
+    }
+
+    /// 服务开关翻转（GUI rd_host_start/stop 命令面）。
+    pub fn set_enabled(&self, enabled: bool) {
+        if let Ok(mut st) = self.state.lock() {
+            st.enabled = enabled;
+        }
+    }
+
+    /// 服务开关读回。
+    pub fn state_enabled(&self) -> bool {
+        self.state.lock().map(|st| st.enabled).unwrap_or(false)
+    }
+
+    /// 审批闸读回。
+    pub fn state_require_approval(&self) -> bool {
+        self.state.lock().map(|st| st.require_approval).unwrap_or(false)
+    }
+
+    /// 质量档位直接设置（GUI 命令面；校验失败回旧档）。
+    pub fn set_quality(&self, fps: u8, scale: u8, codec: u8) -> Result<QualityState, String> {
+        let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
+        st.apply_quality(fps, scale, codec)
+    }
+
+    /// 审批闸运行期翻转。
+    pub fn set_require_approval(&self, on: bool) {
+        if let Ok(mut st) = self.state.lock() {
+            st.require_approval = on;
+        }
+    }
+
+    /// 服务关闭时停止全部活跃会话（信号 stop 旗标，由处理器各自收尾）。
+    pub fn stop_all(&self) {
+        let peers: Vec<PeerId> = self
+            .sessions
+            .lock()
+            .map(|g| g.peers())
+            .unwrap_or_default();
+        if let Ok(g) = self.sessions.lock() {
+            for p in peers {
+                g.signal_stop(&p);
+            }
+        }
     }
 }
 

@@ -23,6 +23,11 @@ impl HostSessions {
         self.inner.len()
     }
 
+    /// 活跃 peer 列表（stop_all 遍历用）。
+    pub fn peers(&self) -> Vec<PeerId> {
+        self.inner.keys().copied().collect()
+    }
+
     /// 登记会话；同 peer 已有活跃会话则拒绝。
     pub fn insert(&mut self, peer: PeerId, session_id: String) -> Result<(), String> {
         if self.inner.contains_key(&peer) {

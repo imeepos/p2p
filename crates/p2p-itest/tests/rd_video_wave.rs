@@ -82,6 +82,7 @@ async fn rd_video_wave_e2e() {
     let host_node = build_node(root.join("host")).await;
     let viewer_node = build_node(root.join("viewer")).await;
     let host = RdHost::new(host_node.clone(), Arc::new(SyntheticFactory { w: W, h: H })).unwrap();
+    host.set_enabled(true);
     let viewer = RdViewer::new(viewer_node.clone());
 
     let host_peer = host_node.local_peer_id();
@@ -124,6 +125,7 @@ async fn rd_video_duplicate_connect_rejected() {
     let host_node = build_node(root.join("host")).await;
     let viewer_node = build_node(root.join("viewer")).await;
     let _host = RdHost::new(host_node.clone(), Arc::new(SyntheticFactory { w: W, h: H })).unwrap();
+    _host.set_enabled(true);
     let viewer = RdViewer::new(viewer_node.clone());
 
     let host_peer = host_node.local_peer_id();
@@ -162,6 +164,7 @@ async fn rd_video_zlib_codec_roundtrip() {
         config,
     )
     .unwrap();
+    _host.set_enabled(true);
     let viewer = RdViewer::new(viewer_node.clone());
 
     let host_peer = host_node.local_peer_id();

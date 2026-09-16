@@ -94,6 +94,7 @@ async fn make_host(tag: &str, require_approval: bool) -> (Arc<Node>, RdHost, Pat
         config,
     )
     .unwrap();
+    host.set_enabled(true);
     (host_node, host, root)
 }
 

@@ -58,24 +58,27 @@ impl ProtocolHandler for ControlHandler {
             }
             Err(e) => return Err(e),
         };
-        // 审批闸：require_approval 且 peer 未批准 → 登记 pending 并拒（viewer 批准后重连）。
-        // 锁在纯同步块内释放（guard 非 Send，禁跨 await）。
-        let admitted = {
+        // 服务开关 + 审批闸：关闭拒 service_disabled；未批准登记 pending 并拒
+        // awaiting_approval（viewer 批准后重连）。锁在纯同步块内释放（guard 非 Send）。
+        let (admitted, reason) = {
             let mut st = self.state.lock().unwrap_or_else(|e| e.into_inner());
-            if admission_allowed(&st, self.config.require_approval, &peer) {
-                true
+            if !st.enabled {
+                (false, Some("service_disabled".to_string()))
+            } else if admission_allowed(&st, &peer) {
+                (true, None)
             } else {
                 st.pending.insert(peer);
-                false
+                (false, Some("awaiting_approval".to_string()))
             }
         };
         if !admitted {
             tracing::info!(
-                audit_event = "session_awaiting_approval",
+                audit_event = "session_rejected",
                 peer = %peer,
-                session_id = %hello
+                session_id = %hello,
+                reason = ?reason
             );
-            reject(&mut stream, &hello, "awaiting_approval".into()).await;
+            reject(&mut stream, &hello, reason.unwrap_or_default()).await;
             return Ok(());
         }
         let mut dispatch = match self.injector.new_injector() {

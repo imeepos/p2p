@@ -53,7 +53,7 @@ impl ProtocolHandler for VideoHandler {
         };
         {
             let st = self.state.lock().unwrap_or_else(|e| e.into_inner());
-            if !crate::state::admission_allowed(&st, self.config.require_approval, &peer) {
+            if !crate::state::admission_allowed(&st, &peer) {
                 tracing::warn!("rd-host: video stream from unapproved peer {peer}");
                 return Ok(());
             }

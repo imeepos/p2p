@@ -66,6 +66,7 @@ async fn rd_file_wave_e2e() {
         config,
     )
     .unwrap();
+    _host.set_enabled(true);
     let viewer = RdViewer::new(viewer_node.clone());
 
     let host_peer = host_node.local_peer_id();

@@ -27,7 +27,11 @@ impl Default for QualityState {
 #[derive(Default)]
 pub struct HostState {
     pub quality: QualityState,
-    /// 已审批通过的 peer（require_approval 开关启用时生效）。
+    /// 服务开关：关闭时拒绝全部入站（GUI 命令 rd_host_start/stop 翻转）。
+    pub enabled: bool,
+    /// 审批闸开关（运行期可翻转；初始值来自 HostConfig.require_approval）。
+    pub require_approval: bool,
+    /// 已审批通过的 peer（require_approval 启用时生效）。
     pub approved: HashSet<PeerId>,
     /// 待审批 peer（hello 被拒后登记，approve/deny 消费）。
     pub pending: HashSet<PeerId>,
@@ -52,7 +56,7 @@ impl HostState {
 
 pub type SharedState = Arc<Mutex<HostState>>;
 
-/// 会话准入查询：require_approval 关闭时恒通过；开启时须在 approved 集。
-pub fn admission_allowed(state: &HostState, require_approval: bool, peer: &PeerId) -> bool {
-    !require_approval || state.approved.contains(peer)
+/// 会话准入查询：服务关闭一律拒；审批关闭时（approved 集忽略）通过；开启时须在 approved 集。
+pub fn admission_allowed(state: &HostState, peer: &PeerId) -> bool {
+    state.enabled && (!state.require_approval || state.approved.contains(peer))
 }
