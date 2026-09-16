@@ -69,13 +69,29 @@
   逃逸全拒）。
 - 门禁：fmt/clippy -D warnings 零告警（五 crate + itest）。
 
+## M6 执行记录（第一部分）
+- 2026-09-15 rd-host：质量协商（HostState 共享态，quality 请求校验采纳→QualityAck，
+  帧泵逐帧读 fps 即时生效）；审批闸（HostConfig.require_approval + pending/approved 集 +
+  approve/deny/pending_approvals 队列 API，未批准 hello 拒 awaiting_approval，批准后重连
+  成功）；结构化审计日志（session_open/close/awaiting_approval 带 peer/session_id 字段）；
+  sessions.remove_if 会话所有权校验——实测同 peer 重连竞态：迟退的旧视频处理器无条件
+  remove 会删新会话，改按 session_id 归属才删（E2E 复现并修复）。
+- 2026-09-15 rd-viewer：ControlWrite::quality 便捷面；RdViewer::probe 握手探测
+  （hello→ack 即断，Rejected 原因上抛）。
+- 2026-09-15 crates/p2p-itest/tests/rd_m6_wave.rs：3 E2E 绿（质量协商读回 + 非法档位
+  拒采纳；审批全链 awaiting_approval→approve→重连画面流；close 后同 peer 重连恢复）。
+- 2026-09-15 apps/cli：rd 域——`rd host`（合成源前台常驻，ready/stopped JSON 行，
+  SIGINT/SIGTERM 优雅收口）+ `rd probe`（握手探测含拒绝原因）；真机冒烟
+  `{"kind":"probe","ok":true}`；ai-docs-sync 107 叶子 373 参数项全对；cli-parity OK；
+  apps/cli clippy 零告警。
+- 门禁：合约前五波全绿基线保持。
+
 ## 里程碑状态
-- M1：已收官合并（main @ dc870038）。
-- M2：已收官合并（main @ 2a367e20）。
-- M3：已收官合并（main @ cbc5072a）。
-- M4：已收官合并（main @ f516dc4e）。
-- M5：实现完成，待全量门禁绿后合并。
-- M6：商用收口（多显示器/质量自适应/重连/审批 GUI/审计/authz+服务开关接线/CLI 对等）。
+- M1-M5：已收官合并（main @ e0e782b7）。
+- M6（第一部分）：实现完成，待全量门禁绿后合并。
+- M6（第二部分，下一轮）：多显示器 display_list/select 落地、GUI 审批/会话窗口
+  （remote-access 页 + src-tauri 命令面）、p2p-authz 能力 key 接线、wsm 服务总控开关
+  接线（依赖 feat/wsm-b2 合入：其 branch 仍在飞）。
 
 ## 依赖挂账
 - p2p-service 服务开关（rd-host/rd-viewer）：wsm 波（feat/wsm-b2）合入后接线。

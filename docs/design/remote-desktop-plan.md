@@ -167,7 +167,7 @@ JSON 控制消息（双向）+ 数据块（viewer↔host 双向，按传输方�
 | M3 | 输入注入：rd-input（键码映射/修饰键状态机/RecordingInjector/E2E + macOS CGEvent 授权门控）+ host 控制循环输入分发 + viewer 便捷面 | 全链 E2E 绿（crates/p2p-itest/tests/rd_input_wave.rs）；真实注入待带辅助功能授权真机（#[ignore] 冒烟） |
 | M4 | 剪贴板双向同步：rd-clipboard + host 轮询 diff 上行/下行 + viewer 下行写入 + 回声抑制 | E2E 绿（crates/p2p-itest/tests/rd_clipboard_wave.rs：viewer→host 写入、host 外部变更→viewer 两连发、无回声）；控制流 reader 任务化修 select! 帧截断竞态 |
 | M5 | 文件传输（浏览/上下传/进度/取消/续传/路径卫生） | 单测 + 双节点 E2E 大文件校验和一致 |
-| M6 | 商用收口：多显示器/质量自适应/重连/审批 GUI/审计/authz+服务开关接线/CLI 对等 | 全量 make check；真机走查报告 |
+| M6 | 商用收口（第一部分）：质量协商（fps/scale/codec 即时生效 + QualityAck）、会话审批闸（require_approval + approve/deny 队列 + awaiting_approval 重连语义）、断线重连（会话所有权 remove_if 防误删）、结构化审计日志、p2pctl rd 域（host 前台/合成源 + probe 握手探测，cli-parity/ai-docs-sync 登记） | E2E 绿（rd_m6_wave：质量读回/审批全链/重连恢复）；CLI 真机冒烟 {probe,ok:true} |
 | M7（可选） | 音频 + 硬件编码（H.264） | 独立验收 |
 
 每里程碑独立收官：worktree 反向同步 → 合并 → 清分支 → 账本更新（AGENTS.md 收尾四步）。

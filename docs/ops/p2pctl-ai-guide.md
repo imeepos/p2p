@@ -1897,6 +1897,54 @@ timeout 5 p2pctl tunnel connect --peer US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCEL
 ```
 语义：先校验后动作（目标字面量与 peer base58 全过才装配节点）；对等面为独立进程，与 GUI `tunnel_open_dsh` 的 GUI 内会话态不混同（cli-parity exempt，TD 卡补登记）。反代地址由 OS 分配（确定性端口属后续契约加法候选）。退出码：0 = 信号收口完成；1 = 装配失败/收口超时（在途连接未全落终态，留显式报错）。
 
+### p2pctl rd host
+用途：headless 远程桌面被控端前台常驻服务（M6）：画面采集用合成源（真实 ScreenCaptureKit 采集与 CGEvent 注入由 GUI host 承担，需系统授权；本命令用于链路验收/开发/压测）。进程活 = 受理开启；SIGINT/SIGTERM 优雅收口（node.shutdown）。前置：无；--fps 越界 / --codec 非 0|1 → 启动即退（退出码 1）。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --width | u16 | 否 | 1280 |
+| --height | u16 | 否 | 720 |
+| --fps | u8（1..=60） | 否 | 15 |
+| --codec | 0(raw)/1(zlib) | 否 | 0 |
+| --fs-root | path | 否 | $HOME/Downloads/RD |
+| --data-dir | path | 否 | ./p2p-data |
+| --quic-port | u16 | 否 | 0（随机） |
+| --tcp-port | u16 | 否 | 0（随机） |
+| --no-mdns | flag | 否 | off |
+| --bootstrap | string（ip/u端口 或 ip/t端口，可重复） | 否 | 无 |
+文本（stdout JSON 行；日志走 stderr）：
+```
+{"kind":"ready","listenAddrs":["127.0.0.1/u65385","127.0.0.1/t65425"],"peerId":"…"}
+{"kind":"stopped"}
+```
+示例（前台常驻，ctrl_c 收口；非交互验证用 timeout 发 SIGTERM）：
+```
+timeout 5 p2pctl rd host --data-dir ./p2p-data
+```
+语义：合成画面源（SyntheticFactory）+ recording 注入/内存剪贴板（零系统权限），viewer 可经 `rd probe` 验证握手、经 GUI/库面验证全链；真实采集/注入/审批由 GUI host 波提供。退出码：0 = 信号收口完成；1 = 装配失败。
+
+### p2pctl rd probe
+用途：viewer 握手连通性探测（hello → hello_ack 即断），返回拒绝原因（含 awaiting_approval）。前置：被访节点已运行 rd host（或 GUI host 受理开启）且网络可达。
+| 参数 | 类型 | 必填 | 默认 |
+|---|---|---|---|
+| --peer | string base58（32 字节） | 是 | —— |
+| --addr | string（ip/t端口 传输地址） | 否 | 地址簿/发现 |
+| --session | string（16 hex） | 否 | 随机生成 |
+| --data-dir | path | 否 | ./p2p-data |
+| --quic-port | u16 | 否 | 0（随机） |
+| --tcp-port | u16 | 否 | 0（随机） |
+| --no-mdns | flag | 否 | off |
+| --bootstrap | string（可重复） | 否 | 无 |
+文本（stdout JSON 行）：
+```
+{"kind":"probe","ok":true,"sessionId":"b8d490f86acb44b8"}
+{"kind":"probe","ok":false,"reason":"awaiting_approval"}
+```
+示例：
+```
+p2pctl rd probe --peer DStC8B5jL3XfA49USRCHAFNLFmwtYJ4Dj6nEMKgsDpa --addr 127.0.0.1/t65425 --data-dir ./p2p-data
+```
+语义：仅握手不建会话；退出码：0 = 握手接受；1 = 拒绝（原因入 reason）/装配失败/peer 非 base58。
+
 ### p2pctl service list
 用途：列出服务闭集 10 项（型别/默认/生效值/来源，gui-contract §20 CLI 对等）。前置：无。
 | 参数 | 类型 | 必填 | 默认 |
