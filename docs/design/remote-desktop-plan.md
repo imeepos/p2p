@@ -55,7 +55,7 @@
 | `rd-capture` | 屏幕采集抽象：CaptureSource trait + 确定性合成源（E2E）；`sck` feature 启用 ScreenCaptureKit 真实源（macOS 13+，Swift 运行时） | macOS（后续多平台） |
 | `rd-input` | 输入注入：InputInjector trait + USB HID→macOS 键码映射 + 修饰键状态机 + RecordingInjector（E2E）+ macOS CGEvent 真实注入（core-graphics，Accessibility 授权探测） | macOS |
 | `rd-clipboard` | 剪贴板后端抽象：系统剪贴板（arboard，跨平台无 Swift）+ 共享内存后端（E2E）；host 轮询 diff 变更探测 + 回声抑制 | 全平台 |
-| `rd-fs` | 远程文件系统：目录浏览、stat、传输分块、续传索引 | 全平台 |
+| `rd-fs` | 隔离根文件服务：浏览/建删/stat、上传续写/下载泵送、路径防逃逸（wire 卫生 + canonicalize 双检） | 全平台 |
 | `rd-host` | host 侧会话装配：capture+clipboard+fs 接线、准入审批、审计 | 全平台 |
 | `rd-viewer` | viewer 侧会话装配：解码渲染管线、输入采集接线 | 全平台 |
 | `rd-service` | GUI 命令面（src-tauri 装配 + p2pctl rd 子命令） | macOS |

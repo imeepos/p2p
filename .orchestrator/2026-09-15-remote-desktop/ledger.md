@@ -52,12 +52,30 @@
   五参签名并全绿。
 - 门禁：fmt/clippy -D warnings 零告警（四 crate + itest）。
 
+## M5（本轮）执行记录
+- 2026-09-15 crates/rd-fs：FsService 隔离根（wire 卫生 + 最深已存在祖先 canonicalize
+  双检防符号链接逃逸；空串=根浏览）、浏览/stat/建删、上传续写（部分文件续传，
+  append + offset 严格校验）、下载泵送；3 单测。
+- 2026-09-15 rd-wire：FileMsg 加法——FsOpAck、FsListAck/FsStatAck 增 error 字段、
+  list/stat 允许空串根浏览；validate_paths 按消息区分根许可。
+- 2026-09-15 rd-host：/rd/file/1 FileHandler（PeerId 绑定会话、传输注册表、
+  upload 顺序写、download ack 后泵送、idle 超时护栏）；HostConfig.fs_root 默认
+  $HOME/Downloads/RD。
+- 2026-09-15 rd-viewer：FileChannel 懒开流 + list/stat/mkdir/rm/upload/download
+  （进度回调；upload 等 host XferEnd 完传确认——实测发现 send 返回≠写盘完成，
+  不确认有竞态）；下载本地写盘。
+- 2026-09-15 crates/p2p-itest/tests/rd_file_wave.rs：E2E 绿（浏览根/建删/stat、
+  2 MiB 跨块上传 sha256 一致 + 进度收敛、下载一致、`..`/绝对路径/`a/../../b`
+  逃逸全拒）。
+- 门禁：fmt/clippy -D warnings 零告警（五 crate + itest）。
+
 ## 里程碑状态
 - M1：已收官合并（main @ dc870038）。
 - M2：已收官合并（main @ 2a367e20）。
 - M3：已收官合并（main @ cbc5072a）。
-- M4：实现完成，待全量门禁绿后合并。
-- M5：文件传输（浏览/上下传/进度/取消/续传/路径卫生落地）；见 plan.md。
+- M4：已收官合并（main @ f516dc4e）。
+- M5：实现完成，待全量门禁绿后合并。
+- M6：商用收口（多显示器/质量自适应/重连/审批 GUI/审计/authz+服务开关接线/CLI 对等）。
 
 ## 依赖挂账
 - p2p-service 服务开关（rd-host/rd-viewer）：wsm 波（feat/wsm-b2）合入后接线。
