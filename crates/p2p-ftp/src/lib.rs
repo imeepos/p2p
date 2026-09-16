@@ -20,10 +20,10 @@ mod transfer;
 mod vfs;
 mod wire;
 
-pub use auth::{Authenticator, OpenAuth, StaticAuth};
+pub use auth::{AllowAll, Authenticator, Authorizer, FtpOp, OpenAuth, StaticAuth};
 pub use client::FtpClient;
 pub use localfs::LocalFs;
-pub use server::{serve, serve_with_config, FtpConfig, FtpServer};
+pub use server::{serve, serve_with_authz, serve_with_config, FtpConfig, FtpServer};
 pub use transfer::DataKind;
 pub use vfs::{Entry, EntryKind, FileSystem};
 

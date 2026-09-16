@@ -13,7 +13,7 @@ use p2p_identity::PeerId;
 use p2p_mux::BoxedStream;
 use p2p_protocol::{read_frame, ProtocolHandler, ProtocolId};
 
-use crate::auth::Authenticator;
+use crate::auth::{AllowAll, Authenticator, Authorizer};
 use crate::data_plane::run_data_transfer;
 use crate::session;
 use crate::transfer::TransferRegistry;
@@ -50,6 +50,7 @@ pub struct FtpServer {
     proto: ProtocolId,
     fs: Arc<dyn FileSystem>,
     auth: Arc<dyn Authenticator>,
+    authz: Arc<dyn Authorizer>,
     cfg: FtpConfig,
     transfers: TransferRegistry,
 }
@@ -64,11 +65,22 @@ impl FtpServer {
         auth: Arc<dyn Authenticator>,
         cfg: FtpConfig,
     ) -> Result<Self, FtpError> {
+        Self::with_parts(fs, auth, Arc::new(AllowAll), cfg)
+    }
+
+    /// 全量装配口：authz 逐命令授权（AllowAll = 既有语义零变化）。
+    pub fn with_parts(
+        fs: Arc<dyn FileSystem>,
+        auth: Arc<dyn Authenticator>,
+        authz: Arc<dyn Authorizer>,
+        cfg: FtpConfig,
+    ) -> Result<Self, FtpError> {
         let transfers = TransferRegistry::new(cfg.token_ttl);
         Ok(Self {
             proto: proto(PROTO_CTRL)?,
             fs,
             auth,
+            authz,
             cfg,
             transfers,
         })
@@ -80,6 +92,10 @@ impl FtpServer {
 
     pub(crate) fn auth(&self) -> &Arc<dyn Authenticator> {
         &self.auth
+    }
+
+    pub(crate) fn authz(&self) -> &Arc<dyn Authorizer> {
+        &self.authz
     }
 
     pub(crate) fn cfg(&self) -> &FtpConfig {
@@ -168,7 +184,18 @@ pub fn serve_with_config(
     auth: Arc<dyn Authenticator>,
     cfg: FtpConfig,
 ) -> Result<Arc<FtpServer>, FtpError> {
-    let server = Arc::new(FtpServer::with_config(fs, auth, cfg)?);
+    serve_with_authz(node, fs, auth, Arc::new(AllowAll), cfg)
+}
+
+/// 全量装配口：带逐命令授权器（authz 收编用，FT6）。
+pub fn serve_with_authz(
+    node: &Node,
+    fs: Arc<dyn FileSystem>,
+    auth: Arc<dyn Authenticator>,
+    authz: Arc<dyn Authorizer>,
+    cfg: FtpConfig,
+) -> Result<Arc<FtpServer>, FtpError> {
+    let server = Arc::new(FtpServer::with_parts(fs, auth, authz, cfg)?);
     node.handle_protocol(server.clone());
     let data_proto = proto(PROTO_DATA)?;
     node.handle_protocol(Arc::new(DataHandler {

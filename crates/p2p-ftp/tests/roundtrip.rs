@@ -271,3 +271,48 @@ async fn list_entry_limit_enforced() {
         "NLST 同受上限保护"
     );
 }
+
+/// FT6 授权接缝：拒绝写的 Authorizer——读通、写一律 550；
+/// 默认 AllowAll 行为零变化由既有用例覆盖。
+struct DenyWrites;
+
+impl p2p_ftp::Authorizer for DenyWrites {
+    fn allow(&self, _peer: &p2p::PeerId, _user: &str, op: p2p_ftp::FtpOp) -> bool {
+        op == p2p_ftp::FtpOp::Read
+    }
+}
+
+#[tokio::test]
+async fn authorizer_can_deny_writes() {
+    let a = spawn_node("az-a").await;
+    let b = spawn_node("az-b").await;
+    let root = fs_root("az");
+    let fs = Arc::new(LocalFs::open(&root).unwrap());
+    p2p_ftp::serve_with_authz(
+        &b,
+        fs,
+        Arc::new(OpenAuth),
+        Arc::new(DenyWrites),
+        FtpConfig::default(),
+    )
+    .unwrap();
+    link(&a, &b).await;
+
+    let mut c = FtpClient::connect(a.clone(), b.local_peer_id())
+        .await
+        .unwrap();
+    c.login("u", "p").await.unwrap();
+
+    let mut src: &[u8] = b"data";
+    assert!(
+        matches!(
+            c.stor("/x.bin", &mut src).await,
+            Err(FtpError::Rejected { code: 550, .. })
+        ),
+        "写必须被授权器拒绝"
+    );
+    assert!(c.list(None).await.is_ok(), "读不受影响");
+    let mut src: &[u8] = b"data";
+    assert!(c.appe("/y.bin", &mut src).await.is_err());
+    assert!(c.mkd("/d").await.is_err());
+}

@@ -94,8 +94,11 @@ NLST：每行一个名字。
 ## 5. 安全
 
 - 鉴权接缝：`Authenticator::login(peer, user, pass) -> bool` 单点判定，
-  OpenAuth（全放行，仅测试/本机）与 StaticAuth（精确匹配）随 crate 提供；
-  p2p-authz 权限模型收编属宿主装配侧工作。
+  OpenAuth（全放行，仅测试/本机）与 StaticAuth（精确匹配）随 crate 提供。
+- 逐命令授权接缝：`Authorizer::allow(peer, user, FtpOp) -> bool`（FT6），
+  Read=浏览/下载/导航，Write=一切变更；拒绝回 550。默认 AllowAll 零行为
+  变化；p2p-authz 收编桥（file.read/file.write 权限 key，按节点判定）属
+  宿主装配侧（daemon ftp.json `authz: true` 消费）。
 - 路径监狱（LocalFs 后端）：组件层过滤 `..`；已存在路径 canonicalize 后
   必须仍在根内（反符号链接逃逸）；写路径校验父目录在根内。
   会话层 `normalize` 先拒 `..` 越根（双闸纵深）。

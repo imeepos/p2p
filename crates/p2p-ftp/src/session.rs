@@ -10,6 +10,7 @@ use p2p_mux::BoxedStream;
 use p2p_protocol::read_frame;
 use tokio::time::timeout;
 
+use crate::auth::FtpOp;
 use crate::server::FtpServer;
 use crate::session_fs::{do_cwd, do_pass, do_remove, do_rnto, do_size};
 use crate::transfer::DataKind;
@@ -91,6 +92,34 @@ pub(crate) fn io_err_reply(e: &io::Error) -> Reply {
     Reply::new(code, e.to_string())
 }
 
+/// 命令 → 授权类别映射；None = 免判（登录序列/探测/退出）。
+fn op_of(cmd: &Command) -> Option<FtpOp> {
+    match cmd {
+        Command::Pwd
+        | Command::Cwd(_)
+        | Command::Cdup
+        | Command::Size(_)
+        | Command::List(_)
+        | Command::Nlst(_)
+        | Command::Retr(_) => Some(FtpOp::Read),
+        Command::Mkd(_)
+        | Command::Rmd(_)
+        | Command::Dele(_)
+        | Command::Rnfr(_)
+        | Command::Rnto(_)
+        | Command::Stor(_)
+        | Command::Appe(_) => Some(FtpOp::Write),
+        Command::User(_)
+        | Command::Pass(_)
+        | Command::Syst
+        | Command::Feat
+        | Command::Noop
+        | Command::Quit
+        | Command::Type
+        | Command::Unknown(_) => None,
+    }
+}
+
 async fn dispatch(
     server: &FtpServer,
     st: &mut SessionState,
@@ -112,6 +141,16 @@ async fn dispatch(
         return reply(stream, 530, "login required")
             .await
             .map(|()| Flow::Continue);
+    }
+    // 逐命令授权门（FT6）：命令分类 → Authorizer 判定，拒则 550。
+    if let Some(op) = op_of(&cmd) {
+        let user = st.user.as_deref().unwrap_or("");
+        if !server.authz().allow(peer, user, op) {
+            tracing::warn!(peer = %peer, user = %user, op = ?op, "ftp command denied by authorizer");
+            return reply(stream, 550, "permission denied")
+                .await
+                .map(|()| Flow::Continue);
+        }
     }
     match cmd {
         Command::User(u) => {
