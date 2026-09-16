@@ -9,19 +9,23 @@
 //! （依赖 wsm 服务总控波合入）。
 
 mod control;
+mod file;
 mod input;
 mod session;
 mod sessions;
 
 use std::sync::{Arc, Mutex};
 
+use std::path::PathBuf;
+
 use p2p::Node;
 use p2p_protocol::{ProtocolError, ProtocolId};
 use rd_capture::CaptureError;
 use rd_capture::CaptureSource;
 use rd_clipboard::ClipboardFactory;
+use rd_fs::FsService;
 use rd_input::InjectorFactory;
-use rd_wire::{CONTROL_PROTOCOL_ID, VIDEO_PROTOCOL_ID};
+use rd_wire::{CONTROL_PROTOCOL_ID, FILE_PROTOCOL_ID, VIDEO_PROTOCOL_ID};
 
 /// host 装配失败。
 #[derive(Debug, thiserror::Error)]
@@ -39,6 +43,8 @@ pub struct HostConfig {
     pub idle_timeout_secs: u64,
     /// 编码：raw=0 原样，zlib=1 deflate 压缩。
     pub codec: u8,
+    /// 文件隔离根（viewer 可见的目录树根）。
+    pub fs_root: PathBuf,
 }
 
 impl Default for HostConfig {
@@ -47,7 +53,17 @@ impl Default for HostConfig {
             fps: 15,
             idle_timeout_secs: 15,
             codec: rd_wire::video::CODEC_RAW_RGBA,
+            fs_root: default_fs_root(),
         }
+    }
+}
+
+/// 默认文件根：`$HOME/Downloads/RD`（商用隔离语义；HOME 缺失回退当前目录 .rd-files）。
+fn default_fs_root() -> PathBuf {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    match home {
+        Some(h) => h.join("Downloads").join("RD"),
+        None => PathBuf::from(".rd-files"),
     }
 }
 
@@ -79,6 +95,7 @@ impl RdHost {
     ) -> Result<Self, HostError> {
         let control_id = ProtocolId::new(CONTROL_PROTOCOL_ID)?;
         let video_id = ProtocolId::new(VIDEO_PROTOCOL_ID)?;
+        let file_id = ProtocolId::new(FILE_PROTOCOL_ID)?;
         let sessions = Arc::new(Mutex::new(sessions::HostSessions::default()));
         let config = Arc::new(config);
         let host = Self {
@@ -93,9 +110,15 @@ impl RdHost {
             config: config.clone(),
         }));
         node.handle_protocol(Arc::new(session::VideoHandler {
-            sessions,
+            sessions: sessions.clone(),
             proto: video_id,
             source,
+            config: config.clone(),
+        }));
+        node.handle_protocol(Arc::new(file::FileHandler {
+            sessions,
+            proto: file_id,
+            fs: FsService::new(config.fs_root.clone()),
             config,
         }));
         Ok(host)
