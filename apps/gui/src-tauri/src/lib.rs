@@ -17,6 +17,7 @@ pub mod console;
 pub mod control;
 pub mod events;
 pub mod frontend_log;
+pub mod ftp_config;
 pub mod ginvite;
 pub mod group;
 pub mod history;
@@ -27,6 +28,7 @@ pub mod proto;
 pub mod rd;
 pub mod rd_input;
 pub mod services;
+pub mod static_peers_admin;
 pub mod state;
 pub mod tunnel;
 pub mod types;
@@ -143,6 +145,11 @@ pub fn run() {
             tunnel::tunnel_status,
             services::services_list,
             services::services_set_enabled,
+            ftp_config::ftp_config_get,
+            ftp_config::ftp_config_save,
+            static_peers_admin::static_peers_list,
+            static_peers_admin::static_peers_upsert,
+            static_peers_admin::static_peers_remove,
         ])
         .plugin(tauri_plugin_opener::init())
         // 媒体附件导出（契约 §12 加法）：系统保存对话框选目标路径
