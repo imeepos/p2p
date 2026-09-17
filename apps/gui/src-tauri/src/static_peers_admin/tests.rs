@@ -31,10 +31,20 @@ fn list_corrupt_file_is_explicit_error() {
 fn upsert_dedupes_by_peer_id_and_persists() {
     let dir = temp_root("dedupe");
     let path = dir.join(FILE_NAME);
-    upsert_peer(&path, "peer-a".into(), vec!["10.0.0.1/u4000".into()], "first".into())
-        .expect("upsert ok");
-    upsert_peer(&path, "peer-a".into(), vec!["10.0.0.9/u4999".into()], "moved".into())
-        .expect("重复 upsert ok");
+    upsert_peer(
+        &path,
+        "peer-a".into(),
+        vec!["10.0.0.1/u4000".into()],
+        "first".into(),
+    )
+    .expect("upsert ok");
+    upsert_peer(
+        &path,
+        "peer-a".into(),
+        vec!["10.0.0.9/u4999".into()],
+        "moved".into(),
+    )
+    .expect("重复 upsert ok");
     upsert_peer(&path, "peer-b".into(), vec![], "".into()).expect("upsert ok");
     let peers = list_peers(&path).unwrap();
     assert_eq!(peers.len(), 2, "同 peerId 去重不追加");

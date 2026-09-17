@@ -33,7 +33,9 @@ pub struct StaticPeersListReport {
 
 /// static_peers_list：缺失 = 空册；损坏 = 显式 Err 不静默。
 #[tauri::command]
-pub async fn static_peers_list(state: State<'_, AppState>) -> Result<StaticPeersListReport, String> {
+pub async fn static_peers_list(
+    state: State<'_, AppState>,
+) -> Result<StaticPeersListReport, String> {
     list_peers(&book_path(state.data_dir())).map(|peers| StaticPeersListReport { peers })
 }
 
@@ -51,7 +53,10 @@ pub async fn static_peers_upsert(
 
 /// static_peers_remove：幂等，不存在亦成功（契约逐字）。
 #[tauri::command]
-pub async fn static_peers_remove(state: State<'_, AppState>, peer_id: String) -> Result<bool, String> {
+pub async fn static_peers_remove(
+    state: State<'_, AppState>,
+    peer_id: String,
+) -> Result<bool, String> {
     remove_peer(&book_path(state.data_dir()), &peer_id)?;
     Ok(true)
 }
@@ -77,7 +82,12 @@ fn list_peers(path: &Path) -> Result<Vec<StaticPeerJson>, String> {
         .collect())
 }
 
-fn upsert_peer(path: &Path, peer_id: String, addrs: Vec<String>, note: String) -> Result<(), String> {
+fn upsert_peer(
+    path: &Path,
+    peer_id: String,
+    addrs: Vec<String>,
+    note: String,
+) -> Result<(), String> {
     if peer_id.trim().is_empty() {
         return Err("peerId 不能为空".into());
     }

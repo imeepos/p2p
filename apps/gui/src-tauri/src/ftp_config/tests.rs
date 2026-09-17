@@ -52,18 +52,25 @@ fn get_returns_sorted_usernames_without_secrets() {
     assert!(view.authz);
     assert_eq!(view.users, vec!["alice", "bob"], "仅用户名且排序");
     let raw = serde_json::to_string(&view).unwrap();
-    assert!(!raw.contains("pw1") && !raw.contains("pw2"), "密码不回显: {raw}");
+    assert!(
+        !raw.contains("pw1") && !raw.contains("pw2"),
+        "密码不回显: {raw}"
+    );
 }
 
 #[test]
 fn save_keeps_existing_password_for_blank_and_replaces_table() {
     let dir = temp_root("blank");
     let path = dir.join(FILE_NAME);
-    save_config(&path, "/srv/ftp", false, &accounts(&[("alice", "old"), ("carol", "c")]))
-        .expect("首次保存 ok");
+    save_config(
+        &path,
+        "/srv/ftp",
+        false,
+        &accounts(&[("alice", "old"), ("carol", "c")]),
+    )
+    .expect("首次保存 ok");
     // alice 空密码 = 保留；表内不含 carol = 整表替换移除。
-    save_config(&path, "/srv/ftp2", true, &accounts(&[("alice", "")]))
-        .expect("二次保存 ok");
+    save_config(&path, "/srv/ftp2", true, &accounts(&[("alice", "")])).expect("二次保存 ok");
     let raw = fs::read_to_string(&path).unwrap();
     let cfg: FtpConfigFile = serde_json::from_str(&raw).unwrap();
     assert_eq!(cfg.root, "/srv/ftp2");
@@ -75,9 +82,17 @@ fn save_keeps_existing_password_for_blank_and_replaces_table() {
 #[test]
 fn save_rejects_blank_password_for_new_account() {
     let dir = temp_root("newblank");
-    let err = save_config(&dir.join(FILE_NAME), "/srv", false, &accounts(&[("nobody", "")]))
-        .unwrap_err();
-    assert!(err.contains("nobody") && err.contains("密码不能为空"), "{err}");
+    let err = save_config(
+        &dir.join(FILE_NAME),
+        "/srv",
+        false,
+        &accounts(&[("nobody", "")]),
+    )
+    .unwrap_err();
+    assert!(
+        err.contains("nobody") && err.contains("密码不能为空"),
+        "{err}"
+    );
     assert!(!dir.join(FILE_NAME).exists(), "拒存不落盘");
 }
 

@@ -37,12 +37,7 @@ impl StaticPeersFile {
     }
 
     /// 按 peer_id 覆盖登记并落盘（0600、tmp+rename）。
-    pub fn upsert(
-        &self,
-        peer_id: String,
-        addrs: Vec<String>,
-        note: String,
-    ) -> io::Result<()> {
+    pub fn upsert(&self, peer_id: String, addrs: Vec<String>, note: String) -> io::Result<()> {
         let mut entries = Self::lock(&self.entries);
         entries.retain(|e| e.peer_id != peer_id);
         entries.push(StaticPeerEntry {
@@ -148,8 +143,10 @@ mod tests {
         fs::create_dir_all(&dir).expect("dir ok");
         let path = dir.join("static-peers.json");
         let file = StaticPeersFile::load(path.clone()).expect("load ok");
-        file.upsert("peer-a".into(), vec![], "".into()).expect("upsert ok");
-        file.upsert("peer-b".into(), vec![], "".into()).expect("upsert ok");
+        file.upsert("peer-a".into(), vec![], "".into())
+            .expect("upsert ok");
+        file.upsert("peer-b".into(), vec![], "".into())
+            .expect("upsert ok");
         file.remove("peer-a").expect("remove existing ok");
         assert_eq!(file.entries().len(), 1, "仅剩 peer-b");
         file.remove("peer-a").expect("remove missing 亦 Ok（幂等）");
@@ -157,7 +154,11 @@ mod tests {
 
         let reloaded = StaticPeersFile::load(path).expect("reload ok");
         assert_eq!(
-            reloaded.entries().iter().map(|e| e.peer_id.as_str()).collect::<Vec<_>>(),
+            reloaded
+                .entries()
+                .iter()
+                .map(|e| e.peer_id.as_str())
+                .collect::<Vec<_>>(),
             vec!["peer-b"],
             "移除落盘生效"
         );
