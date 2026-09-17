@@ -132,11 +132,16 @@ describe("AgentsPage", () => {
     );
   });
 
-  it("我的视图空态：admin 不可达降级为空列表（旧 agent 常态）", async () => {
+  it("我的视图：admin 不可达显「管理面不可达」+ 重试，不渲染成空态误导重建", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 404, json: async () => ({ error: "not-found" }) }) as Response));
     renderPage();
     fireEvent.click(await screen.findByTestId("segmented-mine"));
-    expect(await screen.findByTestId("agents-mine-empty")).toBeInTheDocument();
+    expect(await screen.findByTestId("agents-mine-unavailable")).toBeInTheDocument();
+    // 空态文案不得出现（「还没有发布智能体」会误导用户重建）
+    expect(screen.queryByTestId("agents-mine-empty")).toBeNull();
+    // 重试走同一数据路径（仍 404 → 横幅驻留，不留静默）
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    expect(await screen.findByTestId("agents-mine-unavailable")).toBeInTheDocument();
   });
 
   it("发现行渲染：名称/描述/skills/可见性徽章/详情对话框", async () => {

@@ -2,10 +2,11 @@
 // [发现(n)][我的] + 分区列表 + 行内动作。数据面：发现 = console WS proto=a2a
 // 卡片通道（契约 §17.1）；我的 = 本机 agent admin CRUD（§17.2，凭据 AcpLocalDescriptor）。
 // 本机 agent 未就绪（descriptor null）显式降级提示，不误报空态语义。
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { ipc } from "@/lib/ipc";
 
@@ -19,7 +20,7 @@ import { ShareInviteDialog } from "./share-invite-dialog";
 
 type AgentsView = "discover" | "mine";
 
-function useAgentsWiring(): { localReady: boolean } {
+function useAgentsWiring(): { localReady: boolean; retryMine: () => Promise<void> } {
   const connectCards = useAgentsStore((s) => s.connectCards);
   const disconnectCards = useAgentsStore((s) => s.disconnectCards);
   const loadMine = useAgentsStore((s) => s.loadMine);
@@ -52,7 +53,14 @@ function useAgentsWiring(): { localReady: boolean } {
     };
   }, [connectCards, disconnectCards, loadMine]);
 
-  return { localReady };
+  // mineUnavailable 重试：重新拉描述符再读清单（与挂载同一路径）
+  const retryMine = useCallback(async () => {
+    const descriptor = await ipc.acpLocalDescriptor();
+    if (!descriptor) return;
+    await loadMine(descriptor.adminUrl, descriptor.token);
+  }, [loadMine]);
+
+  return { localReady, retryMine };
 }
 
 /** admin 动作统一出口：成功 toast，失败原文上浮（返回 ok 驱动对话框关闭）。 */
@@ -64,6 +72,7 @@ async function runMineAction(action: () => Promise<boolean>, okMessage: string):
 
 export function AgentsPage() {
   const { t } = useTranslation();
+  const { localReady, retryMine } = useAgentsWiring();
   const [view, setView] = useState<AgentsView>("discover");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<AgentDefJson | null>(null);
@@ -71,12 +80,12 @@ export function AgentsPage() {
   const [sharing, setSharing] = useState<AgentDefJson | null>(null);
   const discovered = useAgentsStore((s) => s.discovered);
   const mine = useAgentsStore((s) => s.mine);
+  const mineUnavailable = useAgentsStore((s) => s.mineUnavailable);
   const channelError = useAgentsStore((s) => s.channelError);
   const lastActionError = useAgentsStore((s) => s.lastActionError);
   const createMine = useAgentsStore((s) => s.createMine);
   const updateVisibility = useAgentsStore((s) => s.updateVisibility);
   const unpublish = useAgentsStore((s) => s.unpublish);
-  const { localReady } = useAgentsWiring();
 
   // 失败上浮：通道 error 帧与 admin 动作失败原文（toastError，禁静默）
   useEffect(() => {
@@ -149,6 +158,24 @@ export function AgentsPage() {
       <div className="scroll-slim flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4">
         {view === "discover" ? (
           <DiscoverSection rows={discovered} />
+        ) : mineUnavailable ? (
+          // admin 不可达 ≠ 没有发布：误渲染成空态会引导用户去重建（审计 P1）
+          <div
+            className="flex flex-col items-start gap-2 rounded-md border border-dashed p-4 text-sm"
+            data-testid="agents-mine-unavailable"
+          >
+            <span className="text-destructive">
+              {t("agents.err.mineUnavailable")}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void retryMine()}
+            >
+              {t("picker.retry")}
+            </Button>
+          </div>
         ) : (
           <MineSection
             mine={mine}
