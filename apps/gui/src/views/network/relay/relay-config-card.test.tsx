@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { describe, expect, it, vi } from "vitest";
@@ -92,14 +92,14 @@ describe("RelayConfigCard", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "删除地址" })[0]);
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog.textContent).toContain("43.240.223.138/u3403");
-    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "取消" }));
     await waitFor(() =>
       expect(screen.queryByRole("alertdialog")).toBeNull(),
     );
     expect(screen.getByLabelText("地址 1")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "删除地址" })[0]);
-    await screen.findByRole("alertdialog");
-    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+    const retry = await screen.findByRole("alertdialog");
+    fireEvent.click(within(retry).getByRole("button", { name: "删除地址" }));
     await waitFor(() =>
       expect(screen.queryByLabelText("地址 1")).toBeNull(),
     );

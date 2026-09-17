@@ -77,6 +77,8 @@ export function AddressListEditor<T extends FieldValues>({
           description: t("common.addressList.removeConfirmDesc", {
             value: rowValue,
           }),
+          confirmText: t("common.addressList.remove"),
+          cancelText: t("common.actions.cancel"),
           destructive: true,
         });
         if (!ok) return;

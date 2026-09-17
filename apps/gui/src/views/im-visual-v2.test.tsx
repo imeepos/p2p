@@ -242,7 +242,9 @@ describe("IM-V2 relay evidence", () => {
   it("R2 配置卡 h-full 与水位卡等高；水位改嵌套边框小卡并缩小字号", () => {
     useNodeStore.setState({ metrics: METRICS });
     const config = render(
-      <RelayConfigCard relayAddrs={["/ip4/10.0.0.2/udp/3403"]} onSave={async () => {}} />,
+      <ConfirmProvider>
+        <RelayConfigCard relayAddrs={["/ip4/10.0.0.2/udp/3403"]} onSave={async () => {}} />
+      </ConfirmProvider>,
     );
     expect(config.container.querySelector("[data-slot=card]")!.className).toContain("h-full");
     expect(config.container.querySelector("[data-slot=card-content]")!.className).toContain("flex-1");
