@@ -153,12 +153,15 @@ describe("RemoteDesktopCard", () => {
       fps: 15,
     };
     render(<RemoteDesktopCard model={model} />);
-    expect(screen.getByText("PeerA1111111111111111111")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "批准" }));
+    // 行首 PeerNameCell：非好友显缩略 ID（6+4 口径），title 悬挂全文
+    const cell = screen.getByTitle("PeerA1111111111111111111");
+    expect(cell).toHaveTextContent("PeerA1…1111");
+    // 批准/拒绝走 AsyncButton（防重入），动作仍携带完整 peerId
+    fireEvent.click(screen.getByTestId("rd-approve-PeerA1111111111111111111"));
     await waitFor(() =>
       expect(approveMock).toHaveBeenCalledWith("PeerA1111111111111111111"),
     );
-    fireEvent.click(screen.getByRole("button", { name: "拒绝" }));
+    fireEvent.click(screen.getByTestId("rd-deny-PeerA1111111111111111111"));
     await waitFor(() =>
       expect(denyMock).toHaveBeenCalledWith("PeerA1111111111111111111"),
     );

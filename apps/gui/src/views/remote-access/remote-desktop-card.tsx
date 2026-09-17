@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
+import { AsyncButton } from "@/components/feedback/async-button";
+import { CopyButton } from "@/components/feedback/copy-button";
 import { EntityCombobox } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { PeerNameCell } from "@/views/shared/peer-name-cell";
 import { useFriendPickerOptions } from "@/views/shared/peer-options";
 
 import type { UseRdPageModel } from "./use-rd-model";
@@ -72,6 +75,11 @@ export function RemoteDesktopCard({ model }: Props) {
               onCheckedChange={settings.setApproval}
             />
           </div>
+          {model.host.running ? (
+            <p className="text-muted-foreground text-xs" role="note">
+              {t("remoteAccess.rd.host.approvalRunningHint")}
+            </p>
+          ) : null}
           <div className="flex gap-2">
             <Button
               className="flex-1"
@@ -119,21 +127,26 @@ export function RemoteDesktopCard({ model }: Props) {
                   key={peerId}
                   className="flex items-center justify-between gap-2 rounded border px-3 py-2"
                 >
-                  <span className="truncate font-mono text-xs">{peerId}</span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <PeerNameCell peerId={peerId} />
+                    <CopyButton value={peerId} className="size-5 shrink-0" />
+                  </div>
                   <span className="flex shrink-0 gap-2">
-                    <Button
+                    <AsyncButton
                       size="sm"
-                      onClick={() => void model.approve(peerId)}
+                      action={() => model.approve(peerId)}
+                      data-testid={"rd-approve-" + peerId}
                     >
                       {t("remoteAccess.rd.approvals.approve")}
-                    </Button>
-                    <Button
+                    </AsyncButton>
+                    <AsyncButton
                       size="sm"
                       variant="outline"
-                      onClick={() => void model.deny(peerId)}
+                      action={() => model.deny(peerId)}
+                      data-testid={"rd-deny-" + peerId}
                     >
                       {t("remoteAccess.rd.approvals.deny")}
-                    </Button>
+                    </AsyncButton>
                   </span>
                 </li>
               ))}
@@ -154,13 +167,13 @@ export function RemoteDesktopCard({ model }: Props) {
               onChange={(event) => settings.setFps(Number(event.target.value))}
               className="w-24"
             />
-            <Button
+            <AsyncButton
               variant="outline"
               disabled={!model.host.running}
-              onClick={() => void model.setQuality(settings.fps)}
+              action={() => model.setQuality(settings.fps)}
             >
               {t("remoteAccess.rd.quality.title")}
-            </Button>
+            </AsyncButton>
           </div>
         </section>
 
@@ -178,9 +191,12 @@ export function RemoteDesktopCard({ model }: Props) {
                 <Badge>
                   {t("remoteAccess.rd.viewer.connected")}
                 </Badge>
-                <Button variant="outline" onClick={() => void model.closeViewer()}>
+                <AsyncButton
+                  variant="outline"
+                  action={() => model.closeViewer()}
+                >
                   {t("remoteAccess.rd.viewer.disconnect")}
-                </Button>
+                </AsyncButton>
               </div>
               <RdFrameCanvas model={model} />
             </div>

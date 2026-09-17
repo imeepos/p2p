@@ -1774,6 +1774,8 @@ const enUS: typeof zhCN = {
         starting: "Enabling…",
         stopping: "Disabling…",
         approvalLabel: "Require approval for new sessions",
+        approvalRunningHint:
+          "Host is running: this switch takes effect the next time the host starts.",
         statusEnabled: "Serving",
         statusDisabled: "Not serving",
         sessions: "Active sessions",

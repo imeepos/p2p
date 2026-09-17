@@ -1736,6 +1736,7 @@ const zhCN = {
         starting: "开启中…",
         stopping: "关闭中…",
         approvalLabel: "新会话需审批",
+        approvalRunningHint: "被控端运行中：此开关在下次开启被控端后生效。",
         statusEnabled: "服务中",
         statusDisabled: "未服务",
         sessions: "活跃会话",
