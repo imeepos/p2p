@@ -755,3 +755,10 @@ failed: early eof（客户端侧超时中止）。
   commit+push main，reflog 实证两条）。修法：任务书禁令改为「禁止对 main 执行任何
   commit/push，反思类提交只进自己分支或交主会话代提交」；更硬的做法是主会话合并前
   `git fetch && git log base..origin/main` 核对主干无外来提交。
+- 2026-09-17 GUI 测试：vitest `afterEach` 里重置 zustand store 且 setup.ts 已有
+  `afterEach(cleanup)` 时，钩子 LIFO 使自写 afterEach 先于 cleanup 执行——组件仍挂载
+  时改 store 会触发 useSyncExternalStore 重渲，React 18 在随后 unmount 冲刷 pending
+  passive effect，deps 变化使 load-once effect 拿空 store 重跑（stderr 噪音
+  「Cannot read properties of undefined (reading 'invoke')」，测试假绿但带烟）。
+  修法：自写 afterEach 首行显式 `cleanup()` 再重置 store。排查抓手：zustand
+  `store.subscribe((s, prev) => ...)` 抓 roles 突变源，栈顶帧指向自己 afterEach 即实锤。
