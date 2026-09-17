@@ -10,8 +10,9 @@ use std::sync::{Mutex, MutexGuard};
 use serde::{Deserialize, Serialize};
 
 /// 单条静态登记：PeerId（base58）+ 可拨地址 + 业务备注（底座不解释）。
+/// W2b/CC4 起对 src-tauri 开放（GUI 静态对端簿命令面复用本持久化原语）。
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
-pub(crate) struct StaticPeerEntry {
+pub struct StaticPeerEntry {
     pub peer_id: String,
     pub addrs: Vec<String>,
     #[serde(default)]
@@ -19,7 +20,7 @@ pub(crate) struct StaticPeerEntry {
 }
 
 /// 文件句柄：路径 + 进程内副本。upsert 即改副本并整文件重写。
-pub(crate) struct StaticPeersFile {
+pub struct StaticPeersFile {
     path: PathBuf,
     entries: Mutex<Vec<StaticPeerEntry>>,
 }
@@ -27,7 +28,7 @@ pub(crate) struct StaticPeersFile {
 impl StaticPeersFile {
     /// 载入已有文件（不存在 = 空册）；坏内容按 io::InvalidData 上抛，
     /// 由装配方决定告警或拒绝启动。
-    pub(crate) fn load(path: PathBuf) -> io::Result<Self> {
+    pub fn load(path: PathBuf) -> io::Result<Self> {
         let entries = load_entries(&path)?;
         Ok(Self {
             path,
@@ -36,7 +37,7 @@ impl StaticPeersFile {
     }
 
     /// 按 peer_id 覆盖登记并落盘（0600、tmp+rename）。
-    pub(crate) fn upsert(
+    pub fn upsert(
         &self,
         peer_id: String,
         addrs: Vec<String>,
@@ -52,7 +53,14 @@ impl StaticPeersFile {
         save(&self.path, &entries)
     }
 
-    pub(crate) fn entries(&self) -> Vec<StaticPeerEntry> {
+    /// 按 peer_id 移除登记并落盘；不存在 = 无变化成功返回（幂等）。
+    pub fn remove(&self, peer_id: &str) -> io::Result<()> {
+        let mut entries = Self::lock(&self.entries);
+        entries.retain(|e| e.peer_id != peer_id);
+        save(&self.path, &entries)
+    }
+
+    pub fn entries(&self) -> Vec<StaticPeerEntry> {
         Self::lock(&self.entries).clone()
     }
 
@@ -129,6 +137,31 @@ mod tests {
         let path = std::env::temp_dir().join(format!("p2p-sp-miss-{}", std::process::id()));
         let file = StaticPeersFile::load(path).expect("missing = empty");
         assert!(file.entries().is_empty());
+    }
+
+    /// W2b/CC4：remove 语义（GUI static_peers_remove 命令面复用）——存在即删，
+    /// 不存在亦 Ok（幂等）。
+    #[test]
+    fn remove_existing_and_missing_is_idempotent() {
+        let dir = std::env::temp_dir().join(format!("p2p-sp-rm-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("dir ok");
+        let path = dir.join("static-peers.json");
+        let file = StaticPeersFile::load(path.clone()).expect("load ok");
+        file.upsert("peer-a".into(), vec![], "".into()).expect("upsert ok");
+        file.upsert("peer-b".into(), vec![], "".into()).expect("upsert ok");
+        file.remove("peer-a").expect("remove existing ok");
+        assert_eq!(file.entries().len(), 1, "仅剩 peer-b");
+        file.remove("peer-a").expect("remove missing 亦 Ok（幂等）");
+        assert_eq!(file.entries().len(), 1, "重复移除无副作用");
+
+        let reloaded = StaticPeersFile::load(path).expect("reload ok");
+        assert_eq!(
+            reloaded.entries().iter().map(|e| e.peer_id.as_str()).collect::<Vec<_>>(),
+            vec!["peer-b"],
+            "移除落盘生效"
+        );
+        let _ = fs::remove_dir_all(dir);
     }
 
     #[test]

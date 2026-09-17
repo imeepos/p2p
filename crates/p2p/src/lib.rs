@@ -8,7 +8,9 @@ mod discovery;
 mod node;
 mod observe;
 mod rendezvous;
-mod static_peers;
+// W2b/CC4 起 pub：GUI 静态对端簿命令面复用 StaticPeersFile 持久化原语
+//（load/upsert/remove/entries；0600、tmp+rename 语义不变，零协议/装配改动）。
+pub mod static_peers;
 
 #[cfg(test)]
 mod assembly_tests;
