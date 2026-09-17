@@ -39,6 +39,16 @@
 
 进度账本 = 本文件「进度账本」节，每事件一行（五问裁决）；任务账本 = 各任务书 + 汇报。
 
+## W2a（2026-09-17 锁定，用户指令「继续推进」触发）
+
+| 任务 | 类型 | worktree/分支 | scope | 依赖 |
+|---|---|---|---|---|
+| CC3 设置页归拢 bootstrap/relayAddrs/authzDefaultRole 编辑入口 | frontend | .worktrees/cc3-front / feat/cc3-front | apps/gui/src/**（零新命令） | 无 |
+
+契约：三字段已在 GuiConfig 与 config-schema（W1 交付），本任务纯 UI 补编辑入口，
+持久化仍走 configSave 整包。运行态语义对齐存量页：bootstrap/relayAddrs 节点重启生效、
+authzDefaultRole 空串=禁用自动绑。业务页既有入口**保留**（删除与否走查后另裁）。
+
 ## 进度账本
 
 - 2026-09-17 10:55 计划 v1 落盘；scope 认领 SESSIONS.md（config-centralization，主会话 session-72b40bd2）。
@@ -55,3 +65,4 @@
   不可追溯审批。整改：归档前警示记录；后续任务书把「禁止 push main」升格为「禁止对
   main 执行 commit/push，含反思类提交（反思提交只进自己分支或交主会话）」。
 - 2026-09-17 22:17 W1 收官。W2 触发器达成（W1 合并）；W3 待 W2。
+- 2026-09-17 13:36 用户指令继续推进；W2a 锁定并派发 CC3（session 待记）。
