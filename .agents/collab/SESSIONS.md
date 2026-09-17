@@ -127,3 +127,11 @@
   feat/cc-rust，scope=apps/gui/src、apps/gui/src-tauri、apps/cli、gui-contract §3；
   与 feat/wsm-b2（service master）并存，CC 不触 services/authz 域。
   任务来源：用户指令「配置都放配置页面，立即安排，并行，子会话轻量自验」。
+
+- [完工释放] 2026-09-17 session-72b40bd2（config-centralization 主控）：W1 全并主干
+  （main==origin/main@976d502f），统一门禁 check-fast + gui-tauri-check 全绿。
+  CC1（feat/cc-front 59aca08e，设置页远程访问区三配置 + rd 卡读默认 + i18n 1793 对齐）
+  与 CC2（feat/cc-rust 7233c2be，GuiConfig 三字段双镜像 + rd/tunnel 装配消费 +
+  白名单持久化 + rd-host --fps 死参数修复 + gui-contract §3 同步）随过随合。
+  worktree/分支本地远端全清，scope 释放。W2/W3 触发器与 FTP/static-peers 决策备忘录
+  见 .orchestrator/2026-09-17-config-centralization/w2-decision-memo.md。

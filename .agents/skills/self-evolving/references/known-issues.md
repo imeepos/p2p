@@ -748,3 +748,10 @@ failed: early eof（客户端侧超时中止）。
 - 2026-09-16 vdrive：OS WebDAV 客户端（macOS mount_webdav）对服务器侧新增文件无缓存失效通知，挂载点看不到服务器侧新写入属固有行为非协议缺陷；验证服务器侧写入用直读桥端口或卸载重挂。
 - 2026-09-16 rd-gui：`git worktree remove <X>` 会砸坏主树 node_modules——X worktree 内跑过 pnpm install 后，主树 apps/gui/node_modules 的 vite/vitest 符号链接指向 X 的 .pnpm 存储，删 X 即悬空（症状：`pnpm exec vite` 报 Cannot find module vite/bin/vite.js，check-fast 的 mock-ipc 护栏自测红——护栏本身工作正常，红是它抓到了真问题）。修法：`rm -rf apps/gui/node_modules && pnpm install`（增量/`--force` install 都不修悬空链接，报 Already up to date，必须整目录重建）。预防：worktree remove 后跑一遍 `find apps/*/node_modules -maxdepth 2 -type l ! -exec test -e {} \;` 扫悬空链接。
 - 2026-09-16 rd-gui：tauri 命令注册禁用三段路径——`rd::input::rd_input_x` 形式会被 cli-parity 门禁的 `x::y` 两段正则截断成 `input`，映射表被判陈旧行（FAIL：映射表有行，GUI 已无此命令）；且 tauri `__cmd__` 宏是模块本地的，`pub use` 函数再导出不带宏，lib.rs 用 `rd::rd_input_x` 也编译不过。定式：在 crate 根立薄壳模块（如 rd_input.rs）放 `#[tauri::command]` 函数（两段路径），实现挂主结构体（rd/input.rs 的 `impl RdSlot`），两边各得其所。
+- 2026-09-17 编排：主会话在主树 cwd 下用 heredoc 追加 worktree 目标文件——文件落到主树、
+  commit 直接上 main（两次实证 65befb55、976d502f）。修法：worktree 流程的所有文件写入
+  一律 `git -C .worktrees/<wt>` 或以 worktree 绝对路径为 workdir；heredoc 前先 pwd 自检。
+- 2026-09-17 编排：子会话任务书写了「禁止 push main」仍被绕过（反思类经验提交直接
+  commit+push main，reflog 实证两条）。修法：任务书禁令改为「禁止对 main 执行任何
+  commit/push，反思类提交只进自己分支或交主会话代提交」；更硬的做法是主会话合并前
+  `git fetch && git log base..origin/main` 核对主干无外来提交。
