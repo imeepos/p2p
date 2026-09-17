@@ -19,6 +19,40 @@ fn list_missing_file_is_empty_report() {
     assert_eq!(list_peers(&dir.join(FILE_NAME)).unwrap(), Vec::new());
 }
 
+/// W2b 补料接线（红）：文件缺失 = `wirable_book` 返回 None（不接线、不报错）。
+#[test]
+fn wirable_book_absent_file_is_none() {
+    let dir = temp_root("wire-none");
+    assert_eq!(wirable_book(&dir), None, "缺失 = 不接线");
+}
+
+/// W2b 补料接线（红）：损坏文件 = None 且不 panic（warn 由 p2p 层留观测）。
+#[test]
+fn wirable_book_corrupt_file_is_none() {
+    let dir = temp_root("wire-bad");
+    fs::write(dir.join(FILE_NAME), b"{not json").expect("write ok");
+    assert_eq!(wirable_book(&dir), None, "损坏 = 不接线");
+}
+
+/// W2b 补料接线（绿）：命令面写盘后 `wirable_book` 即产出同一路径——
+/// 证明"命令面写的簿"正是"装配读的簿"（同根同名，防假功能回归）。
+#[test]
+fn wirable_book_sees_command_write_path() {
+    let dir = temp_root("wire-ok");
+    upsert_peer(
+        &dir.join(FILE_NAME),
+        "peer-a".into(),
+        vec!["10.0.0.1/u4000".into()],
+        "wired".into(),
+    )
+    .expect("命令面 upsert ok");
+    assert_eq!(
+        wirable_book(&dir),
+        Some(dir.join(FILE_NAME)),
+        "接线路径 = 命令面写盘路径"
+    );
+}
+
 #[test]
 fn list_corrupt_file_is_explicit_error() {
     let dir = temp_root("corrupt");
