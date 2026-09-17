@@ -1,0 +1,1 @@
+- 2026-09-17 23:45 CC4 检查点1：p2p crate static_peers pub 化 + remove 幂等方法，聚焦测试 4 pass（exit 0）。
