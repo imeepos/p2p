@@ -1,1 +1,4 @@
 - 2026-09-17 23:45 CC4 检查点1：p2p crate static_peers pub 化 + remove 幂等方法，聚焦测试 4 pass（exit 0）。
+- 2026-09-17 23:56 CC4 检查点2：src-tauri 五命令落地（ftp_config 2 + static_peers_admin 3，薄壳注册），聚焦测试 13 pass。
+- 2026-09-17 23:58 CC4 检查点3：gui-contract §3.1 本机服务配置面（效果语义=重启生效，装配未接线如实标注）+ cli-parity 5 条豁免行。
+- 2026-09-17 23:59 CC4 收尾：cargo fmt 收敛；check --tests exit 0；ftp_config 7/7 + static_peers_admin 6/6 + p2p static_peers 4/4；parity 提取双向核对一致。分支 feat/cc4-rust 待主会话 ff-only 合并。
