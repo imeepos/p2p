@@ -38,6 +38,12 @@ export interface GuiConfig {
   // 契约 §18.3 加法（authz S3）：加好友自动绑角色；serde default "friend"，
   // 空串 = 禁用自动绑。CLI 同名同文件消费，保存时必须原样携带防丢。
   authzDefaultRole?: string;
+  // config-centralization W1 契约（serde camelCase，字段级缺省，旧配置文件可缺省）：
+  // 被控端新会话默认需审批；质量档默认帧率（1..=60）；隧道 serve 本机来源白名单
+  //（元素为 "127.0.0.1:<端口>" 字面量）。设置页为编辑入口，业务页读默认值。
+  rdRequireApproval?: boolean;
+  rdFps?: number;
+  tunnelServeAllow?: string[];
 }
 
 export interface NodeStatus {

@@ -8,6 +8,7 @@ import {
   fromRows,
   isValidIpv4,
   isValidTransportAddr,
+  loopbackSocketRowsField,
   observationPortField,
   portField,
   toRows,
@@ -41,6 +42,17 @@ function observationRowsField() {
     );
 }
 
+// rdFps 合法域 1..=60；空输入（NaN）归一为 undefined，统一落 fpsRange 文案。
+export const fpsField = z.preprocess(
+  (value) =>
+    typeof value === "number" && Number.isNaN(value) ? undefined : value,
+  z
+    .number({ message: "fpsRange" })
+    .int("fpsRange")
+    .min(1, "fpsRange")
+    .max(60, "fpsRange"),
+);
+
 // useFieldArray 要求数组元素为对象，地址列表以 { value } 行编辑，出入转换。
 export interface SettingsFormValues {
   quicPort: number;
@@ -56,6 +68,10 @@ export interface SettingsFormValues {
   // 契约 §18.3 加法：设置页暂无 UI，仅随表单往返保真（防 config_save 整包
   // 覆写丢字段）；编辑入口在通讯录好友角色对话框（authz_default_role_save）。
   authzDefaultRole: string;
+  // config-centralization W1：远程访问默认策略三字段（远程访问区编辑）。
+  rdRequireApproval: boolean;
+  rdFps: number;
+  tunnelServeAllow: AddressRow[];
 }
 
 export const settingsSchema = z.object({
@@ -70,6 +86,9 @@ export const settingsSchema = z.object({
   observationAddrs: observationRowsField(),
   lanOnly: z.boolean(),
   authzDefaultRole: z.string(),
+  rdRequireApproval: z.boolean(),
+  rdFps: fpsField,
+  tunnelServeAllow: loopbackSocketRowsField("addrDuplicate"),
 });
 
 // z.preprocess 的输入类型与表单值不同，此处收口为 Resolver。
@@ -87,6 +106,9 @@ export const EMPTY_SETTINGS: SettingsFormValues = {
   observationAddrs: [],
   lanOnly: false,
   authzDefaultRole: "friend",
+  rdRequireApproval: true,
+  rdFps: 15,
+  tunnelServeAllow: [],
 };
 
 export function toFormValues(config: GuiConfig): SettingsFormValues {
@@ -102,6 +124,9 @@ export function toFormValues(config: GuiConfig): SettingsFormValues {
     observationAddrs: toRows(config.observationAddrs),
     lanOnly: config.lanOnly ?? false, // serde default: false when absent (v11 16.5)
     authzDefaultRole: config.authzDefaultRole ?? "friend", // serde default (§18.3)
+    rdRequireApproval: config.rdRequireApproval ?? true, // serde default (W1 契约)
+    rdFps: config.rdFps ?? 15, // serde default（W1 契约，合法域 1..=60）
+    tunnelServeAllow: toRows(config.tunnelServeAllow ?? []), // serde default 空
   };
 }
 
@@ -118,5 +143,8 @@ export function toGuiConfig(values: SettingsFormValues): GuiConfig {
     observationAddrs: fromRows(values.observationAddrs),
     lanOnly: values.lanOnly,
     authzDefaultRole: values.authzDefaultRole,
+    rdRequireApproval: values.rdRequireApproval,
+    rdFps: values.rdFps,
+    tunnelServeAllow: fromRows(values.tunnelServeAllow),
   };
 }

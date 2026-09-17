@@ -65,5 +65,26 @@ export function addrRowsField(duplicateCode: string) {
     .refine((rows) => noDuplicateAddrs(rows.map((row) => row.value)), duplicateCode);
 }
 
+// 隧道 serve 白名单契约语法："127.0.0.1:<端口>" 字面量（限定本机回环来源）。
+export function isValidLoopbackSocketAddr(value: string): boolean {
+  const matched = value.match(/^127\.0\.0\.1:(\d{1,5})$/);
+  if (!matched) return false;
+  const port = Number(matched[1]);
+  return port >= 1 && port <= 65535;
+}
+
+export const loopbackSocketRowField = z.object({
+  value: z
+    .string()
+    .min(1, "addrRequired")
+    .refine(isValidLoopbackSocketAddr, "loopbackAddrFormat"),
+});
+
+export function loopbackSocketRowsField(duplicateCode: string) {
+  return z
+    .array(loopbackSocketRowField)
+    .refine((rows) => noDuplicateAddrs(rows.map((row) => row.value)), duplicateCode);
+}
+
 export const toRows = (items: string[]): AddressRow[] => items.map((value) => ({ value }));
 export const fromRows = (rows: AddressRow[]): string[] => rows.map((row) => row.value);

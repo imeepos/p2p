@@ -20,6 +20,7 @@ import { AppearanceCard } from "./appearance-card";
 import { IdentityCard } from "./identity-card";
 import { NetworkCard } from "./network-card";
 import { ProfileCard } from "./profile-card";
+import { RemoteAccessCard } from "./remote-access-card";
 import { ServicesCard } from "./services-card";
 import { SettingsNav, type SettingsSectionId } from "./settings-nav";
 import { AboutUpdateCard } from "@/views/update/about-update-card";
@@ -48,6 +49,7 @@ const SECTIONS: SettingsSectionId[] = [
   "general",
   "network",
   "services",
+  "remoteAccess",
   "about",
 ];
 
@@ -67,6 +69,7 @@ function SettingsSections({ active }: { active: SettingsSectionId }) {
       </>
     ),
     services: <ServicesCard />,
+    remoteAccess: <RemoteAccessCard />,
     about: (
       <>
         <AboutUpdateCard />
@@ -90,8 +93,23 @@ function SettingsSections({ active }: { active: SettingsSectionId }) {
   );
 }
 
+// 校验错误定位分节：远程访问区字段归 remoteAccess，其余配置字段在网络区。
+const REMOTE_ACCESS_FIELDS: (keyof SettingsFormValues)[] = [
+  "rdRequireApproval",
+  "rdFps",
+  "tunnelServeAllow",
+];
+
+function errorSection(
+  errors: FieldErrors<SettingsFormValues>,
+): SettingsSectionId {
+  return REMOTE_ACCESS_FIELDS.some((field) => errors[field] != null)
+    ? "remoteAccess"
+    : "network";
+}
+
 // 设置页：微信设置式双栏（左分节导航 + 右内容面板 + 底部保存条）。
-// 配置表单字段全部位于网络分节，校验失败即切到该分节再聚焦首个错误字段。
+// 校验失败即切到错误所在分节再聚焦首个错误字段。
 export function SettingsView() {
   const { t } = useTranslation();
   const running = useNodeStore((s) => s.status?.running ?? false);
@@ -102,13 +120,13 @@ export function SettingsView() {
     resolver: settingsResolver,
     defaultValues: EMPTY_SETTINGS,
   });
-  // 校验失败：保存条汇总 + 切到网络分节，渲染完成后二次聚焦（首次聚焦
+  // 校验失败：保存条汇总 + 切到错误所在分节，渲染完成后二次聚焦（首次聚焦
   // 发生在 hidden 容器内是 no-op），保证「点了保存有反应」可见可定位。
   const reportInvalid = useCallback(
     (count: number, errors: FieldErrors<SettingsFormValues>) => {
       setInvalidCount(count);
       if (count > 0) {
-        setSection("network");
+        setSection(errorSection(errors));
         requestAnimationFrame(() => focusFirstInvalidField(errors));
       }
     },

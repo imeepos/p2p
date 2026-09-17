@@ -1,6 +1,7 @@
 import {
   InfoIcon,
   NetworkIcon,
+  RadarIcon,
   ServerIcon,
   Settings2Icon,
   UserRoundIcon,
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
   { id: "general", labelKey: "settings.nav.general", Icon: Settings2Icon },
   { id: "network", labelKey: "settings.nav.network", Icon: NetworkIcon },
   { id: "services", labelKey: "settings.nav.services", Icon: ServerIcon },
+  { id: "remoteAccess", labelKey: "settings.nav.remoteAccess", Icon: RadarIcon },
   { id: "about", labelKey: "settings.nav.about", Icon: InfoIcon },
 ] as const;
 
