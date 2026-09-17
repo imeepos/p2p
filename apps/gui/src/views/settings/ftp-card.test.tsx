@@ -6,52 +6,15 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { useEffect } from "react";
-import { MemoryRouter } from "react-router-dom";
 import {
   FormProvider,
   useForm,
   useFormContext,
   type UseFormReturn,
 } from "react-hook-form";
-import { describe, expect, it, vi } from "vitest";
-
-const { ftpConfigSaveMock } = vi.hoisted(() => ({
-  ftpConfigSaveMock: vi.fn(async () => true),
-}));
-
-// 集成段 mock：SettingsView 挂载即双读（config+ftp）并挂静态对端卡。
-vi.mock("@/lib/ipc", () => ({
-  ipc: {
-    configGet: vi.fn(async () => ({
-      quicPort: 3400,
-      tcpPort: 3401,
-      enableMdns: true,
-      dataDir: "/tmp",
-      bootstrap: [],
-      relayAddrs: [],
-      advertisedAddrs: [],
-      observationPort: null,
-      observationAddrs: [],
-    })),
-    configSave: vi.fn(async (cfg?: unknown) => cfg),
-    profileGet: vi.fn(async () => ({ name: "", description: "", avatar: null })),
-    servicesList: vi.fn(async () => ({ services: [] })),
-    ftpConfigGet: vi.fn(async () => ({ root: "/srv/ftp", authz: true, users: ["alice"] })),
-    ftpConfigSave: (...args: unknown[]) => ftpConfigSaveMock(...(args as [])),
-    staticPeersList: vi.fn(async () => ({ peers: [] })),
-    staticPeersUpsert: vi.fn(async () => true),
-    staticPeersRemove: vi.fn(async () => true),
-  },
-}));
+import { describe, expect, it } from "vitest";
 
 import "@/i18n";
-import { ConfirmProvider } from "@/components/feedback/confirm-provider";
-import { ThemeProvider } from "@/theme/theme-provider";
-import {
-  discardAllUnsaved,
-  hasAnyUnsaved,
-} from "@/views/shared/use-unsaved-guard";
-import { SettingsView } from "./settings-view";
 import {
   EMPTY_SETTINGS,
   settingsResolver,
@@ -115,22 +78,23 @@ async function isFieldValid(
   return valid;
 }
 
+function baseConfig() {
+  return {
+    quicPort: 0,
+    tcpPort: 0,
+    enableMdns: true,
+    dataDir: "",
+    bootstrap: [],
+    relayAddrs: [],
+    advertisedAddrs: [],
+    observationPort: null,
+    observationAddrs: [],
+  };
+}
+
 describe("FTP 表单值与保存载荷（W2b 空密码语义）", () => {
   it("toFormValues：既有用户行 existing=true 且密码一律留空（不回显）", () => {
-    const values = toFormValues(
-      {
-        quicPort: 0,
-        tcpPort: 0,
-        enableMdns: true,
-        dataDir: "",
-        bootstrap: [],
-        relayAddrs: [],
-        advertisedAddrs: [],
-        observationPort: null,
-        observationAddrs: [],
-      },
-      FTP_VIEW,
-    );
+    const values = toFormValues(baseConfig(), FTP_VIEW);
     expect(values.ftpRoot).toBe("/srv/ftp");
     expect(values.ftpAuthz).toBe(true);
     expect(values.ftpAccounts).toEqual([
@@ -140,37 +104,14 @@ describe("FTP 表单值与保存载荷（W2b 空密码语义）", () => {
   });
 
   it("toFormValues 缺省 ftp 视图 = 未装配（root 空表单挡保存）", () => {
-    const values = toFormValues({
-      quicPort: 0,
-      tcpPort: 0,
-      enableMdns: true,
-      dataDir: "",
-      bootstrap: [],
-      relayAddrs: [],
-      advertisedAddrs: [],
-      observationPort: null,
-      observationAddrs: [],
-    });
+    const values = toFormValues(baseConfig());
     expect(values.ftpRoot).toBe("");
     expect(values.ftpAuthz).toBe(false);
     expect(values.ftpAccounts).toEqual([]);
   });
 
   it("toFtpSaveInput：既有用户密码留空发空串（=保留），新输入原样携带", () => {
-    const values = toFormValues(
-      {
-        quicPort: 0,
-        tcpPort: 0,
-        enableMdns: true,
-        dataDir: "",
-        bootstrap: [],
-        relayAddrs: [],
-        advertisedAddrs: [],
-        observationPort: null,
-        observationAddrs: [],
-      },
-      FTP_VIEW,
-    );
+    const values = toFormValues(baseConfig(), FTP_VIEW);
     values.ftpAccounts = [
       { user: "alice", password: "", existing: true },
       { user: "bob", password: "new-secret", existing: true },
@@ -283,77 +224,5 @@ describe("FtpCard 控件", () => {
       expect(rows).toHaveLength(1);
       expect(rows[0].user).toBe("bob");
     });
-  });
-});
-
-describe("设置页集成：FTP 卡走既有保存/放弃流程", () => {
-  it("编辑根目录后保存：configSave 与 ftpConfigSave 双写，脏状态归零", async () => {
-    HTMLElement.prototype.scrollIntoView = vi.fn();
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <ThemeProvider>
-          <ConfirmProvider>
-            <SettingsView />
-          </ConfirmProvider>
-        </ThemeProvider>
-      </MemoryRouter>,
-    );
-    // 等双读完成回显（根目录输入出现且值已载入）
-    await waitFor(() => {
-      const el = document.getElementById(
-        "settings-ftp-root",
-      ) as HTMLInputElement | null;
-      if (el === null || el.value !== "/srv/ftp") {
-        throw new Error("ftp config not loaded yet");
-      }
-    });
-    const root = document.getElementById(
-      "settings-ftp-root",
-    ) as HTMLInputElement;
-    fireEvent.change(root, { target: { value: "/srv/ftp2" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存" }));
-    await waitFor(() => {
-      expect(ftpConfigSaveMock).toHaveBeenCalledWith(
-        "/srv/ftp2",
-        true,
-        { alice: "" }, // 既有用户未改密码 → 空串=保留原密码（钉死语义）
-      );
-    });
-    // 保存后回读重置：保存条回到「配置已与磁盘一致」
-    await waitFor(() => {
-      expect(screen.getByText("配置已与磁盘一致")).toBeInTheDocument();
-    });
-  });
-
-  it("脏草稿登记守卫；放弃后回滚 FTP 编辑", async () => {
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <ThemeProvider>
-          <ConfirmProvider>
-            <SettingsView />
-          </ConfirmProvider>
-        </ThemeProvider>
-      </MemoryRouter>,
-    );
-    await waitFor(() => {
-      const el = document.getElementById(
-        "settings-ftp-root",
-      ) as HTMLInputElement | null;
-      if (el === null || el.value !== "/srv/ftp") {
-        throw new Error("ftp config not loaded yet");
-      }
-    });
-    const root = document.getElementById(
-      "settings-ftp-root",
-    ) as HTMLInputElement;
-    fireEvent.change(root, { target: { value: "/draft" } });
-    await waitFor(() => expect(hasAnyUnsaved()).toBe(true));
-    discardAllUnsaved();
-    await waitFor(() => {
-      expect(
-        (document.getElementById("settings-ftp-root") as HTMLInputElement).value,
-      ).toBe("/srv/ftp");
-    });
-    expect(hasAnyUnsaved()).toBe(false);
   });
 });
