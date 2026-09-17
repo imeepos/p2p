@@ -49,6 +49,24 @@
 持久化仍走 configSave 整包。运行态语义对齐存量页：bootstrap/relayAddrs 节点重启生效、
 authzDefaultRole 空串=禁用自动绑。业务页既有入口**保留**（删除与否走查后另裁）。
 
+## W2b（2026-09-17 锁定，用户裁决=A 全量纳入）
+
+| 任务 | 类型 | worktree/分支 | scope | 依赖 |
+|---|---|---|---|---|
+| CC4 FTP/静态对端命令面 | backend | .worktrees/cc4-rust / feat/cc4-rust | apps/gui/src-tauri/**、apps/cli/src/types.rs（如镜像需）、crates/p2p/src/static_peers.rs（如需暴露 API，须声明影响面）、docs/design/gui-contract.md | 无 |
+| CC5 设置页 FTP 卡 + 静态对端卡 | frontend | .worktrees/cc5-front / feat/cc5-front | apps/gui/src/** | 无（契约钉任务书） |
+
+**契约（逐字）**：新增 5 条 tauri 命令（snake_case，参数 camelCase）：
+- `ftp_config_get` → `{ root: string, authz: boolean, users: string[] }`（users 仅用户名，**密码不回显**；文件缺失/损坏 → `{ root: "", authz: false, users: [] }` + warn）
+- `ftp_config_save(root: string, authz: boolean, accounts: Record<string,string>)` → bool；accounts 中 password 为空串 = 保留该用户现有密码；写盘保持 0600（如现状非 0600 则改为 0600 并在汇报注明）
+- `static_peers_list` → `{ peers: { peerId: string, addrs: string[], note: string }[] }`
+- `static_peers_upsert(peerId: string, addrs: string[], note: string)` → bool
+- `static_peers_remove(peerId: string)` → bool
+效果语义：会话自查并在契约文档如实标注（预期=节点重启生效，不建 live reload）。
+**资源预分配**：i18n `settings.ftp.*`/`settings.staticPeers.*` 归 CC5；gui-contract §3 新增
+「本机服务配置面」小节 + cli-parity 5 条豁免行归 CC4；风险分级=凭据/暴露面，主会话
+合并前亲自核证据（密码不回显/0600/写盘原子性），必要时加派只读评审会话。
+
 ## 进度账本
 
 - 2026-09-17 10:55 计划 v1 落盘；scope 认领 SESSIONS.md（config-centralization，主会话 session-72b40bd2）。
@@ -68,3 +86,4 @@ authzDefaultRole 空串=禁用自动绑。业务页既有入口**保留**（删�
 - 2026-09-17 13:36 用户指令继续推进；W2a 锁定并派发 CC3（session 待记）。
 - 2026-09-17 13:38 派发 CC3 frontend → session-7f25ec80-4761-4f50-916c-656e0427d6eb（feat/cc3-front，apps/gui/src scope，W2a 入口归拢）。五问：已派发待汇报；下一步=主会话验收（必核硬编码扫描单测证据）→ 合并 → 统一门禁。
 - 2026-09-17 23:23 CC3 合并（361d803b）+ 统一门禁 check-fast PASS → W2a 收官（origin/main 同步）。W2b 等用户 A/B 裁决（备忘录在案），W3 触发=W2 全清。CC3 会话归档，scope 释放。
+- 2026-09-17 14:33 用户裁决=A；W2b 锁定并并行派发 CC4/CC5。
