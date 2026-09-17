@@ -7,9 +7,11 @@ import { FolderGit2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { toastError } from "@/components/feedback/toast";
 import { listWorkspaces, removeWorkspace, type AcpWorkspace } from "@/acp/share-admin-client";
 import { EmptyState } from "@/views/shared/empty-state";
+import { errorText } from "@/views/shared/form-flow";
 import { useAdminEndpoint } from "./use-admin-endpoint";
 import { WorkspaceAddForm } from "./workspace-add-form";
 import { workspaceErrorKey } from "./workspace-errors";
@@ -19,7 +21,8 @@ export function WorkspaceManageCard() {
   const confirm = useConfirm();
   const { endpointUrl, endpointToken, done } = useAdminEndpoint(t("acpManage.localCandidateLabel"));
   const [rows, setRows] = useState<AcpWorkspace[] | null>(null);
-  const [loadError, setLoadError] = useState(false);
+  // 失败原文可观测可复制（审计 P1：吞成布尔 → 固定文案无重试）
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tick, setTick] = useState(0);
   const bump = useCallback(() => setTick((n) => n + 1), []);
@@ -31,12 +34,13 @@ export function WorkspaceManageCard() {
       .then((list) => {
         if (dead) return;
         setRows(list);
-        setLoadError(false);
+        setLoadError(null);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (dead) return;
+        console.warn("[acp-manage] 工作区清单加载失败", err);
         setRows(null);
-        setLoadError(true);
+        setLoadError(errorText(err));
       });
     return () => {
       dead = true;
@@ -75,9 +79,23 @@ export function WorkspaceManageCard() {
             {t("acpManage.status.noDescriptor")}
           </p>
         ) : loadError ? (
-          <p className="text-destructive text-sm" data-testid="acp-ws-load-error">
-            {t("acpManage.workspaces.loadFailed")}
-          </p>
+          <>
+            <CommandErrorText
+              message={loadError}
+              prefix={t("acpManage.workspaces.loadFailed")}
+              testId="acp-ws-load-error"
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              onClick={bump}
+              data-testid="acp-ws-retry"
+            >
+              {t("acp.local.refresh")}
+            </Button>
+          </>
         ) : rows === null ? null : rows.length === 0 ? (
           <EmptyState icon={FolderGit2} title={t("acpManage.workspaces.empty")} description={t("acpManage.workspaces.emptyHint")} />
         ) : (
