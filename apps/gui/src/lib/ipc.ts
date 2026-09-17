@@ -20,6 +20,7 @@ import type {
   ChatFriendJson,
   ChatMediaFile,
   FriendInviteJson,
+  FtpConfigView,
   InviteReportJson,
   ChatMessageJson,
   ChatSendReport,
@@ -61,6 +62,7 @@ import type {
   PingOutcome,
   ServiceMutationReport,
   ServiceView,
+  StaticPeersList,
   UpdateCheckResult,
   UpdateDownloadBackend,
 } from "./ipc-types";
@@ -92,6 +94,16 @@ const tauriBackend: IpcBackend = {
   metricsHistory: () => invoke<MetricsPoint[]>("metrics_history"),
   configGet: () => invoke<GuiConfig>("config_get"),
   configSave: (cfg) => invoke<GuiConfig>("config_save", { cfg }),
+  // 本机服务配置面（W2b 契约）：invoke 名逐字 snake_case，参数 camelCase。
+  ftpConfigGet: () => invoke<FtpConfigView>("ftp_config_get"),
+  ftpConfigSave: (root, authz, accounts) =>
+    invoke<boolean>("ftp_config_save", { root, authz, accounts }),
+  staticPeersList: () =>
+    invoke<StaticPeersList>("static_peers_list"),
+  staticPeersUpsert: (peerId, addrs, note) =>
+    invoke<boolean>("static_peers_upsert", { peerId, addrs, note }),
+  staticPeersRemove: (peerId) =>
+    invoke<boolean>("static_peers_remove", { peerId }),
   peerDial: (target) => invoke<DialReport>("peer_dial", { target }),
   peerConnect: (peerId) => invoke<DialReport>("peer_connect", { peerId }),
   peerDisconnect: (peerId) => invoke<boolean>("peer_disconnect", { peerId }),

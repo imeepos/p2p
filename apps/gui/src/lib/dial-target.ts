@@ -5,6 +5,11 @@ export interface DialTarget {
 
 // 32 字节 PeerId 的 base58 典型长度 43-45；字节级权威校验在桥接层（proto.rs）。
 const PEER_ID_RE = /^[1-9A-HJ-NP-Za-km-z]{43,45}$/;
+
+// 静态对端簿等独立面的 PeerId 预检，与 parseDialTarget 同规则族。
+export function isValidPeerId(value: string): boolean {
+  return PEER_ID_RE.test(value);
+}
 const IPV4_RE = /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
 const IPV6ISH_RE = /^[0-9a-fA-F:]+$/;
 

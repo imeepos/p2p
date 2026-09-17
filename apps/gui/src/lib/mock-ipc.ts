@@ -34,6 +34,10 @@ import { mockAuthzBackend, mockAuthzController } from "./mock-authz";
 import { createMockServices } from "./mock-services";
 import { createMockTunnelServe } from "./mock-tunnel-serve";
 import { createMockRd } from "./mock-rd";
+import {
+  mockFtpBackend,
+  mockStaticPeersBackend,
+} from "./mock-ftp-peers";
 
 const START_DELAY_MS = 800;
 const STOP_DELAY_MS = 300;
@@ -509,6 +513,9 @@ export const mockBackend: IpcBackend & {
   },
   ...mockTunnelServe.backend,
   ...mockRd.backend,
+  // W2b 本机服务配置面 mock（ftp/static-peers，独立文件沿 mock-services 先例）。
+  ...mockFtpBackend,
+  ...mockStaticPeersBackend,
   async tunnelStatus() {
     return {
       active: false,

@@ -598,6 +598,28 @@ export interface ServiceMutationReport {
   requiresRestart: boolean;
 }
 
+// ── config-centralization W2b 加法（CC4 交付的 5 命令）：本机服务配置面，
+// 与 docs/design/gui-contract.md「本机服务配置面」小节逐字对齐，禁止改名 ──
+
+// ftp_config_get 视图：users 仅用户名名单，密码任何路径不回显；
+// 配置文件缺失/损坏由后端回落 { root: "", authz: false, users: [] } + warn。
+export interface FtpConfigView {
+  root: string;
+  authz: boolean;
+  users: string[];
+}
+
+// 静态对端簿条目：addrs 语法同 §6（ip/u端口=QUIC、ip/t端口=TCP）。
+export interface StaticPeerView {
+  peerId: string;
+  addrs: string[];
+  note: string;
+}
+
+export interface StaticPeersList {
+  peers: StaticPeerView[];
+}
+
 export interface IpcBackend {
   acpConsoleStatus(): Promise<AcpConsoleStatus>;
   acpLocalDescriptor(): Promise<AcpLocalDescriptor | null>;
@@ -609,6 +631,22 @@ export interface IpcBackend {
   metricsHistory(): Promise<MetricsPoint[]>;
   configGet(): Promise<GuiConfig>;
   configSave(cfg: GuiConfig): Promise<GuiConfig>;
+  // 本机服务配置面（W2b 契约，invoke 名逐字 snake_case，参数 camelCase）。
+  // ftp_config_save：accounts 为全量目标表，password 空串 = 保留该用户现有密码；
+  // 效果语义 = 节点重启生效（契约如实标注，不建 live reload）。
+  ftpConfigGet(): Promise<FtpConfigView>;
+  ftpConfigSave(
+    root: string,
+    authz: boolean,
+    accounts: Record<string, string>,
+  ): Promise<boolean>;
+  staticPeersList(): Promise<StaticPeersList>;
+  staticPeersUpsert(
+    peerId: string,
+    addrs: string[],
+    note: string,
+  ): Promise<boolean>;
+  staticPeersRemove(peerId: string): Promise<boolean>;
   peerDial(target: string): Promise<DialReport>;
   peerConnect(peerId: string): Promise<DialReport>;
   peerDisconnect(peerId: string): Promise<boolean>;
