@@ -3,8 +3,8 @@
 //! 存储复用 p2p::static_peers::StaticPeersFile（0600、tmp+rename、按 peerId
 //! 去重；本波提为 pub）；数据根 = app 数据目录（§18 口径）。效果语义：命令面
 //! 只触文件不触运行中节点，消费方 = p2p 装配层（NodeBuilder.static_peers_file
-//! 装配载入为 Manual 来源地址簿），修改后下次装配生效；GUI/CLI 节点装配当前
-//! 均未接线 static_peers_file（如实标注，接线属装配面独立任务）。
+//! 装配载入为 Manual 来源地址簿），修改后节点重启拨号生效（补料已接线，接线点
+//! = state/node_build.rs 消费 wirable_book，CLI daemon.rs 同款语义）。
 
 use std::path::{Path, PathBuf};
 
@@ -14,7 +14,8 @@ use tauri::State;
 
 use crate::state::AppState;
 
-pub(crate) const FILE_NAME: &str = "static-peers.json";
+/// 文件名复用 p2p 单一约定（命令面与装配接线同根同名，防漂移）。
+pub(crate) const FILE_NAME: &str = p2p::static_peers::FILE_NAME;
 
 /// 单条静态对端（camelCase 逐字：peerId/addrs/note）。
 #[derive(Debug, PartialEq, Serialize)]
@@ -63,6 +64,12 @@ pub async fn static_peers_remove(
 
 fn book_path(data_dir: &Path) -> PathBuf {
     data_dir.join(FILE_NAME)
+}
+
+/// 装配接线缝（W2b 补料）：委托 p2p 单一 fail-safe 实现（缺失/损坏 = None，
+/// 损坏留 warn），供 state/node_build.rs 消费。
+pub(crate) fn wirable_book(data_dir: &Path) -> Option<PathBuf> {
+    p2p::static_peers::wirable_path(data_dir)
 }
 
 fn open_book(path: &Path) -> Result<StaticPeersFile, String> {

@@ -1,7 +1,7 @@
 //! 守护进程运行时（node serve 隐藏子命令）：装配节点、落 pid/meta/log 可观测信号、
 //! 经 daemon.sock 服务控制请求；SIGTERM/SIGINT 优雅关停并清理现场。
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -21,8 +21,15 @@ use crate::types::{default_bootstrap, default_observation_addrs, default_relay_a
 /// GuiConfig → Node 装配（与 GUI state/node_build 同构）。开关生效值由 run()
 /// 经 services.json 双读解析后传入；lan-only（生效值）时公网三类不接线
 /// （工厂默认也不回落），仅局域网发现与直连（F8 生效面）。
-async fn build_node(cfg: &GuiConfig, switches: NodeServiceSwitches) -> Result<Node, String> {
-    let builder = p2p::Node::builder()
+/// `static_peers_root` = 静态对端簿所在数据根（CLI = --data-dir root，与
+/// services.json/authz 同根）：LAN 直连面在 lan_only 两模式下都保留，故接线
+/// 置于早退之前（assembly strip_public_endpoints 亦保留 static_peers_file）。
+async fn build_node(
+    cfg: &GuiConfig,
+    switches: NodeServiceSwitches,
+    static_peers_root: &Path,
+) -> Result<Node, String> {
+    let mut builder = p2p::Node::builder()
         .quic_port(cfg.quic_port)
         .tcp_port(cfg.tcp_port)
         .mdns(switches.mdns)
@@ -34,6 +41,9 @@ async fn build_node(cfg: &GuiConfig, switches: NodeServiceSwitches) -> Result<No
             rendezvous_server: switches.rendezvous_server,
         })
         .data_dir(PathBuf::from(&cfg.data_dir));
+    if let Some(path) = p2p::static_peers::wirable_path(static_peers_root) {
+        builder = builder.static_peers_file(path);
+    }
     if switches.lan_only {
         return builder
             .build()
@@ -93,7 +103,7 @@ pub async fn run(data_dir: &str) -> CliResult<()> {
             .text()
             .replace('\n', "\np2pctl-daemon: ")
     );
-    let node = build_node(&config, switches)
+    let node = build_node(&config, switches, &paths.root)
         .await
         .map_err(CliError::Runtime)
         .inspect_err(|e| eprintln!("p2pctl-daemon: {e}"))?;

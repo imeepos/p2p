@@ -70,3 +70,58 @@ async fn query_peer_without_bootstrap_is_explicit_error() {
     assert!(err.to_string().contains("rendezvous not wired"));
     node.shutdown();
 }
+
+/// W2b 补料接线端到端（绿）：数据根存在有效 static-peers.json 时，
+/// `wirable_path` 产出的路径交给 builder 即装配期载入登记（可拨号前提）。
+#[tokio::test]
+async fn wirable_path_feeds_builder_and_registers_entries() {
+    let root = std::env::temp_dir().join(format!("p2p-sp-wire-e2e-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("root ok");
+    let book = root.join(p2p::static_peers::FILE_NAME);
+
+    let writer = p2p::static_peers::StaticPeersFile::load(book.clone()).expect("load ok");
+    let peer = p2p::PeerId::from_bytes([11u8; 32]);
+    writer
+        .upsert(
+            peer.to_string(),
+            vec!["10.9.9.9/u42000".into()],
+            "wired".into(),
+        )
+        .expect("upsert ok");
+
+    let wired = p2p::static_peers::wirable_path(&root).expect("有效簿必须可接线");
+    let node = NodeBuilder::new()
+        .mdns(false)
+        .static_peers_file(wired)
+        .data_dir(root.join("node-data"))
+        .build()
+        .await
+        .expect("build ok");
+    assert!(node.peer_registered(&peer), "接线后装配期必须载入登记");
+    assert_eq!(node.peer_addrs(&peer), vec!["10.9.9.9/u42000".to_string()]);
+    node.shutdown();
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// W2b 补料接线端到端（红）：文件缺失/损坏 = `wirable_path` 返回 None，
+/// builder 不接线（节点照常启动、无登记），坏数据不拖垮启动。
+#[tokio::test]
+async fn missing_book_leaves_node_running_without_registration() {
+    let root = std::env::temp_dir().join(format!("p2p-sp-wire-none-e2e-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).expect("root ok");
+    assert_eq!(p2p::static_peers::wirable_path(&root), None, "缺失不接线");
+
+    let mut builder = NodeBuilder::new()
+        .mdns(false)
+        .data_dir(root.join("node-data"));
+    if let Some(path) = p2p::static_peers::wirable_path(&root) {
+        builder = builder.static_peers_file(path);
+    }
+    let node = builder.build().await.expect("缺簿不影响启动");
+    let peer = p2p::PeerId::from_bytes([12u8; 32]);
+    assert!(!node.peer_registered(&peer), "未接线 = 地址簿无静态登记");
+    node.shutdown();
+    let _ = std::fs::remove_dir_all(&root);
+}

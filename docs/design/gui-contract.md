@@ -114,15 +114,19 @@ tmp+rename、按 peerId 去重）。
 | static_peers_upsert | `(peerId: string, addrs: string[], note: string) => boolean` | 按 peerId 去重覆盖并整册落盘（0600）；空 peerId 显式 Err |
 | static_peers_remove | `(peerId: string) => boolean` | 幂等：条目不存在亦成功 |
 
-效果语义（2026-09-17 查证，两文件均**节点/daemon 重启生效**，无 live reload）：
+效果语义（2026-09-17 查证 + 同日补料接线，两文件均**节点/daemon 重启生效**，无 live reload）：
 
 - `ftp.json`：消费方 = CLI daemon 启动装配（apps/cli `ftp_serve::maybe_serve`，services.json
   serve.ftp 开关 AND 文件有效双条件；缺失/损坏 fail-safe 跳过装配留告警）。GUI 节点不装配
   FTP 服务端，命令面纯文件读写不触运行中节点 → 修改后**下次 daemon 启动生效**。
-- `static-peers.json`：消费方 = p2p 装配层（`NodeBuilder.static_peers_file` 装配时载入为
-  Manual 来源地址簿；运行期另有 `Node::upsert_static_peer` live 登记路径，本命令面不走）。
-  命令面只触文件不触 Node → 修改后**下次节点装配生效**。如实标注：GUI/CLI 节点装配当前
-  均未接线 `static_peers_file`，接线前修改仅落盘（装配接线属装配面独立任务，不在本命令面）。
+- `static-peers.json`：**接线后节点重启拨号**。消费方 = p2p 装配层
+  （`NodeBuilder.static_peers_file` 装配时载入为 Manual 来源地址簿；运行期另有
+  `Node::upsert_static_peer` live 登记路径，本命令面不走）。接线已落地（W2b 补料，
+  见 feat/cc4-rust 提交）：接线点 = GUI `state/node_build.rs::build_node`（数据根 =
+  app 数据目录）与 CLI `daemon.rs::build_node`（数据根 = `--data-dir`），两处均经
+  `p2p::static_peers::wirable_path` 取路径——文件存在且可解析才传 `static_peers_file`，
+  缺失 = 不接线（无操作、不报错），损坏 = warn + 不接线（坏数据不拖垮节点启动）。
+  命令面写盘后**下次节点启动即拨号**；进程内改簿不热更（无 live reload）。
 - 凭据纪律：ftp 账号密码明文 0600 落盘（不加密存储为现状保持，加密属后续独立决策）；
   密码不进任何 IPC 返回与日志。
 

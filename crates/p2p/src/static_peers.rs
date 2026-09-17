@@ -9,6 +9,30 @@ use std::sync::{Mutex, MutexGuard};
 
 use serde::{Deserialize, Serialize};
 
+/// 静态对端簿标准文件名（GUI app 数据目录与 CLI --data-dir 同根同名约定）。
+pub const FILE_NAME: &str = "static-peers.json";
+
+/// 装配接线路径（W2b 补料）：返回可交给 [`crate::NodeBuilder::static_peers_file`]
+/// 的路径。缺失 = None（不接线、无操作、不报错）；损坏 = warn + None（人工可
+/// 编辑的数据文件不拖垮节点启动，与 services.json/ftp.json fail-safe 同纪律）。
+pub fn wirable_path(data_dir: &Path) -> Option<PathBuf> {
+    let path = data_dir.join(FILE_NAME);
+    if !path.is_file() {
+        return None;
+    }
+    match StaticPeersFile::load(path.clone()) {
+        Ok(_) => Some(path),
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                path = %path.display(),
+                "static-peers.json 损坏，本次装配不接线静态对端"
+            );
+            None
+        }
+    }
+}
+
 /// 单条静态登记：PeerId（base58）+ 可拨地址 + 业务备注（底座不解释）。
 /// W2b/CC4 起对 src-tauri 开放（GUI 静态对端簿命令面复用本持久化原语）。
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
@@ -132,6 +156,43 @@ mod tests {
         let path = std::env::temp_dir().join(format!("p2p-sp-miss-{}", std::process::id()));
         let file = StaticPeersFile::load(path).expect("missing = empty");
         assert!(file.entries().is_empty());
+    }
+
+    /// W2b 补料（红）：文件不存在 = 不接线（无操作、不报错）。
+    #[test]
+    fn wirable_path_absent_file_is_none() {
+        let dir = std::env::temp_dir().join(format!("p2p-sp-wire-none-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("dir ok");
+        assert_eq!(wirable_path(&dir), None, "缺失 = 不接线");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// W2b 补料（红）：损坏文件 = 不接线且不 panic（坏数据不拖垮节点启动）。
+    #[test]
+    fn wirable_path_corrupt_file_is_none_without_panic() {
+        let dir = std::env::temp_dir().join(format!("p2p-sp-wire-bad-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("dir ok");
+        fs::write(dir.join(FILE_NAME), b"{not json").expect("write ok");
+        assert_eq!(wirable_path(&dir), None, "损坏 = 不接线（warn 已留观测）");
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    /// W2b 补料（绿）：有效文件 = 返回接线路径，且该路径可被装配消费者载入。
+    #[test]
+    fn wirable_path_valid_file_returns_path() {
+        let dir = std::env::temp_dir().join(format!("p2p-sp-wire-ok-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("dir ok");
+        let path = dir.join(FILE_NAME);
+        let file = StaticPeersFile::load(path.clone()).expect("load ok");
+        file.upsert("peer-a".into(), vec!["10.0.0.1/u4000".into()], "".into())
+            .expect("upsert ok");
+        assert_eq!(wirable_path(&dir), Some(path.clone()), "有效 = 接线路径");
+        let loaded = StaticPeersFile::load(wirable_path(&dir).expect("wired")).expect("load");
+        assert_eq!(loaded.entries().len(), 1, "接线路径可载入登记条目");
+        let _ = fs::remove_dir_all(dir);
     }
 
     /// W2b/CC4：remove 语义（GUI static_peers_remove 命令面复用）——存在即删，

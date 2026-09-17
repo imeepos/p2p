@@ -1,6 +1,8 @@
 //! GuiConfig → Node 装配（契约 §1 node_start）：服务总控双读（service-
 //! registry-design §2/§4.4，services.json 根 = app 数据目录，与 authz 同源
 //! 同根）+ 空地址列表回落出厂默认；与 CLI daemon.rs 装配同语义。
+//! 静态对端簿（W2b 补料）同根接线：static-peers.json 存在且可解析才传
+//! `static_peers_file`，装配期载入 Manual 来源地址簿（缺失/损坏 = 不接线）。
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -32,6 +34,10 @@ pub(super) async fn build_node(cfg: &GuiConfig, services_root: &Path) -> Result<
         .data_dir(PathBuf::from(&cfg.data_dir))
         .relay_addrs(with_factory_fallback(&cfg.relay_addrs, default_relay_addrs))
         .advertised_addrs(cfg.advertised_addrs.clone());
+    // 静态对端簿接线（W2b 补料）：与命令面同根（app 数据目录）。
+    if let Some(path) = crate::static_peers_admin::wirable_book(services_root) {
+        builder = builder.static_peers_file(path);
+    }
     if let Some(port) = cfg.observation_port {
         builder = builder.observation_responder(port);
     }
