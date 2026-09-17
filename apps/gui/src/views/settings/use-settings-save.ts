@@ -14,7 +14,12 @@ import {
   errorText,
 } from "@/views/shared/form-flow";
 import { focusFirstInvalidField } from "./focus-first-error";
-import { toFormValues, toGuiConfig, type SettingsFormValues } from "./config-schema";
+import {
+  toFormValues,
+  toFtpSaveInput,
+  toGuiConfig,
+  type SettingsFormValues,
+} from "./config-schema";
 
 // onInvalid 附带原始 errors：视图层据此把 hidden 分节切回错误所在分节后再聚焦。
 export type InvalidCallback = (
@@ -50,11 +55,19 @@ export function useSettingsSave(
   const startNode = useNodeStore((s) => s.startNode);
 
   // 保存成功后回读并重置表单：脏状态归零，值与持久层一致。
+  // FTP 面独立于 GuiConfig 整包（W2b），随保存流一并落盘与回读；
+  // config_save 成功而 ftp_config_save 失败时表单保持脏状态，错误上浮可重试。
   const saveAndReload = useCallback(
     async (values: SettingsFormValues) => {
       await ipc.configSave(toGuiConfig(values));
       markLocalWrite("config");
-      form.reset(toFormValues(await ipc.configGet()));
+      const ftp = toFtpSaveInput(values);
+      await ipc.ftpConfigSave(ftp.root, ftp.authz, ftp.accounts);
+      const [config, ftpView] = await Promise.all([
+        ipc.configGet(),
+        ipc.ftpConfigGet(),
+      ]);
+      form.reset(toFormValues(config, ftpView));
       toastSuccess(t("settings.saveBar.saved"));
     },
     [form, t],
@@ -93,9 +106,15 @@ export function useSettingsSave(
     const values = toGuiConfig(form.getValues());
     await ipc.configSave(values);
     markLocalWrite("config");
+    const ftp = toFtpSaveInput(form.getValues());
+    await ipc.ftpConfigSave(ftp.root, ftp.authz, ftp.accounts);
     await stopNode();
     await startNode(values);
-    form.reset(toFormValues(await ipc.configGet()));
+    const [config, ftpView] = await Promise.all([
+      ipc.configGet(),
+      ipc.ftpConfigGet(),
+    ]);
+    form.reset(toFormValues(config, ftpView));
     toastSuccess(t("settings.saveBar.restartDone"));
   }, [confirm, form, startNode, stopNode, t, onInvalid]);
 

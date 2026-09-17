@@ -10,12 +10,19 @@ const { configGetMock, configSaveMock, profileGetMock, servicesListMock } =
     servicesListMock: vi.fn(),
   }));
 
+// W2b：设置页加载/保存现在双读双写 FTP 面，服务区另挂静态对端卡——
+// mock 面必须齐这些命令，否则 SettingsView 挂载即失败。
 vi.mock("@/lib/ipc", () => ({
   ipc: {
     configGet: configGetMock,
     configSave: configSaveMock,
     profileGet: profileGetMock,
     servicesList: servicesListMock,
+    ftpConfigGet: vi.fn(async () => ({ root: "", authz: false, users: [] })),
+    ftpConfigSave: vi.fn(async () => true),
+    staticPeersList: vi.fn(async () => ({ peers: [] })),
+    staticPeersUpsert: vi.fn(async () => true),
+    staticPeersRemove: vi.fn(async () => true),
   },
 }));
 

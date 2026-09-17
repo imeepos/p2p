@@ -609,6 +609,13 @@ export interface FtpConfigView {
   users: string[];
 }
 
+// ftp_config_save 入参（命令签名逐字：root/authz/accounts 三参数 camelCase）。
+export interface FtpConfigSaveInput {
+  root: string;
+  authz: boolean;
+  accounts: Record<string, string>;
+}
+
 // 静态对端簿条目：addrs 语法同 §6（ip/u端口=QUIC、ip/t端口=TCP）。
 export interface StaticPeerView {
   peerId: string;

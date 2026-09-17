@@ -11,6 +11,8 @@ const FIELD_ORDER: Array<keyof SettingsFormValues> = [
   "advertisedAddrs",
   "observationPort",
   "observationAddrs",
+  "ftpRoot",
+  "ftpAccounts",
 ];
 
 // DOM 定位：端口/开关用既有字段 id；地址列表由所在卡以 data-field 标注容器。
@@ -23,6 +25,8 @@ const FIELD_SELECTORS: Partial<Record<keyof SettingsFormValues, string>> = {
   relayAddrs: '[data-field="relayAddrs"] input',
   advertisedAddrs: '[data-field="advertisedAddrs"] input',
   observationAddrs: '[data-field="observationAddrs"] input',
+  ftpRoot: "#settings-ftp-root",
+  ftpAccounts: '[data-field="ftpAccounts"] input',
 };
 
 // 校验失败可见化：统计错误字段数，滚动并聚焦第一个错误字段。

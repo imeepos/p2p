@@ -14,6 +14,9 @@ vi.mock("@/lib/ipc", () => ({
       observationPort: null, observationAddrs: [],
     })),
     configSave: (...args: unknown[]) => configSaveMock(...(args as [])),
+    // W2b：保存流双写 FTP 面（ftp_config_save + 回读 ftp_config_get）。
+    ftpConfigGet: vi.fn(async () => ({ root: "", authz: false, users: [] })),
+    ftpConfigSave: vi.fn(async () => true),
   },
 }));
 

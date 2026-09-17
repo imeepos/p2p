@@ -26,7 +26,9 @@ import { ServicesCard } from "./services-card";
 import { SettingsNav, type SettingsSectionId } from "./settings-nav";
 import { AboutUpdateCard } from "@/views/update/about-update-card";
 import { DocsEntryCard } from "./docs-entry-card";
+import { FtpCard } from "./ftp-card";
 import { LlmShareEntryCard } from "./llm-share-entry-card";
+import { StaticPeersCard } from "./static-peers-card";
 import { SettingsSaveBar } from "./save-bar";
 import { LoadFailedNotice } from "@/views/shared/load-state";
 import { useSettingsSave } from "./use-settings-save";
@@ -70,7 +72,13 @@ function SettingsSections({ active }: { active: SettingsSectionId }) {
         <AdvertiseCard />
       </>
     ),
-    services: <ServicesCard />,
+    services: (
+      <>
+        <ServicesCard />
+        <FtpCard />
+        <StaticPeersCard />
+      </>
+    ),
     remoteAccess: <RemoteAccessCard />,
     about: (
       <>
@@ -95,19 +103,26 @@ function SettingsSections({ active }: { active: SettingsSectionId }) {
   );
 }
 
-// 校验错误定位分节：远程访问区字段归 remoteAccess，其余配置字段在网络区。
+// 校验错误定位分节：远程访问区字段归 remoteAccess，FTP 卡字段归 services，
+// 其余配置字段在网络区。
 const REMOTE_ACCESS_FIELDS: (keyof SettingsFormValues)[] = [
   "rdRequireApproval",
   "rdFps",
   "tunnelServeAllow",
 ];
 
+const FTP_FIELDS: (keyof SettingsFormValues)[] = ["ftpRoot", "ftpAccounts"];
+
 function errorSection(
   errors: FieldErrors<SettingsFormValues>,
 ): SettingsSectionId {
-  return REMOTE_ACCESS_FIELDS.some((field) => errors[field] != null)
-    ? "remoteAccess"
-    : "network";
+  if (REMOTE_ACCESS_FIELDS.some((field) => errors[field] != null)) {
+    return "remoteAccess";
+  }
+  if (FTP_FIELDS.some((field) => errors[field] != null)) {
+    return "services";
+  }
+  return "network";
 }
 
 // 设置页：微信设置式双栏（左分节导航 + 右内容面板 + 底部保存条）。
@@ -148,8 +163,13 @@ export function SettingsView() {
     discard: () => form.reset(),
   });
 
+  // 加载 = GuiConfig 与 FTP 面双读（W2b：两命令面独立持久化，一起进表单草稿）。
   const loadConfig = useCallback(async () => {
-    form.reset(toFormValues(await ipc.configGet()));
+    const [config, ftp] = await Promise.all([
+      ipc.configGet(),
+      ipc.ftpConfigGet(),
+    ]);
+    form.reset(toFormValues(config, ftp));
   }, [form]);
 
   useEffect(() => {
