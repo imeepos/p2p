@@ -2009,6 +2009,7 @@ const enUS: typeof zhCN = {
       denyConfirmTitle: "Remove this borrower?",
       denyConfirmDesc:
         "Once removed, \"{{peer}}\" is denied immediately (default deny). To restore access, add them to the allowlist again.",
+      modelPickEmpty: "No selectable models yet; publish an offer first.",
       emptyTitle: "No borrowers added yet",
       emptyHint: "Default deny: borrowers without an entry are rejected; allow first to grant access",
       columnPeer: "Borrower",
@@ -2291,6 +2292,8 @@ const enUS: typeof zhCN = {
       descRequired: "Description is required",
       skillsMax: "Up to 10 skills",
       loadFailed: "Failed to load agents",
+      mineUnavailable:
+        "Local agent admin is unreachable; published agents cannot be listed.",
     },
     toast: {
       chatNotReady: "Chat arrives in the next release",
@@ -2311,6 +2314,9 @@ const enUS: typeof zhCN = {
       failed: "Failed",
       cancelled: "Cancelled",
       rejected: "Rejected",
+      terminalHint:
+        "This task has ended; restarting begins a new task.",
+      restart: "Restart",
     },
     empty: {
       title: "Start a conversation",

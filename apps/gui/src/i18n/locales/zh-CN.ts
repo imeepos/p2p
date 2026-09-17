@@ -1967,6 +1967,7 @@ const zhCN = {
       denyConfirmTitle: "移出这位借方？",
       denyConfirmDesc:
         "将「{{peer}}」移出后其立即不可借用（白名单默认拒绝）。如需恢复，可再次将其加入白名单。",
+      modelPickEmpty: "暂无可选模型：可先发布能力声明（offer）后再放行",
       emptyTitle: "尚未加入任何借方",
       emptyHint: "默认拒绝：未列入条目的借方一律不可用，加入白名单后才放行",
       columnPeer: "借方",
@@ -2247,6 +2248,7 @@ const zhCN = {
       descRequired: "描述必填",
       skillsMax: "技能最多 10 条",
       loadFailed: "智能体列表加载失败",
+      mineUnavailable: "本机 agent 管理面不可达，无法读取已发布智能体。",
     },
     toast: {
       chatNotReady: "聊天链路即将开通（下一版本）",
@@ -2267,6 +2269,8 @@ const zhCN = {
       failed: "失败",
       cancelled: "已取消",
       rejected: "已拒绝",
+      terminalHint: "该任务已结束；重新发起将开启一个新任务。",
+      restart: "重新发起",
     },
     empty: {
       title: "开始与智能体对话",
