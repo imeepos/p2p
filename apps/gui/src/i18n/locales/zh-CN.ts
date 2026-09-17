@@ -75,6 +75,8 @@ const zhCN = {
       addrRequired: "地址不能为空",
       addrFormat: "地址格式应为 ip/u端口（QUIC）或 ip/t端口（TCP）",
       addrDuplicate: "地址重复",
+      fpsRange: "帧率需为 1-60 的整数",
+      loopbackAddrFormat: "地址格式应为 127.0.0.1:端口",
     },
     addressList: {
       add: "添加地址",
@@ -679,6 +681,7 @@ const zhCN = {
       general: "通用",
       network: "网络",
       services: "服务",
+      remoteAccess: "远程访问",
       about: "关于",
     },
     hint: "节点配置表单将在视图波次接入，当前展示当前生效配置摘要",
@@ -686,6 +689,7 @@ const zhCN = {
     cards: {
       network: "网络",
       advertise: "宣告与观测",
+      remoteAccess: "远程访问",
       appearance: "外观",
       profile: "节点资料",
       identity: "身份",
@@ -722,6 +726,16 @@ const zhCN = {
       observationAddrs: "观测地址",
       observationAddrsGuide:
         "用途：对外公布的观测反射端点，邻居经它做地址探测以完成打洞。语法与宣告地址不同：这里用 ip:端口（冒号分隔，如 121.196.193.177:3402），宣告地址用 ip/u端口。",
+    },
+    remoteAccess: {
+      hint: "远程桌面与隧道服务的默认策略，业务页可临时调整运行值",
+      approval: "新会话需审批",
+      approvalHint: "被控端开启时默认要求对方审批，业务页启动前可临时调整",
+      fps: "默认帧率",
+      fpsHint: "远程桌面质量档默认值，1-60 的整数",
+      tunnelAllow: "隧道服务白名单",
+      tunnelAllowGuide:
+        "用途：限定允许使用隧道 serve 的本机来源。语法：127.0.0.1:端口（字面量 127.0.0.1 加英文冒号与端口）。",
     },
     appearance: { hint: "主题与语言即时生效，不属于节点配置" },
     identity: {

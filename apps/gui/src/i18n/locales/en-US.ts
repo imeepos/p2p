@@ -78,6 +78,8 @@ const enUS: typeof zhCN = {
       addrRequired: "Address is required",
       addrFormat: "Expected ip/uport (QUIC) or ip/tport (TCP)",
       addrDuplicate: "Duplicate address",
+      fpsRange: "Frame rate must be an integer between 1 and 60",
+      loopbackAddrFormat: "Expected 127.0.0.1:port",
     },
     addressList: {
       add: "Add address",
@@ -696,6 +698,7 @@ const enUS: typeof zhCN = {
       general: "General",
       network: "Network",
       services: "Services",
+      remoteAccess: "Remote access",
       about: "About",
     },
     hint: "Config form lands in the views wave; effective config shown below",
@@ -703,6 +706,7 @@ const enUS: typeof zhCN = {
     cards: {
       network: "Network",
       advertise: "Advertise & observation",
+      remoteAccess: "Remote access",
       appearance: "Appearance",
       profile: "Node profile",
       identity: "Identity",
@@ -740,6 +744,17 @@ const enUS: typeof zhCN = {
       observationAddrs: "Observation addresses",
       observationAddrsGuide:
         "Purpose: publicly announced observation endpoints that peers probe to complete hole punching. Note the syntax differs from advertised addresses: use ip:port with a colon (e.g. 121.196.193.177:3402), while advertised addresses use ip/uport.",
+    },
+    remoteAccess: {
+      hint: "Default policy for remote desktop and tunnel serve; business pages can override at runtime",
+      approval: "Require approval for new sessions",
+      approvalHint:
+        "The remote desktop host asks for peer approval by default; business page can adjust it temporarily",
+      fps: "Default frame rate",
+      fpsHint: "Default remote desktop quality tier, integer from 1-60",
+      tunnelAllow: "Tunnel serve allowlist",
+      tunnelAllowGuide:
+        "Purpose: restrict which local sources may use tunnel serve. Syntax: 127.0.0.1:port (literal 127.0.0.1, colon, port).",
     },
     appearance: { hint: "Theme and language apply instantly; not part of node config" },
     identity: {
