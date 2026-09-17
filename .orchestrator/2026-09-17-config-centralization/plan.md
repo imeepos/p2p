@@ -67,3 +67,4 @@ authzDefaultRole 空串=禁用自动绑。业务页既有入口**保留**（删�
 - 2026-09-17 22:17 W1 收官。W2 触发器达成（W1 合并）；W3 待 W2。
 - 2026-09-17 13:36 用户指令继续推进；W2a 锁定并派发 CC3（session 待记）。
 - 2026-09-17 13:38 派发 CC3 frontend → session-7f25ec80-4761-4f50-916c-656e0427d6eb（feat/cc3-front，apps/gui/src scope，W2a 入口归拢）。五问：已派发待汇报；下一步=主会话验收（必核硬编码扫描单测证据）→ 合并 → 统一门禁。
+- 2026-09-17 23:23 CC3 合并（361d803b）+ 统一门禁 check-fast PASS → W2a 收官（origin/main 同步）。W2b 等用户 A/B 裁决（备忘录在案），W3 触发=W2 全清。CC3 会话归档，scope 释放。

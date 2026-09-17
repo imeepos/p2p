@@ -135,3 +135,5 @@
   白名单持久化 + rd-host --fps 死参数修复 + gui-contract §3 同步）随过随合。
   worktree/分支本地远端全清，scope 释放。W2/W3 触发器与 FTP/static-peers 决策备忘录
   见 .orchestrator/2026-09-17-config-centralization/w2-decision-memo.md。
+
+- [完工释放] 2026-09-17 session-72b40bd2（config-centralization 主控）：W2a 收官——CC3（feat/cc3-front 361d803b）设置页新增 rendezvous/中继/默认角色三编辑入口（零新命令，复用 9 组既有键），check-fast 全绿。worktree/分支全清。W2b（FTP/static-peers）等用户对 w2-decision-memo.md 的 A/B 选择。
