@@ -6,6 +6,7 @@ import { MessageList } from "@/components/chat/message-list";
 import { Composer } from "@/components/chat/composer";
 import { EmptyState } from "@/views/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ipc } from "@/lib/ipc";
 import { useA2aStore } from "@/a2a/a2a-store";
 import type { A2aTaskState, A2aMessage, A2aPart } from "@/a2a/task-types";
@@ -143,6 +144,30 @@ export function A2aConversation({ agentKey, hostPeer, agentId, agentName }: A2aC
           />
         )}
       </div>
+
+      {/* 终态不可续写（协议语义）：给出口而非永久禁用——重置 taskId，
+          下次发送走 createTask 开新任务（审计 P1：终态死端）。 */}
+      {taskState != null &&
+      taskState !== "submitted" &&
+      taskState !== "working" ? (
+        <div
+          className="flex items-center justify-between gap-2 border-t px-4 py-2 text-xs"
+          data-testid="a2a-task-terminal"
+        >
+          <span className="text-muted-foreground">
+            {t("a2a.task.terminalHint" as I18nKey)}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setTaskId(null)}
+            data-testid="a2a-task-restart"
+          >
+            {t("a2a.task.restart" as I18nKey)}
+          </Button>
+        </div>
+      ) : null}
 
       <Composer
         peer={agentKey}
