@@ -5,7 +5,6 @@
 //! host 画面源为合成源（SyntheticFactory，零系统权限；真实采集经后续 GUI
 //! 采集并入），审批闸默认开（GUI 审批队列是本面的核心形态）。
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use p2p::Node;
@@ -19,6 +18,7 @@ use crate::state::AppState;
 mod defaults;
 mod input;
 mod relay;
+mod util;
 
 /// host 状态快照（camelCase，GUI 三态渲染）。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,7 +56,7 @@ impl RdSlot {
     /// 初始质量档 fps 取配置（CC2 rdFps，越界回落 15）。
     pub async fn install(&self, node: &Arc<Node>, initial_fps: u8) {
         let config = rd_host::HostConfig {
-            fs_root: default_fs_root(),
+            fs_root: util::default_fs_root(),
             require_approval: true,
             fps: defaults::sanitized_initial_fps(initial_fps),
             ..Default::default()
@@ -169,11 +169,11 @@ impl RdSlot {
             .await
             .clone()
             .ok_or_else(|| "节点未启动".to_string())?;
-        let sid = session_id.unwrap_or_else(random_session_id);
+        let sid = session_id.unwrap_or_else(util::random_session_id);
         let viewer = rd_viewer::RdViewer::new(node);
         let sink: Arc<dyn rd_viewer::RenderSink> = match sink {
             Some(s) => s,
-            None => Arc::new(NoopSink),
+            None => Arc::new(util::NoopSink),
         };
         let session = viewer
             .connect(peer, sid.clone(), sink)
@@ -205,34 +205,7 @@ impl RdSlot {
     }
 }
 
-/// 无操作渲染 sink（无 Channel 的探测型连接兜底）。
-struct NoopSink;
-impl rd_viewer::RenderSink for NoopSink {
-    fn on_frame(&self, _frame: rd_viewer::DecodedFrame) {}
-}
-
-fn random_session_id() -> String {
-    uuid::Uuid::new_v4().simple().to_string()[..16].to_string()
-}
-
-fn default_fs_root() -> PathBuf {
-    let home = std::env::var_os("HOME").map(PathBuf::from);
-    match home {
-        Some(h) => h.join("Downloads").join("RD"),
-        None => PathBuf::from(".rd-files"),
-    }
-}
-
-/// peer base58 解析（与 CLI/tunnel 同规则）。
-fn parse_peer(raw: &str) -> Result<PeerId, String> {
-    let bytes = bs58::decode(raw.trim())
-        .into_vec()
-        .map_err(|e| format!("peer 非 base58: {e}"))?;
-    let arr: [u8; 32] = bytes
-        .try_into()
-        .map_err(|_| format!("peer 长度非法（须 32 字节）: {raw}"))?;
-    Ok(PeerId::from_bytes(arr))
-}
+// ---- 纯函数助手居 util 子模块（行数红线，零行为迁移） ----
 
 // ---- tauri 命令面 ----
 
@@ -263,13 +236,13 @@ pub async fn rd_host_status(state: State<'_, AppState>) -> Result<RdHostStatus, 
 
 #[tauri::command]
 pub async fn rd_approve(state: State<'_, AppState>, peer: String) -> Result<bool, String> {
-    let peer = parse_peer(&peer)?;
+    let peer = util::parse_peer(&peer)?;
     Ok(state.rd().approve(&peer))
 }
 
 #[tauri::command]
 pub async fn rd_deny(state: State<'_, AppState>, peer: String) -> Result<bool, String> {
-    let peer = parse_peer(&peer)?;
+    let peer = util::parse_peer(&peer)?;
     Ok(state.rd().deny(&peer))
 }
 
@@ -291,7 +264,7 @@ pub async fn rd_viewer_connect(
     session_id: Option<String>,
     on_frame: tauri::ipc::Channel,
 ) -> Result<RdViewerStatus, String> {
-    let peer = parse_peer(&peer)?;
+    let peer = util::parse_peer(&peer)?;
     let sink: Arc<dyn rd_viewer::RenderSink> = Arc::new(relay::WebviewSink::new(on_frame));
     state
         .rd()
@@ -328,15 +301,5 @@ mod tests {
         assert!(json.contains("\"requireApproval\":true"));
         assert!(json.contains("\"sessionCount\":2"));
         assert!(json.contains("\"pendingApprovals\""));
-    }
-
-    #[test]
-    fn peer_parse_valid_and_invalid() {
-        // base58("rd-peer-test-bytes-0123456789abcdef") 手工构造 32 字节
-        let bytes = [7u8; 32];
-        let b58 = bs58::encode(bytes).into_string();
-        assert!(parse_peer(&b58).is_ok());
-        assert!(parse_peer("not-base58!!").is_err());
-        assert!(parse_peer("abc").is_err(), "长度非法");
     }
 }
