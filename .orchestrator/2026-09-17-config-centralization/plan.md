@@ -42,3 +42,8 @@
 ## 进度账本
 
 - 2026-09-17 10:55 计划 v1 落盘；scope 认领 SESSIONS.md（config-centralization，主会话 session-72b40bd2）。
+- 2026-09-17 11:00 派发 CC1 frontend → session-b91b5485-95be-423d-b14a-c615a0ae5f58
+  （feat/cc-front，apps/gui/src scope）；派发 CC2 backend →
+  session-474f6d23-f7e7-4d85-8f5e-8a5a8a5a7f97（feat/cc-rust，src-tauri/cli 域）。
+  两任务书契约逐字同源；用户裁定子会话轻量自验、主干统一门禁。五问：均已派发待汇报，
+  下一步=主会话等汇报送达后按类型验收门核证据。
