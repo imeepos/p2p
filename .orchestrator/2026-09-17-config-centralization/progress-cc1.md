@@ -10,3 +10,7 @@
   卡内临时改动随 startHost/rdQualitySet 原语义下发）。聚焦 vitest 2 文件 12 测试绿；
   typecheck 0；改动文件 eslint 0（途中 react-hooks/set-state-in-effect 一红，
   经把回填态收进 hook 异步回调转绿）。
+- 2026-09-17 CP4 收尾自验：聚焦 vitest 10 文件 59 测试全绿（含 mock-ipc/save-bar
+  保险回归）；typecheck 0；check:i18n PASS（zh=en=1793）；11 改动文件 eslint 0；
+  行数自查全部 ≤300、新增函数 ≤60（FpsRow 49/卡体 36）；分支 feat/cc-front
+  推送 origin，主干合并按计划留主会话执行。
