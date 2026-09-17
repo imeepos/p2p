@@ -724,6 +724,9 @@ const enUS: typeof zhCN = {
       lanOnly: "LAN-only discovery",
       lanOnlyHint:
         "When enabled the node is discoverable and reachable only within the local network",
+      cardTitle: "Bootstrap and relay",
+      cardHint:
+        "Address changes take effect after the node restarts; the default role applies immediately",
     },
     defaults: {
       restore: "Restore factory defaults",
