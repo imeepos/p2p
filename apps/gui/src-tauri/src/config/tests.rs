@@ -112,9 +112,15 @@ fn partial_config_fills_missing_fields_with_defaults() {
     assert_eq!(cfg.tcp_port, 0);
     assert!(!cfg.lan_only, "旧配置缺 lanOnly 字段补缺省 false（§16.5）");
     // CC2 双向：缺字段补缺省（红），显式值不被覆盖（绿）
-    assert!(cfg.rd_require_approval, "旧配置缺 rdRequireApproval 补缺省 true");
+    assert!(
+        cfg.rd_require_approval,
+        "旧配置缺 rdRequireApproval 补缺省 true"
+    );
     assert_eq!(cfg.rd_fps, 30, "用户显式 rdFps 不得被默认覆盖");
-    assert!(cfg.tunnel_serve_allow.is_empty(), "旧配置缺 tunnelServeAllow 补缺省空");
+    assert!(
+        cfg.tunnel_serve_allow.is_empty(),
+        "旧配置缺 tunnelServeAllow 补缺省空"
+    );
     let _ = fs::remove_dir_all(&dir);
 }
 

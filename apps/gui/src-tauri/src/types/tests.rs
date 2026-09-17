@@ -95,7 +95,10 @@ fn gui_config_rd_tunnel_fields_default_and_roundtrip() {
     let cfg: GuiConfig = serde_json::from_value(json!({})).unwrap();
     assert!(cfg.rd_require_approval, "缺省 true：审批闸零行为变化");
     assert_eq!(cfg.rd_fps, 15, "缺省 15：初始质量档零行为变化");
-    assert!(cfg.tunnel_serve_allow.is_empty(), "缺省空：白名单零行为变化");
+    assert!(
+        cfg.tunnel_serve_allow.is_empty(),
+        "缺省空：白名单零行为变化"
+    );
 
     let mut raw = sample_json();
     raw["rdFps"] = json!(60);

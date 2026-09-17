@@ -130,8 +130,8 @@ impl AppState {
         // 节点启动（assembled:false + lastError 落槽可查询，不回滚）。
         let llm_store = crate::llm_share::LlmShareStore::new(self.app_data_dir.clone());
         crate::llm_share::serve::install(&self.llm_serve, &llm_store, &cfg, &node).await;
-        // tunnel 被访侧装配（W-T2）：handler 进表；开关默认关；白名单恢复展示（CC2）。
-        self.tunnel_serve.install(&node, &cfg.tunnel_serve_allow).await;
+        let allow = &cfg.tunnel_serve_allow;
+        self.tunnel_serve.install(&node, allow).await;
         // rd 远程桌面装配（M6B）：handler 进表，服务默认关，需 rd_host_start 开启。
         self.rd.install(&node, cfg.rd_fps).await;
         *slot = Some(RunningNode {
