@@ -88,3 +88,4 @@ authzDefaultRole 空串=禁用自动绑。业务页既有入口**保留**（删�
 - 2026-09-17 23:23 CC3 合并（361d803b）+ 统一门禁 check-fast PASS → W2a 收官（origin/main 同步）。W2b 等用户 A/B 裁决（备忘录在案），W3 触发=W2 全清。CC3 会话归档，scope 释放。
 - 2026-09-17 14:33 用户裁决=A；W2b 锁定并并行派发 CC4/CC5。
 - 2026-09-17 14:36 派发 CC4 backend → session-d1297c2d-04a3-48cb-bc80-6697dbc208ff（feat/cc4-rust，src-tauri/cli/p2p 声明式范围）与 CC5 frontend → session-7c21d62d-f55e-415a-b4a0-c8d5e480bd43（feat/cc5-front，apps/gui/src）。风险分级=凭据/暴露面：合并前主会话亲自核证据（密码不回显/0600/原子写），必要时加派只读评审。五问：均已派发待汇报。
+- 2026-09-17 04:50 W2b 收官——CC4+CC5+CC4 装配接线全并主干，统一门禁 check-fast + gui-tauri-check 全绿（main @ 30d9c1e4 推 origin）。CC4 补料裁定：配置簿不接线=假功能，按用户选 A 的暴露面接受度补齐 GUI/CLI 装配接线，fail-safe 单一实现置于 p2p crate 防漂移。下一波次触发器=W3（ACP token 明文迁移，安全债）。

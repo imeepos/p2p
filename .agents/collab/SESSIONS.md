@@ -137,3 +137,5 @@
   见 .orchestrator/2026-09-17-config-centralization/w2-decision-memo.md。
 
 - [完工释放] 2026-09-17 session-72b40bd2（config-centralization 主控）：W2a 收官——CC3（feat/cc3-front 361d803b）设置页新增 rendezvous/中继/默认角色三编辑入口（零新命令，复用 9 组既有键），check-fast 全绿。worktree/分支全清。W2b（FTP/static-peers）等用户对 w2-decision-memo.md 的 A/B 选择。
+
+- [完工释放] 2026-09-17 session-72b40bd2（config-centralization 主控）：W2b 收官——CC4（feat/cc4-rust 30d9c1e4，5 命令 + 静态对端装配接线补料，cr ates/p2p 可见性放开影响面声明，CLI daemon build_node 接线置于 lan_only 早退前）+ CC5（feat/cc5-front 8211d8d3，FTP 卡 + 静态对端卡 + i18n 1842 对齐，顺手修 AddressListEditor 行级校验隐性 bug），全并主干。统一门禁全绿。worktree/分支本地远端全清。W3（ACP token 明文迁移）触发器就绪。
