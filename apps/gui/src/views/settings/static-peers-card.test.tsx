@@ -1,10 +1,13 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// 类型别名仅类型空间使用（vi.hoisted 先于 import 求值，运行时无引用）。
+type MockPeer = { peerId: string; addrs: string[]; note: string };
+
 const { listMock, upsertMock, removeMock } = vi.hoisted(() => ({
-  listMock: vi.fn(async () => ({ peers: [] })),
-  upsertMock: vi.fn(async () => true),
-  removeMock: vi.fn(async () => true),
+  listMock: vi.fn(async (): Promise<{ peers: MockPeer[] }> => ({ peers: [] })),
+  upsertMock: vi.fn(async (): Promise<boolean> => true),
+  removeMock: vi.fn(async (): Promise<boolean> => true),
 }));
 
 vi.mock("@/lib/ipc", () => ({
