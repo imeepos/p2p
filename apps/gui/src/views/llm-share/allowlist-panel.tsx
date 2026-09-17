@@ -1,11 +1,11 @@
 import { ShieldOff } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { I18nKey } from "@/i18n/types";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
-import { EntityMultiSelect, type PickerOption } from "@/components/picker";
+import { EntityMultiSelect } from "@/components/picker";
 import { toastSuccess } from "@/components/feedback/toast";
 import { CommandErrorText } from "@/components/feedback/command-error";
 import { Button } from "@/components/ui/button";
@@ -80,8 +80,17 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const [entries, setEntries] = useState<LlmAllowEntry[] | null>(null);
-  // 模型候选 = 本机已放行模型集（条目 models 并集），留空=不限模型
-  const [modelOptions, setModelOptions] = useState<PickerOption[]>([]);
+  // 模型候选 = 当前 offer.models ∪ 已放行条目 models 并集：首次放行
+  // （entries 空）时候选不至于空白（审计 P1）。offer 未发布属常态非
+  // 故障（契约 §16.6），offerShow 失败单独吞掉不置 loadError。
+  const [offerModels, setOfferModels] = useState<string[]>([]);
+  const modelOptions = useMemo(
+    () =>
+      [...new Set([...offerModels, ...(entries ?? []).flatMap((e) => e.models)])].map(
+        (model) => ({ value: model, label: model }),
+      ),
+    [offerModels, entries],
+  );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [form, setForm] = useState<AllowFormValues>(EMPTY_ALLOW_FORM);
@@ -110,12 +119,17 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
         if (!cancelled) {
           setEntries(view.entries);
           setLoadError(null);
-          const models = [...new Set(view.entries.flatMap((e) => e.models))];
-          setModelOptions(models.map((model) => ({ value: model, label: model })));
         }
       } catch (error) {
         console.warn("[llm-share] allowlist 读取失败", error);
         if (!cancelled) setLoadError(errorText(error));
+      }
+      // 候选补充：当前 offer 的模型声明（未发布=常态降级，仅留观测）
+      try {
+        const offer = await backend.offerShow();
+        if (!cancelled) setOfferModels(offer.models);
+      } catch (error) {
+        console.warn("[llm-share] offerShow 不可用（未发布属常态）", error);
       }
     })();
     return () => {
@@ -225,6 +239,7 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
                     options={modelOptions}
                     selected={form.models}
                     onChange={(next) => setForm((v) => ({ ...v, models: next }))}
+                    emptyText={t("llmShare.allowlist.modelPickEmpty")}
                   />
                   <p className="text-muted-foreground text-xs">{t("llmShare.allowlist.formModelsOptional")}</p>
                 </div>
