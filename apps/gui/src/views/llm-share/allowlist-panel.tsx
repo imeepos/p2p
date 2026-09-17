@@ -28,7 +28,7 @@ import { PeerNameCell } from "@/views/shared/peer-name-cell";
 import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
 
 import { focusFirstInvalidField } from "./focus-first-error";
-import { PeerIdField } from "./peer-id-field";
+import { PeerIdField } from "@/views/shared/peer-id-field";
 
 import type { LlmAllowEntry, LlmShareBackend } from "./types";
 

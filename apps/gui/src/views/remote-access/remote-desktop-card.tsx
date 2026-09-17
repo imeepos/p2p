@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
+import { EntityCombobox } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { useFriendPickerOptions } from "@/views/shared/peer-options";
 
 import type { UseRdPageModel } from "./use-rd-model";
 import { useRdCardSettings } from "./use-rd-model";
@@ -29,6 +31,8 @@ export function RemoteDesktopCard({ model }: Props) {
   const { t } = useTranslation();
   const settings = useRdCardSettings();
   const [peer, setPeer] = useState("");
+  // R2-05：viewer 目标 = 好友选择器 + 手输兜底（与通用隧道卡同构）
+  const friendOptions = useFriendPickerOptions();
 
   return (
     <Card className="col-span-12 lg:col-span-6">
@@ -181,20 +185,33 @@ export function RemoteDesktopCard({ model }: Props) {
               <RdFrameCanvas model={model} />
             </div>
           ) : (
-            <div className="flex gap-2">
-              <Input
-                placeholder={t("remoteAccess.rd.viewer.peerPlaceholder")}
-                value={peer}
-                onChange={(event) => setPeer(event.target.value)}
+            <div className="flex flex-col gap-2">
+              <EntityCombobox
+                id="rd-viewer-peer-pick"
+                testId="rd-viewer-peer-pick"
+                options={friendOptions}
+                value={
+                  friendOptions.some((option) => option.value === peer)
+                    ? peer
+                    : null
+                }
+                onChange={(next) => setPeer(next ?? "")}
               />
-              <Button
-                disabled={model.busy === "connect" || peer.trim() === ""}
-                onClick={() => void model.connectViewer(peer.trim())}
-              >
-                {model.busy === "connect"
-                  ? t("remoteAccess.rd.viewer.connecting")
-                  : t("remoteAccess.rd.viewer.connect")}
-              </Button>
+              <div className="flex gap-2">
+                <Input
+                  placeholder={t("remoteAccess.rd.viewer.peerPlaceholder")}
+                  value={peer}
+                  onChange={(event) => setPeer(event.target.value)}
+                />
+                <Button
+                  disabled={model.busy === "connect" || peer.trim() === ""}
+                  onClick={() => void model.connectViewer(peer.trim())}
+                >
+                  {model.busy === "connect"
+                    ? t("remoteAccess.rd.viewer.connecting")
+                    : t("remoteAccess.rd.viewer.connect")}
+                </Button>
+              </div>
             </div>
           )}
           {model.lastError ? (

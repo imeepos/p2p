@@ -25,7 +25,7 @@ import {
 import { BorrowReportCard } from "./borrow-report";
 import { notifyLedgerMutated } from "./ledger-sync";
 import { focusFirstInvalidField } from "./focus-first-error";
-import { PeerIdField } from "./peer-id-field";
+import { PeerIdField } from "@/views/shared/peer-id-field";
 import { isValidFriendPeerId } from "@/views/contacts/chat-friend-rules";
 import { consumeBorrowPrefill } from "./borrow-prefill";
 import type { LlmBorrowReq, LlmBorrowReport, LlmShareBackend } from "./types";

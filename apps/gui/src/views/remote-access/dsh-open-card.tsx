@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
+import { EntityCombobox } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ipc } from "@/lib/ipc";
 import type { TunnelOpenReport } from "@/lib/ipc-types";
+import { useFriendPickerOptions } from "@/views/shared/peer-options";
 
 import { matchErrorCode } from "./tunnel-flow";
 import { TunnelErrorBox } from "./tunnel-error-box";
@@ -36,6 +38,8 @@ export function DshOpenCard({ phase, onOpened, onError, onBanner }: Props) {
   const [peer, setPeer] = useState("");
   const [busy, setBusy] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  // R2-05 同页对齐（generic-tunnel-card）：好友选择器 + 手输兜底
+  const friendOptions = useFriendPickerOptions();
 
   const open = useCallback(async () => {
     setBusy(true);
@@ -83,6 +87,17 @@ export function DshOpenCard({ phase, onOpened, onError, onBanner }: Props) {
         </div>
         <div className="space-y-2">
           <Label htmlFor="tunnel-peer">{t("remoteAccess.form.peer")}</Label>
+          <EntityCombobox
+            id="tunnel-peer-dsh-pick"
+            testId="tunnel-peer-dsh-pick"
+            options={friendOptions}
+            value={
+              friendOptions.some((option) => option.value === peer)
+                ? peer
+                : null
+            }
+            onChange={(next) => setPeer(next ?? "")}
+          />
           <Input
             id="tunnel-peer"
             value={peer}

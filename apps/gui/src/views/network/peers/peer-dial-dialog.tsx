@@ -11,7 +11,7 @@ import {
 import type { DialReport } from "@/lib/ipc-types";
 import { parseDialTarget } from "@/lib/dial-target";
 import { selectPeerList, useNodeStore } from "@/stores/node-store";
-import { usePeerPickerOptions } from "@/views/llm-share/peer-options";
+import { usePeerPickerOptions } from "@/views/shared/peer-options";
 import { FORM_VALIDATION_MARK } from "@/views/shared/form-flow";
 
 import {

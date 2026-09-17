@@ -1,13 +1,15 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 
 import { AsyncButton } from "@/components/feedback/async-button";
+import { EntityCombobox } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isValidPeerId } from "@/lib/dial-target";
+import { usePeerPickerOptions } from "@/views/shared/peer-options";
 import { ErrorText } from "@/views/shared/error-text";
 import {
   AddressListEditor,
@@ -63,6 +65,9 @@ export function StaticPeersEditor({
       : { peerId: "", addrs: [], note: "" },
   });
   const peerIdError = form.formState.errors.peerId?.message;
+  // R2-05：PeerId 关联输入 = 选择器 + 手输兜底，避免手抄 43-45 位 base58
+  const peerOptions = usePeerPickerOptions();
+  const peerIdValue = useWatch({ control: form.control, name: "peerId" });
   const addrsError = form.formState.errors.addrs as
     | { root?: { message?: string } }
     | undefined;
@@ -81,6 +86,27 @@ export function StaticPeersEditor({
           ? t("settings.staticPeers.editorEditTitle")
           : t("settings.staticPeers.editorAddTitle")}
       </p>
+      {initial == null ? (
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="static-peer-id-pick">
+            {t("picker.friendPickLabel")}
+          </Label>
+          <EntityCombobox
+            id="static-peer-id-pick"
+            testId="static-peer-id-pick"
+            options={peerOptions}
+            value={
+              peerOptions.some((option) => option.value === peerIdValue)
+                ? peerIdValue
+                : null
+            }
+            onChange={(next) => {
+              form.setValue("peerId", next ?? "", { shouldDirty: true });
+              void form.trigger("peerId");
+            }}
+          />
+        </div>
+      ) : null}
       <div className="flex flex-col gap-1">
         <Label htmlFor="static-peer-id">
           {t("settings.staticPeers.peerIdLabel")}

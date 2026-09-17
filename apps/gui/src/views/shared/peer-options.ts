@@ -24,3 +24,20 @@ export function usePeerPickerOptions(): PickerOption[] {
   const friends = usePeerNameSource();
   return useMemo(() => peerPickerOptions(peers, friends), [peers, friends]);
 }
+
+// 好友源候选（与 generic-tunnel-card 原 friendOptions 同构收编）：
+// 离线好友也可选——「拨号/授权不在场好友」恰是手抄 PeerId 的高峰场景。
+export function friendPickerOptions(
+  friends: ChatFriendJson[],
+): PickerOption[] {
+  return friends.map((friend) => ({
+    value: friend.peerId,
+    label: friend.nickname || friend.note || shortPeerId(friend.peerId),
+    hint: shortPeerId(friend.peerId),
+  }));
+}
+
+export function useFriendPickerOptions(): PickerOption[] {
+  const friends = usePeerNameSource();
+  return useMemo(() => friendPickerOptions(friends), [friends]);
+}

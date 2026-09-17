@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Copy, Check } from "lucide-react";
 
+import { EntityCombobox } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { toastError, toastSuccess } from "@/components/feedback/toast";
 import { ipc } from "@/lib/ipc";
 import { createInvite } from "@/a2a/admin-client";
+import { usePeerPickerOptions } from "@/views/shared/peer-options";
 
 import type { AgentDefJson } from "@/a2a/types";
 
@@ -33,6 +35,8 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  // R2-05：邀请对象走选择器 + 手输兜底，免手抄 44 位 PeerId
+  const peerOptions = usePeerPickerOptions();
 
   const handleGenerate = async () => {
     if (!agent || !inviteePeer.trim()) return;
@@ -89,6 +93,18 @@ export function ShareInviteDialog({ open, onOpenChange, agent }: ShareInviteDial
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="invitee-peer">{t("contacts.agents.share.inviteePeer")}</Label>
+            <EntityCombobox
+              id="invitee-peer-pick"
+              testId="share-invitee-pick"
+              options={peerOptions}
+              value={
+                peerOptions.some((option) => option.value === inviteePeer)
+                  ? inviteePeer
+                  : null
+              }
+              onChange={(next) => setInviteePeer(next ?? "")}
+              disabled={!!inviteToken}
+            />
             <Input
               id="invitee-peer"
               placeholder={t("contacts.agents.share.inviteePeerPlaceholder")}

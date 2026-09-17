@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { EntityCombobox, type PickerOption } from "@/components/picker";
+import { EntityCombobox } from "@/components/picker";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ipc } from "@/lib/ipc";
 import type { TunnelOpenReport } from "@/lib/ipc-types";
-import { shortPeerId, usePeerNameSource } from "@/lib/peer-name";
+import { useFriendPickerOptions } from "@/views/shared/peer-options";
 
 import { matchErrorCode } from "./tunnel-flow";
 import type { TunnelBannerInput } from "./tunnel-terminal-banner";
@@ -27,17 +27,6 @@ interface Props {
   onBanner: (banner: TunnelBannerInput) => void;
 }
 
-// 好友选择器选项：label = 昵称（备注回退），hint = 缩略 PeerId。
-function friendOptions(
-  friends: { peerId: string; nickname: string; note?: string | null }[],
-): PickerOption[] {
-  return friends.map((f) => ({
-    value: f.peerId,
-    label: f.nickname || f.note || shortPeerId(f.peerId),
-    hint: shortPeerId(f.peerId),
-  }));
-}
-
 // 好友选择器 + 手填兜底（gap-matrix §4.2）：选择即回填下方输入框，
 // 输入框始终是唯一真值源，手填路径原样保留。
 function PeerPickerField({
@@ -48,8 +37,7 @@ function PeerPickerField({
   onPick: (peerId: string) => void;
 }) {
   const { t } = useTranslation();
-  const friends = usePeerNameSource();
-  const options = friendOptions(friends);
+  const options = useFriendPickerOptions();
   return (
     <div className="space-y-2">
       <Label htmlFor="tunnel-peer-picker">
