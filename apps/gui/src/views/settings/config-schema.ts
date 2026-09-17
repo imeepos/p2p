@@ -124,9 +124,9 @@ export function toFormValues(config: GuiConfig): SettingsFormValues {
     observationAddrs: toRows(config.observationAddrs),
     lanOnly: config.lanOnly ?? false, // serde default: false when absent (v11 16.5)
     authzDefaultRole: config.authzDefaultRole ?? "friend", // serde default (§18.3)
-    rdRequireApproval: config.rdRequireApproval ?? true, // serde default (W1 契约)
-    rdFps: config.rdFps ?? 15, // serde default（W1 契约，合法域 1..=60）
-    tunnelServeAllow: toRows(config.tunnelServeAllow ?? []), // serde default 空
+    rdRequireApproval: config.rdRequireApproval ?? true, // serde default (W1 contract)
+    rdFps: config.rdFps ?? 15, // serde default (W1 contract, valid range 1..=60)
+    tunnelServeAllow: toRows(config.tunnelServeAllow ?? []), // serde default: empty
   };
 }
 
