@@ -2207,6 +2207,9 @@ const zhCN = {
       edit: "编辑",
       share: "分享",
       unpublish: "下架",
+      unpublishConfirmTitle: "下架智能体",
+      unpublishConfirmDesc:
+        "「{{name}}」下架后 agentId 不可复用，既有邀请链接与调用方将立即失效。",
       copyHost: "复制宿主 PeerId",
     },
     badge: { public: "公开", private: "私有", local: "本机" },

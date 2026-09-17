@@ -2249,6 +2249,9 @@ const enUS: typeof zhCN = {
       edit: "Edit",
       share: "Share",
       unpublish: "Unpublish",
+      unpublishConfirmTitle: "Unpublish agent",
+      unpublishConfirmDesc:
+        "Once \"{{name}}\" is unpublished, its agentId cannot be reused; existing invite links and callers stop working immediately.",
       copyHost: "Copy host PeerId",
     },
     badge: { public: "Public", private: "Private", local: "Local" },
