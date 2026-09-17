@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AsyncButton } from "@/components/feedback/async-button";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { toastError } from "@/components/feedback/toast";
-import { CopyButton } from "@/components/feedback/copy-button";
 import { Input } from "@/components/ui/input";
 import { useChatStore } from "@/stores/chat-store";
 import { MAX_NICKNAME_CHARS } from "@/lib/chat-limits";
@@ -25,25 +25,33 @@ export function InviteInbox() {
   const rejectInvite = useChatStore((s) => s.rejectInvite);
   const [expanded, setExpanded] = useState(false);
   const [nicknames, setNicknames] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
   const incoming = invites.filter((i) => i.direction === "in");
 
   const accept = async (peerId: string) => {
     const nickname = (nicknames[peerId] ?? "").trim();
     if (nicknameCharCount(nickname) > MAX_NICKNAME_CHARS) {
-      setError(t("contacts.inviteInbox.nicknameTooLong"));
-      return;
+      setRowErrors((prev) => ({
+        ...prev,
+        [peerId]: t("contacts.inviteInbox.nicknameTooLong"),
+      }));
+      // 校验失败同样呈 fail 态：action 正常 resolve 会被 AsyncButton 记成功
+      throw new Error("nickname validation failed");
     }
-    setError(null);
+    setRowErrors((prev) => ({ ...prev, [peerId]: "" }));
     try {
       await acceptInvite(peerId, nickname);
     } catch (err) {
       console.error("[contacts] 接受邀请失败", peerId, err);
-      setError(
-        t("contacts.inviteInbox.acceptFailed") +
+      setRowErrors((prev) => ({
+        ...prev,
+        [peerId]:
+          t("contacts.inviteInbox.acceptFailed") +
           (err instanceof Error ? err.message : String(err)),
-      );
+      }));
+      // 抛给 AsyncButton 呈现 fail 态，避免失败亮成功勾（messages 组同口径）
+      throw err;
     }
   };
 
@@ -133,17 +141,15 @@ export function InviteInbox() {
               data-testid={"contacts-invite-nickname-" + invite.peerId}
               autoComplete="off"
             />
+            {rowErrors[invite.peerId] ? (
+              <CommandErrorText
+                message={rowErrors[invite.peerId]}
+                testId={"contacts-invite-row-error-" + invite.peerId}
+              />
+            ) : null}
           </div>
         ))
       )}
-      {error ? (
-        <div className="flex items-center gap-1" data-testid="contacts-invite-error-row">
-          <p className="text-destructive text-xs" role="alert" data-testid="contacts-invite-error">
-            {error}
-          </p>
-          <CopyButton value={error} className="size-5" />
-        </div>
-      ) : null}
     </TreeSection>
   );
 }

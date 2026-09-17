@@ -5,7 +5,9 @@ import { UsersRound } from "lucide-react";
 
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { AsyncButton } from "@/components/feedback/async-button";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { CopyButton } from "@/components/feedback/copy-button";
+import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/format";
 import type { GroupInviteJson, GroupInviteState } from "@/lib/ipc-types";
 import { shortPeerId } from "@/lib/peer-name";
@@ -64,6 +66,7 @@ export function GroupInviteSection({ view }: { view: MessagesView }) {
   const navigate = useNavigate();
   const invites = useChatStore((s) => s.groupInvites);
   const listError = useChatStore((s) => s.groupInvitesError);
+  const loadGroupInvites = useChatStore((s) => s.loadGroupInvites);
   const acceptGroupInvite = useChatStore((s) => s.acceptGroupInvite);
   const rejectGroupInvite = useChatStore((s) => s.rejectGroupInvite);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
@@ -111,9 +114,22 @@ export function GroupInviteSection({ view }: { view: MessagesView }) {
         count={view === "pending" ? pendingRows.length : undefined}
       />
       {listError ? (
-        <p className="text-destructive text-xs" role="alert" data-testid="messages-group-list-error">
-          {t("messages.error.listLoadFailed") + listError}
-        </p>
+        <CommandErrorText
+          message={listError}
+          prefix={t("messages.error.listLoadFailed")}
+          testId="messages-group-list-error"
+        />
+      ) : null}
+      {listError ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void loadGroupInvites()}
+          data-testid="messages-group-list-retry"
+        >
+          {t("picker.retry")}
+        </Button>
       ) : null}
       {view === "history" ? (
         <SegmentedControl
@@ -189,9 +205,10 @@ export function GroupInviteSection({ view }: { view: MessagesView }) {
                 </p>
               ) : null}
               {rowErrors[invite.id] ? (
-                <p className="text-destructive mt-1 text-xs" role="alert">
-                  {rowErrors[invite.id]}
-                </p>
+                <CommandErrorText
+                  message={rowErrors[invite.id]}
+                  testId={"messages-group-row-error-" + invite.id}
+                />
               ) : null}
             </div>
           );

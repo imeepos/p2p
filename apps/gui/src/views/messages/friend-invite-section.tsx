@@ -64,7 +64,8 @@ export function FriendInviteSection({ view }: { view: MessagesView }) {
         ...prev,
         [invite.peerId]: t("contacts.inviteInbox.nicknameTooLong"),
       }));
-      return;
+      // 校验失败同样呈 fail 态：action 正常 resolve 会被 AsyncButton 记成功
+      throw new Error("nickname validation failed");
     }
     try {
       await acceptInvite(invite.peerId, nickname);
@@ -75,6 +76,8 @@ export function FriendInviteSection({ view }: { view: MessagesView }) {
         ...prev,
         [invite.peerId]: t("contacts.inviteInbox.acceptFailed") + detail,
       }));
+      // 抛给 AsyncButton 呈现 fail 态，避免失败亮成功勾（与群邀请组同口径）
+      throw err;
     }
   };
 
@@ -89,6 +92,8 @@ export function FriendInviteSection({ view }: { view: MessagesView }) {
         ...prev,
         [invite.peerId]: t("contacts.inviteInbox.rejectFailed") + detail,
       }));
+      // 抛给 AsyncButton 呈现 fail 态，避免失败亮成功勾（与群邀请组同口径）
+      throw err;
     }
   };
 
@@ -131,8 +136,12 @@ export function FriendInviteSection({ view }: { view: MessagesView }) {
             <div
               key={invite.peerId + String(invite.tsMs)}
               data-testid={"messages-friend-row-" + invite.peerId}
-              className="bg-card ring-border ring-1 hover:ring-ring cursor-pointer rounded-lg p-3 transition-shadow"
-              onClick={() => navigate("/chat?peer=" + invite.peerId)}
+              className="bg-card ring-border ring-1 hover:ring-ring rounded-lg p-3 transition-shadow"
+              onClick={
+                incoming
+                  ? () => navigate("/chat?peer=" + invite.peerId)
+                  : undefined
+              }
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs">
@@ -159,29 +168,28 @@ export function FriendInviteSection({ view }: { view: MessagesView }) {
                         onClick={(e) => e.stopPropagation()}
                         autoComplete="off"
                       />
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void accept(invite);
-                        }}
-                        data-testid={"messages-friend-accept-" + invite.peerId}
+                      <span
+                        className="inline-flex items-center gap-2"
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {t("messages.action.accept")}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void reject(invite);
-                        }}
-                        data-testid={"messages-friend-reject-" + invite.peerId}
-                      >
-                        {t("messages.action.reject")}
-                      </Button>
+                        <AsyncButton
+                          type="button"
+                          size="sm"
+                          action={() => accept(invite)}
+                          data-testid={"messages-friend-accept-" + invite.peerId}
+                        >
+                          {t("messages.action.accept")}
+                        </AsyncButton>
+                        <AsyncButton
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          action={() => reject(invite)}
+                          data-testid={"messages-friend-reject-" + invite.peerId}
+                        >
+                          {t("messages.action.reject")}
+                        </AsyncButton>
+                      </span>
                     </>
                   ) : (
                     // F08：发出的邀请卡与通讯录同卡同源补撤回
@@ -191,7 +199,6 @@ export function FriendInviteSection({ view }: { view: MessagesView }) {
                         size="sm"
                         variant="outline"
                         action={() => withdraw(invite)}
-                        loadingLabel={t("settings.saveBar.saving")}
                         data-testid={"messages-friend-withdraw-" + invite.peerId}
                       >
                         {t("contacts.friends.cancelInvite")}
@@ -218,9 +225,10 @@ export function FriendInviteSection({ view }: { view: MessagesView }) {
                 </p>
               ) : null}
               {rowErrors[invite.peerId] ? (
-                <p className="text-destructive mt-1 text-xs" role="alert">
-                  {rowErrors[invite.peerId]}
-                </p>
+                <CommandErrorText
+                  message={rowErrors[invite.peerId]}
+                  testId={"messages-friend-row-error-" + invite.peerId}
+                />
               ) : null}
             </div>
           );
