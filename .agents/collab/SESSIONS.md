@@ -121,3 +121,9 @@
   FT6 file.read/file.write 权限 key + Authorizer 接缝 + authz:true 桥。
   rebase 解 vdrive 撞尾冲突（双方保留），闭集锚点四处波及面（cli/tauri/
   gui mock/gui-contract）全同步。worktree/分支本地远端全清。scope 释放。
+
+- [开工认领] 2026-09-17 session-72b40bd2（config-centralization 主控）：配置集中化波
+  W1（CC1 前端设置页远程访问区 + CC2 GuiConfig 扩展与装配消费），分支 feat/cc-front、
+  feat/cc-rust，scope=apps/gui/src、apps/gui/src-tauri、apps/cli、gui-contract §3；
+  与 feat/wsm-b2（service master）并存，CC 不触 services/authz 域。
+  任务来源：用户指令「配置都放配置页面，立即安排，并行，子会话轻量自验」。

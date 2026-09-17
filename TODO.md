@@ -2,7 +2,30 @@
 
 > 约定：目标 / 验收标准 / 明确不做的唯一事实源。波次细节见 .orchestrator/<波次>/plan.md。
 
-## 当前波次：2026-09-13 权限统一收口 + 服务总控（service master）
+## 当前波次：2026-09-17 配置集中化 W1（config-centralization）
+
+**来源**：用户直接指令（2026-09-17）：「remote-access 这些都是配置信息，都应该放配置页面」
+「立即安排任务，尽量并行，子会话不做复杂构建及错误检查，统一到主会话检查」
+
+**目标**：持久化策略/默认值集中进设置页；运行态操作留业务页。
+本波（W1）= GuiConfig 新增 rdRequireApproval(true)/rdFps(15)/tunnelServeAllow([])（serde
+camelCase）+ 设置页「远程访问」区 + rd 卡/装配读默认值 + tunnel serve 白名单持久化。
+
+**验收标准**：
+- CC1（frontend）：设置页新增远程访问区三控件可编辑保存（config-schema 三字段 roundtrip
+  保真）；rd 卡审批开关与 fps 初始值读配置；聚焦测试绿。
+- CC2（backend）：两处 GuiConfig（src-tauri/cli）字段镜像 + 缺省补默认（旧配置零破坏，
+  已有测试扩展证明）；rd_host_start 审批缺省取配置；tunnel serve 白名单写通
+  config.tunnelServeAllow（重启后可恢复）；gui-contract §3 同步；聚焦测试绿。
+- 主干统一门禁（主会话跑）：make check-fast + gui-check + gui-tauri-check 全绿。
+
+**明确不做**（本波）：bootstrap/relayAddrs/authzDefaultRole 入口归拢、FTP/static-peers
+GUI 面（W2）；ACP token 明文迁移（W3）；运行态操作控件（连接/审批按钮）的迁移。
+
+**细节**：.orchestrator/2026-09-17-config-centralization/plan.md；
+盘点真值源 docs/design/config-centralization.md。
+
+## 在飞波次：2026-09-13 权限统一收口 + 服务总控（service master，feat/wsm-b2 在飞）
 
 **来源**：用户直接指令（2026-09-13）：「所有权限统一由用户权限模型管理 所有服务均可手动开启和关闭」
 
