@@ -18,6 +18,30 @@ use tokio::sync::Mutex;
 
 use crate::state::AppState;
 
+/// 持久化白名单恢复进 gate（node_start 装配）：逐条 add_allow，非法条目
+/// 丢弃并告警（不静默）；gate 去重语义保证幂等。
+fn seed_allowlist(gate: &TunnelGate, persisted: &[String]) {
+    for target in persisted {
+        if let Err(e) = gate.add_allow(target) {
+            tracing::warn!(error = %e, target = %target, "持久化 tunnelServeAllow 条目非法，未恢复");
+        }
+    }
+}
+
+/// serve 受理目标写通持久化（CC2）：去重合并后原子保存；失败 warn 不静默
+/// （运行态已生效，重启后该条丢失）。gate.add_allow 先校验后动作，进到这里
+/// 的 target 已是合法 loopback 字面量。
+fn persist_serve_allow(state: &AppState, target: &str) {
+    let mut cfg = state.config_get();
+    if cfg.tunnel_serve_allow.iter().any(|t| t == target) {
+        return;
+    }
+    cfg.tunnel_serve_allow.push(target.to_owned());
+    if let Err(e) = state.config_save(cfg) {
+        tracing::warn!(error = %e, target = %target, "tunnelServeAllow 写盘失败");
+    }
+}
+
 /// TunnelServeStatus（契约 §19，camelCase）：enabled 默认 false、会话态。
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,9 +62,11 @@ impl TunnelServeSlot {
         Self::default()
     }
 
-    /// node_start 装配：handler 进表但开关默认关（未显式开启一律拒绝）。
-    pub async fn install(&self, node: &Node) {
+    /// node_start 装配：handler 进表但开关默认关（未显式开启一律拒绝）；
+    /// 持久化白名单恢复进 gate 供展示（开关仍关，CC2）。
+    pub async fn install(&self, node: &Node, persisted_allow: &[String]) {
         let gate = Arc::new(TunnelGate::new(TunnelServeConfig::default()));
+        seed_allowlist(&gate, persisted_allow);
         match p2p_tunnel::protocol_id() {
             Ok(protocol) => {
                 node.handle_protocol(Arc::new(TunnelResponder::new(
@@ -93,13 +119,15 @@ impl TunnelServeSlot {
     }
 }
 
-/// 显式开启被访侧隧道：target = `127.0.0.1:<port>`（累积加入白名单）。
+/// 显式开启被访侧隧道：target = `127.0.0.1:<port>`（累积加入白名单并写通持久化）。
 #[tauri::command]
 pub async fn tunnel_serve_start(
     state: State<'_, AppState>,
     target: String,
 ) -> Result<TunnelServeStatus, String> {
-    state.tunnel_serve().start(&target).await
+    let status = state.tunnel_serve().start(&target).await?;
+    persist_serve_allow(&state, &target);
+    Ok(status)
 }
 
 /// 关闭被访侧隧道（幂等；保留白名单，新建流回落 shutdown 错误码）。
@@ -152,5 +180,67 @@ impl TunnelServeSlot {
             Ok(gate) => self.snapshot(&gate),
             Err(_) => TunnelServeStatus::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 独立临时目录：测试间互不污染，结束清理。
+    fn temp_root(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("p2p-tunnel-{}-{}", tag, std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("创建临时目录");
+        dir
+    }
+
+    /// CC2：serve 受理目标写通持久化 + 去重；重启（新 AppState 同目录）可恢复。
+    #[test]
+    fn serve_allow_persists_deduped_and_survives_restart() {
+        let dir = temp_root("allow");
+        let state = AppState::new(dir.clone());
+        persist_serve_allow(&state, "127.0.0.1:5900");
+        persist_serve_allow(&state, "127.0.0.1:5900");
+        persist_serve_allow(&state, "127.0.0.1:5901");
+        assert_eq!(
+            state.config_get().tunnel_serve_allow,
+            vec!["127.0.0.1:5900".to_owned(), "127.0.0.1:5901".to_owned()],
+            "重复目标只落一条"
+        );
+        let rebooted = AppState::new(dir);
+        assert_eq!(
+            rebooted.config_get().tunnel_serve_allow,
+            vec!["127.0.0.1:5900".to_owned(), "127.0.0.1:5901".to_owned()],
+            "重启后从配置恢复"
+        );
+    }
+
+    /// 写盘失败路径：不 panic、不假装成功（save 落 warn 日志，可观测）。
+    #[test]
+    fn persist_failure_warns_without_faking_success() {
+        let dir = temp_root("allow-fail");
+        let file = dir.join("not-a-dir");
+        std::fs::write(&file, "x").expect("占位文件");
+        let state = AppState::new(file);
+        persist_serve_allow(&state, "127.0.0.1:5900");
+        assert!(
+            state.config_get().tunnel_serve_allow.is_empty(),
+            "保存失败不得落内存假成功"
+        );
+    }
+
+    /// node_start 装配恢复持久化白名单进 gate；非法条目丢弃；开关仍关。
+    #[test]
+    fn install_seed_restores_persisted_allow_into_gate() {
+        let gate = TunnelGate::new(TunnelServeConfig::default());
+        seed_allowlist(&gate, &["127.0.0.1:5900".into(), "10.0.0.1:80".into()]);
+        let status = gate.status();
+        assert_eq!(
+            status.allow,
+            vec!["127.0.0.1:5900".to_owned()],
+            "非法条目被 gate 拒收"
+        );
+        assert!(!status.enabled, "恢复仅展示，开关仍回落关闭");
     }
 }
