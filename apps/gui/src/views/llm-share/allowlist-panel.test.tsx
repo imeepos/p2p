@@ -84,7 +84,10 @@ describe("LLM3 allowlist 面板（契约 §16.2-7 默认拒绝原话 / ai-guide 
     fireEvent.click(denyButton());
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog.textContent).toContain(t("llmShare.allowlist.denyConfirmTitle"));
-    expect(dialog.textContent).toContain(t("llmShare.allowlist.denyConfirmDesc"));
+    // 确认弹窗指名道姓：描述带该借方人可读名（非好友 = 缩略 ID）
+    expect(dialog.textContent).toContain(
+      t("llmShare.allowlist.denyConfirmDesc", { peer: shortPeerId(PEER) }),
+    );
     expect(denySpy).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: t("common.actions.cancel") }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());

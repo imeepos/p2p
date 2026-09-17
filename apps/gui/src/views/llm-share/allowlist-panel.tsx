@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatDateTime } from "@/lib/format";
+import { peerKnownName, shortPeerId, usePeerNameSource } from "@/lib/peer-name";
 import type { Locale } from "@/i18n";
 import { errorText } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
@@ -161,11 +162,15 @@ export function AllowlistPanel({ backend }: { backend: LlmShareBackend }) {
 
   // R2-02：移出即撤销借用授权（破坏性），走全站统一的二次确认，文案说明
   // 后果与恢复路径（再次加入即恢复）。
+  const friends = usePeerNameSource();
   const handleDeny = (peerId: string) => {
     void (async () => {
       const ok = await confirm({
         title: t("llmShare.allowlist.denyConfirmTitle"),
-        description: t("llmShare.allowlist.denyConfirmDesc"),
+        // 指名道姓：确认弹窗带人可读名，多行表格防移错人
+        description: t("llmShare.allowlist.denyConfirmDesc", {
+          peer: peerKnownName(peerId, friends) ?? shortPeerId(peerId),
+        }),
         confirmText: t("llmShare.allowlist.deny"),
         cancelText: t("common.actions.cancel"),
         destructive: true,

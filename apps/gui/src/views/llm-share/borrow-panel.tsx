@@ -176,7 +176,7 @@ export function BorrowPanel({ backend }: { backend: LlmShareBackend }) {
                 }}
                 placeholder={t("llmShare.borrow.modelPickPlaceholder")}
                 searchPlaceholder={t("llmShare.borrow.modelPickSearch")}
-                emptyText={t("llmShare.borrow.modelPickEmpty")}
+                emptyText={t("llmShare.borrow.modelPickEmptyOffer")}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">

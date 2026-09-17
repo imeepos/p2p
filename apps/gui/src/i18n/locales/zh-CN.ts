@@ -1963,7 +1963,8 @@ const zhCN = {
       allowSuccess: "已加入白名单，该借方即刻可按放行模型借用",
       deny: "移出",
       denyConfirmTitle: "移出这位借方？",
-      denyConfirmDesc: "移出后该借方立即不可借用（白名单默认拒绝）。如需恢复，可再次将其加入白名单。",
+      denyConfirmDesc:
+        "将「{{peer}}」移出后其立即不可借用（白名单默认拒绝）。如需恢复，可再次将其加入白名单。",
       emptyTitle: "尚未加入任何借方",
       emptyHint: "默认拒绝：未列入条目的借方一律不可用，加入白名单后才放行",
       columnPeer: "借方",

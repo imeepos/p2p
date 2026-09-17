@@ -20,7 +20,7 @@ import { errorText } from "@/views/shared/form-flow";
 import { shortPeerId } from "@/lib/peer-name";
 import { PeerNameCell } from "@/views/shared/peer-name-cell";
 import { StatusBadge } from "@/views/shared/status-badge";
-import { usePeerPickerOptions } from "./peer-options";
+import { usePeerPickerOptions } from "@/views/shared/peer-options";
 
 import { subscribeLedgerMutated } from "./ledger-sync";
 import type { LlmLedgerEntry, LlmLedgerFilter, LlmShareBackend } from "./types";

@@ -2004,7 +2004,8 @@ const enUS: typeof zhCN = {
       allowSuccess: "Allowlisted; the borrower can borrow the allowed models right away",
       deny: "Deny",
       denyConfirmTitle: "Remove this borrower?",
-      denyConfirmDesc: "Once removed, this borrower is denied immediately (default deny). To restore access, add them to the allowlist again.",
+      denyConfirmDesc:
+        "Once removed, \"{{peer}}\" is denied immediately (default deny). To restore access, add them to the allowlist again.",
       emptyTitle: "No borrowers added yet",
       emptyHint: "Default deny: borrowers without an entry are rejected; allow first to grant access",
       columnPeer: "Borrower",
