@@ -34,6 +34,9 @@ interface AddressListEditorProps<T extends FieldValues> {
   label: string;
   hint?: string;
   placeholder?: string;
+  // Optional async gate before row removal (delete confirmation, etc.);
+  // resolve false keeps the row. Absent = immediate removal (legacy callers).
+  confirmRemove?: (index: number) => Promise<boolean>;
 }
 
 // 地址列表行编辑器：bootstrap/relay/advertised/observation 共用，
@@ -44,6 +47,7 @@ export function AddressListEditor<T extends FieldValues>({
   label,
   hint,
   placeholder,
+  confirmRemove,
 }: AddressListEditorProps<T>) {
   const { t } = useTranslation();
   const {
@@ -52,6 +56,11 @@ export function AddressListEditor<T extends FieldValues>({
   } = useFormContext<T>();
   const { fields, append, remove } = useFieldArray({ control, name });
   const container = errors[name] as unknown;
+
+  const removeRow = async (index: number): Promise<void> => {
+    if (confirmRemove != null && !(await confirmRemove(index))) return;
+    remove(index);
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -87,7 +96,7 @@ export function AddressListEditor<T extends FieldValues>({
                 variant="ghost"
                 size="icon"
                 aria-label={t("common.addressList.remove")}
-                onClick={() => remove(index)}
+                onClick={() => void removeRow(index)}
               >
                 <Trash2Icon aria-hidden />
               </Button>

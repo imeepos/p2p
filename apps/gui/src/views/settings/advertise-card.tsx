@@ -11,8 +11,8 @@ import {
 import { SettingsBlock, SettingsGroup, SettingsRow } from "./settings-row";
 
 // 宣告与观测组：advertisedAddrs 列表 + 可空观测端口 + observationAddrs 列表。
-// advertisedAddrs 无出厂默认，不提供恢复入口。bootstrap/relay 的编辑入口在
-// 发现页（rendezvous 地址簿）与中继页（中继地址配置），设置页不再重复。
+// advertisedAddrs 无出厂默认，不提供恢复入口。bootstrap/relay 的设置页编辑
+// 入口在 BootstrapRelayCard（本分节），发现页与中继页的业务入口并存。
 export function AdvertiseCard() {
   const { t } = useTranslation();
   const {

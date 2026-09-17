@@ -17,6 +17,7 @@ import {
 } from "./config-schema";
 import { AdvertiseCard } from "./advertise-card";
 import { AppearanceCard } from "./appearance-card";
+import { BootstrapRelayCard } from "./bootstrap-relay-card";
 import { IdentityCard } from "./identity-card";
 import { NetworkCard } from "./network-card";
 import { ProfileCard } from "./profile-card";
@@ -65,6 +66,7 @@ function SettingsSections({ active }: { active: SettingsSectionId }) {
     network: (
       <>
         <NetworkCard />
+        <BootstrapRelayCard />
         <AdvertiseCard />
       </>
     ),
