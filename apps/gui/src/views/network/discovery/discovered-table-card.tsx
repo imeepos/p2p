@@ -25,6 +25,7 @@ import {
 import type { Locale } from "@/i18n";
 import { formatTime } from "@/lib/format";
 import type { NodeEventJson } from "@/lib/ipc-types";
+import { peerKnownName, usePeerNameSource } from "@/lib/peer-name";
 import { selectPeerList, useNodeStore, type PeerEntry } from "@/stores/node-store";
 import { copyText } from "@/views/shared/clipboard";
 import { EmptyState } from "@/views/shared/empty-state";
@@ -58,13 +59,19 @@ function addFriendHref(peerId: string): string {
   return "/contacts?add=" + encodeURIComponent(peerId);
 }
 
-// 与 peers 页同口径：按 PeerId/地址过滤（大小写不敏感）。
-function matchesSearch(peer: { peerId: string; addrs: string[] }, query: string): boolean {
+// 与 peers 页同口径（N-01）：按 PeerId/地址/好友名过滤（大小写不敏感）。
+// 首列 PeerNameCell 显示昵称/备注，按屏上名字搜必须能命中。
+function matchesSearch(
+  peer: { peerId: string; addrs: string[] },
+  query: string,
+  knownName: string | null,
+): boolean {
   const q = query.trim().toLowerCase();
   if (q.length === 0) return true;
   return (
     peer.peerId.toLowerCase().includes(q) ||
-    peer.addrs.some((addr) => addr.toLowerCase().includes(q))
+    peer.addrs.some((addr) => addr.toLowerCase().includes(q)) ||
+    (knownName !== null && knownName.toLowerCase().includes(q))
   );
 }
 
@@ -160,9 +167,13 @@ export function DiscoveredTableCard({
   const events = useNodeStore((s) => s.events);
   const [query, setQuery] = useState("");
   const firstSeen = useMemo(() => deriveFirstSeen(events), [events]);
+  const friends = usePeerNameSource();
   const filtered = useMemo(
-    () => peers.filter((peer) => matchesSearch(peer, query)),
-    [peers, query],
+    () =>
+      peers.filter((peer) =>
+        matchesSearch(peer, query, peerKnownName(peer.peerId, friends)),
+      ),
+    [peers, query, friends],
   );
 
   return (

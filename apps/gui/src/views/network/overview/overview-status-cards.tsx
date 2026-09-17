@@ -29,8 +29,10 @@ function ListenAddrList({ addrs }: { addrs: string[] }) {
   return (
     <ul className="flex flex-col gap-0.5">
       {addrs.map((addr) => (
-        <li key={addr} className="break-all">
-          {addr}
+        <li key={addr} className="flex items-center gap-1 break-all">
+          <span className="min-w-0 flex-1">{addr}</span>
+          {/* 监听地址即「发给对方来连我」的内容，必须有复制入口 */}
+          <CopyButton value={addr} className="size-6 shrink-0" />
         </li>
       ))}
     </ul>
