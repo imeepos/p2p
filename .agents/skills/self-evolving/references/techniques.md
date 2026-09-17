@@ -621,3 +621,6 @@ vite 插件在 configResolved 抛错的构建期断言，失败发生在 bundle 
 - 2026-09-16 vdrive：批量结构化代码改动（拆模块/挪函数带断言防错）用 `python3 - <<'PYEOF'` heredoc（读-替换-assert in-写），比 `perl -pi -e` 可靠——perl 在复杂模式里 `$1` 插值失配会静默留下 `$1` 字面量炸编译；改完立即 `cargo check` 收口。
 - 2026-09-16 vdrive：`cargo fmt --all` 会让 edit 工具「file changed since read」拒写（读-校-写流程），格式化窗口内的多处修改要么先 fmt 再编辑，要么用脚本带断言改。
 - 2026-09-16 vdrive：全量 `make check` 超过前台超时上限（执行器封顶 600s），直接 `run_in_background` + 轮询日志尾部；先跑已知快的门禁（protocol-registry/line-limit/clippy）做快速反馈，全量留后台。
+- 2026-09-17 cc2：p2p-console（apps/gui/src-tauri）与 p2pctl（apps/cli）都是独立 cargo workspace（根 Cargo.toml exclude），在仓库根跑 `cargo check -p 包名` 报 "did not match any packages"——必须 cd 进各自目录跑；p2pctl 是 bin-only 无 lib target，聚焦过滤用 `cargo test --bin p2pctl <过滤词>`，`--lib` 直接报 "no library targets"。
+- 2026-09-17 cc2：rustfmt 默认 chain_width=60 会强拆看似不超宽的方法链（如 `self.tunnel_serve.install(&node, allow).await` 链段 64 字符就拆三行），行数红线文件用 let 绑定缩短接收者（`let x = &self.f; x.call()`）保单行；写完必跑 `rustfmt --edition 2021 --check <文件>` 再提交，否则 style 提交返工。
+- 2026-09-17 cc2：给有穷举字面量测试夹具的契约 struct 加字段，连带面 = 全部穷举字面量 + 精确 JSON 相等的 roundtrip 断言（`assert_eq!(encoded, raw)` 逐字段比对，多字段即红）。先用 grep "StructName {" 盘点全部构造点再动手；roundtrip 契约 JSON 抽 sample_json() helper（test 内 Value 下标改写覆盖单字段）可一并压行数。

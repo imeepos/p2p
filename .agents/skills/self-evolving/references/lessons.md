@@ -536,3 +536,4 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - 2026-09-16 vdrive：serde_json 对象键序不保证（按字母序输出），`{"ok":true,"data":...}` 断言用 `contains` 语义字段，勿断言 `starts_with` 全串形态。
 - 2026-09-16 vdrive：WebDAV 兼容层两处「想当然」被实测纠正——根目录 stat 的 Entry.name 必须为空串（href="/"，返回 basename 会让 Finder 挂载后目录名错乱）；MOVE/COPY 拒绝覆盖的规范码是 412 不是 405。挂载类协议兼容性必须用真实客户端（curl + mount_webdav）回归，单测过了不等于能挂。
 - 2026-09-16 vdrive：chunked 帧手拼时 data 后的 CRLF 最易漏（`size\r\ndata\r\n0\r\n\r\n`），漏了服务端报 chunk terminator 错——先核对 RFC 形态再写测试帧。
+- 2026-09-17 cc2：装配函数里的 `..Struct::default()` 字段展开会静默吞掉显式传入的新字段语义（rd-host HostConfig.fps 被 `..HostState::default()` 吞掉半年成死参数）——给已有 Default 展开的 struct 接线新消费点时，先核对展开是否在你要接的字段路径上；修这类断链要在汇报里声明"死参数复活"的行为变化面。
