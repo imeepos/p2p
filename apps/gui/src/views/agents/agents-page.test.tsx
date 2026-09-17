@@ -1,9 +1,10 @@
 // /agents 页渲染矩阵（A2A3 验收）：空态/行内动作/创建校验/可见性徽章/编辑
 // 占位说明/下架/skills chip 上限与去重。IPC mock 命令名与契约逐字一致；
 // admin HTTP 用 fetch stub；WS 通道注入 fake 工厂（不发帧，测通道外 UI 面）。
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { Toaster, toast } from "sonner";
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import "@/i18n";
@@ -28,12 +29,15 @@ import type { AgentCardJson, AgentDefJson } from "@/a2a/types";
 
 import { AgentsPage } from "./agents-page";
 
-// sonner Toaster 容器随页挂载（friend-invite-row 先例）：toast 断言依赖其进 DOM
+// sonner Toaster 容器随页挂载（friend-invite-row 先例）：toast 断言依赖其进 DOM；
+// ConfirmProvider 与 App 根同构（下架二次确认依赖）。
 function renderPage(): ReturnType<typeof render> {
   return render(
     <MemoryRouter>
-      <Toaster />
-      <AgentsPage />
+      <ConfirmProvider>
+        <Toaster />
+        <AgentsPage />
+      </ConfirmProvider>
     </MemoryRouter>,
   );
 }
@@ -190,11 +194,19 @@ describe("AgentsPage", () => {
     expect(JSON.parse(String(put!.init!.body)).visibility).toBe("public");
   });
 
-  it("下架动作：DELETE admin 且成功 toast", async () => {
+  it("下架动作：确认弹窗放行后才 DELETE admin 且成功 toast", async () => {
     useAgentsStore.setState({ mine: [mineDef] });
     renderPage();
     fireEvent.click(await screen.findByTestId("segmented-mine"));
     fireEvent.click(screen.getByTestId("agents-unpublish-btn"));
+    // 确认前不得触发 DELETE（破坏性操作防误触）
+    await screen.findByRole("alertdialog");
+    expect(fetchCalls.some((c) => c.init?.method === "DELETE")).toBe(false);
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "下架",
+      }),
+    );
     await waitFor(() => expect(screen.getByText("智能体已下架")).toBeInTheDocument());
     expect(fetchCalls.some((c) => c.init?.method === "DELETE")).toBe(true);
   });

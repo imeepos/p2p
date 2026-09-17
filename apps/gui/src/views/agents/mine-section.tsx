@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Bot, MessageCircle, Pencil, Share2, Plus, CloudOff } from "lucide-react";
 
 import { AsyncButton } from "@/components/feedback/async-button";
+import { useConfirm } from "@/components/feedback/confirm-provider";
 import { Button } from "@/components/ui/button";
 
 import { SectionHeader } from "@/views/shared/section-header";
@@ -25,6 +26,19 @@ interface MineSectionProps {
 export function MineSection({ mine, onEdit, onCreate, onShare, onUnpublish }: MineSectionProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const confirm = useConfirm();
+  // 下架=DELETE 且 agentId 不可复用：破坏性操作必须二次确认（P0 口径，
+  // 对齐 provider-panel remove 流程）；取消时 AsyncButton 不进入 loading。
+  const handleUnpublish = async (def: AgentDefJson) => {
+    const ok = await confirm({
+      title: t("agents.action.unpublishConfirmTitle"),
+      description: t("agents.action.unpublishConfirmDesc", { name: def.name }),
+      confirmText: t("agents.action.unpublish"),
+      destructive: true,
+    });
+    if (!ok) return;
+    await onUnpublish(def);
+  };
   return (
     <section data-testid="agents-mine-section" className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
@@ -94,7 +108,7 @@ export function MineSection({ mine, onEdit, onCreate, onShare, onUnpublish }: Mi
                     variant="ghost"
                     size="sm"
                     className="text-destructive gap-1 px-2 hover:text-destructive"
-                    action={() => onUnpublish(def)}
+                    action={() => handleUnpublish(def)}
                     data-testid="agents-unpublish-btn"
                   >
                     {t("agents.action.unpublish")}
