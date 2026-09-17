@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { useEffect } from "react";
 import {
   FormProvider,
@@ -70,8 +72,10 @@ function Harness({
   }, [form, formRef]);
   return (
     <FormProvider {...form}>
+      <ConfirmProvider>
       {children}
       <DirtyProbe />
+    </ConfirmProvider>
     </FormProvider>
   );
 }

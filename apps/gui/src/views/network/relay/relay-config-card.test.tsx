@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { describe, expect, it, vi } from "vitest";
 
 import "@/i18n";
@@ -15,7 +17,9 @@ const noopSave = () => vi.fn().mockResolvedValue(undefined)();
 describe("RelayConfigCard", () => {
   it("空地址列表挂载不崩溃，显示出厂默认提示", () => {
     const { container } = render(
-      <RelayConfigCard relayAddrs={[]} onSave={noopSave} />,
+      <ConfirmProvider>
+        <RelayConfigCard relayAddrs={[]} onSave={noopSave} />
+      </ConfirmProvider>,
     );
     expect(screen.getByText("中继地址配置")).toBeInTheDocument();
     expect(container.textContent).not.toContain("界面出错了");
@@ -29,7 +33,9 @@ describe("RelayConfigCard", () => {
   });
 
   it("恢复出厂默认写入两行地址、置脏并隐藏提示", async () => {
-    render(<RelayConfigCard relayAddrs={[]} onSave={noopSave} />);
+    render(<ConfirmProvider>
+        <RelayConfigCard relayAddrs={[]} onSave={noopSave} />
+      </ConfirmProvider>);
     fireEvent.click(screen.getByRole("button", { name: "恢复出厂默认" }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "保存" })).toBeEnabled();
@@ -43,10 +49,12 @@ describe("RelayConfigCard", () => {
 
   it("地址行带可见序号标签并以 htmlFor 关联输入（F13）", () => {
     render(
-      <RelayConfigCard
-        relayAddrs={["43.240.223.138/u3403", "192.168.1.10/u3403"]}
-        onSave={noopSave}
-      />,
+      <ConfirmProvider>
+        <RelayConfigCard
+          relayAddrs={["43.240.223.138/u3403", "192.168.1.10/u3403"]}
+          onSave={noopSave}
+        />
+      </ConfirmProvider>,
     );
     expect(screen.getByText("地址 1")).toBeInTheDocument();
     expect(screen.getByText("地址 2")).toBeInTheDocument();
@@ -58,14 +66,42 @@ describe("RelayConfigCard", () => {
 
   it("已有地址时不显示出厂默认提示", () => {
     render(
-      <RelayConfigCard
-        relayAddrs={["43.240.223.138/u3403"]}
-        onSave={noopSave}
-      />,
+      <ConfirmProvider>
+        <RelayConfigCard
+          relayAddrs={["43.240.223.138/u3403"]}
+          onSave={noopSave}
+        />
+      </ConfirmProvider>,
     );
     expect(
       screen.queryByRole("button", { name: "恢复出厂默认" }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
+  // 默认确认门（无自定义 confirmRemove 时）：非空行删除须确认，防误触丢输入
+  it("删除非空行弹默认确认：取消保留，确认移除", async () => {
+    render(
+      <ConfirmProvider>
+        <RelayConfigCard
+          relayAddrs={["43.240.223.138/u3403"]}
+          onSave={noopSave}
+        />
+      </ConfirmProvider>,
+    );
+    fireEvent.click(screen.getAllByRole("button", { name: "删除地址" })[0]);
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog.textContent).toContain("43.240.223.138/u3403");
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("alertdialog")).toBeNull(),
+    );
+    expect(screen.getByLabelText("地址 1")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "删除地址" })[0]);
+    await screen.findByRole("alertdialog");
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+    await waitFor(() =>
+      expect(screen.queryByLabelText("地址 1")).toBeNull(),
+    );
   });
 });

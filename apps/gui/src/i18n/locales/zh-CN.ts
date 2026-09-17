@@ -89,6 +89,8 @@ const zhCN = {
       remove: "删除地址",
       empty: "暂无地址",
       rowLabel: "地址 {{index}}",
+      removeConfirmTitle: "删除这一行地址？",
+      removeConfirmDesc: "将删除「{{value}}」，未保存的输入不可恢复。",
     },
     errorBoundary: {
       title: "界面出错了",

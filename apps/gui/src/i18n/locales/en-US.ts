@@ -92,6 +92,9 @@ const enUS: typeof zhCN = {
       remove: "Remove address",
       empty: "No addresses",
       rowLabel: "Address {{index}}",
+      removeConfirmTitle: "Delete this address row?",
+      removeConfirmDesc:
+        "This deletes \"{{value}}\"; unsaved input cannot be recovered.",
     },
     errorBoundary: {
       title: "Something went wrong",

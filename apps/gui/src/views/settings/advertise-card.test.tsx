@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+
+import { ConfirmProvider } from "@/components/feedback/confirm-provider";
 import { FormProvider, useForm } from "react-hook-form";
 import { describe, expect, it } from "vitest";
 
@@ -19,7 +21,9 @@ function Harness({ values }: { values: SettingsFormValues }) {
   });
   return (
     <FormProvider {...form}>
+      <ConfirmProvider>
       <AdvertiseCard />
+    </ConfirmProvider>
     </FormProvider>
   );
 }

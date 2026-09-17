@@ -2,12 +2,14 @@ import { PlusIcon, Trash2Icon } from "lucide-react";
 import {
   useFieldArray,
   useFormContext,
+  useWatch,
   type Control,
   type FieldArrayPath,
   type FieldValues,
 } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 
+import { useConfirm } from "@/components/feedback/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,8 +40,8 @@ interface AddressListEditorProps<T extends FieldValues> {
   label: string;
   hint?: string;
   placeholder?: string;
-  // Optional async gate before row removal (delete confirmation, etc.);
-  // resolve false keeps the row. Absent = immediate removal (legacy callers).
+  // Optional async gate before row removal; resolve false keeps the row.
+  // Absent = 默认确认门：行内容非空时二次确认（一键裸删丢输入，审计 P1）。
   confirmRemove?: (index: number) => Promise<boolean>;
 }
 
@@ -60,9 +62,26 @@ export function AddressListEditor<T extends FieldValues>({
   } = useFormContext<T>();
   const { fields, append, remove } = useFieldArray({ control, name });
   const container = errors[name] as unknown;
+  const confirm = useConfirm();
+  const rows = useWatch({ control, name }) as
+    | Array<{ value?: string }>
+    | undefined;
 
   const removeRow = async (index: number): Promise<void> => {
     if (confirmRemove != null && !(await confirmRemove(index))) return;
+    if (confirmRemove == null) {
+      const rowValue = rows?.[index]?.value?.trim() ?? "";
+      if (rowValue !== "") {
+        const ok = await confirm({
+          title: t("common.addressList.removeConfirmTitle"),
+          description: t("common.addressList.removeConfirmDesc", {
+            value: rowValue,
+          }),
+          destructive: true,
+        });
+        if (!ok) return;
+      }
+    }
     remove(index);
   };
 
