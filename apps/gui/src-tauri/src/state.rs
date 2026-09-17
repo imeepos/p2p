@@ -133,7 +133,7 @@ impl AppState {
         // tunnel 被访侧装配（W-T2）：handler 进表；按次开关默认关，需显式开启。
         self.tunnel_serve.install(&node).await;
         // rd 远程桌面装配（M6B）：handler 进表，服务默认关，需 rd_host_start 开启。
-        self.rd.install(&node).await;
+        self.rd.install(&node, cfg.rd_fps).await;
         *slot = Some(RunningNode {
             node,
             config: cfg.clone(),

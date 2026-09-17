@@ -16,6 +16,7 @@ use tokio::sync::Mutex;
 
 use crate::state::AppState;
 
+mod defaults;
 mod input;
 mod relay;
 
@@ -51,11 +52,13 @@ impl RdSlot {
         Self::default()
     }
 
-    /// node_start 装配：注册 rd 处理器，服务默认关闭（需 rd_host_start 显式开启）。
-    pub async fn install(&self, node: &Arc<Node>) {
+    /// node_start 装配：注册 rd 处理器，服务默认关闭（需 rd_host_start 显式开启）；
+    /// 初始质量档 fps 取配置（CC2 rdFps，越界回落 15）。
+    pub async fn install(&self, node: &Arc<Node>, initial_fps: u8) {
         let config = rd_host::HostConfig {
             fs_root: default_fs_root(),
             require_approval: true,
+            fps: defaults::sanitized_initial_fps(initial_fps),
             ..Default::default()
         };
         match rd_host::RdHost::with_config(
@@ -238,7 +241,12 @@ pub async fn rd_host_start(
     state: State<'_, AppState>,
     require_approval: Option<bool>,
 ) -> Result<RdHostStatus, String> {
-    state.rd().start(require_approval.unwrap_or(true))?;
+    // CC2：None 回落配置缺省 rdRequireApproval；Some(v) 为运行态覆盖。
+    let approval = defaults::effective_require_approval(
+        require_approval,
+        state.config_get().rd_require_approval,
+    );
+    state.rd().start(approval)?;
     Ok(state.rd().status())
 }
 

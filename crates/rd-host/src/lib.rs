@@ -66,6 +66,16 @@ impl Default for HostConfig {
     }
 }
 
+/// 初始质量档：fps 取 HostConfig（缺省 15），scale/codec 保持出厂缺省。
+/// 此前 config.fps 在装配处被 `..HostState::default()` 吞掉（仅锁中毒泵回退
+/// 才读到），显式 fps 形同虚设；CC2 起作为初始档位真实生效。
+fn initial_quality(config: &HostConfig) -> QualityState {
+    QualityState {
+        fps: config.fps,
+        ..QualityState::default()
+    }
+}
+
 /// 默认文件根：`$HOME/Downloads/RD`（商用隔离语义；HOME 缺失回退当前目录 .rd-files）。
 fn default_fs_root() -> PathBuf {
     let home = std::env::var_os("HOME").map(PathBuf::from);
@@ -108,6 +118,7 @@ impl RdHost {
         let sessions = Arc::new(Mutex::new(sessions::HostSessions::default()));
         let state: SharedState = Arc::new(Mutex::new(HostState {
             require_approval: config.require_approval,
+            quality: initial_quality(&config),
             ..HostState::default()
         }));
         let config = Arc::new(config);
@@ -245,5 +256,25 @@ impl SourceFactory for SyntheticFactory {
         Ok(Box::new(rd_capture::synthetic::SyntheticSource::new(
             self.w, self.h,
         )))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// CC2：HostConfig.fps 必须落进初始质量档；缺省 15 零行为变化。
+    #[test]
+    fn initial_quality_seeds_fps_from_config_and_default_is_15() {
+        let q = initial_quality(&HostConfig::default());
+        assert_eq!(q.fps, 15, "缺省 15：零行为变化");
+        assert_eq!(q.scale, 100);
+        assert_eq!(q.codec, rd_wire::video::CODEC_RAW_RGBA);
+        let q = initial_quality(&HostConfig {
+            fps: 30,
+            ..Default::default()
+        });
+        assert_eq!(q.fps, 30, "显式 fps 作为初始档位生效");
+        assert_eq!(q.scale, 100, "scale/codec 不受 fps 接线影响");
     }
 }
