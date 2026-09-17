@@ -19,8 +19,12 @@ interface RowError {
 
 function rowMessage(container: unknown, index: number): string | undefined {
   if (!Array.isArray(container)) return undefined;
-  const row = container[index] as RowError | undefined;
-  return row?.message;
+  // 对象行（{ value }）的行级校验消息落在 row.value.message（zod 路径
+  // addrs.<i>.value）；直接挂 row.message 的形态保留兼容。
+  const row = container[index] as
+    | (RowError & { value?: RowError })
+    | undefined;
+  return row?.message ?? row?.value?.message;
 }
 
 function rootMessage(container: unknown): string | undefined {
