@@ -203,4 +203,15 @@ describe("RemoteAccessCard 控件", () => {
     fireEvent.click(screen.getByRole("button", { name: "添加地址" }));
     expect(screen.getByLabelText("地址 1")).toBeInTheDocument();
   });
+
+  it("白名单容器带 data-field 标注（focusFirstInvalidField 定位依赖）", () => {
+    const { container } = render(
+      <Harness values={EMPTY_SETTINGS} formRef={{ current: null }}>
+        <RemoteAccessCard />
+      </Harness>,
+    );
+    expect(
+      container.querySelector('[data-field="tunnelServeAllow"]'),
+    ).not.toBeNull();
+  });
 });

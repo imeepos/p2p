@@ -67,7 +67,8 @@ export function AddressListEditor<T extends FieldValues>({
   };
 
   return (
-    <div className="flex flex-col gap-2">
+    // data-field 供 focusFirstInvalidField 定位（`[data-field="name"] input`）
+    <div className="flex flex-col gap-2" data-field={name}>
       <div className="flex flex-col gap-0.5">
         <Label>{label}</Label>
         {hint ? <p className="text-muted-foreground text-xs">{hint}</p> : null}

@@ -6,10 +6,15 @@ const configGetMock = vi.fn(async () => ({
   quicPort: 3400, tcpPort: 3401, enableMdns: true, dataDir: "/tmp",
   bootstrap: [], relayAddrs: [], advertisedAddrs: [],
   observationPort: null, observationAddrs: [],
+  // schema 演进新增字段：缺了会让配置加载校验失败、分节不挂载（存量红根因）
+  lanOnly: false, authzDefaultRole: "friend",
+  rdRequireApproval: true, rdFps: 15, tunnelServeAllow: [],
 }));
 vi.mock("@/lib/ipc", () => ({
   ipc: {
     configGet: () => configGetMock(),
+    // W2b：设置页加载 = configGet + ftpConfigGet 双读，缺 ftp 面会 TypeError
+    ftpConfigGet: vi.fn(async () => ({ root: "", authz: false, users: [] })),
     configSave: vi.fn(async (cfg: unknown) => cfg),
     profileGet: vi.fn(async () => ({ name: "", description: "", avatar: null })),
     profileSave: vi.fn(async (p: unknown) => p),
@@ -69,7 +74,9 @@ describe("编辑面路由守卫注册", () => {
         </MemoryRouter>
       </ConfirmProvider>,
     );
-    await screen.findByText("局域网发现（mDNS）");
+    // 等设置页渲染完成：以现存字段标签为就绪标记（旧「局域网发现（mDNS）」
+    // 文案已随分节改版移除，settings 全树无此串）。
+    await screen.findByText("QUIC 端口");
     const quic = document.getElementById("settings-quic-port") as HTMLInputElement;
     fireEvent.change(quic, { target: { value: "3401" } });
     expect(hasAnyUnsaved()).toBe(true);

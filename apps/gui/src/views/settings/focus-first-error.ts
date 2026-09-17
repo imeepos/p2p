@@ -3,6 +3,8 @@ import type { FieldErrors } from "react-hook-form";
 import type { SettingsFormValues } from "./config-schema";
 
 // 字段顺序与 config-schema 的表单结构一致：取「第一个错误」按此优先级。
+// remote-access 三字段必须在内：否则 rdFps/tunnelServeAllow 独 examples
+// 非法时 invalidFields 计 0，跨节「保存」零反馈静默失败（P0 口径）。
 const FIELD_ORDER: Array<keyof SettingsFormValues> = [
   "quicPort",
   "tcpPort",
@@ -13,6 +15,9 @@ const FIELD_ORDER: Array<keyof SettingsFormValues> = [
   "observationAddrs",
   "ftpRoot",
   "ftpAccounts",
+  "rdRequireApproval",
+  "rdFps",
+  "tunnelServeAllow",
 ];
 
 // DOM 定位：端口/开关用既有字段 id；地址列表由所在卡以 data-field 标注容器。
@@ -27,6 +32,9 @@ const FIELD_SELECTORS: Partial<Record<keyof SettingsFormValues, string>> = {
   observationAddrs: '[data-field="observationAddrs"] input',
   ftpRoot: "#settings-ftp-root",
   ftpAccounts: '[data-field="ftpAccounts"] input',
+  rdRequireApproval: "#settings-rd-approval",
+  rdFps: "#settings-rd-fps",
+  tunnelServeAllow: '[data-field="tunnelServeAllow"] input',
 };
 
 // 校验失败可见化：统计错误字段数，滚动并聚焦第一个错误字段。
