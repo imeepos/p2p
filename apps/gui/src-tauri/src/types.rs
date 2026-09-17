@@ -50,6 +50,19 @@ pub struct GuiConfig {
     /// 缺省 "friend"，空串 = 禁用自动绑。CLI 同名同文件消费（§18.3）。
     #[serde(default = "crate::config::default_authz_default_role")]
     pub authz_default_role: String,
+    /// 远程桌面审批闸缺省（CC2）：true 时新 viewer 会话需审批；rd_host_start
+    /// 未显式指定时取本值，显式参数为运行态覆盖。缺省 true 零行为变化。
+    #[serde(default = "crate::config::default_rd_require_approval")]
+    pub rd_require_approval: bool,
+    /// 远程桌面初始质量档 fps（合法域 1..=60，CC2）：rd host 装配为初始档位，
+    /// 质量协商可运行期覆盖。缺省 15 零行为变化。
+    #[serde(default = "crate::config::default_rd_fps")]
+    pub rd_fps: u8,
+    /// tunnel 被访侧 serve 白名单（"127.0.0.1:<port>" 字面量，CC2）：
+    /// serve 受理目标写通持久化，重启装配恢复展示（开关仍回落关闭）。
+    /// 缺省空零行为变化。
+    #[serde(default)]
+    pub tunnel_serve_allow: Vec<String>,
 }
 
 /// 节点状态快照（契约 §3 NodeStatus）。

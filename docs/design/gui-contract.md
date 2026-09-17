@@ -63,6 +63,9 @@ interface GuiConfig {
   advertisedAddrs: string[];
   observationPort: number | null;
   observationAddrs: string[];  // 观测反射端点（socket 语法 ip:port），如 "121.196.193.177:3402"
+  rdRequireApproval: boolean;  // 远程桌面审批闸缺省，缺省 true；rd_host_start 未显式指定时取本值，显式参数为运行态覆盖
+  rdFps: number;               // 远程桌面初始质量档 fps（合法域 1..=60），缺省 15；host 装配生效，质量协商可运行期覆盖
+  tunnelServeAllow: string[];  // tunnel serve 白名单（"127.0.0.1:<port>" 字面量），缺省空；serve 受理目标写通持久化，重启恢复展示（开关仍回落关闭）
 }
 
 // 空列表语义：bootstrap/relayAddrs/observationAddrs 为空时，节点装配回落

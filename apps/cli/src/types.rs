@@ -29,6 +29,16 @@ pub fn default_authz_default_role() -> String {
     "friend".to_owned()
 }
 
+/// 出厂默认远程桌面审批闸（CC2：缺省开，零行为变化）。
+pub fn default_rd_require_approval() -> bool {
+    true
+}
+
+/// 出厂默认远程桌面初始质量档（CC2：合法域 1..=60，缺省 15）。
+pub fn default_rd_fps() -> u8 {
+    15
+}
+
 /// 节点启停配置（契约 §3 GuiConfig）。
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -58,6 +68,15 @@ pub struct GuiConfig {
     /// GUI 侧类型尚未含此字段（S3 接入），serde default 保证旧配置文件可读。
     #[serde(default = "default_authz_default_role")]
     pub authz_default_role: String,
+    /// 远程桌面审批闸缺省（CC2）：rd_host_start 未显式指定时取本值。
+    #[serde(default = "default_rd_require_approval")]
+    pub rd_require_approval: bool,
+    /// 远程桌面初始质量档 fps（合法域 1..=60）；缺省 15 零行为变化。
+    #[serde(default = "default_rd_fps")]
+    pub rd_fps: u8,
+    /// tunnel serve 白名单（"127.0.0.1:<port>" 字面量）；GUI 写通，CLI 读同文件。
+    #[serde(default)]
+    pub tunnel_serve_allow: Vec<String>,
 }
 
 fn default_true() -> bool {
@@ -78,6 +97,9 @@ impl Default for GuiConfig {
             observation_addrs: default_observation_addrs(),
             lan_only: false,
             authz_default_role: default_authz_default_role(),
+            rd_require_approval: default_rd_require_approval(),
+            rd_fps: default_rd_fps(),
+            tunnel_serve_allow: Vec::new(),
         }
     }
 }
@@ -198,6 +220,9 @@ mod tests {
         assert_eq!(cfg.bootstrap, default_bootstrap());
         assert_eq!(cfg.relay_addrs, default_relay_addrs());
         assert_eq!(cfg.observation_addrs, default_observation_addrs());
+        assert!(cfg.rd_require_approval, "CC2 缺省 true");
+        assert_eq!(cfg.rd_fps, 15, "CC2 缺省 15");
+        assert!(cfg.tunnel_serve_allow.is_empty(), "CC2 缺省空");
     }
 
     #[test]
@@ -209,6 +234,35 @@ mod tests {
         let json = serde_json::to_value(GuiConfig::default()).unwrap();
         assert!(json.get("quicPort").is_some());
         assert!(json.get("relayAddrs").is_some());
+        assert!(json.get("rdRequireApproval").is_some(), "CC2 camelCase 键");
+        assert!(json.get("rdFps").is_some());
+        assert!(json.get("tunnelServeAllow").is_some());
+    }
+
+    /// CC2：三字段缺省 true/15/空（旧配置零行为变化）；显式值 camelCase 往返保真。
+    #[test]
+    fn config_rd_tunnel_fields_default_and_roundtrip() {
+        let cfg: GuiConfig = serde_json::from_str("{}").unwrap();
+        assert!(cfg.rd_require_approval);
+        assert_eq!(cfg.rd_fps, 15);
+        assert!(cfg.tunnel_serve_allow.is_empty());
+        let json = serde_json::to_value(&GuiConfig {
+            rd_require_approval: false,
+            rd_fps: 60,
+            tunnel_serve_allow: vec!["127.0.0.1:5900".into()],
+            ..GuiConfig::default()
+        })
+        .unwrap();
+        assert_eq!(json["rdRequireApproval"], serde_json::json!(false));
+        assert_eq!(json["rdFps"], serde_json::json!(60));
+        assert_eq!(
+            json["tunnelServeAllow"],
+            serde_json::json!(["127.0.0.1:5900"])
+        );
+        let back: GuiConfig = serde_json::from_value(json).unwrap();
+        assert!(!back.rd_require_approval, "显式值不被默认覆盖");
+        assert_eq!(back.rd_fps, 60);
+        assert_eq!(back.tunnel_serve_allow, vec!["127.0.0.1:5900".to_owned()]);
     }
 
     #[test]

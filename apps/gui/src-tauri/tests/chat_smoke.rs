@@ -46,6 +46,9 @@ fn offline_config(dir: &std::path::Path) -> GuiConfig {
         observation_addrs: Vec::new(),
         lan_only: false,
         authz_default_role: "friend".into(),
+        rd_require_approval: true,
+        rd_fps: 15,
+        tunnel_serve_allow: Vec::new(),
     }
 }
 

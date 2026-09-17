@@ -30,5 +30,8 @@ pub(crate) fn sample_config() -> GuiConfig {
         observation_addrs: vec!["1.2.3.4:3402".into()],
         lan_only: false,
         authz_default_role: "operator".into(),
+        rd_require_approval: false,
+        rd_fps: 30,
+        tunnel_serve_allow: vec!["127.0.0.1:5900".into()],
     }
 }

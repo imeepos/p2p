@@ -30,6 +30,9 @@ fn loopback_config(dir: &Path) -> GuiConfig {
         observation_addrs: vec!["127.0.0.1:3402".into()],
         lan_only: false,
         authz_default_role: "friend".into(),
+        rd_require_approval: true,
+        rd_fps: 15,
+        tunnel_serve_allow: Vec::new(),
     }
 }
 

@@ -4,46 +4,41 @@ use super::testing::{roundtrip, sample_config};
 use super::{DialHopJson, DialReport, GuiConfig, HopKind, MetricsJson, NodeStatus, PingOutcome};
 use serde_json::{json, Value};
 
+/// 与 sample_config() 逐字段对应的契约 JSON（camelCase）；字段增补同步此处。
+fn sample_json() -> Value {
+    json!({
+        "quicPort": 3400,
+        "tcpPort": 3401,
+        "enableMdns": true,
+        "dataDir": "/data/p2p-data",
+        "bootstrap": ["1.2.3.4/u3400", "1.2.3.4/t3401"],
+        "relayAddrs": ["5.6.7.8/u3400"],
+        "advertisedAddrs": ["9.9.9.9/u4000"],
+        "observationPort": 3402,
+        "observationAddrs": ["1.2.3.4:3402"],
+        "lanOnly": false,
+        "authzDefaultRole": "operator",
+        "rdRequireApproval": false,
+        "rdFps": 30,
+        "tunnelServeAllow": ["127.0.0.1:5900"],
+    })
+}
+
 #[test]
 fn gui_config_camel_case_roundtrip() {
-    roundtrip(
-        &sample_config(),
-        json!({
-            "quicPort": 3400,
-            "tcpPort": 3401,
-            "enableMdns": true,
-            "dataDir": "/data/p2p-data",
-            "bootstrap": ["1.2.3.4/u3400", "1.2.3.4/t3401"],
-            "relayAddrs": ["5.6.7.8/u3400"],
-            "advertisedAddrs": ["9.9.9.9/u4000"],
-            "observationPort": 3402,
-            "observationAddrs": ["1.2.3.4:3402"],
-            "lanOnly": false,
-            "authzDefaultRole": "operator",
-        }),
-    );
+    roundtrip(&sample_config(), sample_json());
 }
 
 #[test]
 fn gui_config_optional_port_null_roundtrip() {
+    let mut raw = sample_json();
+    raw["observationPort"] = Value::Null;
     roundtrip(
         &GuiConfig {
             observation_port: None,
             ..sample_config()
         },
-        json!({
-            "quicPort": 3400,
-            "tcpPort": 3401,
-            "enableMdns": true,
-            "dataDir": "/data/p2p-data",
-            "bootstrap": ["1.2.3.4/u3400", "1.2.3.4/t3401"],
-            "relayAddrs": ["5.6.7.8/u3400"],
-            "advertisedAddrs": ["9.9.9.9/u4000"],
-            "observationPort": null,
-            "observationAddrs": ["1.2.3.4:3402"],
-            "lanOnly": false,
-            "authzDefaultRole": "operator",
-        }),
+        raw,
     );
 }
 
@@ -83,24 +78,35 @@ fn gui_config_lan_only_defaults_false_and_roundtrips() {
     .expect("旧版配置（无 lanOnly 字段）可读");
     assert!(!cfg.lan_only, "缺字段补缺省 false：升级零行为变化");
 
+    let mut raw = sample_json();
+    raw["lanOnly"] = json!(true);
     roundtrip(
         &GuiConfig {
             lan_only: true,
             ..sample_config()
         },
-        json!({
-            "quicPort": 3400,
-            "tcpPort": 3401,
-            "enableMdns": true,
-            "dataDir": "/data/p2p-data",
-            "bootstrap": ["1.2.3.4/u3400", "1.2.3.4/t3401"],
-            "relayAddrs": ["5.6.7.8/u3400"],
-            "advertisedAddrs": ["9.9.9.9/u4000"],
-            "observationPort": 3402,
-            "observationAddrs": ["1.2.3.4:3402"],
-            "lanOnly": true,
-            "authzDefaultRole": "operator",
-        }),
+        raw,
+    );
+}
+
+/// CC2 三字段：缺省 true/15/空（旧配置零行为变化）；显式值 camelCase 往返保真。
+#[test]
+fn gui_config_rd_tunnel_fields_default_and_roundtrip() {
+    let cfg: GuiConfig = serde_json::from_value(json!({})).unwrap();
+    assert!(cfg.rd_require_approval, "缺省 true：审批闸零行为变化");
+    assert_eq!(cfg.rd_fps, 15, "缺省 15：初始质量档零行为变化");
+    assert!(cfg.tunnel_serve_allow.is_empty(), "缺省空：白名单零行为变化");
+
+    let mut raw = sample_json();
+    raw["rdFps"] = json!(60);
+    raw["tunnelServeAllow"] = json!(["127.0.0.1:3389", "127.0.0.1:5900"]);
+    roundtrip(
+        &GuiConfig {
+            rd_fps: 60,
+            tunnel_serve_allow: vec!["127.0.0.1:3389".into(), "127.0.0.1:5900".into()],
+            ..sample_config()
+        },
+        raw,
     );
 }
 
