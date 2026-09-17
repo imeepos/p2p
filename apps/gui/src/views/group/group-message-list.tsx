@@ -4,12 +4,13 @@ import { useTranslation } from "react-i18next";
 
 import { AsyncButton } from "@/components/feedback/async-button";
 import { toastError } from "@/components/feedback/toast";
-import { LoadingHistoryHint } from "@/components/chat/history-notices";
+import { LoadingHistoryHint, OlderErrorBanner } from "@/components/chat/history-notices";
 import { MESSAGE_VIRTUAL_THRESHOLD } from "@/components/chat/message-list";
 import type { BubbleAvatar } from "@/components/chat/message-bubble";
 import type { ChatFriendJson, ChatMessageJson, GroupMessageJson } from "@/lib/ipc-types";
 import { errorText } from "@/views/shared/form-flow";
 import { EmptyState } from "@/views/shared/empty-state";
+import { useGroupStore } from "@/stores/group-store";
 
 import { GroupMessageRow } from "./group-bubble-item";
 import { toBubbleMessage } from "./group-names";
@@ -65,6 +66,10 @@ export function GroupMessageList({
   const lastScrollHeightRef = useRef(0);
   const highlightTimerRef = useRef<number | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  // 向上翻页失败必须可见可重试（与 1:1 MessageList 同款 OlderErrorBanner）；
+  // store 的 olderError 按群分桶，重试直接走 loadOlder(groupId)。
+  const olderError = useGroupStore((s) => s.olderError[groupId] ?? null);
+  const loadOlder = useGroupStore((s) => s.loadOlder);
 
   const virtual = messages.length > MESSAGE_VIRTUAL_THRESHOLD;
 
@@ -153,6 +158,8 @@ export function GroupMessageList({
         loadingOlder={loadingOlder}
         hasMore={hasMore}
         onLoadOlder={onLoadOlder}
+        olderError={olderError}
+        onRetryOlder={() => loadOlder(groupId)}
         onCancelPending={onCancelPending}
         onReply={onReply}
         onRetry={onRetry}
@@ -198,6 +205,12 @@ export function GroupMessageList({
         </div>
       ) : null}
       {loadingOlder ? <LoadingHistoryHint /> : null}
+      {olderError ? (
+        <OlderErrorBanner
+          detail={olderError}
+          onRetry={() => loadOlder(groupId)}
+        />
+      ) : null}
       {!loadingOlder && !historyError && messages.length === 0 ? (
         <div className="flex h-full items-center justify-center">
           <EmptyState icon={MessagesSquare} title={t("chat.noMessages")} />

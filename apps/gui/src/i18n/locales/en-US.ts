@@ -681,6 +681,8 @@ const enUS: typeof zhCN = {
       inviteSelected: "{{count}} selected",
       inviteOverCap: "Over the cap: {{count}} members now, max {{max}}",
       inviteSubmit: "Invite",
+      inviteSubmitting: "Inviting…",
+      inviteDone: "Invite sent; waiting for the members to accept",
       inviteFailed: "Invite failed: ",
       leaveAction: "Leave group",
       leaveConfirmTitle: "Leave group",

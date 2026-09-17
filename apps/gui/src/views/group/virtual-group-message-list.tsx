@@ -20,6 +20,9 @@ export interface VirtualGroupMessageListProps {
   loadingOlder: boolean;
   hasMore: boolean;
   onLoadOlder: () => void;
+  /** 向上翻页失败横幅（1:1 MessageList 同款）：不传则失败静默 */
+  olderError?: string | null;
+  onRetryOlder?: () => Promise<unknown>;
   onCancelPending: (messageId: string) => void;
   onReply?: (message: GroupMessageJson) => void;
   onRetry?: (message: GroupMessageJson) => void;
@@ -39,6 +42,8 @@ export function VirtualGroupMessageList({
   loadingOlder,
   hasMore,
   onLoadOlder,
+  olderError,
+  onRetryOlder,
   onCancelPending,
   onReply,
   onRetry,
@@ -61,6 +66,8 @@ export function VirtualGroupMessageList({
       canLoadOlder={hasMore}
       loadingOlder={loadingOlder}
       onTopReached={onLoadOlder}
+      olderError={olderError}
+      onRetryOlder={onRetryOlder}
       highlightId={highlightId}
       renderItem={(message, prev, highlighted) => (
         <GroupMessageRow

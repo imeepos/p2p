@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 import { AsyncButton } from "@/components/feedback/async-button";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -121,9 +122,10 @@ export function GroupInviteDialog({ target, onOpenChange }: GroupInviteDialogPro
               testId="group-invite-dialog-note"
             />
             {error ? (
-              <p className="text-destructive text-xs" role="alert" data-testid="group-invite-dialog-error">
-                {error}
-              </p>
+              <CommandErrorText
+                message={error}
+                testId="group-invite-dialog-error"
+              />
             ) : null}
           </div>
           <div className="mt-2 flex items-center justify-end gap-2">

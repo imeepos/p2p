@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { CommandErrorText } from "@/components/feedback/command-error";
+import { toastSuccess } from "@/components/feedback/toast";
 import { EntityMultiSelect, shortPeerId, type PickerOption } from "@/components/picker";
 import { MAX_GROUP_MEMBERS } from "@/lib/chat-limits";
 import { useGroupStore } from "@/stores/group-store";
@@ -48,6 +49,8 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
     setCommandError(null);
     try {
       await invite(group.groupId, selected);
+      // 对方接受前成员数不变：无成功提示则发送不可感知
+      toastSuccess(t("group.manage.inviteDone"));
       onDone();
     } catch (error) {
       console.error("[group] 邀请成员失败", error);
@@ -93,7 +96,7 @@ export function GroupInvitePicker({ group, onDone }: GroupInvitePickerProps) {
           disabled={!canSubmit}
           data-testid="group-invite-submit"
         >
-          {t("group.manage.inviteSubmit")}
+          {submitting ? t("group.manage.inviteSubmitting") : t("group.manage.inviteSubmit")}
         </Button>
       </div>
       {commandError ? (

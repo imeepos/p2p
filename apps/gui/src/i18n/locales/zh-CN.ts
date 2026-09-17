@@ -665,6 +665,8 @@ const zhCN = {
       inviteSelected: "已选 {{count}} 人",
       inviteOverCap: "已超上限：现有 {{count}} 人，最多 {{max}} 人",
       inviteSubmit: "邀请",
+      inviteSubmitting: "邀请中…",
+      inviteDone: "邀请已发送，等待对方同意",
       inviteFailed: "邀请失败：",
       leaveAction: "退出群聊",
       leaveConfirmTitle: "退出群聊",

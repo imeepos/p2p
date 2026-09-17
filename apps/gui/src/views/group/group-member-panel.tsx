@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useConfirm } from "@/components/feedback/confirm-provider";
+import { CommandErrorText } from "@/components/feedback/command-error";
 import { toastSuccess } from "@/components/feedback/toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -167,9 +168,10 @@ export function GroupMemberPanel({ group, open, onOpenChange }: GroupMemberPanel
             ))}
           </div>
           {commandError ? (
-            <p className="text-destructive text-xs" role="alert" data-testid="group-panel-error">
-              {commandError}
-            </p>
+            <CommandErrorText
+              message={commandError}
+              testId="group-panel-error"
+            />
           ) : null}
         </div>
         <MemberPanelFooter
