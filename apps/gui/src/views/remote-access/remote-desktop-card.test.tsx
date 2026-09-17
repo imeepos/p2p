@@ -46,9 +46,11 @@ const keyMock = vi.fn(
   async (_code: number, _down: boolean, _mods: number) => true,
 );
 const resetKeysMock = vi.fn(async () => true);
+const configGetMock = vi.fn();
 
 vi.mock("@/lib/ipc", () => ({
   ipc: {
+    configGet: () => configGetMock(),
     rdHostStart: (requireApproval: boolean) => startMock(requireApproval),
     rdHostStop: () => stopMock(),
     rdHostStatus: () => statusMock(),
@@ -125,6 +127,8 @@ function idleModel(): UseRdPageModel {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // 默认无契约字段：卡片初值回退内置 true/15（既有断言口径不变）。
+  configGetMock.mockResolvedValue({});
 });
 
 describe("RemoteDesktopCard", () => {
@@ -218,5 +222,27 @@ describe("RemoteDesktopCard", () => {
     fireEvent.blur(canvas);
     await waitFor(() => expect(resetKeysMock).toHaveBeenCalled());
     unmount();
+  });
+});
+
+describe("RemoteDesktopCard 配置默认值（config-centralization W1）", () => {
+  it("挂载读配置：approvalOn/fps 取 rdRequireApproval/rdFps", async () => {
+    configGetMock.mockResolvedValue({ rdRequireApproval: false, rdFps: 30 });
+    render(<RemoteDesktopCard model={idleModel()} />);
+    const fpsInput = screen.getByLabelText("帧率（fps）") as HTMLInputElement;
+    await waitFor(() => expect(fpsInput.value).toBe("30"));
+    expect(
+      screen.getByRole("switch", { name: "新会话需审批" }),
+    ).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("配置字段缺省回退内置 true/15", async () => {
+    render(<RemoteDesktopCard model={idleModel()} />);
+    await waitFor(() => expect(configGetMock).toHaveBeenCalled());
+    const fpsInput = screen.getByLabelText("帧率（fps）") as HTMLInputElement;
+    expect(fpsInput.value).toBe("15");
+    expect(
+      screen.getByRole("switch", { name: "新会话需审批" }),
+    ).toHaveAttribute("aria-checked", "true");
   });
 });

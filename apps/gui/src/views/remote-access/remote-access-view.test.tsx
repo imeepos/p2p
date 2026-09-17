@@ -62,6 +62,7 @@ function idleStatus(): TunnelStatusReport {
 
 vi.mock("@/lib/ipc", () => ({
   ipc: {
+    configGet: async () => ({}),
     tunnelStatus: () => statusMock(),
     tunnelOpenDsh: (url?: string, peer?: string) => openMock(url, peer),
     onTunnelStatus: (h?: (s: unknown) => void) => onTunnelStatusMock(h),

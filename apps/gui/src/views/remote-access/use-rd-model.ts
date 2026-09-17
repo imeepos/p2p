@@ -15,6 +15,38 @@ const IDLE_HOST: RdHostStatus = {
 };
 const IDLE_VIEWER: RdViewerStatus = { connected: false, sessionId: null };
 
+// 卡片运行态设置（config-centralization W1）：初值内置 true/15，挂载读
+// GuiConfig 默认覆盖一次（缺省/读失败回退内置值，读失败留 error 日志）；
+// 之后业务卡可临时改，随 startHost/rdQualitySet 按原语义下发。
+export function useRdCardSettings() {
+  const [settings, setSettings] = useState({ approvalOn: true, fps: 15 });
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const config = await ipc.configGet();
+        if (!alive) return;
+        setSettings({
+          approvalOn: config.rdRequireApproval ?? true,
+          fps: config.rdFps ?? 15,
+        });
+      } catch (error) {
+        console.error("[rd] 配置默认值读取失败，回退内置缺省 true/15", error);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return {
+    approvalOn: settings.approvalOn,
+    fps: settings.fps,
+    setApproval: (approvalOn: boolean) =>
+      setSettings((prev) => ({ ...prev, approvalOn })),
+    setFps: (fps: number) => setSettings((prev) => ({ ...prev, fps })),
+  };
+}
+
 // 远程桌面页状态模型（gui-contract §21）：host/审批/质量/viewer 命令面快照同步。
 // 节点未运行一律显式告警（不静默）；动作期 busy 防重入。
 export function useRdPageModel() {

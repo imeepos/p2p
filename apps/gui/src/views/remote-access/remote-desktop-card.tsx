@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 import type { UseRdPageModel } from "./use-rd-model";
+import { useRdCardSettings } from "./use-rd-model";
 import { RdFrameCanvas } from "./rd-frame-canvas";
 
 interface Props {
@@ -22,11 +23,12 @@ interface Props {
 }
 
 // 远程桌面卡（gui-contract §21）：被控端开关/审批队列 + 控制端连接 + 质量。
+// 开关/帧率初值读设置页持久默认（useRdCardSettings），本卡仍可临时改并
+// 随 startHost/rdQualitySet 下发（运行态覆盖能力保留）。
 export function RemoteDesktopCard({ model }: Props) {
   const { t } = useTranslation();
-  const [approvalOn, setApprovalOn] = useState(true);
+  const settings = useRdCardSettings();
   const [peer, setPeer] = useState("");
-  const [fps, setFps] = useState(15);
 
   return (
     <Card className="col-span-12 lg:col-span-6">
@@ -62,15 +64,15 @@ export function RemoteDesktopCard({ model }: Props) {
             </Label>
             <Switch
               id="rd-approval"
-              checked={approvalOn}
-              onCheckedChange={setApprovalOn}
+              checked={settings.approvalOn}
+              onCheckedChange={settings.setApproval}
             />
           </div>
           <div className="flex gap-2">
             <Button
               className="flex-1"
               disabled={model.busy === "start" || model.host.running}
-              onClick={() => void model.startHost(approvalOn)}
+              onClick={() => void model.startHost(settings.approvalOn)}
             >
               {model.busy === "start"
                 ? t("remoteAccess.rd.host.starting")
@@ -144,14 +146,14 @@ export function RemoteDesktopCard({ model }: Props) {
               type="number"
               min={1}
               max={60}
-              value={fps}
-              onChange={(event) => setFps(Number(event.target.value))}
+              value={settings.fps}
+              onChange={(event) => settings.setFps(Number(event.target.value))}
               className="w-24"
             />
             <Button
               variant="outline"
               disabled={!model.host.running}
-              onClick={() => void model.setQuality(fps)}
+              onClick={() => void model.setQuality(settings.fps)}
             >
               {t("remoteAccess.rd.quality.title")}
             </Button>
