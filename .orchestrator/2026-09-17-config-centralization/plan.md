@@ -87,3 +87,4 @@ authzDefaultRole 空串=禁用自动绑。业务页既有入口**保留**（删�
 - 2026-09-17 13:38 派发 CC3 frontend → session-7f25ec80-4761-4f50-916c-656e0427d6eb（feat/cc3-front，apps/gui/src scope，W2a 入口归拢）。五问：已派发待汇报；下一步=主会话验收（必核硬编码扫描单测证据）→ 合并 → 统一门禁。
 - 2026-09-17 23:23 CC3 合并（361d803b）+ 统一门禁 check-fast PASS → W2a 收官（origin/main 同步）。W2b 等用户 A/B 裁决（备忘录在案），W3 触发=W2 全清。CC3 会话归档，scope 释放。
 - 2026-09-17 14:33 用户裁决=A；W2b 锁定并并行派发 CC4/CC5。
+- 2026-09-17 14:36 派发 CC4 backend → session-d1297c2d-04a3-48cb-bc80-6697dbc208ff（feat/cc4-rust，src-tauri/cli/p2p 声明式范围）与 CC5 frontend → session-7c21d62d-f55e-415a-b4a0-c8d5e480bd43（feat/cc5-front，apps/gui/src）。风险分级=凭据/暴露面：合并前主会话亲自核证据（密码不回显/0600/原子写），必要时加派只读评审。五问：均已派发待汇报。
