@@ -105,3 +105,8 @@ rd_viewer_status	exempt		GUI 会话态快照，CLI 无常驻 viewer 实例可查
 rd_input_mouse	exempt		GUI canvas 鼠标事件经活跃 viewer 控制通道下发，CLI 无画布交互面（rd probe 仅握手）
 rd_input_key	exempt		GUI canvas 键盘事件同上；键码/修饰位语义见 rd-control.md 消息表
 rd_input_key_reset	exempt		GUI 画布失焦/断连护栏（释放 host 侧滞留按键），CLI 无对等交互面
+ftp_config_get	exempt		本机文件管理面：读写 app 数据目录 ftp.json（设置页 FTP 卡）；CLI 对等 = 手改 json，p2pctl ftp 仅有运行态子命令不含配置管理
+ftp_config_save	exempt		同 ftp_config_get：本机文件管理面（整表替换/空密码保留/0600 原子写），CLI 对等 = 手改 json
+static_peers_list	exempt		本机文件管理面：读 static-peers.json 静态对端簿；CLI 对等 = 手改 json（装配消费在 p2p NodeBuilder.static_peers_file，CLI 无簿管理子命令）
+static_peers_upsert	exempt		本机文件管理面：按 peerId 去重登记 static-peers.json；CLI 对等 = 手改 json
+static_peers_remove	exempt		本机文件管理面：幂等移除 static-peers.json 条目；CLI 对等 = 手改 json

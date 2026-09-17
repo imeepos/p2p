@@ -97,6 +97,35 @@ interface PingOutcome { ok: boolean; rttMs: number | null; hops: DialHopJson[]; 
 interface MetricsPoint { tMs: number; activeConnections: number; relaySessionsActive: number; dialOkTotal: number; dialFailTotal: number }
 ```
 
+### 3.1 本机服务配置面（W2b/CC4 加法，2026-09-17）
+
+设置页直管两个本机配置文件：`ftp.json`（FTP 服务端）与 `static-peers.json`（静态对端簿）。
+文件位置 = app 数据目录（与 services.json/authz §18 同根口径）；命令名 snake_case、参数
+camelCase（CLI 命令命名惯例，前端 ipc.ts 类型化封装同 §5）。ftp.json 的 serde 形状与
+apps/cli `FtpDaemonConfig` 逐字一致（root/accounts/authz，bin crate 不可依赖故镜像定义）；
+static-peers.json 复用 p2p crate `static_peers::StaticPeersFile` 持久化原语（0600、
+tmp+rename、按 peerId 去重）。
+
+| 命令 | 签名 | 语义 |
+|---|---|---|
+| ftp_config_get | `() => { root: string; authz: boolean; users: string[] }` | users 仅用户名按字典序，**密码不回显**；文件缺失/损坏回空值（root:"", authz:false, users:[]）并 warn 不静默 |
+| ftp_config_save | `(root: string, authz: boolean, accounts: Record<string,string>) => boolean` | 整表替换（不在入参内的用户即删除）；accounts 中空密码 = 保留该用户现有密码，新账号空密码显式 Err；写盘原子（tmp+rename）且 0600 |
+| static_peers_list | `() => { peers: { peerId: string; addrs: string[]; note: string }[] }` | 文件缺失 = 空册；损坏 = 显式 Err 不静默 |
+| static_peers_upsert | `(peerId: string, addrs: string[], note: string) => boolean` | 按 peerId 去重覆盖并整册落盘（0600）；空 peerId 显式 Err |
+| static_peers_remove | `(peerId: string) => boolean` | 幂等：条目不存在亦成功 |
+
+效果语义（2026-09-17 查证，两文件均**节点/daemon 重启生效**，无 live reload）：
+
+- `ftp.json`：消费方 = CLI daemon 启动装配（apps/cli `ftp_serve::maybe_serve`，services.json
+  serve.ftp 开关 AND 文件有效双条件；缺失/损坏 fail-safe 跳过装配留告警）。GUI 节点不装配
+  FTP 服务端，命令面纯文件读写不触运行中节点 → 修改后**下次 daemon 启动生效**。
+- `static-peers.json`：消费方 = p2p 装配层（`NodeBuilder.static_peers_file` 装配时载入为
+  Manual 来源地址簿；运行期另有 `Node::upsert_static_peer` live 登记路径，本命令面不走）。
+  命令面只触文件不触 Node → 修改后**下次节点装配生效**。如实标注：GUI/CLI 节点装配当前
+  均未接线 `static_peers_file`，接线前修改仅落盘（装配接线属装配面独立任务，不在本命令面）。
+- 凭据纪律：ftp 账号密码明文 0600 落盘（不加密存储为现状保持，加密属后续独立决策）；
+  密码不进任何 IPC 返回与日志。
+
 ## 4. tauri.conf.json 关键约定（A 侧遵守，B 侧依赖）
 
 - productName: `p2p-console`；identifier: `com.p2p.console`；
