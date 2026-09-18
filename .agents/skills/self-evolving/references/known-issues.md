@@ -768,3 +768,11 @@ failed: early eof（客户端侧超时中止）。
 - 原因：vi.mock/hoisted 的 mock 是模块级单例，vitest 文件内用例共享同一实例；mockReset/mockClear 只在显式 beforeEach 调用时生效，Once 队列里未消费的桩会泄漏给后续用例，而 mockResolvedValue 只改默认实现不清 Once。
 - 修法：凡 vi.mock + mockResolvedValueOnce 混用的测试文件，beforeEach 一律 `xxxMock.mockReset().mockResolvedValue(默认)` 三连重置；「先桩后动作」（注册 Once 在触发事件的 click 之前）消除回读竞态。
 - 2026-09-13 前后观察，2026-09-18 复现处置：全量 `make check` 中 p2p-itest 的 rd_video_wave 偶发 SIGSEGV（signal 11），单独重跑 `cargo test -p p2p-itest --test rd_video_wave` 即 3/3 通过——系并发集成测试的端口/资源竞争，非代码回归。处置路径：先单测复跑定性为 flaky，再整跑 make check 取干净绿，勿直接怀疑当次前端/文档改动（GUI 与 Rust itest 无依赖图关系）。
+
+## 2026-09-18 公网反代 dsh web：/api 全 403（Host/Origin 必须双写，且禁走 --trusted-host 重启）
+- 场景：本机 dsh web（127.0.0.1:3081，launchd `com.imeepos.dsh016-clean-web`，KeepAlive）经反向隧道（138:127.0.0.1:13081）+ 138 nginx 暴露为 `https://43.240.223.138:8446/`。
+- 症状：首页能开，/api 一律 403；或首访 `/?token=` 303 给了 cookie 之后仍 403。
+- 原因：`dsh-client-connection` 的 `isTrustedApiRequest` 只放行 loopback 主机名或 `--trusted-host` 声明的 authority；且浏览器会话 cookie 名（`dsh-auth-<sha256(authority)>`）与签名 audience 都取自请求 Host authority。用新 authority 直连时两道都不满足。
+- 修法：边缘 nginx 固定重写两条请求头——`proxy_set_header Host 192.168.0.15:8446;`（实例已声明的 authority）与 `proxy_set_header Origin https://192.168.0.15:8446;`。只改 Host 会在 `new URL(origin).host === hostUrl.host` 处继续 403；`Set-Cookie` 里的 authority 字段应与重写值一致（本例 `192.168.0.15:8446`）。
+- 三段对照验收（curl，缺一不可）：带 cookie + 同源 Origin 应 404/200（说明过了 fence，404 只是路由不存在），伪造 `Sec-Fetch-Site: cross-site` 应 403，无 cookie 应 401；再接一个真实 `/plugins/??...` 资源 200 才算链路通。
+- 禁令：给 dsh web 追加 `--trusted-host` 必须重启该进程，而它正是当前会话的宿主——自己的回合里重启等于自杀（在飞回合与本次会话一起丢）。必须走边缘重写，改动留在 nginx 侧。

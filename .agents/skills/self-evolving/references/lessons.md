@@ -542,3 +542,4 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - RHF array-of-object 行级校验消息在 errors.<i>.value.message（不是 errors.<i>.message）：行编辑器渲染必须读 .value 路径，测试断言行级红字要按真实路径。
 - mock 层中文错误文案沿 lib 豁免先例合法（hardcoded-copy 只扫 components/views/routes/hooks/config/theme/acp）。
 - 2026-09-18 rail 收敛任务：menu.def.ts 注释声称「顶栏铃铛保留为快捷方式」（F15），grep 全库发现铃铛组件已不存在、messages.badgeAria 仅 rail 在用。教训：向用户承诺某 UI 兜底行为前，必须 grep 证明该 UI 元素真实存在——注释是历史快照不是现状，腐烂的注释比没有注释更误导。
+- 2026-09-18：要让 dsh web 从新的公网 authority 可访问，别在实例侧加 `--trusted-host`（重启 web 进程＝杀掉正在跑的会话，而它通常就是你的宿主），改在边缘反代固定重写 Host+Origin 到实例已声明的 authority；判断「fence 是否透传成功」用三段对照（同源 404/200、cross-site 403、无 cookie 401），别靠 403/401 猜。
