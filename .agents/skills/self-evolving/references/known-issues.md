@@ -767,3 +767,4 @@ failed: early eof（客户端侧超时中止）。
 - 症状：同一测试文件 5 用例，第 2 条注册的 mockResolvedValueOnce 未被消费（中途断言失败提前退出），第 3 条 mockResolvedValue 之后首查列表竟返回第 2 条的旧数据，断言全红；单看每条逻辑都"对"。
 - 原因：vi.mock/hoisted 的 mock 是模块级单例，vitest 文件内用例共享同一实例；mockReset/mockClear 只在显式 beforeEach 调用时生效，Once 队列里未消费的桩会泄漏给后续用例，而 mockResolvedValue 只改默认实现不清 Once。
 - 修法：凡 vi.mock + mockResolvedValueOnce 混用的测试文件，beforeEach 一律 `xxxMock.mockReset().mockResolvedValue(默认)` 三连重置；「先桩后动作」（注册 Once 在触发事件的 click 之前）消除回读竞态。
+- 2026-09-13 前后观察，2026-09-18 复现处置：全量 `make check` 中 p2p-itest 的 rd_video_wave 偶发 SIGSEGV（signal 11），单独重跑 `cargo test -p p2p-itest --test rd_video_wave` 即 3/3 通过——系并发集成测试的端口/资源竞争，非代码回归。处置路径：先单测复跑定性为 flaky，再整跑 make check 取干净绿，勿直接怀疑当次前端/文档改动（GUI 与 Rust itest 无依赖图关系）。

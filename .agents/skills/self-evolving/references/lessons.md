@@ -541,3 +541,4 @@ AGENTS.md 的「远端名是 gitea」不是普适事实：本机 p2p 仓库只�
 - AsyncButton 提交后处于 loading/fail 态期间不可再点：同一用例内「先失败断言、再改值重提」会踩按钮状态竞态，拆成独立用例或 waitFor 按钮回 idle。
 - RHF array-of-object 行级校验消息在 errors.<i>.value.message（不是 errors.<i>.message）：行编辑器渲染必须读 .value 路径，测试断言行级红字要按真实路径。
 - mock 层中文错误文案沿 lib 豁免先例合法（hardcoded-copy 只扫 components/views/routes/hooks/config/theme/acp）。
+- 2026-09-18 rail 收敛任务：menu.def.ts 注释声称「顶栏铃铛保留为快捷方式」（F15），grep 全库发现铃铛组件已不存在、messages.badgeAria 仅 rail 在用。教训：向用户承诺某 UI 兜底行为前，必须 grep 证明该 UI 元素真实存在——注释是历史快照不是现状，腐烂的注释比没有注释更误导。
