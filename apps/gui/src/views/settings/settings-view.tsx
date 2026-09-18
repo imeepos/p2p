@@ -17,16 +17,18 @@ import {
 } from "./config-schema";
 import { AdvertiseCard } from "./advertise-card";
 import { AppearanceCard } from "./appearance-card";
+import { AuthzCard } from "./authz-card";
 import { BootstrapRelayCard } from "./bootstrap-relay-card";
 import { IdentityCard } from "./identity-card";
 import { NetworkCard } from "./network-card";
 import { ProfileCard } from "./profile-card";
+import { RadarIcon } from "lucide-react";
 import { RemoteAccessCard } from "./remote-access-card";
 import { ServicesCard } from "./services-card";
 import { SettingsNav, type SettingsSectionId } from "./settings-nav";
 import { AboutUpdateCard } from "@/views/update/about-update-card";
+import { EntryCard } from "./entry-card";
 import { FtpCard } from "./ftp-card";
-import { LlmShareEntryCard } from "./llm-share-entry-card";
 import { OpsSection } from "./ops-section";
 import { StaticPeersCard } from "./static-peers-card";
 import { SettingsSaveBar } from "./save-bar";
@@ -71,23 +73,30 @@ function SettingsSections({ active }: { active: SettingsSectionId }) {
         <NetworkCard />
         <BootstrapRelayCard />
         <AdvertiseCard />
+        <StaticPeersCard />
       </>
     ),
     services: (
       <>
         <ServicesCard />
         <FtpCard />
-        <StaticPeersCard />
+        <AuthzCard />
       </>
     ),
-    remoteAccess: <RemoteAccessCard />,
-    ops: <OpsSection />,
-    about: (
+    remoteAccess: (
       <>
-        <AboutUpdateCard />
-        <LlmShareEntryCard />
+        <RemoteAccessCard />
+        <EntryCard
+          path="/remote-access"
+          titleKey="settings.remoteAccess.entryTitle"
+          descKey="settings.remoteAccess.entryDesc"
+          icon={RadarIcon}
+          testId="remote-access-entry"
+        />
       </>
     ),
+    ops: <OpsSection />,
+    about: <AboutUpdateCard />,
   };
   return (
     <>

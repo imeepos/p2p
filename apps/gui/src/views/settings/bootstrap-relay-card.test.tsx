@@ -6,12 +6,10 @@ import {
   useFormContext,
   type UseFormReturn,
 } from "react-hook-form";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import "@/i18n";
 import { ConfirmProvider } from "@/components/feedback/confirm-provider";
-import { useAuthzStore } from "@/stores/authz-store";
-import type { AuthzRoleView } from "@/lib/ipc-types";
 import {
   EMPTY_SETTINGS,
   settingsResolver,
@@ -19,17 +17,6 @@ import {
   type SettingsFormValues,
 } from "./config-schema";
 import { BootstrapRelayCard } from "./bootstrap-relay-card";
-
-const ROLES: AuthzRoleView[] = [
-  { roleId: "friend", name: "好友", permissions: [], builtin: true, note: "" },
-  {
-    roleId: "operator",
-    name: "操作员",
-    permissions: [],
-    builtin: true,
-    note: "",
-  },
-];
 
 type FormRef = { current: UseFormReturn<SettingsFormValues> | null };
 
@@ -84,33 +71,19 @@ function renderCard(values: SettingsFormValues): FormRef {
   return formRef;
 }
 
-beforeEach(() => {
-  useAuthzStore.setState({ roles: ROLES, loadError: null });
-});
+afterEach(() => cleanup());
 
-// Unmount before resetting the store: React flushes pending passive effects
-// on unmount, and a roles mutation while still mounted would re-run the
-// card's load-once effect against the emptied store (noise, not a leak).
-afterEach(() => {
-  cleanup();
-  useAuthzStore.setState({ roles: [], loadError: null });
-});
-
-describe("BootstrapRelayCard 三控件渲染矩阵", () => {
-  it("三个编辑入口同卡渲染且读入当前值", () => {
+describe("BootstrapRelayCard 控件渲染矩阵", () => {
+  it("两个地址编辑入口同卡渲染且读入当前值", () => {
     renderCard(SEEDED);
     expect(screen.getByText("rendezvous 地址簿")).toBeInTheDocument();
     expect(screen.getByText("中继地址列表")).toBeInTheDocument();
-    expect(screen.getByText("加好友默认角色")).toBeInTheDocument();
     expect(
       (document.getElementById("bootstrap-row-0") as HTMLInputElement).value,
     ).toBe("192.168.1.10/u3400");
     expect(
       (document.getElementById("relayAddrs-row-0") as HTMLInputElement).value,
     ).toBe("192.168.1.11/u3403");
-    expect(screen.getByTestId("settings-default-role").textContent).toBe(
-      "好友",
-    );
   });
 
   it("bootstrap 添加行写入表单并置脏", async () => {
@@ -162,22 +135,7 @@ describe("BootstrapRelayCard 三控件渲染矩阵", () => {
     ]);
   });
 
-  it("默认角色可选内建角色，也可选空串（禁用自动绑）", async () => {
-    const formRef = renderCard(EMPTY_SETTINGS);
-    fireEvent.click(screen.getByTestId("settings-default-role"));
-    fireEvent.click(screen.getByRole("option", { name: "操作员" }));
-    await waitFor(() =>
-      expect(formRef.current?.getValues("authzDefaultRole")).toBe("operator"),
-    );
-    fireEvent.click(screen.getByTestId("settings-default-role"));
-    fireEvent.click(screen.getByRole("option", { name: "不自动绑定" }));
-    await waitFor(() =>
-      expect(formRef.current?.getValues("authzDefaultRole")).toBe(""),
-    );
-    expect(screen.getByTestId("form-dirty")).toHaveTextContent("dirty");
-  });
-
-  it("保存路径：trigger 通过后 toGuiConfig 携带三字段（configSave 整包防丢）", async () => {
+  it("保存路径：trigger 通过后 toGuiConfig 携带地址与角色字段（configSave 整包防丢）", async () => {
     const formRef = renderCard(SEEDED);
     let valid = false;
     await act(async () => {
@@ -191,9 +149,7 @@ describe("BootstrapRelayCard 三控件渲染矩阵", () => {
   });
 
   it("放弃路径：reset 还原种子值且脏标记归零", async () => {
-    console.log("PROBE beforeEach-after store roles:", useAuthzStore.getState().roles.length);
     const formRef = renderCard(SEEDED);
-    console.log("PROBE post-render store roles:", useAuthzStore.getState().roles.length);
     fireEvent.click(screen.getAllByRole("button", { name: "添加地址" })[0]);
     await waitFor(() =>
       expect(screen.getByTestId("form-dirty")).toHaveTextContent("dirty"),

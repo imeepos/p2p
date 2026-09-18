@@ -23,6 +23,10 @@ vi.mock("@/lib/ipc", () => ({
     staticPeersList: vi.fn(async () => ({ peers: [] })),
     staticPeersUpsert: vi.fn(async () => true),
     staticPeersRemove: vi.fn(async () => true),
+    authzRoleList: vi.fn(async () => ({ roles: [] })),
+    authzPermissionsList: vi.fn(async () => ({ permissions: [] })),
+    authzBindingsList: vi.fn(async () => ({ bindings: [] })),
+    authzDefaultRoleGet: vi.fn(async () => ({ roleId: "friend" })),
   },
 }));
 
@@ -101,6 +105,15 @@ describe("设置页分节导航（微信式双栏）", () => {
     fireEvent.click(screen.getByTestId("settings-nav-about"));
     expect(section("about").className).not.toContain("hidden");
     expect(section("ops").className).toContain("hidden");
+  });
+
+  it("2026-09-18 IA 重组：运维前有配置/系统分组分隔线；远程访问分区含业务页入口行", async () => {
+    renderView();
+    await waitFor(() => expect(configGetMock).toHaveBeenCalled());
+    expect(screen.getByTestId("settings-nav-divider")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("settings-nav-remoteAccess"));
+    expect(section("remoteAccess").className).not.toContain("hidden");
+    expect(screen.getByTestId("remote-access-entry")).toBeInTheDocument();
   });
 
   it("校验失败自动切到网络分节且不落盘", async () => {

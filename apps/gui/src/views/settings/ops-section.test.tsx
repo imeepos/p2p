@@ -23,24 +23,29 @@ function renderOps() {
 }
 
 // 2026-09-18 一级入口口径拍板：配置辅助入口统一收敛设置页运维区。
-// 五入口标题/描述复用各页既有 i18n 键，打开动作可导航到对应路由。
+// 四入口标题/描述复用各页既有 i18n 键，打开动作可导航到对应路由；
+// 远程访问入口另归位「远程访问」分区（settings-view）。
 describe("设置页运维区入口（rail 收敛承接）", () => {
   afterEach(() => {
     cleanup();
     useChatStore.setState({ invites: [], groupInvites: [] });
   });
 
-  it("五个配置辅助入口齐备：网络监控/消息中心/远程访问/ACP 管理/协议文档", () => {
+  it("四个配置辅助入口齐备：网络监控/消息中心/ACP 管理/协议文档", () => {
     renderOps();
     for (const key of [
       "network.title",
       "messages.title",
-      "remoteAccess.title",
       "acpManage.title",
       "docs.title",
     ] as const) {
       expect(screen.getByText(i18n.t(key))).toBeInTheDocument();
     }
+  });
+
+  it("远程访问入口不在运维区（已归位远程访问分区）", () => {
+    renderOps();
+    expect(screen.queryByText(i18n.t("remoteAccess.title"))).toBeNull();
   });
 
   it("点击打开导航到对应路由（首个入口 = /network）", () => {
@@ -60,7 +65,7 @@ describe("设置页运维区入口（rail 收敛承接）", () => {
       ],
     });
     renderOps();
-    const badge = screen.getByTestId("ops-badge-/messages");
+    const badge = screen.getByTestId("entry-badge-/messages");
     expect(badge.textContent).toBe("2");
     expect(badge.getAttribute("aria-label")).toBe(
       i18n.t("messages.badgeAria", { count: 2 }),
@@ -69,6 +74,6 @@ describe("设置页运维区入口（rail 收敛承接）", () => {
 
     useChatStore.setState({ invites: [], groupInvites: [] });
     renderOps();
-    expect(screen.queryByTestId("ops-badge-/messages")).toBeNull();
+    expect(screen.queryByTestId("entry-badge-/messages")).toBeNull();
   });
 });

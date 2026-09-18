@@ -719,7 +719,7 @@ const zhCN = {
       lanOnly: "仅监听局域网发现",
       lanOnlyHint: "开启后节点仅在局域网内被发现与连接，不响应公网侧的发现请求",
       cardTitle: "引导与中继",
-      cardHint: "地址修改保存后需重启节点生效；默认角色即时生效",
+      cardHint: "地址修改保存后需重启节点生效",
     },
     defaults: {
       restore: "恢复出厂默认",
