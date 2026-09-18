@@ -6,6 +6,7 @@ import {
   type Control,
   type FieldArrayPath,
   type FieldValues,
+  type Path,
 } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 
@@ -63,7 +64,9 @@ export function AddressListEditor<T extends FieldValues>({
   const { fields, append, remove } = useFieldArray({ control, name });
   const container = errors[name] as unknown;
   const confirm = useConfirm();
-  const rows = useWatch({ control, name }) as
+  // FieldArrayPath<T> 与 Path<T> 是两条条件类型，TS 在泛型下证不出 assignable；
+  // 运行时就是同一字符串路径，此处仅类型收窄
+  const rows = useWatch({ control, name: name as Path<T> }) as
     | Array<{ value?: string }>
     | undefined;
 
