@@ -710,6 +710,7 @@ const enUS: typeof zhCN = {
       network: "Network",
       services: "Services",
       remoteAccess: "Remote access",
+      ops: "Operations",
       about: "About",
     },
     hint: "Config form lands in the views wave; effective config shown below",
@@ -890,6 +891,14 @@ const enUS: typeof zhCN = {
       entryDescription:
         "Publish compute offers, manage the borrower allowlist and the dual-side ledger (borrowers outside the allowlist are always denied)",
       entryAction: "Open",
+    },
+    ops: {
+      title: "Operations",
+      hint: "Centralized entries for auxiliary configuration and low-frequency operations",
+      networkDesc:
+        "Six network monitoring pages: overview, peers, discovery, relay, events, diagnostics",
+      remoteAccessDesc:
+        "Remote desktop connections, tunnel opening and controlled-session operations",
     },
   },
   update: {

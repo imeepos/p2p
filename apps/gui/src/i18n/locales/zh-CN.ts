@@ -692,6 +692,7 @@ const zhCN = {
       network: "网络",
       services: "服务",
       remoteAccess: "远程访问",
+      ops: "运维",
       about: "关于",
     },
     hint: "节点配置表单将在视图波次接入，当前展示当前生效配置摘要",
@@ -863,6 +864,12 @@ const zhCN = {
       entryDescription:
         "发布算力出借声明、管理借方白名单与双边账本（白名单外一律不可借用）",
       entryAction: "打开",
+    },
+    ops: {
+      title: "运维工具",
+      hint: "配置辅助与低频操作入口集中区（2026-09-18 一级入口口径拍板）",
+      networkDesc: "概览、节点、发现、中继、事件、诊断六个网络监控页",
+      remoteAccessDesc: "远程桌面连接、隧道打开与被控运行等业务操作",
     },
   },
   update: {
