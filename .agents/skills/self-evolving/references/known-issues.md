@@ -776,3 +776,8 @@ failed: early eof（客户端侧超时中止）。
 - 修法：边缘 nginx 固定重写两条请求头——`proxy_set_header Host 192.168.0.15:8446;`（实例已声明的 authority）与 `proxy_set_header Origin https://192.168.0.15:8446;`。只改 Host 会在 `new URL(origin).host === hostUrl.host` 处继续 403；`Set-Cookie` 里的 authority 字段应与重写值一致（本例 `192.168.0.15:8446`）。
 - 三段对照验收（curl，缺一不可）：带 cookie + 同源 Origin 应 404/200（说明过了 fence，404 只是路由不存在），伪造 `Sec-Fetch-Site: cross-site` 应 403，无 cookie 应 401；再接一个真实 `/plugins/??...` 资源 200 才算链路通。
 - 禁令：给 dsh web 追加 `--trusted-host` 必须重启该进程，而它正是当前会话的宿主——自己的回合里重启等于自杀（在飞回合与本次会话一起丢）。必须走边缘重写，改动留在 nginx 侧。
+
+## 2026-09-18 用 `sed 's#^#注释#'` 给 nginx 配置加注释，把指令吞成非法行
+- 症状：想给 `dsh-veren-https` 加一行说明，`sudo sed -i 's#^#<中文注释>#'` 把注释拼到每行行首，`ssl_certificate ...;` 变成以中文开头的非法指令；`nginx -t` 报 syntax failed，`systemctl reload nginx` 拒绝执行并报 service failed。
+- 关键信号：reload 失败时**运行中的 nginx 仍以旧配置继续服务**（本次入口全程可用），所以「reload 报错」不等于「站点挂了」，先看 `systemctl is-active nginx` 再下结论。
+- 修法：别用 `s#^#...#` 批量加注释；改整块配置直接整文件 `tee` 重写（幂等、可复查），改完必跑 `nginx -t` 再 reload。
