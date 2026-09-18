@@ -7,13 +7,13 @@ import { useIncomingInviteCount } from "@/hooks/use-incoming-invites";
 import { useUnreadTotal } from "@/hooks/use-unread-total";
 import { formatUnreadCount } from "@/lib/conversation-entry";
 import { cn } from "@/lib/utils";
-import { selectPendingInviteBadgeCount } from "@/stores/chat-group-invite-slice";
-import { useChatStore } from "@/stores/chat-store";
 
 // 侧栏 rail：底色与图标用语义 --sidebar/--muted 令牌，随亮暗主题自适应
 // （不再固定深灰底）。顶部不设头像入口：其唯一去向是 /settings，与沉底的
 // 设置图标重复（2026-09-07 用户裁定删除）。角标红点（--wx-badge）。
-// 聊天入口附未读合计、通讯录附好友邀请、消息中心附待处理邀请（角标来源一致）。
+// 聊天入口附未读合计、通讯录附好友邀请（角标来源一致）；消息中心已移出
+// rail（2026-09-18 一级入口口径拍板），待处理邀请徽标由设置页运维区
+// 消息中心入口卡承接（views/settings/ops-section.tsx）。
 function RailLink({
   path,
   titleKey,
@@ -59,7 +59,6 @@ export function IconRail() {
   const bottom = MENU_ENTRIES[MENU_ENTRIES.length - 1];
   const unreadTotal = useUnreadTotal();
   const incomingInvites = useIncomingInviteCount();
-  const pendingInvites = useChatStore(selectPendingInviteBadgeCount);
   const badgeOf = (path: string): { count: number; label: string } | undefined => {
     // §2.3 聊天未读合计角标；§3.2 通讯录待处理好友邀请角标
     if (path === "/chat") {
@@ -70,10 +69,6 @@ export function IconRail() {
         count: incomingInvites,
         label: t("contacts.inviteBadge.aria", { count: incomingInvites }),
       };
-    }
-    // F15：消息中心角标与顶栏铃铛同源 selector（两类 in 向 pending 之和）
-    if (path === "/messages") {
-      return { count: pendingInvites, label: t("messages.badgeAria", { count: pendingInvites }) };
     }
     return undefined;
   };
@@ -92,7 +87,7 @@ export function IconRail() {
             />
           );
         })}
-        {/* 弹性空隙：高频入口（聊天/通讯录/网络）居上，低频设置沉底 */}
+        {/* 弹性空隙：高频入口（聊天/通讯录）居上，低频设置沉底 */}
         <div className="flex-1" />
         {bottom ? <RailLink {...bottom} /> : null}
       </nav>

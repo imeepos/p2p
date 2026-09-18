@@ -34,11 +34,13 @@ describe("IconRail（1.1 rail 规格）", () => {
     });
   });
 
-  it("F15：消息中心常驻 rail，设置仍沉底", () => {
+  it("2026-09-18 口径拍板：网络/消息中心移出 rail，设置仍沉底", () => {
     renderRail("/chat");
     const hrefs = railLinks().map((link) => link.getAttribute("href"));
-    expect(hrefs).toContain("/messages");
-    expect(hrefs.indexOf("/messages")).toBeLessThan(hrefs.indexOf("/settings"));
+    expect(hrefs).not.toContain("/network");
+    expect(hrefs).not.toContain("/messages");
+    expect(hrefs).not.toContain("/docs");
+    expect(hrefs[hrefs.length - 1]).toBe("/settings");
   });
 
   it("2026-09-09：协议文档(/docs)已移出 rail 常驻，页面经 ⌘K/直链可达", () => {
@@ -90,14 +92,14 @@ describe("IconRail（1.1 rail 规格）", () => {
   });
 
   it("选中态高亮当前路由，其余不高亮", () => {
-    renderRail("/network/peers");
+    renderRail("/llm-share");
     const links = railLinks();
     // NavLink 激活时输出 aria-current="page"（高亮类名经 isActive 拼接）
     const active = links.filter(
       (link) => link.getAttribute("aria-current") === "page",
     );
     expect(active).toHaveLength(1);
-    expect(active[0]?.getAttribute("href")).toBe("/network");
+    expect(active[0]?.getAttribute("href")).toBe("/llm-share");
   });
 });
 
@@ -120,26 +122,21 @@ describe("rail 聊天未读合计角标（§2.3）", () => {
   });
 });
 
-describe("rail 消息中心待处理邀请角标（F15）", () => {
-  it("角标与顶栏铃铛同源：两类 in 向 pending 之和；归零后消失", () => {
+describe("rail 消息中心待处理邀请角标（F15，已随 2026-09-18 收敛移除）", () => {
+  it("消息中心不在 rail，待处理邀请徽标不再出现在 rail 任意入口", () => {
     useChatStore.setState({
       invites: [
         { peerId: "p-in", nickname: "甲", addrs: [], note: null, direction: "in", tsMs: 1, delivered: true },
-        { peerId: "p-out", nickname: "丙", addrs: [], note: null, direction: "out", tsMs: 3, delivered: true },
       ],
       groupInvites: [
         { id: "gi-1", groupId: "g-1", groupName: "群", owner: "o", inviter: "i", invitee: "self", note: null, direction: "in", state: "pending", tsMs: 1, delivered: true },
       ],
     });
     renderRail("/chat");
-    const badge = screen.getByTestId("rail-badge-/messages");
-    expect(badge.textContent).toBe("2");
-    expect(badge.getAttribute("aria-label")).toBe(i18n.t("messages.badgeAria", { count: 2 }));
-    cleanup();
-
-    useChatStore.setState({ invites: [], groupInvites: [] });
-    renderRail("/chat");
     expect(screen.queryByTestId("rail-badge-/messages")).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: i18n.t("messages.badgeAria", { count: 2 }) }),
+    ).toBeNull();
   });
 });
 
