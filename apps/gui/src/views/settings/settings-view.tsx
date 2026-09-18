@@ -25,9 +25,9 @@ import { RemoteAccessCard } from "./remote-access-card";
 import { ServicesCard } from "./services-card";
 import { SettingsNav, type SettingsSectionId } from "./settings-nav";
 import { AboutUpdateCard } from "@/views/update/about-update-card";
-import { DocsEntryCard } from "./docs-entry-card";
 import { FtpCard } from "./ftp-card";
 import { LlmShareEntryCard } from "./llm-share-entry-card";
+import { OpsSection } from "./ops-section";
 import { StaticPeersCard } from "./static-peers-card";
 import { SettingsSaveBar } from "./save-bar";
 import { LoadFailedNotice } from "@/views/shared/load-state";
@@ -53,6 +53,7 @@ const SECTIONS: SettingsSectionId[] = [
   "network",
   "services",
   "remoteAccess",
+  "ops",
   "about",
 ];
 
@@ -80,10 +81,10 @@ function SettingsSections({ active }: { active: SettingsSectionId }) {
       </>
     ),
     remoteAccess: <RemoteAccessCard />,
+    ops: <OpsSection />,
     about: (
       <>
         <AboutUpdateCard />
-        <DocsEntryCard />
         <LlmShareEntryCard />
       </>
     ),

@@ -5,6 +5,7 @@ import {
   ServerIcon,
   Settings2Icon,
   UserRoundIcon,
+  WrenchIcon,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { id: "network", labelKey: "settings.nav.network", Icon: NetworkIcon },
   { id: "services", labelKey: "settings.nav.services", Icon: ServerIcon },
   { id: "remoteAccess", labelKey: "settings.nav.remoteAccess", Icon: RadarIcon },
+  { id: "ops", labelKey: "settings.nav.ops", Icon: WrenchIcon },
   { id: "about", labelKey: "settings.nav.about", Icon: InfoIcon },
 ] as const;
 

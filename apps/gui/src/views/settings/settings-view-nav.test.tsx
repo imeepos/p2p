@@ -85,6 +85,7 @@ describe("设置页分节导航（微信式双栏）", () => {
     expect(section("account").className).not.toContain("hidden");
     expect(section("network").className).toContain("hidden");
     expect(section("general")).toBeInTheDocument();
+    expect(section("ops")).toBeInTheDocument();
     expect(section("about")).toBeInTheDocument();
   });
 
@@ -94,9 +95,12 @@ describe("设置页分节导航（微信式双栏）", () => {
     fireEvent.click(screen.getByTestId("settings-nav-network"));
     expect(section("network").className).not.toContain("hidden");
     expect(section("account").className).toContain("hidden");
+    fireEvent.click(screen.getByTestId("settings-nav-ops"));
+    expect(section("ops").className).not.toContain("hidden");
+    expect(section("network").className).toContain("hidden");
     fireEvent.click(screen.getByTestId("settings-nav-about"));
     expect(section("about").className).not.toContain("hidden");
-    expect(section("network").className).toContain("hidden");
+    expect(section("ops").className).toContain("hidden");
   });
 
   it("校验失败自动切到网络分节且不落盘", async () => {
