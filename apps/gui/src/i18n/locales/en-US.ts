@@ -715,6 +715,7 @@ const enUS: typeof zhCN = {
     },
     hint: "Config form lands in the views wave; effective config shown below",
     loadFailed: "Failed to load config, please retry",
+    entryAction: "Open",
     cards: {
       network: "Network",
       advertise: "Advertise & observation",
@@ -762,6 +763,9 @@ const enUS: typeof zhCN = {
     },
     remoteAccess: {
       hint: "Default policy for remote desktop and tunnel serve; business pages can override at runtime",
+      entryTitle: "Remote access operations",
+      entryDesc:
+        "Remote desktop connections, tunnel opening and controlled-session operations",
       approval: "Require approval for new sessions",
       approvalHint:
         "The remote desktop host asks for peer approval by default; business page can adjust it temporarily",
@@ -818,6 +822,11 @@ const enUS: typeof zhCN = {
       removeConfirmDesc:
         "{{peerId}} will be removed from the static peer book and no longer dialed after restart.",
       removeConfirmYes: "Remove",
+    },
+    authz: {
+      cardTitle: "Permissions",
+      cardDesc:
+        "Default role for newly connected neighbors; override per friend in Contacts",
     },
     appearance: { hint: "Theme and language apply instantly; not part of node config" },
     identity: {
@@ -886,19 +895,11 @@ const enUS: typeof zhCN = {
       discard: "Discard changes",
       stay: "Stay on this page",
     },
-    llmShare: {
-      entry: "LLM Share",
-      entryDescription:
-        "Publish compute offers, manage the borrower allowlist and the dual-side ledger (borrowers outside the allowlist are always denied)",
-      entryAction: "Open",
-    },
     ops: {
       title: "Operations",
       hint: "Centralized entries for auxiliary configuration and low-frequency operations",
       networkDesc:
         "Six network monitoring pages: overview, peers, discovery, relay, events, diagnostics",
-      remoteAccessDesc:
-        "Remote desktop connections, tunnel opening and controlled-session operations",
     },
   },
   update: {
@@ -1837,10 +1838,8 @@ const enUS: typeof zhCN = {
     },
     backToTop: "Back to top",
     settings: {
-      entry: "Protocol Docs",
       entryDescription:
         "Read the five integration docs: overview, quickstart, wire format, node lifecycle, built-ins and versioning",
-      entryAction: "Open",
     },
   },
   network: {

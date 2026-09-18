@@ -697,6 +697,7 @@ const zhCN = {
     },
     hint: "节点配置表单将在视图波次接入，当前展示当前生效配置摘要",
     loadFailed: "配置加载失败，请重试",
+    entryAction: "打开",
     cards: {
       network: "网络",
       advertise: "宣告与观测",
@@ -742,6 +743,8 @@ const zhCN = {
     },
     remoteAccess: {
       hint: "远程桌面与隧道服务的默认策略，业务页可临时调整运行值",
+      entryTitle: "远程访问操作页",
+      entryDesc: "远程桌面连接、隧道打开与被控运行等业务操作",
       approval: "新会话需审批",
       approvalHint: "被控端开启时默认要求对方审批，业务页启动前可临时调整",
       fps: "默认帧率",
@@ -794,6 +797,10 @@ const zhCN = {
       removeConfirmTitle: "删除静态对端？",
       removeConfirmDesc: "将 {{peerId}} 移出静态对端簿，节点重启后不再主动连接该对端。",
       removeConfirmYes: "删除",
+    },
+    authz: {
+      cardTitle: "权限",
+      cardDesc: "新邻居接入本节点时的默认角色，可在通讯录按好友逐个覆盖",
     },
     appearance: { hint: "主题与语言即时生效，不属于节点配置" },
     identity: {
@@ -859,17 +866,10 @@ const zhCN = {
       discard: "放弃修改",
       stay: "留在本页",
     },
-    llmShare: {
-      entry: "LLM 共享",
-      entryDescription:
-        "发布算力出借声明、管理借方白名单与双边账本（白名单外一律不可借用）",
-      entryAction: "打开",
-    },
     ops: {
       title: "运维工具",
       hint: "配置辅助与低频操作入口集中区（2026-09-18 一级入口口径拍板）",
       networkDesc: "概览、节点、发现、中继、事件、诊断六个网络监控页",
-      remoteAccessDesc: "远程桌面连接、隧道打开与被控运行等业务操作",
     },
   },
   update: {
@@ -1793,10 +1793,8 @@ const zhCN = {
     },
     backToTop: "返回顶部",
     settings: {
-      entry: "协议文档",
       entryDescription:
         "查阅协议接入五篇：总览、快速上手、线格式、节点生命周期、内置协议与版本",
-      entryAction: "打开",
     },
   },
   network: {
